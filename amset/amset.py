@@ -117,9 +117,7 @@ class AMSETRunner(object):
         a, c = fit_procar(self.isntype, self.readprocar, len(k_grid))
 
 if __name__ == "__main__":
-    vrun = Vasprun('vasprun.xml')
-
-
+    vrun = Vasprun('test_files/ZnS_391_vrun/vasprun.xml')
     bt = AMSETRunner(vrun)
     print(bt.free_e)
 
