@@ -10,16 +10,11 @@ from math import pi
 from tools_for_AMSET import read_vrun, fit_dos, fit_procar, eval_poly_multi, write_to_file
 
 """
-This module provides classes to run and analyze AMSET on pymatgen Vasprun objects. AMSET which stands for "ab initio Model for calculating
-Mobility and Seebeck coefficient using Boltzmann Transport equation, calculates
-such properties in BTE framework taking into various scattering mechanisms such
-as longitudinal polar optical (PO) scattering, transverse optical (TO) phonon,
-acoustic phonon deformation potential (PO) ionized impurity (ii), piezoelectric (pe),
-charged dislocation (dis) as well as user defined (usr) scattering mechanisms.
-
-AMSET (a.k.a aMoBT) has been developed by Alireza Faghaninia.
-
-https://github.com/albalu/amobt
+This module provides classes to run and analyze AMSET (a.k.a aMoBT) on pymatgen Vasprun objects.  AMSET which stands for
+"ab initio Model for calculating Mobility and Seebeck coefficient using Boltzmann Transport equation, calculates
+such properties in BTE framework taking into various scattering mechanisms such as longitudinal polar optical (PO)
+scattering, transverse optical (TO) phonon, acoustic phonon deformation potential (PO) ionized impurity (ii),
+piezoelectric (pe), charged dislocation (dis) as well as user defined (usr) scattering mechanisms.
 
 References are::
 
@@ -33,9 +28,9 @@ __author__ = "Alireza Faghaninia, Anubhav Jain"
 __copyright__ = "Copyright 2016"
 __version__ = "0.0.1"
 __maintainer__ = "Alireza Faghaninia"
-__email__ = "alireza.faghaninia@gmail.com"
+__email__ = "alireza@lbl.gov"
 __status__ = "Development"
-__date__ = "June 22, 2016"
+__date__ = "August 23, 2016"
 
 class AMSETRunner(object):
     """ This class is used to run AMSET on a pymatgen Vasprun object. AMSET is an ab initio model for calculating

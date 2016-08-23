@@ -1,4 +1,3 @@
-
 from numpy import linspace, vstack, polyfit
 from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
 from pymatgen.io.vasp.outputs import Vasprun, Spin, Procar
@@ -7,6 +6,11 @@ import pymatgen
 from math import pi, exp
 import warnings
 import time
+
+"""This script contains some of the functions used by AMSET such as reading vasp outputs, fitting functions, etc"""
+
+__author__ = "Alireza Faghaninia, Anubhav Jain"
+__email__ = "alireza@lbl.gov"
 
 print('pymatgen version:' + pymatgen.__version__)
 
