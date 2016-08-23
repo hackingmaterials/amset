@@ -26,7 +26,6 @@ References are::
 
 __author__ = "Alireza Faghaninia, Anubhav Jain"
 __copyright__ = "Copyright 2016"
-__version__ = "0.0.1"
 __maintainer__ = "Alireza Faghaninia"
 __email__ = "alireza@lbl.gov"
 __status__ = "Development"
