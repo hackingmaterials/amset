@@ -248,8 +248,10 @@ def read_vrun(vrun, elec, hole, plotdir):
         if dic["nbands"] not in [0, 1, 2]:
             raise ValueError("The number of bands in formulation should be either 0 (automatic) or 1/2 for single/coupled-\
                              band formulations")
-        if abs(vrun.eigenvalues[(Spin.up, kindex)][bindex + next_band_inc][0] - \
-                       vrun.eigenvalues[(Spin.up, kindex)][bindex][0]) < offset:
+        if abs(vrun.eigenvalues[Spin.up][kindex][bindex + next_band_inc][0] - \
+                  vrun.eigenvalues[Spin.up][kindex][bindex][0]) < offset:
+        # if abs(vrun.eigenvalues[(Spin.up, kindex)][bindex + next_band_inc][0] - \
+        #                vrun.eigenvalues[(Spin.up, kindex)][bindex][0]) < offset:
             if dic["nbands"] == 0:
                 print(
                 """A coupled-band formulation will be used for electron/hole transport; i.e. elec/hole["nbands"] = 2""")
@@ -265,7 +267,8 @@ def read_vrun(vrun, elec, hole, plotdir):
             print("""A single-band formulation is used; i.e. elec/hole["nbands"] = 1""")
         return dic
     def get_xy_band(vrun, recip_kpoints, bindex, kref):
-        bandev = [vrun.eigenvalues[(Spin.up, i)][bindex][0] for i in range(len(vrun.actual_kpoints))]
+        # bandev = [vrun.eigenvalues[(Spin.up, i)][bindex][0] for i in range(len(vrun.actual_kpoints))]
+        bandev = [vrun.eigenvalues[Spin.up][i][bindex][0] for i in range(len(vrun.actual_kpoints))]
         kdistance = [10*(sum([(k[j] - kref[j])**2 for j in range(3)]))**0.5 for k in recip_kpoints] # 10x is to convert 1/A to 1/nm
         kdistance, bandev = avg_xy_data(kdistance, bandev)
         xy_band = [(kdistance[i], bandev[i]) for i in range(len(kdistance))]
