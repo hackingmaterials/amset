@@ -1,6 +1,5 @@
 # coding: utf-8
-from amset.analytical_band_from_BZT import Analytical_bands
-
+from analytical_band_from_BZT import Analytical_bands
 from pprint import pprint
 
 import numpy as np
@@ -47,78 +46,98 @@ class AMSETRunner(object):
         self.epsilon_s = 446.360563 # example for PbTe
         self._vrun = {}
         self.max_e_range = 10*k_B*1300 # assuming a maximum temperature, we set the maximum energy range after which occupation is zero
+        self.path_dir = "../test_files/PbTe_nscf_uniform"
 
-        example_beta = 0.3288  # 1/nm for n=1e121 and T=300K
-        N_II = 1e21  # 1/cm**3
+        #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
+        self.example_beta = 0.3288  # 1/nm for n=1e121 and T=300K
+        self.N_II = 1e21  # 1/cm**3
+        self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
+        print self.cbm_vbm
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
-        # vrun = Vasprun('../test_files/PbTe_nscf_uniform/vasprun.xml')
         vrun = Vasprun(os.path.join(path_dir, filename))
         self.volume = vrun.final_structure.volume
         self.density = vrun.final_structure.density
         self.lattice_matrix = vrun.lattice_rec.matrix / (2 * pi)
         bs = vrun.get_band_structure()
-        self.vbm = bs.get_vbm()
-        self.cbm = bs.get_cbm()
-        self.vbm_bindex = self.vbm["band_index"][Spin.up][-1]
-        # vbm_kindex = vbm["kpoint_index"][0]
-        self.cbm_bindex = self.cbm["band_index"][Spin.up][0]
-        # cbm_kindex = cbm["kpoint_index"][0]
-        # vbm_k = vrun.actual_kpoints[vbm_kindex]
-        # cbm_k = vrun.actual_kpoints[cbm_kindex]
-        print('index of last valence band = ' + str(self.vbm_bindex))
-        print('index of first conduction band = ' + str(self.cbm_bindex))
-        print "vbm"
-        print self.vbm
+        cbm_vbm = {"n": {"energy": 0.0, "bidx": 0, "included": 0}, "p": {"energy": 0.0, "bidx": 0, "included": 0}}
+        cbm = bs.get_cbm()
+        vbm = bs.get_vbm()
+        cbm_vbm["n"]["energy"] = cbm["energy"]
+        cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.up][0]
 
-    def init_energy_grid(self, grid, dos_type="simple"):
+        cbm_vbm["p"]["energy"] = vbm["energy"]
+        cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.up][-1]
+
+        bs = bs.as_dict()
+        nband_included = {"n": 0, "p": 0}
+
+        for i, type in enumerate(["n", "p"]):
+            sgn = (-1)**i
+            while abs(min(sgn*bs["bands"]["1"][cbm_vbm[type]["bidx"]+sgn*cbm_vbm[type]["included"]])-sgn*cbm_vbm[type]["energy"])<self.max_e_range:
+                cbm_vbm[type]["included"] += 1
+
+        self.cbm_vbm = cbm_vbm
+
+    def init_egrid(self, kgrid, dos_type="simple"):
         """
-        take a grid (dictionary) that contains the key "energy" and make a simple DOS just by counting how many of that energy value is available
-        :param grid (turn):
+        take a kgrid (dictionary) that contains the key "energy" and make a simple DOS just by counting how many of that energy value is available
+        :param kgrid (turn):
             dos_type (string): options are "simple", ...
 
         :return: an updated grid that contains the field DOS
         """
-        energy = grid["energy"]
-        energy.sort()
-        energy_grid = {"energy": [], "DOS": []}
 
-        i = 0
-        last_is_counted = False
-        while i<len(energy)-1:
-            sum = energy[i]
-            counter = 1.0
-            while i<len(energy)-1 and abs(energy[i]-energy[i+1]) < self.dE_global:
-                counter += 1
-                sum += energy[i+1]
+        egrid = {
+            "n": {"energy": [], "DOS": [], "all_en_flat": []},
+            "p": {"energy": [], "DOS": [], "all_en_flat": []}
+             }
+
+        for type in ["n", "p"]:
+            for en_vec in kgrid[type]["energy"]:
+                egrid[type]["all_en_flat"] += en_vec
+            egrid[type]["all_en_flat"].sort()
+
+        for type in ["n", "p"]:
+            i = 0
+            last_is_counted = False
+            while i<len(egrid[type]["all_en_flat"])-1:
+                sum = egrid[type]["all_en_flat"][i]
+                counter = 1.0
+                while i<len(egrid[type]["all_en_flat"])-1 and abs(egrid[type]["all_en_flat"][i]-egrid[type]["all_en_flat"][i+1]) < self.dE_global:
+                    counter += 1
+                    sum += egrid[type]["all_en_flat"][i+1]
+                    i+=1
+                    if i+1 == len(egrid[type]["all_en_flat"])-1:
+                        last_is_counted = True
+                egrid[type]["energy"].append(sum/counter)
+                if dos_type=="simple":
+                    egrid[type]["DOS"].append(counter/len(egrid[type]["all_en_flat"]))
                 i+=1
-                if i+1 == len(energy)-1:
-                    last_is_counted = True
-            energy_grid["energy"].append(sum/counter)
-            if dos_type=="simple":
-                energy_grid["DOS"].append(counter/len(grid["kpoints"]))
-            i+=1
-        if not last_is_counted:
-            energy_grid["energy"].append(energy[-1])
-            if dos_type == "simple":
-                energy_grid["DOS"].append(1.0 / len(grid["kpoints"]))
-        # for i in range(len(grid["kpoints"])):
-        #     for j in range(len(grid["kpoints"])):
-        #         if abs(grid["energy"][i]-grid["energy"][j]) < dE_global:
-        #             grid["DOS"][i] += 1
-        #     grid["DOS"][i] /= len(grid["kpoints"])
-        return energy_grid
+            if not last_is_counted:
+                egrid[type]["energy"].append(egrid[type]["all_en_flat"][-1])
+                if dos_type == "simple":
+                    egrid[type]["DOS"].append(1.0 / len(egrid[type]["all_en_flat"]))
 
-    def G(self, grid, ik, ik_prime, X):
+            egrid[type]["nu_II"] = np.array([ [0.0, 0.0, 0.0] for i in range(len(egrid[type]["energy"]))])
+        # for i in range(len(kgrid["kpoints"])):
+        #     for j in range(len(kgrid["kpoints"])):
+        #         if abs(kgrid["energy"][i]-kgrid["energy"][j]) < dE_global:
+        #             kgrid["DOS"][i] += 1
+        #     kgrid["DOS"][i] /= len(kgrid["kpoints"])
+        return egrid
+
+    def G(self, kgrid, type, ib, ik, ib_prime, ik_prime, X):
         """
         The overlap integral betweek vectors k and k'
-        :param grid (dict):
-        :param ik (int): index of vector k in grid
-        :param ik_prime (int): index of vector k' in grid
+        :param kgrid (dict):
+        :param ik (int): index of vector k in kgrid
+        :param ik_prime (int): index of vector k' in kgrid
         :param X (float): cosine of the angle between vectors k and k'
         :return: overlap integral
         """
-        return grid["a"][ik] * grid["a"][ik_prime] + grid["c"][ik] * grid["c"][ik_prime] * X
+        return kgrid[type]["a"][ib][ik]*kgrid[type]["a"][ib_prime][ik_prime]+ \
+               kgrid[type]["c"][ib][ik] * kgrid[type]["c"][ib_prime][ik_prime]
 
 
     def cos_angle(self, v1, v2):
@@ -133,7 +152,7 @@ class AMSETRunner(object):
         else:
             return np.dot(v1, v2) / (norm_v1 * norm_v2)
 
-    def generate_grid(self, center_kpt, coeff_file, iband, grid_type="coarse"):
+    def generate_kgrid(self, center_kpt, coeff_file, kgrid_type="coarse"):
         """
         Function to generate a grid of k-points around the center_kpt and generate en, v, and effective mass arround that
 
@@ -144,12 +163,10 @@ class AMSETRunner(object):
         :return:
         """
 
-        self.read_vrun(path_dir="../test_files/PbTe_nscf_uniform", filename="vasprun.xml")
-
         # Total range around the center k-point
         rang = 0.15
-        if grid_type == "coarse":
-            nstep = 3
+        if kgrid_type == "coarse":
+            nstep = 2
 
         step = rang/nstep
 
@@ -165,90 +182,110 @@ class AMSETRunner(object):
         if center_kpt not in kpts:
             kpts.append(center_kpt)
 
-        #TODO remove this later:
+        #TODO remove this later because the center point doesn't have to be there:
         kpts.append(center_kpt)
 
 
         kpts = np.array(kpts)
         print len(kpts)
 
-        # initialize the grid
-        grid = {
+        # initialize the kgrid
+        kgrid = {
                 "kpoints": kpts,
                 "actual kpoints": np.dot(kpts, self.lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
                 "distance": [0.0 for i in range(len(kpts))], # in 1/nm
-
-                "energy": [0.0 for i in range(len(kpts))],
-                "nu_II": np.array([[0.0, 0.0, 0.0] for i in range(len(kpts))] ),
-                "a": [0.0 for i in range(len(kpts))], # wavefunction admixture of s-like orbitals, a**2+c**2=1
-                "c": [0.0 for i in range(len(kpts))],
-                "velocity": np.array([[0.0, 0.0, 0.0] for i in range(len(kpts))] ),
-                "effective mass": np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))])
+                "n": {},
+                "p": {}
                 }
+        for type in ["n", "p"]:
+            for property in ["energy", "a", "c"]:
+                kgrid[type][property] = [ [0.0 for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])]
+            for property in ["velocity", "nu_II"]:
+                kgrid[type][property] = \
+                [ np.array([[0.0, 0.0, 0.0] for i in range(len(kpts))]) for j in range(self.cbm_vbm[type]["included"])]
+            kgrid[type]["effective mass"] = \
+                [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in range(self.cbm_vbm[type]["included"])]
 
         analytical_bands = Analytical_bands(coeff_file=coeff_file)
-        engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=iband)
+        for i, type in enumerate(["n", "p"]):
+            sgn = (-1)**i
+            for ib in range(self.cbm_vbm[type]["included"]):
+                engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=self.cbm_vbm[type]["bidx"]+sgn*ib)
+                for idx in range(len(kgrid["kpoints"])):
+                    energy, de, dde = analytical_bands.get_energy(kgrid["kpoints"][idx], engre, latt_points, nwave, nsym,
+                                                              nsymop, symop, br_dir)
 
-        for idx in range(len(grid["kpoints"])):
-            grid["distance"][idx] = np.linalg.norm((grid["kpoints"][idx]-center_kpt)*self.lattice_matrix*2*pi)*1/A_to_nm
-            energy, de, dde = analytical_bands.get_energy(grid["kpoints"][idx], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
-            grid["energy"][idx] = energy * Ry_to_eV
-            #TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
-            #TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
-            grid["velocity"][idx] = de /hbar*A_to_m*m_to_cm * Ry_to_eV # to get v in units of cm/s
-            # grid["effective mass"][idx] = np.dot(hbar**2/dde/m_e / A_to_m**2*e*Ry_to_eV, np.linalg.inv(2*pi*self.lattice_matrix)) # m_tensor: the last part is unit conversion
-            grid["effective mass"][idx] = hbar ** 2 /(dde*4*pi**2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
-            grid["a"][idx] = 1
+                    kgrid[type]["energy"][ib][idx] = energy * Ry_to_eV
+                    kgrid[type]["velocity"][ib][idx] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
+                    # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
+                    #TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
+                    kgrid[type]["effective mass"][ib][idx] = hbar ** 2 / (
+                    dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                    kgrid[type]["a"][ib][idx] = 1.0
 
+        pprint(kgrid)
         if True: # TODO: later add a more sophisticated DOS function, if developed
-            energy_grid = self.init_energy_grid(grid, dos_type = "simple")
+            egrid = self.init_egrid(kgrid, dos_type = "simple")
         else:
             pass
-        print energy_grid
-
-        for idx in range(len(grid["kpoints"])):
-            sum = np.array([0.0, 0.0, 0.0])
-
-            # preparation for integration of II scattering
-            X_and_idx = []
-            for ik_prime in range(len(grid["kpoints"])):
-                if ik_prime == idx:
-                    continue
-                if (grid["energy"][idx]-grid["energy"][ik_prime]) < self.dE_global:
-                    k = grid["actual kpoints"][idx]
-                    k_prime = grid["actual kpoints"][ik_prime]
-                    X = self.cos_angle(k,k_prime)
-                    X_and_idx.append((X, ik_prime))
-
-            # integrate over X (the angle between the k vectors)
-            X_and_idx.sort()
-            for i in range(len(X_and_idx)-1):
-                DeltaX = X_and_idx[i+1][0]-X
-                for alpha in range(3):
-                    dum = 0
-                    for j in range(2):
-                        X = X_and_idx[i+j][0]
-                        ik_prime = X_and_idx[i+j][1]
-                        dum+= (1 - X) * self.G(grid, idx, ik_prime, X) ** 2 * np.linalg.norm(k_prime) ** 2 / \
-                        ((np.linalg.norm(k - k_prime) ** 2 + self.example_beta ** 2) ** 2 * grid["velocity"][ik_prime][alpha])
-                    dum /= 2
-                    sum[alpha] += dum/2*DeltaX # If there are two points with the same X, DeltaX==0 so no duplicates
+        print egrid
 
 
+        for type in ["n", "p"]:
+            for idx in range(len(kgrid["kpoints"])):
+                for ib in range(len(kgrid[type]["energy"])):
+                    sum = np.array([0.0, 0.0, 0.0])
+                    # preparation for integration of II scattering
+                    X_and_idx = []
+                    for ib_prime in range(len(kgrid[type]["energy"])):
+                        for ik_prime in range(len(kgrid["kpoints"])):
+                            if ik_prime == idx:
+                                continue
+                            if (kgrid[type]["energy"][ib][idx]-kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                                k = kgrid["actual kpoints"][idx]
+                                k_prime = kgrid["actual kpoints"][ik_prime]
+                                X = self.cos_angle(k,k_prime)
+                                X_and_idx.append((X, ib_prime, ik_prime))
+                    X_and_idx.sort()
 
-            grid["nu_II"][idx] = sum * e**4*self.N_II/(2*pi*self.epsilon_s**2*epsilon_0**2*hbar**2) * 3.89564386e27 # coverted to 1/s
-        #TODO: make the grid fill it out
-        return grid
+                    # integrate over X (the angle between the k vectors)
+                    for i in range(len(X_and_idx)-1):
+                        DeltaX = X_and_idx[i+1][0]-X
+                        for alpha in range(3):
+                            dum = 0
+                            for j in range(2):
+                                # extract the indecies
+                                X, ib_prime, ik_prime = X_and_idx[i+j]
+                                dum+= (1 - X) * self.G(kgrid, type, ib, idx, ib_prime, ik_prime, X) ** 2 * np.linalg.norm(k_prime) ** 2 / \
+                                ((np.linalg.norm(k - k_prime) ** 2 + self.example_beta ** 2) ** 2 * kgrid[type]["velocity"][ib_prime][ik_prime][alpha])
+                            dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
+                            sum[alpha] += dum*DeltaX # If there are two points with the same X, DeltaX==0 so no duplicates
+
+                    kgrid[type]["nu_II"][ib][idx] = sum * e ** 4 * self.N_II / \
+                        (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27  # coverted to 1/s
+
+        for type in ["n", "p"]:
+            for ie, en in enumerate(egrid[type]["energy"]):
+                N = 0 # total number of instances with the same energy
+                for idx in range(len(kgrid["kpoints"])):
+                    for ib in range(len(kgrid[type]["energy"])):
+                        if abs(kgrid[type]["energy"][ib][idx] - en) < self.dE_global:
+                            egrid[type]["nu_II"][ie] += kgrid[type]["nu_II"][ib][idx]
+                            N += 1
+                egrid[type]["nu_II"][ie] /= N
+
+        pprint(egrid)
+
+        #TODO: make the kgrid fill it out
+        return kgrid
 
 if __name__ == "__main__":
 
     #user inpits
     kpts = np.array([[0.5, 0.5, 0.5]])
-    vbm_bidx = 10
-    cbm_bidx = 11
 
 
     # test
     AMSET = AMSETRunner()
-    grid = AMSET.generate_grid(center_kpt=[0.5, 0.5, 0.5], coeff_file=coeff_file, iband=cbm_bidx, grid_type="coarse")
-    pprint(grid)
+    kgrid = AMSET.generate_kgrid(center_kpt=[0.5, 0.5, 0.5], coeff_file=coeff_file, kgrid_type="coarse")
+    # pprint(kgrid)

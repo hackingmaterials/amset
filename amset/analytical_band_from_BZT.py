@@ -147,7 +147,7 @@ if __name__ == "__main__":
     en, den, dden = [], [], []
     for kpt in kpts:
         energy, de, dde = analytical_bands.get_energy(kpt,engre,latt_points, nwave, nsym, nsymop, symop, br_dir)
-        en.append(e)
+        en.append(energy*Ry_to_eV)
         den.append(de)
         dden.append(dde*2*pi)
 
