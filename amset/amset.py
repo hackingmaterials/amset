@@ -45,8 +45,9 @@ class AMSETRunner(object):
         self.T_list = [300, 600] # in K, list of temperatures
         self.epsilon_s = 446.360563 # example for PbTe
         self._vrun = {}
-        self.max_e_range = 10*k_B*1300 # assuming a maximum temperature, we set the maximum energy range after which occupation is zero
+        self.max_e_range = 10*k_B*200 # assuming a maximum temperature, we set the maximum energy range after which occupation is zero
         self.path_dir = "../test_files/PbTe_nscf_uniform"
+        self.wordy = False
 
         #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.example_beta = 0.3288  # 1/nm for n=1e121 and T=300K
@@ -136,7 +137,7 @@ class AMSETRunner(object):
         :param X (float): cosine of the angle between vectors k and k'
         :return: overlap integral
         """
-        return kgrid[type]["a"][ib][ik]*kgrid[type]["a"][ib_prime][ik_prime]+ \
+        return kgrid[type]["a"][ib][ik] * kgrid[type]["a"][ib_prime][ik_prime]+ \
                kgrid[type]["c"][ib][ik] * kgrid[type]["c"][ib_prime][ik_prime]
 
 
@@ -187,7 +188,6 @@ class AMSETRunner(object):
 
 
         kpts = np.array(kpts)
-        print len(kpts)
 
         # initialize the kgrid
         kgrid = {
@@ -223,18 +223,15 @@ class AMSETRunner(object):
                     dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                     kgrid[type]["a"][ib][idx] = 1.0
 
-        pprint(kgrid)
         if True: # TODO: later add a more sophisticated DOS function, if developed
             egrid = self.init_egrid(kgrid, dos_type = "simple")
         else:
             pass
-        print egrid
-
 
         for type in ["n", "p"]:
             for idx in range(len(kgrid["kpoints"])):
                 for ib in range(len(kgrid[type]["energy"])):
-                    sum = np.array([0.0, 0.0, 0.0])
+
                     # preparation for integration of II scattering
                     X_and_idx = []
                     for ib_prime in range(len(kgrid[type]["energy"])):
@@ -249,18 +246,21 @@ class AMSETRunner(object):
                     X_and_idx.sort()
 
                     # integrate over X (the angle between the k vectors)
+                    sum = np.array([0.0, 0.0, 0.0])
+                    print X_and_idx
                     for i in range(len(X_and_idx)-1):
-                        DeltaX = X_and_idx[i+1][0]-X
+                        DeltaX = X_and_idx[i+1][0]-X_and_idx[i][0]
                         for alpha in range(3):
                             dum = 0
                             for j in range(2):
                                 # extract the indecies
                                 X, ib_prime, ik_prime = X_and_idx[i+j]
-                                dum+= (1 - X) * self.G(kgrid, type, ib, idx, ib_prime, ik_prime, X) ** 2 * np.linalg.norm(k_prime) ** 2 / \
+                                dum += (1 - X) * self.G(kgrid, type, ib, idx, ib_prime, ik_prime, X) ** 2 * np.linalg.norm(k_prime) ** 2 / \
                                 ((np.linalg.norm(k - k_prime) ** 2 + self.example_beta ** 2) ** 2 * kgrid[type]["velocity"][ib_prime][ik_prime][alpha])
                             dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
                             sum[alpha] += dum*DeltaX # If there are two points with the same X, DeltaX==0 so no duplicates
 
+                    # fix this! there are scattering rates close to 1e24!!!! check with bands included=1 (override!) and see what happens becaues before I was getting 1e12!
                     kgrid[type]["nu_II"][ib][idx] = sum * e ** 4 * self.N_II / \
                         (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27  # coverted to 1/s
 
@@ -274,8 +274,9 @@ class AMSETRunner(object):
                             N += 1
                 egrid[type]["nu_II"][ie] /= N
 
-        pprint(egrid)
-
+        if self.wordy:
+            pprint(egrid)
+            pprint(kgrid)
         #TODO: make the kgrid fill it out
         return kgrid
 
@@ -288,4 +289,5 @@ if __name__ == "__main__":
     # test
     AMSET = AMSETRunner()
     kgrid = AMSET.generate_kgrid(center_kpt=[0.5, 0.5, 0.5], coeff_file=coeff_file, kgrid_type="coarse")
+
     # pprint(kgrid)
