@@ -19,7 +19,8 @@ A_to_nm = 0.1
 e = _cd('elementary charge')
 k_B = _cd("Boltzmann constant in eV/K")
 epsilon_0 = 8.854187817e-12     # Absolute value of dielectric constant in vacuum [C^2/m^2N]
-
+print hbar
+print e
 # some temporary global constants as inputs
 coeff_file = 'fort.123'
 
@@ -41,13 +42,13 @@ class AMSETRunner(object):
      """
     def __init__(self):
         self.dE_global = 0.01 # in eV, the energy difference threshold before which two energy values are assumed equal
-        self.c_list = [1e21] # 1/cm**3 list of carrier concentrations
+        self.c_list = [1e20] # 1/cm**3 list of carrier concentrations
         self.T_list = [300, 600] # in K, list of temperatures
-        self.epsilon_s = 446.360563 # example for PbTe
+        self.epsilon_s = 44.360563 # example for PbTe
         self._vrun = {}
         self.max_e_range = 10*k_B*200 # assuming a maximum temperature, we set the maximum energy range after which occupation is zero
         self.path_dir = "../test_files/PbTe_nscf_uniform"
-        self.wordy = False
+        self.wordy = True
 
         #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.example_beta = 0.3288  # 1/nm for n=1e121 and T=300K
@@ -60,7 +61,9 @@ class AMSETRunner(object):
         self.volume = vrun.final_structure.volume
         self.density = vrun.final_structure.density
         self.lattice_matrix = vrun.lattice_rec.matrix / (2 * pi)
+        print self.lattice_matrix
         bs = vrun.get_band_structure()
+        # Remember that python band index starts from 0 so bidx==9 refers to the 10th band (e.g. in VASP)
         cbm_vbm = {"n": {"energy": 0.0, "bidx": 0, "included": 0}, "p": {"energy": 0.0, "bidx": 0, "included": 0}}
         cbm = bs.get_cbm()
         vbm = bs.get_vbm()
@@ -165,7 +168,7 @@ class AMSETRunner(object):
         """
 
         # Total range around the center k-point
-        rang = 0.15
+        rang = 0.13
         if kgrid_type == "coarse":
             nstep = 2
 
@@ -176,8 +179,8 @@ class AMSETRunner(object):
         for i in range(nstep+1):
             for j in range(nstep+1):
                 for k in range(nstep+1):
-                    kpts[counter] = [center_kpt[1] - rang / 2.0 + j * step,
-                                     center_kpt[1] - rang / 2.0 + j * step,
+                    kpts[counter] = [center_kpt[0] - rang / 2.0 + 0.02*(-1)**j  + i * step,
+                                     center_kpt[1] - rang / 2.0 + 0.02*(-1)**i  +j * step,
                                      center_kpt[2] - rang / 2.0 + k * step]
                     counter += 1
         if center_kpt not in kpts:
@@ -188,15 +191,18 @@ class AMSETRunner(object):
 
 
         kpts = np.array(kpts)
-
+        print(len(kpts))
         # initialize the kgrid
         kgrid = {
                 "kpoints": kpts,
+                # "actual kpoints": np.dot(kpts-center_kpt, self.lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
                 "actual kpoints": np.dot(kpts, self.lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
-                "distance": [0.0 for i in range(len(kpts))], # in 1/nm
                 "n": {},
                 "p": {}
                 }
+        actual_kcenter = np.dot(center_kpt, self.lattice_matrix)*2*pi*1/A_to_nm
+        kgrid["distance"] = [np.linalg.norm(actual_kpoint-actual_kcenter) for actual_kpoint in kgrid["actual kpoints"]]
+        # kgrid["distance"] = [np.linalg.norm(actual_kpoint) for actual_kpoint in kgrid["actual kpoints"]]
         for type in ["n", "p"]:
             for property in ["energy", "a", "c"]:
                 kgrid[type][property] = [ [0.0 for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])]
@@ -216,6 +222,7 @@ class AMSETRunner(object):
                                                               nsymop, symop, br_dir)
 
                     kgrid[type]["energy"][ib][idx] = energy * Ry_to_eV
+                    # kgrid[type]["velocity"][ib][idx] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
                     kgrid[type]["velocity"][ib][idx] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
                     # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
                     #TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
@@ -244,25 +251,41 @@ class AMSETRunner(object):
                                 X = self.cos_angle(k,k_prime)
                                 X_and_idx.append((X, ib_prime, ik_prime))
                     X_and_idx.sort()
+                    print X_and_idx
 
                     # integrate over X (the angle between the k vectors)
                     sum = np.array([0.0, 0.0, 0.0])
-                    print X_and_idx
                     for i in range(len(X_and_idx)-1):
                         DeltaX = X_and_idx[i+1][0]-X_and_idx[i][0]
                         for alpha in range(3):
+                        # for alpha in range(0):
                             dum = 0
                             for j in range(2):
+                            # if True:
                                 # extract the indecies
                                 X, ib_prime, ik_prime = X_and_idx[i+j]
+                                print "cosine of angle:"
+                                print X
+                                if kgrid[type]["velocity"][ib_prime][ik_prime][alpha] < 1:
+                                    continue
                                 dum += (1 - X) * self.G(kgrid, type, ib, idx, ib_prime, ik_prime, X) ** 2 * np.linalg.norm(k_prime) ** 2 / \
                                 ((np.linalg.norm(k - k_prime) ** 2 + self.example_beta ** 2) ** 2 * kgrid[type]["velocity"][ib_prime][ik_prime][alpha])
+
                             dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
                             sum[alpha] += dum*DeltaX # If there are two points with the same X, DeltaX==0 so no duplicates
+                            print "here"
+                            print sum
+                            print (1-X)
+                            print np.linalg.norm(k_prime) ** 2
+                            print 1/(np.linalg.norm(k - k_prime) ** 2 + self.example_beta ** 2)** 2
+                            print 1/kgrid[type]["velocity"][ib_prime][ik_prime][alpha]
+                            print DeltaX
 
+                    print sum
                     # fix this! there are scattering rates close to 1e24!!!! check with bands included=1 (override!) and see what happens becaues before I was getting 1e12!
-                    kgrid[type]["nu_II"][ib][idx] = sum * e ** 4 * self.N_II / \
-                        (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27  # coverted to 1/s
+                    # TODO: the units seem to be correct but I still get 1e24 order, perhaps divide this expression by that of aMoBT to see what differs.
+                    kgrid[type]["nu_II"][ib][idx] = sum * e ** 4 * self.N_II /\
+                        (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27 # coverted to 1/s
 
         for type in ["n", "p"]:
             for ie, en in enumerate(egrid[type]["energy"]):
@@ -277,6 +300,8 @@ class AMSETRunner(object):
         if self.wordy:
             pprint(egrid)
             pprint(kgrid)
+
+        # for idx, dist
         #TODO: make the kgrid fill it out
         return kgrid
 
