@@ -41,18 +41,18 @@ class AMSETRunner(object):
      ??? (instruction to add a scattering mechanism) ???
      """
     def __init__(self):
-        self.dE_global = 0.01 # in eV, the energy difference threshold before which two energy values are assumed equal
+        self.dE_global = 0.001 # in eV, the energy difference threshold before which two energy values are assumed equal
         self.c_list = [1e20] # 1/cm**3 list of carrier concentrations
         self.T_list = [300, 600] # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self._vrun = {}
-        self.max_e_range = 10*k_B*200 # assuming a maximum temperature, we set the maximum energy range after which occupation is zero
+        self.max_e_range = 10*k_B*200 # assuming a maximum temperature, we set the max energy range after which occupation is zero
         self.path_dir = "../test_files/PbTe_nscf_uniform"
         self.wordy = True
 
         #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.example_beta = 0.3288  # 1/nm for n=1e121 and T=300K
-        self.N_II = 1e21  # 1/cm**3
+        self.N_II = 1e20  # 1/cm**3
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         print self.cbm_vbm
 
@@ -168,9 +168,9 @@ class AMSETRunner(object):
         """
 
         # Total range around the center k-point
-        rang = 0.13
+        rang = 0.07
         if kgrid_type == "coarse":
-            nstep = 2
+            nstep = 7
 
         step = rang/nstep
 
@@ -183,11 +183,12 @@ class AMSETRunner(object):
                                      center_kpt[1] - rang / 2.0 + 0.02*(-1)**i  +j * step,
                                      center_kpt[2] - rang / 2.0 + k * step]
                     counter += 1
-        if center_kpt not in kpts:
-            kpts.append(center_kpt)
+
+
 
         #TODO remove this later because the center point doesn't have to be there:
-        kpts.append(center_kpt)
+        if center_kpt not in kpts:
+            kpts.append(center_kpt)
 
 
         kpts = np.array(kpts)
@@ -225,6 +226,7 @@ class AMSETRunner(object):
                     # kgrid[type]["velocity"][ib][idx] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
                     kgrid[type]["velocity"][ib][idx] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
                     # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
+                    # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
                     #TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
                     kgrid[type]["effective mass"][ib][idx] = hbar ** 2 / (
                     dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
@@ -243,14 +245,16 @@ class AMSETRunner(object):
                     X_and_idx = []
                     for ib_prime in range(len(kgrid[type]["energy"])):
                         for ik_prime in range(len(kgrid["kpoints"])):
-                            if ik_prime == idx:
-                                continue
-                            if (kgrid[type]["energy"][ib][idx]-kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                            # We might not need this because of the (1-X) terms in scattering going to zero when X==1
+                            # if ik_prime == idx and ib == ib_prime:
+                            #     continue
+                            if abs(kgrid[type]["energy"][ib][idx]-kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
                                 k = kgrid["actual kpoints"][idx]
                                 k_prime = kgrid["actual kpoints"][ik_prime]
                                 X = self.cos_angle(k,k_prime)
                                 X_and_idx.append((X, ib_prime, ik_prime))
                     X_and_idx.sort()
+                    print "X_and_idx"
                     print X_and_idx
 
                     # integrate over X (the angle between the k vectors)
@@ -264,24 +268,24 @@ class AMSETRunner(object):
                             # if True:
                                 # extract the indecies
                                 X, ib_prime, ik_prime = X_and_idx[i+j]
-                                print "cosine of angle:"
-                                print X
-                                if kgrid[type]["velocity"][ib_prime][ik_prime][alpha] < 1:
-                                    continue
+                                # print "cosine of angle:"
+                                # print X
+                                # if kgrid[type]["velocity"][ib_prime][ik_prime][alpha] < 1:
+                                #     continue
                                 dum += (1 - X) * self.G(kgrid, type, ib, idx, ib_prime, ik_prime, X) ** 2 * np.linalg.norm(k_prime) ** 2 / \
                                 ((np.linalg.norm(k - k_prime) ** 2 + self.example_beta ** 2) ** 2 * kgrid[type]["velocity"][ib_prime][ik_prime][alpha])
 
                             dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
                             sum[alpha] += dum*DeltaX # If there are two points with the same X, DeltaX==0 so no duplicates
-                            print "here"
-                            print sum
-                            print (1-X)
-                            print np.linalg.norm(k_prime) ** 2
-                            print 1/(np.linalg.norm(k - k_prime) ** 2 + self.example_beta ** 2)** 2
-                            print 1/kgrid[type]["velocity"][ib_prime][ik_prime][alpha]
-                            print DeltaX
+                            # print "here"
+                            # print sum
+                            # print (1-X)
+                            # print np.linalg.norm(k_prime) ** 2
+                            # print 1/(np.linalg.norm(k - k_prime) ** 2 + self.example_beta ** 2) ** 2
+                            # print 1/kgrid[type]["velocity"][ib_prime][ik_prime][alpha]
+                            # print DeltaX
 
-                    print sum
+                    # print sum
                     # fix this! there are scattering rates close to 1e24!!!! check with bands included=1 (override!) and see what happens becaues before I was getting 1e12!
                     # TODO: the units seem to be correct but I still get 1e24 order, perhaps divide this expression by that of aMoBT to see what differs.
                     kgrid[type]["nu_II"][ib][idx] = sum * e ** 4 * self.N_II /\
