@@ -28,6 +28,14 @@ coeff_file = 'fort.123'
 # The following are example constants taken from aMoBT calculation on PbTe that was done before
 # None for now
 
+__author__ = "Alireza Faghaninia, Francesco Ricci, Anubhav Jain"
+__copyright__ = "Copyright 2017, HackingMaterials"
+__version__ = "0.1"
+__maintainer__ = "Alireza Faghaninia"
+__email__ = "alireza.faghaninia@gmail.com"
+__status__ = "Development"
+__date__ = "January 2017"
+
 class AMSETRunner(object):
     """ This class is used to run AMSET on a pymatgen Vasprun object. AMSET is an ab initio model for calculating
     the mobility and Seebeck coefficient using Boltzmann transport equation. The band structure is extracted from
