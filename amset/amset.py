@@ -8,6 +8,7 @@ from pymatgen.io.vasp import Vasprun, Spin
 from scipy.constants.codata import value as _cd
 from math import pi
 import os
+import json
 
 # global constants
 hbar = _cd('Planck constant in eV s')/(2*pi)
@@ -47,7 +48,7 @@ class AMSETRunner(object):
         self.epsilon_s = 44.360563 # example for PbTe
         self._vrun = {}
         self.max_e_range = 10*k_B*200 # assuming a maximum temperature, we set the max energy range after which occupation is zero
-        self.path_dir = "../test_files/PbTe_nscf_uniform"
+        self.path_dir = "../test_files/PbTe_nscf_uniform/nscf_line"
         self.wordy = True
 
         #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
@@ -67,14 +68,20 @@ class AMSETRunner(object):
         cbm_vbm = {"n": {"energy": 0.0, "bidx": 0, "included": 0}, "p": {"energy": 0.0, "bidx": 0, "included": 0}}
         cbm = bs.get_cbm()
         vbm = bs.get_vbm()
+
         cbm_vbm["n"]["energy"] = cbm["energy"]
         cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.up][0]
 
         cbm_vbm["p"]["energy"] = vbm["energy"]
         cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.up][-1]
-
         bs = bs.as_dict()
-        nband_included = {"n": 0, "p": 0}
+
+        print cbm
+        # print bs["kpoints"]
+        print vrun.lattice_rec.matrix
+        print bs["kpoints"][vbm["kpoint_index"][0]]
+        print vrun.actual_kpoints[vbm["kpoint_index"][0]]
+        print vrun.actual_kpoints
 
         for i, type in enumerate(["n", "p"]):
             sgn = (-1)**i
@@ -123,7 +130,7 @@ class AMSETRunner(object):
                 if dos_type == "simple":
                     egrid[type]["DOS"].append(1.0 / len(egrid[type]["all_en_flat"]))
 
-            egrid[type]["nu_II"] = np.array([ [0.0, 0.0, 0.0] for i in range(len(egrid[type]["energy"]))])
+            egrid[type]["nu_II"] = [ [0.0, 0.0, 0.0] for i in range(len(egrid[type]["energy"]))]
         # for i in range(len(kgrid["kpoints"])):
         #     for j in range(len(kgrid["kpoints"])):
         #         if abs(kgrid["energy"][i]-kgrid["energy"][j]) < dE_global:
@@ -168,9 +175,9 @@ class AMSETRunner(object):
         """
 
         # Total range around the center k-point
-        rang = 0.07
+        rang = 0.14
         if kgrid_type == "coarse":
-            nstep = 7
+            nstep = 2
 
         step = rang/nstep
 
@@ -191,13 +198,13 @@ class AMSETRunner(object):
             kpts.append(center_kpt)
 
 
-        kpts = np.array(kpts)
+        # kpts = np.array(kpts)
         print(len(kpts))
         # initialize the kgrid
         kgrid = {
                 "kpoints": kpts,
                 # "actual kpoints": np.dot(kpts-center_kpt, self.lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
-                "actual kpoints": np.dot(kpts, self.lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
+                "actual kpoints": np.dot(np.array(kpts), self.lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
                 "n": {},
                 "p": {}
                 }
@@ -209,7 +216,7 @@ class AMSETRunner(object):
                 kgrid[type][property] = [ [0.0 for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])]
             for property in ["velocity", "nu_II"]:
                 kgrid[type][property] = \
-                [ np.array([[0.0, 0.0, 0.0] for i in range(len(kpts))]) for j in range(self.cbm_vbm[type]["included"])]
+                [ [[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])]
             kgrid[type]["effective mass"] = \
                 [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in range(self.cbm_vbm[type]["included"])]
 
@@ -224,7 +231,7 @@ class AMSETRunner(object):
 
                     kgrid[type]["energy"][ib][idx] = energy * Ry_to_eV
                     # kgrid[type]["velocity"][ib][idx] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
-                    kgrid[type]["velocity"][ib][idx] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
+                    kgrid[type]["velocity"][ib][idx] = (de/hbar * A_to_m * m_to_cm * Ry_to_eV).tolist() # to get v in units of cm/s
                     # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
                     # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
                     #TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
@@ -288,8 +295,8 @@ class AMSETRunner(object):
                     # print sum
                     # fix this! there are scattering rates close to 1e24!!!! check with bands included=1 (override!) and see what happens becaues before I was getting 1e12!
                     # TODO: the units seem to be correct but I still get 1e24 order, perhaps divide this expression by that of aMoBT to see what differs.
-                    kgrid[type]["nu_II"][ib][idx] = sum * e ** 4 * self.N_II /\
-                        (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27 # coverted to 1/s
+                    kgrid[type]["nu_II"][ib][idx] = (sum * e ** 4 * self.N_II /\
+                        (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27).tolist() # coverted to 1/s
 
         for type in ["n", "p"]:
             for ie, en in enumerate(egrid[type]["energy"]):
@@ -299,24 +306,40 @@ class AMSETRunner(object):
                         if abs(kgrid[type]["energy"][ib][idx] - en) < self.dE_global:
                             egrid[type]["nu_II"][ie] += kgrid[type]["nu_II"][ib][idx]
                             N += 1
-                egrid[type]["nu_II"][ie] /= N
+                egrid[type]["nu_II"][ie] = [j/N for j in egrid[type]["nu_II"][ie]]
 
         if self.wordy:
             pprint(egrid)
             pprint(kgrid)
 
+        self.grid = {"kgrid": kgrid,
+                     "egrid": egrid}
+
         # for idx, dist
         #TODO: make the kgrid fill it out
         return kgrid
 
+    def to_json(self, filename="grid.json"):
+        remove_list = ["effective mass", "actual kpoints"]
+        for type in ["n", "p"]:
+            for rm in remove_list:
+                del(self.grid["kgrid"][type][rm])
+        d = {
+            "kpoints": self.grid["kgrid"]["kpoints"],
+            "k-nu_II": {"n": self.grid["kgrid"]["n"]["nu_II"], "p": self.grid["kgrid"]["p"]["nu_II"]},
+            "e-nu_II": {"n": self.grid["egrid"]["n"]["nu_II"], "p": self.grid["egrid"]["p"]["nu_II"]}
+             }
+        with open(filename, 'w') as fp:
+            json.dump(self.grid, fp)
+
 if __name__ == "__main__":
 
     #user inpits
-    kpts = np.array([[0.5, 0.5, 0.5]])
+    kpts = [[0.5, 0.5, 0.5]]
 
 
     # test
     AMSET = AMSETRunner()
     kgrid = AMSET.generate_kgrid(center_kpt=[0.5, 0.5, 0.5], coeff_file=coeff_file, kgrid_type="coarse")
-
+    AMSET.to_json()
     # pprint(kgrid)
