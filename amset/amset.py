@@ -43,7 +43,7 @@ class AMSETRunner(object):
      """
     def __init__(self):
         self.dE_global = 0.001 # in eV, the energy difference threshold before which two energy values are assumed equal
-        self.c_list = [1e20] # 1/cm**3 list of carrier concentrations
+        self.dopings = [1e20] # 1/cm**3 list of carrier concentrations
         self.T_list = [300, 600] # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self._vrun = {}
@@ -241,6 +241,10 @@ class AMSETRunner(object):
             egrid = self.init_egrid(kgrid, dos_type = "simple")
         else:
             pass
+
+        # Calculate the Fermi level at a given temperature and concentration
+        # find_fermi(T=self.T_list[0], c=self.dopings[0])
+
 
         # Ionized Impurity
         for type in ["n", "p"]:
