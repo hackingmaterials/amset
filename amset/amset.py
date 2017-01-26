@@ -52,7 +52,7 @@ class AMSETRunner(object):
     def __init__(self):
         self.dE_global = 0.001 # in eV, the energy difference threshold before which two energy values are assumed equal
         self.dopings = [1e20] # 1/cm**3 list of carrier concentrations
-        self.T_list = [300, 600] # in K, list of temperatures
+        self.temperatures = [300, 600] # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self._vrun = {}
         self.max_e_range = 10*k_B*200 # assuming a maximum temperature, we set the max energy range after which occupation is zero
@@ -69,8 +69,8 @@ class AMSETRunner(object):
         vrun = Vasprun(os.path.join(path_dir, filename))
         self.volume = vrun.final_structure.volume
         self.density = vrun.final_structure.density
-        self.lattice_matrix = vrun.lattice_rec.matrix / (2 * pi)
-        print self.lattice_matrix
+        self._lattice_matrix = vrun.lattice_rec.matrix / (2 * pi)
+        print self._lattice_matrix
         bs = vrun.get_band_structure()
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band (e.g. in VASP)
         cbm_vbm = {"n": {"energy": 0.0, "bidx": 0, "included": 0}, "p": {"energy": 0.0, "bidx": 0, "included": 0}}
@@ -210,12 +210,12 @@ class AMSETRunner(object):
         # initialize the kgrid
         kgrid = {
                 "kpoints": kpts,
-                # "actual kpoints": np.dot(kpts-center_kpt, self.lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
-                "actual kpoints": np.dot(np.array(kpts), self.lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
+                # "actual kpoints": np.dot(kpts-center_kpt, self._lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
+                "actual kpoints": np.dot(np.array(kpts), self._lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
                 "n": {},
                 "p": {}
                 }
-        # actual_kcenter = np.dot(center_kpt, self.lattice_matrix)*2*pi*1/A_to_nm
+        # actual_kcenter = np.dot(center_kpt, self._lattice_matrix)*2*pi*1/A_to_nm
         # kgrid["distance"] = [np.linalg.norm(actual_kpoint-actual_kcenter) for actual_kpoint in kgrid["actual kpoints"]]
         for type in ["n", "p"]:
             for property in ["energy", "a", "c"]:
@@ -237,7 +237,7 @@ class AMSETRunner(object):
 
                     kgrid[type]["energy"][ib][idx] = energy * Ry_to_eV
                     # kgrid[type]["velocity"][ib][idx] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
-                    kgrid[type]["velocity"][ib][idx] = (de/hbar * A_to_m * m_to_cm * Ry_to_eV).tolist() # to get v in units of cm/s
+                    kgrid[type]["velocity"][ib][idx] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
                     # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
                     # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
                     #TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
@@ -251,12 +251,14 @@ class AMSETRunner(object):
             pass
 
         # Calculate the Fermi level at a given temperature and concentration
-        # find_fermi(T=self.T_list[0], c=self.dopings[0])
+        # find_fermi(T=self.temperatures[0], c=self.dopings[0])
 
-
+        c = self.dopings[0]
+        T = self.temperatures[0]
         # Ionized Impurity
         for type in ["n", "p"]:
-            egrid[type]["nu_II"] = np.array([[0.0, 0.0, 0.0] for i in range(len(egrid[type]["energy"]))])
+            egrid[type]["nu_II"] = {c:{T: np.array([[0.0, 0.0, 0.0] for i in range(len(egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
+            # egrid[type]["nu_II"] = np.array([[0.0, 0.0, 0.0] for i in range(len(egrid[type]["energy"]))])
             kgrid[type]["nu_II"] = \
                 np.array([[[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])])
             for idx in range(len(kgrid["kpoints"])):
@@ -315,18 +317,18 @@ class AMSETRunner(object):
                     kgrid[type]["nu_II"][ib][idx] = abs(sum) * e ** 4 * self.N_II /\
                         (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27 # coverted to 1/s
 
+        # Map from k-space to energy-space
         for type in ["n", "p"]:
             for ie, en in enumerate(egrid[type]["energy"]):
                 N = 0 # total number of instances with the same energy
                 for idx in range(len(kgrid["kpoints"])):
                     for ib in range(len(kgrid[type]["energy"])):
                         if abs(kgrid[type]["energy"][ib][idx] - en) < self.dE_global:
-                            egrid[type]["nu_II"][ie] += kgrid[type]["nu_II"][ib][idx]
+                            egrid[type]["nu_II"][c][T][ie] += kgrid[type]["nu_II"][ib][idx]
                             N += 1
-                egrid[type]["nu_II"][ie] = [j/N for j in egrid[type]["nu_II"][ie]]
+                egrid[type]["nu_II"][c][T][ie] /= N
 
         if self.wordy:
-
             pprint(egrid)
             pprint(kgrid)
 
