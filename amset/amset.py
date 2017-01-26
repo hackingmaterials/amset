@@ -1,4 +1,6 @@
 # coding: utf-8
+
+import warnings
 from analytical_band_from_BZT import Analytical_bands
 from pprint import pprint
 
@@ -50,20 +52,20 @@ class AMSETRunner(object):
      ??? (instruction to add a scattering mechanism) ???
      """
     def __init__(self):
-        self.dE_global = 0.001 # in eV, the energy difference threshold before which two energy values are assumed equal
-        self.dopings = [1e20] # 1/cm**3 list of carrier concentrations
+        self.dE_global = 0.0001 # in eV, the energy difference threshold before which two energy values are assumed equal
+        self.dopings = [1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = [300, 600] # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self._vrun = {}
-        self.max_e_range = 10*k_B*200 # assuming a maximum temperature, we set the max energy range after which occupation is zero
+        self.max_e_range = 10*k_B*300 # assuming a maximum temperature, we set the max energy range after which occupation is zero
         self.path_dir = "../test_files/PbTe_nscf_uniform/nscf_line"
         self.wordy = True
 
         #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.example_beta = 0.3288  # 1/nm for n=1e121 and T=300K
         self.N_II = 1e20  # 1/cm**3
+        self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
-        print self.cbm_vbm
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
         vrun = Vasprun(os.path.join(path_dir, filename))
@@ -92,7 +94,15 @@ class AMSETRunner(object):
             while abs(min(sgn*bs["bands"]["1"][cbm_vbm[type]["bidx"]+sgn*cbm_vbm[type]["included"]])-sgn*cbm_vbm[type]["energy"])<self.max_e_range:
                 cbm_vbm[type]["included"] += 1
 
+        # TODO: change this later if the band indecies are fixed in Analytical_band class
+        cbm_vbm["p"]["bidx"] += 1
+        cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
+
         self.cbm_vbm = cbm_vbm
+
+    @staticmethod
+    def f0(E, fermi, T):
+        return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
 
     def init_egrid(self, kgrid, dos_type="simple"):
         """
@@ -108,11 +118,13 @@ class AMSETRunner(object):
             "p": {"energy": [], "DOS": [], "all_en_flat": []}
              }
 
+        # reshape energies of all bands to one vector:
         for type in ["n", "p"]:
             for en_vec in kgrid[type]["energy"]:
                 egrid[type]["all_en_flat"] += en_vec
             egrid[type]["all_en_flat"].sort()
 
+        # setting up energy grid and DOS:
         for type in ["n", "p"]:
             i = 0
             last_is_counted = False
@@ -122,9 +134,9 @@ class AMSETRunner(object):
                 while i<len(egrid[type]["all_en_flat"])-1 and abs(egrid[type]["all_en_flat"][i]-egrid[type]["all_en_flat"][i+1]) < self.dE_global:
                     counter += 1
                     sum += egrid[type]["all_en_flat"][i+1]
-                    i+=1
                     if i+1 == len(egrid[type]["all_en_flat"])-1:
                         last_is_counted = True
+                    i+=1
                 egrid[type]["energy"].append(sum/counter)
                 if dos_type=="simple":
                     egrid[type]["DOS"].append(counter/len(egrid[type]["all_en_flat"]))
@@ -133,6 +145,11 @@ class AMSETRunner(object):
                 egrid[type]["energy"].append(egrid[type]["all_en_flat"][-1])
                 if dos_type == "simple":
                     egrid[type]["DOS"].append(1.0 / len(egrid[type]["all_en_flat"]))
+
+        # calculate Fermi levels:
+        for type in ["n", "p"]:
+            egrid[type]["fermi"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+
         return egrid
 
     def G(self, kgrid, type, ib, ik, ib_prime, ik_prime, X):
@@ -244,7 +261,10 @@ class AMSETRunner(object):
                     kgrid[type]["effective mass"][ib][idx] = hbar ** 2 / (
                     dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                     kgrid[type]["a"][ib][idx] = 1.0
+            # Match the CBM/VBM energy values to those obtained from the coefficients file rather than vasprun.xml
+            self.cbm_vbm[type]["energy"] = sgn*min(sgn*np.array(kgrid[type]["energy"][0]))
 
+        print self.cbm_vbm
         if True: # TODO: later add a more sophisticated DOS function, if developed
             egrid = self.init_egrid(kgrid, dos_type = "simple")
         else:
@@ -252,9 +272,62 @@ class AMSETRunner(object):
 
         # Calculate the Fermi level at a given temperature and concentration
         # find_fermi(T=self.temperatures[0], c=self.dopings[0])
-
         c = self.dopings[0]
         T = self.temperatures[0]
+
+
+        interpolation_nsteps = 100
+        maxitr = 10
+        step0 = 0.01
+        tolerance_tight = 0.01
+        tolerance_loose = 0.03
+        calc_doping = 1e52
+        nsteps = 100
+
+        # initialize parameters
+        if c < 0:
+            actual_type = "n"
+        else:
+            actual_type = "p"
+        temp_doping = {"n": 0.0, "p": 0.0}
+        fermi0 = self.cbm_vbm[actual_type]["energy"]
+        fermi_selected = fermi0
+
+        # iterate around the CBM/VBM with finer and finer steps to find the Fermi level with a matching doping
+        for iter in range(maxitr):
+            step = step0 / 10**iter
+            for fermi in np.linspace(fermi0-nsteps*step,fermi0+nsteps*step, nsteps*2):
+                for j, type in enumerate(["n", "p"]):
+                    sgn = (-1)**(j+1)
+                    sum = 0
+                    for ie in range(len(egrid[type])-1):
+                        E = egrid[type]["energy"][ie]
+                        dE = (egrid[type]["energy"][ie+1] - E)/interpolation_nsteps
+                        dS = (egrid[type]["DOS"][ie+1] - egrid[type]["DOS"][ie])/interpolation_nsteps
+                        for i in range(interpolation_nsteps):
+                            sum += (E + i*dE)*(egrid[type]["DOS"][ie] + i*dS) * (j-sgn*self.f0(E+i*dE, fermi, T))
+                    temp_doping[type] = sgn * abs(sum/self.volume / (A_to_m*m_to_cm)**3)
+                if abs(temp_doping["n"] + temp_doping["p"] - c) < abs(calc_doping - c):
+                    calc_doping = temp_doping["n"] + temp_doping["p"]
+                    fermi_selected = fermi
+            fermi0 = fermi_selected
+
+        # evaluate the calculated carrier concentration (Fermi level)
+        relative_error = abs(calc_doping - c)/abs(c)
+        if relative_error > tolerance_tight and relative_error <= tolerance_loose:
+            warnings.warn("The calculated concentration {} is not accurate compared to {}; results may be unreliable"
+                          .format(calc_doping, c))
+        elif relative_error > tolerance_loose:
+            raise ValueError("The calculated concentration {} has more than {}% error; AMSET stops now!"
+                             .format(calc_doping, tolerance_loose*100))
+
+        # print "concentrations"
+        # print temp_doping
+        # print c
+        # print fermi_selected
+        # print calc_doping
+        # egrid[actual_type]["fermi"][c][T] = fermi
+
         # Ionized Impurity
         for type in ["n", "p"]:
             egrid[type]["nu_II"] = {c:{T: np.array([[0.0, 0.0, 0.0] for i in range(len(egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
@@ -277,8 +350,8 @@ class AMSETRunner(object):
                                 X = self.cos_angle(k,k_prime)
                                 X_and_idx.append((X, ib_prime, ik_prime))
                     X_and_idx.sort()
-                    print "X_and_idx"
-                    print X_and_idx
+                    # print "X_and_idx"
+                    # print X_and_idx
 
                     # integrate over X (the angle between the k vectors)
                     sum = np.array([0.0, 0.0, 0.0])
