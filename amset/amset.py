@@ -55,7 +55,7 @@ class AMSET(object):
 
     def __init__(self):
         self.dE_global = 0.0001 # in eV, the energy difference threshold before which two energy values are assumed equal
-        self.dopings = [-1e19, 1e19] # 1/cm**3 list of carrier concentrations
+        self.dopings = [-1e21] # 1/cm**3 list of carrier concentrations
         self.temperatures = [300, 600] # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self._vrun = {}
@@ -110,7 +110,14 @@ class AMSET(object):
 
         self.cbm_vbm = cbm_vbm
 
-
+    def get_type(self, c):
+        """returns "n" for n-type or negative carrier concentration or "p" (p-type)."""
+        if c < 0:
+            return "n"
+        elif c > 0:
+            return "p"
+        else:
+            raise ValueError("The carrier concentration cannot be zero! AMSET stops now!")
 
     @staticmethod
     def f0(E, fermi, T):
@@ -165,7 +172,11 @@ class AMSET(object):
             for T in self.temperatures:
                 self.egrid["fermi"][c][T] = self.find_fermi(c, T)
 
-
+        # calculate inverse screening length, beta, for ionized impurity scattering
+        self.egrid["beta"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+        for c in self.dopings:
+            for T in self.temperatures:
+                self.egrid["beta"][c][T] = self.inverse_screening_length(c, T)
 
     def G(self, type, ib, ik, ib_prime, ik_prime, X):
         """
@@ -435,7 +446,7 @@ class AMSET(object):
 
 
 
-    def inverse_screening_length(self, type, fermi, T, interpolation_nsteps = 100):
+    def inverse_screening_length(self, c, T, interpolation_nsteps = 100):
         """
         calculates the inverse screening length (beta) in 1/nm units
         :param type:
@@ -444,13 +455,19 @@ class AMSET(object):
         :param interpolation_nsteps:
         :return:
         """
+        # initialize
+        fermi = self.egrid["fermi"][c][T]
+        type = self.get_type(c)
         integral = 0.0
+
+        # integration
         for ie in range(len(self.egrid[type]) - 1):
             E = self.egrid[type]["energy"][ie]
             dE = abs(self.egrid[type]["energy"][ie + 1] - E) / interpolation_nsteps
             dS = (self.egrid[type]["DOS"][ie + 1] - self.egrid[type]["DOS"][ie]) / interpolation_nsteps
             for i in range(interpolation_nsteps):
-                integral += dE*(self.egrid[type]["DOS"][ie] + i*dS)*self.f0(E+i*dE, fermi, T)*(1-self.f0(E+i*dE, fermi, T))
+# TODO: The DOS needs to be revised, if a more accurate DOS is implemented
+                integral += dE*(self.egrid[type]["DOS"][ie]*self.nelec + i*dS)*self.f0(E+i*dE, fermi, T)*(1-self.f0(E+i*dE, fermi, T))
 
         beta = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
         return beta
