@@ -53,7 +53,10 @@ class AMSET(object):
      """
 
 
-    def __init__(self):
+    def __init__(self,
+
+                 N_dis=None,
+                 donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = 0.0001 # in eV, the energy difference threshold before which two energy values are assumed equal
         self.dopings = [-1e21] # 1/cm**3 list of carrier concentrations
         self.temperatures = [300, 600] # in K, list of temperatures
@@ -62,7 +65,8 @@ class AMSET(object):
         self.max_e_range = 10*k_B*max(self.temperatures) # we set the max energy range after which occupation is zero
         self.path_dir = "../test_files/PbTe_nscf_uniform/nscf_line"
         self.wordy = True
-
+        self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
+        self.N_dis = N_dis or 0.1 # in 1/cm**2
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.example_beta = 0.3288  # 1/nm for n=1e121 and T=300K
         self.N_II = 1e20  # 1/cm**3
@@ -125,6 +129,32 @@ class AMSET(object):
 
 
 
+    def calculate_property(self, prop_name, prop_func):
+        """
+        calculate the propery at all concentrations and Ts using the given function and insert it into self.egrid
+        :param prop_name:
+        :param prop_func (obj): the given function MUST takes c and T as required inputs in this order.
+        :return:
+        """
+        self.egrid[prop_name] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+        for c in self.dopings:
+            for T in self.temperatures:
+                self.egrid[prop_name][c][T] = prop_func(c, T)
+
+
+
+    def calculate_N_II(self, c, T):
+        """
+        self.N_dis is a given observed 2D concentration of charged dislocations in 1/cm**2
+        :param c:
+        :param T:
+        :return:
+        """
+        N_II = abs(self.egrid["calc_doping"][c][T]["n"]) * self.charge["n"] ** 2 + \
+               abs(self.egrid["calc_doping"][c][T]["p"]) * self.charge["p"] ** 2 + \
+               self.N_dis/self.volume**(1/3)*1e8*self.charge["dislocations"]** 2
+        return N_II
+
     def init_egrid(self, dos_type="simple"):
         """
         :param
@@ -166,17 +196,14 @@ class AMSET(object):
                 if dos_type == "simple":
                     self.egrid[type]["DOS"].append(1.0 / len(self.egrid[type]["all_en_flat"]))
 
-        # calculate Fermi levels:
-        self.egrid["fermi"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
-        for c in self.dopings:
-            for T in self.temperatures:
-                self.egrid["fermi"][c][T] = self.find_fermi(c, T)
+        # initialize some fileds/properties
+        self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
 
-        # calculate inverse screening length, beta, for ionized impurity scattering
-        self.egrid["beta"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
-        for c in self.dopings:
-            for T in self.temperatures:
-                self.egrid["beta"][c][T] = self.inverse_screening_length(c, T)
+        # calculate fermi levels
+        self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
+        self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
+        self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
+
 
     def G(self, type, ib, ik, ib_prime, ik_prime, X):
         """
@@ -404,13 +431,9 @@ class AMSET(object):
         relative_error = calc_doping
         maxitr = 10 # essentially the number of floating points in accuracy
         iter = 0
-        if c < 0:
-            actual_type = "n"
-        else:
-            actual_type = "p"
+        actual_type = self.get_type(c)
         temp_doping = {"n": 0.0, "p": 0.0}
         fermi0 = self.cbm_vbm[actual_type]["energy"]
-        print fermi0
         fermi_selected = fermi0
 
         # iterate around the CBM/VBM with finer and finer steps to find the Fermi level with a matching doping
@@ -432,6 +455,8 @@ class AMSET(object):
                 if abs(temp_doping["n"] + temp_doping["p"] - c) < abs(calc_doping - c):
                     calc_doping = temp_doping["n"] + temp_doping["p"]
                     fermi_selected = fermi
+                    self.egrid["calc_doping"][c][T]["n"] = temp_doping["n"]
+                    self.egrid["calc_doping"][c][T]["p"] = temp_doping["p"]
             fermi0 = fermi_selected
             iter += 1
         # evaluate the calculated carrier concentration (Fermi level)
