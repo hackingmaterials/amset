@@ -38,7 +38,7 @@ __email__ = "alireza.faghaninia@gmail.com"
 __status__ = "Development"
 __date__ = "January 2017"
 
-class AMSETRunner(object):
+class AMSET(object):
     """ This class is used to run AMSET on a pymatgen Vasprun object. AMSET is an ab initio model for calculating
     the mobility and Seebeck coefficient using Boltzmann transport equation. The band structure is extracted from
     vasprun.xml to calculate the group velocity and transport properties in presence of various scattering mechanisms.
@@ -51,9 +51,11 @@ class AMSETRunner(object):
      AMSET is designed in a modular way so that users can add more scattering mechanisms as followed:
      ??? (instruction to add a scattering mechanism) ???
      """
+
+
     def __init__(self):
         self.dE_global = 0.0001 # in eV, the energy difference threshold before which two energy values are assumed equal
-        self.dopings = [1e19] # 1/cm**3 list of carrier concentrations
+        self.dopings = [1e20] # 1/cm**3 list of carrier concentrations
         self.temperatures = [300, 600] # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self._vrun = {}
@@ -66,6 +68,8 @@ class AMSETRunner(object):
         self.N_II = 1e20  # 1/cm**3
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
+
+
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
         vrun = Vasprun(os.path.join(path_dir, filename))
@@ -100,9 +104,13 @@ class AMSETRunner(object):
 
         self.cbm_vbm = cbm_vbm
 
+
+
     @staticmethod
     def f0(E, fermi, T):
         return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
+
+
 
     def init_egrid(self, dos_type="simple"):
         """
@@ -146,8 +154,12 @@ class AMSETRunner(object):
                     self.egrid[type]["DOS"].append(1.0 / len(self.egrid[type]["all_en_flat"]))
 
         # calculate Fermi levels:
-        for type in ["n", "p"]:
-            self.egrid[type]["fermi"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+        self.egrid["fermi"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+        for c in self.dopings:
+            for T in self.temperatures:
+                self.egrid["fermi"][c][T] = self.find_fermi(c, T)
+
+
 
     def G(self, type, ib, ik, ib_prime, ik_prime, X):
         """
@@ -161,6 +173,7 @@ class AMSETRunner(object):
                self.kgrid[type]["c"][ib][ik] * self.kgrid[type]["c"][ib_prime][ik_prime]
 
 
+
     def cos_angle(self, v1, v2):
         """
         Args:
@@ -172,6 +185,8 @@ class AMSETRunner(object):
             return 1.0  # In case of the two points is the origin, we assume 0 degree; i.e. no scattering because of 1-X term
         else:
             return np.dot(v1, v2) / (norm_v1 * norm_v2)
+
+
 
     def generate_kgrid(self, coeff_file, kgrid_type="coarse"):
         """
@@ -266,64 +281,6 @@ class AMSETRunner(object):
         else:
             pass
 
-        # Calculate the Fermi level at a given temperature and concentration
-        # find_fermi(T=self.temperatures[0], c=self.dopings[0])
-        c = self.dopings[0]
-        T = self.temperatures[0]
-
-
-        interpolation_nsteps = 100
-        maxitr = 10
-        step0 = 0.01
-        tolerance_tight = 0.01
-        tolerance_loose = 0.03
-        calc_doping = 1e52
-        nsteps = 100
-
-        # initialize parameters
-        if c < 0:
-            actual_type = "n"
-        else:
-            actual_type = "p"
-        temp_doping = {"n": 0.0, "p": 0.0}
-        fermi0 = self.cbm_vbm[actual_type]["energy"]
-        fermi_selected = fermi0
-
-        # iterate around the CBM/VBM with finer and finer steps to find the Fermi level with a matching doping
-        for iter in range(maxitr):
-            step = step0 / 10**iter
-            for fermi in np.linspace(fermi0-nsteps*step,fermi0+nsteps*step, nsteps*2):
-                for j, type in enumerate(["n", "p"]):
-                    sgn = (-1)**(j+1)
-                    sum = 0
-                    for ie in range(len(self.egrid[type])-1):
-                        E = self.egrid[type]["energy"][ie]
-                        dE = (self.egrid[type]["energy"][ie+1] - E)/interpolation_nsteps
-                        dS = (self.egrid[type]["DOS"][ie+1] - self.egrid[type]["DOS"][ie])/interpolation_nsteps
-                        for i in range(interpolation_nsteps):
-                            sum += (E + i*dE)*(self.egrid[type]["DOS"][ie] + i*dS) * (j-sgn*self.f0(E+i*dE, fermi, T))
-                    temp_doping[type] = sgn * abs(sum/self.volume / (A_to_m*m_to_cm)**3)
-                if abs(temp_doping["n"] + temp_doping["p"] - c) < abs(calc_doping - c):
-                    calc_doping = temp_doping["n"] + temp_doping["p"]
-                    fermi_selected = fermi
-            fermi0 = fermi_selected
-
-        # evaluate the calculated carrier concentration (Fermi level)
-        relative_error = abs(calc_doping - c)/abs(c)
-        if relative_error > tolerance_tight and relative_error <= tolerance_loose:
-            warnings.warn("The calculated concentration {} is not accurate compared to {}; results may be unreliable"
-                          .format(calc_doping, c))
-        elif relative_error > tolerance_loose:
-            raise ValueError("The calculated concentration {} has more than {}% error; AMSET stops now!"
-                             .format(calc_doping, tolerance_loose*100))
-
-        # print "concentrations"
-        # print temp_doping
-        # print c
-        # print fermi_selected
-        # print calc_doping
-        # self.egrid[actual_type]["fermi"][c][T] = fermi
-
         # Ionized Impurity
         for type in ["n", "p"]:
             self.egrid[type]["nu_II"] = {c:{T: np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
@@ -386,6 +343,8 @@ class AMSETRunner(object):
                     self.kgrid[type]["nu_II"][ib][idx] = abs(sum) * e ** 4 * self.N_II /\
                         (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27 # coverted to 1/s
 
+        c = self.dopings[0]
+        T = self.temperatures[0]
         # Map from k-space to energy-space
         for type in ["n", "p"]:
             for ie, en in enumerate(self.egrid[type]["energy"]):
@@ -412,7 +371,81 @@ class AMSETRunner(object):
         # for idx, dist
         #TODO: make the kgrid fill it out
 
-    def to_json(self, filename="grid.json"):
+
+
+    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03,
+                   interpolation_nsteps = 100 , step0 = 0.01, nsteps = 300):
+        """
+        To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
+        :param c (float): The doping concentration; c < 0 indicate n-type (i.e. electrons) and c > 0 for p-type
+        :param T (float): The temperature.
+        :param interpolation_nsteps (int): the number of steps with which the energy points are
+                    linearly interpolated for smoother numerical integration
+        :param maxitr (int): Number of trials to fit the Fermi level, higher maxitr result in more accurate Fermi
+        :param step0 (float): The initial step of changing Fermi level (in eV)
+        :param nsteps (int): The number of steps are looked lower and higher than initial guess for Fermi level
+        :param tolerance (0<float<1): convergance threshold for relative error
+        :param tolerance_loose (0<float<1): maximum relative error allowed between the calculated and input c
+        :return:
+            The fitted/calculated Fermi level
+        """
+        # initialize parameters
+        calc_doping = 1e52 # initial concentration, just has to be very far from any expected concentration
+        relative_error = calc_doping
+        maxitr = 10 # essentially the number of floating points in accuracy
+        iter = 0
+        if c < 0:
+            actual_type = "n"
+        else:
+            actual_type = "p"
+        temp_doping = {"n": 0.0, "p": 0.0}
+        fermi0 = self.cbm_vbm[actual_type]["energy"]
+        print fermi0
+        fermi_selected = fermi0
+
+        # iterate around the CBM/VBM with finer and finer steps to find the Fermi level with a matching doping
+        # for iter in range(maxitr):
+        while (relative_error > tolerance) and (iter<maxitr):
+            step = step0 / 10**iter
+            for fermi in np.linspace(fermi0-nsteps*step,fermi0+nsteps*step, nsteps*2):
+                for j, type in enumerate(["n", "p"]):
+                    sgn = (-1)**(j+1)
+                    integral = 0.0
+                    for ie in range(len(self.egrid[type])-1):
+                        E = self.egrid[type]["energy"][ie]
+                        dE = abs(self.egrid[type]["energy"][ie+1] - E)/interpolation_nsteps
+                        dS = (self.egrid[type]["DOS"][ie+1] - self.egrid[type]["DOS"][ie])/interpolation_nsteps
+                        for i in range(interpolation_nsteps):
+                            integral += dE*(self.egrid[type]["DOS"][ie]+i*dS)*(j-sgn*self.f0(E+i*dE,fermi,T))
+                    temp_doping[type] = sgn * abs(integral/self.volume / (A_to_m*m_to_cm)**3)
+                if abs(temp_doping["n"] + temp_doping["p"] - c) < abs(calc_doping - c):
+                    calc_doping = temp_doping["n"] + temp_doping["p"]
+                    fermi_selected = fermi
+            fermi0 = fermi_selected
+            iter += 1
+        print fermi_selected
+        # evaluate the calculated carrier concentration (Fermi level)
+        relative_error = abs(calc_doping - c)/abs(c)
+        if relative_error > tolerance and relative_error <= tolerance_loose:
+            warnings.warn("The calculated concentration {} is not accurate compared to {}; results may be unreliable"
+                          .format(calc_doping, c))
+        elif relative_error > tolerance_loose:
+            raise ValueError("The calculated concentration {} is more than {}% away from {}; possible cause may low band gap, high temperature, small nsteps, etc; AMSET stops now!"
+                             .format(calc_doping, tolerance_loose*100, c))
+        return fermi_selected
+
+
+
+    def inverse_screening_length(self, type, fermi, T, interpolation_nsteps = 100):
+        integral = 0.0
+        for ie in range(len(self.egrid[type]) - 1):
+            E = self.egrid[type]["energy"][ie]
+            dE = abs(self.egrid[type]["energy"][ie + 1] - E) / interpolation_nsteps
+            dS = (self.egrid[type]["DOS"][ie + 1] - self.egrid[type]["DOS"][ie]) / interpolation_nsteps
+            for i in range(interpolation_nsteps):
+                integral += dE*(self.egrid[type]["DOS"][ie] + i*dS)*self.f0(E+i*dE, fermi, T)*(1-self.f0(E+i*dE, fermi, T))
+
+def to_json(self, filename="grid.json"):
         del(self.grid["kgrid"]["actual kpoints"])
         remove_list = ["effective mass"]
         for type in ["n", "p"]:
@@ -429,6 +462,6 @@ class AMSETRunner(object):
 if __name__ == "__main__":
 
     # test
-    AMSET = AMSETRunner()
+    AMSET = AMSET()
     AMSET.generate_kgrid(coeff_file=coeff_file, kgrid_type="coarse")
     # AMSET.to_json()
