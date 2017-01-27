@@ -112,7 +112,7 @@ class AMSETRunner(object):
         :return: an updated grid that contains the field DOS
         """
 
-        egrid = {
+        self.egrid = {
             "n": {"energy": [], "DOS": [], "all_en_flat": []},
             "p": {"energy": [], "DOS": [], "all_en_flat": []}
              }
@@ -120,36 +120,34 @@ class AMSETRunner(object):
         # reshape energies of all bands to one vector:
         for type in ["n", "p"]:
             for en_vec in self.kgrid[type]["energy"]:
-                egrid[type]["all_en_flat"] += en_vec
-            egrid[type]["all_en_flat"].sort()
+                self.egrid[type]["all_en_flat"] += en_vec
+            self.egrid[type]["all_en_flat"].sort()
 
         # setting up energy grid and DOS:
         for type in ["n", "p"]:
             i = 0
             last_is_counted = False
-            while i<len(egrid[type]["all_en_flat"])-1:
-                sum = egrid[type]["all_en_flat"][i]
+            while i<len(self.egrid[type]["all_en_flat"])-1:
+                sum = self.egrid[type]["all_en_flat"][i]
                 counter = 1.0
-                while i<len(egrid[type]["all_en_flat"])-1 and abs(egrid[type]["all_en_flat"][i]-egrid[type]["all_en_flat"][i+1]) < self.dE_global:
+                while i<len(self.egrid[type]["all_en_flat"])-1 and abs(self.egrid[type]["all_en_flat"][i]-self.egrid[type]["all_en_flat"][i+1]) < self.dE_global:
                     counter += 1
-                    sum += egrid[type]["all_en_flat"][i+1]
-                    if i+1 == len(egrid[type]["all_en_flat"])-1:
+                    sum += self.egrid[type]["all_en_flat"][i+1]
+                    if i+1 == len(self.egrid[type]["all_en_flat"])-1:
                         last_is_counted = True
                     i+=1
-                egrid[type]["energy"].append(sum/counter)
+                self.egrid[type]["energy"].append(sum/counter)
                 if dos_type=="simple":
-                    egrid[type]["DOS"].append(counter/len(egrid[type]["all_en_flat"]))
+                    self.egrid[type]["DOS"].append(counter/len(self.egrid[type]["all_en_flat"]))
                 i+=1
             if not last_is_counted:
-                egrid[type]["energy"].append(egrid[type]["all_en_flat"][-1])
+                self.egrid[type]["energy"].append(self.egrid[type]["all_en_flat"][-1])
                 if dos_type == "simple":
-                    egrid[type]["DOS"].append(1.0 / len(egrid[type]["all_en_flat"]))
+                    self.egrid[type]["DOS"].append(1.0 / len(self.egrid[type]["all_en_flat"]))
 
         # calculate Fermi levels:
         for type in ["n", "p"]:
-            egrid[type]["fermi"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
-
-        return egrid
+            self.egrid[type]["fermi"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
 
     def G(self, type, ib, ik, ib_prime, ik_prime, X):
         """
@@ -264,7 +262,7 @@ class AMSETRunner(object):
 
         print self.cbm_vbm
         if True: # TODO: later add a more sophisticated DOS function, if developed
-            egrid = self.init_egrid(dos_type = "simple")
+            self.init_egrid(dos_type = "simple")
         else:
             pass
 
@@ -298,12 +296,12 @@ class AMSETRunner(object):
                 for j, type in enumerate(["n", "p"]):
                     sgn = (-1)**(j+1)
                     sum = 0
-                    for ie in range(len(egrid[type])-1):
-                        E = egrid[type]["energy"][ie]
-                        dE = (egrid[type]["energy"][ie+1] - E)/interpolation_nsteps
-                        dS = (egrid[type]["DOS"][ie+1] - egrid[type]["DOS"][ie])/interpolation_nsteps
+                    for ie in range(len(self.egrid[type])-1):
+                        E = self.egrid[type]["energy"][ie]
+                        dE = (self.egrid[type]["energy"][ie+1] - E)/interpolation_nsteps
+                        dS = (self.egrid[type]["DOS"][ie+1] - self.egrid[type]["DOS"][ie])/interpolation_nsteps
                         for i in range(interpolation_nsteps):
-                            sum += (E + i*dE)*(egrid[type]["DOS"][ie] + i*dS) * (j-sgn*self.f0(E+i*dE, fermi, T))
+                            sum += (E + i*dE)*(self.egrid[type]["DOS"][ie] + i*dS) * (j-sgn*self.f0(E+i*dE, fermi, T))
                     temp_doping[type] = sgn * abs(sum/self.volume / (A_to_m*m_to_cm)**3)
                 if abs(temp_doping["n"] + temp_doping["p"] - c) < abs(calc_doping - c):
                     calc_doping = temp_doping["n"] + temp_doping["p"]
@@ -324,12 +322,12 @@ class AMSETRunner(object):
         # print c
         # print fermi_selected
         # print calc_doping
-        # egrid[actual_type]["fermi"][c][T] = fermi
+        # self.egrid[actual_type]["fermi"][c][T] = fermi
 
         # Ionized Impurity
         for type in ["n", "p"]:
-            egrid[type]["nu_II"] = {c:{T: np.array([[0.0, 0.0, 0.0] for i in range(len(egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
-            # egrid[type]["nu_II"] = np.array([[0.0, 0.0, 0.0] for i in range(len(egrid[type]["energy"]))])
+            self.egrid[type]["nu_II"] = {c:{T: np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
+            # self.egrid[type]["nu_II"] = np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))])
             self.kgrid[type]["nu_II"] = \
                 np.array([[[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])])
             for idx in range(len(self.kgrid["kpoints"])):
@@ -390,26 +388,26 @@ class AMSETRunner(object):
 
         # Map from k-space to energy-space
         for type in ["n", "p"]:
-            for ie, en in enumerate(egrid[type]["energy"]):
+            for ie, en in enumerate(self.egrid[type]["energy"]):
                 N = 0 # total number of instances with the same energy
                 for idx in range(len(self.kgrid["kpoints"])):
                     for ib in range(len(self.kgrid[type]["energy"])):
                         if abs(self.kgrid[type]["energy"][ib][idx] - en) < self.dE_global:
-                            egrid[type]["nu_II"][c][T][ie] += self.kgrid[type]["nu_II"][ib][idx]
+                            self.egrid[type]["nu_II"][c][T][ie] += self.kgrid[type]["nu_II"][ib][idx]
                             N += 1
-                egrid[type]["nu_II"][c][T][ie] /= N
+                self.egrid[type]["nu_II"][c][T][ie] /= N
 
         if self.wordy:
-            pprint(egrid)
+            pprint(self.egrid)
             pprint(self.kgrid)
 
         with open("kgrid.txt", "w") as fout:
             pprint(self.kgrid, stream=fout)
         with open("egrid.txt", "w") as fout:
-            pprint(egrid, stream=fout)
+            pprint(self.egrid, stream=fout)
 
         self.grid = {"kgrid": self.kgrid,
-                     "egrid": egrid}
+                     "egrid": self.egrid}
 
         # for idx, dist
         #TODO: make the kgrid fill it out
