@@ -68,8 +68,6 @@ class AMSET(object):
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
-        self.example_beta = 0.3288  # 1/nm for n=1e121 and T=300K
-        self.N_II = 1e20  # 1/cm**3
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
 
@@ -321,6 +319,8 @@ class AMSET(object):
         else:
             pass
 
+        c = self.dopings[0]
+        T = self.temperatures[0]
         # Ionized Impurity
         for type in ["n", "p"]:
             self.egrid[type]["nu_II"] = {c:{T: np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
@@ -365,7 +365,7 @@ class AMSET(object):
                                 #     continue
                                 # if X > 0.5:
                                 dum += (1 - X) * self.G(type, ib, idx, ib_prime, ik_prime, X) ** 2 * np.linalg.norm(k-k_prime) ** 2 / \
-                                        ((np.linalg.norm(k - k_prime) ** 2 + self.example_beta ** 2) ** 2 * abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha])) # We take the absolute value of the velocity as the scattering depends on the velocity itself and not the direction
+                                        ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2 * abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha])) # We take the absolute value of the velocity as the scattering depends on the velocity itself and not the direction
 
                             dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
                             sum[alpha] += dum*DeltaX # If there are two points with the same X, DeltaX==0 so no duplicates
@@ -373,14 +373,13 @@ class AMSET(object):
                             # print sum
                             # print (1-X)
                             # print np.linalg.norm(k_prime) ** 2
-                            # print 1/(np.linalg.norm(k - k_prime) ** 2 + self.example_beta ** 2) ** 2
                             # print 1/self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha]
                             # print DeltaX
 
                     # print sum
                     # fix this! there are scattering rates close to 1e24!!!! check with bands included=1 (override!) and see what happens becaues before I was getting 1e12!
 # TODO: the units seem to be correct but I still get 1e24 order, perhaps divide this expression by that of aMoBT to see what differs.
-                    self.kgrid[type]["nu_II"][ib][idx] = abs(sum) * e ** 4 * self.N_II /\
+                    self.kgrid[type]["nu_II"][ib][idx] = abs(sum) * e ** 4 * self.egrid["N_II"][c][T] /\
                         (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27 # coverted to 1/s
 
         c = self.dopings[0]
