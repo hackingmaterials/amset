@@ -55,15 +55,15 @@ class AMSET(object):
 
     def __init__(self):
         self.dE_global = 0.0001 # in eV, the energy difference threshold before which two energy values are assumed equal
-        self.dopings = [1e20] # 1/cm**3 list of carrier concentrations
+        self.dopings = [-1e19, 1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = [300, 600] # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self._vrun = {}
-        self.max_e_range = 10*k_B*300 # assuming a maximum temperature, we set the max energy range after which occupation is zero
+        self.max_e_range = 10*k_B*max(self.temperatures) # we set the max energy range after which occupation is zero
         self.path_dir = "../test_files/PbTe_nscf_uniform/nscf_line"
         self.wordy = True
 
-        #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
+#TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.example_beta = 0.3288  # 1/nm for n=1e121 and T=300K
         self.N_II = 1e20  # 1/cm**3
         self.soc = False
@@ -78,6 +78,7 @@ class AMSET(object):
         self._lattice_matrix = vrun.lattice_rec.matrix / (2 * pi)
         print self._lattice_matrix
         bs = vrun.get_band_structure()
+
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band (e.g. in VASP)
         cbm_vbm = {"n": {"energy": 0.0, "bidx": 0, "included": 0}, "p": {"energy": 0.0, "bidx": 0, "included": 0}}
         cbm = bs.get_cbm()
@@ -88,8 +89,13 @@ class AMSET(object):
 
         cbm_vbm["p"]["energy"] = vbm["energy"]
         cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.up][-1]
-        bs = bs.as_dict()
 
+        if self.soc:
+            self.nelec = cbm_vbm["p"]["bidx"]
+        else:
+            self.nelec = cbm_vbm["p"]["bidx"]*2
+
+        bs = bs.as_dict()
         # print vrun.actual_kpoints[vbm["kpoint_index"][0]]
         # print vrun.actual_kpoints
 
@@ -98,7 +104,7 @@ class AMSET(object):
             while abs(min(sgn*bs["bands"]["1"][cbm_vbm[type]["bidx"]+sgn*cbm_vbm[type]["included"]])-sgn*cbm_vbm[type]["energy"])<self.max_e_range:
                 cbm_vbm[type]["included"] += 1
 
-        # TODO: change this later if the band indecies are fixed in Analytical_band class
+# TODO: change this later if the band indecies are fixed in Analytical_band class
         cbm_vbm["p"]["bidx"] += 1
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
 
@@ -228,11 +234,6 @@ class AMSET(object):
 
 
 
-        #TODO remove this later because the center point doesn't have to be there:
-        # if center_kpt not in kpts:
-        #     kpts.append(center_kpt)
-
-
         # kpts = np.array(kpts)
         print(len(kpts))
         # initialize the kgrid
@@ -266,9 +267,9 @@ class AMSET(object):
                     self.kgrid[type]["energy"][ib][idx] = energy * Ry_to_eV
                     # self.kgrid[type]["velocity"][ib][idx] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
                     self.kgrid[type]["velocity"][ib][idx] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
-                    # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
-                    # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
-                    #TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
+# TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
+# TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
+# TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
                     self.kgrid[type]["effective mass"][ib][idx] = hbar ** 2 / (
                     dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                     self.kgrid[type]["a"][ib][idx] = 1.0
@@ -276,7 +277,8 @@ class AMSET(object):
             self.cbm_vbm[type]["energy"] = sgn*min(sgn*np.array(self.kgrid[type]["energy"][0]))
 
         print self.cbm_vbm
-        if True: # TODO: later add a more sophisticated DOS function, if developed
+# TODO: later add a more sophisticated DOS function, if developed
+        if True:
             self.init_egrid(dos_type = "simple")
         else:
             pass
@@ -339,7 +341,7 @@ class AMSET(object):
 
                     # print sum
                     # fix this! there are scattering rates close to 1e24!!!! check with bands included=1 (override!) and see what happens becaues before I was getting 1e12!
-                    # TODO: the units seem to be correct but I still get 1e24 order, perhaps divide this expression by that of aMoBT to see what differs.
+# TODO: the units seem to be correct but I still get 1e24 order, perhaps divide this expression by that of aMoBT to see what differs.
                     self.kgrid[type]["nu_II"][ib][idx] = abs(sum) * e ** 4 * self.N_II /\
                         (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27 # coverted to 1/s
 
@@ -367,9 +369,6 @@ class AMSET(object):
 
         self.grid = {"kgrid": self.kgrid,
                      "egrid": self.egrid}
-
-        # for idx, dist
-        #TODO: make the kgrid fill it out
 
 
 
@@ -416,14 +415,14 @@ class AMSET(object):
                         dE = abs(self.egrid[type]["energy"][ie+1] - E)/interpolation_nsteps
                         dS = (self.egrid[type]["DOS"][ie+1] - self.egrid[type]["DOS"][ie])/interpolation_nsteps
                         for i in range(interpolation_nsteps):
+# TODO:The DOS used is too simplistic and wrong (e.g., calc_doping might hit a limit), try 2*[2pim_hk_BT/hbar**2]**1.5
                             integral += dE*(self.egrid[type]["DOS"][ie]+i*dS)*(j-sgn*self.f0(E+i*dE,fermi,T))
-                    temp_doping[type] = sgn * abs(integral/self.volume / (A_to_m*m_to_cm)**3)
+                    temp_doping[type] = sgn * abs(integral*self.nelec/self.volume / (A_to_m*m_to_cm)**3)
                 if abs(temp_doping["n"] + temp_doping["p"] - c) < abs(calc_doping - c):
                     calc_doping = temp_doping["n"] + temp_doping["p"]
                     fermi_selected = fermi
             fermi0 = fermi_selected
             iter += 1
-        print fermi_selected
         # evaluate the calculated carrier concentration (Fermi level)
         relative_error = abs(calc_doping - c)/abs(c)
         if relative_error > tolerance and relative_error <= tolerance_loose:
@@ -437,6 +436,14 @@ class AMSET(object):
 
 
     def inverse_screening_length(self, type, fermi, T, interpolation_nsteps = 100):
+        """
+        calculates the inverse screening length (beta) in 1/nm units
+        :param type:
+        :param fermi:
+        :param T:
+        :param interpolation_nsteps:
+        :return:
+        """
         integral = 0.0
         for ie in range(len(self.egrid[type]) - 1):
             E = self.egrid[type]["energy"][ie]
@@ -444,6 +451,10 @@ class AMSET(object):
             dS = (self.egrid[type]["DOS"][ie + 1] - self.egrid[type]["DOS"][ie]) / interpolation_nsteps
             for i in range(interpolation_nsteps):
                 integral += dE*(self.egrid[type]["DOS"][ie] + i*dS)*self.f0(E+i*dE, fermi, T)*(1-self.f0(E+i*dE, fermi, T))
+
+        beta = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
+        return beta
+
 
 def to_json(self, filename="grid.json"):
         del(self.grid["kgrid"]["actual kpoints"])
