@@ -112,6 +112,8 @@ class AMSET(object):
 
         self.cbm_vbm = cbm_vbm
 
+
+
     def get_type(self, c):
         """returns "n" for n-type or negative carrier concentration or "p" (p-type)."""
         if c < 0:
@@ -120,6 +122,8 @@ class AMSET(object):
             return "p"
         else:
             raise ValueError("The carrier concentration cannot be zero! AMSET stops now!")
+
+
 
     @staticmethod
     def f0(E, fermi, T):
@@ -152,6 +156,8 @@ class AMSET(object):
                abs(self.egrid["calc_doping"][c][T]["p"]) * self.charge["p"] ** 2 + \
                self.N_dis/self.volume**(1/3)*1e8*self.charge["dislocations"]** 2
         return N_II
+
+
 
     def init_egrid(self, dos_type="simple"):
         """
@@ -321,10 +327,10 @@ class AMSET(object):
 
         c = self.dopings[0]
         T = self.temperatures[0]
+
         # Ionized Impurity
         for type in ["n", "p"]:
             self.egrid[type]["nu_II"] = {c:{T: np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
-            # self.egrid[type]["nu_II"] = np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))])
             self.kgrid[type]["nu_II"] = \
                 np.array([[[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])])
             for idx in range(len(self.kgrid["kpoints"])):
@@ -497,7 +503,7 @@ class AMSET(object):
         return beta
 
 
-def to_json(self, filename="grid.json"):
+    def to_json(self, filename="grid.json"):
         del(self.grid["kgrid"]["actual kpoints"])
         remove_list = ["effective mass"]
         for type in ["n", "p"]:
