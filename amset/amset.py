@@ -11,6 +11,7 @@ from scipy.constants.codata import value as _cd
 from math import pi
 import os
 import json
+from monty.json import MontyEncoder
 
 # global constants
 hbar = _cd('Planck constant in eV s')/(2*pi)
@@ -168,6 +169,9 @@ class AMSET(object):
         """
 
         self.egrid = {
+            # "energy": {"n": [], "p": []},
+            # "DOS": {"n": [], "p": []},
+            # "all_en_flat": {"n": [], "p": []},
             "n": {"energy": [], "DOS": [], "all_en_flat": []},
             "p": {"energy": [], "DOS": [], "all_en_flat": []}
              }
@@ -328,7 +332,7 @@ class AMSET(object):
         c = self.dopings[0]
         T = self.temperatures[0]
 
-        # Ionized Impurity
+        # ionized impurity
         for type in ["n", "p"]:
             self.egrid[type]["nu_II"] = {c:{T: np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
             self.kgrid[type]["nu_II"] = \
@@ -515,11 +519,11 @@ class AMSET(object):
             "e-nu_II": {"n": self.grid["egrid"]["n"]["nu_II"], "p": self.grid["egrid"]["p"]["nu_II"]}
              }
         with open(filename, 'w') as fp:
-            json.dump(self.grid, fp,sort_keys = True, indent = 4, ensure_ascii=False)
+            json.dump(self.grid, fp,sort_keys = True, indent = 4, ensure_ascii=False, cls=MontyEncoder)
 
 if __name__ == "__main__":
 
     # test
     AMSET = AMSET()
     AMSET.generate_kgrid(coeff_file=coeff_file, kgrid_type="coarse")
-    # AMSET.to_json()
+    AMSET.to_json()
