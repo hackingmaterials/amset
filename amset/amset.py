@@ -58,7 +58,7 @@ class AMSET(object):
 
                  N_dis=None,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
-        self.dE_global = 0.0001 # in eV, the energy difference threshold before which two energy values are assumed equal
+        self.dE_global = 0.0001 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e21] # 1/cm**3 list of carrier concentrations
         self.temperatures = [300, 600] # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -104,7 +104,8 @@ class AMSET(object):
 
         for i, type in enumerate(["n", "p"]):
             sgn = (-1)**i
-            while abs(min(sgn*bs["bands"]["1"][cbm_vbm[type]["bidx"]+sgn*cbm_vbm[type]["included"]])-sgn*cbm_vbm[type]["energy"])<self.max_e_range:
+            while abs(min(sgn*bs["bands"]["1"][cbm_vbm[type]["bidx"]+sgn*cbm_vbm[type]["included"]])-
+                                      sgn*cbm_vbm[type]["energy"])<self.max_e_range:
                 cbm_vbm[type]["included"] += 1
 
 # TODO: change this later if the band indecies are fixed in Analytical_band class
@@ -189,7 +190,8 @@ class AMSET(object):
             while i<len(self.egrid[type]["all_en_flat"])-1:
                 sum = self.egrid[type]["all_en_flat"][i]
                 counter = 1.0
-                while i<len(self.egrid[type]["all_en_flat"])-1 and abs(self.egrid[type]["all_en_flat"][i]-self.egrid[type]["all_en_flat"][i+1]) < self.dE_global:
+                while i<len(self.egrid[type]["all_en_flat"])-1 and \
+                        abs(self.egrid[type]["all_en_flat"][i]-self.egrid[type]["all_en_flat"][i+1]) < self.dE_global:
                     counter += 1
                     sum += self.egrid[type]["all_en_flat"][i+1]
                     if i+1 == len(self.egrid[type]["all_en_flat"])-1:
@@ -234,7 +236,7 @@ class AMSET(object):
             the cosine of the angle between twp numpy vectors: v1 and v2"""
         norm_v1, norm_v2 = np.linalg.norm(v1), np.linalg.norm(v2)
         if norm_v1 == 0 or norm_v2 == 0:
-            return 1.0  # In case of the two points is the origin, we assume 0 degree; i.e. no scattering because of 1-X term
+            return 1.0  # In case of the two points are the origin, we assume 0 degree; i.e. no scattering: 1-X==0
         else:
             return np.dot(v1, v2) / (norm_v1 * norm_v2)
 
@@ -273,22 +275,22 @@ class AMSET(object):
         # initialize the kgrid
         self.kgrid = {
                 "kpoints": kpts,
-                # "actual kpoints": np.dot(kpts-center_kpt, self._lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
                 "actual kpoints": np.dot(np.array(kpts), self._lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
                 "n": {},
                 "p": {}
                 }
-        # actual_kcenter = np.dot(center_kpt, self._lattice_matrix)*2*pi*1/A_to_nm
-        # self.kgrid["distance"] = [np.linalg.norm(actual_kpoint-actual_kcenter) for actual_kpoint in self.kgrid["actual kpoints"]]
         for type in ["n", "p"]:
             for property in ["energy", "a", "c"]:
-                self.kgrid[type][property] = [ [0.0 for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])]
+                self.kgrid[type][property] = [ [0.0 for i in range(len(kpts))] for j in
+                                                                                range(self.cbm_vbm[type]["included"])]
             for property in ["velocity"]:
                 self.kgrid[type][property] = \
                 np.array([ [[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])])
             self.kgrid[type]["effective mass"] = \
-                [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in range(self.cbm_vbm[type]["included"])]
-
+                [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
+                                                                                range(self.cbm_vbm[type]["included"])]
+            for scattering in ["elastic", "inelastic"]:
+                self.kgrid[type][scattering] = {}
 
 
     def run(self, coeff_file, kgrid_type="coarse"):
@@ -308,7 +310,8 @@ class AMSET(object):
         for i, type in enumerate(["n", "p"]):
             sgn = (-1)**i
             for ib in range(self.cbm_vbm[type]["included"]):
-                engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=self.cbm_vbm[type]["bidx"]+sgn*ib)
+                engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
+                    analytical_bands.get_engre(iband=self.cbm_vbm[type]["bidx"]+sgn*ib)
                 for ik in range(len(self.kgrid["kpoints"])):
                     energy, de, dde = analytical_bands.get_energy(
                         self.kgrid["kpoints"][ik], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
@@ -352,7 +355,8 @@ class AMSET(object):
                             # We might not need this because of the (1-X) terms in scattering going to zero when X==1
                             # if ik_prime == idx and ib == ib_prime:
                             #     continue
-                            if abs(self.kgrid[type]["energy"][ib][ik]-self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                            if abs(self.kgrid[type]["energy"][ib][ik]-self.kgrid[type]["energy"][ib_prime][ik_prime]) \
+                                                                                                    < self.dE_global:
                                 k = self.kgrid["actual kpoints"][ik]
                                 X = self.cos_angle(k,self.kgrid["actual kpoints"][ik_prime])
                                 X_and_idx.append((X, ib_prime, ik_prime))
@@ -386,7 +390,7 @@ class AMSET(object):
                                     # We take |v| as scattering depends on the velocity itself and not the direction
 
                             dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
-                            sum[alpha] += dum*DeltaX # If there are two points with the same X, DeltaX==0 so no duplicates
+                            sum[alpha] += dum*DeltaX # In case of two points with the same X, DeltaX==0 so no duplicates
                             # print "here"
                             # print sum
                             # print (1-X)
@@ -482,7 +486,8 @@ class AMSET(object):
             warnings.warn("The calculated concentration {} is not accurate compared to {}; results may be unreliable"
                           .format(calc_doping, c))
         elif relative_error > tolerance_loose:
-            raise ValueError("The calculated concentration {} is more than {}% away from {}; possible cause may low band gap, high temperature, small nsteps, etc; AMSET stops now!"
+            raise ValueError("The calculated concentration {} is more than {}% away from {}; "
+                             "possible cause may low band gap, high temperature, small nsteps, etc; AMSET stops now!"
                              .format(calc_doping, tolerance_loose*100, c))
         return fermi_selected
 
@@ -509,7 +514,8 @@ class AMSET(object):
             dS = (self.egrid[type]["DOS"][ie + 1] - self.egrid[type]["DOS"][ie]) / interpolation_nsteps
             for i in range(interpolation_nsteps):
 # TODO: The DOS needs to be revised, if a more accurate DOS is implemented
-                integral += dE*(self.egrid[type]["DOS"][ie]*self.nelec + i*dS)*self.f0(E+i*dE, fermi, T)*(1-self.f0(E+i*dE, fermi, T))
+                integral += dE*(self.egrid[type]["DOS"][ie]*self.nelec + i*dS)*self.f0(E+i*dE, fermi, T)*\
+                            (1-self.f0(E+i*dE, fermi, T))
 
         beta = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
         return beta
