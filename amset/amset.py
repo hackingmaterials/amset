@@ -258,7 +258,7 @@ class AMSET(object):
         ky = kz = kx
         # ky = list(np.linspace(0.26, 0.76, nstep))
         # kz = list(np.linspace(0.24, 0.74, nstep))
-        kpts = [[x, y, z] for x in kx for y in ky for z in kz]
+        kpts = np.array([[x, y, z] for x in kx for y in ky for z in kz])
 
 
         # # Total range around the center k-point
@@ -307,8 +307,8 @@ class AMSET(object):
             for ib in range(self.cbm_vbm[type]["included"]):
                 engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=self.cbm_vbm[type]["bidx"]+sgn*ib)
                 for idx in range(len(self.kgrid["kpoints"])):
-                    energy, de, dde = analytical_bands.get_energy(self.kgrid["kpoints"][idx], engre, latt_points, nwave, nsym,
-                                                              nsymop, symop, br_dir)
+                    energy, de, dde = analytical_bands.get_energy(
+                        self.kgrid["kpoints"][idx], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
 
                     self.kgrid[type]["energy"][ib][idx] = energy * Ry_to_eV
                     # self.kgrid[type]["velocity"][ib][idx] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
