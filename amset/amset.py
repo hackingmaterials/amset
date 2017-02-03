@@ -240,17 +240,7 @@ class AMSET(object):
 
 
 
-    def generate_kgrid(self, coeff_file, kgrid_type="coarse"):
-        """
-        Function to generate a grid of k-points and generate en, v, and effective mass on that
-
-        :param center_kpt:
-        :param coeff_file:
-        :param cbm_bidx:
-        :param grid_type:
-        :return:
-        """
-
+    def init_kgrid(self, kgrid_type="coarse"):
         if kgrid_type=="coarse":
             nstep = 3
         # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
@@ -278,8 +268,6 @@ class AMSET(object):
         #                              center_kpt[2] - rang / 2.0 + k * step]
         #             counter += 1
 
-
-
         # kpts = np.array(kpts)
         print(len(kpts))
         # initialize the kgrid
@@ -300,6 +288,21 @@ class AMSET(object):
                 np.array([ [[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])])
             self.kgrid[type]["effective mass"] = \
                 [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in range(self.cbm_vbm[type]["included"])]
+
+
+
+    def run(self, coeff_file, kgrid_type="coarse"):
+        """
+        Function to run AMSET generate a grid of k-points and generate en, v, and effective mass on that
+
+        :param center_kpt:
+        :param coeff_file:
+        :param cbm_bidx:
+        :param grid_type:
+        :return:
+        """
+
+        self.init_kgrid(kgrid_type=kgrid_type)
 
         analytical_bands = Analytical_bands(coeff_file=coeff_file)
         for i, type in enumerate(["n", "p"]):
@@ -337,7 +340,8 @@ class AMSET(object):
             self.egrid[type]["nu_II"]={c:{T:np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))])
                                           for T in self.temperatures} for c in self.dopings}
             self.kgrid[type]["nu_II"] = \
-                np.array([[[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])])
+                np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))] for j in
+                          range(self.cbm_vbm[type]["included"])])
             for ik in range(len(self.kgrid["kpoints"])):
                 for ib in range(len(self.kgrid[type]["energy"])):
 
@@ -529,5 +533,5 @@ if __name__ == "__main__":
 
     # test
     AMSET = AMSET()
-    AMSET.generate_kgrid(coeff_file=coeff_file, kgrid_type="coarse")
+    AMSET.run(coeff_file=coeff_file, kgrid_type="coarse")
     AMSET.to_json()
