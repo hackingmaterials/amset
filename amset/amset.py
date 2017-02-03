@@ -291,10 +291,19 @@ class AMSET(object):
                                                                                 range(self.cbm_vbm[type]["included"])]
             for scattering in ["elastic", "inelastic"]:
                 self.kgrid[type][scattering] = {}
+
             # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
             for angle_index_for_integration in ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]:
                 self.kgrid[type][angle_index_for_integration] =  [ [ [] for i in range(len(kpts))] for j in
                                                                                 range(self.cbm_vbm[type]["included"])]
+
+
+    def s_el_eq(self, sname, c, T, k, k_prime):
+        if sname in ["IMP"]:
+            unit_conversion = 0.001 / e**2
+            return unit_conversion * e ** 4 * self.egrid["N_II"][c][T] /\
+                        (4 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* np.linalg.norm(k - k_prime) ** 2 \
+                                    / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2)
 
 
 
@@ -340,104 +349,20 @@ class AMSET(object):
         else:
             pass
 
-        c = self.dopings[0]
-        T = self.temperatures[0]
+        for ik in range(len(self.kgrid["kpoints"])):
+            for ib in range(len(self.kgrid[type]["energy"])):
+                for ib_prime in range(len(self.kgrid[type]["energy"])):
+                    for ik_prime in range(len(self.kgrid["kpoints"])):
+                        if abs(self.kgrid[type]["energy"][ib][ik] - self.kgrid[type]["energy"][ib_prime][ik_prime]) \
+                                < self.dE_global:
+                            k = self.kgrid["actual kpoints"][ik]
+                            X = self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime])
+                            self.kgrid[type]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
+                self.kgrid[type]["X_E_ik"][ib][ik].sort()
 
-    # def S_IMP(self, c, T, k, k_prime):
-    #     return e ** 4 * self.egrid["N_II"][c][T] /\
-    #                     (4 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* np.linalg.norm(k - k_prime) ** 2 \
-    #                                 / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2
 
-    # def S_elastic(self, sname, s_func ):
-    #     """
-    #     the scattering rate equation for each elastic scattering name is entered in s_func and returned the integrated
-    #     scattering rate.
-    #     :param sname (st): the name of the type of elastic scattering, options are 'IMP', 'ADE', 'PIE', 'POP', 'DIS'
-    #     :param s_func:
-    #     :return:
-    #     """
-        sname = "nu_II"
-        # ionized impurity
-        for type in ["n", "p"]:
-            self.egrid[type][sname]={c:{T:np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))])
-                                          for T in self.temperatures} for c in self.dopings}
-            self.kgrid[type][sname] = \
-                np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))] for j in
-                          range(self.cbm_vbm[type]["included"])])
-            for ik in range(len(self.kgrid["kpoints"])):
-                for ib in range(len(self.kgrid[type]["energy"])):
 
-                    # preparation for integration of IMP scattering
-                    # X_E_ik = []
-                    # X_Eplus_ik = []
-                    # X_Eminus_ik = []
-                    # X_and_idx = []
-                    for ib_prime in range(len(self.kgrid[type]["energy"])):
-                        for ik_prime in range(len(self.kgrid["kpoints"])):
-                            # We might not need this because of the (1-X) terms in scattering going to zero when X==1
-                            # if ik_prime == idx and ib == ib_prime:
-                            #     continue
-                            if abs(self.kgrid[type]["energy"][ib][ik]-self.kgrid[type]["energy"][ib_prime][ik_prime]) \
-                                                                                                    < self.dE_global:
-                                k = self.kgrid["actual kpoints"][ik]
-                                X = self.cos_angle(k,self.kgrid["actual kpoints"][ik_prime])
-                                self.kgrid[type]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
-                    self.kgrid[type]["X_E_ik"][ib][ik].sort()
-                    # print "X_and_idx"
-                    # print X_and_idx
-
-                    # integrate over X (the angle between the k vectors)
-                    sum = np.array([0.0, 0.0, 0.0])
-                    for i in range(len(self.kgrid[type]["X_E_ik"][ib][ik])-1):
-                        DeltaX = self.kgrid[type]["X_E_ik"][ib][ik][i+1][0]-self.kgrid[type]["X_E_ik"][ib][ik][i][0]
-                        if DeltaX == 0.0:
-                            continue
-                        for alpha in range(3):
-                        # for alpha in range(0):
-                            dum = 0
-                            for j in range(2):
-                            # if True:
-                                # extract the indecies
-                                X, ib_prime, ik_prime = self.kgrid[type]["X_E_ik"][ib][ik][i+j]
-                                k_prime = self.kgrid["actual kpoints"][ik_prime]
-                                # print "cosine of angle:"
-                                # print X
-                                # if self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha] < 1:
-                                #     continue
-                                # if X > 0.5:
-                                dum += (1 - X) * self.G(type, ib, ik, ib_prime, ik_prime, X) ** 2 \
-                                    * np.linalg.norm(k - k_prime) ** 2 \
-                                    / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2
-                                    * abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha]))
-                                    # We take |v| as scattering depends on the velocity itself and not the direction
-
-                            dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
-                            sum[alpha] += dum*DeltaX # In case of two points with the same X, DeltaX==0 so no duplicates
-                            # print "here"
-                            # print sum
-                            # print (1-X)
-                            # print np.linalg.norm(k_prime) ** 2
-                            # print 1/self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha]
-                            # print DeltaX
-
-                    # print sum
-                    # fix this! there are scattering rates close to 1e24!!!! check with bands included=1 (override!) and see what happens becaues before I was getting 1e12!
-# TODO: the units seem to be correct but I still get 1e24 order, perhaps divide this expression by that of aMoBT to see what differs.
-                    self.kgrid[type]["nu_II"][ib][ik] = abs(sum) * e ** 4 * self.egrid["N_II"][c][T] /\
-                        (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27 # coverted to 1/s
-
-        c = self.dopings[0]
-        T = self.temperatures[0]
-        # Map from k-space to energy-space
-        for type in ["n", "p"]:
-            for ie, en in enumerate(self.egrid[type]["energy"]):
-                N = 0 # total number of instances with the same energy
-                for idx in range(len(self.kgrid["kpoints"])):
-                    for ib in range(len(self.kgrid[type]["energy"])):
-                        if abs(self.kgrid[type]["energy"][ib][idx] - en) < self.dE_global:
-                            self.egrid[type]["nu_II"][c][T][ie] += self.kgrid[type]["nu_II"][ib][idx]
-                            N += 1
-                self.egrid[type]["nu_II"][c][T][ie] /= N
+        self.s_elastic(sname="IMP")
 
         if self.wordy:
             pprint(self.egrid)
@@ -450,6 +375,65 @@ class AMSET(object):
 
         self.grid = {"kgrid": self.kgrid,
                      "egrid": self.egrid}
+
+
+
+    def s_elastic(self, sname="IMP"):
+        """
+        the scattering rate equation for each elastic scattering name is entered in s_func and returned the integrated
+        scattering rate.
+        :param sname (st): the name of the type of elastic scattering, options are 'IMP', 'ADE', 'PIE', 'POP', 'DIS'
+        :param s_func:
+        :return:
+        """
+        # ionized impurity
+        for c in self.dopings:
+            for T in self.temperatures:
+                for type in ["n", "p"]:
+                    self.egrid[type][sname]={c:{T:np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))])
+                                                  for T in self.temperatures} for c in self.dopings}
+                    self.kgrid[type][sname] = \
+                        np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))] for j in
+                                  range(self.cbm_vbm[type]["included"])])
+                    for ik in range(len(self.kgrid["kpoints"])):
+                        for ib in range(len(self.kgrid[type]["energy"])):
+
+                            # integrate over X (the angle between the k vectors)
+                            sum = np.array([0.0, 0.0, 0.0])
+                            for i in range(len(self.kgrid[type]["X_E_ik"][ib][ik])-1):
+                                DeltaX = self.kgrid[type]["X_E_ik"][ib][ik][i+1][0]-self.kgrid[type]["X_E_ik"][ib][ik][i][0]
+                                if DeltaX == 0.0:
+                                    continue
+                                for alpha in range(3):
+                                    dum = 0
+                                    for j in range(2):
+                                        # extract the indecies
+                                        X, ib_prime, ik_prime = self.kgrid[type]["X_E_ik"][ib][ik][i+j]
+                                        k = self.kgrid["actual kpoints"][ik]
+                                        k_prime = self.kgrid["actual kpoints"][ik_prime]
+
+                                        dum += (1 - X) * self.s_el_eq(sname, c, T, k, k_prime) \
+                                                * self.G(type, ib, ik, ib_prime, ik_prime, X) ** 2 \
+                                                / abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha])
+                                            # We take |v| as scattering depends on the velocity itself and not the direction
+
+                                    dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
+                                    sum[alpha] += dum*DeltaX # In case of two points with the same X, DeltaX==0 so no duplicates
+
+                            self.kgrid[type][sname][ib][ik] = abs(sum) *2e-7*pi/hbar
+                            # self.kgrid[type][sname][ib][ik] = abs(sum) * e ** 4 * self.egrid["N_II"][c][T] /\
+                            #     (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27 # coverted to 1/s
+
+                # Map from k-space to energy-space
+                for type in ["n", "p"]:
+                    for ie, en in enumerate(self.egrid[type]["energy"]):
+                        N = 0 # total number of instances with the same energy
+                        for idx in range(len(self.kgrid["kpoints"])):
+                            for ib in range(len(self.kgrid[type]["energy"])):
+                                if abs(self.kgrid[type]["energy"][ib][idx] - en) < self.dE_global:
+                                    self.egrid[type][sname][c][T][ie] += self.kgrid[type][sname][ib][idx]
+                                    N += 1
+                        self.egrid[type][sname][c][T][ie] /= N
 
 
 
