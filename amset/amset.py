@@ -334,7 +334,8 @@ class AMSET(object):
 
         # ionized impurity
         for type in ["n", "p"]:
-            self.egrid[type]["nu_II"] = {c:{T: np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
+            self.egrid[type]["nu_II"]={c:{T:np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))])
+                                          for T in self.temperatures} for c in self.dopings}
             self.kgrid[type]["nu_II"] = \
                 np.array([[[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])])
             for ik in range(len(self.kgrid["kpoints"])):
