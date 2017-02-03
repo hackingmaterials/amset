@@ -71,7 +71,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
-
+        self.W_POP = 10e12 # POP frequency in Hz
 
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
@@ -277,8 +277,9 @@ class AMSET(object):
                 "kpoints": kpts,
                 "actual kpoints": np.dot(np.array(kpts), self._lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
                 "n": {},
-                "p": {}
-                }
+                "p": {},
+                "W_POP": [self.W_POP for i in range(len(kpts))]
+                    }
         for type in ["n", "p"]:
             for property in ["energy", "a", "c"]:
                 self.kgrid[type][property] = [ [0.0 for i in range(len(kpts))] for j in
@@ -292,11 +293,6 @@ class AMSET(object):
             for scattering in ["elastic", "inelastic"]:
                 self.kgrid[type][scattering] = {}
 
-            # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
-            for angle_index_for_integration in ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]:
-                self.kgrid[type][angle_index_for_integration] =  [ [ [] for i in range(len(kpts))] for j in
-                                                                                range(self.cbm_vbm[type]["included"])]
-
 
     def s_el_eq(self, sname, c, T, k, k_prime):
         if sname in ["IMP"]:
@@ -304,6 +300,36 @@ class AMSET(object):
             return unit_conversion * e ** 4 * self.egrid["N_II"][c][T] /\
                         (4 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* np.linalg.norm(k - k_prime) ** 2 \
                                     / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2)
+
+
+
+    def generate_angles_and_indexes_for_integration(self):
+        # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
+        for angle_index_for_integration in ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]:
+            for type in ["n", "p"]:
+                self.kgrid[type][angle_index_for_integration] = [ [ [] for i in range(len(self.kgrid["kpoints"])) ]
+                                                                  for j in range(self.cbm_vbm[type]["included"]) ]
+
+        for ik in range(len(self.kgrid["kpoints"])):
+            for ib in range(len(self.kgrid[type]["energy"])):
+                for ib_prime in range(len(self.kgrid[type]["energy"])):
+                    for ik_prime in range(len(self.kgrid["kpoints"])):
+                        k = self.kgrid["actual kpoints"][ik]
+                        X = self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime])
+
+                        if abs(self.kgrid[type]["energy"][ib][ik] -
+                                       self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                            self.kgrid[type]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
+                        if abs( (self.kgrid[type]["energy"][ib][ik] +  hbar * self.kgrid["W_POP"][ik] ) \
+                                             - self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                            self.kgrid[type]["X_Eplus_ik"][ib][ik].append((X, ib_prime, ik_prime))
+                        if abs( (self.kgrid[type]["energy"][ib][ik] -  hbar * self.kgrid["W_POP"][ik] ) \
+                                             - self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                            self.kgrid[type]["X_Eminus_ik"][ib][ik].append((X, ib_prime, ik_prime))
+
+                self.kgrid[type]["X_E_ik"][ib][ik].sort()
+                self.kgrid[type]["X_Eplus_ik"][ib][ik].sort()
+                self.kgrid[type]["X_Eminus_ik"][ib][ik].sort()
 
 
 
@@ -349,18 +375,7 @@ class AMSET(object):
         else:
             pass
 
-        for ik in range(len(self.kgrid["kpoints"])):
-            for ib in range(len(self.kgrid[type]["energy"])):
-                for ib_prime in range(len(self.kgrid[type]["energy"])):
-                    for ik_prime in range(len(self.kgrid["kpoints"])):
-                        if abs(self.kgrid[type]["energy"][ib][ik] - self.kgrid[type]["energy"][ib_prime][ik_prime]) \
-                                < self.dE_global:
-                            k = self.kgrid["actual kpoints"][ik]
-                            X = self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime])
-                            self.kgrid[type]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
-                self.kgrid[type]["X_E_ik"][ib][ik].sort()
-
-
+        self.generate_angles_and_indexes_for_integration()
 
         self.s_elastic(sname="IMP")
 
