@@ -306,19 +306,19 @@ class AMSET(object):
             sgn = (-1)**i
             for ib in range(self.cbm_vbm[type]["included"]):
                 engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=self.cbm_vbm[type]["bidx"]+sgn*ib)
-                for idx in range(len(self.kgrid["kpoints"])):
+                for ik in range(len(self.kgrid["kpoints"])):
                     energy, de, dde = analytical_bands.get_energy(
-                        self.kgrid["kpoints"][idx], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
+                        self.kgrid["kpoints"][ik], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
 
-                    self.kgrid[type]["energy"][ib][idx] = energy * Ry_to_eV
-                    # self.kgrid[type]["velocity"][ib][idx] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
-                    self.kgrid[type]["velocity"][ib][idx] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
+                    self.kgrid[type]["energy"][ib][ik] = energy * Ry_to_eV
+                    # self.kgrid[type]["velocity"][ib][ik] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
+                    self.kgrid[type]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
 # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
 # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
 # TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
-                    self.kgrid[type]["effective mass"][ib][idx] = hbar ** 2 / (
+                    self.kgrid[type]["effective mass"][ib][ik] = hbar ** 2 / (
                     dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
-                    self.kgrid[type]["a"][ib][idx] = 1.0
+                    self.kgrid[type]["a"][ib][ik] = 1.0
             # Match the CBM/VBM energy values to those obtained from the coefficients file rather than vasprun.xml
             self.cbm_vbm[type]["energy"] = sgn*min(sgn*np.array(self.kgrid[type]["energy"][0]))
 
@@ -337,7 +337,7 @@ class AMSET(object):
             self.egrid[type]["nu_II"] = {c:{T: np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
             self.kgrid[type]["nu_II"] = \
                 np.array([[[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[type]["included"])])
-            for idx in range(len(self.kgrid["kpoints"])):
+            for ik in range(len(self.kgrid["kpoints"])):
                 for ib in range(len(self.kgrid[type]["energy"])):
 
                     # preparation for integration of II scattering
@@ -347,8 +347,8 @@ class AMSET(object):
                             # We might not need this because of the (1-X) terms in scattering going to zero when X==1
                             # if ik_prime == idx and ib == ib_prime:
                             #     continue
-                            if abs(self.kgrid[type]["energy"][ib][idx]-self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
-                                k = self.kgrid["actual kpoints"][idx]
+                            if abs(self.kgrid[type]["energy"][ib][ik]-self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                                k = self.kgrid["actual kpoints"][ik]
                                 X = self.cos_angle(k,self.kgrid["actual kpoints"][ik_prime])
                                 X_and_idx.append((X, ib_prime, ik_prime))
                     X_and_idx.sort()
@@ -374,7 +374,7 @@ class AMSET(object):
                                 # if self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha] < 1:
                                 #     continue
                                 # if X > 0.5:
-                                dum += (1 - X) * self.G(type, ib, idx, ib_prime, ik_prime, X) ** 2 \
+                                dum += (1 - X) * self.G(type, ib, ik, ib_prime, ik_prime, X) ** 2 \
                                     * np.linalg.norm(k - k_prime) ** 2 \
                                     / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2
                                     * abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha]))
@@ -392,7 +392,7 @@ class AMSET(object):
                     # print sum
                     # fix this! there are scattering rates close to 1e24!!!! check with bands included=1 (override!) and see what happens becaues before I was getting 1e12!
 # TODO: the units seem to be correct but I still get 1e24 order, perhaps divide this expression by that of aMoBT to see what differs.
-                    self.kgrid[type]["nu_II"][ib][idx] = abs(sum) * e ** 4 * self.egrid["N_II"][c][T] /\
+                    self.kgrid[type]["nu_II"][ib][ik] = abs(sum) * e ** 4 * self.egrid["N_II"][c][T] /\
                         (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27 # coverted to 1/s
 
         c = self.dopings[0]
