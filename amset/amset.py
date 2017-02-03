@@ -291,6 +291,10 @@ class AMSET(object):
                                                                                 range(self.cbm_vbm[type]["included"])]
             for scattering in ["elastic", "inelastic"]:
                 self.kgrid[type][scattering] = {}
+            # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
+            for angle_index_for_integration in ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]:
+                self.kgrid[type][angle_index_for_integration] =  [ [ [] for i in range(len(kpts))] for j in
+                                                                                range(self.cbm_vbm[type]["included"])]
 
 
 
@@ -352,19 +356,22 @@ class AMSET(object):
     #     :param s_func:
     #     :return:
     #     """
-
+        sname = "nu_II"
         # ionized impurity
         for type in ["n", "p"]:
-            self.egrid[type]["nu_II"]={c:{T:np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))])
+            self.egrid[type][sname]={c:{T:np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))])
                                           for T in self.temperatures} for c in self.dopings}
-            self.kgrid[type]["nu_II"] = \
+            self.kgrid[type][sname] = \
                 np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))] for j in
                           range(self.cbm_vbm[type]["included"])])
             for ik in range(len(self.kgrid["kpoints"])):
                 for ib in range(len(self.kgrid[type]["energy"])):
 
-                    # preparation for integration of II scattering
-                    X_and_idx = []
+                    # preparation for integration of IMP scattering
+                    # X_E_ik = []
+                    # X_Eplus_ik = []
+                    # X_Eminus_ik = []
+                    # X_and_idx = []
                     for ib_prime in range(len(self.kgrid[type]["energy"])):
                         for ik_prime in range(len(self.kgrid["kpoints"])):
                             # We might not need this because of the (1-X) terms in scattering going to zero when X==1
@@ -374,15 +381,15 @@ class AMSET(object):
                                                                                                     < self.dE_global:
                                 k = self.kgrid["actual kpoints"][ik]
                                 X = self.cos_angle(k,self.kgrid["actual kpoints"][ik_prime])
-                                X_and_idx.append((X, ib_prime, ik_prime))
-                    X_and_idx.sort()
+                                self.kgrid[type]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
+                    self.kgrid[type]["X_E_ik"][ib][ik].sort()
                     # print "X_and_idx"
                     # print X_and_idx
 
                     # integrate over X (the angle between the k vectors)
                     sum = np.array([0.0, 0.0, 0.0])
-                    for i in range(len(X_and_idx)-1):
-                        DeltaX = X_and_idx[i+1][0]-X_and_idx[i][0]
+                    for i in range(len(self.kgrid[type]["X_E_ik"][ib][ik])-1):
+                        DeltaX = self.kgrid[type]["X_E_ik"][ib][ik][i+1][0]-self.kgrid[type]["X_E_ik"][ib][ik][i][0]
                         if DeltaX == 0.0:
                             continue
                         for alpha in range(3):
@@ -391,7 +398,7 @@ class AMSET(object):
                             for j in range(2):
                             # if True:
                                 # extract the indecies
-                                X, ib_prime, ik_prime = X_and_idx[i+j]
+                                X, ib_prime, ik_prime = self.kgrid[type]["X_E_ik"][ib][ik][i+j]
                                 k_prime = self.kgrid["actual kpoints"][ik_prime]
                                 # print "cosine of angle:"
                                 # print X
@@ -537,17 +544,13 @@ class AMSET(object):
 
 
 
-    def to_json(self, filename="grid.json"):
+    def to_json(self, filename="grid.json", trimmed=False):
         del(self.grid["kgrid"]["actual kpoints"])
-        remove_list = ["effective mass"]
-        for type in ["n", "p"]:
-            for rm in remove_list:
-                del(self.grid["kgrid"][type][rm])
-        d = {
-            "kpoints": self.grid["kgrid"]["kpoints"],
-            "k-nu_II": {"n": self.grid["kgrid"]["n"]["nu_II"], "p": self.grid["kgrid"]["p"]["nu_II"]},
-            "e-nu_II": {"n": self.grid["egrid"]["n"]["nu_II"], "p": self.grid["egrid"]["p"]["nu_II"]}
-             }
+        remove_list = ["effective mass", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
+        if trimmed:
+            for type in ["n", "p"]:
+                for rm in remove_list:
+                    del(self.grid["kgrid"][type][rm])
         with open(filename, 'w') as fp:
             json.dump(self.grid, fp,sort_keys = True, indent = 4, ensure_ascii=False, cls=MontyEncoder)
 
@@ -556,4 +559,4 @@ if __name__ == "__main__":
     # test
     AMSET = AMSET()
     AMSET.run(coeff_file=coeff_file, kgrid_type="coarse")
-    AMSET.to_json()
+    AMSET.to_json(trimmed=True)
