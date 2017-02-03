@@ -215,6 +215,7 @@ class AMSET(object):
         self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
 
 
+
     def G(self, type, ib, ik, ib_prime, ik_prime, X):
         """
         The overlap integral betweek vectors k and k'
@@ -251,7 +252,6 @@ class AMSET(object):
         # ky = list(np.linspace(0.26, 0.76, nstep))
         # kz = list(np.linspace(0.24, 0.74, nstep))
         kpts = np.array([[x, y, z] for x in kx for y in ky for z in kz])
-
 
         # # Total range around the center k-point
         # rang = 0.14
@@ -291,6 +291,7 @@ class AMSET(object):
                                                                                 range(self.cbm_vbm[type]["included"])]
             for scattering in ["elastic", "inelastic"]:
                 self.kgrid[type][scattering] = {}
+
 
 
     def run(self, coeff_file, kgrid_type="coarse"):
@@ -337,6 +338,20 @@ class AMSET(object):
 
         c = self.dopings[0]
         T = self.temperatures[0]
+
+    # def S_IMP(self, c, T, k, k_prime):
+    #     return e ** 4 * self.egrid["N_II"][c][T] /\
+    #                     (4 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* np.linalg.norm(k - k_prime) ** 2 \
+    #                                 / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2
+
+    # def S_elastic(self, sname, s_func ):
+    #     """
+    #     the scattering rate equation for each elastic scattering name is entered in s_func and returned the integrated
+    #     scattering rate.
+    #     :param sname (st): the name of the type of elastic scattering, options are 'IMP', 'ADE', 'PIE', 'POP', 'DIS'
+    #     :param s_func:
+    #     :return:
+    #     """
 
         # ionized impurity
         for type in ["n", "p"]:
@@ -519,6 +534,7 @@ class AMSET(object):
 
         beta = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
         return beta
+
 
 
     def to_json(self, filename="grid.json"):
