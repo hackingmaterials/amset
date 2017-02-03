@@ -349,8 +349,7 @@ class AMSET(object):
                             #     continue
                             if abs(self.kgrid[type]["energy"][ib][idx]-self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
                                 k = self.kgrid["actual kpoints"][idx]
-                                k_prime = self.kgrid["actual kpoints"][ik_prime]
-                                X = self.cos_angle(k,k_prime)
+                                X = self.cos_angle(k,self.kgrid["actual kpoints"][ik_prime])
                                 X_and_idx.append((X, ib_prime, ik_prime))
                     X_and_idx.sort()
                     # print "X_and_idx"
@@ -369,13 +368,17 @@ class AMSET(object):
                             # if True:
                                 # extract the indecies
                                 X, ib_prime, ik_prime = X_and_idx[i+j]
+                                k_prime = self.kgrid["actual kpoints"][ik_prime]
                                 # print "cosine of angle:"
                                 # print X
                                 # if self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha] < 1:
                                 #     continue
                                 # if X > 0.5:
-                                dum += (1 - X) * self.G(type, ib, idx, ib_prime, ik_prime, X) ** 2 * np.linalg.norm(k-k_prime) ** 2 / \
-                                        ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2 * abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha])) # We take the absolute value of the velocity as the scattering depends on the velocity itself and not the direction
+                                dum += (1 - X) * self.G(type, ib, idx, ib_prime, ik_prime, X) ** 2 \
+                                    * np.linalg.norm(k - k_prime) ** 2 \
+                                    / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2
+                                    * abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha]))
+                                    # We take |v| as scattering depends on the velocity itself and not the direction
 
                             dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
                             sum[alpha] += dum*DeltaX # If there are two points with the same X, DeltaX==0 so no duplicates
