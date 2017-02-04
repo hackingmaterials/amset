@@ -71,7 +71,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
-        self.W_POP = 10e12 # POP frequency in Hz
+        self.W_POP = 10e12 * 2*pi # POP frequency in Hz
 
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
@@ -305,31 +305,31 @@ class AMSET(object):
 
     def generate_angles_and_indexes_for_integration(self):
         # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
-        for angle_index_for_integration in ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]:
-            for type in ["n", "p"]:
+        for type in ["n", "p"]:
+            for angle_index_for_integration in ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]:
                 self.kgrid[type][angle_index_for_integration] = [ [ [] for i in range(len(self.kgrid["kpoints"])) ]
                                                                   for j in range(self.cbm_vbm[type]["included"]) ]
+        for type in ["n", "p"]:
+            for ik in range(len(self.kgrid["kpoints"])):
+                for ib in range(len(self.kgrid[type]["energy"])):
+                    for ib_prime in range(len(self.kgrid[type]["energy"])):
+                        for ik_prime in range(len(self.kgrid["kpoints"])):
+                            k = self.kgrid["actual kpoints"][ik]
+                            X = self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime])
 
-        for ik in range(len(self.kgrid["kpoints"])):
-            for ib in range(len(self.kgrid[type]["energy"])):
-                for ib_prime in range(len(self.kgrid[type]["energy"])):
-                    for ik_prime in range(len(self.kgrid["kpoints"])):
-                        k = self.kgrid["actual kpoints"][ik]
-                        X = self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime])
+                            if abs(self.kgrid[type]["energy"][ib][ik] -
+                                           self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                                self.kgrid[type]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
+                            if abs( (self.kgrid[type]["energy"][ib][ik] +  hbar * self.kgrid["W_POP"][ik] ) \
+                                                 - self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                                self.kgrid[type]["X_Eplus_ik"][ib][ik].append((X, ib_prime, ik_prime))
+                            if abs( (self.kgrid[type]["energy"][ib][ik] -  hbar * self.kgrid["W_POP"][ik] ) \
+                                                 - self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                                self.kgrid[type]["X_Eminus_ik"][ib][ik].append((X, ib_prime, ik_prime))
 
-                        if abs(self.kgrid[type]["energy"][ib][ik] -
-                                       self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
-                            self.kgrid[type]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
-                        if abs( (self.kgrid[type]["energy"][ib][ik] +  hbar * self.kgrid["W_POP"][ik] ) \
-                                             - self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
-                            self.kgrid[type]["X_Eplus_ik"][ib][ik].append((X, ib_prime, ik_prime))
-                        if abs( (self.kgrid[type]["energy"][ib][ik] -  hbar * self.kgrid["W_POP"][ik] ) \
-                                             - self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
-                            self.kgrid[type]["X_Eminus_ik"][ib][ik].append((X, ib_prime, ik_prime))
-
-                self.kgrid[type]["X_E_ik"][ib][ik].sort()
-                self.kgrid[type]["X_Eplus_ik"][ib][ik].sort()
-                self.kgrid[type]["X_Eminus_ik"][ib][ik].sort()
+                    self.kgrid[type]["X_E_ik"][ib][ik].sort()
+                    self.kgrid[type]["X_Eplus_ik"][ib][ik].sort()
+                    self.kgrid[type]["X_Eminus_ik"][ib][ik].sort()
 
 
 
