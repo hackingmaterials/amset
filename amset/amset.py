@@ -72,7 +72,9 @@ class AMSET(object):
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
-
+        self.P_PIE = 0.15
+        self.E_D = {"n": 4.0, "p": 3.93}
+        self.C_el = 139.7 # [Gpa]: spherically averaged elastic constant
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
         vrun = Vasprun(os.path.join(path_dir, filename))
@@ -294,14 +296,6 @@ class AMSET(object):
                 self.kgrid[type][scattering] = {}
 
 
-    def s_el_eq(self, sname, c, T, k, k_prime):
-        if sname in ["IMP"]:
-            unit_conversion = 0.001 / e**2
-            return unit_conversion * e ** 4 * self.egrid["N_II"][c][T] /\
-                        (4 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* np.linalg.norm(k - k_prime) ** 2 \
-                                    / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2)
-
-
 
     def generate_angles_and_indexes_for_integration(self):
         # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
@@ -377,7 +371,9 @@ class AMSET(object):
 
         self.generate_angles_and_indexes_for_integration()
 
-        self.s_elastic(sname="IMP")
+        # calculate all the scattering rates:
+        for sname in ["IMP", "ACD", "PIE"]:
+            self.s_elastic(sname=sname)
 
         if self.wordy:
             pprint(self.egrid)
@@ -390,6 +386,35 @@ class AMSET(object):
 
         self.grid = {"kgrid": self.kgrid,
                      "egrid": self.egrid}
+
+
+
+    def s_el_eq(self, sname, c, T, k, k_prime):
+        """
+        return the scattering rate at wave vector k at a certain concentration and temperature
+        for a specific elastic scattering mechanisms determined by sname
+        :param sname (string): abbreviation of the name of the elastic scatteirng mechanisms; options: IMP, PIE, ADE, DIS
+        :param c:
+        :param T:
+        :param k:
+        :param k_prime:
+        :return:
+        """
+        if np.linalg.norm(k - k_prime) == 0:
+            return 0
+
+        if sname in ["IMP"]: # ionized impurity scattering
+            unit_conversion = 0.001 / e**2
+            return unit_conversion * e ** 4 * self.egrid["N_II"][c][T] /\
+                        (4 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* np.linalg.norm(k - k_prime) ** 2 \
+                                    / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2)
+        elif sname in ["ACD"]: # acoustic deformation potential scattering
+            unit_conversion = 1e18 * e
+            return unit_conversion * k_B * T * self.E_D[self.get_type(c)]**2 / (4 * pi**2 * hbar * self.C_el)
+        elif sname in ["PIE"]: # piezoelectric scattering
+            unit_conversion = 1e9/e
+            return unit_conversion * e**2 * k_B * T * self.P_PIE**2 \
+                   /(np.linalg.norm(k - k_prime) ** 2 * 4 * pi**2 * hbar * epsilon_0 * self.epsilon_s)
 
 
 
@@ -439,7 +464,9 @@ class AMSET(object):
                             # self.kgrid[type][sname][ib][ik] = abs(sum) * e ** 4 * self.egrid["N_II"][c][T] /\
                             #     (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27 # coverted to 1/s
 
-                # Map from k-space to energy-space
+        # Map from k-space to energy-space
+        for c in self.dopings:
+            for T in self.temperatures:
                 for type in ["n", "p"]:
                     for ie, en in enumerate(self.egrid[type]["energy"]):
                         N = 0 # total number of instances with the same energy
