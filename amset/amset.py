@@ -138,7 +138,7 @@ class AMSET(object):
 
     @staticmethod
     def df0dE(E, fermi, T):
-        return -1 * np.exp((E - fermi) / (k_B * T)) / (k_B * T * (np.exp((E - fermi) / (k_B * T)) + 1) ^ 2)
+        return -1 * np.exp((E - fermi) / (k_B * T)) / (k_B * T * (np.exp((E - fermi) / (k_B * T)) + 1) ** 2)
 
 
 
@@ -216,9 +216,10 @@ class AMSET(object):
                     self.egrid[type]["DOS"].append(1.0 / len(self.egrid[type]["all_en_flat"]))
 
         # initialize some fileds/properties
-        for type in ["n", "p"]:
-            self.egrid[type]["_all_elastic"] = {c: {T: np.array([[0.0, 0.0, 0.0]
-                for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
+        for prop in ["_all_elastic"]:
+            for type in ["n", "p"]:
+                self.egrid[type][prop] = {c: {T: np.array([[0.0, 0.0, 0.0]
+                    for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
 
 
@@ -304,11 +305,9 @@ class AMSET(object):
             self.kgrid[type]["effective mass"] = \
                 [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
                                                                                 range(self.cbm_vbm[type]["included"])]
-            self.kgrid[type]["_all_elastic", "S_i", "S_o", "g"] = \
-                {c: {T: np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))] for j in
-                    range(self.cbm_vbm[type]["included"])]) for T in self.temperatures} for c in self.dopings}
-            # for scattering in ["elastic", "inelastic"]:
-            #     self.kgrid[type][scattering] = {}
+            for prop in ["_all_elastic", "S_i", "S_o", "g", "df0dk"]:
+                self.kgrid[type][prop] = {c: {T: np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))]
+                    for j in range(self.cbm_vbm[type]["included"])]) for T in self.temperatures} for c in self.dopings}
 
 
 
@@ -422,6 +421,7 @@ class AMSET(object):
                             self.kgrid[type][sname][c][T][ib][ik] = abs(sum) *2e-7*pi/hbar
                             self.kgrid[type]["_all_elastic"][c][T][ib][ik] += self.kgrid[type][sname][c][T][ib][ik]
 
+        # self.map_to_egrid(property_name=sname)
         # Map from k-space to energy-space
         for type in ["n", "p"]:
             for c in self.dopings:
@@ -588,6 +588,16 @@ class AMSET(object):
         # calculate all elastic scattering rates:
         for sname in self.elastic_scattering_mechanisms:
             self.s_elastic(sname=sname)
+
+        for type in ["n", "p"]:
+            for c in self.dopings:
+                for T in self.temperatures:
+                    fermi = self.egrid["fermi"][c][T]
+                    for ik in range(len(self.kgrid["kpoints"])):
+                        for ib in range(len(self.kgrid[type]["energy"])):
+                            E = self.kgrid[type]["energy"][ib][ik]
+                            v = self.kgrid[type]["velocity"][ib][ik]
+                            self.kgrid[type]["df0dk"][c][T][ib][ik] = hbar * self.df0dE(E,fermi, T) * v / (100*e)
 
         if self.wordy:
             pprint(self.egrid)
