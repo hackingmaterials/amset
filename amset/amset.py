@@ -421,8 +421,25 @@ class AMSET(object):
                             self.kgrid[type][sname][c][T][ib][ik] = abs(sum) *2e-7*pi/hbar
                             self.kgrid[type]["_all_elastic"][c][T][ib][ik] += self.kgrid[type][sname][c][T][ib][ik]
 
-        # self.map_to_egrid(property_name=sname)
+        self.map_to_egrid(prop_name=sname)
         # Map from k-space to energy-space
+    # def map_to_egrid(self, prop_name):
+    #     for type in ["n", "p"]:
+    #         for c in self.dopings:
+    #             for T in self.temperatures:
+    #                 for ie, en in enumerate(self.egrid[type]["energy"]):
+    #                     N = 0 # total number of instances with the same energy
+    #                     for idx in range(len(self.kgrid["kpoints"])):
+    #                         for ib in range(len(self.kgrid[type]["energy"])):
+    #                             if abs(self.kgrid[type]["energy"][ib][idx] - en) < self.dE_global:
+    #                                 self.egrid[type][prop_name][c][T][ie] += self.kgrid[type][prop_name][c][T][ib][idx]
+    #                                 N += 1
+    #                     self.egrid[type][prop_name][c][T][ie] /= N
+    #                 self.egrid[type]["_all_elastic"][c][T] += self.egrid[type][prop_name][c][T]
+
+
+
+    def map_to_egrid(self, prop_name):
         for type in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
@@ -431,10 +448,9 @@ class AMSET(object):
                         for idx in range(len(self.kgrid["kpoints"])):
                             for ib in range(len(self.kgrid[type]["energy"])):
                                 if abs(self.kgrid[type]["energy"][ib][idx] - en) < self.dE_global:
-                                    self.egrid[type][sname][c][T][ie] += self.kgrid[type][sname][c][T][ib][idx]
+                                    self.egrid[type][prop_name][c][T][ie] += self.kgrid[type][prop_name][c][T][ib][idx]
                                     N += 1
-                        self.egrid[type][sname][c][T][ie] /= N
-                    self.egrid[type]["_all_elastic"][c][T] += self.egrid[type][sname][c][T]
+                        self.egrid[type][prop_name][c][T][ie] /= N
 
 
 
@@ -588,6 +604,7 @@ class AMSET(object):
         # calculate all elastic scattering rates:
         for sname in self.elastic_scattering_mechanisms:
             self.s_elastic(sname=sname)
+        self.map_to_egrid(prop_name="_all_elastic")
 
         for type in ["n", "p"]:
             for c in self.dopings:
@@ -598,6 +615,7 @@ class AMSET(object):
                             E = self.kgrid[type]["energy"][ib][ik]
                             v = self.kgrid[type]["velocity"][ib][ik]
                             self.kgrid[type]["df0dk"][c][T][ib][ik] = hbar * self.df0dE(E,fermi, T) * v / (100*e)
+        # self.map_to_egrid(prop_name="df0dk") # This mapping is not correct as df0dk(E) is meaningless
 
         if self.wordy:
             pprint(self.egrid)
