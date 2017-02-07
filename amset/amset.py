@@ -68,6 +68,7 @@ class AMSET(object):
         self.wordy = True
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
+        self.elastic_scattering_mechanisms = ["IMP", "ACD", "PIE"]
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
@@ -575,8 +576,8 @@ class AMSET(object):
 
         self.generate_angles_and_indexes_for_integration()
 
-        # calculate all the scattering rates:
-        for sname in ["IMP", "ACD", "PIE"]:
+        # calculate all elastic scattering rates:
+        for sname in self.elastic_scattering_mechanisms:
             self.s_elastic(sname=sname)
 
         if self.wordy:
