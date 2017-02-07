@@ -136,6 +136,12 @@ class AMSET(object):
 
 
 
+    @staticmethod
+    def df0dE(E, fermi, T):
+        return -1 * np.exp((E - fermi) / (k_B * T)) / (k_B * T * (np.exp((E - fermi) / (k_B * T)) + 1) ^ 2)
+
+
+
     def calculate_property(self, prop_name, prop_func):
         """
         calculate the propery at all concentrations and Ts using the given function and insert it into self.egrid
@@ -285,6 +291,7 @@ class AMSET(object):
                 "actual kpoints": np.dot(np.array(kpts), self._lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
                 "n": {},
                 "p": {},
+                #TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
                 "W_POP": [self.W_POP for i in range(len(kpts))]
                     }
         for type in ["n", "p"]:
@@ -297,7 +304,7 @@ class AMSET(object):
             self.kgrid[type]["effective mass"] = \
                 [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
                                                                                 range(self.cbm_vbm[type]["included"])]
-            self.kgrid[type]["_all_elastic"] = \
+            self.kgrid[type]["_all_elastic", "S_i", "S_o", "g"] = \
                 {c: {T: np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))] for j in
                     range(self.cbm_vbm[type]["included"])]) for T in self.temperatures} for c in self.dopings}
             # for scattering in ["elastic", "inelastic"]:
