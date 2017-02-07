@@ -298,8 +298,8 @@ class AMSET(object):
                 [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
                                                                                 range(self.cbm_vbm[type]["included"])]
             self.kgrid[type]["_all_elastic"] = \
-                np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))] for j in
-                          range(self.cbm_vbm[type]["included"])])
+                {c: {T: np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))] for j in
+                    range(self.cbm_vbm[type]["included"])]) for T in self.temperatures} for c in self.dopings}
             # for scattering in ["elastic", "inelastic"]:
             #     self.kgrid[type][scattering] = {}
 
@@ -377,14 +377,16 @@ class AMSET(object):
         """
         sname = sname.upper()
 
-        for c in self.dopings:
-            for T in self.temperatures:
-                for type in ["n", "p"]:
-                    self.egrid[type][sname]={c:{T:np.array([[0.0, 0.0, 0.0] for i in range(len(self.egrid[type]["energy"]))])
-                                                  for T in self.temperatures} for c in self.dopings}
-                    self.kgrid[type][sname] = \
-                        np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))] for j in
-                                  range(self.cbm_vbm[type]["included"])])
+        for type in ["n", "p"]:
+            self.egrid[type][sname] = {c: {T: np.array([[0.0, 0.0, 0.0] for i in
+                                                        range(len(self.egrid[type]["energy"]))]) for T in
+                                           self.temperatures} for c in self.dopings}
+            self.kgrid[type][sname] = \
+                {c: {T: np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))] for j in
+                                  range(self.cbm_vbm[type]["included"])]) for T in self.temperatures} for c in
+                 self.dopings}
+            for c in self.dopings:
+                for T in self.temperatures:
                     for ik in range(len(self.kgrid["kpoints"])):
                         for ib in range(len(self.kgrid[type]["energy"])):
 
@@ -410,19 +412,19 @@ class AMSET(object):
                                     dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
                                     sum[alpha] += dum*DeltaX # In case of two points with the same X, DeltaX==0 so no duplicates
 
-                            self.kgrid[type][sname][ib][ik] = abs(sum) *2e-7*pi/hbar
-                            self.kgrid[type]["_all_elastic"][ib][ik] += self.kgrid[type][sname][ib][ik]
+                            self.kgrid[type][sname][c][T][ib][ik] = abs(sum) *2e-7*pi/hbar
+                            self.kgrid[type]["_all_elastic"][c][T][ib][ik] += self.kgrid[type][sname][c][T][ib][ik]
 
         # Map from k-space to energy-space
-        for c in self.dopings:
-            for T in self.temperatures:
-                for type in ["n", "p"]:
+        for type in ["n", "p"]:
+            for c in self.dopings:
+                for T in self.temperatures:
                     for ie, en in enumerate(self.egrid[type]["energy"]):
                         N = 0 # total number of instances with the same energy
                         for idx in range(len(self.kgrid["kpoints"])):
                             for ib in range(len(self.kgrid[type]["energy"])):
                                 if abs(self.kgrid[type]["energy"][ib][idx] - en) < self.dE_global:
-                                    self.egrid[type][sname][c][T][ie] += self.kgrid[type][sname][ib][idx]
+                                    self.egrid[type][sname][c][T][ie] += self.kgrid[type][sname][c][T][ib][idx]
                                     N += 1
                         self.egrid[type][sname][c][T][ie] /= N
                     self.egrid[type]["_all_elastic"][c][T] += self.egrid[type][sname][c][T]
