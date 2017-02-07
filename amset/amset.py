@@ -209,7 +209,11 @@ class AMSET(object):
                     self.egrid[type]["DOS"].append(1.0 / len(self.egrid[type]["all_en_flat"]))
 
         # initialize some fileds/properties
+        for type in ["n", "p"]:
+            self.egrid[type]["_all_elastic"] = {c: {T: np.array([[0.0, 0.0, 0.0]
+                for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
+
 
         # calculate fermi levels
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
@@ -292,8 +296,11 @@ class AMSET(object):
             self.kgrid[type]["effective mass"] = \
                 [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
                                                                                 range(self.cbm_vbm[type]["included"])]
-            for scattering in ["elastic", "inelastic"]:
-                self.kgrid[type][scattering] = {}
+            self.kgrid[type]["_all_elastic"] = \
+                np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))] for j in
+                          range(self.cbm_vbm[type]["included"])])
+            # for scattering in ["elastic", "inelastic"]:
+            #     self.kgrid[type][scattering] = {}
 
 
 
@@ -327,68 +334,6 @@ class AMSET(object):
 
 
 
-    def run(self, coeff_file, kgrid_type="coarse"):
-        """
-        Function to run AMSET generate a grid of k-points and generate en, v, and effective mass on that
-
-        :param center_kpt:
-        :param coeff_file:
-        :param cbm_bidx:
-        :param grid_type:
-        :return:
-        """
-
-        self.init_kgrid(kgrid_type=kgrid_type)
-
-        analytical_bands = Analytical_bands(coeff_file=coeff_file)
-        for i, type in enumerate(["n", "p"]):
-            sgn = (-1)**i
-            for ib in range(self.cbm_vbm[type]["included"]):
-                engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
-                    analytical_bands.get_engre(iband=self.cbm_vbm[type]["bidx"]+sgn*ib)
-                for ik in range(len(self.kgrid["kpoints"])):
-                    energy, de, dde = analytical_bands.get_energy(
-                        self.kgrid["kpoints"][ik], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
-
-                    self.kgrid[type]["energy"][ib][ik] = energy * Ry_to_eV
-                    # self.kgrid[type]["velocity"][ib][ik] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
-                    self.kgrid[type]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
-# TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
-# TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
-# TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
-                    self.kgrid[type]["effective mass"][ib][ik] = hbar ** 2 / (
-                    dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
-                    self.kgrid[type]["a"][ib][ik] = 1.0
-            # Match the CBM/VBM energy values to those obtained from the coefficients file rather than vasprun.xml
-            self.cbm_vbm[type]["energy"] = sgn*min(sgn*np.array(self.kgrid[type]["energy"][0]))
-
-        print self.cbm_vbm
-# TODO: later add a more sophisticated DOS function, if developed
-        if True:
-            self.init_egrid(dos_type = "simple")
-        else:
-            pass
-
-        self.generate_angles_and_indexes_for_integration()
-
-        # calculate all the scattering rates:
-        for sname in ["IMP", "ACD", "PIE"]:
-            self.s_elastic(sname=sname)
-
-        if self.wordy:
-            pprint(self.egrid)
-            pprint(self.kgrid)
-
-        with open("kgrid.txt", "w") as fout:
-            pprint(self.kgrid, stream=fout)
-        with open("egrid.txt", "w") as fout:
-            pprint(self.egrid, stream=fout)
-
-        self.grid = {"kgrid": self.kgrid,
-                     "egrid": self.egrid}
-
-
-
     def s_el_eq(self, sname, c, T, k, k_prime):
         """
         return the scattering rate at wave vector k at a certain concentration and temperature
@@ -415,6 +360,9 @@ class AMSET(object):
             unit_conversion = 1e9/e
             return unit_conversion * e**2 * k_B * T * self.P_PIE**2 \
                    /(np.linalg.norm(k - k_prime) ** 2 * 4 * pi**2 * hbar * epsilon_0 * self.epsilon_s)
+        else:
+            raise ValueError("The elastic scattering name {} is not supported!".format(sname))
+
 
 
 
@@ -426,7 +374,8 @@ class AMSET(object):
         :param s_func:
         :return:
         """
-        # ionized impurity
+        sname = sname.upper()
+
         for c in self.dopings:
             for T in self.temperatures:
                 for type in ["n", "p"]:
@@ -461,8 +410,7 @@ class AMSET(object):
                                     sum[alpha] += dum*DeltaX # In case of two points with the same X, DeltaX==0 so no duplicates
 
                             self.kgrid[type][sname][ib][ik] = abs(sum) *2e-7*pi/hbar
-                            # self.kgrid[type][sname][ib][ik] = abs(sum) * e ** 4 * self.egrid["N_II"][c][T] /\
-                            #     (2 * pi * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2) * 3.89564386e27 # coverted to 1/s
+                            self.kgrid[type]["_all_elastic"][ib][ik] += self.kgrid[type][sname][ib][ik]
 
         # Map from k-space to energy-space
         for c in self.dopings:
@@ -476,6 +424,7 @@ class AMSET(object):
                                     self.egrid[type][sname][c][T][ie] += self.kgrid[type][sname][ib][idx]
                                     N += 1
                         self.egrid[type][sname][c][T][ie] /= N
+                    self.egrid[type]["_all_elastic"][c][T] += self.egrid[type][sname][c][T]
 
 
 
@@ -579,6 +528,70 @@ class AMSET(object):
                     del(self.grid["kgrid"][type][rm])
         with open(filename, 'w') as fp:
             json.dump(self.grid, fp,sort_keys = True, indent = 4, ensure_ascii=False, cls=MontyEncoder)
+
+
+
+    def run(self, coeff_file, kgrid_type="coarse"):
+        """
+        Function to run AMSET generate a grid of k-points and generate en, v, and effective mass on that
+
+        :param center_kpt:
+        :param coeff_file:
+        :param cbm_bidx:
+        :param grid_type:
+        :return:
+        """
+
+        self.init_kgrid(kgrid_type=kgrid_type)
+
+        analytical_bands = Analytical_bands(coeff_file=coeff_file)
+        for i, type in enumerate(["n", "p"]):
+            sgn = (-1)**i
+            for ib in range(self.cbm_vbm[type]["included"]):
+                engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
+                    analytical_bands.get_engre(iband=self.cbm_vbm[type]["bidx"]+sgn*ib)
+                for ik in range(len(self.kgrid["kpoints"])):
+                    energy, de, dde = analytical_bands.get_energy(
+                        self.kgrid["kpoints"][ik], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
+
+                    self.kgrid[type]["energy"][ib][ik] = energy * Ry_to_eV
+                    # self.kgrid[type]["velocity"][ib][ik] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
+                    self.kgrid[type]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
+# TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
+# TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
+# TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
+                    self.kgrid[type]["effective mass"][ib][ik] = hbar ** 2 / (
+                    dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                    self.kgrid[type]["a"][ib][ik] = 1.0
+            # Match the CBM/VBM energy values to those obtained from the coefficients file rather than vasprun.xml
+            self.cbm_vbm[type]["energy"] = sgn*min(sgn*np.array(self.kgrid[type]["energy"][0]))
+
+        print self.cbm_vbm
+# TODO: later add a more sophisticated DOS function, if developed
+        if True:
+            self.init_egrid(dos_type = "simple")
+        else:
+            pass
+
+        self.generate_angles_and_indexes_for_integration()
+
+        # calculate all the scattering rates:
+        for sname in ["IMP", "ACD", "PIE"]:
+            self.s_elastic(sname=sname)
+
+        if self.wordy:
+            pprint(self.egrid)
+            pprint(self.kgrid)
+
+        with open("kgrid.txt", "w") as fout:
+            pprint(self.kgrid, stream=fout)
+        with open("egrid.txt", "w") as fout:
+            pprint(self.egrid, stream=fout)
+
+        self.grid = {"kgrid": self.kgrid,
+                     "egrid": self.egrid}
+
+
 
 if __name__ == "__main__":
 
