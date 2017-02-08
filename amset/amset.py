@@ -65,11 +65,13 @@ class AMSET(object):
         self._vrun = {}
         self.max_e_range = 10*k_B*max(self.temperatures) # we set the max energy range after which occupation is zero
         self.path_dir = "../test_files/PbTe_nscf_uniform/nscf_line"
-        self.wordy = True
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
         self.elastic_scattering_mechanisms = ["IMP", "ACD", "PIE"]
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
+
+        self.wordy = False
+
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
@@ -328,6 +330,9 @@ class AMSET(object):
                             if abs(self.kgrid[type]["energy"][ib][ik] -
                                            self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
                                 self.kgrid[type]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
+                            print self.kgrid[type]["energy"][ib][ik]
+                            print hbar * self.kgrid["W_POP"][ik]
+                            print self.kgrid[type]["energy"][ib_prime][ik_prime]
                             if abs( (self.kgrid[type]["energy"][ib][ik] +  hbar * self.kgrid["W_POP"][ik] ) \
                                                  - self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
                                 self.kgrid[type]["X_Eplus_ik"][ib][ik].append((X, ib_prime, ik_prime))
@@ -396,6 +401,8 @@ class AMSET(object):
                     for ik in range(len(self.kgrid["kpoints"])):
                         for ib in range(len(self.kgrid[type]["energy"])):
 
+                            # function to integrate over X
+                            
                             # integrate over X (the angle between the k vectors)
                             sum = np.array([0.0, 0.0, 0.0])
                             for i in range(len(self.kgrid[type]["X_E_ik"][ib][ik])-1):
@@ -600,6 +607,7 @@ class AMSET(object):
             pass
 
         self.generate_angles_and_indexes_for_integration()
+
 
         # calculate all elastic scattering rates:
         for sname in self.elastic_scattering_mechanisms:
