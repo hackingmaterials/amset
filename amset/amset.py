@@ -409,7 +409,7 @@ class AMSET(object):
 
 
 
-    # def S_o_integrand_X(self, type, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None):
+    #   def S_o_integrand_X(self, type, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None):
 
     def s_elastic(self, sname="IMP"):
         """
