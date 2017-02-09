@@ -377,39 +377,6 @@ class AMSET(object):
 
 
 
-    def integrate_over_X(self, type, X_E_index, integrand, ib, ik, c, T, sname=None):
-        sum = np.array([0.0, 0.0, 0.0])
-        for i in range(len(X_E_index[ib][ik]) - 1):
-            DeltaX = X_E_index[ib][ik][i + 1][0] - \
-                     X_E_index[ib][ik][i][0]
-            if DeltaX == 0.0:
-                continue
-            for alpha in range(3):
-                dum = 0
-                for j in range(2):
-                    # extract the indecies
-                    X, ib_prime, ik_prime = X_E_index[ib][ik][i + j]
-
-                    dum += integrand(type, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=sname)
-
-                dum /= 2  # the average of points i and i+1 to integrate via the trapezoidal rule
-                sum[alpha] += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
-        return sum
-
-
-
-    def el_integrand_X(self, type, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None):
-        k = self.kgrid["actual kpoints"][ik]
-        k_prime = self.kgrid["actual kpoints"][ik_prime]
-
-        return (1 - X) * self.s_el_eq(sname, c, T, k, k_prime) \
-               * self.G(type, ib, ik, ib_prime, ik_prime, X) ** 2 \
-               / abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha])
-            # We take |v| as scattering depends on the velocity itself and not the direction
-
-
-
-    #   def S_o_integrand_X(self, type, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None):
 
     def s_elastic(self, sname="IMP"):
         """
@@ -433,9 +400,31 @@ class AMSET(object):
                 for T in self.temperatures:
                     for ik in range(len(self.kgrid["kpoints"])):
                         for ib in range(len(self.kgrid[type]["energy"])):
-                            sum = self.integrate_over_X(type, X_E_index=self.kgrid[type]["X_E_ik"],
-                                                        integrand=self.el_integrand_X,
-                                                      ib=ib, ik=ik, c=c, T=T, sname = sname)
+
+                            # function to integrate over X
+                            
+                            # integrate over X (the angle between the k vectors)
+                            sum = np.array([0.0, 0.0, 0.0])
+                            for i in range(len(self.kgrid[type]["X_E_ik"][ib][ik])-1):
+                                DeltaX = self.kgrid[type]["X_E_ik"][ib][ik][i+1][0]-self.kgrid[type]["X_E_ik"][ib][ik][i][0]
+                                if DeltaX == 0.0:
+                                    continue
+                                for alpha in range(3):
+                                    dum = 0
+                                    for j in range(2):
+                                        # extract the indecies
+                                        X, ib_prime, ik_prime = self.kgrid[type]["X_E_ik"][ib][ik][i+j]
+                                        k = self.kgrid["actual kpoints"][ik]
+                                        k_prime = self.kgrid["actual kpoints"][ik_prime]
+
+                                        dum += (1 - X) * self.s_el_eq(sname, c, T, k, k_prime) \
+                                                * self.G(type, ib, ik, ib_prime, ik_prime, X) ** 2 \
+                                                / abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha])
+                                            # We take |v| as scattering depends on the velocity itself and not the direction
+
+                                    dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
+                                    sum[alpha] += dum*DeltaX # In case of two points with the same X, DeltaX==0 so no duplicates
+
                             self.kgrid[type][sname][c][T][ib][ik] = abs(sum) *2e-7*pi/hbar
                             self.kgrid[type]["_all_elastic"][c][T][ib][ik] += self.kgrid[type][sname][c][T][ib][ik]
 
