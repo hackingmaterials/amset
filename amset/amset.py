@@ -401,7 +401,7 @@ class AMSET(object):
                     for ik in range(len(self.kgrid["kpoints"])):
                         for ib in range(len(self.kgrid[type]["energy"])):
 
-                            # function to integrate over X
+                            # function to integrate over X 
                             
                             # integrate over X (the angle between the k vectors)
                             sum = np.array([0.0, 0.0, 0.0])
