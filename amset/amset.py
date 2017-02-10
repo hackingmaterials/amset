@@ -23,6 +23,7 @@ A_to_nm = 0.1
 e = _cd('elementary charge')
 k_B = _cd("Boltzmann constant in eV/K")
 epsilon_0 = 8.854187817e-12     # Absolute value of dielectric constant in vacuum [C^2/m^2N]
+default_small_E = 1 # V/m the value of this parameter does not matter
 print hbar
 print e
 # some temporary global constants as inputs
@@ -62,6 +63,7 @@ class AMSET(object):
         self.dopings = [-1e21] # 1/cm**3 list of carrier concentrations
         self.temperatures = [300, 600] # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
+        self.epsilon_inf = 25.57 # example for PbTe
         self._vrun = {}
         self.max_e_range = 10*k_B*max(self.temperatures) # we set the max energy range after which occupation is zero
         self.path_dir = "../test_files/PbTe_nscf_uniform/nscf_line"
@@ -307,7 +309,7 @@ class AMSET(object):
             self.kgrid[type]["effective mass"] = \
                 [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
                                                                                 range(self.cbm_vbm[type]["included"])]
-            for prop in ["_all_elastic", "S_i", "S_o", "g", "df0dk"]:
+            for prop in ["_all_elastic", "S_i", "S_o", "g", "df0dk", "electric driving force", "thermal dring force"]:
                 self.kgrid[type][prop] = {c: {T: np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))]
                     for j in range(self.cbm_vbm[type]["included"])]) for T in self.temperatures} for c in self.dopings}
 
@@ -330,9 +332,9 @@ class AMSET(object):
                             if abs(self.kgrid[type]["energy"][ib][ik] -
                                            self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
                                 self.kgrid[type]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
-                            print self.kgrid[type]["energy"][ib][ik]
-                            print hbar * self.kgrid["W_POP"][ik]
-                            print self.kgrid[type]["energy"][ib_prime][ik_prime]
+                            # print self.kgrid[type]["energy"][ib][ik]
+                            # print hbar * self.kgrid["W_POP"][ik]
+                            # print self.kgrid[type]["energy"][ib_prime][ik_prime]
                             if abs( (self.kgrid[type]["energy"][ib][ik] +  hbar * self.kgrid["W_POP"][ik] ) \
                                                  - self.kgrid[type]["energy"][ib_prime][ik_prime]) < self.dE_global:
                                 self.kgrid[type]["X_Eplus_ik"][ib][ik].append((X, ib_prime, ik_prime))
@@ -377,6 +379,93 @@ class AMSET(object):
 
 
 
+    def integrate_over_DOSxE_dE(self, type, fermi, T, func, interpolation_nsteps=100):
+        integral = 0.0
+        for ie in range(len(self.egrid[type]) - 1):
+            E = self.egrid[type]["energy"][ie]
+            dE = abs(self.egrid[type]["energy"][ie + 1] - E) / interpolation_nsteps
+            dS = (self.egrid[type]["DOS"][ie + 1] - self.egrid[type]["DOS"][ie]) / interpolation_nsteps
+            for i in range(interpolation_nsteps):
+                # TODO:The DOS used is too simplistic and wrong (e.g., calc_doping might hit a limit), try 2*[2pim_hk_BT/hbar**2]**1.5
+                integral += dE * (self.egrid[type]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
+
+
+
+    def integrate_over_X(self, type, X_E_index, integrand, ib, ik, c, T, sname=None):
+        sum = np.array([0.0, 0.0, 0.0])
+        if len(X_E_index[ib][ik]) == 0:
+            return sum
+        for i in range(len(X_E_index[ib][ik]) - 1):
+            DeltaX = X_E_index[ib][ik][i + 1][0] - \
+                     X_E_index[ib][ik][i][0]
+            if DeltaX == 0.0:
+                continue
+            for alpha in range(3):
+                dum = 0
+                for j in range(2):
+                    # extract the indecies
+                    X, ib_prime, ik_prime = X_E_index[ib][ik][i + j]
+
+                    dum += integrand(type, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=sname)
+
+                dum /= 2  # the average of points i and i+1 to integrate via the trapezoidal rule
+                sum[alpha] += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
+        return sum
+
+
+
+    def el_integrand_X(self, type, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None):
+        k = self.kgrid["actual kpoints"][ik]
+        k_prime = self.kgrid["actual kpoints"][ik_prime]
+
+        return (1 - X) * self.s_el_eq(sname, c, T, k, k_prime) \
+               * self.G(type, ib, ik, ib_prime, ik_prime, X) ** 2 \
+               / abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha])
+            # We take |v| as scattering depends on the velocity itself and not the direction
+
+
+
+    def inel_integrand_X(self, type, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None):
+        k = self.kgrid["actual kpoints"][ik]
+        k_prime = self.kgrid["actual kpoints"][ik_prime]
+        v = self.kgrid[type]["velocity"][ib][ik]
+        fermi = self.egrid["fermi"][c][T]
+        f = self.f0(self.kgrid[type]["energy"][ib][ik], fermi, T)
+        f_prime = self.f0(self.kgrid[type]["energy"][ib_prime][ik_prime], fermi, T)
+        N_POP = 1 / ( np.exp(hbar*self.kgrid["W_POP"][ik]/(k_B*T)) - 1 )
+        integrand = np.norm(k_prime)**2*self.G(type, ib, ik, ib_prime, ik_prime, X)/(v[alpha]*np.norm(k-k_prime)**2)
+        if "S_i" in sname:
+            integrand *= X*self.kgrid["g"][c][T][ib][k]
+            if "minus" in sname:
+                integrand *= (1-f)*N_POP + f*(1+N_POP)
+            elif "plus" in sname:
+                integrand *= (1-f)*(1+N_POP) + f*N_POP
+            else:
+                raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
+        elif "S_o" in sname:
+            if "minus" in sname:
+                integrand *= (1-f_prime)*(1+N_POP) + f_prime*N_POP
+            elif "plus" in sname:
+                integrand *= (1-f_prime)*N_POP + f_prime*(1+N_POP)
+            else:
+                raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
+        else:
+            raise ValueError("The inelastic scattering name: {} is NOT supported".format(sname))
+
+
+
+    def s_inelastic(self, sname = None):
+        for type in ["n", "p"]:
+            for c in self.dopings:
+                for T in self.temperatures:
+                    for ik in range(len(self.kgrid["kpoints"])):
+                        for ib in range(len(self.kgrid[type]["energy"])):
+                            sum = 0
+                            for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
+                                sum += self.integrate_over_X(type, X_E_index=self.kgrid[type][X_E_index_name],
+                                    integrand=self.inel_integrand_X, ib=ib, ik=ik, c=c, T=T, sname=sname+X_E_index_name)
+                            self.kgrid[type][sname][c][T][ib][ik] = abs(sum) * e**2*self.kgrid["W_POP"][ik]/(4*pi*hbar)\
+                                * (1/self.epsilon_inf-1/self.epsilon_s)/epsilon_0 * 100/e
 
     def s_elastic(self, sname="IMP"):
         """
@@ -400,31 +489,9 @@ class AMSET(object):
                 for T in self.temperatures:
                     for ik in range(len(self.kgrid["kpoints"])):
                         for ib in range(len(self.kgrid[type]["energy"])):
-
-                            # function to integrate over X 
-                            
-                            # integrate over X (the angle between the k vectors)
-                            sum = np.array([0.0, 0.0, 0.0])
-                            for i in range(len(self.kgrid[type]["X_E_ik"][ib][ik])-1):
-                                DeltaX = self.kgrid[type]["X_E_ik"][ib][ik][i+1][0]-self.kgrid[type]["X_E_ik"][ib][ik][i][0]
-                                if DeltaX == 0.0:
-                                    continue
-                                for alpha in range(3):
-                                    dum = 0
-                                    for j in range(2):
-                                        # extract the indecies
-                                        X, ib_prime, ik_prime = self.kgrid[type]["X_E_ik"][ib][ik][i+j]
-                                        k = self.kgrid["actual kpoints"][ik]
-                                        k_prime = self.kgrid["actual kpoints"][ik_prime]
-
-                                        dum += (1 - X) * self.s_el_eq(sname, c, T, k, k_prime) \
-                                                * self.G(type, ib, ik, ib_prime, ik_prime, X) ** 2 \
-                                                / abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha])
-                                            # We take |v| as scattering depends on the velocity itself and not the direction
-
-                                    dum /= 2 # the average of points i and i+1 to integrate via the trapezoidal rule
-                                    sum[alpha] += dum*DeltaX # In case of two points with the same X, DeltaX==0 so no duplicates
-
+                            sum = self.integrate_over_X(type, X_E_index=self.kgrid[type]["X_E_ik"],
+                                                        integrand=self.el_integrand_X,
+                                                      ib=ib, ik=ik, c=c, T=T, sname = sname)
                             self.kgrid[type][sname][c][T][ib][ik] = abs(sum) *2e-7*pi/hbar
                             self.kgrid[type]["_all_elastic"][c][T][ib][ik] += self.kgrid[type][sname][c][T][ib][ik]
 
@@ -623,7 +690,20 @@ class AMSET(object):
                             E = self.kgrid[type]["energy"][ib][ik]
                             v = self.kgrid[type]["velocity"][ib][ik]
                             self.kgrid[type]["df0dk"][c][T][ib][ik] = hbar * self.df0dE(E,fermi, T) * v / (100*e)
+                            self.kgrid[type]["electric driving force"][c][T][ib][ik] = \
+                                self.kgrid[type]["df0dk"][c][T][ib][ik] * e * default_small_E / hbar *1e-9
+
+                            # self.kgrid[type]["electric driving force"][c][T][ib][ik] = v * df0dz * unit_conversion
+                            # df0dz_temp = self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
+                                # E / (k_B * T) - df0dz_integral) * 1 / T * dTdz
         # self.map_to_egrid(prop_name="df0dk") # This mapping is not correct as df0dk(E) is meaningless
+
+        # calculating S_o scattering rate which is not a function of g
+        self.s_inelastic(sname="S_o")
+
+        # calculating S_i scattering rate and perturbation (g) in an iterative manner
+
+        self.s_inelastic(sname="S_i")
 
         if self.wordy:
             pprint(self.egrid)
