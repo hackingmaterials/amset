@@ -388,6 +388,7 @@ class AMSET(object):
             for i in range(interpolation_nsteps):
                 # TODO:The DOS used is too simplistic and wrong (e.g., calc_doping might hit a limit), try 2*[2pim_hk_BT/hbar**2]**1.5
                 integral += dE * (self.egrid[type]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
+        return integral
 
 
 
@@ -560,16 +561,9 @@ class AMSET(object):
             step = step0 / 10**iter
             for fermi in np.linspace(fermi0-nsteps*step,fermi0+nsteps*step, nsteps*2):
                 for j, type in enumerate(["n", "p"]):
-                    sgn = (-1)**(j+1)
-                    integral = 0.0
-                    for ie in range(len(self.egrid[type])-1):
-                        E = self.egrid[type]["energy"][ie]
-                        dE = abs(self.egrid[type]["energy"][ie+1] - E)/interpolation_nsteps
-                        dS = (self.egrid[type]["DOS"][ie+1] - self.egrid[type]["DOS"][ie])/interpolation_nsteps
-                        for i in range(interpolation_nsteps):
-# TODO:The DOS used is too simplistic and wrong (e.g., calc_doping might hit a limit), try 2*[2pim_hk_BT/hbar**2]**1.5
-                            integral += dE*(self.egrid[type]["DOS"][ie]+i*dS)*(j-sgn*self.f0(E+i*dE,fermi,T))
-                    temp_doping[type] = sgn * abs(integral*self.nelec/self.volume / (A_to_m*m_to_cm)**3)
+                    func = lambda E, fermi, T: j-(-1)**(j+1)*self.f0(E,fermi,T)
+                    integral = self.integrate_over_DOSxE_dE(type=type, fermi=fermi, T=T, func=func)
+                    temp_doping[type] = (-1)**(j+1) * abs(integral*self.nelec/self.volume / (A_to_m*m_to_cm)**3)
                 if abs(temp_doping["n"] + temp_doping["p"] - c) < abs(calc_doping - c):
                     calc_doping = temp_doping["n"] + temp_doping["p"]
                     fermi_selected = fermi
@@ -641,7 +635,6 @@ class AMSET(object):
         :param grid_type:
         :return:
         """
-
         self.init_kgrid(kgrid_type=kgrid_type)
 
         analytical_bands = Analytical_bands(coeff_file=coeff_file)
@@ -720,7 +713,6 @@ class AMSET(object):
 
 
 if __name__ == "__main__":
-
     # test
     AMSET = AMSET()
     AMSET.run(coeff_file=coeff_file, kgrid_type="coarse")
