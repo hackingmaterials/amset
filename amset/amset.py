@@ -147,12 +147,14 @@ class AMSET(object):
 
 
     def seeb_int_num(self, c, T):
+        """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
         func = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * E / (k_B * T)
         return self.integrate_over_DOSxE_dE(func=func, type=self.get_type(c), fermi=self.egrid["fermi"][c][T], T=T)
 
 
 
     def seeb_int_denom(self, c, T):
+        """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
         func = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T))
         return self.integrate_over_DOSxE_dE(func=func, type=self.get_type(c), fermi=self.egrid["fermi"][c][T], T=T)
 
@@ -508,15 +510,21 @@ class AMSET(object):
 
 
     def map_to_egrid(self, prop_name):
+        """
+        convenient function to map a propery from kgrid to egrid the mapped property should have the
+            kgrid[type][prop_name][c][T][ib][ik] structure and will have egrid[type][prop_name][c][T][ie] structure
+        :param prop_name (string): the name of the property to be mapped. It must be available in the kgrid.
+        :return:
+        """
         for type in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
                     for ie, en in enumerate(self.egrid[type]["energy"]):
                         N = 0 # total number of instances with the same energy
-                        for idx in range(len(self.kgrid["kpoints"])):
+                        for ik in range(len(self.kgrid["kpoints"])):
                             for ib in range(len(self.kgrid[type]["energy"])):
-                                if abs(self.kgrid[type]["energy"][ib][idx] - en) < self.dE_global:
-                                    self.egrid[type][prop_name][c][T][ie] += self.kgrid[type][prop_name][c][T][ib][idx]
+                                if abs(self.kgrid[type]["energy"][ib][ik] - en) < self.dE_global:
+                                    self.egrid[type][prop_name][c][T][ie] += self.kgrid[type][prop_name][c][T][ib][ik]
                                     N += 1
                         self.egrid[type][prop_name][c][T][ie] /= N
 
@@ -612,7 +620,7 @@ class AMSET(object):
 
     def run(self, coeff_file, kgrid_type="coarse"):
         """
-        Function to run AMSET generate a grid of k-points and generate en, v, and effective mass on that
+        Function to run AMSET and generate the main outputs kgrid and egrid
 
         :param center_kpt:
         :param coeff_file:
