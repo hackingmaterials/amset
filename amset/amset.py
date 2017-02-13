@@ -23,7 +23,8 @@ A_to_nm = 0.1
 e = _cd('elementary charge')
 k_B = _cd("Boltzmann constant in eV/K")
 epsilon_0 = 8.854187817e-12     # Absolute value of dielectric constant in vacuum [C^2/m^2N]
-default_small_E = 1 # V/m the value of this parameter does not matter
+default_small_E = 1 # eV/cm the value of this parameter does not matter
+dTdz = 10 # K/cm
 print hbar
 print e
 # some temporary global constants as inputs
@@ -70,6 +71,7 @@ class AMSET(object):
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
         self.elastic_scattering_mechanisms = ["IMP", "ACD", "PIE"]
+
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
@@ -142,7 +144,7 @@ class AMSET(object):
 
     @staticmethod
     def df0dE(E, fermi, T):
-        return -1 * np.exp((E - fermi) / (k_B * T)) / (k_B * T * (np.exp((E - fermi) / (k_B * T)) + 1) ** 2)
+        return -1 * np.exp((E - fermi) / (k_B * T)) / (k_B * T * (1 + np.exp((E - fermi) / (k_B * T))) ** 2)
 
 
 
@@ -323,7 +325,7 @@ class AMSET(object):
             self.kgrid[type]["effective mass"] = \
                 [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
                                                                                 range(self.cbm_vbm[type]["included"])]
-            for prop in ["_all_elastic", "S_i", "S_o", "g", "df0dk", "electric driving force", "thermal dring force"]:
+            for prop in ["_all_elastic", "S_i", "S_o", "g", "df0dk", "electric driving force", "thermal driving force"]:
                 self.kgrid[type][prop] = {c: {T: np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))]
                     for j in range(self.cbm_vbm[type]["included"])]) for T in self.temperatures} for c in self.dopings}
 
@@ -359,7 +361,7 @@ class AMSET(object):
 
 
 
-    def s_el_eq(self, sname, c, T, k, k_prime):
+    def s_el_eq(self, sname, type, c, T, k, k_prime):
         """
         return the scattering rate at wave vector k at a certain concentration and temperature
         for a specific elastic scattering mechanisms determined by sname
@@ -377,7 +379,7 @@ class AMSET(object):
             unit_conversion = 0.001 / e**2
             return unit_conversion * e ** 4 * self.egrid["N_II"][c][T] /\
                         (4 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* np.linalg.norm(k - k_prime) ** 2 \
-                                    / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T] ** 2) ** 2)
+                                    / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T][type] ** 2) ** 2)
         elif sname in ["ACD"]: # acoustic deformation potential scattering
             unit_conversion = 1e18 * e
             return unit_conversion * k_B * T * self.E_D[self.get_type(c)]**2 / (4 * pi**2 * hbar * self.C_el)
@@ -430,7 +432,7 @@ class AMSET(object):
         k = self.kgrid["actual kpoints"][ik]
         k_prime = self.kgrid["actual kpoints"][ik_prime]
 
-        return (1 - X) * self.s_el_eq(sname, c, T, k, k_prime) \
+        return (1 - X) * self.s_el_eq(sname, type, c, T, k, k_prime) \
                * self.G(type, ib, ik, ib_prime, ik_prime, X) ** 2 \
                / abs(self.kgrid[type]["velocity"][ib_prime][ik_prime][alpha])
             # We take |v| as scattering depends on the velocity itself and not the direction
@@ -594,14 +596,13 @@ class AMSET(object):
         :param interpolation_nsteps:
         :return:
         """
-        # initialize
-        # fermi = self.egrid["fermi"][c][T]
-        type = self.get_type(c)
-        func = lambda E, fermi, T: self.f0(E, fermi, T)*(1-self.f0(E, fermi, T))
-        # TODO: The DOS needs to be revised, if a more accurate DOS is implemented
-        integral = self.integrate_over_DOSxE_dE(func=func, type=type, fermi=self.egrid["fermi"][c][T], T=T)
-        integral *= self.nelec
-        beta = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
+        beta = {}
+        for type in ["n", "p"]:
+            func = lambda E, fermi, T: self.f0(E, fermi, T)*(1-self.f0(E, fermi, T))
+            # TODO: The DOS needs to be revised, if a more accurate DOS is implemented
+            integral = self.integrate_over_DOSxE_dE(func=func, type=type, fermi=self.egrid["fermi"][c][T], T=T)
+            integral *= self.nelec
+            beta[type] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
         return beta
 
 
@@ -676,9 +677,15 @@ class AMSET(object):
                         for ib in range(len(self.kgrid[type]["energy"])):
                             E = self.kgrid[type]["energy"][ib][ik]
                             v = self.kgrid[type]["velocity"][ib][ik]
-                            self.kgrid[type]["df0dk"][c][T][ib][ik] = hbar * self.df0dE(E,fermi, T) * v / (100*e)
+                            self.kgrid[type]["df0dk"][c][T][ib][ik] = hbar * self.df0dE(E,fermi, T) * v # in cm
                             self.kgrid[type]["electric driving force"][c][T][ib][ik] = -1 * \
-                                self.kgrid[type]["df0dk"][c][T][ib][ik] * e * default_small_E / hbar *1e-9
+                                self.kgrid[type]["df0dk"][c][T][ib][ik] * default_small_E / hbar # in 1/s
+                            self.kgrid[type]["thermal driving force"][c][T][ib][ik] = - v * \
+                                self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
+                                    # E/(k_B*T)-self.egrid[type]["Seebeck_integral_numerator"][c][T]/
+                                    # self.egrid[type]["Seebeck_integral_denominator"][c][T] ) * dTdz  /T
+                                    E/(k_B*T)-self.egrid["Seebeck_integral_numerator"][c][T]/
+                                    self.egrid["Seebeck_integral_denominator"][c][T] ) * dTdz  /T
 
 
                             # self.kgrid[type]["thermal driving force"][c][T][ib][ik] = v * df0dz * unit_conversion
