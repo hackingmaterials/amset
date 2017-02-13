@@ -24,7 +24,7 @@ e = _cd('elementary charge')
 k_B = _cd("Boltzmann constant in eV/K")
 epsilon_0 = 8.854187817e-12     # Absolute value of dielectric constant in vacuum [C^2/m^2N]
 default_small_E = 1 # eV/cm the value of this parameter does not matter
-dTdz = 10 # K/cm
+dTdz = 10.0 # K/cm
 print hbar
 print e
 # some temporary global constants as inputs
@@ -62,7 +62,7 @@ class AMSET(object):
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = 0.0001 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e21] # 1/cm**3 list of carrier concentrations
-        self.temperatures = [300, 600] # in K, list of temperatures
+        self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self.epsilon_inf = 25.57 # example for PbTe
         self._vrun = {}
@@ -75,7 +75,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
-
+        self.maxiters = 10
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
@@ -150,15 +150,16 @@ class AMSET(object):
 
     def seeb_int_num(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
-        func = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * E / (k_B * T)
-        return self.integrate_over_DOSxE_dE(func=func, type=self.get_type(c), fermi=self.egrid["fermi"][c][T], T=T)
+        fn = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * E / (k_B * T)
+        return {t:self.integrate_over_DOSxE_dE(func=fn,type=t,fermi=self.egrid["fermi"][c][T],T=T) for t in ["n", "p"]}
 
 
 
     def seeb_int_denom(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
-        func = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T))
-        return self.integrate_over_DOSxE_dE(func=func, type=self.get_type(c), fermi=self.egrid["fermi"][c][T], T=T)
+        fn = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T))
+        return {t:max(self.integrate_over_DOSxE_dE(func=fn,type=t,fermi=self.egrid["fermi"][c][T],T=T), 1e-30)
+                for t in ["n", "p"]}
 
 
 
@@ -236,12 +237,8 @@ class AMSET(object):
                     self.egrid[type]["DOS"].append(1.0 / len(self.egrid[type]["all_en_flat"]))
 
         # initialize some fileds/properties
-        for prop in ["_all_elastic"]:
-            for type in ["n", "p"]:
-                self.egrid[type][prop] = {c: {T: np.array([[0.0, 0.0, 0.0]
-                    for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-
+        self.egrid["mobility"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
@@ -325,8 +322,8 @@ class AMSET(object):
             self.kgrid[type]["effective mass"] = \
                 [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
                                                                                 range(self.cbm_vbm[type]["included"])]
-            for prop in ["_all_elastic", "S_i", "S_o", "g", "df0dk", "electric driving force", "thermal driving force"]:
-                self.kgrid[type][prop] = {c: {T: np.array([[[0.0, 0.0, 0.0] for i in range(len(self.kgrid["kpoints"]))]
+            for prop in ["_all_elastic", "S_i", "S_o", "g", "df0dk", "electric force", "thermal force"]:
+                self.kgrid[type][prop] = {c: {T: np.array([[[1e-32, 1e-32, 1e-32] for i in range(len(self.kgrid["kpoints"]))]
                     for j in range(self.cbm_vbm[type]["included"])]) for T in self.temperatures} for c in self.dopings}
 
 
@@ -511,24 +508,45 @@ class AMSET(object):
 
 
 
-    def map_to_egrid(self, prop_name):
+    def map_to_egrid(self, prop_name, c_and_T_idx=True):
         """
-        convenient function to map a propery from kgrid to egrid the mapped property should have the
-            kgrid[type][prop_name][c][T][ib][ik] structure and will have egrid[type][prop_name][c][T][ie] structure
+        maps a propery from kgrid to egrid conserving the nomenclature. The mapped property should have the
+            kgrid[type][prop_name][c][T][ib][ik] data structure and will have egrid[type][prop_name][c][T][ie] structure
         :param prop_name (string): the name of the property to be mapped. It must be available in the kgrid.
         :return:
         """
-        for type in ["n", "p"]:
-            for c in self.dopings:
-                for T in self.temperatures:
-                    for ie, en in enumerate(self.egrid[type]["energy"]):
-                        N = 0 # total number of instances with the same energy
-                        for ik in range(len(self.kgrid["kpoints"])):
-                            for ib in range(len(self.kgrid[type]["energy"])):
-                                if abs(self.kgrid[type]["energy"][ib][ik] - en) < self.dE_global:
-                                    self.egrid[type][prop_name][c][T][ie] += self.kgrid[type][prop_name][c][T][ib][ik]
-                                    N += 1
-                        self.egrid[type][prop_name][c][T][ie] /= N
+        if not c_and_T_idx:
+            for type in ["n", "p"]:
+                try:
+                    self.egrid[type][prop_name]
+                except:
+                    self.egrid[type][prop_name] = np.array([[1e-20, 1e-20, 1e-20] \
+                        for i in range(len(self.egrid[type]["energy"]))])
+                for ie, en in enumerate(self.egrid[type]["energy"]):
+                    N = 0  # total number of instances with the same energy
+                    for ik in range(len(self.kgrid["kpoints"])):
+                        for ib in range(len(self.kgrid[type]["energy"])):
+                            if abs(self.kgrid[type]["energy"][ib][ik] - en) < self.dE_global:
+                                self.egrid[type][prop_name][ie] += self.kgrid[type][prop_name][ib][ik]
+                            N += 1
+                    self.egrid[type][prop_name][ie] /= N
+        else:
+            for type in ["n", "p"]:
+                try:
+                    self.egrid[type][prop_name]
+                except:
+                    self.egrid[type][prop_name] = {c: {T: np.array([[1e-20, 1e-20, 1e-20]
+                        for i in range(len(self.egrid[type]["energy"]))]) for T in self.temperatures} for c in self.dopings}
+                for c in self.dopings:
+                    for T in self.temperatures:
+                        for ie, en in enumerate(self.egrid[type]["energy"]):
+                            N = 0 # total number of instances with the same energy
+                            for ik in range(len(self.kgrid["kpoints"])):
+                                for ib in range(len(self.kgrid[type]["energy"])):
+                                    if abs(self.kgrid[type]["energy"][ib][ik] - en) < self.dE_global:
+                                        self.egrid[type][prop_name][c][T][ie] += self.kgrid[type][prop_name][c][T][ib][ik]
+                                        N += 1
+                            self.egrid[type][prop_name][c][T][ie] /= N
 
 
 
@@ -642,8 +660,8 @@ class AMSET(object):
                         self.kgrid["kpoints"][ik], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
 
                     self.kgrid[type]["energy"][ib][ik] = energy * Ry_to_eV
-                    # self.kgrid[type]["velocity"][ib][ik] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
-                    self.kgrid[type]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
+                    self.kgrid[type]["velocity"][ib][ik] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
+                    # self.kgrid[type]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
 # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
 # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
 # TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
@@ -678,17 +696,16 @@ class AMSET(object):
                             E = self.kgrid[type]["energy"][ib][ik]
                             v = self.kgrid[type]["velocity"][ib][ik]
                             self.kgrid[type]["df0dk"][c][T][ib][ik] = hbar * self.df0dE(E,fermi, T) * v # in cm
-                            self.kgrid[type]["electric driving force"][c][T][ib][ik] = -1 * \
+                            self.kgrid[type]["electric force"][c][T][ib][ik] = -1 * \
                                 self.kgrid[type]["df0dk"][c][T][ib][ik] * default_small_E / hbar # in 1/s
-                            self.kgrid[type]["thermal driving force"][c][T][ib][ik] = - v * \
+                            self.kgrid[type]["thermal force"][c][T][ib][ik] = - v * \
                                 self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
-                                    # E/(k_B*T)-self.egrid[type]["Seebeck_integral_numerator"][c][T]/
-                                    # self.egrid[type]["Seebeck_integral_denominator"][c][T] ) * dTdz  /T
-                                    E/(k_B*T)-self.egrid["Seebeck_integral_numerator"][c][T]/
-                                    self.egrid["Seebeck_integral_denominator"][c][T] ) * dTdz  /T
+                                    E/(k_B*T)-self.egrid["Seebeck_integral_numerator"][c][T][type]/
+                                    self.egrid["Seebeck_integral_denominator"][c][T][type] ) * dTdz  /T
 
 
-                            # self.kgrid[type]["thermal driving force"][c][T][ib][ik] = v * df0dz * unit_conversion
+
+                            # self.kgrid[type]["thermal force"][c][T][ib][ik] = v * df0dz * unit_conversion
                             # df0dz_temp = self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
                                 # E / (k_B * T) - df0dz_integral) * 1 / T * dTdz
         # self.map_to_egrid(prop_name="df0dk") # This mapping is not correct as df0dk(E) is meaningless
@@ -696,9 +713,27 @@ class AMSET(object):
         # calculating S_o scattering rate which is not a function of g
         self.s_inelastic(sname="S_o")
 
-        # calculating S_i scattering rate and perturbation (g) in an iterative manner
+        # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
+        for iter in range(self.maxiters):
+            self.s_inelastic(sname="S_i")
+            for c in self.dopings:
+                for T in self.temperatures:
+                    for type in ["n", "p"]:
+                        self.kgrid[type]["g"][c][T]=self.kgrid[type]["S_i"][c][T] \
+                            +self.kgrid[type]["electric force"][c][T] / (
+                            self.kgrid[type]["S_o"][c][T] + self.kgrid[type]["_all_elastic"][c][T])
 
-        self.s_inelastic(sname="S_i")
+        for prop in ["g"]:
+            self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
+
+        self.map_to_egrid(prop_name="velocity", c_and_T_idx=False)
+
+        # func = lambda E, fermi, T: self.egrid["velocity"]
+        for c in self.dopings:
+            for T in self.temperatures:
+                fermi = self.egrid["fermi"][c][T]
+                # for type in ["n", "p"]:
+                #     self.egrid["mobility"][c][T][type] = self.integrate_over_DOSxE_dE(func=fn,type=type,fermi=fermi,T=T)
 
         if self.wordy:
             pprint(self.egrid)
