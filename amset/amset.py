@@ -13,6 +13,11 @@ import os
 import json
 from monty.json import MontyEncoder
 
+
+import cProfile
+import re
+
+
 # global constants
 hbar = _cd('Planck constant in eV s')/(2*pi)
 m_e = _cd('electron mass') # in kg
@@ -379,7 +384,7 @@ class AMSET(object):
                                     / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T][type] ** 2) ** 2)
         elif sname in ["ACD"]: # acoustic deformation potential scattering
             unit_conversion = 1e18 * e
-            return unit_conversion * k_B * T * self.E_D[self.get_type(c)]**2 / (4 * pi**2 * hbar * self.C_el)
+            return unit_conversion * k_B * T * self.E_D[type]**2 / (4 * pi**2 * hbar * self.C_el)
         elif sname in ["PIE"]: # piezoelectric scattering
             unit_conversion = 1e9/e
             return unit_conversion * e**2 * k_B * T * self.P_PIE**2 \
@@ -391,7 +396,7 @@ class AMSET(object):
 
     def integrate_over_DOSxE_dE(self, func, type, fermi, T, interpolation_nsteps=100):
         integral = 0.0
-        for ie in range(len(self.egrid[type]) - 1):
+        for ie in range(len(self.egrid[type]["energy"]) - 1):
             E = self.egrid[type]["energy"][ie]
             dE = abs(self.egrid[type]["energy"][ie + 1] - E) / interpolation_nsteps
             dS = (self.egrid[type]["DOS"][ie + 1] - self.egrid[type]["DOS"][ie]) / interpolation_nsteps
@@ -728,12 +733,13 @@ class AMSET(object):
 
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False)
 
-        # func = lambda E, fermi, T: self.egrid["velocity"]
         for c in self.dopings:
             for T in self.temperatures:
                 fermi = self.egrid["fermi"][c][T]
-                # for type in ["n", "p"]:
-                #     self.egrid["mobility"][c][T][type] = self.integrate_over_DOSxE_dE(func=fn,type=type,fermi=fermi,T=T)
+                for type in ["n", "p"]:
+                    self.egrid["mobility"][c][T][type]=self.integrate_over_DOSxE_dE(self.mobility_integrand,type,fermi,T)
+                    self.egrid["mobility"][c][T][type]/=default_small_E*\
+                                                        self.integrate_over_DOSxE_dE(self.f0,type=type,fermi=fermi,T=T)
 
         if self.wordy:
             pprint(self.egrid)
@@ -749,8 +755,26 @@ class AMSET(object):
 
 
 
+    def mobility_integrand(self, E, fermi, T):
+        for c in self.dopings:
+            if self.egrid["fermi"][c][T] == fermi:
+                this_c = c
+        min_Ediff = 1e30
+        for type in ["n", "p"]:
+            for idx, en in enumerate(self.egrid[type]["energy"]):
+                if abs(E-en) < min_Ediff:
+                    min_Ediff = abs(E-en)
+                    ie = idx
+                    tp = type
+        return self.egrid[tp]["velocity"][ie] * self.egrid[tp]["g"][this_c][T][ie]
+
+
+
+
 if __name__ == "__main__":
     # test
     AMSET = AMSET()
-    AMSET.run(coeff_file=coeff_file, kgrid_type="coarse")
+    # AMSET.run(coeff_file=coeff_file, kgrid_type="coarse")
+    cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_type="coarse")')
+
     AMSET.to_json(trimmed=True)
