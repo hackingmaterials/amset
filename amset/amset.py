@@ -281,14 +281,15 @@ class AMSET(object):
 
     def init_kgrid(self, kgrid_type="coarse"):
         if kgrid_type=="coarse":
-            nstep = 3
+            nstep = 4
         # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         kx = list(np.linspace(0.25, 0.75, nstep))
         ky = kz = kx
         # ky = list(np.linspace(0.26, 0.76, nstep))
         # kz = list(np.linspace(0.24, 0.74, nstep))
         kpts = np.array([[x, y, z] for x in kx for y in ky for z in kz])
-
+        # TODO this deletion is just a test, change it later once confirmed that the order of mobility is good!
+        kpts = np.delete(kpts, (0, 21, 42, -1), axis=0)
         # # Total range around the center k-point
         # rang = 0.14
         # if kgrid_type == "coarse":
@@ -574,7 +575,7 @@ class AMSET(object):
         # initialize parameters
         calc_doping = 1e52 # initial concentration, just has to be very far from any expected concentration
         relative_error = calc_doping
-        maxitr = 10 # essentially the number of floating points in accuracy
+        maxitr = 5 # essentially the number of floating points in accuracy
         iter = 0
         actual_type = self.get_type(c)
         temp_doping = {"n": 0.0, "p": 0.0}
@@ -620,8 +621,8 @@ class AMSET(object):
         :return:
         """
         beta = {}
+        func = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T))
         for type in ["n", "p"]:
-            func = lambda E, fermi, T: self.f0(E, fermi, T)*(1-self.f0(E, fermi, T))
             # TODO: The DOS needs to be revised, if a more accurate DOS is implemented
             integral = self.integrate_over_DOSxE_dE(func=func, type=type, fermi=self.egrid["fermi"][c][T], T=T)
             integral *= self.nelec
@@ -755,6 +756,7 @@ class AMSET(object):
 
 
 
+    #TODO: this function is extremely inefficient, try to change integrand type functions to accept different inputs
     def mobility_integrand(self, E, fermi, T):
         for c in self.dopings:
             if self.egrid["fermi"][c][T] == fermi:
