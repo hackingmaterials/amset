@@ -113,8 +113,6 @@ class AMSET(object):
             self.nelec = cbm_vbm["p"]["bidx"]*2
 
         bs = bs.as_dict()
-        # print vrun.actual_kpoints[vbm["kpoint_index"][0]]
-        # print vrun.actual_kpoints
 
         for i, tp in enumerate(["n", "p"]):
             sgn = (-1)**i
@@ -425,7 +423,6 @@ class AMSET(object):
                 for j in range(2):
                     # extract the indecies
                     X, ib_prime, ik_prime = X_E_index[ib][ik][i + j]
-                    print integrand(tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=sname)
                     dum += integrand(tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=sname)
 
                 dum /= 2.0  # the average of points i and i+1 to integrate via the trapezoidal rule
@@ -446,6 +443,20 @@ class AMSET(object):
 
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None):
+        """
+        returns the evaluated number (float) of the expression inside the S_o and S_i(g) integrals.
+        :param tp (str): "n" or "p" type
+        :param c (float): carrier concentration/doping in cm**-3
+        :param T:
+        :param ib:
+        :param ik:
+        :param ib_prime:
+        :param ik_prime:
+        :param X:
+        :param alpha:
+        :param sname:
+        :return:
+        """
         k = self.kgrid["actual kpoints"][ik]
         k_prime = self.kgrid["actual kpoints"][ik_prime]
         v = self.kgrid[tp]["velocity"][ib][ik]
@@ -453,7 +464,8 @@ class AMSET(object):
         f = self.f0(self.kgrid[tp]["energy"][ib][ik], fermi, T)
         f_prime = self.f0(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T)
         N_POP = 1 / ( np.exp(hbar*self.kgrid["W_POP"][ik]/(k_B*T)) - 1 )
-        norm_diff = max(np.linalg.norm(k-k_prime), 1e10)
+        # norm_diff = max(np.linalg.norm(k-k_prime), 1e-10)
+        norm_diff = np.linalg.norm(k-k_prime)
         integ = np.linalg.norm(k_prime)**2*self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha]*norm_diff**2)
         if "S_i" in sname:
             integ *= X*self.kgrid[tp]["g"][c][T][ib][ik][alpha]
@@ -472,11 +484,7 @@ class AMSET(object):
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         else:
             raise ValueError("The inelastic scattering name: {} is NOT supported".format(sname))
-        print sname
         assert(type(integ), float)
-        print "type: {}".format(type(integ))
-        # if tp(integrand)==tp([3, 2]):
-        #     raise TypeError("NOOOOOOOO!!!!!!!!!!!!!!!!!")
         return integ
 
 
