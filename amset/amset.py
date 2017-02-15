@@ -80,7 +80,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
-        self.maxiters = 2
+        self.maxiters = 30
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
@@ -758,8 +758,8 @@ class AMSET(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
-                        self.kgrid[tp]["g"][c][T]=self.kgrid[tp]["S_i"][c][T] \
-                            + self.kgrid[tp]["electric force"][c][T] / (
+                        self.kgrid[tp]["g"][c][T] = ( self.kgrid[tp]["S_i"][c][T] \
+                            + self.kgrid[tp]["electric force"][c][T] ) / (
                             self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
 
         for prop in ["g"]:
