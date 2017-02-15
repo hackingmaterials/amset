@@ -80,7 +80,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
-        self.maxiters = 1
+        self.maxiters = 2
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
