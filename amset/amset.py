@@ -32,8 +32,6 @@ default_small_E = 1 # eV/cm the value of this parameter does not matter
 dTdz = 10.0 # K/cm
 print hbar
 print e
-# some temporary global constants as inputs
-coeff_file = 'fort.123'
 
 # The following are example constants taken from aMoBT calculation on PbTe that was done before
 # None for now
@@ -80,7 +78,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
-        self.maxiters = 10
+        self.maxiters = 5
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
@@ -178,6 +176,7 @@ class AMSET(object):
     def seeb_int_denom(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
         fn = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T))
+        # To avoid returning a denominator that is zero:
         return {t:max(self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T), 1e-30)
                 for t in ["n", "p"]}
 
@@ -789,7 +788,7 @@ class AMSET(object):
                             + self.kgrid[tp]["electric force"][c][T] ) / (
                             self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
 
-            for prop in ["g"]:
+            for prop in ["g", "S_i", "S_o"]:
                 self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False)
@@ -834,9 +833,11 @@ class AMSET(object):
 
 
 if __name__ == "__main__":
+    coeff_file = 'fort.123'
+
     # test
     AMSET = AMSET()
-    AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
-    # cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
+    # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
+    cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
     AMSET.to_json(trimmed=True)
