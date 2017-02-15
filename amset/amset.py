@@ -80,7 +80,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
-        self.maxiters = 10
+        self.maxiters = 1
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
@@ -466,7 +466,12 @@ class AMSET(object):
         N_POP = 1 / ( np.exp(hbar*self.kgrid["W_POP"][ik]/(k_B*T)) - 1 )
         # norm_diff = max(np.linalg.norm(k-k_prime), 1e-10)
         norm_diff = np.linalg.norm(k-k_prime)
-        integ = np.linalg.norm(k_prime)**2*self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha]*norm_diff**2)
+        if norm_diff < 1e-5:
+            print ib, ib_prime, ik, ik_prime, k, k_prime
+        # print np.linalg.norm(k_prime)**2
+        # the term np.linalg.norm(k_prime)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
+        # integ = np.linalg.norm(k_prime)**2*self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha]*norm_diff**2)
+        integ = self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha])
         if "S_i" in sname:
             integ *= X*self.kgrid[tp]["g"][c][T][ib][ik][alpha]
             if "minus" in sname:
