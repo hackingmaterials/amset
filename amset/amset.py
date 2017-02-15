@@ -80,7 +80,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
-        self.maxiters = 30
+        self.maxiters = 10
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
@@ -141,7 +141,24 @@ class AMSET(object):
 
     @staticmethod
     def f0(E, fermi, T):
+        """returns the value of Fermi-Dirac at equilibrium for E (energy), fermi [level] and T (temperature)"""
         return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
+
+
+
+    def get_E_idx(self, E, tp):
+        """tp (str): "n" or "p" type"""
+        min_Ediff = 1e30
+        for ie, en in enumerate(self.egrid[tp]["energy"]):
+            if abs(E-en)< min_Ediff:
+                min_Ediff = abs(E-en)
+                ie_select = ie
+        return ie_select
+
+
+    def f(self, E, fermi, T, tp, c, alpha):
+        """returns the perturbed Fermi-Dirac in presence of a small driving force"""
+        return 1 / (1 + np.exp((E - fermi) / (k_B * T))) + self.egrid[tp]["g"][c][T][self.get_E_idx(E, tp)][alpha]
 
 
 
@@ -461,13 +478,16 @@ class AMSET(object):
         k_prime = self.kgrid["actual kpoints"][ik_prime]
         v = self.kgrid[tp]["velocity"][ib][ik]
         fermi = self.egrid["fermi"][c][T]
-        f = self.f0(self.kgrid[tp]["energy"][ib][ik], fermi, T)
-        f_prime = self.f0(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T)
+
+        # f = self.f0(self.kgrid[tp]["energy"][ib][ik], fermi, T)
+        # f_prime = self.f0(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T)
+        # test
+        f = self.f(self.kgrid[tp]["energy"][ib][ik], fermi, T, tp, c, alpha)
+        f_prime = self.f(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T, tp, c, alpha)
+
         N_POP = 1 / ( np.exp(hbar*self.kgrid["W_POP"][ik]/(k_B*T)) - 1 )
         # norm_diff = max(np.linalg.norm(k-k_prime), 1e-10)
         norm_diff = np.linalg.norm(k-k_prime)
-        if norm_diff < 1e-5:
-            print ib, ib_prime, ik, ik_prime, k, k_prime
         # print np.linalg.norm(k_prime)**2
         # the term np.linalg.norm(k_prime)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         # integ = np.linalg.norm(k_prime)**2*self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha]*norm_diff**2)
@@ -505,6 +525,9 @@ class AMSET(object):
                                     integrand=self.inel_integrand_X, ib=ib, ik=ik, c=c, T=T, sname=sname+X_E_index_name)
                             self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * e**2*self.kgrid["W_POP"][ik]/(4*pi*hbar)\
                                 * (1/self.epsilon_inf-1/self.epsilon_s)/epsilon_0 * 100/e
+                            # if np.linalg.norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
+                            #     print tp, c, T, ik, ib, sum, self.kgrid[tp][sname][c][T][ib][ik]
+
 
     def s_elastic(self, sname="IMP"):
         """
@@ -705,6 +728,9 @@ class AMSET(object):
         else:
             pass
 
+        # initialize g in the egrid
+        self.map_to_egrid("g")
+
         # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
         self.generate_angles_and_indexes_for_integration()
 
@@ -754,6 +780,7 @@ class AMSET(object):
 
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.maxiters):
+            self.s_inelastic(sname="S_o")
             self.s_inelastic(sname="S_i")
             for c in self.dopings:
                 for T in self.temperatures:
@@ -762,8 +789,8 @@ class AMSET(object):
                             + self.kgrid[tp]["electric force"][c][T] ) / (
                             self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
 
-        for prop in ["g"]:
-            self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
+            for prop in ["g"]:
+                self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False)
 
