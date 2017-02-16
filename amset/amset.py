@@ -182,17 +182,28 @@ class AMSET(object):
 
 
 
-    def calculate_property(self, prop_name, prop_func):
+    def calculate_property(self, prop_name, prop_func, for_all_E=False):
         """
         calculate the propery at all concentrations and Ts using the given function and insert it into self.egrid
         :param prop_name:
         :param prop_func (obj): the given function MUST takes c and T as required inputs in this order.
         :return:
         """
-        self.egrid[prop_name] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+        if for_all_E:
+            for tp in ["n", "p"]:
+                self.egrid[tp][prop_name] = {c: {T: [0.0 for E in self.egrid[tp]["energy"]] for T in self.temperatures}
+                                             for c in self.dopings}
+        else:
+            self.egrid[prop_name] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
         for c in self.dopings:
             for T in self.temperatures:
-                self.egrid[prop_name][c][T] = prop_func(c, T)
+                if for_all_E:
+                    fermi = self.egrid["fermi"][c][T]
+                    for tp in ["n", "p"]:
+                        for ie, E in enumerate(self.egrid[tp]["energy"]):
+                            self.egrid[tp][prop_name][c][T][ie] = prop_func(E, fermi, T)
+                else:
+                    self.egrid[prop_name][c][T] = prop_func(c, T)
 
 
 
@@ -257,14 +268,20 @@ class AMSET(object):
 
         # initialize some fileds/properties
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-        self.egrid["mobility"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
+        for sn in self.elastic_scattering_mechanisms + [""]:
+            self.egrid["mobility"+"_"+sn]={c:{T:{"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
+        self.calculate_property(prop_name="f0", prop_func=self.f0, for_all_E=True)
+        self.calculate_property(prop_name="f", prop_func=self.f0, for_all_E=True)
+        self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi, T: self.f0(E, fermi, T)
+                                                                        * (1 - self.f0(E, fermi, T)), for_all_E=True)
         self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
         self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
         self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
         self.calculate_property(prop_name="Seebeck_integral_denominator", prop_func=self.seeb_int_denom)
+
 
     def G(self, tp, ib, ik, ib_prime, ik_prime, X):
         """
@@ -424,6 +441,36 @@ class AMSET(object):
         return integral
 
 
+    def integrate_over_E(self, prop_list, tp, c, T, xDOS=True, xvel=False, interpolation_nsteps=100):
+        diff = [0.0 for prop in prop_list]
+        integral = 0.0
+        for ie in range(len(self.egrid[tp]["energy"]) - 1):
+            E = self.egrid[tp]["energy"][ie]
+            dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
+            if xDOS:
+                dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
+            if xvel:
+                dv = (self.egrid[tp]["velocity"][ie + 1] - self.egrid[tp]["velocity"][ie]) / interpolation_nsteps
+            for j, p in enumerate(prop_list):
+                try:
+                    diff[j] = (self.egrid[tp][p][c][T][ie + 1] - self.egrid[tp][p][c][T][ie]) / interpolation_nsteps
+                except:
+                    diff[j] = (self.egrid[tp][p.split("/")[-1]][c][T][ie + 1] -
+                               self.egrid[tp][p.split("/")[-1]][c][T][ie]) / interpolation_nsteps
+            for i in range(interpolation_nsteps):
+                multi = dE
+                for j, p in enumerate(prop_list):
+                    if p[0] == "/":
+                        multi /= self.egrid[tp][p.split("/")[-1]][c][T][ie] + diff[j] * i
+                    else:
+                        multi *= self.egrid[tp][p][c][T][ie] + diff[j]*i
+                if xDOS:
+                    multi *= self.egrid[tp]["DOS"][ie] + dS*i
+                if xvel:
+                    multi *= self.egrid[tp]["velocity"][ie] + dv*i
+                integral += multi
+        return integral
+
 
     def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None):
         sum = np.array([0.0, 0.0, 0.0])
@@ -552,6 +599,9 @@ class AMSET(object):
                                                         integrand=self.el_integrand_X,
                                                       ib=ib, ik=ik, c=c, T=T, sname = sname)
                             self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) *2e-7*pi/hbar
+                            for alpha in range(3):
+                                if self.kgrid[tp][sname][c][T][ib][ik][alpha] < 1:
+                                    self.kgrid[tp][sname][c][T][ib][ik][alpha] = 1e9
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
 
 
@@ -563,19 +613,26 @@ class AMSET(object):
         :param prop_name (string): the name of the property to be mapped. It must be available in the kgrid.
         :return:
         """
+        scalar_properties = ["g"]
         if not c_and_T_idx:
             for tp in ["n", "p"]:
                 try:
                     self.egrid[tp][prop_name]
                 except:
-                    self.egrid[tp][prop_name] = np.array([[1e-20, 1e-20, 1e-20] \
-                        for i in range(len(self.egrid[tp]["energy"]))])
+                    # if prop_name in scalar_properties:
+                    #     self.egrid[tp][prop_name] = np.array([1e-20 for i in range(len(self.egrid[tp]["energy"]))])
+                    # else:
+                        self.egrid[tp][prop_name] = np.array([[1e-20, 1e-20, 1e-20] \
+                            for i in range(len(self.egrid[tp]["energy"]))])
                 for ie, en in enumerate(self.egrid[tp]["energy"]):
                     N = 0  # total number of instances with the same energy
                     for ik in range(len(self.kgrid["kpoints"])):
                         for ib in range(len(self.kgrid[tp]["energy"])):
                             if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
-                                self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
+                                if prop_name in scalar_properties:
+                                    self.egrid[tp][prop_name][ie] += np.linalg.norm(self.kgrid[tp][prop_name][ib][ik])
+                                else:
+                                    self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
                             N += 1
                     self.egrid[tp][prop_name][ie] /= N
         else:
@@ -664,10 +721,10 @@ class AMSET(object):
         :return:
         """
         beta = {}
-        func = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T))
         for tp in ["n", "p"]:
             # TODO: The DOS needs to be revised, if a more accurate DOS is implemented
-            integral = self.integrate_over_DOSxE_dE(func=func, tp=tp, fermi=self.egrid["fermi"][c][T], T=T)
+            # integral = self.integrate_over_E(func=func, tp=tp, fermi=self.egrid["fermi"][c][T], T=T)
+            integral = self.integrate_over_E(prop_list=["f0x1-f0"], tp=tp, c=c, T=T, xDOS=True)
             integral *= self.nelec
             beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
         return beta
@@ -739,14 +796,14 @@ class AMSET(object):
             self.map_to_egrid(prop_name=sname)
 
         # TODO: this is to avoid very large g(k), see if there is a better way to avoid that
-        for tp in ["n", "p"]:
-            for c in self.dopings:
-                for T in self.temperatures:
-                    for ib in range(len(self.kgrid[tp]["energy"])):
-                        for ik in range(len(self.kgrid["kpoints"])):
-                            for alpha in range(3):
-                                if self.kgrid[tp]["_all_elastic"][c][T][ib][ik][alpha] < 1:
-                                    self.kgrid[tp]["_all_elastic"][c][T][ib][ik][alpha] = 1e9
+        # for tp in ["n", "p"]:
+        #     for c in self.dopings:
+        #         for T in self.temperatures:
+        #             for ib in range(len(self.kgrid[tp]["energy"])):
+        #                 for ik in range(len(self.kgrid["kpoints"])):
+        #                     for alpha in range(3):
+        #                         if self.kgrid[tp]["_all_elastic"][c][T][ib][ik][alpha] < 1:
+        #                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik][alpha] = 1e9
 
 
         self.map_to_egrid(prop_name="_all_elastic")
@@ -772,7 +829,7 @@ class AMSET(object):
                             # self.kgrid[tp]["thermal force"][c][T][ib][ik] = v * df0dz * unit_conversion
                             # df0dz_temp = self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
                                 # E / (k_B * T) - df0dz_integral) * 1 / T * dTdz
-        # self.map_to_egrid(prop_name="df0dk") # This mapping is not correct as df0dk(E) is meaningless
+        self.map_to_egrid(prop_name="df0dk") # This mapping is not correct as df0dk(E) is meaningless
 
         # calculating S_o scattering rate which is not a function of g
         self.s_inelastic(sname="S_o")
@@ -784,8 +841,7 @@ class AMSET(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
-                        self.kgrid[tp]["g"][c][T] = ( self.kgrid[tp]["S_i"][c][T] \
-                            + self.kgrid[tp]["electric force"][c][T] ) / (
+                        self.kgrid[tp]["g"][c][T]=(self.kgrid[tp]["S_i"][c][T]+self.kgrid[tp]["electric force"][c][T])/(
                             self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
 
             for prop in ["g", "S_i", "S_o"]:
@@ -797,9 +853,19 @@ class AMSET(object):
             for T in self.temperatures:
                 fermi = self.egrid["fermi"][c][T]
                 for tp in ["n", "p"]:
-                    self.egrid["mobility"][c][T][tp]=self.integrate_over_DOSxE_dE(self.mobility_integrand,tp,fermi,T)
-                    self.egrid["mobility"][c][T][tp]/=default_small_E*\
-                                                        self.integrate_over_DOSxE_dE(self.f0,tp=tp,fermi=fermi,T=T)
+                    self.egrid[tp]["f"][c][T] += np.linalg.norm(self.egrid[tp]["g"][c][T])
+                    # self.egrid["mobility"][c][T][tp]=self.integrate_over_DOSxE_dE(self.mobility_integrand,tp,fermi,T)
+                    # mobility numerators
+                    for nu in self.elastic_scattering_mechanisms :
+                        self.egrid["mobility" + "_" + nu][c][T][tp] = (-1)*e*default_small_E/hbar* \
+                            self.integrate_over_E(prop_list=["/"+nu, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True)
+                    self.egrid["mobility"+"_"][c][T][tp]=\
+                                        self.integrate_over_E(prop_list=["g"],tp=tp, c=c, T=T, xDOS=True, xvel=True)
+
+                    # mobility denominators
+                    for mu in self.elastic_scattering_mechanisms + [""]:
+                        self.egrid["mobility"+"_"+mu][c][T][tp]/=default_small_E*\
+                                        self.integrate_over_E(prop_list=["f"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
 
         if self.wordy:
             pprint(self.egrid)
@@ -816,18 +882,18 @@ class AMSET(object):
 
 
     #TODO: this function is extremely inefficient, try to change integrand tp functions to accept different inputs
-    def mobility_integrand(self, E, fermi, T):
-        for c in self.dopings:
-            if self.egrid["fermi"][c][T] == fermi:
-                this_c = c
-        min_Ediff = 1e30
-        for tp in ["n", "p"]:
-            for idx, en in enumerate(self.egrid[tp]["energy"]):
-                if abs(E-en) < min_Ediff:
-                    min_Ediff = abs(E-en)
-                    ie = idx
-                    typ = tp
-        return self.egrid[typ]["velocity"][ie] * self.egrid[typ]["g"][this_c][T][ie]
+    # def mobility_integrand(self, E, fermi, T):
+    #     for c in self.dopings:
+    #         if self.egrid["fermi"][c][T] == fermi:
+    #             this_c = c
+    #     min_Ediff = 1e30
+    #     for tp in ["n", "p"]:
+    #         for idx, en in enumerate(self.egrid[tp]["energy"]):
+    #             if abs(E-en) < min_Ediff:
+    #                 min_Ediff = abs(E-en)
+    #                 ie = idx
+    #                 typ = tp
+    #     return self.egrid[typ]["velocity"][ie] * self.egrid[typ]["g"][this_c][T][ie]
 
 
 
