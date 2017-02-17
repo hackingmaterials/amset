@@ -143,7 +143,7 @@ class AMSET(object):
         return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
 
 
-
+    #TODO: very inefficient code, see if you can change the way f is implemented
     def get_E_idx(self, E, tp):
         """tp (str): "n" or "p" type"""
         min_Ediff = 1e30
@@ -310,9 +310,34 @@ class AMSET(object):
 
 
 
-    def init_kgrid(self, kgrid_tp="coarse"):
+    def omit_kpoints(self, low_v_ik):
+        """
+        The k-points with velocity < 1 cm/s (either in valence or conduction band) are taken out as those are
+            troublesome later with extreme values (e.g. too high elastic scattering rates)
+        :param low_v_ik:
+        :return:
+        """
+
+        print low_v_ik
+
+        ik_list = list(set(low_v_ik))
+        ik_list.sort(reverse=True)
+
+
+        self.kgrid["kpoints"] = np.delete(self.kgrid["kpoints"], ik_list, axis=0)
+        # self.kgrid["kpoints"].pop(ik)
+        for i, tp in enumerate(["n", "p"]):
+            for ib in range(self.cbm_vbm[tp]["included"]):
+                # for ik in ik_list:
+                for prop in ["velocity", "effective mass"]:
+                    self.kgrid[tp][prop][ib] = np.delete(self.kgrid[tp][prop][ib], ik_list, axis=0)
+                for prop in ["energy", "a", "c"]:
+                    for ik in ik_list:
+                        self.kgrid[tp][prop][ib].pop(ik)
+
+    def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 13
+            nkstep = 4
         # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         kx = list(np.linspace(-0.5, 0.5, nkstep))
         ky = kz = kx
@@ -342,16 +367,11 @@ class AMSET(object):
         #             counter += 1
 
         # kpts = np.array(kpts)
-        print(len(kpts))
         # initialize the kgrid
         self.kgrid = {
                 "kpoints": kpts,
-                "actual kpoints": np.dot(np.array(kpts), self._lattice_matrix)*2*pi*1/A_to_nm, # actual k-points in 1/nm
                 "n": {},
-                "p": {},
-                #TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
-                "W_POP": [self.W_POP for i in range(len(kpts))]
-                    }
+                "p": {} }
         for tp in ["n", "p"]:
             for property in ["energy", "a", "c"]:
                 self.kgrid[tp][property] = [ [0.0 for i in range(len(kpts))] for j in
@@ -362,11 +382,58 @@ class AMSET(object):
             self.kgrid[tp]["effective mass"] = \
                 [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
                                                                                 range(self.cbm_vbm[tp]["included"])]
+            # self.kgrid[tp]["effective mass"] = \
+            #     np.array([[[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))] for j in
+            #           range(self.cbm_vbm[tp]["included"])])
+
+        low_v_ik = []
+        analytical_bands = Analytical_bands(coeff_file=coeff_file)
+        for i, tp in enumerate(["n", "p"]):
+            sgn = (-1) ** i
+            for ib in range(self.cbm_vbm[tp]["included"]):
+                engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
+                    analytical_bands.get_engre(iband=self.cbm_vbm[tp]["bidx"] + sgn * ib)
+                for ik in range(len(self.kgrid["kpoints"])):
+                    energy, de, dde = analytical_bands.get_energy(
+                        self.kgrid["kpoints"][ik], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
+
+                    self.kgrid[tp]["energy"][ib][ik] = energy * Ry_to_eV
+                    self.kgrid[tp]["velocity"][ib][ik] = abs(
+                        de / hbar * A_to_m * m_to_cm * Ry_to_eV)  # to get v in units of cm/s
+                    # self.kgrid[tp]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
+                    # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
+                    # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
+                    # TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
+                    if self.kgrid[tp]["velocity"][ib][ik][0] < 1 or self.kgrid[tp]["velocity"][ib][ik][1] < 1 \
+                            or self.kgrid[tp]["velocity"][ib][ik][2] < 1:
+                        low_v_ik.append(ik)
+                    self.kgrid[tp]["effective mass"][ib][ik] = hbar ** 2 / (
+                        dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                    self.kgrid[tp]["a"][ib][ik] = 1.0
+            # Match the CBM/VBM energy values to those obtained from the coefficients file rather than vasprun.xml
+            self.cbm_vbm[tp]["energy"] = sgn * min(sgn * np.array(self.kgrid[tp]["energy"][0]))
+
+
+        # if len(low_v_ik) > 0:
+        #     self.omit_kpoints(low_v_ik)
+        if len(self.kgrid["kpoints"]) < 5:
+            raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
+        print self.kgrid["n"]["energy"]
+        print self.kgrid["p"]["energy"]
+
+
+        for tp in ["n", "p"]:
             for prop in ["_all_elastic", "S_i", "S_o", "g", "df0dk", "electric force", "thermal force"]:
                 self.kgrid[tp][prop] = {c: {T: np.array([[[1e-32, 1e-32, 1e-32] for i in range(len(self.kgrid["kpoints"]))]
                     for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
 
-
+        self.kgrid["actual kpoints"]=np.dot(np.array(self.kgrid["kpoints"]),self._lattice_matrix)*2*pi*1/A_to_nm #[1/nm]
+        # TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
+        self.kgrid["W_POP"] = [self.W_POP for i in range(len(self.kgrid["kpoints"]))]
+        for tp in ["n", "p"]:
+            for property in ["a", "c"]:
+                self.kgrid[tp][property] = [ [0.0 for i in range(len(kpts))] for j in
+                                                                                range(self.cbm_vbm[tp]["included"])]
 
     def generate_angles_and_indexes_for_integration(self):
         # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
@@ -770,30 +837,7 @@ class AMSET(object):
         :param grid_tp:
         :return:
         """
-        self.init_kgrid(kgrid_tp=kgrid_tp)
-
-        analytical_bands = Analytical_bands(coeff_file=coeff_file)
-        for i, tp in enumerate(["n", "p"]):
-            sgn = (-1)**i
-            for ib in range(self.cbm_vbm[tp]["included"]):
-                engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
-                    analytical_bands.get_engre(iband=self.cbm_vbm[tp]["bidx"]+sgn*ib)
-                for ik in range(len(self.kgrid["kpoints"])):
-                    energy, de, dde = analytical_bands.get_energy(
-                        self.kgrid["kpoints"][ik], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
-
-                    self.kgrid[tp]["energy"][ib][ik] = energy * Ry_to_eV
-                    self.kgrid[tp]["velocity"][ib][ik] = abs( de/hbar * A_to_m * m_to_cm * Ry_to_eV ) # to get v in units of cm/s
-                    # self.kgrid[tp]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
-# TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
-# TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
-# TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
-                    self.kgrid[tp]["effective mass"][ib][ik] = hbar ** 2 / (
-                    dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
-                    self.kgrid[tp]["a"][ib][ik] = 1.0
-            # Match the CBM/VBM energy values to those obtained from the coefficients file rather than vasprun.xml
-            self.cbm_vbm[tp]["energy"] = sgn*min(sgn*np.array(self.kgrid[tp]["energy"][0]))
-
+        self.init_kgrid(coeff_file=coeff_file, kgrid_tp=kgrid_tp)
         print self.cbm_vbm
 # TODO: later add a more sophisticated DOS function, if developed
         if True:
@@ -884,13 +928,13 @@ class AMSET(object):
                         self.egrid["mobility"+"_"+mu][c][T][tp]/=default_small_E*\
                                         self.integrate_over_E(prop_list=["f"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
 
-        remove_list = ["W_POP"]
-        for rm in remove_list:
-            del (self.kgrid[rm])
-        remove_list = ["effective mass", "actual kpoints"]
-        for tp in ["n", "p"]:
-            for rm in remove_list:
-                del (self.kgrid[tp][rm])
+        # remove_list = ["actual kpoints"]
+        # for rm in remove_list:
+        #     del (self.kgrid[rm])
+        # remove_list = ["effective mass"]
+        # for tp in ["n", "p"]:
+        #     for rm in remove_list:
+        #         del (self.kgrid[tp][rm])
 
         if self.wordy:
             pprint(self.egrid)
