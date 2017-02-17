@@ -329,11 +329,12 @@ class AMSET(object):
         for i, tp in enumerate(["n", "p"]):
             for ib in range(self.cbm_vbm[tp]["included"]):
                 # for ik in ik_list:
-                for prop in ["velocity", "effective mass"]:
-                    self.kgrid[tp][prop][ib] = np.delete(self.kgrid[tp][prop][ib], ik_list, axis=0)
                 for prop in ["energy", "a", "c"]:
                     for ik in ik_list:
                         self.kgrid[tp][prop][ib].pop(ik)
+                for prop in ["velocity", "effective mass"]:
+                    self.kgrid[tp][prop] = np.delete(self.kgrid[tp][prop], ik_list, axis=1)
+
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
@@ -414,12 +415,11 @@ class AMSET(object):
             self.cbm_vbm[tp]["energy"] = sgn * min(sgn * np.array(self.kgrid[tp]["energy"][0]))
 
 
-        # if len(low_v_ik) > 0:
-        #     self.omit_kpoints(low_v_ik)
+        if len(low_v_ik) > 0:
+            self.omit_kpoints(low_v_ik)
+
         if len(self.kgrid["kpoints"]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
-        print self.kgrid["n"]["energy"]
-        print self.kgrid["p"]["energy"]
 
 
         for tp in ["n", "p"]:
@@ -430,10 +430,7 @@ class AMSET(object):
         self.kgrid["actual kpoints"]=np.dot(np.array(self.kgrid["kpoints"]),self._lattice_matrix)*2*pi*1/A_to_nm #[1/nm]
         # TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
         self.kgrid["W_POP"] = [self.W_POP for i in range(len(self.kgrid["kpoints"]))]
-        for tp in ["n", "p"]:
-            for property in ["a", "c"]:
-                self.kgrid[tp][property] = [ [0.0 for i in range(len(kpts))] for j in
-                                                                                range(self.cbm_vbm[tp]["included"])]
+
 
     def generate_angles_and_indexes_for_integration(self):
         # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
@@ -477,20 +474,21 @@ class AMSET(object):
         :return:
         """
         if np.linalg.norm(k - k_prime) == 0:
+            warnings.warn("same k and k' vectors as input of the elastic scattering equation")
             return 0
 
         if sname in ["IMP"]: # ionized impurity scattering
             unit_conversion = 0.001 / e**2
             return unit_conversion * e ** 4 * self.egrid["N_II"][c][T] /\
-                        (4 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* np.linalg.norm(k - k_prime) ** 2 \
+                        (4.0 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* np.linalg.norm(k - k_prime) ** 2 \
                                     / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T][tp] ** 2) ** 2)
         elif sname in ["ACD"]: # acoustic deformation potential scattering
             unit_conversion = 1e18 * e
-            return unit_conversion * k_B * T * self.E_D[tp]**2 / (4 * pi**2 * hbar * self.C_el)
+            return unit_conversion * k_B * T * self.E_D[tp]**2 / (4.0 * pi**2 * hbar * self.C_el)
         elif sname in ["PIE"]: # piezoelectric scattering
             unit_conversion = 1e9/e
             return unit_conversion * e**2 * k_B * T * self.P_PIE**2 \
-                   /(np.linalg.norm(k - k_prime) ** 2 * 4 * pi**2 * hbar * epsilon_0 * self.epsilon_s)
+                   /(np.linalg.norm(k - k_prime) ** 2 * 4.0 * pi**2 * hbar * epsilon_0 * self.epsilon_s)
         else:
             raise ValueError("The elastic scattering name {} is not supported!".format(sname))
 
@@ -539,6 +537,7 @@ class AMSET(object):
         return integral
 
 
+
     def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None):
         sum = np.array([0.0, 0.0, 0.0])
         if len(X_E_index[ib][ik]) == 0:
@@ -564,7 +563,6 @@ class AMSET(object):
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None):
         k = self.kgrid["actual kpoints"][ik]
         k_prime = self.kgrid["actual kpoints"][ik_prime]
-
         return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
                * self.G(tp, ib, ik, ib_prime, ik_prime, X) ** 2 \
                / abs(self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha])
@@ -944,26 +942,6 @@ class AMSET(object):
             pprint(self.kgrid, stream=fout)
         with open("egrid.txt", "w") as fout:
             pprint(self.egrid, stream=fout)
-
-        # self.grid = {"kgrid": self.kgrid,
-        #              "egrid": self.egrid}
-
-
-
-    #TODO: this function is extremely inefficient, try to change integrand tp functions to accept different inputs
-    # def mobility_integrand(self, E, fermi, T):
-    #     for c in self.dopings:
-    #         if self.egrid["fermi"][c][T] == fermi:
-    #             this_c = c
-    #     min_Ediff = 1e30
-    #     for tp in ["n", "p"]:
-    #         for idx, en in enumerate(self.egrid[tp]["energy"]):
-    #             if abs(E-en) < min_Ediff:
-    #                 min_Ediff = abs(E-en)
-    #                 ie = idx
-    #                 typ = tp
-    #     return self.egrid[typ]["velocity"][ie] * self.egrid[typ]["g"][this_c][T][ie]
-
 
 
 
