@@ -30,8 +30,6 @@ k_B = _cd("Boltzmann constant in eV/K")
 epsilon_0 = 8.854187817e-12     # Absolute value of dielectric constant in vacuum [C^2/m^2N]
 default_small_E = 1 # eV/cm the value of this parameter does not matter
 dTdz = 10.0 # K/cm
-print hbar
-print e
 
 # The following are example constants taken from aMoBT calculation on PbTe that was done before
 # None for now
@@ -423,7 +421,7 @@ class AMSET(object):
 
 
         for tp in ["n", "p"]:
-            for prop in ["_all_elastic", "S_i", "S_o", "g", "df0dk", "electric force", "thermal force"]:
+            for prop in ["_all_elastic", "S_i", "S_o", "g", "g_POP", "df0dk", "electric force", "thermal force"]:
                 self.kgrid[tp][prop] = {c: {T: np.array([[[1e-32, 1e-32, 1e-32] for i in range(len(self.kgrid["kpoints"]))]
                     for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
 
@@ -892,8 +890,10 @@ class AMSET(object):
                     for tp in ["n", "p"]:
                         self.kgrid[tp]["g"][c][T]=(self.kgrid[tp]["S_i"][c][T]+self.kgrid[tp]["electric force"][c][T])/(
                             self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
+                        self.kgrid[tp]["g_POP"][c][T] = (self.kgrid[tp]["S_i"][c][T] +
+                            self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+1e-32)
 
-            for prop in ["g", "S_i", "S_o"]:
+            for prop in ["g", "g_POP", "S_i", "S_o"]:
                 self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False)
@@ -908,8 +908,8 @@ class AMSET(object):
                     for nu in self.elastic_scattering_mechanisms :
                         self.egrid["mobility" + "_" + nu][c][T][tp] = (-1)*default_small_E/hbar* \
                             self.integrate_over_E(prop_list=["/"+nu, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True)
-                    self.egrid["mobility"+"_"][c][T][tp]=\
-                                        self.integrate_over_E(prop_list=["g"],tp=tp, c=c, T=T, xDOS=True, xvel=True)
+                    self.egrid["mobility_POP"][c][T][tp] = self.integrate_over_E(prop_list=["g_POP"],tp=tp,c=c,T=T,xDOS=True,xvel=True)
+                    self.egrid["mobility_"][c][T][tp]=self.integrate_over_E(prop_list=["g"],tp=tp,c=c,T=T,xDOS=True,xvel=True)
 
                     # mobility denominators
                     for mu in self.elastic_scattering_mechanisms + [""]:
