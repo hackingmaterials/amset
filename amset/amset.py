@@ -233,7 +233,7 @@ class AMSET(object):
             # "all_en_flat": {"n": [], "p": []},
             "n": {"energy": [], "DOS": [], "all_en_flat": []},
             "p": {"energy": [], "DOS": [], "all_en_flat": []},
-            "mobility": {}, "conductivity": {}, "seebeck": {}
+            "mobility": {}
              }
 
         # reshape energies of all bands to one vector:
@@ -267,9 +267,11 @@ class AMSET(object):
 
         # initialize some fileds/properties
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-        for sn in self.elastic_scattering_mechanisms + ["POP", "overall"]:
+        for sn in self.elastic_scattering_mechanisms + ["POP", "overall", "average"]:
             # self.egrid["mobility"+"_"+sn]={c:{T:{"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
             self.egrid["mobility"][sn] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
+        for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor"]:
+            self.egrid[transport] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
@@ -423,7 +425,8 @@ class AMSET(object):
 
 
         for tp in ["n", "p"]:
-            for prop in ["_all_elastic", "S_i", "S_o", "g", "g_POP", "df0dk", "electric force", "thermal force"]:
+            for prop in ["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
+                         "df0dk", "electric force", "thermal force"]:
                 self.kgrid[tp][prop] = {c: {T: np.array([[[1e-32, 1e-32, 1e-32] for i in range(len(self.kgrid["kpoints"]))]
                     for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
 
@@ -538,7 +541,7 @@ class AMSET(object):
 
 
 
-    def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None):
+    def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None, g_suffix=""):
         sum = np.array([0.0, 0.0, 0.0])
         if len(X_E_index[ib][ik]) == 0:
             return sum
@@ -552,7 +555,7 @@ class AMSET(object):
                 for j in range(2):
                     # extract the indecies
                     X, ib_prime, ik_prime = X_E_index[ib][ik][i + j]
-                    dum += integrand(tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=sname)
+                    dum += integrand(tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=sname, g_suffix=g_suffix)
 
                 dum /= 2.0  # the average of points i and i+1 to integrate via the trapezoidal rule
                 sum[alpha] += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
@@ -560,7 +563,7 @@ class AMSET(object):
 
 
 
-    def el_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None):
+    def el_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None, g_suffix=""):
         k = self.kgrid["actual kpoints"][ik]
         k_prime = self.kgrid["actual kpoints"][ik_prime]
         return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
@@ -570,7 +573,7 @@ class AMSET(object):
 
 
 
-    def inel_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None):
+    def inel_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None, g_suffix=""):
         """
         returns the evaluated number (float) of the expression inside the S_o and S_i(g) integrals.
         :param tp (str): "n" or "p" type
@@ -604,7 +607,7 @@ class AMSET(object):
         # integ = np.linalg.norm(k_prime)**2*self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha]*norm_diff**2)
         integ = self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha])
         if "S_i" in sname:
-            integ *= X*self.kgrid[tp]["g"][c][T][ib][ik][alpha]
+            integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
             if "minus" in sname:
                 integ *= (1-f)*N_POP + f*(1+N_POP)
             elif "plus" in sname:
@@ -624,7 +627,7 @@ class AMSET(object):
         return integ
 
 
-    def s_inelastic(self, sname = None):
+    def s_inelastic(self, sname = None, g_suffix=""):
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
@@ -632,8 +635,8 @@ class AMSET(object):
                         for ib in range(len(self.kgrid[tp]["energy"])):
                             sum = 0
                             for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
-                                sum += self.integrate_over_X(tp, X_E_index=self.kgrid[tp][X_E_index_name],
-                                    integrand=self.inel_integrand_X, ib=ib, ik=ik, c=c, T=T, sname=sname+X_E_index_name)
+                                sum += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name], self.inel_integrand_X,
+                                                ib=ib, ik=ik, c=c, T=T, sname=sname+X_E_index_name, g_suffix=g_suffix)
                             self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * e**2*self.kgrid["W_POP"][ik]/(4*pi*hbar)\
                                 * (1/self.epsilon_inf-1/self.epsilon_s)/epsilon_0 * 100/e
                             # if np.linalg.norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
@@ -662,7 +665,7 @@ class AMSET(object):
                         for ib in range(len(self.kgrid[tp]["energy"])):
                             sum = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
                                                         integrand=self.el_integrand_X,
-                                                      ib=ib, ik=ik, c=c, T=T, sname = sname)
+                                                      ib=ib, ik=ik, c=c, T=T, sname = sname, g_suffix="")
                             self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) *2e-7*pi/hbar
                             for alpha in range(3):
                                 if self.kgrid[tp][sname][c][T][ib][ik][alpha] < 1:
@@ -706,7 +709,8 @@ class AMSET(object):
                     self.egrid[tp][prop_name]
                 except:
                     self.egrid[tp][prop_name] = {c: {T: np.array([[1e-20, 1e-20, 1e-20]
-                        for i in range(len(self.egrid[tp]["energy"]))]) for T in self.temperatures} for c in self.dopings}
+                        for i in range(len(self.egrid[tp]["energy"]))]) for T in self.temperatures}
+                                                                                                for c in self.dopings}
                 for c in self.dopings:
                     for T in self.temperatures:
                         for ie, en in enumerate(self.egrid[tp]["energy"]):
@@ -871,7 +875,7 @@ class AMSET(object):
                             self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * \
                                 self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
                                     E/(k_B*T)-self.egrid["Seebeck_integral_numerator"][c][T][tp]/
-                                    self.egrid["Seebeck_integral_denominator"][c][T][tp] ) * dTdz  /T
+                                    self.egrid["Seebeck_integral_denominator"][c][T][tp] ) * dTdz/T
 
 
 
@@ -885,8 +889,9 @@ class AMSET(object):
 
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.maxiters):
-            self.s_inelastic(sname="S_o")
-            self.s_inelastic(sname="S_i")
+            for g_suffix in ["", "_th"]:
+                self.s_inelastic(sname="S_o"+g_suffix, g_suffix=g_suffix)
+                self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
@@ -894,8 +899,10 @@ class AMSET(object):
                             self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
                         self.kgrid[tp]["g_POP"][c][T] = (self.kgrid[tp]["S_i"][c][T] +
                             self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+1e-32)
+                        self.kgrid[tp]["g_th"][c][T] = (self.kgrid[tp]["S_i"][c][T]+self.kgrid[tp]["thermal force"][c][
+                            T]) / (self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
 
-            for prop in ["g", "g_POP", "S_i", "S_o"]:
+            for prop in ["g", "g_POP", "g_th", "S_i", "S_o"]:
                 self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False)
@@ -910,13 +917,32 @@ class AMSET(object):
                     for nu in self.elastic_scattering_mechanisms :
                         self.egrid["mobility"][nu][c][T][tp] = (-1)*default_small_E/hbar* \
                             self.integrate_over_E(prop_list=["/"+nu, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True)
-                    self.egrid["mobility"]["POP"][c][T][tp] = self.integrate_over_E(prop_list=["g_POP"],tp=tp,c=c,T=T,xDOS=True,xvel=True)
-                    self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],tp=tp,c=c,T=T,xDOS=True,xvel=True)
+                    self.egrid["mobility"]["POP"][c][T][tp] = self.integrate_over_E(prop_list=["g_POP"],
+                                                                                    tp=tp,c=c,T=T,xDOS=True,xvel=True)
+                    self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
+                                                                                      tp=tp,c=c,T=T,xDOS=True,xvel=True)
+                    self.egrid["J_th"][c][T][tp] = default_small_E * self.integrate_over_E(prop_list=["g_th"],
+                                                                                tp=tp, c=c, T=T, xDOS=True,xvel=True)
 
                     # mobility denominators
-                    for mu in self.elastic_scattering_mechanisms + ["POP", "overall"]:
-                        self.egrid["mobility"][mu][c][T][tp]/=default_small_E*\
+                    for transport in self.elastic_scattering_mechanisms + ["POP", "overall"]:
+                        self.egrid["mobility"][transport][c][T][tp]/=default_small_E*\
                                         self.integrate_over_E(prop_list=["f"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
+                    self.egrid["J_th"][c][T][tp] /= default_small_E * \
+                                                                   self.integrate_over_E(prop_list=["f"], tp=tp, c=c,
+                                                                                         T=T, xDOS=True, xvel=False)
+
+                    # calculating other overall transport properties:
+                    self.egrid["conductivity"][c][T][tp] = self.egrid["mobility"]["overall"][c][T][tp]* e * abs(c)
+                    self.egrid["seebeck"][c][T][tp] = 1e6 * (k_B/e * ( self.egrid["Seebeck_integral_numerator"][c][T][tp] \
+                        / self.egrid["Seebeck_integral_numerator"][c][T][tp] - self.egrid["fermi"][c][T]/(k_B*T) ) \
+                        - self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz )
+                    print "3 seebeck terms at c={} and T={}:".format(c, T)
+                    print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
+                        / self.egrid["Seebeck_integral_numerator"][c][T][tp] * 1e6
+                    print - self.egrid["fermi"][c][T]/(k_B*T) * 1e6
+                    print - self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
+                    # thermopower_n = -k_B*(df0dz_integral_n-efef_n/(k_B*T))*1e6+(J(k_grid,T,m,g_th,Ds_n,energy_n,volume,v_n,free_e)/sigma)/dTdz*1e6;
 
         # remove_list = ["actual kpoints"]
         # for rm in remove_list:
