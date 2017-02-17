@@ -312,12 +312,12 @@ class AMSET(object):
 
     def init_kgrid(self, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nstep = 3
+            nkstep = 13
         # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
-        kx = list(np.linspace(0.25, 0.75, nstep))
+        kx = list(np.linspace(-0.5, 0.5, nkstep))
         ky = kz = kx
-        # ky = list(np.linspace(0.26, 0.76, nstep))
-        # kz = list(np.linspace(0.24, 0.74, nstep))
+        # ky = list(np.linspace(0.27, 0.67, nkstep))
+        # kz = list(np.linspace(0.21, 0.71, nkstep))
         kpts = np.array([[x, y, z] for x in kx for y in ky for z in kz])
 
         # TODO this deletion is just a test, change it later once confirmed that the order of mobility is good!
@@ -731,15 +731,32 @@ class AMSET(object):
 
 
 
-    def to_json(self, filename="grid.json", trimmed=False):
-        del(self.grid["kgrid"]["actual kpoints"])
-        remove_list = ["effective mass", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
+    def to_json(self, kgrid=True, trimmed=False):
         if trimmed:
+            remove_list = []
             for tp in ["n", "p"]:
                 for rm in remove_list:
-                    del(self.grid["kgrid"][tp][rm])
-        with open(filename, 'w') as fp:
-            json.dump(self.grid, fp,sort_keys = True, indent = 4, ensure_ascii=False, cls=MontyEncoder)
+                    try:
+                        del (self.egrid[tp][rm])
+                    except:
+                        pass
+        with open("egrid.json", 'w') as fp:
+            json.dump(self.egrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
+
+        if kgrid:
+            if trimmed:
+                remove_list = ["W_POP"]
+                for rm in remove_list:
+                    del (self.kgrid[rm])
+                remove_list = ["effective mass", "actual kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
+                for tp in ["n", "p"]:
+                    for rm in remove_list:
+                        try:
+                            del (self.kgrid[tp][rm])
+                        except:
+                            pass
+            with open("kgrid.json", 'w') as fp:
+                json.dump(self.kgrid, fp,sort_keys = True, indent = 4, ensure_ascii=False, cls=MontyEncoder)
 
 
 
@@ -867,6 +884,14 @@ class AMSET(object):
                         self.egrid["mobility"+"_"+mu][c][T][tp]/=default_small_E*\
                                         self.integrate_over_E(prop_list=["f"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
 
+        remove_list = ["W_POP"]
+        for rm in remove_list:
+            del (self.kgrid[rm])
+        remove_list = ["effective mass", "actual kpoints"]
+        for tp in ["n", "p"]:
+            for rm in remove_list:
+                del (self.kgrid[tp][rm])
+
         if self.wordy:
             pprint(self.egrid)
             pprint(self.kgrid)
@@ -876,8 +901,8 @@ class AMSET(object):
         with open("egrid.txt", "w") as fout:
             pprint(self.egrid, stream=fout)
 
-        self.grid = {"kgrid": self.kgrid,
-                     "egrid": self.egrid}
+        # self.grid = {"kgrid": self.kgrid,
+        #              "egrid": self.egrid}
 
 
 
