@@ -78,7 +78,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
-        self.maxiters = 5
+        self.maxiters = 10
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
@@ -906,7 +906,7 @@ class AMSET(object):
                     # self.egrid["mobility"][c][T][tp]=self.integrate_over_DOSxE_dE(self.mobility_integrand,tp,fermi,T)
                     # mobility numerators
                     for nu in self.elastic_scattering_mechanisms :
-                        self.egrid["mobility" + "_" + nu][c][T][tp] = (-1)*e*default_small_E/hbar* \
+                        self.egrid["mobility" + "_" + nu][c][T][tp] = (-1)*default_small_E/hbar* \
                             self.integrate_over_E(prop_list=["/"+nu, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True)
                     self.egrid["mobility"+"_"][c][T][tp]=\
                                         self.integrate_over_E(prop_list=["g"],tp=tp, c=c, T=T, xDOS=True, xvel=True)
