@@ -232,7 +232,8 @@ class AMSET(object):
             # "DOS": {"n": [], "p": []},
             # "all_en_flat": {"n": [], "p": []},
             "n": {"energy": [], "DOS": [], "all_en_flat": []},
-            "p": {"energy": [], "DOS": [], "all_en_flat": []}
+            "p": {"energy": [], "DOS": [], "all_en_flat": []},
+            "mobility": {}, "conductivity": {}, "seebeck": {}
              }
 
         # reshape energies of all bands to one vector:
@@ -266,8 +267,9 @@ class AMSET(object):
 
         # initialize some fileds/properties
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-        for sn in self.elastic_scattering_mechanisms + [""]:
-            self.egrid["mobility"+"_"+sn]={c:{T:{"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
+        for sn in self.elastic_scattering_mechanisms + ["POP", "overall"]:
+            # self.egrid["mobility"+"_"+sn]={c:{T:{"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
+            self.egrid["mobility"][sn] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
@@ -906,14 +908,14 @@ class AMSET(object):
                     # self.egrid["mobility"][c][T][tp]=self.integrate_over_DOSxE_dE(self.mobility_integrand,tp,fermi,T)
                     # mobility numerators
                     for nu in self.elastic_scattering_mechanisms :
-                        self.egrid["mobility" + "_" + nu][c][T][tp] = (-1)*default_small_E/hbar* \
+                        self.egrid["mobility"][nu][c][T][tp] = (-1)*default_small_E/hbar* \
                             self.integrate_over_E(prop_list=["/"+nu, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True)
-                    self.egrid["mobility_POP"][c][T][tp] = self.integrate_over_E(prop_list=["g_POP"],tp=tp,c=c,T=T,xDOS=True,xvel=True)
-                    self.egrid["mobility_"][c][T][tp]=self.integrate_over_E(prop_list=["g"],tp=tp,c=c,T=T,xDOS=True,xvel=True)
+                    self.egrid["mobility"]["POP"][c][T][tp] = self.integrate_over_E(prop_list=["g_POP"],tp=tp,c=c,T=T,xDOS=True,xvel=True)
+                    self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],tp=tp,c=c,T=T,xDOS=True,xvel=True)
 
                     # mobility denominators
-                    for mu in self.elastic_scattering_mechanisms + [""]:
-                        self.egrid["mobility"+"_"+mu][c][T][tp]/=default_small_E*\
+                    for mu in self.elastic_scattering_mechanisms + ["POP", "overall"]:
+                        self.egrid["mobility"][mu][c][T][tp]/=default_small_E*\
                                         self.integrate_over_E(prop_list=["f"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
 
         # remove_list = ["actual kpoints"]
