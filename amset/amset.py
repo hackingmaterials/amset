@@ -854,16 +854,6 @@ class AMSET(object):
             self.s_elastic(sname=sname)
             self.map_to_egrid(prop_name=sname)
 
-        # TODO: this is to avoid very large g(k), see if there is a better way to avoid that
-        # for tp in ["n", "p"]:
-        #     for c in self.dopings:
-        #         for T in self.temperatures:
-        #             for ib in range(len(self.kgrid[tp]["energy"])):
-        #                 for ik in range(len(self.kgrid["kpoints"])):
-        #                     for alpha in range(3):
-        #                         if self.kgrid[tp]["_all_elastic"][c][T][ib][ik][alpha] < 1:
-        #                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik][alpha] = 1e9
-
 
         self.map_to_egrid(prop_name="_all_elastic")
 
