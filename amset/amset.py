@@ -59,7 +59,7 @@ class AMSET(object):
 
     def __init__(self,
 
-                 N_dis=None,
+                 N_dis=None, scissor=None,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e21] # 1/cm**3 list of carrier concentrations
@@ -72,6 +72,7 @@ class AMSET(object):
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
         self.elastic_scattering_mechanisms = ["IMP", "ACD", "PIE"]
+        self.scissor = scissor or 0.0 # total value added to the band gap by adding to the CBM and subtracting from VBM
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
@@ -401,7 +402,7 @@ class AMSET(object):
                     energy, de, dde = analytical_bands.get_energy(
                         self.kgrid["kpoints"][ik], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
 
-                    self.kgrid[tp]["energy"][ib][ik] = energy * Ry_to_eV
+                    self.kgrid[tp]["energy"][ib][ik] = energy * Ry_to_eV + sgn * self.scissor/2
                     self.kgrid[tp]["velocity"][ib][ik] = abs(
                         de / hbar * A_to_m * m_to_cm * Ry_to_eV)  # to get v in units of cm/s
                     # self.kgrid[tp]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
@@ -569,8 +570,9 @@ class AMSET(object):
         k_prime = self.kgrid["actual kpoints"][ik_prime]
         return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
                * self.G(tp, ib, ik, ib_prime, ik_prime, X) ** 2 \
-               / abs(self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha])
-            # We take |v| as scattering depends on the velocity itself and not the direction
+               / self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha]
+                # / abs(self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha])
+        # We take |v| as scattering depends on the velocity itself and not the direction
 
 
 
@@ -594,11 +596,11 @@ class AMSET(object):
         v = self.kgrid[tp]["velocity"][ib][ik]
         fermi = self.egrid["fermi"][c][T]
 
-        # f = self.f0(self.kgrid[tp]["energy"][ib][ik], fermi, T)
-        # f_prime = self.f0(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T)
+        f = self.f0(self.kgrid[tp]["energy"][ib][ik], fermi, T)
+        f_prime = self.f0(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T)
         # test
-        f = self.f(self.kgrid[tp]["energy"][ib][ik], fermi, T, tp, c, alpha)
-        f_prime = self.f(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T, tp, c, alpha)
+        # f = self.f(self.kgrid[tp]["energy"][ib][ik], fermi, T, tp, c, alpha)
+        # f_prime = self.f(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T, tp, c, alpha)
 
         N_POP = 1 / ( np.exp(hbar*self.kgrid["W_POP"][ik]/(k_B*T)) - 1 )
         # norm_diff = max(np.linalg.norm(k-k_prime), 1e-10)
@@ -638,8 +640,9 @@ class AMSET(object):
                             for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
                                 sum += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name], self.inel_integrand_X,
                                                 ib=ib, ik=ik, c=c, T=T, sname=sname+X_E_index_name, g_suffix=g_suffix)
-                            self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * e**2*self.kgrid["W_POP"][ik]/(4*pi*hbar)\
-                                * (1/self.epsilon_inf-1/self.epsilon_s)/epsilon_0 * 100/e
+                            # self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * e**2*self.kgrid["W_POP"][ik]/(4*pi*hbar) \
+                            self.kgrid[tp][sname][c][T][ib][ik] = sum*e**2*self.kgrid["W_POP"][ik] / (4 * pi * hbar) \
+                                                            * (1/self.epsilon_inf-1/self.epsilon_s)/epsilon_0 * 100/e
                             # if np.linalg.norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
                             #     print tp, c, T, ik, ib, sum, self.kgrid[tp][sname][c][T][ib][ik]
 
@@ -893,6 +896,12 @@ class AMSET(object):
             for g_suffix in ["", "_th"]:
                 self.s_inelastic(sname="S_o" + g_suffix, g_suffix=g_suffix)
                 self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
+                # for tr in ["S_i" + g_suffix, "S_o" + g_suffix]:
+                #     for tp in ["n", "p"]:
+                #         self.kgrid[tp][tr] = {
+                # c: {T: np.array([[[1.0, 1., 1.] for i in range(len(self.kgrid["kpoints"]))]
+                #                  for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in
+                # self.dopings}
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
@@ -903,7 +912,7 @@ class AMSET(object):
                         self.kgrid[tp]["g_th"][c][T]=(self.kgrid[tp]["S_i_th"][c][T]+self.kgrid[tp]["thermal force"][c][
                             T]) / (self.kgrid[tp]["S_o_th"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
 
-            for prop in ["g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
+            for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
                 self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False)
