@@ -76,7 +76,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
-        self.maxiters = 10
+        self.maxiters = 20
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
@@ -347,6 +347,7 @@ class AMSET(object):
         # ky = list(np.linspace(0.27, 0.67, nkstep))
         # kz = list(np.linspace(0.21, 0.71, nkstep))
         kpts = np.array([[x, y, z] for x in kx for y in ky for z in kz])
+        print len(kpts)
 
         # TODO this deletion is just a test, change it later once confirmed that the order of mobility is good!
         # kpts = np.delete(kpts, (0, 21, 42, -1), axis=0)
@@ -743,7 +744,7 @@ class AMSET(object):
         # initialize parameters
         calc_doping = 1e52 # initial concentration, just has to be very far from any expected concentration
         relative_error = calc_doping
-        maxitr = 4 # essentially the number of floating points in accuracy
+        nfloat = 4 # essentially the number of floating points in accuracy
         iter = 0
         actual_tp = self.get_tp(c)
         temp_doping = {"n": 0.0, "p": 0.0}
@@ -753,7 +754,7 @@ class AMSET(object):
         # iterate around the CBM/VBM with finer and finer steps to find the Fermi level with a matching doping
         # for iter in range(maxitr):
         funcs = [lambda E, fermi, T: self.f0(E,fermi,T), lambda E, fermi, T: 1-self.f0(E,fermi,T)]
-        while (relative_error > tolerance) and (iter<maxitr):
+        while (relative_error > tolerance) and (iter<nfloat):
             step = step0 / 10**iter
             for fermi in np.linspace(fermi0-nsteps*step,fermi0+nsteps*step, nsteps*2):
                 for j, tp in enumerate(["n", "p"]):
@@ -890,7 +891,7 @@ class AMSET(object):
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.maxiters):
             for g_suffix in ["", "_th"]:
-                self.s_inelastic(sname="S_o"+g_suffix, g_suffix=g_suffix)
+                self.s_inelastic(sname="S_o" + g_suffix, g_suffix=g_suffix)
                 self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
             for c in self.dopings:
                 for T in self.temperatures:
@@ -899,10 +900,10 @@ class AMSET(object):
                             self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
                         self.kgrid[tp]["g_POP"][c][T] = (self.kgrid[tp]["S_i"][c][T] +
                             self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+1e-32)
-                        self.kgrid[tp]["g_th"][c][T] = (self.kgrid[tp]["S_i"][c][T]+self.kgrid[tp]["thermal force"][c][
-                            T]) / (self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
+                        self.kgrid[tp]["g_th"][c][T]=(self.kgrid[tp]["S_i_th"][c][T]+self.kgrid[tp]["thermal force"][c][
+                            T]) / (self.kgrid[tp]["S_o_th"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
 
-            for prop in ["g", "g_POP", "g_th", "S_i", "S_o"]:
+            for prop in ["g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
                 self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False)
@@ -927,10 +928,20 @@ class AMSET(object):
                     # mobility denominators
                     for transport in self.elastic_scattering_mechanisms + ["POP", "overall"]:
                         self.egrid["mobility"][transport][c][T][tp]/=default_small_E*\
-                                        self.integrate_over_E(prop_list=["f"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
+                                        self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
                     self.egrid["J_th"][c][T][tp] /= default_small_E * \
-                                                                   self.integrate_over_E(prop_list=["f"], tp=tp, c=c,
+                                                                   self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
                                                                                          T=T, xDOS=True, xvel=False)
+                    # for transport in self.elastic_scattering_mechanisms + ["POP", "overall"]:
+                    #     self.egrid["mobility"][transport][c][T][tp]/=default_small_E*\
+                    #                     self.integrate_over_E(prop_list=["f"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
+                    # self.egrid["J_th"][c][T][tp] /= default_small_E * \
+                    #                                                self.integrate_over_E(prop_list=["f"], tp=tp, c=c,
+                    #                                                                      T=T, xDOS=True, xvel=False)
+
+                    for transport in self.elastic_scattering_mechanisms + ["POP"]:
+                        self.egrid["mobility"]["average"][c][T][tp] += 1 / self.egrid["mobility"][transport][c][T][tp]
+                    self.egrid["mobility"]["average"][c][T][tp] = 1/ self.egrid["mobility"]["average"][c][T][tp]
 
                     # calculating other overall transport properties:
                     self.egrid["conductivity"][c][T][tp] = self.egrid["mobility"]["overall"][c][T][tp]* e * abs(c)
