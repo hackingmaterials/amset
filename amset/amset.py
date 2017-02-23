@@ -286,6 +286,7 @@ class AMSET(object):
         self.calculate_property(prop_name="Seebeck_integral_denominator", prop_func=self.seeb_int_denom)
 
 
+
     def G(self, tp, ib, ik, ib_prime, ik_prime, X):
         """
         The overlap integral betweek vectors k and k'
@@ -337,6 +338,7 @@ class AMSET(object):
                         self.kgrid[tp][prop][ib].pop(ik)
                 for prop in ["velocity", "effective mass"]:
                     self.kgrid[tp][prop] = np.delete(self.kgrid[tp][prop], ik_list, axis=1)
+
 
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
@@ -437,6 +439,7 @@ class AMSET(object):
         self.kgrid["W_POP"] = [self.W_POP for i in range(len(self.kgrid["kpoints"]))]
 
 
+
     def generate_angles_and_indexes_for_integration(self):
         # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
         for tp in ["n", "p"]:
@@ -478,22 +481,23 @@ class AMSET(object):
         :param k_prime:
         :return:
         """
-        if np.linalg.norm(k - k_prime) == 0:
+        norm_diff_k = np.linalg.norm(k - k_prime)
+        if norm_diff_k == 0:
             warnings.warn("same k and k' vectors as input of the elastic scattering equation")
             return 0
 
         if sname in ["IMP"]: # ionized impurity scattering
             unit_conversion = 0.001 / e**2
             return unit_conversion * e ** 4 * self.egrid["N_II"][c][T] /\
-                        (4.0 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* np.linalg.norm(k - k_prime) ** 2 \
-                                    / ((np.linalg.norm(k - k_prime) ** 2 + self.egrid["beta"][c][T][tp] ** 2) ** 2)
+                        (4.0 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* norm_diff_k ** 2 \
+                                    / ((norm_diff_k ** 2 + self.egrid["beta"][c][T][tp] ** 2) ** 2)
         elif sname in ["ACD"]: # acoustic deformation potential scattering
             unit_conversion = 1e18 * e
             return unit_conversion * k_B * T * self.E_D[tp]**2 / (4.0 * pi**2 * hbar * self.C_el)
         elif sname in ["PIE"]: # piezoelectric scattering
             unit_conversion = 1e9/e
             return unit_conversion * e**2 * k_B * T * self.P_PIE**2 \
-                   /(np.linalg.norm(k - k_prime) ** 2 * 4.0 * pi**2 * hbar * epsilon_0 * self.epsilon_s)
+                   /(norm_diff_k ** 2 * 4.0 * pi**2 * hbar * epsilon_0 * self.epsilon_s)
         else:
             raise ValueError("The elastic scattering name {} is not supported!".format(sname))
 
@@ -509,6 +513,7 @@ class AMSET(object):
                 # TODO:The DOS used is too simplistic and wrong (e.g., calc_doping might hit a limit), try 2*[2pim_hk_BT/hbar**2]**1.5
                 integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
         return integral
+
 
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=True, xvel=False, interpolation_nsteps=100):
@@ -610,7 +615,8 @@ class AMSET(object):
         # integ = np.linalg.norm(k_prime)**2*self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha]*norm_diff**2)
         integ = self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha])
         if "S_i" in sname:
-            integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
+            integ *= abs(X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha])
+            # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
             if "minus" in sname:
                 integ *= (1-f)*N_POP + f*(1+N_POP)
             elif "plus" in sname:
@@ -627,7 +633,9 @@ class AMSET(object):
         else:
             raise ValueError("The inelastic scattering name: {} is NOT supported".format(sname))
         assert(type(integ), float)
+        # assert(integ>=0)
         return integ
+
 
 
     def s_inelastic(self, sname = None, g_suffix=""):
@@ -645,6 +653,7 @@ class AMSET(object):
                                                             * (1/self.epsilon_inf-1/self.epsilon_s)/epsilon_0 * 100/e
                             # if np.linalg.norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
                             #     print tp, c, T, ik, ib, sum, self.kgrid[tp][sname][c][T][ib][ik]
+
 
 
     def s_elastic(self, sname="IMP"):
@@ -876,6 +885,7 @@ class AMSET(object):
                             self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * self.df0dE(E,fermi, T) * v # in cm
                             self.kgrid[tp]["electric force"][c][T][ib][ik] = -1 * \
                                 self.kgrid[tp]["df0dk"][c][T][ib][ik] * default_small_E / hbar # in 1/s
+                            # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
                             self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * \
                                 self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
                                     E/(k_B*T)-self.egrid["Seebeck_integral_numerator"][c][T][tp]/
@@ -890,25 +900,27 @@ class AMSET(object):
 
         # calculating S_o scattering rate which is not a function of g
         self.s_inelastic(sname="S_o")
+        self.s_inelastic(sname="S_o_th")
 
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.maxiters):
             for g_suffix in ["", "_th"]:
-                self.s_inelastic(sname="S_o" + g_suffix, g_suffix=g_suffix)
+                # self.s_inelastic(sname="S_o" + g_suffix, g_suffix=g_suffix)
                 self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
-                # for tr in ["S_i" + g_suffix, "S_o" + g_suffix]:
-                #     for tp in ["n", "p"]:
-                #         self.kgrid[tp][tr] = {
-                # c: {T: np.array([[[1.0, 1., 1.] for i in range(len(self.kgrid["kpoints"]))]
-                #                  for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in
-                # self.dopings}
+                # for tp in ["n", "p"]:
+                #     self.kgrid[tp]["S_i" + g_suffix] = {c: {T: np.array([[[1., 1., 1.] for i in range(len(self.kgrid["kpoints"]))]
+                #         for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
+                #     self.kgrid[tp]["S_o" + g_suffix] = {
+                #     c: {T: np.array([[[1e8, 1e8, 1e8] for i in range(len(self.kgrid["kpoints"]))]
+                #                      for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in
+                #     self.dopings}
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
                         self.kgrid[tp]["g"][c][T]=(self.kgrid[tp]["S_i"][c][T]+self.kgrid[tp]["electric force"][c][T])/(
                             self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
                         self.kgrid[tp]["g_POP"][c][T] = (self.kgrid[tp]["S_i"][c][T] +
-                            self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+1e-32)
+                            self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+ 1e-32 )
                         self.kgrid[tp]["g_th"][c][T]=(self.kgrid[tp]["S_i_th"][c][T]+self.kgrid[tp]["thermal force"][c][
                             T]) / (self.kgrid[tp]["S_o_th"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
 
