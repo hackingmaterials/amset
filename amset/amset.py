@@ -161,7 +161,7 @@ class AMSET(object):
 
     @staticmethod
     def df0dE(E, fermi, T):
-        return -1 * np.exp((E - fermi) / (k_B * T)) / (k_B * T * (1 + np.exp((E - fermi) / (k_B * T))) ** 2)
+        return -1/(k_B*T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
 
 
 
@@ -430,7 +430,7 @@ class AMSET(object):
 
         for tp in ["n", "p"]:
             for prop in ["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
-                         "df0dk", "electric force", "thermal force"]:
+                         "df0dk", "df0dE", "electric force", "thermal force"]:
                 self.kgrid[tp][prop] = {c: {T: np.array([[[1e-32, 1e-32, 1e-32] for i in range(len(self.kgrid["kpoints"]))]
                     for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
 
