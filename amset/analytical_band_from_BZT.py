@@ -12,6 +12,8 @@ A_to_m = 1e-10
 m_to_cm = 100
 e = _cd('elementary charge')
 
+# TODO: the reading from a fitted band structure file and reproduction of E, dE and d2E should be optimized in speed
+
 class Analytical_bands(object):
     def __init__(self, coeff_file):
         self.coeff_file = coeff_file
