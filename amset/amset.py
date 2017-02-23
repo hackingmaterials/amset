@@ -59,7 +59,7 @@ class AMSET(object):
 
     def __init__(self,
 
-                 N_dis=None, scissor=None,
+                 N_dis=None, scissor=None, elastic_scattering_mechanisms=None, inelastic_scattering_mechanisms=None,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e21] # 1/cm**3 list of carrier concentrations
@@ -71,7 +71,8 @@ class AMSET(object):
         self.path_dir = "../test_files/PbTe_nscf_uniform/nscf_line"
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
-        self.elastic_scattering_mechanisms = ["IMP", "ACD", "PIE"]
+        self.elastic_scattering_mechanisms = elastic_scattering_mechanisms or ["IMP", "ACD", "PIE"]
+        self.inelastic_scattering_mechanisms = inelastic_scattering_mechanisms or ["POP"]
         self.scissor = scissor or 0.0 # total value added to the band gap by adding to the CBM and subtracting from VBM
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
@@ -441,14 +442,26 @@ class AMSET(object):
 
 
     def generate_angles_and_indexes_for_integration(self):
+
+
+        def is_sparse(list_of_lists, threshold=0.1):
+            """check to see if a list of lists has more than certain fraction (threshold) of empty lists inside."""
+            counter = 0
+            for i in list_of_lists:
+                if len(i)==0:
+                    counter += 1
+            if counter/len(list_of_lists) > threshold:
+                return True
+            return False
+
         # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
         for tp in ["n", "p"]:
             for angle_index_for_integration in ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]:
                 self.kgrid[tp][angle_index_for_integration] = [ [ [] for i in range(len(self.kgrid["kpoints"])) ]
                                                                   for j in range(self.cbm_vbm[tp]["included"]) ]
         for tp in ["n", "p"]:
-            for ik in range(len(self.kgrid["kpoints"])):
-                for ib in range(len(self.kgrid[tp]["energy"])):
+            for ib in range(len(self.kgrid[tp]["energy"])):
+                for ik in range(len(self.kgrid["kpoints"])):
                     for ib_prime in range(len(self.kgrid[tp]["energy"])):
                         for ik_prime in range(len(self.kgrid["kpoints"])):
                             k = self.kgrid["actual kpoints"][ik]
@@ -467,6 +480,13 @@ class AMSET(object):
                     self.kgrid[tp]["X_E_ik"][ib][ik].sort()
                     self.kgrid[tp]["X_Eplus_ik"][ib][ik].sort()
                     self.kgrid[tp]["X_Eminus_ik"][ib][ik].sort()
+
+                if is_sparse(self.kgrid[tp]["X_E_ik"][ib]):
+                    raise ValueError("the k-grid is too coarse for an acceptable simulation of elastic scattering")
+                if is_sparse(self.kgrid[tp]["X_Eplus_ik"][ib]) or is_sparse(self.kgrid[tp]["X_Eminus_ik"][ib]):
+                    if "POP" in self.inelastic_scattering_mechanisms:
+                        raise ValueError("the k-grid is too coarse for an acceptable simulation of POP scattering, "
+                                         "you can try this k-point grid but without POP as an inelastic scattering")
 
 
 
@@ -644,13 +664,15 @@ class AMSET(object):
                 for T in self.temperatures:
                     for ik in range(len(self.kgrid["kpoints"])):
                         for ib in range(len(self.kgrid[tp]["energy"])):
-                            sum = 0
+                            sum = [0, 0, 0]
                             for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
                                 sum += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name], self.inel_integrand_X,
                                                 ib=ib, ik=ik, c=c, T=T, sname=sname+X_E_index_name, g_suffix=g_suffix)
                             # self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * e**2*self.kgrid["W_POP"][ik]/(4*pi*hbar) \
                             self.kgrid[tp][sname][c][T][ib][ik] = sum*e**2*self.kgrid["W_POP"][ik] / (4 * pi * hbar) \
                                                             * (1/self.epsilon_inf-1/self.epsilon_s)/epsilon_0 * 100/e
+                            # if np.linalg.norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1:
+                            #     self.kgrid[tp][sname][c][T][ib][ik] = [1, 1, 1]
                             # if np.linalg.norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
                             #     print tp, c, T, ik, ib, sum, self.kgrid[tp][sname][c][T][ib][ik]
 
@@ -862,6 +884,7 @@ class AMSET(object):
 
         # initialize g in the egrid
         self.map_to_egrid("g")
+        self.map_to_egrid(prop_name="velocity", c_and_T_idx=False)
 
         # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
         self.generate_angles_and_indexes_for_integration()
@@ -927,7 +950,6 @@ class AMSET(object):
             for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
                 self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
-        self.map_to_egrid(prop_name="velocity", c_and_T_idx=False)
 
         for c in self.dopings:
             for T in self.temperatures:
