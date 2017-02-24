@@ -992,19 +992,19 @@ class AMSET(object):
                     self.egrid["mobility"]["average"][c][T][tp] = 1/ self.egrid["mobility"]["average"][c][T][tp]
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
-                    if mu_overrall_norm == 0 or faulty_overall_mobility:
+                    if mu_overrall_norm == 0.0 or faulty_overall_mobility:
                         self.egrid["mobility"]["overall"][c][T][tp] = self.egrid["mobility"]["average"][c][T][tp]
 
 
                     # calculating other overall transport properties:
                     self.egrid["conductivity"][c][T][tp] = self.egrid["mobility"]["overall"][c][T][tp]* e * abs(c)
                     self.egrid["seebeck"][c][T][tp] = 1e6*(k_B/e*( self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                        / self.egrid["Seebeck_integral_numerator"][c][T][tp] - self.egrid["fermi"][c][T]/(k_B*T) ) \
+                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] - self.egrid["fermi"][c][T]/(k_B*T) ) \
                         - self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz )
                     print "3 seebeck terms at c={} and T={}:".format(c, T)
                     print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                        / self.egrid["Seebeck_integral_numerator"][c][T][tp] * 1e6
-                    print - self.egrid["fermi"][c][T]/(k_B*T) * 1e6
+                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] * 1e6 * k_B/e
+                    print - self.egrid["fermi"][c][T]/(k_B*T) * 1e6 * k_B/e
                     print - self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
                     # thermopower_n = -k_B*(df0dz_integral_n-efef_n/(k_B*T))*1e6+(J(k_grid,T,m,g_th,Ds_n,energy_n,volume,v_n,free_e)/sigma)/dTdz*1e6;
 
