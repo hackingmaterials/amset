@@ -280,7 +280,10 @@ class AMSET(object):
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
         self.calculate_property(prop_name="f0", prop_func=self.f0, for_all_E=True)
-        self.calculate_property(prop_name="f", prop_func=self.f0, for_all_E=True)
+        # self.calculate_property(prop_name="f", prop_func=self.f0, for_all_E=True)
+        # self.calculate_property(prop_name="f_th", prop_func=self.f0, for_all_E=True)
+        for prop in ["f", "f_th"]:
+            self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
         self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi, T: self.f0(E, fermi, T)
                                                                         * (1 - self.f0(E, fermi, T)), for_all_E=True)
         self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
@@ -383,11 +386,10 @@ class AMSET(object):
                 "n": {},
                 "p": {} }
         for tp in ["n", "p"]:
-            for property in ["energy", "a", "c"]:
-                self.kgrid[tp][property] = [ [0.0 for i in range(len(kpts))] for j in
-                                                                                range(self.cbm_vbm[tp]["included"])]
-            for property in ["velocity"]:
-                self.kgrid[tp][property] = \
+            for prop in ["energy", "a", "c"]:
+                self.kgrid[tp][prop] = [ [0.0 for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])]
+            for prop in ["velocity"]:
+                self.kgrid[tp][prop] = \
                 np.array([ [[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])])
             self.kgrid[tp]["effective mass"] = \
                 [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
@@ -423,7 +425,6 @@ class AMSET(object):
             # Match the CBM/VBM energy values to those obtained from the coefficients file rather than vasprun.xml
             self.cbm_vbm[tp]["energy"] = sgn * min(sgn * np.array(self.kgrid[tp]["energy"][0]))
 
-
         if len(low_v_ik) > 0:
             self.omit_kpoints(low_v_ik)
 
@@ -432,7 +433,7 @@ class AMSET(object):
 
 
         for tp in ["n", "p"]:
-            for prop in ["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
+            for prop in ["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP", "f", "f_th",
                          "df0dk", "df0dE", "electric force", "thermal force"]:
                 self.kgrid[tp][prop] = {c: {T: np.array([[[1e-32, 1e-32, 1e-32] for i in range(len(self.kgrid["kpoints"]))]
                     for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
@@ -657,8 +658,6 @@ class AMSET(object):
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         else:
             raise ValueError("The inelastic scattering name: {} is NOT supported".format(sname))
-        assert(type(integ), float)
-        # assert(integ>=0)
         return integ
 
 
@@ -872,13 +871,15 @@ class AMSET(object):
     def solve_BTE_iteratively(self):
 
         # calculating S_o scattering rate which is not a function of g
-        self.s_inelastic(sname="S_o")
-        self.s_inelastic(sname="S_o_th")
+        if "POP" in self.inelastic_scatterings:
+            self.s_inelastic(sname="S_o")
+            self.s_inelastic(sname="S_o_th")
 
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.maxiters):
-            for g_suffix in ["", "_th"]:
-                self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
+            if "POP" in self.inelastic_scatterings:
+                for g_suffix in ["", "_th"]:
+                    self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
@@ -952,34 +953,33 @@ class AMSET(object):
         self.map_to_egrid(prop_name="df0dk") # This mapping is not correct as df0dk(E) is meaningless
 
         # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
-        if "POP" in self.inelastic_scatterings:
-            self.solve_BTE_iteratively()
+        # if "POP" in self.inelastic_scatterings:
+        self.solve_BTE_iteratively()
 
 
         for c in self.dopings:
             for T in self.temperatures:
                 for tp in ["n", "p"]:
                     self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + np.linalg.norm(self.egrid[tp]["g"][c][T])
+                    self.egrid[tp]["f_th"][c][T] = self.egrid[tp]["f0"][c][T] + np.linalg.norm(self.egrid[tp]["g"][c][T])
 
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
                         self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar* \
                             self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True)
-                    if "POP" in self.inelastic_scatterings:
-                        for mu_inel in self.inelastic_scatterings:
+                    for mu_inel in self.inelastic_scatterings:
                             self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(prop_list=["g"+mu_inel],
                                                                                 tp=tp,c=c,T=T,xDOS=True,xvel=True)
-                        self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
+                    self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
                                                                                 tp=tp,c=c,T=T,xDOS=True,xvel=True)
-                        self.egrid["J_th"][c][T][tp] = default_small_E * self.integrate_over_E(prop_list=["g_th"],
-                                                                                tp=tp, c=c, T=T, xDOS=True,xvel=True)
+                    self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"],
+                            tp=tp, c=c, T=T, xDOS=True, xvel=True) * e * 1e24 # to bring J to A/cm2 units
 
                     # mobility denominators
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
-                        self.egrid["mobility"][transport][c][T][tp]/=default_small_E*\
-                                        self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
-                    self.egrid["J_th"][c][T][tp] /= default_small_E * \
-                                                                   self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
+                        self.egrid["mobility"][transport][c][T][tp]/=3*default_small_E*\
+                                        self.integrate_over_E(prop_list=["f"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
+                    self.egrid["J_th"][c][T][tp] /= 3*self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
                                                                                          T=T, xDOS=True, xvel=False)
 
                     faulty_overall_mobility = False
@@ -989,7 +989,7 @@ class AMSET(object):
                         self.egrid["mobility"]["average"][c][T][tp] += 1 / self.egrid["mobility"][transport][c][T][tp]
                         if mu_overrall_norm > np.linalg.norm(self.egrid["mobility"][transport][c][T][tp]):
                             faulty_overall_mobility = True
-                    self.egrid["mobility"]["average"][c][T][tp] = 1/ self.egrid["mobility"]["average"][c][T][tp]
+                    self.egrid["mobility"]["average"][c][T][tp] = 1 / self.egrid["mobility"]["average"][c][T][tp]
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
                     if mu_overrall_norm == 0.0 or faulty_overall_mobility:
@@ -998,14 +998,17 @@ class AMSET(object):
 
                     # calculating other overall transport properties:
                     self.egrid["conductivity"][c][T][tp] = self.egrid["mobility"]["overall"][c][T][tp]* e * abs(c)
-                    self.egrid["seebeck"][c][T][tp] = 1e6*(k_B/e*( self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] - self.egrid["fermi"][c][T]/(k_B*T) ) \
-                        - self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz )
+                    self.egrid["seebeck"][c][T][tp] = -1e6*k_B*( self.egrid["Seebeck_integral_numerator"][c][T][tp] \
+                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] - self.egrid["fermi"][c][T]/(k_B*T) )
+                    if "POP" in self.inelastic_scatterings:     # when POP is not available J_th is unreliable
+                        self.egrid["seebeck"][c][T][tp] += 1e6 \
+                                        * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
+
                     print "3 seebeck terms at c={} and T={}:".format(c, T)
                     print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] * 1e6 * k_B/e
-                    print - self.egrid["fermi"][c][T]/(k_B*T) * 1e6 * k_B/e
-                    print - self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
+                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B
+                    print + self.egrid["fermi"][c][T]/(k_B*T) * 1e6 * k_B
+                    print + self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
                     # thermopower_n = -k_B*(df0dz_integral_n-efef_n/(k_B*T))*1e6+(J(k_grid,T,m,g_th,Ds_n,energy_n,volume,v_n,free_e)/sigma)/dTdz*1e6;
 
         # remove_list = ["actual kpoints"]
