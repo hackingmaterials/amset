@@ -59,7 +59,7 @@ class AMSET(object):
 
     def __init__(self,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e21] # 1/cm**3 list of carrier concentrations
@@ -75,7 +75,7 @@ class AMSET(object):
         self.inelastic_scatterings = []
         if include_POP:
             self.inelastic_scatterings += ["POP"]
-        self.scissor = scissor or 0.0 # total value added to the band gap by adding to the CBM and subtracting from VBM
+        self.scissor = scissor or -0.7 # total value added to the band gap by adding to the CBM and subtracting from VBM
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
@@ -487,9 +487,6 @@ class AMSET(object):
                 if is_sparse(self.kgrid[tp]["X_E_ik"][ib]):
                     raise ValueError("the k-grid is too coarse for an acceptable simulation of elastic scattering")
                 if is_sparse(self.kgrid[tp]["X_Eplus_ik"][ib]) or is_sparse(self.kgrid[tp]["X_Eminus_ik"][ib]):
-                    print self.inelastic_scatterings
-                    print self.inelastic_scatterings
-                    print self.inelastic_scatterings
                     if "POP" in self.inelastic_scatterings:
                         raise ValueError("the k-grid is too coarse for an acceptable simulation of POP scattering, "
                                          "you can try this k-point grid but without POP as an inelastic scattering")
@@ -907,11 +904,16 @@ class AMSET(object):
         """
         self.init_kgrid(coeff_file=coeff_file, kgrid_tp=kgrid_tp)
         print self.cbm_vbm
+
 # TODO: later add a more sophisticated DOS function, if developed
         if True:
             self.init_egrid(dos_tp = "simple")
         else:
             pass
+
+        self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
+        if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"]+self.scissor)) > k_B*300:
+            raise ValueError("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
 
         # initialize g in the egrid
         self.map_to_egrid("g")
