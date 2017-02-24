@@ -75,7 +75,7 @@ class AMSET(object):
         self.inelastic_scatterings = []
         if include_POP:
             self.inelastic_scatterings += ["POP"]
-        self.scissor = scissor or -1.7 # total value added to the band gap by adding to the CBM and subtracting from VBM
+        self.scissor = scissor or 0.0 # total value added to the band gap by adding to the CBM and subtracting from VBM
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
