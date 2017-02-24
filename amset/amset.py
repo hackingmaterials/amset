@@ -57,9 +57,9 @@ class AMSET(object):
      """
 
 
-    def __init__(self,
+    def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
@@ -68,14 +68,14 @@ class AMSET(object):
         self.epsilon_inf = 25.57 # example for PbTe
         self._vrun = {}
         self.max_e_range = 10*k_B*max(self.temperatures) # we set the max energy range after which occupation is zero
-        self.path_dir = "../test_files/PbTe_nscf_uniform/nscf_line"
+        self.path_dir = path_dir or "../test_files/PbTe_nscf_uniform/nscf_line"
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
         self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE"]
         self.inelastic_scatterings = []
         if include_POP:
             self.inelastic_scatterings += ["POP"]
-        self.scissor = scissor or -0.75 # total value added to the band gap by adding to the CBM and subtracting from VBM
+        self.scissor = scissor or -1.7 # total value added to the band gap by adding to the CBM and subtracting from VBM
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
@@ -1007,12 +1007,18 @@ class AMSET(object):
                         self.egrid["seebeck"][c][T][tp] += 1e6 \
                                         * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
 
-                    print "3 seebeck terms at c={} and T={}:".format(c, T)
-                    print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B
-                    print + self.egrid["fermi"][c][T]/(k_B*T) * 1e6 * k_B
-                    print + self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
-                    # thermopower_n = -k_B*(df0dz_integral_n-efef_n/(k_B*T))*1e6+(J(k_grid,T,m,g_th,Ds_n,energy_n,volume,v_n,free_e)/sigma)/dTdz*1e6;
+                    # print "3 seebeck terms at c={} and T={}:".format(c, T)
+                    # print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
+                    #     / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B
+                    # print + self.egrid["fermi"][c][T]/(k_B*T) * 1e6 * k_B
+                    # print + self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
+
+                actual_type = self.get_tp(c)
+                other_type = self.get_tp(-c)
+                self.egrid["seebeck"][c][T][actual_type] = (
+                    self.egrid["conductivity"][c][T][actual_type] * self.egrid["seebeck"][c][T][actual_type] -
+                    self.egrid["conductivity"][c][T][other_type] * self.egrid["seebeck"][c][T][other_type]) \
+                    / (self.egrid["conductivity"][c][T][actual_type] + self.egrid["conductivity"][c][T][other_type])
 
         # remove_list = ["actual kpoints"]
         # for rm in remove_list:
