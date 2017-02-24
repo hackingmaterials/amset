@@ -982,13 +982,22 @@ class AMSET(object):
                                                                    self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
                                                                                          T=T, xDOS=True, xvel=False)
 
+                    faulty_overall_mobility = False
+                    mu_overrall_norm = np.linalg.norm(self.egrid["mobility"]["overall"][c][T][tp])
                     for transport in self.elastic_scatterings + self.inelastic_scatterings:
                         self.egrid["mobility"]["average"][c][T][tp] += 1 / self.egrid["mobility"][transport][c][T][tp]
+                        if mu_overrall_norm > np.linalg.norm(self.egrid["mobility"][transport][c][T][tp]):
+                            faulty_overall_mobility = True
                     self.egrid["mobility"]["average"][c][T][tp] = 1/ self.egrid["mobility"]["average"][c][T][tp]
+
+                    # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
+                    if mu_overrall_norm == 0 or faulty_overall_mobility:
+                        self.egrid["mobility"]["overall"][c][T][tp] = self.egrid["mobility"]["average"][c][T][tp]
+
 
                     # calculating other overall transport properties:
                     self.egrid["conductivity"][c][T][tp] = self.egrid["mobility"]["overall"][c][T][tp]* e * abs(c)
-                    self.egrid["seebeck"][c][T][tp] = 1e6 * (k_B/e * ( self.egrid["Seebeck_integral_numerator"][c][T][tp] \
+                    self.egrid["seebeck"][c][T][tp] = 1e6*(k_B/e*( self.egrid["Seebeck_integral_numerator"][c][T][tp] \
                         / self.egrid["Seebeck_integral_numerator"][c][T][tp] - self.egrid["fermi"][c][T]/(k_B*T) ) \
                         - self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz )
                     print "3 seebeck terms at c={} and T={}:".format(c, T)
