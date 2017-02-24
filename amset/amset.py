@@ -59,7 +59,7 @@ class AMSET(object):
 
     def __init__(self,
 
-                 N_dis=None, scissor=None, elastic_scattering_mechanisms=None, inelastic_scattering_mechanisms=None,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e21] # 1/cm**3 list of carrier concentrations
@@ -71,8 +71,10 @@ class AMSET(object):
         self.path_dir = "../test_files/PbTe_nscf_uniform/nscf_line"
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
-        self.elastic_scattering_mechanisms = elastic_scattering_mechanisms or ["IMP", "ACD", "PIE"]
-        self.inelastic_scattering_mechanisms = inelastic_scattering_mechanisms or ["POP"]
+        self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE"]
+        self.inelastic_scatterings = []
+        if include_POP:
+            self.inelastic_scatterings += ["POP"]
         self.scissor = scissor or 0.0 # total value added to the band gap by adding to the CBM and subtracting from VBM
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
@@ -269,7 +271,7 @@ class AMSET(object):
 
         # initialize some fileds/properties
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-        for sn in self.elastic_scattering_mechanisms + ["POP", "overall", "average"]:
+        for sn in self.elastic_scatterings + self.inelastic_scatterings +["overall", "average"]:
             # self.egrid["mobility"+"_"+sn]={c:{T:{"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
             self.egrid["mobility"][sn] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
         for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor"]:
@@ -484,7 +486,10 @@ class AMSET(object):
                 if is_sparse(self.kgrid[tp]["X_E_ik"][ib]):
                     raise ValueError("the k-grid is too coarse for an acceptable simulation of elastic scattering")
                 if is_sparse(self.kgrid[tp]["X_Eplus_ik"][ib]) or is_sparse(self.kgrid[tp]["X_Eminus_ik"][ib]):
-                    if "POP" in self.inelastic_scattering_mechanisms:
+                    print self.inelastic_scatterings
+                    print self.inelastic_scatterings
+                    print self.inelastic_scatterings
+                    if "POP" in self.inelastic_scatterings:
                         raise ValueError("the k-grid is too coarse for an acceptable simulation of POP scattering, "
                                          "you can try this k-point grid but without POP as an inelastic scattering")
 
@@ -864,6 +869,31 @@ class AMSET(object):
 
 
 
+    def solve_BTE_iteratively(self):
+
+        # calculating S_o scattering rate which is not a function of g
+        self.s_inelastic(sname="S_o")
+        self.s_inelastic(sname="S_o_th")
+
+        # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
+        for iter in range(self.maxiters):
+            for g_suffix in ["", "_th"]:
+                self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
+            for c in self.dopings:
+                for T in self.temperatures:
+                    for tp in ["n", "p"]:
+                        self.kgrid[tp]["g"][c][T]=(self.kgrid[tp]["S_i"][c][T]+self.kgrid[tp]["electric force"][c][T])/(
+                            self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
+                        self.kgrid[tp]["g_POP"][c][T] = (self.kgrid[tp]["S_i"][c][T] +
+                            self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+ 1e-32 )
+                        self.kgrid[tp]["g_th"][c][T]=(self.kgrid[tp]["S_i_th"][c][T]+self.kgrid[tp]["thermal force"][c][
+                            T]) / (self.kgrid[tp]["S_o_th"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
+
+            for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
+                self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
+
+
+
     def run(self, coeff_file, kgrid_tp="coarse"):
         """
         Function to run AMSET and generate the main outputs kgrid and egrid
@@ -890,7 +920,7 @@ class AMSET(object):
         self.generate_angles_and_indexes_for_integration()
 
         # calculate all elastic scattering rates in kgrid and then map it to egrid:
-        for sname in self.elastic_scattering_mechanisms:
+        for sname in self.elastic_scatterings:
             self.s_elastic(sname=sname)
             self.map_to_egrid(prop_name=sname)
 
@@ -921,68 +951,38 @@ class AMSET(object):
                                 # E / (k_B * T) - df0dz_integral) * 1 / T * dTdz
         self.map_to_egrid(prop_name="df0dk") # This mapping is not correct as df0dk(E) is meaningless
 
-        # calculating S_o scattering rate which is not a function of g
-        self.s_inelastic(sname="S_o")
-        self.s_inelastic(sname="S_o_th")
-
-        # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
-        for iter in range(self.maxiters):
-            for g_suffix in ["", "_th"]:
-                # self.s_inelastic(sname="S_o" + g_suffix, g_suffix=g_suffix)
-                self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
-                # for tp in ["n", "p"]:
-                #     self.kgrid[tp]["S_i" + g_suffix] = {c: {T: np.array([[[1., 1., 1.] for i in range(len(self.kgrid["kpoints"]))]
-                #         for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
-                #     self.kgrid[tp]["S_o" + g_suffix] = {
-                #     c: {T: np.array([[[1e8, 1e8, 1e8] for i in range(len(self.kgrid["kpoints"]))]
-                #                      for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in
-                #     self.dopings}
-            for c in self.dopings:
-                for T in self.temperatures:
-                    for tp in ["n", "p"]:
-                        self.kgrid[tp]["g"][c][T]=(self.kgrid[tp]["S_i"][c][T]+self.kgrid[tp]["electric force"][c][T])/(
-                            self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
-                        self.kgrid[tp]["g_POP"][c][T] = (self.kgrid[tp]["S_i"][c][T] +
-                            self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+ 1e-32 )
-                        self.kgrid[tp]["g_th"][c][T]=(self.kgrid[tp]["S_i_th"][c][T]+self.kgrid[tp]["thermal force"][c][
-                            T]) / (self.kgrid[tp]["S_o_th"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
-
-            for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
-                self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
+        # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
+        if "POP" in self.inelastic_scatterings:
+            self.solve_BTE_iteratively()
 
 
         for c in self.dopings:
             for T in self.temperatures:
-                fermi = self.egrid["fermi"][c][T]
                 for tp in ["n", "p"]:
-                    self.egrid[tp]["f"][c][T] += np.linalg.norm(self.egrid[tp]["g"][c][T])
-                    # self.egrid["mobility"][c][T][tp]=self.integrate_over_DOSxE_dE(self.mobility_integrand,tp,fermi,T)
+                    self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + np.linalg.norm(self.egrid[tp]["g"][c][T])
+
                     # mobility numerators
-                    for nu in self.elastic_scattering_mechanisms :
-                        self.egrid["mobility"][nu][c][T][tp] = (-1)*default_small_E/hbar* \
-                            self.integrate_over_E(prop_list=["/"+nu, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True)
-                    self.egrid["mobility"]["POP"][c][T][tp] = self.integrate_over_E(prop_list=["g_POP"],
-                                                                                    tp=tp,c=c,T=T,xDOS=True,xvel=True)
-                    self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
-                                                                                      tp=tp,c=c,T=T,xDOS=True,xvel=True)
-                    self.egrid["J_th"][c][T][tp] = default_small_E * self.integrate_over_E(prop_list=["g_th"],
+                    for mu_el in self.elastic_scatterings:
+                        self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar* \
+                            self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True)
+                    if "POP" in self.inelastic_scatterings:
+                        for mu_inel in self.inelastic_scatterings:
+                            self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(prop_list=["g"+mu_inel],
+                                                                                tp=tp,c=c,T=T,xDOS=True,xvel=True)
+                        self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
+                                                                                tp=tp,c=c,T=T,xDOS=True,xvel=True)
+                        self.egrid["J_th"][c][T][tp] = default_small_E * self.integrate_over_E(prop_list=["g_th"],
                                                                                 tp=tp, c=c, T=T, xDOS=True,xvel=True)
 
                     # mobility denominators
-                    for transport in self.elastic_scattering_mechanisms + ["POP", "overall"]:
+                    for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
                         self.egrid["mobility"][transport][c][T][tp]/=default_small_E*\
                                         self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
                     self.egrid["J_th"][c][T][tp] /= default_small_E * \
                                                                    self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
                                                                                          T=T, xDOS=True, xvel=False)
-                    # for transport in self.elastic_scattering_mechanisms + ["POP", "overall"]:
-                    #     self.egrid["mobility"][transport][c][T][tp]/=default_small_E*\
-                    #                     self.integrate_over_E(prop_list=["f"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
-                    # self.egrid["J_th"][c][T][tp] /= default_small_E * \
-                    #                                                self.integrate_over_E(prop_list=["f"], tp=tp, c=c,
-                    #                                                                      T=T, xDOS=True, xvel=False)
 
-                    for transport in self.elastic_scattering_mechanisms + ["POP"]:
+                    for transport in self.elastic_scatterings + self.inelastic_scatterings:
                         self.egrid["mobility"]["average"][c][T][tp] += 1 / self.egrid["mobility"][transport][c][T][tp]
                     self.egrid["mobility"]["average"][c][T][tp] = 1/ self.egrid["mobility"]["average"][c][T][tp]
 
