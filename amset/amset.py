@@ -985,6 +985,7 @@ class AMSET(object):
                     faulty_overall_mobility = False
                     mu_overrall_norm = np.linalg.norm(self.egrid["mobility"]["overall"][c][T][tp])
                     for transport in self.elastic_scatterings + self.inelastic_scatterings:
+                        # averaging all mobility values via Matthiessen's rule
                         self.egrid["mobility"]["average"][c][T][tp] += 1 / self.egrid["mobility"][transport][c][T][tp]
                         if mu_overrall_norm > np.linalg.norm(self.egrid["mobility"][transport][c][T][tp]):
                             faulty_overall_mobility = True
