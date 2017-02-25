@@ -97,7 +97,8 @@ class AMSET(object):
         bs = vrun.get_band_structure()
 
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band (e.g. in VASP)
-        cbm_vbm = {"n": {"energy": 0.0, "bidx": 0, "included": 0}, "p": {"energy": 0.0, "bidx": 0, "included": 0}}
+        cbm_vbm = {"n": {"energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
+                   "p": {"energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]}}
         cbm = bs.get_cbm()
         vbm = bs.get_vbm()
 
@@ -274,7 +275,7 @@ class AMSET(object):
         for sn in self.elastic_scatterings + self.inelastic_scatterings +["overall", "average"]:
             # self.egrid["mobility"+"_"+sn]={c:{T:{"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
             self.egrid["mobility"][sn] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-        for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor"]:
+        for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
             self.egrid[transport] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
@@ -333,14 +334,16 @@ class AMSET(object):
         ik_list = list(set(low_v_ik))
         ik_list.sort(reverse=True)
 
-
+        temp_min = {"n": 1e32, "p": 1e32}
         self.kgrid["kpoints"] = np.delete(self.kgrid["kpoints"], ik_list, axis=0)
         # self.kgrid["kpoints"].pop(ik)
         for i, tp in enumerate(["n", "p"]):
             for ib in range(self.cbm_vbm[tp]["included"]):
                 # for ik in ik_list:
-                for prop in ["energy", "a", "c"]:
-                    for ik in ik_list:
+                for ik in ik_list:
+                    if (-1)**i * self.kgrid[tp]["energy"][ib][ik] < temp_min[tp]:
+                        self.cbm_vbm[tp]["eff_mass_xx"]=(-1)**i*self.kgrid[tp]["effective mass"][ib][ik].diagonal()
+                    for prop in ["energy", "a", "c"]:
                         self.kgrid[tp][prop][ib].pop(ik)
                 for prop in ["velocity", "effective mass"]:
                     self.kgrid[tp][prop] = np.delete(self.kgrid[tp][prop], ik_list, axis=1)
@@ -434,7 +437,7 @@ class AMSET(object):
 
         for tp in ["n", "p"]:
             for prop in ["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP", "f", "f_th",
-                         "df0dk", "df0dE", "electric force", "thermal force"]:
+                         "relaxation time", "df0dk", "df0dE", "electric force", "thermal force"]:
                 self.kgrid[tp][prop] = {c: {T: np.array([[[1e-32, 1e-32, 1e-32] for i in range(len(self.kgrid["kpoints"]))]
                     for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
 
@@ -697,8 +700,8 @@ class AMSET(object):
                     for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
             for c in self.dopings:
                 for T in self.temperatures:
-                    for ik in range(len(self.kgrid["kpoints"])):
-                        for ib in range(len(self.kgrid[tp]["energy"])):
+                    for ib in range(len(self.kgrid[tp]["energy"])):
+                        for ik in range(len(self.kgrid["kpoints"])):
                             sum = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
                                                         integrand=self.el_integrand_X,
                                                       ib=ib, ik=ik, c=c, T=T, sname = sname, g_suffix="")
@@ -707,6 +710,7 @@ class AMSET(object):
                                 if self.kgrid[tp][sname][c][T][ib][ik][alpha] < 1:
                                     self.kgrid[tp][sname][c][T][ib][ik][alpha] = 1e9
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
+                        self.kgrid[tp]["relaxation time"][c][T][ib] = 1/self.kgrid[tp]["_all_elastic"][c][T][ib]
 
 
 
@@ -930,6 +934,7 @@ class AMSET(object):
 
 
         self.map_to_egrid(prop_name="_all_elastic")
+        self.map_to_egrid(prop_name="relaxation time")
 
         for tp in ["n", "p"]:
             for c in self.dopings:
@@ -991,13 +996,15 @@ class AMSET(object):
                         # averaging all mobility values via Matthiessen's rule
                         self.egrid["mobility"]["average"][c][T][tp] += 1 / self.egrid["mobility"][transport][c][T][tp]
                         if mu_overrall_norm > np.linalg.norm(self.egrid["mobility"][transport][c][T][tp]):
-                            faulty_overall_mobility = True
+                            faulty_overall_mobility = True # because the overall mobility should be lower than all
                     self.egrid["mobility"]["average"][c][T][tp] = 1 / self.egrid["mobility"]["average"][c][T][tp]
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
                     if mu_overrall_norm == 0.0 or faulty_overall_mobility:
                         self.egrid["mobility"]["overall"][c][T][tp] = self.egrid["mobility"]["average"][c][T][tp]
 
+                    self.egrid["relaxation time constant"][c][T][tp] =  self.egrid["mobility"]["overall"][c][T][tp] \
+                        * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
 
                     # calculating other overall transport properties:
                     self.egrid["conductivity"][c][T][tp] = self.egrid["mobility"]["overall"][c][T][tp]* e * abs(c)
@@ -1019,6 +1026,8 @@ class AMSET(object):
                     self.egrid["conductivity"][c][T][actual_type] * self.egrid["seebeck"][c][T][actual_type] -
                     self.egrid["conductivity"][c][T][other_type] * self.egrid["seebeck"][c][T][other_type]) \
                     / (self.egrid["conductivity"][c][T][actual_type] + self.egrid["conductivity"][c][T][other_type])
+                # since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
+                self.egrid["conductivity"][c][T][actual_type] += self.egrid["conductivity"][c][T][other_type]
 
         # remove_list = ["actual kpoints"]
         # for rm in remove_list:
