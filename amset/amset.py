@@ -408,9 +408,10 @@ class AMSET(object):
             for ib in range(self.cbm_vbm[tp]["included"]):
                 engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
                     analytical_bands.get_engre(iband=self.cbm_vbm[tp]["bidx"] + sgn * ib)
+                nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
                 for ik in range(len(self.kgrid["kpoints"])):
                     energy, de, dde = analytical_bands.get_energy(
-                        self.kgrid["kpoints"][ik], engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
+                        self.kgrid["kpoints"][ik], engre, nwave, nsym, nstv, vec, vec2, br_dir=br_dir, cbm=True)
 
                     self.kgrid[tp]["energy"][ib][ik] = energy * Ry_to_eV + sgn * self.scissor/2
                     self.kgrid[tp]["velocity"][ib][ik] = abs(
