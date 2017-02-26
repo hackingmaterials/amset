@@ -59,7 +59,7 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
@@ -280,7 +280,7 @@ class AMSET(object):
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
-        self.calculate_property(prop_name="f0", prop_func=self.f0, for_all_E=True)
+        # self.calculate_property(prop_name="f0", prop_func=self.f0, for_all_E=True)
         # self.calculate_property(prop_name="f", prop_func=self.f0, for_all_E=True)
         # self.calculate_property(prop_name="f_th", prop_func=self.f0, for_all_E=True)
         for prop in ["f", "f_th"]:
@@ -437,11 +437,12 @@ class AMSET(object):
 
 
         for tp in ["n", "p"]:
-            for prop in ["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP", "f0", "f", "f_th",
+            for prop in ["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP", "f", "f_th",
                          "relaxation time", "df0dk", "df0dE", "electric force", "thermal force"]:
                 self.kgrid[tp][prop] = {c: {T: np.array([[[1e-32, 1e-32, 1e-32] for i in range(len(self.kgrid["kpoints"]))]
                     for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
-
+            self.kgrid[tp]["f0"] = {c: {T: np.array([[1e-32 for i in range(len(self.kgrid["kpoints"]))]
+                for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
         self.kgrid["actual kpoints"]=np.dot(np.array(self.kgrid["kpoints"]),self._lattice_matrix)*2*pi*1/A_to_nm #[1/nm]
         # TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
         self.kgrid["W_POP"] = [self.W_POP for i in range(len(self.kgrid["kpoints"]))]
@@ -630,8 +631,11 @@ class AMSET(object):
         v = self.kgrid[tp]["velocity"][ib][ik]
         fermi = self.egrid["fermi"][c][T]
 
-        f = self.f0(self.kgrid[tp]["energy"][ib][ik], fermi, T)
-        f_prime = self.f0(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T)
+        # f = self.f0(self.kgrid[tp]["energy"][ib][ik], fermi, T)
+        # f_prime = self.f0(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T)
+
+        f = self.kgrid[tp]["f0"][c][T][ib][ik]
+        f_prime = self.kgrid[tp]["f0"][c][T][ib_prime][ik_prime]
         # test
         # f = self.f(self.kgrid[tp]["energy"][ib][ik], fermi, T, tp, c, alpha)
         # f_prime = self.f(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T, tp, c, alpha)
@@ -1014,12 +1018,15 @@ class AMSET(object):
                         for ib in range(len(self.kgrid[tp]["energy"])):
                             E = self.kgrid[tp]["energy"][ib][ik]
                             v = self.kgrid[tp]["velocity"][ib][ik]
+
+                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0 = self.f0(E, fermi, T)
+                            print self.kgrid[tp]["f0"][c][T]
                             self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * self.df0dE(E,fermi, T) * v # in cm
                             self.kgrid[tp]["electric force"][c][T][ib][ik] = -1 * \
                                 self.kgrid[tp]["df0dk"][c][T][ib][ik] * default_small_E / hbar # in 1/s
                             # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
-                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * \
-                                self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
+                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0 *(1-f0) *(\
+                                # self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
                                     E/(k_B*T)-self.egrid["Seebeck_integral_numerator"][c][T][tp]/
                                     self.egrid["Seebeck_integral_denominator"][c][T][tp] ) * dTdz/T
 
@@ -1028,6 +1035,7 @@ class AMSET(object):
                             # self.kgrid[tp]["thermal force"][c][T][ib][ik] = v * df0dz * unit_conversion
                             # df0dz_temp = self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
                                 # E / (k_B * T) - df0dz_integral) * 1 / T * dTdz
+        self.map_to_egrid(prop_name="f0")
         self.map_to_egrid(prop_name="df0dk") # This mapping is not correct as df0dk(E) is meaningless
 
         # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
