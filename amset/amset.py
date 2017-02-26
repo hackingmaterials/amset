@@ -178,10 +178,12 @@ class AMSET(object):
 
     def seeb_int_denom(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
-        fn = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T))
-        # To avoid returning a denominator that is zero:
-        return {t:max(self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T), 1e-30)
-                for t in ["n", "p"]}
+        # fn = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T))
+        #
+        # # To avoid returning a denominator that is zero:
+        # return {t:max(self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T), 1e-30)
+        #         for t in ["n", "p"]}
+        return {t:1e-32+self.integrate_over_E(prop_list=["f0x1-f0"],tp=t,c=c,T=T,xDOS=True) for t in ["n", "p"]}
 
 
 
@@ -533,7 +535,9 @@ class AMSET(object):
 
 
 
-    def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=100):
+    def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None):
+        if not interpolation_nsteps:
+            interpolation_nsteps = max(5, int(500/len(self.egrid["n"]["energy"])) )
         integral = 0.0
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             E = self.egrid[tp]["energy"][ie]
@@ -546,7 +550,9 @@ class AMSET(object):
 
 
 
-    def integrate_over_E(self, prop_list, tp, c, T, xDOS=True, xvel=False, interpolation_nsteps=100):
+    def integrate_over_E(self, prop_list, tp, c, T, xDOS=True, xvel=False, interpolation_nsteps=None):
+        if not interpolation_nsteps:
+            interpolation_nsteps = max(5, int(500/len(self.egrid["n"]["energy"])) )
         diff = [0.0 for prop in prop_list]
         integral = 0.0
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
@@ -1020,7 +1026,6 @@ class AMSET(object):
                             v = self.kgrid[tp]["velocity"][ib][ik]
 
                             self.kgrid[tp]["f0"][c][T][ib][ik] = f0 = self.f0(E, fermi, T)
-                            print self.kgrid[tp]["f0"][c][T]
                             self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * self.df0dE(E,fermi, T) * v # in cm
                             self.kgrid[tp]["electric force"][c][T][ib][ik] = -1 * \
                                 self.kgrid[tp]["df0dk"][c][T][ib][ik] * default_small_E / hbar # in 1/s
