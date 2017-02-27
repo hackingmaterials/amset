@@ -57,8 +57,8 @@ def f0(E, fermi, T):
 
 
 def df0dE(E, fermi, T):
+    """returns the energy derivative of the Fermi-Dirac equilibrium distribution"""
     return -1 / (k_B * T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
-
 
 
 
@@ -100,7 +100,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
-        self.maxiters = 10
+        self.maxiters = 6
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
@@ -978,12 +978,21 @@ class AMSET(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
-                        self.kgrid[tp]["g"][c][T]=(self.kgrid[tp]["S_i"][c][T]+self.kgrid[tp]["electric force"][c][T])/(
-                            self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
-                        self.kgrid[tp]["g_POP"][c][T] = (self.kgrid[tp]["S_i"][c][T] +
-                            self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+ 1e-32 )
-                        self.kgrid[tp]["g_th"][c][T]=(self.kgrid[tp]["S_i_th"][c][T]+self.kgrid[tp]["thermal force"][c][
-                            T]) / (self.kgrid[tp]["S_o_th"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
+                        for ib in range(self.cbm_vbm[tp]["included"]):
+                            # with convergence test:
+                            # temp=(self.kgrid[tp]["S_i"][c][T][ib]+self.kgrid[tp]["electric force"][c][T][ib])/(
+                            #     self.kgrid[tp]["S_o"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
+                            # if sum([norm(self.kgrid[tp]["g"][c][T][ib][i] - temp[i]) for i in range(len(temp))]) \
+                            #     / sum([norm(gi) for gi in self.kgrid[tp]["g"][c][T][ib]]) < 0.01:
+                            #     print "CONVERGED!"
+                            # self.kgrid[tp]["g"][c][T][ib] = temp
+
+                            self.kgrid[tp]["g"][c][T] = (self.kgrid[tp]["S_i"][c][T] + self.kgrid[tp]["electric force"][c][
+                                T]) / (self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
+                            self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
+                                self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+ 1e-32 )
+                            self.kgrid[tp]["g_th"][c][T][ib]=(self.kgrid[tp]["S_i_th"][c][T][ib]+self.kgrid[tp]["thermal force"][c][
+                                T][ib]) / (self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
 
             for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
                 self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
@@ -1112,7 +1121,6 @@ class AMSET(object):
                                 self.kgrid[tp]["df0dk"][c][T][ib][ik] * default_small_E / hbar # in 1/s
                             # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
                             self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0_value *(1-f0_value) *(\
-                                # f0(E, fermi, T) * (1 - f0(E, fermi, T)) * (
                                     E/(k_B*T)-self.egrid["Seebeck_integral_numerator"][c][T][tp]/
                                     self.egrid["Seebeck_integral_denominator"][c][T][tp] ) * dTdz/T
 
