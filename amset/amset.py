@@ -49,6 +49,19 @@ def norm(v):
     return (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
 
 
+
+def f0(E, fermi, T):
+    """returns the value of Fermi-Dirac at equilibrium for E (energy), fermi [level] and T (temperature)"""
+    return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
+
+
+
+def df0dE(E, fermi, T):
+    return -1 / (k_B * T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
+
+
+
+
 class AMSET(object):
     """ This class is used to run AMSET on a pymatgen Vasprun object. AMSET is an ab initio model for calculating
     the mobility and Seebeck coefficient using Boltzmann transport equation. The band structure is extracted from
@@ -148,12 +161,6 @@ class AMSET(object):
 
 
 
-    @staticmethod
-    def f0(E, fermi, T):
-        """returns the value of Fermi-Dirac at equilibrium for E (energy), fermi [level] and T (temperature)"""
-        return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
-
-
     #TODO: very inefficient code, see if you can change the way f is implemented
     # def get_E_idx(self, E, tp):
     #     """tp (str): "n" or "p" type"""
@@ -171,22 +178,17 @@ class AMSET(object):
 
 
 
-    @staticmethod
-    def df0dE(E, fermi, T):
-        return -1/(k_B*T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
-
-
 
     def seeb_int_num(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
-        fn = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * E / (k_B * T)
+        fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T)) * E / (k_B * T)
         return {t:self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T) for t in ["n", "p"]}
 
 
 
     def seeb_int_denom(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
-        # fn = lambda E, fermi, T: self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T))
+        # fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T))
         #
         # # To avoid returning a denominator that is zero:
         # return {t:max(self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T), 1e-30)
@@ -290,13 +292,13 @@ class AMSET(object):
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
-        # self.calculate_property(prop_name="f0", prop_func=self.f0, for_all_E=True)
-        # self.calculate_property(prop_name="f", prop_func=self.f0, for_all_E=True)
-        # self.calculate_property(prop_name="f_th", prop_func=self.f0, for_all_E=True)
+        # self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
+        # self.calculate_property(prop_name="f", prop_func=f0, for_all_E=True)
+        # self.calculate_property(prop_name="f_th", prop_func=f0, for_all_E=True)
         for prop in ["f", "f_th"]:
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
-        self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi, T: self.f0(E, fermi, T)
-                                                                        * (1 - self.f0(E, fermi, T)), for_all_E=True)
+        self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi, T: f0(E, fermi, T)
+                                                                        * (1 - f0(E, fermi, T)), for_all_E=True)
         self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
         self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
         self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
@@ -716,8 +718,8 @@ class AMSET(object):
         v = self.kgrid[tp]["velocity"][ib][ik]
         fermi = self.egrid["fermi"][c][T]
 
-        # f = self.f0(self.kgrid[tp]["energy"][ib][ik], fermi, T)
-        # f_prime = self.f0(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T)
+        # f = f0(self.kgrid[tp]["energy"][ib][ik], fermi, T)
+        # f_prime = f0(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T)
 
         f = self.kgrid[tp]["f0"][c][T][ib][ik]
         f_prime = self.kgrid[tp]["f0"][c][T][ib_prime][ik_prime]
@@ -884,12 +886,12 @@ class AMSET(object):
 
         # iterate around the CBM/VBM with finer and finer steps to find the Fermi level with a matching doping
         # for iter in range(maxitr):
-        funcs = [lambda E, fermi, T: self.f0(E,fermi,T), lambda E, fermi, T: 1-self.f0(E,fermi,T)]
+        funcs = [lambda E, fermi, T: f0(E,fermi,T), lambda E, fermi, T: 1-f0(E,fermi,T)]
         while (relative_error > tolerance) and (iter<nfloat):
             step = step0 / 10**iter
             for fermi in np.linspace(fermi0-nsteps*step,fermi0+nsteps*step, nsteps*2):
                 for j, tp in enumerate(["n", "p"]):
-                    # func = lambda E, fermi, T: j-(-1)**(j+1)*self.f0(E,fermi,T)
+                    # func = lambda E, fermi, T: j-(-1)**(j+1)*f0(E,fermi,T)
                     integral = self.integrate_over_DOSxE_dE(func=funcs[j], tp=tp, fermi=fermi, T=T)
                     temp_doping[tp] = (-1)**(j+1) * abs(integral*self.nelec/self.volume / (A_to_m*m_to_cm)**3)
                 if abs(temp_doping["n"] + temp_doping["p"] - c) < abs(calc_doping - c):
@@ -1104,20 +1106,20 @@ class AMSET(object):
                             E = self.kgrid[tp]["energy"][ib][ik]
                             v = self.kgrid[tp]["velocity"][ib][ik]
 
-                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0 = self.f0(E, fermi, T)
-                            self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * self.df0dE(E,fermi, T) * v # in cm
+                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0_value = f0(E, fermi, T)
+                            self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E,fermi, T) * v # in cm
                             self.kgrid[tp]["electric force"][c][T][ib][ik] = -1 * \
                                 self.kgrid[tp]["df0dk"][c][T][ib][ik] * default_small_E / hbar # in 1/s
                             # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
-                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0 *(1-f0) *(\
-                                # self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
+                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0_value *(1-f0_value) *(\
+                                # f0(E, fermi, T) * (1 - f0(E, fermi, T)) * (
                                     E/(k_B*T)-self.egrid["Seebeck_integral_numerator"][c][T][tp]/
                                     self.egrid["Seebeck_integral_denominator"][c][T][tp] ) * dTdz/T
 
 
 
                             # self.kgrid[tp]["thermal force"][c][T][ib][ik] = v * df0dz * unit_conversion
-                            # df0dz_temp = self.f0(E, fermi, T) * (1 - self.f0(E, fermi, T)) * (
+                            # df0dz_temp = f0(E, fermi, T) * (1 - f0(E, fermi, T)) * (
                                 # E / (k_B * T) - df0dz_integral) * 1 / T * dTdz
         self.map_to_egrid(prop_name="f0")
         self.map_to_egrid(prop_name="df0dk") # This mapping is not correct as df0dk(E) is meaningless
