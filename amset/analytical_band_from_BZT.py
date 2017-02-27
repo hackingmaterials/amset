@@ -33,15 +33,15 @@ class Analytical_bands(object):
 
         nstv = np.zeros(nwave,dtype='int')
         vec = np.zeros((nwave,nsym,3))
-        if br_dir != None:
+        if type(br_dir) != None:
             vec2 = np.zeros((nwave,nsym,3))
 
         for nw in xrange(nwave):
             nstv[nw], vec[nw]  = self.stern(latt_points[nw],nsym,symop)
-            if br_dir != None:
+            if type(br_dir) != None:
                 vec2[nw] = vec[nw].dot(br_dir)
         #print vec
-        if br_dir!= None:
+        if type(br_dir)!= None:
             return nstv, vec, vec2
         else:
             return nstv, vec
@@ -56,7 +56,7 @@ class Analytical_bands(object):
         spwre=np.sum(tempc,axis=1)-(nsym-nstv)
         spwre/=nstv
         
-        if br_dir != None:
+        if type(br_dir) != None:
             dene = np.zeros(3)
             ddene = np.zeros((3,3))
             dspwre = np.zeros((nwave,3))
@@ -72,7 +72,7 @@ class Analytical_bands(object):
                 ddspwre[nw] /= nstv[nw]
         
         ene=spwre.dot(engre)
-        if br_dir != None:
+        if type(br_dir) != None:
             dene = np.sum(dspwre.T*engre,axis=1)
             ddene = np.sum(ddspwre*engre.reshape(nwave,1,1)*2,axis=0)
             return sign*ene, dene, ddene
