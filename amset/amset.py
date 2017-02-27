@@ -66,7 +66,7 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
@@ -87,13 +87,14 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
-        self.maxiters = 20
+        self.maxiters = 10
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
         self.P_PIE = 0.15
         self.E_D = {"n": 4.0, "p": 3.93}
         self.C_el = 139.7 # [Gpa]: spherically averaged elastic constant
+        self.nforced_POP = 0
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
         vrun = Vasprun(os.path.join(path_dir, filename))
@@ -154,19 +155,19 @@ class AMSET(object):
 
 
     #TODO: very inefficient code, see if you can change the way f is implemented
-    def get_E_idx(self, E, tp):
-        """tp (str): "n" or "p" type"""
-        min_Ediff = 1e30
-        for ie, en in enumerate(self.egrid[tp]["energy"]):
-            if abs(E-en)< min_Ediff:
-                min_Ediff = abs(E-en)
-                ie_select = ie
-        return ie_select
-
-
-    def f(self, E, fermi, T, tp, c, alpha):
-        """returns the perturbed Fermi-Dirac in presence of a small driving force"""
-        return 1 / (1 + np.exp((E - fermi) / (k_B * T))) + self.egrid[tp]["g"][c][T][self.get_E_idx(E, tp)][alpha]
+    # def get_E_idx(self, E, tp):
+    #     """tp (str): "n" or "p" type"""
+    #     min_Ediff = 1e30
+    #     for ie, en in enumerate(self.egrid[tp]["energy"]):
+    #         if abs(E-en)< min_Ediff:
+    #             min_Ediff = abs(E-en)
+    #             ie_select = ie
+    #     return ie_select
+    #
+    #
+    # def f(self, E, fermi, T, tp, c, alpha):
+    #     """returns the perturbed Fermi-Dirac in presence of a small driving force"""
+    #     return 1 / (1 + np.exp((E - fermi) / (k_B * T))) + self.egrid[tp]["g"][c][T][self.get_E_idx(E, tp)][alpha]
 
 
 
@@ -253,7 +254,7 @@ class AMSET(object):
         # reshape energies of all bands to one vector:
         for tp in ["n", "p"]:
             for en_vec in self.kgrid[tp]["energy"]:
-                self.egrid[tp]["all_en_flat"] += en_vec
+                self.egrid[tp]["all_en_flat"] += list(en_vec)
             self.egrid[tp]["all_en_flat"].sort()
 
         # setting up energy grid and DOS:
@@ -410,14 +411,19 @@ class AMSET(object):
             #     np.array([[[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))] for j in
             #           range(self.cbm_vbm[tp]["included"])])
 
+
         low_v_ik = []
+        low_v_ik.sort()
         analytical_bands = Analytical_bands(coeff_file=coeff_file)
+        once_called = False
         for i, tp in enumerate(["n", "p"]):
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
                 engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
                     analytical_bands.get_engre(iband=self.cbm_vbm[tp]["bidx"] + sgn * ib)
-                nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
+                if not once_called:
+                    nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave,br_dir=br_dir)
+                    once_called = True
                 for ik in range(len(self.kgrid["kpoints"])):
                     energy, de, dde = analytical_bands.get_energy(
                         self.kgrid["kpoints"][ik], engre, nwave, nsym, nstv, vec, vec2, br_dir=br_dir, cbm=True)
@@ -443,6 +449,13 @@ class AMSET(object):
 
         if len(self.kgrid["kpoints"]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
+
+        for tp in ["n", "p"]:
+            for ib in range(self.cbm_vbm[tp]["included"]):
+                ikidxs = np.argsort(self.kgrid[tp]["energy"][ib])
+                self.kgrid["kpoints"] = np.array([self.kgrid["kpoints"][ik] for ik in ikidxs])
+                for prop in ["energy", "velocity", "effective mass", "a"]:
+                    self.kgrid[tp][prop][ib] = np.array([self.kgrid[tp][prop][ib][ik] for ik in ikidxs])
 
 
         for tp in ["n", "p"]:
@@ -476,36 +489,95 @@ class AMSET(object):
             for angle_index_for_integration in ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]:
                 self.kgrid[tp][angle_index_for_integration] = [ [ [] for i in range(len(self.kgrid["kpoints"])) ]
                                                                   for j in range(self.cbm_vbm[tp]["included"]) ]
+        # for tp in ["n", "p"]:
+        #     for ib in range(len(self.kgrid[tp]["energy"])):
+        #         for ik in range(len(self.kgrid["kpoints"])):
+        #             for ib_prime in range(len(self.kgrid[tp]["energy"])):
+        #                 for ik_prime in range(len(self.kgrid["kpoints"])):
+        #                     # k = self.kgrid["actual kpoints"][ik]
+        #                     E = self.kgrid[tp]["energy"][ib][ik]
+        #                     X = self.cos_angle(self.kgrid["actual kpoints"][ik], self.kgrid["actual kpoints"][ik_prime])
+        #
+        #                     if abs(E - self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
+        #                          self.kgrid[tp]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
+        #                     if abs( (E +  hbar * self.kgrid["W_POP"][ik] ) \
+        #                                          - self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
+        #                         self.kgrid[tp]["X_Eplus_ik"][ib][ik].append((X, ib_prime, ik_prime))
+        #                     if abs( (E -  hbar * self.kgrid["W_POP"][ik] ) \
+        #                                          - self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
+        #                         self.kgrid[tp]["X_Eminus_ik"][ib][ik].append((X, ib_prime, ik_prime))
+        #
+        #             self.kgrid[tp]["X_E_ik"][ib][ik].sort()
+        #             self.kgrid[tp]["X_Eplus_ik"][ib][ik].sort()
+        #             self.kgrid[tp]["X_Eminus_ik"][ib][ik].sort()
+
+
         for tp in ["n", "p"]:
             for ib in range(len(self.kgrid[tp]["energy"])):
                 for ik in range(len(self.kgrid["kpoints"])):
-                    for ib_prime in range(len(self.kgrid[tp]["energy"])):
-                        for ik_prime in range(len(self.kgrid["kpoints"])):
-                            k = self.kgrid["actual kpoints"][ik]
-                            X = self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime])
+                    self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik, E_radius=0.0)
+                    self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
+                        E_radius= +hbar * self.kgrid["W_POP"][ik], forced_min_npoints=2)
+                    self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
+                        E_radius= -hbar * self.kgrid["W_POP"][ik],forced_min_npoints=2)
 
-                            if abs(self.kgrid[tp]["energy"][ib][ik] -
-                                           self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
-                                self.kgrid[tp]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
-                            if abs( (self.kgrid[tp]["energy"][ib][ik] +  hbar * self.kgrid["W_POP"][ik] ) \
-                                                 - self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
-                                self.kgrid[tp]["X_Eplus_ik"][ib][ik].append((X, ib_prime, ik_prime))
-                            if abs( (self.kgrid[tp]["energy"][ib][ik] -  hbar * self.kgrid["W_POP"][ik] ) \
-                                                 - self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
-                                self.kgrid[tp]["X_Eminus_ik"][ib][ik].append((X, ib_prime, ik_prime))
 
-                    self.kgrid[tp]["X_E_ik"][ib][ik].sort()
-                    self.kgrid[tp]["X_Eplus_ik"][ib][ik].sort()
-                    self.kgrid[tp]["X_Eminus_ik"][ib][ik].sort()
+                # if is_sparse(self.kgrid[tp]["X_E_ik"][ib]):
+                #     raise ValueError("the k-grid is too coarse for an acceptable simulation of elastic scattering")
+                # if is_sparse(self.kgrid[tp]["X_Eplus_ik"][ib]) or is_sparse(self.kgrid[tp]["X_Eminus_ik"][ib]):
+                #     if "POP" in self.inelastic_scatterings:
+                #         raise ValueError("the k-grid is too coarse for an acceptable simulation of POP scattering, "
+                        # warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering, "
+                        #                  "you can try this k-point grid but without POP as an inelastic scattering")
 
-                if is_sparse(self.kgrid[tp]["X_E_ik"][ib]):
-                    raise ValueError("the k-grid is too coarse for an acceptable simulation of elastic scattering")
-                if is_sparse(self.kgrid[tp]["X_Eplus_ik"][ib]) or is_sparse(self.kgrid[tp]["X_Eminus_ik"][ib]):
-                    if "POP" in self.inelastic_scatterings:
-                        # raise ValueError("the k-grid is too coarse for an acceptable simulation of POP scattering, "
-                        #TODO: this should be an exception but for now I turned to warning for testing.
-                        warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering, "
-                                         "you can try this k-point grid but without POP as an inelastic scattering")
+        if self.nforced_POP/(len(self.kgrid["n"]["energy"])*len(self.kgrid["kpoints"])*2*2) > 0.1:
+            # TODO: this should be an exception but for now I turned to warning for testing.
+            warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering, "
+                          "you can try this k-point grid but without POP as an inelastic scattering")
+
+
+
+
+    def get_X_ib_ik_within_E_radius(self, tp, ib, ik, E_radius, forced_min_npoints=0):
+        """Returns the sorted (based on angle, X) list of angle and band and k-point indexes of all the points
+            that are withing the E_radius of E
+            Attention! this function assumes self.kgrid is sorted based on the energy in ascending order."""
+        forced = False
+        E = self.kgrid[tp]["energy"][ib][ik]
+        k = self.kgrid["actual kpoints"][ik]
+        result = []
+        nk = len(self.kgrid["kpoints"])
+        counter = 0
+
+        for ib_prime in range(len(self.kgrid[tp]["energy"])):
+            ik_prime = ik
+            while (ik_prime<nk-1) and abs(self.kgrid[tp]["energy"][ib_prime][ik_prime+1]-(E+E_radius)) < self.dE_global:
+                X = self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime+1])
+                result.append((X, ib_prime, ik_prime + 1))
+                ik_prime += 1
+                counter += 1
+            ik_prime = ik
+            while (ik_prime>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prime][ik_prime-1]) <  self.dE_global:
+                X = self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime - 1])
+                result.append((X, ib_prime, ik_prime - 1))
+                ik_prime -= 1
+                counter += 1
+
+        ik_prime = ik
+        while counter < forced_min_npoints and ik_prime < nk - 1:
+            result.append((self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime + 1]), ib, ik_prime + 1))
+            ik_prime += 1
+            counter += 1
+            self.nforced_POP += 1
+        ik_prime = ik
+        while counter < forced_min_npoints and ik_prime > 0:
+            result.append((self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime - 1]), ib, ik_prime - 1))
+            ik_prime -= 1
+            counter += 1
+            self.nforced_POP += 1
+
+        result.sort()
+        return result
 
 
 
@@ -938,7 +1010,7 @@ class AMSET(object):
                     # mobility denominators
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
                         self.egrid["mobility"][transport][c][T][tp]/=3*default_small_E*\
-                                        self.integrate_over_E(prop_list=["f"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
+                                        self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
                     self.egrid["J_th"][c][T][tp] /= 3*self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
                                                                                          T=T, xDOS=True, xvel=False)
 
