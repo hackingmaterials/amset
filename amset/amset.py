@@ -42,6 +42,13 @@ __email__ = "alireza.faghaninia@gmail.com"
 __status__ = "Development"
 __date__ = "January 2017"
 
+
+
+def norm(v):
+    """method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as numpy.linalg.norm is slow"""
+    return (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
+
+
 class AMSET(object):
     """ This class is used to run AMSET on a pymatgen Vasprun object. AMSET is an ab initio model for calculating
     the mobility and Seebeck coefficient using Boltzmann transport equation. The band structure is extracted from
@@ -315,7 +322,7 @@ class AMSET(object):
             v1, v2 (np.array): vectors
         return:
             the cosine of the angle between twp numpy vectors: v1 and v2"""
-        norm_v1, norm_v2 = np.linalg.norm(v1), np.linalg.norm(v2)
+        norm_v1, norm_v2 = norm(v1), norm(v2)
         if norm_v1 == 0 or norm_v2 == 0:
             return 1.0  # In case of the two points are the origin, we assume 0 degree; i.e. no scattering: 1-X==0
         else:
@@ -513,7 +520,7 @@ class AMSET(object):
         :param k_prime:
         :return:
         """
-        norm_diff_k = np.linalg.norm(k - k_prime)
+        norm_diff_k = norm(k - k_prime)
         if norm_diff_k == 0:
             warnings.warn("same k and k' vectors as input of the elastic scattering equation")
             return 0
@@ -647,11 +654,11 @@ class AMSET(object):
         # f_prime = self.f(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T, tp, c, alpha)
 
         N_POP = 1 / ( np.exp(hbar*self.kgrid["W_POP"][ik]/(k_B*T)) - 1 )
-        # norm_diff = max(np.linalg.norm(k-k_prime), 1e-10)
-        norm_diff = np.linalg.norm(k-k_prime)
-        # print np.linalg.norm(k_prime)**2
-        # the term np.linalg.norm(k_prime)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
-        # integ = np.linalg.norm(k_prime)**2*self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha]*norm_diff**2)
+        # norm_diff = max(norm(k-k_prime), 1e-10)
+        norm_diff = norm(k-k_prime)
+        # print norm(k_prime)**2
+        # the term norm(k_prime)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
+        # integ = norm(k_prime)**2*self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha]*norm_diff**2)
         integ = self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha])
         if "S_i" in sname:
             integ *= abs(X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha])
@@ -688,9 +695,9 @@ class AMSET(object):
                             # self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * e**2*self.kgrid["W_POP"][ik]/(4*pi*hbar) \
                             self.kgrid[tp][sname][c][T][ib][ik] = sum*e**2*self.kgrid["W_POP"][ik] / (4 * pi * hbar) \
                                                             * (1/self.epsilon_inf-1/self.epsilon_s)/epsilon_0 * 100/e
-                            # if np.linalg.norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1:
+                            # if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1:
                             #     self.kgrid[tp][sname][c][T][ib][ik] = [1, 1, 1]
-                            # if np.linalg.norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
+                            # if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
                             #     print tp, c, T, ik, ib, sum, self.kgrid[tp][sname][c][T][ib][ik]
 
 
@@ -751,7 +758,7 @@ class AMSET(object):
                         for ib in range(len(self.kgrid[tp]["energy"])):
                             if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
                                 if prop_name in scalar_properties:
-                                    self.egrid[tp][prop_name][ie] += np.linalg.norm(self.kgrid[tp][prop_name][ib][ik])
+                                    self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik])
                                 else:
                                     self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
                             N += 1
@@ -913,8 +920,8 @@ class AMSET(object):
         for c in self.dopings:
             for T in self.temperatures:
                 for tp in ["n", "p"]:
-                    self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + np.linalg.norm(self.egrid[tp]["g"][c][T])
-                    self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+np.linalg.norm(self.egrid[tp]["g_th"][c][T])
+                    self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + norm(self.egrid[tp]["g"][c][T])
+                    self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+norm(self.egrid[tp]["g_th"][c][T])
 
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
@@ -936,11 +943,11 @@ class AMSET(object):
                                                                                          T=T, xDOS=True, xvel=False)
 
                     faulty_overall_mobility = False
-                    mu_overrall_norm = np.linalg.norm(self.egrid["mobility"]["overall"][c][T][tp])
+                    mu_overrall_norm = norm(self.egrid["mobility"]["overall"][c][T][tp])
                     for transport in self.elastic_scatterings + self.inelastic_scatterings:
                         # averaging all mobility values via Matthiessen's rule
                         self.egrid["mobility"]["average"][c][T][tp] += 1 / self.egrid["mobility"][transport][c][T][tp]
-                        if mu_overrall_norm > np.linalg.norm(self.egrid["mobility"][transport][c][T][tp]):
+                        if mu_overrall_norm > norm(self.egrid["mobility"][transport][c][T][tp]):
                             faulty_overall_mobility = True # because the overall mobility should be lower than all
                     self.egrid["mobility"]["average"][c][T][tp] = 1 / self.egrid["mobility"]["average"][c][T][tp]
 
