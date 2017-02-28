@@ -858,51 +858,50 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03,
-                   interpolation_nsteps = 100 , step0 = 0.01, nsteps = 300):
+    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha = 0.05, max_iter = 1000):
         """
         To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
         :param c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
         :param T (float): The temperature.
-        :param interpolation_nsteps (int): the number of steps with which the energy points are
-                    linearly interpolated for smoother numerical integration
-        :param maxitr (int): Number of trials to fit the Fermi level, higher maxitr result in more accurate Fermi
-        :param step0 (float): The initial step of changing Fermi level (in eV)
-        :param nsteps (int): The number of steps are looked lower and higher than initial guess for Fermi level
         :param tolerance (0<float<1): convergance threshold for relative error
         :param tolerance_loose (0<float<1): maximum relative error allowed between the calculated and input c
+        :param alpha (float < 1): the fraction of the linear interpolation towards the actual fermi at each iteration
+        :param max_iter (int): after this many iterations the function returns even if it is not converged
         :return:
             The fitted/calculated Fermi level
         """
+
+
         # initialize parameters
-        calc_doping = 1e52 # initial concentration, just has to be very far from any expected concentration
-        relative_error = calc_doping
-        nfloat = 4 # essentially the number of floating points in accuracy
+        relative_error = 1000
         iter = 0
-        actual_tp = self.get_tp(c)
         temp_doping = {"n": 0.0, "p": 0.0}
-        fermi0 = self.cbm_vbm[actual_tp]["energy"]
-        fermi_selected = fermi0
+        typ = self.get_tp(c)
+        fermi = self.cbm_vbm[typ]["energy"]
+        j = ["n", "p"].index(typ)
+        funcs = [lambda E, fermi, T: f0(E,fermi,T), lambda E, fermi, T: 1-f0(E,fermi,T)]
+        calc_doping = (-1)**(j+1) *self.nelec/self.volume / (A_to_m*m_to_cm)**3 \
+                *abs(self.integrate_over_DOSxE_dE(func=funcs[j], tp=typ, fermi=fermi, T=T))
+
 
         # iterate around the CBM/VBM with finer and finer steps to find the Fermi level with a matching doping
-        # for iter in range(maxitr):
-        funcs = [lambda E, fermi, T: f0(E,fermi,T), lambda E, fermi, T: 1-f0(E,fermi,T)]
-        while (relative_error > tolerance) and (iter<nfloat):
-            step = step0 / 10**iter
-            for fermi in np.linspace(fermi0-nsteps*step,fermi0+nsteps*step, nsteps*2):
-                for j, tp in enumerate(["n", "p"]):
-                    # func = lambda E, fermi, T: j-(-1)**(j+1)*f0(E,fermi,T)
-                    integral = self.integrate_over_DOSxE_dE(func=funcs[j], tp=tp, fermi=fermi, T=T)
-                    temp_doping[tp] = (-1)**(j+1) * abs(integral*self.nelec/self.volume / (A_to_m*m_to_cm)**3)
-                if abs(temp_doping["n"] + temp_doping["p"] - c) < abs(calc_doping - c):
-                    calc_doping = temp_doping["n"] + temp_doping["p"]
-                    fermi_selected = fermi
-                    self.egrid["calc_doping"][c][T]["n"] = temp_doping["n"]
-                    self.egrid["calc_doping"][c][T]["p"] = temp_doping["p"]
-            fermi0 = fermi_selected
-            iter += 1
-        # evaluate the calculated carrier concentration (Fermi level)
-        relative_error = abs(calc_doping - c)/abs(c)
+        while (relative_error > tolerance) and (iter<max_iter):
+            iter += 1 # to avoid an infinite loop
+            fermi += alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
+
+            # calculate the overall concentration at the current fermi
+            for j, tp in enumerate(["n", "p"]):
+                integral = self.integrate_over_DOSxE_dE(func=funcs[j], tp=tp, fermi=fermi, T=T)
+                temp_doping[tp] = (-1)**(j+1) * abs(integral*self.nelec/self.volume / (A_to_m*m_to_cm)**3)
+            calc_doping = temp_doping["n"] + temp_doping["p"]
+
+            # calculate the relative error from the desired concentration, c
+            relative_error = abs(calc_doping - c)/abs(c)
+
+        self.egrid["calc_doping"][c][T]["n"] = temp_doping["n"]
+        self.egrid["calc_doping"][c][T]["p"] = temp_doping["p"]
+
+        # check to see if the calculated concentration is close enough to the desired value
         if relative_error > tolerance and relative_error <= tolerance_loose:
             warnings.warn("The calculated concentration {} is not accurate compared to {}; results may be unreliable"
                           .format(calc_doping, c))
@@ -910,11 +909,11 @@ class AMSET(object):
             raise ValueError("The calculated concentration {} is more than {}% away from {}; "
                              "possible cause may low band gap, high temperature, small nsteps, etc; AMSET stops now!"
                              .format(calc_doping, tolerance_loose*100, c))
-        return fermi_selected
+        return fermi
 
 
 
-    def inverse_screening_length(self, c, T, interpolation_nsteps = 100):
+    def inverse_screening_length(self, c, T):
         """
         calculates the inverse screening length (beta) in 1/nm units
         :param tp:
