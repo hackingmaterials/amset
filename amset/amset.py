@@ -7,6 +7,7 @@ from pprint import pprint
 import numpy as np
 import sys
 from pymatgen.io.vasp import Vasprun, Spin
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from scipy.constants.codata import value as _cd
 from math import pi
 import os
@@ -110,12 +111,12 @@ class AMSET(object):
         self.nforced_POP = 0
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
-        vrun = Vasprun(os.path.join(path_dir, filename))
-        self.volume = vrun.final_structure.volume
-        self.density = vrun.final_structure.density
-        self._lattice_matrix = vrun.lattice_rec.matrix / (2 * pi)
+        self._vrun = Vasprun(os.path.join(path_dir, filename))
+        self.volume = self._vrun.final_structure.volume
+        self.density = self._vrun.final_structure.density
+        self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
         print self._lattice_matrix
-        bs = vrun.get_band_structure()
+        bs = self._vrun.get_band_structure()
 
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band (e.g. in VASP)
         cbm_vbm = {"n": {"energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
@@ -364,13 +365,19 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 5
-        # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
-        kx = list(np.linspace(-0.5, 0.5, nkstep))
-        ky = kz = kx
-        # ky = list(np.linspace(0.27, 0.67, nkstep))
-        # kz = list(np.linspace(0.21, 0.71, nkstep))
-        kpts = np.array([[x, y, z] for x in kx for y in ky for z in kz])
+            nkstep = 7
+        # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
+        # kx = list(np.linspace(-0.5, 0.5, nkstep))
+        # ky = kz = kx
+        # # ky = list(np.linspace(0.27, 0.67, nkstep))
+        # # kz = list(np.linspace(0.21, 0.71, nkstep))
+        # kpts = np.array([[x, y, z] for x in kx for y in ky for z in kz])
+
+        sg = SpacegroupAnalyzer(self._vrun.final_structure)
+        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0, 0, 0))
+        kpts = np.array([i[0] for i in kpts_and_weights])
+        kweights = np.array([i[1] for i in kpts_and_weights])
+
         print len(kpts)
 
         # TODO this deletion is just a test, change it later once confirmed that the order of mobility is good!
@@ -398,6 +405,7 @@ class AMSET(object):
         # initialize the kgrid
         self.kgrid = {
                 "kpoints": kpts,
+                "kweights": kweights,
                 "n": {},
                 "p": {} }
         for tp in ["n", "p"]:
@@ -455,7 +463,8 @@ class AMSET(object):
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
                 ikidxs = np.argsort(self.kgrid[tp]["energy"][ib])
-                self.kgrid["kpoints"] = np.array([self.kgrid["kpoints"][ik] for ik in ikidxs])
+                for prop in ["kpoints", "kweights"]:
+                    self.kgrid[prop] = np.array([self.kgrid[prop][ik] for ik in ikidxs])
                 for prop in ["energy", "velocity", "effective mass", "a"]:
                     self.kgrid[tp][prop][ib] = np.array([self.kgrid[tp][prop][ib][ik] for ik in ikidxs])
 
@@ -467,7 +476,7 @@ class AMSET(object):
                     for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
             self.kgrid[tp]["f0"] = {c: {T: np.array([[1e-32 for i in range(len(self.kgrid["kpoints"]))]
                 for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
-        self.kgrid["actual kpoints"]=np.dot(np.array(self.kgrid["kpoints"]),self._lattice_matrix)*2*pi*1/A_to_nm #[1/nm]
+        self.kgrid["actual kpoints"]=np.dot(np.array(self.kgrid["kpoints"]),self._lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
         # TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
         self.kgrid["W_POP"] = [self.W_POP for i in range(len(self.kgrid["kpoints"]))]
 
@@ -691,7 +700,7 @@ class AMSET(object):
         k = self.kgrid["actual kpoints"][ik]
         k_prime = self.kgrid["actual kpoints"][ik_prime]
         return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
-               * self.G(tp, ib, ik, ib_prime, ik_prime, X) * norm(k-k_prime)** 2 \
+               * self.G(tp, ib, ik, ib_prime, ik_prime, X) * norm(k_prime-k)** 2 \
                / self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha]
                 # / abs(self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha])
         # We take |v| as scattering depends on the velocity itself and not the direction
@@ -828,14 +837,16 @@ class AMSET(object):
                             for i in range(len(self.egrid[tp]["energy"]))])
                 for ie, en in enumerate(self.egrid[tp]["energy"]):
                     N = 0  # total number of instances with the same energy
-                    for ik in range(len(self.kgrid["kpoints"])):
-                        for ib in range(len(self.kgrid[tp]["energy"])):
+                    for ib in range(len(self.kgrid[tp]["energy"])):
+                        for ik in range(len(self.kgrid["kpoints"])):
                             if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
+                                weight = self.kgrid["kweights"][ik]
                                 if prop_name in scalar_properties:
-                                    self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik])
+                                    self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik]) * weight
                                 else:
-                                    self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
-                            N += 1
+                                    self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik] * weight
+                                # N += 1
+                                N += weight
                     self.egrid[tp][prop_name][ie] /= N
         else:
             for tp in ["n", "p"]:
