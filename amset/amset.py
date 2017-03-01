@@ -106,7 +106,7 @@ class AMSET(object):
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
         self.P_PIE = 0.15
         self.E_D = {"n": 4.0, "p": 3.93}
-        self.C_el = 139.7 # [Gpa]: spherically averaged elastic constant
+        self.C_el = 77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
         self.nforced_POP = 0
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
@@ -364,7 +364,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 4
+            nkstep = 5
         # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         kx = list(np.linspace(-0.5, 0.5, nkstep))
         ky = kz = kx
@@ -602,13 +602,13 @@ class AMSET(object):
         if sname in ["IMP"]: # ionized impurity scattering
             unit_conversion = 0.001 / e**2
             return unit_conversion * e ** 4 * self.egrid["N_II"][c][T] /\
-                        (4.0 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)* norm_diff_k ** 2 \
+                        (4.0 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)\
                                     / ((norm_diff_k ** 2 + self.egrid["beta"][c][T][tp] ** 2) ** 2)
         elif sname in ["ACD"]: # acoustic deformation potential scattering
             unit_conversion = 1e18 * e
             return unit_conversion * k_B * T * self.E_D[tp]**2 / (4.0 * pi**2 * hbar * self.C_el)
         elif sname in ["PIE"]: # piezoelectric scattering
-            unit_conversion = 1e9/e
+            unit_conversion = 1e9 / e
             return unit_conversion * e**2 * k_B * T * self.P_PIE**2 \
                    /(norm_diff_k ** 2 * 4.0 * pi**2 * hbar * epsilon_0 * self.epsilon_s)
         else:
@@ -691,7 +691,7 @@ class AMSET(object):
         k = self.kgrid["actual kpoints"][ik]
         k_prime = self.kgrid["actual kpoints"][ik_prime]
         return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
-               * self.G(tp, ib, ik, ib_prime, ik_prime, X) ** 2 \
+               * self.G(tp, ib, ik, ib_prime, ik_prime, X) * norm(k-k_prime)** 2 \
                / self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha]
                 # / abs(self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha])
         # We take |v| as scattering depends on the velocity itself and not the direction
@@ -1045,8 +1045,10 @@ class AMSET(object):
                     self.egrid["seebeck"][c][T][tp] = -1e6*k_B*( self.egrid["Seebeck_integral_numerator"][c][T][tp] \
                         / self.egrid["Seebeck_integral_denominator"][c][T][tp] - self.egrid["fermi"][c][T]/(k_B*T) )
                     if "POP" in self.inelastic_scatterings:     # when POP is not available J_th is unreliable
-                        self.egrid["seebeck"][c][T][tp] += 1e6 \
-                                        * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
+                        self.egrid["seebeck"][c][T][tp] += 0.0
+                        # TODO: for now, we ignore the following until we figure out the units see why values are high!
+                        # self.egrid["seebeck"][c][T][tp] += 1e6 \
+                        #                 * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
 
                     # print "3 seebeck terms at c={} and T={}:".format(c, T)
                     # print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
