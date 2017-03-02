@@ -371,7 +371,7 @@ class AMSET(object):
 
 
 
-    def initialize_var(self, grid, names, val_type="scalar", initval=0.0, is_nparray=True, type_idx=True, c_T_idx=True):
+    def initialize_var(self, grid, names, val_type="scalar", initval=0.0, is_nparray=True, type_idx=True, c_T_idx=False):
         """
         initializes a variable/key within the self.kgrid variable
         :param grid (str): options are "kgrid" or "egrid": whether to initialize vars in self.kgrid or self.egrid
@@ -408,10 +408,9 @@ class AMSET(object):
 
 
 
-
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 31
+            nkstep = 33
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -432,9 +431,11 @@ class AMSET(object):
                 "kweights": kweights,
                 "n": {},
                 "p": {} }
+
+        self.initialize_var("kgrid",["energy", "a", "c"], "scalar", 0.0, is_nparray=False, type_idx=True, c_T_idx=False)
         for tp in ["n", "p"]:
-            for prop in ["energy", "a", "c"]:
-                self.kgrid[tp][prop] = [ [0.0 for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])]
+            # for prop in ["energy", "a", "c"]:
+            #     self.kgrid[tp][prop] = [ [0.0 for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])]
             for prop in ["velocity"]:
                 self.kgrid[tp][prop] = \
                 np.array([ [[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])])
