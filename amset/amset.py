@@ -82,7 +82,7 @@ class AMSET(object):
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
-        self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
+        self.dE_global = 0.001 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -109,6 +109,14 @@ class AMSET(object):
         self.E_D = {"n": 4.0, "p": 3.93}
         self.C_el = 77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
         self.nforced_POP = 0
+
+    def __getitem__(self, key):
+        if key=="kgrid":
+            return self.kgrid
+        elif key=="egrid":
+            return self.egrid
+        else:
+            raise KeyError
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
         self._vrun = Vasprun(os.path.join(path_dir, filename))
@@ -363,9 +371,47 @@ class AMSET(object):
 
 
 
+    def initialize_var(self, grid, names, val_type="scalar", initval=0.0, is_nparray=True, type_idx=True, c_T_idx=True):
+        """
+        initializes a variable/key within the self.kgrid variable
+        :param grid (str): options are "kgrid" or "egrid": whether to initialize vars in self.kgrid or self.egrid
+        :param names (list): list of the names of the variables
+        :param val_type (str): options are "scalar", "vector", "matrix" or "tensor"
+        :param initval (float): the initial value (e.g. if val_type=="vector", each of the vector's elements==init_val)
+        :param is_nparray (bool): whether the final initial content is an numpy.array or not.
+        :param type_idx (bool): whether the variable differs for conduction ("n"-type) or valence ("p"-type) bands
+        :param c_T_idx (bool): whether to define the variable at each concentration, c, and temperature, T.
+        :return:
+        """
+        if not isinstance(names, list):
+            names = [names]
+
+        if val_type.lower() in ["scalar"]:
+            initial_content = initval
+        elif val_type.lower() in ["vector"]:
+            initial_content = [initval, initval, initval]
+        elif val_type.lower() in ["tensor", "matrix"]:
+            initial_content = [[initval, initval, initval],[initval, initval, initval],[initval, initval, initval]]
+
+        initial_content = [initial_content for i in range(len(self[grid]["n"]["energy"]))]
+        if is_nparray:
+            initial_content = np.array(initial_content)
+        if c_T_idx:
+            initial_content = {c: {T: initial_content for T in self.temperatures} for c in self.dopings }
+
+        for name in names:
+            if type_idx:
+                for tp in ["n", "p"]:
+                    self.kgrid[tp][name] = initial_content
+            else:
+                self.kgrid[name] = initial_content
+
+
+
+
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 7
+            nkstep = 31
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -374,35 +420,13 @@ class AMSET(object):
         # kpts = np.array([[x, y, z] for x in kx for y in ky for z in kz])
 
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
-        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0, 0, 0))
+        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
         kpts = np.array([i[0] for i in kpts_and_weights])
-        kweights = np.array([i[1] for i in kpts_and_weights])
+        kweights = np.array([float(i[1]) for i in kpts_and_weights])
+        kweights /= sum(kweights)
 
         print len(kpts)
 
-        # TODO this deletion is just a test, change it later once confirmed that the order of mobility is good!
-        # kpts = np.delete(kpts, (0, 21, 42, -1), axis=0)
-        # kpts = np.delete(kpts, (-1), axis=0)
-
-        # # Total range around the center k-point
-        # rang = 0.14
-        # if kgrid_tp == "coarse":
-        #     nstep = 2
-        #
-        # step = rang/nstep
-        #
-        # kpts = [[0, 0, 0] for i in range((nstep+1)**3)]
-        # counter = 0
-        # for i in range(nstep+1):
-        #     for j in range(nstep+1):
-        #         for k in range(nstep+1):
-        #             kpts[counter] = [center_kpt[0] - rang / 2.0 + 0.02*(-1)**j  + i * step,
-        #                              center_kpt[1] - rang / 2.0 + 0.02*(-1)**i  +j * step,
-        #                              center_kpt[2] - rang / 2.0 + k * step]
-        #             counter += 1
-
-        # kpts = np.array(kpts)
-        # initialize the kgrid
         self.kgrid = {
                 "kpoints": kpts,
                 "kweights": kweights,
@@ -526,7 +550,7 @@ class AMSET(object):
         for tp in ["n", "p"]:
             for ib in range(len(self.kgrid[tp]["energy"])):
                 for ik in range(len(self.kgrid["kpoints"])):
-                    self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik, E_radius=0.0)
+                    self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik, E_radius=0.01, forced_min_npoints=2)
                     self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
                         E_radius= +hbar * self.kgrid["W_POP"][ik], forced_min_npoints=2)
                     self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
