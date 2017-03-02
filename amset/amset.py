@@ -412,7 +412,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 28
+            nkstep = 6
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -529,10 +529,11 @@ class AMSET(object):
             return False
 
         # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
-        for tp in ["n", "p"]:
-            for angle_index_for_integration in ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]:
-                self.kgrid[tp][angle_index_for_integration] = [ [ [] for i in range(len(self.kgrid["kpoints"])) ]
-                                                                  for j in range(self.cbm_vbm[tp]["included"]) ]
+        # for tp in ["n", "p"]:
+        #     for angle_index_for_integration in ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]:
+        #         self.kgrid[tp][angle_index_for_integration] = [ [ [] for i in range(len(self.kgrid["kpoints"])) ]
+        #                                                           for j in range(self.cbm_vbm[tp]["included"]) ]
+        self.initialize_var("kgrid",["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"],"scalar",[],is_nparray=False, c_T_idx=False)
         # for tp in ["n", "p"]:
         #     for ib in range(len(self.kgrid[tp]["energy"])):
         #         for ik in range(len(self.kgrid["kpoints"])):
