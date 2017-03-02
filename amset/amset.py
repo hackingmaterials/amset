@@ -410,7 +410,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 33
+            nkstep = 5
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -432,10 +432,10 @@ class AMSET(object):
                 "n": {},
                 "p": {} }
 
-        self.initialize_var("kgrid",["energy", "a", "c"], "scalar", 0.0, is_nparray=False, type_idx=True, c_T_idx=False)
+        # self.initialize_var("kgrid",["energy", "a", "c"], "scalar", 0.0, is_nparray=False, type_idx=True, c_T_idx=False)
         for tp in ["n", "p"]:
-            # for prop in ["energy", "a", "c"]:
-            #     self.kgrid[tp][prop] = [ [0.0 for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])]
+            for prop in ["energy", "a", "c"]:
+                self.kgrid[tp][prop] = [ [0.0 for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])]
             for prop in ["velocity"]:
                 self.kgrid[tp][prop] = \
                 np.array([ [[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])])
