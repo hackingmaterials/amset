@@ -355,6 +355,8 @@ class AMSET(object):
         ik_list = list(set(low_v_ik))
         ik_list.sort(reverse=True)
 
+
+        # omit the points with v~0 and try to find the parabolic band equivalent effective mass at the CBM and the VBM
         temp_min = {"n": 1e32, "p": 1e32}
         self.kgrid["kpoints"] = np.delete(self.kgrid["kpoints"], ik_list, axis=0)
         # self.kgrid["kpoints"].pop(ik)
@@ -371,7 +373,7 @@ class AMSET(object):
 
 
 
-    def initialize_var(self, grid, names, val_type="scalar", initval=0.0, is_nparray=True, type_idx=True, c_T_idx=False):
+    def initialize_var(self, grid, names, val_type="scalar", initval=0.0, is_nparray=True, c_T_idx=False):
         """
         initializes a variable/key within the self.kgrid variable
         :param grid (str): options are "kgrid" or "egrid": whether to initialize vars in self.kgrid or self.egrid
@@ -379,7 +381,6 @@ class AMSET(object):
         :param val_type (str): options are "scalar", "vector", "matrix" or "tensor"
         :param initval (float): the initial value (e.g. if val_type=="vector", each of the vector's elements==init_val)
         :param is_nparray (bool): whether the final initial content is an numpy.array or not.
-        :param type_idx (bool): whether the variable differs for conduction ("n"-type) or valence ("p"-type) bands
         :param c_T_idx (bool): whether to define the variable at each concentration, c, and temperature, T.
         :return:
         """
@@ -387,24 +388,28 @@ class AMSET(object):
             names = [names]
 
         if val_type.lower() in ["scalar"]:
-            initial_content = initval
+            initial_val = initval
         elif val_type.lower() in ["vector"]:
-            initial_content = [initval, initval, initval]
+            initial_val = [initval, initval, initval]
         elif val_type.lower() in ["tensor", "matrix"]:
-            initial_content = [[initval, initval, initval],[initval, initval, initval],[initval, initval, initval]]
-
-        initial_content = [initial_content for i in range(len(self[grid]["n"]["energy"]))]
-        if is_nparray:
-            initial_content = np.array(initial_content)
-        if c_T_idx:
-            initial_content = {c: {T: initial_content for T in self.temperatures} for c in self.dopings }
+            initial_val = [ [initval, initval, initval], [initval, initval, initval], [initval, initval, initval] ]
 
         for name in names:
-            if type_idx:
-                for tp in ["n", "p"]:
-                    self.kgrid[tp][name] = initial_content
-            else:
-                self.kgrid[name] = initial_content
+            for tp in ["n", "p"]:
+                if grid in ["kgrid"]:
+                    initial_content = [initial_val for i in range(len(self[grid]["kpoints"]))]
+                    initial_content = [initial_content for j in range(self.cbm_vbm[tp]["included"])]
+                elif grid in ["egrid"]:
+                    initial_content = [initial_content for i in range(len(self[grid]["energy"]))]
+                else:
+                    raise TypeError('The argument "grid" must be set to either "kgrid" or "egrid"')
+                if is_nparray:
+                    initial_content = np.array(initial_content)
+                if c_T_idx:
+                    initial_content = {c: {T: initial_content for T in self.temperatures} for c in self.dopings}
+                self[grid][tp][name] = initial_content
+
+
 
 
 
@@ -432,16 +437,20 @@ class AMSET(object):
                 "n": {},
                 "p": {} }
 
-        # self.initialize_var("kgrid",["energy", "a", "c"], "scalar", 0.0, is_nparray=False, type_idx=True, c_T_idx=False)
-        for tp in ["n", "p"]:
-            for prop in ["energy", "a", "c"]:
-                self.kgrid[tp][prop] = [ [0.0 for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])]
-            for prop in ["velocity"]:
-                self.kgrid[tp][prop] = \
-                np.array([ [[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])])
-            self.kgrid[tp]["effective mass"] = \
-                [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
-                                                                                range(self.cbm_vbm[tp]["included"])]
+
+        # for tp in ["n", "p"]:
+        #     self.kgrid[tp]["energy"] = [ [0.0 for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])]
+        self.initialize_var("kgrid", ["energy", "a", "c"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=True, c_T_idx=False)
+        self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=True, c_T_idx=False)
+        print self.kgrid
+        # for tp in ["n", "p"]:
+        #     for prop in ["velocity"]:
+        #         self.kgrid[tp][prop] = \
+        #         np.array([ [[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])])
+        #     self.kgrid[tp]["effective mass"] = \
+        #         [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
+        #                                                                         range(self.cbm_vbm[tp]["included"])]
             # self.kgrid[tp]["effective mass"] = \
             #     np.array([[[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))] for j in
             #           range(self.cbm_vbm[tp]["included"])])
@@ -493,14 +502,17 @@ class AMSET(object):
                 for prop in ["energy", "velocity", "effective mass", "a"]:
                     self.kgrid[tp][prop][ib] = np.array([self.kgrid[tp][prop][ib][ik] for ik in ikidxs])
 
-
-        for tp in ["n", "p"]:
-            for prop in ["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP", "f", "f_th",
-                         "relaxation time", "df0dk", "df0dE", "electric force", "thermal force"]:
-                self.kgrid[tp][prop] = {c: {T: np.array([[[1e-32, 1e-32, 1e-32] for i in range(len(self.kgrid["kpoints"]))]
-                    for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
-            self.kgrid[tp]["f0"] = {c: {T: np.array([[1e-32 for i in range(len(self.kgrid["kpoints"]))]
-                for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
+        self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
+                "f", "f_th", "relaxation time", "df0dk", "df0dE", "electric force", "thermal force"],
+                        val_type="vector", initval=1e-32, is_nparray=True, c_T_idx=True)
+        self.initialize_var("kgrid", "f0", "scalar", 1e-32, is_nparray=False, c_T_idx=True)
+        # for tp in ["n", "p"]:
+        #     for prop in ["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP", "f", "f_th",
+        #                  "relaxation time", "df0dk", "df0dE", "electric force", "thermal force"]:
+        #         self.kgrid[tp][prop] = {c: {T: np.array([[[1e-32, 1e-32, 1e-32] for i in range(len(self.kgrid["kpoints"]))]
+        #             for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
+        #     self.kgrid[tp]["f0"] = {c: {T: np.array([[1e-32 for i in range(len(self.kgrid["kpoints"]))]
+        #         for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
         self.kgrid["actual kpoints"]=np.dot(np.array(self.kgrid["kpoints"]),self._lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
         # TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
         self.kgrid["W_POP"] = [self.W_POP for i in range(len(self.kgrid["kpoints"]))]
