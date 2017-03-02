@@ -82,7 +82,7 @@ class AMSET(object):
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
-        self.dE_global = 0.001 # in eV, the energy difference threshold below which two energy values are assumed equal
+        self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -397,10 +397,10 @@ class AMSET(object):
         for name in names:
             for tp in ["n", "p"]:
                 if grid in ["kgrid"]:
-                    initial_content = [initial_val for i in range(len(self[grid]["kpoints"]))]
-                    initial_content = [initial_content for j in range(self.cbm_vbm[tp]["included"])]
+                    initial_content = [[initial_val for i in range(len(self[grid]["kpoints"]))]
+                                                    for j in range(self.cbm_vbm[tp]["included"])]
                 elif grid in ["egrid"]:
-                    initial_content = [initial_content for i in range(len(self[grid]["energy"]))]
+                    initial_content = [initial_val for i in range(len(self[grid][tp]["energy"]))]
                 else:
                     raise TypeError('The argument "grid" must be set to either "kgrid" or "egrid"')
                 if is_nparray:
@@ -410,12 +410,9 @@ class AMSET(object):
                 self[grid][tp][name] = initial_content
 
 
-
-
-
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 5
+            nkstep = 28
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -443,7 +440,6 @@ class AMSET(object):
         self.initialize_var("kgrid", ["energy", "a", "c"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=True, c_T_idx=False)
         self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=True, c_T_idx=False)
-        print self.kgrid
         # for tp in ["n", "p"]:
         #     for prop in ["velocity"]:
         #         self.kgrid[tp][prop] = \
@@ -505,7 +501,7 @@ class AMSET(object):
         self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
                 "f", "f_th", "relaxation time", "df0dk", "df0dE", "electric force", "thermal force"],
                         val_type="vector", initval=1e-32, is_nparray=True, c_T_idx=True)
-        self.initialize_var("kgrid", "f0", "scalar", 1e-32, is_nparray=False, c_T_idx=True)
+        self.initialize_var("kgrid", ["f0"], "scalar", 1e-32, is_nparray=False, c_T_idx=True)
         # for tp in ["n", "p"]:
         #     for prop in ["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP", "f", "f_th",
         #                  "relaxation time", "df0dk", "df0dE", "electric force", "thermal force"]:
@@ -861,38 +857,44 @@ class AMSET(object):
         :param prop_name (string): the name of the property to be mapped. It must be available in the kgrid.
         :return:
         """
-        scalar_properties = ["g"]
+        # scalar_properties = ["g"]
         if not c_and_T_idx:
+            self.initialize_var("egrid", prop_name, "vector", initval=1e-32, is_nparray=True, c_T_idx=False)
             for tp in ["n", "p"]:
-                try:
-                    self.egrid[tp][prop_name]
-                except:
-                    # if prop_name in scalar_properties:
-                    #     self.egrid[tp][prop_name] = np.array([1e-20 for i in range(len(self.egrid[tp]["energy"]))])
-                    # else:
-                        self.egrid[tp][prop_name] = np.array([[1e-20, 1e-20, 1e-20] \
-                            for i in range(len(self.egrid[tp]["energy"]))])
+                # try:
+                #     self.egrid[tp][prop_name]
+                #     print prop_name
+                # except:
+                #     # if prop_name in scalar_properties:
+                #     #     self.egrid[tp][prop_name] = np.array([1e-20 for i in range(len(self.egrid[tp]["energy"]))])
+                #     # else:
+                #     self.egrid[tp][prop_name] = np.array([[1e-20, 1e-20, 1e-20] \
+                #             for i in range(len(self.egrid[tp]["energy"]))])
+
+
                 for ie, en in enumerate(self.egrid[tp]["energy"]):
                     N = 0  # total number of instances with the same energy
-                    for ib in range(len(self.kgrid[tp]["energy"])):
+                    for ib in range(self.cbm_vbm[tp]["included"]):
                         for ik in range(len(self.kgrid["kpoints"])):
                             if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
                                 weight = self.kgrid["kweights"][ik]
-                                if prop_name in scalar_properties:
-                                    self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik]) * weight
-                                else:
-                                    self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik] * weight
+                                # if prop_name in scalar_properties:
+                                #     self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik]) * weight
+                                # else:
+                                self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik] * weight
                                 # N += 1
                                 N += weight
                     self.egrid[tp][prop_name][ie] /= N
         else:
+            self.initialize_var("egrid", prop_name, "vector", initval=1e-32, is_nparray=True, c_T_idx=True)
+
             for tp in ["n", "p"]:
-                try:
-                    self.egrid[tp][prop_name]
-                except:
-                    self.egrid[tp][prop_name] = {c: {T: np.array([[1e-20, 1e-20, 1e-20]
-                        for i in range(len(self.egrid[tp]["energy"]))]) for T in self.temperatures}
-                                                                                                for c in self.dopings}
+                # try:
+                #     self.egrid[tp][prop_name]
+                # except:
+                #     self.egrid[tp][prop_name] = {c: {T: np.array([[1e-20, 1e-20, 1e-20]
+                #         for i in range(len(self.egrid[tp]["energy"]))]) for T in self.temperatures}
+                #                                                                                 for c in self.dopings}
                 for c in self.dopings:
                     for T in self.temperatures:
                         for ie, en in enumerate(self.egrid[tp]["energy"]):
@@ -900,8 +902,9 @@ class AMSET(object):
                             for ik in range(len(self.kgrid["kpoints"])):
                                 for ib in range(len(self.kgrid[tp]["energy"])):
                                     if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
-                                        self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
-                                        N += 1
+                                        weight = self.kgrid["kweights"][ik]
+                                        self.egrid[tp][prop_name][c][T][ie]+=self.kgrid[tp][prop_name][c][T][ib][ik]*weight
+                                        N += weight
                             self.egrid[tp][prop_name][c][T][ie] /= N
 
 
