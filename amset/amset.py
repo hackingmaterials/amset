@@ -84,7 +84,7 @@ class AMSET(object):
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = 0.001 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
-        self.temperatures = map(float, [200, 600]) # in K, list of temperatures
+        self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self.epsilon_inf = 25.57 # example for PbTe
         self._vrun = {}
@@ -420,7 +420,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 4 #32
+            nkstep = 11 #32
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -897,8 +897,6 @@ class AMSET(object):
                     self.egrid[tp][prop_name][ie] /= N
         else:
             self.initialize_var("egrid", prop_name, "vector", initval=1e-32, is_nparray=True, c_T_idx=True)
-            if prop_name == "ACD":
-                self.egrid["n"][prop_name][-1e19][200][3] += self.kgrid["n"][prop_name][-1e19][200][0][3] * 0.4
 
             for tp in ["n", "p"]:
                 # try:
@@ -1201,6 +1199,18 @@ class AMSET(object):
         self.solve_BTE_iteratively()
 
         self.calculate_transport_properties()
+
+        trim_list = ["W_POP"]
+        for rm in trim_list:
+            del (self.kgrid[rm])
+        remove_list = ["effective mass", "actual kpoints", "kpoints", "kweights", "a", "c", "f"]
+        for tp in ["n", "p"]:
+            for rm in remove_list:
+                try:
+                    del (self.kgrid[tp][rm])
+                except:
+                    pass
+
 
         if self.wordy:
             pprint(self.egrid)
