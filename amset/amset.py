@@ -915,16 +915,10 @@ class AMSET(object):
                             for ik in range(len(self.kgrid["kpoints"])):
                                 for ib in range(self.cbm_vbm[tp]["included"]):
                                     if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
-                                        weight = self.kgrid["kweights"][ik]
-                                        if prop_name=="ACD":
-                                            print T
-                                        self.egrid[tp][prop_name][c][T][ie]+=self.kgrid[tp][prop_name][c][T][ib][ik]*weight
-                                        N += weight
+                                        wgt = self.kgrid["kweights"][ik]
+                                        self.egrid[tp][prop_name][c][T][ie]+=self.kgrid[tp][prop_name][c][T][ib][ik]*wgt
+                                        N += wgt
                             self.egrid[tp][prop_name][c][T][ie] /= N
-                            if prop_name == "ACD" and tp == "n":
-                                print T
-                                print self.egrid[tp][prop_name][c][200]
-                                print self.egrid[tp][prop_name][c][600.0]
 
 
     def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha = 0.05, max_iter = 1000):
