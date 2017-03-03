@@ -82,7 +82,7 @@ class AMSET(object):
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
-        self.dE_global = 0.001 # in eV, the energy difference threshold below which two energy values are assumed equal
+        self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -420,7 +420,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 11 #32
+            nkstep = 20 #32
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -498,6 +498,7 @@ class AMSET(object):
         if len(self.kgrid["kpoints"]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
 
+        # sort "energy", "kpoints", "kweights" based on energy in ascending order
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
                 ikidxs = np.argsort(self.kgrid[tp]["energy"][ib])
@@ -505,6 +506,8 @@ class AMSET(object):
                     self.kgrid[prop] = np.array([self.kgrid[prop][ik] for ik in ikidxs])
                 for prop in ["energy", "velocity", "effective mass", "a"]:
                     self.kgrid[tp][prop][ib] = np.array([self.kgrid[tp][prop][ib][ik] for ik in ikidxs])
+
+
 
         self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
                 "f", "f_th", "relaxation time", "df0dk", "df0dE", "electric force", "thermal force"],
@@ -569,7 +572,7 @@ class AMSET(object):
             for ib in range(len(self.kgrid[tp]["energy"])):
                 for ik in range(len(self.kgrid["kpoints"])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
-                                                    E_radius=0.0, forced_min_npoints=2, tolerance=0.015)
+                                                    E_radius=0.0, forced_min_npoints=2, tolerance=self.dE_global)
                     self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
                         E_radius= +hbar * self.kgrid["W_POP"][ik], forced_min_npoints=2, tolerance=self.dE_global)
                     self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
