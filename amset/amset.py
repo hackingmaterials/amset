@@ -498,14 +498,9 @@ class AMSET(object):
         if len(self.kgrid["kpoints"]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
 
-        # sort "energy", "kpoints", "kweights" based on energy in ascending order
-        for tp in ["n", "p"]:
-            for ib in range(self.cbm_vbm[tp]["included"]):
-                ikidxs = np.argsort(self.kgrid[tp]["energy"][ib])
-                for prop in ["kpoints", "kweights"]:
-                    self.kgrid[prop] = np.array([self.kgrid[prop][ik] for ik in ikidxs])
-                for prop in ["energy", "velocity", "effective mass", "a"]:
-                    self.kgrid[tp][prop][ib] = np.array([self.kgrid[tp][prop][ib][ik] for ik in ikidxs])
+        # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
+        self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "effective mass", "a"], ascending=True)
+
 
 
 
@@ -523,6 +518,20 @@ class AMSET(object):
         self.kgrid["actual kpoints"]=np.dot(np.array(self.kgrid["kpoints"]),self._lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
         # TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
         self.kgrid["W_POP"] = [self.W_POP for i in range(len(self.kgrid["kpoints"]))]
+
+    def sort_vars_based_on_energy(self, args, ascending=True):
+        """sort the list of variables specified by "args" in self.kgrid based on the "energy" values in each band for
+        both "n"- and "p"-type bands and in ascending order by default."""
+        for tp in ["n", "p"]:
+            for ib in range(self.cbm_vbm[tp]["included"]):
+                ikidxs = np.argsort(self.kgrid[tp]["energy"][ib])
+                if not ascending:
+                    ikidxs.reverse()
+                for arg in args:
+                    if arg in ["kpoints", "kweights"]:
+                        self.kgrid[arg] = np.array([self.kgrid[arg][ik] for ik in ikidxs])
+                    else:
+                        self.kgrid[tp][arg][ib] = np.array([self.kgrid[tp][arg][ib][ik] for ik in ikidxs])
 
 
 
