@@ -82,9 +82,9 @@ class AMSET(object):
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
-        self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
+        self.dE_global = 0.001 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
-        self.temperatures = map(float, [300, 600]) # in K, list of temperatures
+        self.temperatures = map(float, [200, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self.epsilon_inf = 25.57 # example for PbTe
         self._vrun = {}
@@ -396,23 +396,31 @@ class AMSET(object):
 
         for name in names:
             for tp in ["n", "p"]:
+                self[grid][tp][name] = 0.0
                 if grid in ["kgrid"]:
-                    initial_content = [[initial_val for i in range(len(self[grid]["kpoints"]))]
+                    init_content = [[initial_val for i in range(len(self[grid]["kpoints"]))]
                                                     for j in range(self.cbm_vbm[tp]["included"])]
                 elif grid in ["egrid"]:
-                    initial_content = [initial_val for i in range(len(self[grid][tp]["energy"]))]
+                    init_content = [initial_val for i in range(len(self[grid][tp]["energy"]))]
                 else:
                     raise TypeError('The argument "grid" must be set to either "kgrid" or "egrid"')
                 if is_nparray:
-                    initial_content = np.array(initial_content)
-                if c_T_idx:
-                    initial_content = {c: {T: initial_content for T in self.temperatures} for c in self.dopings}
-                self[grid][tp][name] = initial_content
+                    if not c_T_idx:
+                        self[grid][tp][name] = np.array(init_content)
+                    else:
+                        self[grid][tp][name] = {c: {T: np.array(init_content) for T in self.temperatures} for c in
+                                                self.dopings}
+                else:
+                    if not c_T_idx:
+                        self[grid][tp][name] = init_content
+                    else:
+                        self[grid][tp][name] = {c: {T: init_content for T in self.temperatures} for c in self.dopings}
+
 
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 6
+            nkstep = 4 #32
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -560,11 +568,12 @@ class AMSET(object):
         for tp in ["n", "p"]:
             for ib in range(len(self.kgrid[tp]["energy"])):
                 for ik in range(len(self.kgrid["kpoints"])):
-                    self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik, E_radius=0.01, forced_min_npoints=2)
+                    self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
+                                                    E_radius=0.0, forced_min_npoints=2, tolerance=0.015)
                     self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
-                        E_radius= +hbar * self.kgrid["W_POP"][ik], forced_min_npoints=2)
+                        E_radius= +hbar * self.kgrid["W_POP"][ik], forced_min_npoints=2, tolerance=self.dE_global)
                     self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
-                        E_radius= -hbar * self.kgrid["W_POP"][ik],forced_min_npoints=2)
+                        E_radius= -hbar * self.kgrid["W_POP"][ik],forced_min_npoints=2, tolerance=self.dE_global)
 
 
                 # if is_sparse(self.kgrid[tp]["X_E_ik"][ib]):
@@ -583,7 +592,7 @@ class AMSET(object):
 
 
 
-    def get_X_ib_ik_within_E_radius(self, tp, ib, ik, E_radius, forced_min_npoints=0):
+    def get_X_ib_ik_within_E_radius(self, tp, ib, ik, E_radius, forced_min_npoints=0, tolerance=0.01):
         """Returns the sorted (based on angle, X) list of angle and band and k-point indexes of all the points
             that are withing the E_radius of E
             Attention! this function assumes self.kgrid is sorted based on the energy in ascending order."""
@@ -594,15 +603,15 @@ class AMSET(object):
         nk = len(self.kgrid["kpoints"])
         counter = 0
 
-        for ib_prime in range(len(self.kgrid[tp]["energy"])):
+        for ib_prime in range(self.cbm_vbm[tp]["included"]):
             ik_prime = ik
-            while (ik_prime<nk-1) and abs(self.kgrid[tp]["energy"][ib_prime][ik_prime+1]-(E+E_radius)) < self.dE_global:
+            while (ik_prime<nk-1) and abs(self.kgrid[tp]["energy"][ib_prime][ik_prime+1]-(E+E_radius)) < tolerance:
                 X = self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime+1])
                 result.append((X, ib_prime, ik_prime + 1))
                 ik_prime += 1
                 counter += 1
             ik_prime = ik
-            while (ik_prime>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prime][ik_prime-1]) <  self.dE_global:
+            while (ik_prime>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prime][ik_prime-1]) < tolerance:
                 X = self.cos_angle(k, self.kgrid["actual kpoints"][ik_prime - 1])
                 result.append((X, ib_prime, ik_prime - 1))
                 ik_prime -= 1
@@ -874,7 +883,7 @@ class AMSET(object):
 
 
                 for ie, en in enumerate(self.egrid[tp]["energy"]):
-                    N = 0  # total number of instances with the same energy
+                    N = 0.0  # total number of instances with the same energy
                     for ib in range(self.cbm_vbm[tp]["included"]):
                         for ik in range(len(self.kgrid["kpoints"])):
                             if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
@@ -888,6 +897,8 @@ class AMSET(object):
                     self.egrid[tp][prop_name][ie] /= N
         else:
             self.initialize_var("egrid", prop_name, "vector", initval=1e-32, is_nparray=True, c_T_idx=True)
+            if prop_name == "ACD":
+                self.egrid["n"][prop_name][-1e19][200][3] += self.kgrid["n"][prop_name][-1e19][200][0][3] * 0.4
 
             for tp in ["n", "p"]:
                 # try:
@@ -896,18 +907,24 @@ class AMSET(object):
                 #     self.egrid[tp][prop_name] = {c: {T: np.array([[1e-20, 1e-20, 1e-20]
                 #         for i in range(len(self.egrid[tp]["energy"]))]) for T in self.temperatures}
                 #                                                                                 for c in self.dopings}
+
                 for c in self.dopings:
                     for T in self.temperatures:
                         for ie, en in enumerate(self.egrid[tp]["energy"]):
-                            N = 0 # total number of instances with the same energy
+                            N = 0.0 # total number of instances with the same energy
                             for ik in range(len(self.kgrid["kpoints"])):
-                                for ib in range(len(self.kgrid[tp]["energy"])):
+                                for ib in range(self.cbm_vbm[tp]["included"]):
                                     if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
                                         weight = self.kgrid["kweights"][ik]
+                                        if prop_name=="ACD":
+                                            print T
                                         self.egrid[tp][prop_name][c][T][ie]+=self.kgrid[tp][prop_name][c][T][ib][ik]*weight
                                         N += weight
                             self.egrid[tp][prop_name][c][T][ie] /= N
-
+                            if prop_name == "ACD" and tp == "n":
+                                print T
+                                print self.egrid[tp][prop_name][c][200]
+                                print self.egrid[tp][prop_name][c][600.0]
 
 
     def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha = 0.05, max_iter = 1000):
