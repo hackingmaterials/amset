@@ -1010,7 +1010,10 @@ class AMSET(object):
             if trimmed:
                 remove_list = ["W_POP"]
                 for rm in remove_list:
-                    del (self.kgrid[rm])
+                    try:
+                        del (self.kgrid[rm])
+                    except:
+                        pass
                 remove_list = ["effective mass", "actual kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
                 for tp in ["n", "p"]:
                     for rm in remove_list:
