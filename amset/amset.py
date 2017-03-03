@@ -420,7 +420,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 20 #32
+            nkstep = 15 #32
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -504,6 +504,7 @@ class AMSET(object):
 
 
 
+
         self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
                 "f", "f_th", "relaxation time", "df0dk", "df0dE", "electric force", "thermal force"],
                         val_type="vector", initval=1e-32, is_nparray=True, c_T_idx=True)
@@ -519,15 +520,17 @@ class AMSET(object):
         # TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
         self.kgrid["W_POP"] = [self.W_POP for i in range(len(self.kgrid["kpoints"]))]
 
+
+
     def sort_vars_based_on_energy(self, args, ascending=True):
-        """sort the list of variables specified by "args" in self.kgrid based on the "energy" values in each band for
-        both "n"- and "p"-type bands and in ascending order by default."""
+        """sort the list of variables specified by "args" (type: [str]) in self.kgrid based on the "energy" values
+        in each band for both "n"- and "p"-type bands and in ascending order by default."""
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
                 ikidxs = np.argsort(self.kgrid[tp]["energy"][ib])
                 if not ascending:
                     ikidxs.reverse()
-                for arg in args:
+                for arg in args + ["energy"]:
                     if arg in ["kpoints", "kweights"]:
                         self.kgrid[arg] = np.array([self.kgrid[arg][ik] for ik in ikidxs])
                     else:
@@ -538,15 +541,15 @@ class AMSET(object):
     def generate_angles_and_indexes_for_integration(self):
 
 
-        def is_sparse(list_of_lists, threshold=0.1):
-            """check to see if a list of lists has more than certain fraction (threshold) of empty lists inside."""
-            counter = 0
-            for i in list_of_lists:
-                if len(i)==0:
-                    counter += 1
-            if counter/len(list_of_lists) > threshold:
-                return True
-            return False
+        # def is_sparse(list_of_lists, threshold=0.1):
+        #     """check to see if a list of lists has more than certain fraction (threshold) of empty lists inside."""
+        #     counter = 0
+        #     for i in list_of_lists:
+        #         if len(i)==0:
+        #             counter += 1
+        #     if counter/len(list_of_lists) > threshold:
+        #         return True
+        #     return False
 
         # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
         # for tp in ["n", "p"]:
