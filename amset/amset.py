@@ -420,7 +420,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 15 #32
+            nkstep = 5 #32
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -466,11 +466,13 @@ class AMSET(object):
         low_v_ik.sort()
         analytical_bands = Analytical_bands(coeff_file=coeff_file)
         once_called = False
+        bands_data = {tp: [() for ib in range(self.cbm_vbm[tp]["included"])] for tp in ["n", "p"]}
         for i, tp in enumerate(["n", "p"]):
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
                 engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
                     analytical_bands.get_engre(iband=self.cbm_vbm[tp]["bidx"] + sgn * ib)
+                bands_data[tp][ib] = (engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
                 if not once_called:
                     nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave,br_dir=br_dir)
                     once_called = True
@@ -504,13 +506,14 @@ class AMSET(object):
         self.sort_vars_based_on_energy(args=current_fields, ascending=True)
 
         # at this point all "kpoints" should be equal
-        nk = len(self.kgrid["n"]["kpoints"][0])
-        kd = 0.02
+        nk = len(kpts)
+        kd = 0.01
         n_newks = 2
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
+                (engre, latt_points, nwave, nsym, nsymop, symop, br_dir) = bands_data[tp][ib]
                 for ik in range(nk-1):
-                    if self.kgrid[tp]["energy"][ib][ik+1] - self.kgrid[tp]["energy"][ib][ik] < self.dE_global:
+                    if self.kgrid[tp]["energy"][ib][ik+1] - self.kgrid[tp]["energy"][ib][ik] > self.dE_global:
                         newks = [self.kgrid[tp]["kpoints"][ib][ik] + np.array([(random()-0.5)*kd, (random()-0.5)*kd,
                                                                        (random()-0.5)*kd]) for j in range(n_newks)]
                         for k in newks:
@@ -525,6 +528,7 @@ class AMSET(object):
                             self.kgrid[tp]["effective mass"][ib] = np.append(self.kgrid[tp]["effective mass"][ib],
                                                     [hbar**2/(dde*4*pi**2)/m_e/A_to_m**2*e*Ry_to_eV], axis=0)
                             self.kgrid[tp]["a"][ib] = np.append(self.kgrid[tp]["a"][ib], [1.0], axis=0)
+                            self.kgrid[tp]["c"][ib] = np.append(self.kgrid[tp]["c"][ib], [0.0], axis=0)
 
         print("updated number of k-points: {}".format(len(self.kgrid[tp]["kpoints"][ib])))
         print len(self.kgrid[tp]["kpoints"][ib])
@@ -538,6 +542,12 @@ class AMSET(object):
         print len(self.kgrid["p"]["effective mass"][0])
 
         self.sort_vars_based_on_energy(args=current_fields, ascending=True)
+
+        for tp in ["n", "p"]:
+            for ib in range(self.cbm_vbm[tp]["included"]):
+                self.kgrid[tp]["actual kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
+        # TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
+                self.kgrid[tp]["W_POP"][ib] = [self.W_POP for i in range(len(self.kgrid[tp]["kpoints"][ib]))]
 
         # Match the CBM/VBM energy values to those obtained from the coefficients file rather than vasprun.xml
         self.cbm_vbm["n"]["energy"] = self.kgrid["n"]["energy"][0][0]
@@ -554,12 +564,6 @@ class AMSET(object):
         #             for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
         #     self.kgrid[tp]["f0"] = {c: {T: np.array([[1e-32 for i in range(len(self.kgrid[tp]["kpoints"][ib]))]
         #         for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
-        
-        for tp in ["n", "p"]:
-            for ib in range(self.cbm_vbm[tp]["included"]):
-                self.kgrid[tp]["actual kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
-        # TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
-                self.kgrid[tp]["W_POP"][ib] = [self.W_POP for i in range(len(self.kgrid[tp]["kpoints"][ib]))]
 
 
 
@@ -603,22 +607,22 @@ class AMSET(object):
         #         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
         #             for ib_prime in range(len(self.kgrid[tp]["energy"])):
         #                 for ik_prime in range(len(self.kgrid[tp]["kpoints"][ib])):
-        #                     # k = self.kgrid[tp]["actual kpoints"][ib][ik]
-        #                     E = self.kgrid[tp]["energy"][ib][ik]
-        #                     X = self.cos_angle(self.kgrid[tp]["actual kpoints"][ib][ik], self.kgrid[tp]["actual kpoints"][ib][ik_prime])
-        #
-        #                     if abs(E - self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
-        #                          self.kgrid[tp]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
-        #                     if abs( (E +  hbar * self.kgrid[tp]["W_POP"][ib][ik] ) \
-        #                                          - self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
-        #                         self.kgrid[tp]["X_Eplus_ik"][ib][ik].append((X, ib_prime, ik_prime))
-        #                     if abs( (E -  hbar * self.kgrid[tp]["W_POP"][ib][ik] ) \
-        #                                          - self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
-        #                         self.kgrid[tp]["X_Eminus_ik"][ib][ik].append((X, ib_prime, ik_prime))
-        #
-        #             self.kgrid[tp]["X_E_ik"][ib][ik].sort()
-        #             self.kgrid[tp]["X_Eplus_ik"][ib][ik].sort()
-        #             self.kgrid[tp]["X_Eminus_ik"][ib][ik].sort()
+        #                     k = self.kgrid[tp]["actual kpoints"][ib][ik]
+                            # E = self.kgrid[tp]["energy"][ib][ik]
+                            # X = self.cos_angle(self.kgrid[tp]["actual kpoints"][ib][ik], self.kgrid[tp]["actual kpoints"][ib][ik_prime])
+                            #
+                            # if abs(E - self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                            #      self.kgrid[tp]["X_E_ik"][ib][ik].append((X, ib_prime, ik_prime))
+                            # if abs( (E +  hbar * self.kgrid[tp]["W_POP"][ib][ik] ) \
+                            #                      - self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                            #     self.kgrid[tp]["X_Eplus_ik"][ib][ik].append((X, ib_prime, ik_prime))
+                            # if abs( (E -  hbar * self.kgrid[tp]["W_POP"][ib][ik] ) \
+                            #                      - self.kgrid[tp]["energy"][ib_prime][ik_prime]) < self.dE_global:
+                            #     self.kgrid[tp]["X_Eminus_ik"][ib][ik].append((X, ib_prime, ik_prime))
+                    #
+                    # self.kgrid[tp]["X_E_ik"][ib][ik].sort()
+                    # self.kgrid[tp]["X_Eplus_ik"][ib][ik].sort()
+                    # self.kgrid[tp]["X_Eminus_ik"][ib][ik].sort()
 
 
         for tp in ["n", "p"]:
@@ -640,7 +644,7 @@ class AMSET(object):
                         # warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering, "
                         #                  "you can try this k-point grid but without POP as an inelastic scattering")
 
-                if self.nforced_POP/(len(self.kgrid["n"]["energy"])*len(self.kgrid[tp]["kpoints"][ib])*2*2) > 0.1:
+                if self.nforced_POP/(len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib])*2*2) > 0.1:
                 # TODO: this should be an exception but for now I turned to warning for testing.
                     warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering, "
                           "you can try this k-point grid but without POP as an inelastic scattering")
@@ -733,7 +737,7 @@ class AMSET(object):
 
     def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None):
         if not interpolation_nsteps:
-            interpolation_nsteps = max(5, int(500/len(self.egrid["n"]["energy"])) )
+            interpolation_nsteps = max(5, int(500/len(self.egrid[tp]["energy"])) )
         integral = 0.0
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             E = self.egrid[tp]["energy"][ie]
@@ -748,7 +752,7 @@ class AMSET(object):
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=True, xvel=False, interpolation_nsteps=None):
         if not interpolation_nsteps:
-            interpolation_nsteps = max(5, int(500/len(self.egrid["n"]["energy"])) )
+            interpolation_nsteps = max(5, int(500/len(self.egrid[tp]["energy"])) )
         diff = [0.0 for prop in prop_list]
         integral = 0.0
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
@@ -1072,13 +1076,7 @@ class AMSET(object):
 
         if kgrid:
             if trimmed:
-                remove_list = ["W_POP"]
-                for rm in remove_list:
-                    try:
-                        del (self.kgrid[rm])
-                    except:
-                        pass
-                remove_list = ["effective mass", "actual kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
+                remove_list = ["W_POP", "effective mass", "actual kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
                 for tp in ["n", "p"]:
                     for rm in remove_list:
                         try:
@@ -1267,10 +1265,7 @@ class AMSET(object):
 
         self.calculate_transport_properties()
 
-        trim_list = ["W_POP"]
-        for rm in trim_list:
-            del (self.kgrid[rm])
-        remove_list = ["effective mass", "actual kpoints", "kpoints", "kweights", "a", "c", "f"]
+        remove_list = ["W_POP", "effective mass", "actual kpoints", "kweights", "a", "c", "f"]
         for tp in ["n", "p"]:
             for rm in remove_list:
                 try:
