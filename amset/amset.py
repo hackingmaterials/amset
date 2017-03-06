@@ -82,7 +82,7 @@ class AMSET(object):
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
-        self.dE_global = 0.01 # in eV, the energy difference threshold below which two energy values are assumed equal
+        self.dE_global = 0.02 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -110,6 +110,8 @@ class AMSET(object):
         self.C_el = 77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
         self.nforced_POP = 0
 
+
+
     def __getitem__(self, key):
         if key=="kgrid":
             return self.kgrid
@@ -117,6 +119,8 @@ class AMSET(object):
             return self.egrid
         else:
             raise KeyError
+
+
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
         self._vrun = Vasprun(os.path.join(path_dir, filename))
@@ -184,7 +188,6 @@ class AMSET(object):
     # def f(self, E, fermi, T, tp, c, alpha):
     #     """returns the perturbed Fermi-Dirac in presence of a small driving force"""
     #     return 1 / (1 + np.exp((E - fermi) / (k_B * T))) + self.egrid[tp]["g"][c][T][self.get_E_idx(E, tp)][alpha]
-
 
 
 
@@ -420,7 +423,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 5 #32
+            nkstep = 99 #32
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -506,42 +509,47 @@ class AMSET(object):
         self.sort_vars_based_on_energy(args=current_fields, ascending=True)
 
         # at this point all "kpoints" should be equal
-        nk = len(kpts)
-        kd = 0.01
-        n_newks = 2
-        for tp in ["n", "p"]:
-            for ib in range(self.cbm_vbm[tp]["included"]):
-                (engre, latt_points, nwave, nsym, nsymop, symop, br_dir) = bands_data[tp][ib]
-                for ik in range(nk-1):
-                    if self.kgrid[tp]["energy"][ib][ik+1] - self.kgrid[tp]["energy"][ib][ik] > self.dE_global:
-                        newks = [self.kgrid[tp]["kpoints"][ib][ik] + np.array([(random()-0.5)*kd, (random()-0.5)*kd,
-                                                                       (random()-0.5)*kd]) for j in range(n_newks)]
-                        for k in newks:
-                            self.kgrid[tp]["kpoints"][ib] = np.append(self.kgrid[tp]["kpoints"][ib], [k], axis=0)
-                            energy, de, dde = analytical_bands.get_energy(
-                                self.kgrid[tp]["kpoints"][ib][ik], engre, nwave, nsym, nstv, vec, vec2, br_dir=br_dir, cbm=True)
-                            self.kgrid[tp]["kweights"][ib] = np.append(self.kgrid[tp]["kweights"][ib], self.kgrid[tp]["kweights"][ib][ik])
-                            self.kgrid[tp]["energy"][ib] = np.append(self.kgrid[tp]["energy"][ib],
-                                                    [energy * Ry_to_eV + sgn * self.scissor / 2], axis=0)
-                            self.kgrid[tp]["velocity"][ib] = np.vstack((self.kgrid[tp]["velocity"][ib],
-                                            [abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)]))# in cm/s
-                            self.kgrid[tp]["effective mass"][ib] = np.append(self.kgrid[tp]["effective mass"][ib],
-                                                    [hbar**2/(dde*4*pi**2)/m_e/A_to_m**2*e*Ry_to_eV], axis=0)
-                            self.kgrid[tp]["a"][ib] = np.append(self.kgrid[tp]["a"][ib], [1.0], axis=0)
-                            self.kgrid[tp]["c"][ib] = np.append(self.kgrid[tp]["c"][ib], [0.0], axis=0)
-
-        print("updated number of k-points: {}".format(len(self.kgrid[tp]["kpoints"][ib])))
-        print len(self.kgrid[tp]["kpoints"][ib])
-        print len(self.kgrid[tp]["kweights"][ib])
-        print len(self.kgrid["n"]["energy"][0])
-        print len(self.kgrid["n"]["velocity"][0])
-        print len(self.kgrid["n"]["effective mass"][0])
-
-        print len(self.kgrid["p"]["energy"][0])
-        print len(self.kgrid["p"]["velocity"][0])
-        print len(self.kgrid["p"]["effective mass"][0])
-
-        self.sort_vars_based_on_energy(args=current_fields, ascending=True)
+        # nk = len(kpts)
+        # kd = 0.02
+        # n_newks = 3
+        # for tp in ["n", "p"]:
+        #     sgn = (-1)**["n", "p"].index(tp)
+        #     for ib in range(self.cbm_vbm[tp]["included"]):
+        #         (engre, latt_points, nwave, nsym, nsymop, symop, br_dir) = bands_data[tp][ib]
+        #         for ik in range(nk-1):
+        #             if self.kgrid[tp]["energy"][ib][ik+1] - self.kgrid[tp]["energy"][ib][ik] > self.dE_global:
+        #                 newks = [self.kgrid[tp]["kpoints"][ib][ik] + np.array([(random()-0.5)*kd, (random()-0.5)*kd,
+        #                                                                (random()-0.5)*kd]) for j in range(n_newks)]
+        #                 for k in newks:
+        #                     energy, de, dde = analytical_bands.get_energy(
+        #                         k, engre, nwave, nsym, nstv, vec, vec2, br_dir=br_dir, cbm=True)
+        #                     print "old and new energy"
+        #                     print self.kgrid[tp]["energy"][ib][ik]
+        #                     print energy * Ry_to_eV + sgn * self.scissor / 2
+        #                     if abs(energy * Ry_to_eV + sgn * self.scissor / 2 - self.kgrid[tp]["energy"][ib][ik]) < self.dE_global:
+        #                         self.kgrid[tp]["kpoints"][ib] = np.append(self.kgrid[tp]["kpoints"][ib], [k], axis=0)
+        #                         self.kgrid[tp]["kweights"][ib] = np.append(self.kgrid[tp]["kweights"][ib], self.kgrid[tp]["kweights"][ib][ik])
+        #                         self.kgrid[tp]["energy"][ib] = np.append(self.kgrid[tp]["energy"][ib],
+        #                                                 [energy * Ry_to_eV + sgn * self.scissor / 2], axis=0)
+        #                         self.kgrid[tp]["velocity"][ib] = np.vstack((self.kgrid[tp]["velocity"][ib],
+        #                                         [abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)]))# in cm/s
+        #                         self.kgrid[tp]["effective mass"][ib] = np.append(self.kgrid[tp]["effective mass"][ib],
+        #                                                 [hbar**2/(dde*4*pi**2)/m_e/A_to_m**2*e*Ry_to_eV], axis=0)
+        #                         self.kgrid[tp]["a"][ib] = np.append(self.kgrid[tp]["a"][ib], [1.0], axis=0)
+        #                         self.kgrid[tp]["c"][ib] = np.append(self.kgrid[tp]["c"][ib], [0.0], axis=0)
+        #
+        # print("updated number of k-points: {}".format(len(self.kgrid[tp]["kpoints"][ib])))
+        # print len(self.kgrid[tp]["kpoints"][ib])
+        # print len(self.kgrid[tp]["kweights"][ib])
+        # print len(self.kgrid["n"]["energy"][0])
+        # print len(self.kgrid["n"]["velocity"][0])
+        # print len(self.kgrid["n"]["effective mass"][0])
+        #
+        # print len(self.kgrid["p"]["energy"][0])
+        # print len(self.kgrid["p"]["velocity"][0])
+        # print len(self.kgrid["p"]["effective mass"][0])
+        #
+        # self.sort_vars_based_on_energy(args=current_fields, ascending=True)
 
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -987,7 +995,7 @@ class AMSET(object):
                             self.egrid[tp][prop_name][c][T][ie] /= N
 
 
-    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha = 0.05, max_iter = 1000):
+    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha = 0.02, max_iter = 1000):
         """
         To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
         :param c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
@@ -1128,6 +1136,10 @@ class AMSET(object):
         for c in self.dopings:
             for T in self.temperatures:
                 for tp in ["n", "p"]:
+                    # norm is only for one vector but g has the ibxikx3 dimensions
+                    # self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + norm(self.egrid[tp]["g"][c][T])
+                    # self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+norm(self.egrid[tp]["g_th"][c][T])
+
                     self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + norm(self.egrid[tp]["g"][c][T])
                     self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+norm(self.egrid[tp]["g_th"][c][T])
 
@@ -1265,7 +1277,7 @@ class AMSET(object):
 
         self.calculate_transport_properties()
 
-        remove_list = ["W_POP", "effective mass", "actual kpoints", "kweights", "a", "c", "f"]
+        remove_list = ["W_POP", "effective mass", "actual kpoints", "kweights", "a", "c"]
         for tp in ["n", "p"]:
             for rm in remove_list:
                 try:
@@ -1279,9 +1291,11 @@ class AMSET(object):
             pprint(self.kgrid)
 
         with open("kgrid.txt", "w") as fout:
+            # pprint(self.kgrid["n"], stream=fout)
             pprint(self.kgrid, stream=fout)
         with open("egrid.txt", "w") as fout:
-            pprint(self.egrid, stream=fout)
+            pprint(self.kgrid, stream=fout)
+            # pprint(self.kgrid["n"], stream=fout)
 
 
 
