@@ -1,6 +1,10 @@
 # coding: utf-8
 
 import warnings
+
+from pymatgen.electronic_structure.plotter import plot_brillouin_zone, plot_brillouin_zone_from_kpath
+from pymatgen.symmetry.bandstructure import HighSymmKpath
+
 from analytical_band_from_BZT import Analytical_bands
 from pprint import pprint
 
@@ -423,7 +427,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 99 #32
+            nkstep = 7 #32
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -436,8 +440,10 @@ class AMSET(object):
         kpts = np.array([i[0] for i in kpts_and_weights])
         kweights = np.array([float(i[1]) for i in kpts_and_weights])
         kweights /= sum(kweights)
-
         print len(kpts)
+
+        # kpath = HighSymmKpath(self._vrun.final_structure)
+        # plt = plot_brillouin_zone_from_kpath(kpath=kpath)
 
         self.kgrid = {
                 # "kpoints": kpts,
