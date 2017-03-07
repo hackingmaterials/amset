@@ -454,7 +454,7 @@ class AMSET(object):
         #   2) use the cartesian symmetry operations given by SpacegroupAnalyzer.get_symmetry_operations(cartesian=True)
         # directly on "actual kpoints" to get new cartesian (2pi*lattice_matrix*fractional-k) equivalent k-point
 
-        # k = np.array([0.5, 0.5, 0.5])
+        # k = np.array([0.5, 0.3, 0.2])
         # self.symmetry_operations = sg.get_symmetry_operations(cartesian=True)
         # print self.symmetry_operations
         # new_rot = np.array([[ 0.16666667,  0.47140451, -0.86602538],
@@ -848,7 +848,7 @@ class AMSET(object):
 
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None, g_suffix=""):
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
-        k_prime = self.kgrid[tp]["actual kpoints"][ib][ik_prime]
+        k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime]
         return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
                * self.G(tp, ib, ik, ib_prime, ik_prime, X) * norm(k_prime-k)** 2 \
                / self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha]
