@@ -886,21 +886,18 @@ class AMSET(object):
         :return:
         """
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
+        f = self.kgrid[tp]["f0"][c][T][ib][ik]
         if type(k_prime) == type(None):
             k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime]
             v_prime = self.kgrid[tp]["velocity"][ib_prime][ik_prime]
-        else:
-            v_prime = self.kgrid[tp]["velocity"][ib][ik]
-        fermi = self.egrid["fermi"][c][T]
-
-        # f = f0(self.kgrid[tp]["energy"][ib][ik], fermi, T)
-        # f_prime = f0(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T)
-
-        f = self.kgrid[tp]["f0"][c][T][ib][ik]
-        if type(k_prime) == type(None):
             f_prime = self.kgrid[tp]["f0"][c][T][ib_prime][ik_prime]
         else:
+            # TODO: how to get v_prime and f_prime when ib_prime and ik_prime are NOT available?: one idea is to give those of the closest k_prime available that returns the same energy when setting up X_Eplus...
+            v_prime = self.kgrid[tp]["velocity"][ib][ik]
             f_prime = self.kgrid[tp]["f0"][c][T][ib][ik]
+
+        fermi = self.egrid["fermi"][c][T]
+
         # test
         # f = self.f(self.kgrid[tp]["energy"][ib][ik], fermi, T, tp, c, alpha)
         # f_prime = self.f(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T, tp, c, alpha)
