@@ -11,7 +11,7 @@ from pprint import pprint
 import numpy as np
 import sys
 from pymatgen.io.vasp import Vasprun, Spin
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer, generate_full_symmops
 from scipy.constants.codata import value as _cd
 from math import pi
 import os
@@ -32,7 +32,7 @@ m_to_cm = 100.00
 A_to_nm = 0.1
 e = _cd('elementary charge')
 k_B = _cd("Boltzmann constant in eV/K")
-epsilon_0 = 8.854187817e-12     # Absolute value of dielectric constant in vacuum [C^2/m^2N]
+epsilon_0 = 8.854187817e-12     # Absolute value of dielectric constant in vacuum [C**2/m**2N]
 default_small_E = 1 # eV/cm the value of this parameter does not matter
 dTdz = 10.0 # K/cm
 
@@ -50,7 +50,7 @@ __date__ = "January 2017"
 
 
 def norm(v):
-    """method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as numpy.linalg.norm is slow"""
+    """method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as numpy.linalg.norm is slower for this case"""
     return (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
 
 
@@ -86,7 +86,7 @@ class AMSET(object):
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
-        self.dE_global = 0.02 # in eV, the energy difference threshold below which two energy values are assumed equal
+        self.dE_global = k_B*300 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -427,7 +427,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 7 #32
+            nkstep = 9 #99 #32
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -437,6 +437,7 @@ class AMSET(object):
 
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
         kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
+        print len(kpts_and_weights)
         kpts = np.array([i[0] for i in kpts_and_weights])
         kweights = np.array([float(i[1]) for i in kpts_and_weights])
         kweights /= sum(kweights)
@@ -444,6 +445,29 @@ class AMSET(object):
 
         # kpath = HighSymmKpath(self._vrun.final_structure)
         # plt = plot_brillouin_zone_from_kpath(kpath=kpath)
+
+        # ATTENTION!!!!: there are two ways to generate symmetrically equivalent points (actually I checked the second
+        # and is NOT equivalent to the first one; I'd say use the first one for now because I am sure of this:
+        #  k-point in cartesian = np.dot( self._lattice_matrix.transpose(), fractional-k-point)
+        #   1) use the symmetry operations given by SpacegroupAnalyzer._get_symmetry() on the fractional coordinates and
+        #  then convert to cartesian via lattice_matrix
+        #   2) use the cartesian symmetry operations given by SpacegroupAnalyzer.get_symmetry_operations(cartesian=True)
+        # directly on "actual kpoints" to get new cartesian (2pi*lattice_matrix*fractional-k) equivalent k-point
+
+        # k = np.array([0.5, 0.5, 0.5])
+        # self.symmetry_operations = sg.get_symmetry_operations(cartesian=True)
+        # print self.symmetry_operations
+        # new_rot = np.array([[ 0.16666667,  0.47140451, -0.86602538],
+        #             [-0.94280907,  0.33333333,  0.        ],
+        #              [ 0.28867514,  0.81649659,  0.5       ]])
+        #
+        self.rotations, self.translations = sg._get_symmetry()
+        # for rot in self.rotations:
+        #     print np.dot(self._lattice_matrix.transpose(), np.dot(rot, k))
+        #     print np.dot(new_rot, (np.dot(k, self._lattice_matrix)) )
+        ##    print np.dot(self._lattice_matrix.transpose(), rot)
+            # print
+
 
         self.kgrid = {
                 # "kpoints": kpts,
@@ -514,10 +538,10 @@ class AMSET(object):
         current_fields = ["kpoints", "kweights", "velocity", "effective mass", "a"]
         self.sort_vars_based_on_energy(args=current_fields, ascending=True)
 
-        # at this point all "kpoints" should be equal
-        # nk = len(kpts)
-        # kd = 0.02
-        # n_newks = 3
+        # at this point, the number of all "kpoints" should be equal
+        nk = len(kpts)
+        kd = 0.02
+        n_newks = 10
         # for tp in ["n", "p"]:
         #     sgn = (-1)**["n", "p"].index(tp)
         #     for ib in range(self.cbm_vbm[tp]["included"]):
@@ -543,7 +567,7 @@ class AMSET(object):
         #                                                 [hbar**2/(dde*4*pi**2)/m_e/A_to_m**2*e*Ry_to_eV], axis=0)
         #                         self.kgrid[tp]["a"][ib] = np.append(self.kgrid[tp]["a"][ib], [1.0], axis=0)
         #                         self.kgrid[tp]["c"][ib] = np.append(self.kgrid[tp]["c"][ib], [0.0], axis=0)
-        #
+
         # print("updated number of k-points: {}".format(len(self.kgrid[tp]["kpoints"][ib])))
         # print len(self.kgrid[tp]["kpoints"][ib])
         # print len(self.kgrid[tp]["kweights"][ib])
@@ -555,6 +579,8 @@ class AMSET(object):
         # print len(self.kgrid["p"]["velocity"][0])
         # print len(self.kgrid["p"]["effective mass"][0])
         #
+
+
         # self.sort_vars_based_on_energy(args=current_fields, ascending=True)
 
         for tp in ["n", "p"]:
@@ -929,13 +955,18 @@ class AMSET(object):
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            sum = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
-                                                        integrand=self.el_integrand_X,
-                                                      ib=ib, ik=ik, c=c, T=T, sname = sname, g_suffix="")
-                            self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) *2e-7*pi/hbar
-                            for alpha in range(3):
-                                if self.kgrid[tp][sname][c][T][ib][ik][alpha] < 1:
-                                    self.kgrid[tp][sname][c][T][ib][ik][alpha] = 1e9
+                            if sname.upper() == "ACD":
+                                self.kgrid[tp][sname][c][T][ib][ik] = (k_B*T*self.E_D[tp]**2*norm(self.kgrid[tp]["kpoints"][ib][ik])**2)\
+                                    /(3*pi*hbar**2*self.C_el*1e9*self.kgrid[tp]["velocity"][ib][ik])\
+                                    *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*16.0217657
+                            else:
+                                sum = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
+                                                            integrand=self.el_integrand_X,
+                                                          ib=ib, ik=ik, c=c, T=T, sname = sname, g_suffix="")
+                                self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) *2e-7*pi/hbar
+                                for alpha in range(3):
+                                    if self.kgrid[tp][sname][c][T][ib][ik][alpha] < 1:
+                                        self.kgrid[tp][sname][c][T][ib][ik][alpha] = 1e9
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
                         self.kgrid[tp]["relaxation time"][c][T][ib] = 1/self.kgrid[tp]["_all_elastic"][c][T][ib]
 
@@ -1037,6 +1068,8 @@ class AMSET(object):
                 integral = self.integrate_over_DOSxE_dE(func=funcs[j], tp=tp, fermi=fermi, T=T)
                 temp_doping[tp] = (-1)**(j+1) * abs(integral*self.nelec/self.volume / (A_to_m*m_to_cm)**3)
             calc_doping = temp_doping["n"] + temp_doping["p"]
+            if abs(calc_doping) < 1e-2:
+                calc_doping = np.sign(calc_doping)*0.01 # just so that calc_doping doesn't get stuck to zero!
 
             # calculate the relative error from the desired concentration, c
             relative_error = abs(calc_doping - c)/abs(c)
@@ -1300,8 +1333,8 @@ class AMSET(object):
             # pprint(self.kgrid["n"], stream=fout)
             pprint(self.kgrid, stream=fout)
         with open("egrid.txt", "w") as fout:
-            pprint(self.kgrid, stream=fout)
-            # pprint(self.kgrid["n"], stream=fout)
+            pprint(self.egrid, stream=fout)
+            # pprint(self.egrid["n"], stream=fout)
 
 
 
