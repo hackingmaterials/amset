@@ -322,7 +322,7 @@ class AMSET(object):
 
 
 
-    def G(self, tp, ib, ik, ib_prime, ik_prime, X):
+    def G(self, tp, ib, ik, ib_prime, ik_prime, X, k_prime):
         """
         The overlap integral betweek vectors k and k'
         :param ik (int): index of vector k in kgrid
@@ -330,8 +330,12 @@ class AMSET(object):
         :param X (float): cosine of the angle between vectors k and k'
         :return: overlap integral
         """
-        return self.kgrid[tp]["a"][ib][ik] * self.kgrid[tp]["a"][ib_prime][ik_prime]+ \
-               self.kgrid[tp]["c"][ib][ik] * self.kgrid[tp]["c"][ib_prime][ik_prime]
+        a = self.kgrid[tp]["a"][ib][ik]
+        c = self.kgrid[tp]["c"][ib][ik]
+        if type(k_prime) != type(None): # this means that the point was symmetrically equivalent to k hence ib_prime==ik_prime==None
+            return (a * a + X * c * c)**2
+        else:
+            return (a * self.kgrid[tp]["a"][ib_prime][ik_prime]+ X * c * self.kgrid[tp]["c"][ib_prime][ik_prime])**2
 
 
 
@@ -709,8 +713,9 @@ class AMSET(object):
             else:
                 ik_prime = max(0, ik-100)
             while (ik_prime<nk-1) and abs(self.kgrid[tp]["energy"][ib_prime][ik_prime+1]-(E+E_radius)) < tolerance:
-                X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime+1])
-                result.append((X, ib_prime, ik_prime + 1))
+                X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime+1])
+                # result.append((X, ib_prime, ik_prime + 1))
+                result.append((X, ib_prime, ik_prime, None)) # when ib_prime & ik_prime available returned k_prime==None
                 ik_prime += 1
                 counter += 1
             if ib==ib_prime:
@@ -718,21 +723,24 @@ class AMSET(object):
             else:
                 ik_prime = min(nk-1, ik+100)
             while (ik_prime>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prime][ik_prime-1]) < tolerance:
-                X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime - 1])
-                result.append((X, ib_prime, ik_prime - 1))
+                X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime - 1])
+                # result.append((X, ib_prime, ik_prime - 1))
+                result.append((X, ib_prime, ik_prime, None))
                 ik_prime -= 1
                 counter += 1
 
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
         ik_prime = ik
         while counter < forced_min_npoints and ik_prime < nk - 1:
-            result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime + 1]), ib, ik_prime + 1))
+            result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime + 1]), ib, ik_prime, None))
+            # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime + 1]), ib, ik_prime + 1))
             ik_prime += 1
             counter += 1
             self.nforced_POP += 1
         ik_prime = ik
         while counter < forced_min_npoints and ik_prime > 0:
-            result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime - 1]), ib, ik_prime - 1))
+            result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime - 1]), ib, ik_prime, None))
+            # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime - 1]), ib, ik_prime - 1))
             ik_prime -= 1
             counter += 1
             self.nforced_POP += 1
@@ -837,8 +845,8 @@ class AMSET(object):
                 dum = 0
                 for j in range(2):
                     # extract the indecies
-                    X, ib_prime, ik_prime = X_E_index[ib][ik][i + j]
-                    dum += integrand(tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=sname, g_suffix=g_suffix)
+                    X, ib_prime, ik_prime, k_prime = X_E_index[ib][ik][i + j]
+                    dum += integrand(tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=sname, g_suffix=g_suffix, k_prime=k_prime)
 
                 dum /= 2.0  # the average of points i and i+1 to integrate via the trapezoidal rule
                 sum[alpha] += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
@@ -846,18 +854,23 @@ class AMSET(object):
 
 
 
-    def el_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None, g_suffix=""):
+    def el_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None, g_suffix="", k_prime=None):
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
-        k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime]
-        return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
-               * self.G(tp, ib, ik, ib_prime, ik_prime, X) * norm(k_prime-k)** 2 \
+        if type(k_prime) != type(None):
+            return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
+                   * self.G(tp, ib, ik, ib_prime, ik_prime, X, k_prime) * norm(k_prime - k) ** 2 \
+                   / self.kgrid[tp]["velocity"][ib][ik][alpha]
+        else:
+            k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime]
+            return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
+               * self.G(tp, ib, ik, ib_prime, ik_prime, X, k_prime) * norm(k_prime-k)** 2 \
                / self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha]
                 # / abs(self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha])
         # We take |v| as scattering depends on the velocity itself and not the direction
 
 
 
-    def inel_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None, g_suffix=""):
+    def inel_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None, g_suffix="", k_prime=None):
         """
         returns the evaluated number (float) of the expression inside the S_o and S_i(g) integrals.
         :param tp (str): "n" or "p" type
@@ -873,15 +886,21 @@ class AMSET(object):
         :return:
         """
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
-        k_prime = self.kgrid[tp]["actual kpoints"][ib][ik_prime]
-        v = self.kgrid[tp]["velocity"][ib][ik]
+        if type(k_prime) == type(None):
+            k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime]
+            v_prime = self.kgrid[tp]["velocity"][ib_prime][ik_prime]
+        else:
+            v_prime = self.kgrid[tp]["velocity"][ib][ik]
         fermi = self.egrid["fermi"][c][T]
 
         # f = f0(self.kgrid[tp]["energy"][ib][ik], fermi, T)
         # f_prime = f0(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T)
 
         f = self.kgrid[tp]["f0"][c][T][ib][ik]
-        f_prime = self.kgrid[tp]["f0"][c][T][ib_prime][ik_prime]
+        if type(k_prime) == type(None):
+            f_prime = self.kgrid[tp]["f0"][c][T][ib_prime][ik_prime]
+        else:
+            f_prime = self.kgrid[tp]["f0"][c][T][ib][ik]
         # test
         # f = self.f(self.kgrid[tp]["energy"][ib][ik], fermi, T, tp, c, alpha)
         # f_prime = self.f(self.kgrid[tp]["energy"][ib_prime][ik_prime], fermi, T, tp, c, alpha)
@@ -892,7 +911,7 @@ class AMSET(object):
         # print norm(k_prime)**2
         # the term norm(k_prime)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         # integ = norm(k_prime)**2*self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha]*norm_diff**2)
-        integ = self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha])
+        integ = self.G(tp, ib, ik, ib_prime, ik_prime, X, k_prime)/(v_prime[alpha])
         if "S_i" in sname:
             integ *= abs(X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
@@ -924,7 +943,7 @@ class AMSET(object):
                             sum = [0, 0, 0]
                             for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
                                 sum += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name], self.inel_integrand_X,
-                                                ib=ib, ik=ik, c=c, T=T, sname=sname+X_E_index_name, g_suffix=g_suffix)
+                                        ib=ib, ik=ik, c=c, T=T, sname=sname+X_E_index_name, g_suffix=g_suffix)
                             # self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * e**2*self.kgrid[tp]["W_POP"][ib][ik]/(4*pi*hbar) \
                             self.kgrid[tp][sname][c][T][ib][ik] = sum*e**2*self.kgrid[tp]["W_POP"][ib][ik] / (4 * pi * hbar) \
                                                             * (1/self.epsilon_inf-1/self.epsilon_s)/epsilon_0 * 100/e
