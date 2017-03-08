@@ -462,9 +462,7 @@ class AMSET(object):
         #             [-0.94280907,  0.33333333,  0.        ],
         #              [ 0.28867514,  0.81649659,  0.5       ]])
         #
-        self.rotations, self.translations = sg._get_symmetry()
-        # self.rotations = list(set(self.rotations))
-        # self.translations = list(set(self.translations))
+        self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
 
         # for rot in self.rotations:
         #     print np.dot(self._lattice_matrix.transpose(), np.dot(rot, k))
@@ -598,7 +596,7 @@ class AMSET(object):
         self.cbm_vbm["p"]["energy"] = self.kgrid["n"]["energy"][0][-1]
 
         self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
-                "f", "f_th", "relaxation time", "df0dk", "df0dE", "electric force", "thermal force"],
+                "f", "f_th", "relaxation time", "df0dk", "electric force", "thermal force"],
                         val_type="vector", initval=1e-32, is_nparray=True, c_T_idx=True)
         self.initialize_var("kgrid", ["f0"], "scalar", 1e-32, is_nparray=False, c_T_idx=True)
         # for tp in ["n", "p"]:
@@ -670,6 +668,7 @@ class AMSET(object):
 
 
         for tp in ["n", "p"]:
+            self.nforced_POP = 0
             for ib in range(len(self.kgrid[tp]["energy"])):
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
@@ -688,19 +687,34 @@ class AMSET(object):
                         # warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering, "
                         #                  "you can try this k-point grid but without POP as an inelastic scattering")
 
-                if self.nforced_POP/(len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib])*2*2) > 0.1:
+            if self.nforced_POP/(len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
                 # TODO: this should be an exception but for now I turned to warning for testing.
-                    warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering, "
-                          "you can try this k-point grid but without POP as an inelastic scattering")
+                    warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering in {} bands;"
+                          " you can try this k-point grid but without POP as an inelastic scattering.".format(
+                        ["conduction", "valence"][["n", "p"].index(tp)]))
 
 
 
-    def get_all_symmetrically_equivalent_ks(self, tp, ib, ik):
+    def unique_X_ib_ik_symmetrically_equivalent(self, tp, ib, ik):
         frac_k = self.kgrid[tp]["kpoints"][ib][ik]
         fractional_ks = [np.dot(self.rotations[i], frac_k) + self.translations[i] for i in range(len(self.rotations))]
-        return [np.dot(frac_k, self._lattice_matrix)*1/A_to_nm*2*pi for frac_k in fractional_ks]
-        # return list(set([np.dot(frac_k, self._lattice_matrix)*1/A_to_nm*2*pi for frac_k in fractional_ks]))
 
+        k = self.kgrid[tp]["kpoints"][ib][ik]
+        seks = [np.dot(frac_k, self._lattice_matrix)*1/A_to_nm*2*pi for frac_k in fractional_ks]
+
+        all_Xs = []
+        new_X_ib_ik = []
+        for sek in seks:
+            X = self.cos_angle(k, sek)
+            if X in all_Xs:
+                continue
+            else:
+                new_X_ib_ik.append((X, ib, ik, sek))
+                all_Xs.append(X)
+        all_Xs.sort()
+        # print len(all_Xs)
+        # print all_Xs
+        return new_X_ib_ik
 
 
     def get_X_ib_ik_within_E_radius(self, tp, ib, ik, E_radius, forced_min_npoints=0, tolerance=0.01):
@@ -711,59 +725,69 @@ class AMSET(object):
         E = self.kgrid[tp]["energy"][ib][ik]
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
         result = []
-        if E_radius == 0.0: # because then all the symmetrically equivalent k-points to current k have the same energy
-            for k_eq in self.get_all_symmetrically_equivalent_ks(tp, ib, ik):
-                result.append((self.cos_angle(k, k_eq), ib, ik, k_eq))
-        nk = len(self.kgrid[tp]["kpoints"][ib])
         counter = 0
+        if E_radius == 0.0: # because then all the symmetrically equivalent k-points to current k have the same energy
+            # print "BASE", ib, ik, E_radius
+            symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib, ik)
+            result += symmetrically_equivalent_ks
+            counter += len(symmetrically_equivalent_ks)
+        nk = len(self.kgrid[tp]["kpoints"][ib])
 
         for ib_prime in range(self.cbm_vbm[tp]["included"]):
             if ib==ib_prime:
                 ik_prime = ik
             else:
-                ik_prime = max(0, ik-100)
+                ik_prime = max(0, ik-100) # different bands, we start comparing energies ahead as energies aren't equal
             while (ik_prime<nk-1) and abs(self.kgrid[tp]["energy"][ib_prime][ik_prime+1]-(E+E_radius)) < tolerance:
+                # if E_radius > 0.0:
+                #     print "AFTER", ib, ik, E_radius
                 k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime+1]
                 X = self.cos_angle(k, k_prime)
                 # result.append((X, ib_prime, ik_prime + 1))
                 result.append((X, ib_prime, ik_prime, k_prime))
-                for k_prime_eq in self.get_all_symmetrically_equivalent_ks(tp, ib_prime, ik_prime):
-                    result.append((self.cos_angle(k, k_prime_eq), ib_prime, ik_prime, k_prime_eq))
+                symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
+                result += symmetrically_equivalent_ks
                 ik_prime += 1
-                counter += 1
+                counter += len(symmetrically_equivalent_ks) + 1
             if ib==ib_prime:
                 ik_prime = ik
             else:
                 ik_prime = min(nk-1, ik+100)
             while (ik_prime>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prime][ik_prime-1]) < tolerance:
+                # if E_radius > 0.0:
+                #     print "BEFORE", ib, ik, E_radius
                 X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime - 1])
                 # result.append((X, ib_prime, ik_prime - 1))
                 result.append((X, ib_prime, ik_prime, self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime - 1]))
-                for k_prime_eq in self.get_all_symmetrically_equivalent_ks(tp, ib_prime, ik_prime):
-                    result.append((self.cos_angle(k, k_prime_eq), ib_prime, ik_prime, k_prime_eq))
+                symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
+                result += symmetrically_equivalent_ks
                 ik_prime -= 1
-                counter += 1
+                counter += len(symmetrically_equivalent_ks) + 1
 
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
         ik_prime = ik
         while counter < forced_min_npoints and ik_prime < nk - 1:
+            # if E_radius >  0.0:
+            #     print "EXTRA 1", ib, ik, E_radius
             k_prime = self.kgrid[tp]["actual kpoints"][ib][ik_prime + 1]
             result.append((self.cos_angle(k, k_prime), ib, ik_prime, k_prime))
-            for k_prime_eq in self.get_all_symmetrically_equivalent_ks(tp, ib, ik_prime):
-                result.append((self.cos_angle(k, k_prime_eq), ib, ik_prime, k_prime_eq))
+            symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
+            result += symmetrically_equivalent_ks
             # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime + 1]), ib, ik_prime + 1))
             ik_prime += 1
-            counter += 1
+            counter += 1 + len(symmetrically_equivalent_ks)
             self.nforced_POP += 1
         ik_prime = ik
         while counter < forced_min_npoints and ik_prime > 0:
+            # if E_radius > 0.0:
+            #     print "EXTRA 2", ib, ik, E_radius
             k_prime = self.kgrid[tp]["actual kpoints"][ib][ik_prime - 1]
             result.append((self.cos_angle(k, k_prime), ib, ik_prime, k_prime))
-            for k_prime_eq in self.get_all_symmetrically_equivalent_ks(tp, ib, ik_prime):
-                result.append((self.cos_angle(k, k_prime_eq), ib, ik_prime, k_prime_eq))
+            symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
+            result += symmetrically_equivalent_ks
             # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime - 1]), ib, ik_prime - 1))
             ik_prime -= 1
-            counter += 1
+            counter += 1 + len(symmetrically_equivalent_ks)
             self.nforced_POP += 1
 
         result.sort(key=lambda x: x[0])
