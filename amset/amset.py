@@ -332,10 +332,7 @@ class AMSET(object):
         """
         a = self.kgrid[tp]["a"][ib][ik]
         c = self.kgrid[tp]["c"][ib][ik]
-        if type(k_prime) != type(None): # this means that the point was symmetrically equivalent to k hence ib_prime==ik_prime==None
-            return (a * a + X * c * c)**2
-        else:
-            return (a * self.kgrid[tp]["a"][ib_prime][ik_prime]+ X * c * self.kgrid[tp]["c"][ib_prime][ik_prime])**2
+        return (a * self.kgrid[tp]["a"][ib_prime][ik_prime]+ X * c * self.kgrid[tp]["c"][ib_prime][ik_prime])**2
 
 
 
@@ -466,6 +463,9 @@ class AMSET(object):
         #              [ 0.28867514,  0.81649659,  0.5       ]])
         #
         self.rotations, self.translations = sg._get_symmetry()
+        # self.rotations = list(set(self.rotations))
+        # self.translations = list(set(self.translations))
+
         # for rot in self.rotations:
         #     print np.dot(self._lattice_matrix.transpose(), np.dot(rot, k))
         #     print np.dot(new_rot, (np.dot(k, self._lattice_matrix)) )
@@ -695,6 +695,13 @@ class AMSET(object):
 
 
 
+    def get_all_symmetrically_equivalent_ks(self, tp, ib, ik):
+        frac_k = self.kgrid[tp]["kpoints"][ib][ik]
+        fractional_ks = [np.dot(self.rotations[i], frac_k) + self.translations[i] for i in range(len(self.rotations))]
+        return [np.dot(frac_k, self._lattice_matrix)*1/A_to_nm*2*pi for frac_k in fractional_ks]
+        # return list(set([np.dot(frac_k, self._lattice_matrix)*1/A_to_nm*2*pi for frac_k in fractional_ks]))
+
+
 
     def get_X_ib_ik_within_E_radius(self, tp, ib, ik, E_radius, forced_min_npoints=0, tolerance=0.01):
         """Returns the sorted (based on angle, X) list of angle and band and k-point indexes of all the points
@@ -704,6 +711,9 @@ class AMSET(object):
         E = self.kgrid[tp]["energy"][ib][ik]
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
         result = []
+        if E_radius == 0.0: # because then all the symmetrically equivalent k-points to current k have the same energy
+            for k_eq in self.get_all_symmetrically_equivalent_ks(tp, ib, ik):
+                result.append((self.cos_angle(k, k_eq), ib, ik, k_eq))
         nk = len(self.kgrid[tp]["kpoints"][ib])
         counter = 0
 
@@ -713,9 +723,12 @@ class AMSET(object):
             else:
                 ik_prime = max(0, ik-100)
             while (ik_prime<nk-1) and abs(self.kgrid[tp]["energy"][ib_prime][ik_prime+1]-(E+E_radius)) < tolerance:
-                X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime+1])
+                k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime+1]
+                X = self.cos_angle(k, k_prime)
                 # result.append((X, ib_prime, ik_prime + 1))
-                result.append((X, ib_prime, ik_prime, None)) # when ib_prime & ik_prime available returned k_prime==None
+                result.append((X, ib_prime, ik_prime, k_prime))
+                for k_prime_eq in self.get_all_symmetrically_equivalent_ks(tp, ib_prime, ik_prime):
+                    result.append((self.cos_angle(k, k_prime_eq), ib_prime, ik_prime, k_prime_eq))
                 ik_prime += 1
                 counter += 1
             if ib==ib_prime:
@@ -725,27 +738,35 @@ class AMSET(object):
             while (ik_prime>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prime][ik_prime-1]) < tolerance:
                 X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime - 1])
                 # result.append((X, ib_prime, ik_prime - 1))
-                result.append((X, ib_prime, ik_prime, None))
+                result.append((X, ib_prime, ik_prime, self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime - 1]))
+                for k_prime_eq in self.get_all_symmetrically_equivalent_ks(tp, ib_prime, ik_prime):
+                    result.append((self.cos_angle(k, k_prime_eq), ib_prime, ik_prime, k_prime_eq))
                 ik_prime -= 1
                 counter += 1
 
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
         ik_prime = ik
         while counter < forced_min_npoints and ik_prime < nk - 1:
-            result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime + 1]), ib, ik_prime, None))
+            k_prime = self.kgrid[tp]["actual kpoints"][ib][ik_prime + 1]
+            result.append((self.cos_angle(k, k_prime), ib, ik_prime, k_prime))
+            for k_prime_eq in self.get_all_symmetrically_equivalent_ks(tp, ib, ik_prime):
+                result.append((self.cos_angle(k, k_prime_eq), ib, ik_prime, k_prime_eq))
             # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime + 1]), ib, ik_prime + 1))
             ik_prime += 1
             counter += 1
             self.nforced_POP += 1
         ik_prime = ik
         while counter < forced_min_npoints and ik_prime > 0:
-            result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime - 1]), ib, ik_prime, None))
+            k_prime = self.kgrid[tp]["actual kpoints"][ib][ik_prime - 1]
+            result.append((self.cos_angle(k, k_prime), ib, ik_prime, k_prime))
+            for k_prime_eq in self.get_all_symmetrically_equivalent_ks(tp, ib, ik_prime):
+                result.append((self.cos_angle(k, k_prime_eq), ib, ik_prime, k_prime_eq))
             # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime - 1]), ib, ik_prime - 1))
             ik_prime -= 1
             counter += 1
             self.nforced_POP += 1
 
-        result.sort()
+        result.sort(key=lambda x: x[0])
         return result
 
 
@@ -856,13 +877,7 @@ class AMSET(object):
 
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None, g_suffix="", k_prime=None):
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
-        if type(k_prime) != type(None):
-            return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
-                   * self.G(tp, ib, ik, ib_prime, ik_prime, X, k_prime) * norm(k_prime - k) ** 2 \
-                   / self.kgrid[tp]["velocity"][ib][ik][alpha]
-        else:
-            k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime]
-            return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
+        return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
                * self.G(tp, ib, ik, ib_prime, ik_prime, X, k_prime) * norm(k_prime-k)** 2 \
                / self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha]
                 # / abs(self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha])
@@ -887,14 +902,10 @@ class AMSET(object):
         """
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
         f = self.kgrid[tp]["f0"][c][T][ib][ik]
-        if type(k_prime) == type(None):
-            k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime]
-            v_prime = self.kgrid[tp]["velocity"][ib_prime][ik_prime]
-            f_prime = self.kgrid[tp]["f0"][c][T][ib_prime][ik_prime]
-        else:
-            # TODO: how to get v_prime and f_prime when ib_prime and ik_prime are NOT available?: one idea is to give those of the closest k_prime available that returns the same energy when setting up X_Eplus...
-            v_prime = self.kgrid[tp]["velocity"][ib][ik]
-            f_prime = self.kgrid[tp]["f0"][c][T][ib][ik]
+        k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime]
+        v_prime = self.kgrid[tp]["velocity"][ib_prime][ik_prime]
+        f_prime = self.kgrid[tp]["f0"][c][T][ib_prime][ik_prime]
+
 
         fermi = self.egrid["fermi"][c][T]
 
@@ -971,7 +982,8 @@ class AMSET(object):
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            if sname.upper() == "ACD":
+                            # if sname.upper() == "ACD":
+                            if False:
                                 self.kgrid[tp][sname][c][T][ib][ik] = (k_B*T*self.E_D[tp]**2*norm(self.kgrid[tp]["kpoints"][ib][ik])**2)\
                                     /(3*pi*hbar**2*self.C_el*1e9*self.kgrid[tp]["velocity"][ib][ik])\
                                     *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*16.0217657
