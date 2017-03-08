@@ -537,53 +537,8 @@ class AMSET(object):
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
-        current_fields = ["kpoints", "kweights", "velocity", "effective mass", "a"]
-        self.sort_vars_based_on_energy(args=current_fields, ascending=True)
+        self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "effective mass", "a"], ascending=True)
 
-        # at this point, the number of all "kpoints" should be equal
-        nk = len(kpts)
-        kd = 0.02
-        n_newks = 10
-        # for tp in ["n", "p"]:
-        #     sgn = (-1)**["n", "p"].index(tp)
-        #     for ib in range(self.cbm_vbm[tp]["included"]):
-        #         (engre, latt_points, nwave, nsym, nsymop, symop, br_dir) = bands_data[tp][ib]
-        #         for ik in range(nk-1):
-        #             if self.kgrid[tp]["energy"][ib][ik+1] - self.kgrid[tp]["energy"][ib][ik] > self.dE_global:
-        #                 newks = [self.kgrid[tp]["kpoints"][ib][ik] + np.array([(random()-0.5)*kd, (random()-0.5)*kd,
-        #                                                                (random()-0.5)*kd]) for j in range(n_newks)]
-        #                 for k in newks:
-        #                     energy, de, dde = analytical_bands.get_energy(
-        #                         k, engre, nwave, nsym, nstv, vec, vec2, br_dir=br_dir, cbm=True)
-        #                     print "old and new energy"
-        #                     print self.kgrid[tp]["energy"][ib][ik]
-        #                     print energy * Ry_to_eV + sgn * self.scissor / 2
-        #                     if abs(energy * Ry_to_eV + sgn * self.scissor / 2 - self.kgrid[tp]["energy"][ib][ik]) < self.dE_global:
-        #                         self.kgrid[tp]["kpoints"][ib] = np.append(self.kgrid[tp]["kpoints"][ib], [k], axis=0)
-        #                         self.kgrid[tp]["kweights"][ib] = np.append(self.kgrid[tp]["kweights"][ib], self.kgrid[tp]["kweights"][ib][ik])
-        #                         self.kgrid[tp]["energy"][ib] = np.append(self.kgrid[tp]["energy"][ib],
-        #                                                 [energy * Ry_to_eV + sgn * self.scissor / 2], axis=0)
-        #                         self.kgrid[tp]["velocity"][ib] = np.vstack((self.kgrid[tp]["velocity"][ib],
-        #                                         [abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)]))# in cm/s
-        #                         self.kgrid[tp]["effective mass"][ib] = np.append(self.kgrid[tp]["effective mass"][ib],
-        #                                                 [hbar**2/(dde*4*pi**2)/m_e/A_to_m**2*e*Ry_to_eV], axis=0)
-        #                         self.kgrid[tp]["a"][ib] = np.append(self.kgrid[tp]["a"][ib], [1.0], axis=0)
-        #                         self.kgrid[tp]["c"][ib] = np.append(self.kgrid[tp]["c"][ib], [0.0], axis=0)
-
-        # print("updated number of k-points: {}".format(len(self.kgrid[tp]["kpoints"][ib])))
-        # print len(self.kgrid[tp]["kpoints"][ib])
-        # print len(self.kgrid[tp]["kweights"][ib])
-        # print len(self.kgrid["n"]["energy"][0])
-        # print len(self.kgrid["n"]["velocity"][0])
-        # print len(self.kgrid["n"]["effective mass"][0])
-        #
-        # print len(self.kgrid["p"]["energy"][0])
-        # print len(self.kgrid["p"]["velocity"][0])
-        # print len(self.kgrid["p"]["effective mass"][0])
-        #
-
-
-        # self.sort_vars_based_on_energy(args=current_fields, ascending=True)
 
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
