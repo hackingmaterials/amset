@@ -435,6 +435,7 @@ class AMSET(object):
         if kgrid_tp=="coarse":
             nkstep = 8 #99 #32
 
+
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
