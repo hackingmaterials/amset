@@ -73,12 +73,15 @@ class AMSET(object):
     vasprun.xml to calculate the group velocity and transport properties in presence of various scattering mechanisms.
 
      Currently the following scattering mechanisms with their corresponding three-letter abbreviations implemented are:
-     ionized impurity scattering (iim), acoustic phonon deformation potential (acd), piezoelectric (pie), and charged
-     dislocation scattering (dis). Also, longitudinal polar optical phonon (pop) in implemented as an inelastic
+     ionized impurity scattering (IMP), acoustic phonon deformation potential (ACD), piezoelectric (PIE), and charged
+     dislocation scattering (DIS). Also, longitudinal polar optical phonon (POP) in implemented as an inelastic
      scattering mechanism that can alter the electronic distribution (the reason BTE has to be solved explicitly).
 
      AMSET is designed in a modular way so that users can add more scattering mechanisms as followed:
      ??? (instruction to add a scattering mechanism) ???
+
+     you can control the level of theory via various inputs. For example, constant relaxation time approximation (cRTA),
+     constant mean free path (cMFP) can be used by setting these variables to True
      """
 
 
@@ -135,16 +138,18 @@ class AMSET(object):
         bs = self._vrun.get_band_structure()
 
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band (e.g. in VASP)
-        cbm_vbm = {"n": {"energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
-                   "p": {"energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]}}
+        cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
+                   "p": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]}}
         cbm = bs.get_cbm()
         vbm = bs.get_vbm()
 
         cbm_vbm["n"]["energy"] = cbm["energy"]
         cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.up][0]
+        cbm_vbm["n"]["kpoint"] = bs.kpoints[cbm["kpoint_index"][0]].frac_coords
 
         cbm_vbm["p"]["energy"] = vbm["energy"]
         cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.up][-1]
+        cbm_vbm["p"]["kpoint"] = bs.kpoints[vbm["kpoint_index"][0]].frac_coords
 
         if self.soc:
             self.nelec = cbm_vbm["p"]["bidx"]
@@ -363,7 +368,6 @@ class AMSET(object):
         ik_list = list(set(low_v_ik))
         ik_list.sort(reverse=True)
 
-
         # omit the points with v~0 and try to find the parabolic band equivalent effective mass at the CBM and the VBM
         temp_min = {"n": 1e32, "p": 1e32}
         # self.kgrid[tp]["kpoints"][ib] = np.delete(self.kgrid[tp]["kpoints"][ib], ik_list, axis=0)
@@ -376,6 +380,7 @@ class AMSET(object):
                         self.cbm_vbm[tp]["eff_mass_xx"]=(-1)**i*self.kgrid[tp]["effective mass"][ib][ik].diagonal()
                     for prop in ["energy", "a", "c", "kpoints", "kweights"]:
                         self.kgrid[tp][prop][ib].pop(ik)
+
                 for prop in ["velocity", "effective mass"]:
                     self.kgrid[tp][prop] = np.delete(self.kgrid[tp][prop], ik_list, axis=1)
 
@@ -428,7 +433,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 9 #99 #32
+            nkstep = 10 #99 #32
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -438,10 +443,16 @@ class AMSET(object):
 
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
         kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
-        print len(kpts_and_weights)
-        kpts = np.array([i[0] for i in kpts_and_weights])
-        kweights = np.array([float(i[1]) for i in kpts_and_weights])
-        kweights /= sum(kweights)
+        kpts = [i[0] for i in kpts_and_weights]
+        kpts.append(self.cbm_vbm["n"]["kpoint"])
+        kpts.append(self.cbm_vbm["p"]["kpoint"])
+
+        kweights = [float(i[1]) for i in kpts_and_weights]
+        kweights.append(0.0)
+        kweights.append(0.0)
+        # kweights = np.array(kweights)
+
+        # kweights /= sum(kweights)
         print len(kpts)
 
         # kpath = HighSymmKpath(self._vrun.final_structure)
@@ -455,14 +466,21 @@ class AMSET(object):
         #   2) use the cartesian symmetry operations given by SpacegroupAnalyzer.get_symmetry_operations(cartesian=True)
         # directly on "actual kpoints" to get new cartesian (2pi*lattice_matrix*fractional-k) equivalent k-point
 
-        # k = np.array([0.5, 0.3, 0.2])
+
+        #
+        self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
+
+        k = np.array([0.4, 0.3, 0.2])
+        print k
+        k1 = np.dot(self.rotations[2], k) + self.translations[2]
+        print k1
         # self.symmetry_operations = sg.get_symmetry_operations(cartesian=True)
         # print self.symmetry_operations
         # new_rot = np.array([[ 0.16666667,  0.47140451, -0.86602538],
         #             [-0.94280907,  0.33333333,  0.        ],
         #              [ 0.28867514,  0.81649659,  0.5       ]])
-        #
-        self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
+
+
 
         # for rot in self.rotations:
         #     print np.dot(self._lattice_matrix.transpose(), np.dot(rot, k))
@@ -479,8 +497,8 @@ class AMSET(object):
 
 
         for tp in ["n", "p"]:
-            self.kgrid[tp]["kpoints"] = [kpts for ib in range(self.cbm_vbm[tp]["included"])]
-            self.kgrid[tp]["kweights"] = [kweights for ib in range(self.cbm_vbm[tp]["included"])]
+            self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
+            self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
 
         self.initialize_var("kgrid", ["energy", "a", "c", "W_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["velocity", "actual kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
@@ -528,7 +546,6 @@ class AMSET(object):
                     self.kgrid[tp]["effective mass"][ib][ik] = hbar ** 2 / (
                         dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                     self.kgrid[tp]["a"][ib][ik] = 1.0
-
 
         if len(low_v_ik) > 0:
             self.omit_kpoints(low_v_ik)
@@ -667,8 +684,6 @@ class AMSET(object):
                 new_X_ib_ik.append((X, ib, ik, sek))
                 all_Xs.append(X)
         all_Xs.sort()
-        # print len(all_Xs)
-        # print all_Xs
         return new_X_ib_ik
 
 
@@ -841,30 +856,30 @@ class AMSET(object):
                      X_E_index[ib][ik][i][0]
             if DeltaX == 0.0:
                 continue
-            for alpha in range(3):
-                dum = 0
-                for j in range(2):
-                    # extract the indecies
-                    X, ib_prime, ik_prime, k_prime = X_E_index[ib][ik][i + j]
-                    dum += integrand(tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=sname, g_suffix=g_suffix, k_prime=k_prime)
+            # for alpha in range(3):
+            dum = np.array([0.0, 0.0, 0.0])
+            for j in range(2):
+                # extract the indecies
+                X, ib_prime, ik_prime, k_prime = X_E_index[ib][ik][i + j]
+                dum += integrand(tp, c, T, ib, ik, ib_prime, ik_prime, X, sname=sname, g_suffix=g_suffix, k_prime=k_prime)
 
-                dum /= 2.0  # the average of points i and i+1 to integrate via the trapezoidal rule
-                sum[alpha] += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
+            dum /= 2.0  # the average of points i and i+1 to integrate via the trapezoidal rule
+            sum += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
         return sum
 
 
 
-    def el_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None, g_suffix="", k_prime=None):
+    def el_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, sname=None, g_suffix="", k_prime=None):
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
         return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prime) \
                * self.G(tp, ib, ik, ib_prime, ik_prime, X, k_prime) * norm(k_prime-k)** 2 \
-               / self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha]
+               / self.kgrid[tp]["velocity"][ib_prime][ik_prime]
                 # / abs(self.kgrid[tp]["velocity"][ib_prime][ik_prime][alpha])
         # We take |v| as scattering depends on the velocity itself and not the direction
 
 
 
-    def inel_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, alpha, sname=None, g_suffix="", k_prime=None):
+    def inel_integrand_X(self, tp, c, T, ib, ik, ib_prime, ik_prime, X, sname=None, g_suffix="", k_prime=None):
         """
         returns the evaluated number (float) of the expression inside the S_o and S_i(g) integrals.
         :param tp (str): "n" or "p" type
@@ -881,7 +896,7 @@ class AMSET(object):
         """
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
         f = self.kgrid[tp]["f0"][c][T][ib][ik]
-        k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime]
+        # k_prime = self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime]
         v_prime = self.kgrid[tp]["velocity"][ib_prime][ik_prime]
         f_prime = self.kgrid[tp]["f0"][c][T][ib_prime][ik_prime]
 
@@ -898,9 +913,9 @@ class AMSET(object):
         # print norm(k_prime)**2
         # the term norm(k_prime)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         # integ = norm(k_prime)**2*self.G(tp, ib, ik, ib_prime, ik_prime, X)/(v[alpha]*norm_diff**2)
-        integ = self.G(tp, ib, ik, ib_prime, ik_prime, X, k_prime)/(v_prime[alpha])
+        integ = self.G(tp, ib, ik, ib_prime, ik_prime, X, k_prime)/(v_prime)
         if "S_i" in sname:
-            integ *= abs(X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha])
+            integ *= abs(X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
             if "minus" in sname:
                 integ *= (1-f)*N_POP + f*(1+N_POP)
@@ -971,9 +986,11 @@ class AMSET(object):
                                                             integrand=self.el_integrand_X,
                                                           ib=ib, ik=ik, c=c, T=T, sname = sname, g_suffix="")
                                 self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) *2e-7*pi/hbar
-                                for alpha in range(3):
-                                    if self.kgrid[tp][sname][c][T][ib][ik][alpha] < 1:
-                                        self.kgrid[tp][sname][c][T][ib][ik][alpha] = 1e9
+                                if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1:
+                                    self.kgrid[tp][sname][c][T][ib][ik] = [1e9, 1e9, 1e9]
+                                # for alpha in range(3):
+                                #     if self.kgrid[tp][sname][c][T][ib][ik][alpha] < 1:
+                                #         self.kgrid[tp][sname][c][T][ib][ik][alpha] = 1e9
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
                         self.kgrid[tp]["relaxation time"][c][T][ib] = 1/self.kgrid[tp]["_all_elastic"][c][T][ib]
 
