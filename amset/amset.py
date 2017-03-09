@@ -87,7 +87,7 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_locally_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = k_B*300 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
@@ -104,6 +104,7 @@ class AMSET(object):
         if include_POP:
             self.inelastic_scatterings += ["POP"]
         self.scissor = scissor or 0.0 # total value added to the band gap by adding to the CBM and subtracting from VBM
+        self.bs_is_locally_isotropic = bs_is_locally_isotropic
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
@@ -976,7 +977,7 @@ class AMSET(object):
 
 
 
-    def s_elastic(self, sname="IMP"):
+    def s_elastic(self, sname):
         """
         the scattering rate equation for each elastic scattering name is entered in s_func and returned the integrated
         scattering rate.
@@ -996,11 +997,20 @@ class AMSET(object):
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            # if sname.upper() == "ACD":
-                            if False:
-                                self.kgrid[tp][sname][c][T][ib][ik] = (k_B*T*self.E_D[tp]**2*norm(self.kgrid[tp]["kpoints"][ib][ik])**2)\
+                            if self.bs_is_locally_isotropic:
+                                if sname.upper() == "ACD":
+                                    el_srate = (k_B*T*self.E_D[tp]**2*norm(self.kgrid[tp]["kpoints"][ib][ik])**2)\
                                     /(3*pi*hbar**2*self.C_el*1e9*self.kgrid[tp]["velocity"][ib][ik])\
                                     *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*16.0217657
+                                elif sname.upper() == "IMP":
+                                    el_srate = np.array([1e7, 1e7, 1e7])
+                                elif sname.upper() == "PIE":
+                                    el_srate = np.array([1e7, 1e7, 1e7])
+                                elif sname.upper() == "DIS":
+                                    el_srate = np.array([1e7, 1e7, 1e7])
+                                else:
+                                    raise ValueError('The elastic scattering name "{}" is NOT supported.'.format(sname))
+                                self.kgrid[tp][sname][c][T][ib][ik] = el_srate
                             else:
                                 sum = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
                                                             integrand=self.el_integrand_X,
