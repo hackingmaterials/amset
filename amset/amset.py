@@ -433,7 +433,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 10 #99 #32
+            nkstep = 8 #99 #32
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
         # ky = kz = kx
@@ -442,18 +442,34 @@ class AMSET(object):
         # kpts = np.array([[x, y, z] for x in kx for y in ky for z in kz])
 
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
+        self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
+
         kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
-        kpts = [i[0] for i in kpts_and_weights]
+        print len(kpts_and_weights)
+        kpts = []
+        for i in kpts_and_weights:
+            k = i[0]
+            kpts.append(k)
+            fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
+            for k_seq in fractional_ks:
+                if abs(k_seq[0]-k[0])<0.01 and (k_seq[1]-k[1])<0.01 and (k_seq[2]-k[2])<0.01:
+                    continue
+                else:
+                    kpts.append(k_seq)
+
+        # kpts = [i[0] for i in kpts_and_weights]
         kpts.append(self.cbm_vbm["n"]["kpoint"])
         kpts.append(self.cbm_vbm["p"]["kpoint"])
 
-        kweights = [float(i[1]) for i in kpts_and_weights]
-        kweights.append(0.0)
-        kweights.append(0.0)
+        print len(kpts)
+        # kweights = [float(i[1]) for i in kpts_and_weights]
+        # kweights.append(0.0)
+        # kweights.append(0.0)
+
+        kweights = [1.0 for i in kpts]
         # kweights = np.array(kweights)
 
         # kweights /= sum(kweights)
-        print len(kpts)
 
         # kpath = HighSymmKpath(self._vrun.final_structure)
         # plt = plot_brillouin_zone_from_kpath(kpath=kpath)
@@ -468,12 +484,8 @@ class AMSET(object):
 
 
         #
-        self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
 
-        k = np.array([0.4, 0.3, 0.2])
-        print k
-        k1 = np.dot(self.rotations[2], k) + self.translations[2]
-        print k1
+
         # self.symmetry_operations = sg.get_symmetry_operations(cartesian=True)
         # print self.symmetry_operations
         # new_rot = np.array([[ 0.16666667,  0.47140451, -0.86602538],
@@ -696,11 +708,11 @@ class AMSET(object):
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
         result = []
         counter = 0
-        if E_radius == 0.0: # because then all the symmetrically equivalent k-points to current k have the same energy
-            # print "BASE", ib, ik, E_radius
-            symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib, ik)
-            result += symmetrically_equivalent_ks
-            counter += len(symmetrically_equivalent_ks)
+        # if E_radius == 0.0: # because then all the symmetrically equivalent k-points to current k have the same energy
+        #     # print "BASE", ib, ik, E_radius
+        #     symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib, ik)
+        #     result += symmetrically_equivalent_ks
+        #     counter += len(symmetrically_equivalent_ks)
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
         for ib_prime in range(self.cbm_vbm[tp]["included"]):
@@ -715,10 +727,11 @@ class AMSET(object):
                 X = self.cos_angle(k, k_prime)
                 # result.append((X, ib_prime, ik_prime + 1))
                 result.append((X, ib_prime, ik_prime, k_prime))
-                symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
-                result += symmetrically_equivalent_ks
+                # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
+                # result += symmetrically_equivalent_ks
                 ik_prime += 1
-                counter += len(symmetrically_equivalent_ks) + 1
+                # counter += len(symmetrically_equivalent_ks) + 1
+                counter += 1
             if ib==ib_prime:
                 ik_prime = ik
             else:
@@ -729,10 +742,11 @@ class AMSET(object):
                 X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime - 1])
                 # result.append((X, ib_prime, ik_prime - 1))
                 result.append((X, ib_prime, ik_prime, self.kgrid[tp]["actual kpoints"][ib_prime][ik_prime - 1]))
-                symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
-                result += symmetrically_equivalent_ks
+                # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
+                # result += symmetrically_equivalent_ks
                 ik_prime -= 1
-                counter += len(symmetrically_equivalent_ks) + 1
+                # counter += len(symmetrically_equivalent_ks) + 1
+                counter += 1
 
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
         ik_prime = ik
@@ -741,11 +755,12 @@ class AMSET(object):
             #     print "EXTRA 1", ib, ik, E_radius
             k_prime = self.kgrid[tp]["actual kpoints"][ib][ik_prime + 1]
             result.append((self.cos_angle(k, k_prime), ib, ik_prime, k_prime))
-            symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
-            result += symmetrically_equivalent_ks
+            # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
+            # result += symmetrically_equivalent_ks
             # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime + 1]), ib, ik_prime + 1))
             ik_prime += 1
-            counter += 1 + len(symmetrically_equivalent_ks)
+            # counter += 1 + len(symmetrically_equivalent_ks)
+            counter += 1
             self.nforced_POP += 1
         ik_prime = ik
         while counter < forced_min_npoints and ik_prime > 0:
@@ -753,11 +768,12 @@ class AMSET(object):
             #     print "EXTRA 2", ib, ik, E_radius
             k_prime = self.kgrid[tp]["actual kpoints"][ib][ik_prime - 1]
             result.append((self.cos_angle(k, k_prime), ib, ik_prime, k_prime))
-            symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
-            result += symmetrically_equivalent_ks
+            # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prime, ik_prime)
+            # result += symmetrically_equivalent_ks
             # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prime - 1]), ib, ik_prime - 1))
             ik_prime -= 1
-            counter += 1 + len(symmetrically_equivalent_ks)
+            # counter += 1 + len(symmetrically_equivalent_ks)
+            counter += 1
             self.nforced_POP += 1
 
         result.sort(key=lambda x: x[0])
