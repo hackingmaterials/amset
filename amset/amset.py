@@ -9,6 +9,7 @@ from analytical_band_from_BZT import Analytical_bands
 from pprint import pprint
 
 import numpy as np
+from math import log
 import sys
 from pymatgen.io.vasp import Vasprun, Spin
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer, generate_full_symmops
@@ -99,7 +100,7 @@ class AMSET(object):
         self.path_dir = path_dir or "../test_files/PbTe_nscf_uniform/nscf_line"
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
-        self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE"]
+        self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE", "DIS"]
         self.inelastic_scatterings = []
         if include_POP:
             self.inelastic_scatterings += ["POP"]
@@ -434,7 +435,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 4 #99 #32
+            nkstep = 5 #99 #32
 
 
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
@@ -801,18 +802,24 @@ class AMSET(object):
             warnings.warn("same k and k' vectors as input of the elastic scattering equation")
             return 0
 
-        if sname in ["IMP"]: # ionized impurity scattering
+        if sname.upper() in ["IMP"]: # ionized impurity scattering
             unit_conversion = 0.001 / e**2
             return unit_conversion * e ** 4 * self.egrid["N_II"][c][T] /\
                         (4.0 * pi**2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar)\
                                     / ((norm_diff_k ** 2 + self.egrid["beta"][c][T][tp] ** 2) ** 2)
-        elif sname in ["ACD"]: # acoustic deformation potential scattering
+
+        elif sname.upper() in ["ACD"]: # acoustic deformation potential scattering
             unit_conversion = 1e18 * e
             return unit_conversion * k_B * T * self.E_D[tp]**2 / (4.0 * pi**2 * hbar * self.C_el)
-        elif sname in ["PIE"]: # piezoelectric scattering
+
+        elif sname.upper() in ["PIE"]: # piezoelectric scattering
             unit_conversion = 1e9 / e
             return unit_conversion * e**2 * k_B * T * self.P_PIE**2 \
                    /(norm_diff_k ** 2 * 4.0 * pi**2 * hbar * epsilon_0 * self.epsilon_s)
+
+        elif sname.upper() in ["DIS"]:
+            return 1e-20
+
         else:
             raise ValueError("The elastic scattering name {} is not supported!".format(sname))
 
@@ -983,7 +990,7 @@ class AMSET(object):
         This assumption significantly simplifies the model and the integrated rates at each
         k/energy directly extracted from the literature can be used here."""
 
-        k = self.kgrid[tp]["actual kpoints"][ib][ik]
+        knrm = norm(self.kgrid[tp]["actual kpoints"][ib][ik])
         v = self.kgrid[tp]["velocity"][ib][ik]
         par_c = self.kgrid[tp]["c"][ib][ik]
 
@@ -993,11 +1000,16 @@ class AMSET(object):
             # *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*16.0217657
 
             # The following is from Deformation potentials and... (DOI: 10.1103/PhysRev.80.72 )
-            return m_e * norm(k) * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 3 * self.C_el) \
+            return m_e * knrm * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 3 * self.C_el) \
                        * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * 1  # units work out! that's why conversion is 1
 
         elif sname.upper() == "IMP":
-            return np.array([1e7, 1e7, 1e7])
+            beta = self.kgrid[tp]["beta"][c][T]
+            B_II = (4*knrm**2/beta**2)/(1+4*knrm**2/beta**2)+8*(beta**2+2*knrm**2)/(beta**2+4*knrm**2)*par_c**2+\
+                   (3*beta**4+6*beta**2*knrm**2-8*knrm**4)/((beta**2+4*knrm**2)*knrm**2)*par_c**4
+            D_II = 1+(2*beta**2*par_c**2/knrm**2)+(3*beta**4*par_c**4/(4*knrm**4))
+            return abs( (e**4*abs(self.kgrid[tp]["N_II"][c][T]))/(8*pi*v*self.epsilon_s**2*epsilon_0**2*hbar**2*
+                        knrm**2)*(D_II*log(1+4*knrm**2/beta**2)-B_II)*3.89564386e27 )
 
         elif sname.upper() == "PIE":
             return (e ** 2 * k_B * T * self.P_PIE ** 2) / (
@@ -1005,7 +1017,9 @@ class AMSET(object):
                            3 - 6 * par_c ** 2 + 4 * par_c ** 4) * 100 / e
 
         elif sname.upper() == "DIS":
-            return np.array([1e7, 1e7, 1e7])
+            return (self.N_dis*e**4*knrm)/(hbar**2*epsilon_0**2*self.epsilon_s**2*(self._vrun.lattice.c/10)**2*v)\
+                   /(self.kgrid[tp]["beta"][c][T]**4*(1+(4*knrm**2)/(self.kgrid[tp]["beta"][c][T]**2))**1.5)\
+                   *2.43146974985767e42*1.60217657/1e8;
 
         else:
             raise ValueError('The elastic scattering name "{}" is NOT supported.'.format(sname))
