@@ -87,7 +87,7 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_locally_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = k_B*300 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
@@ -104,7 +104,7 @@ class AMSET(object):
         if include_POP:
             self.inelastic_scatterings += ["POP"]
         self.scissor = scissor or 0.0 # total value added to the band gap by adding to the CBM and subtracting from VBM
-        self.bs_is_locally_isotropic = bs_is_locally_isotropic
+        self.bs_is_isotropic = bs_is_isotropic
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
@@ -115,7 +115,7 @@ class AMSET(object):
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
         self.P_PIE = 0.15
         self.E_D = {"n": 4.0, "p": 3.93}
-        self.C_el = 77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
+        self.C_el = 128.84 #77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
         self.nforced_POP = 0
 
 
@@ -434,7 +434,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 8 #99 #32
+            nkstep = 4 #99 #32
 
 
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
@@ -892,8 +892,8 @@ class AMSET(object):
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm]
-        return (1 - X) * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-               * self.G(tp, ib, ik, ib_prm, ik_prm, X) * norm(k_prm-k)** 2 \
+        return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+               * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
                / self.kgrid[tp]["velocity"][ib_prm][ik_prm]
                 # / abs(self.kgrid[tp]["velocity"][ib_prm][ik_prm][alpha])
         # We take |v| as scattering depends on the velocity itself and not the direction
@@ -975,6 +975,7 @@ class AMSET(object):
                             # if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
                             #     print tp, c, T, ik, ib, sum, self.kgrid[tp][sname][c][T][ib][ik]
 
+    # def s_el_eq_isotropic(self, sname):
 
 
     def s_elastic(self, sname):
@@ -997,15 +998,24 @@ class AMSET(object):
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            if self.bs_is_locally_isotropic:
+                            if self.bs_is_isotropic:
+                                k = self.kgrid[tp]["actual kpoints"][ib][ik]
+                                v = self.kgrid[tp]["velocity"][ib][ik]
+                                par_c = self.kgrid[tp]["c"][ib][ik]
                                 if sname.upper() == "ACD":
-                                    el_srate = (k_B*T*self.E_D[tp]**2*norm(self.kgrid[tp]["kpoints"][ib][ik])**2)\
-                                    /(3*pi*hbar**2*self.C_el*1e9*self.kgrid[tp]["velocity"][ib][ik])\
-                                    *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*16.0217657
+                                    # The following two lines are from Rode's chapter (page 38) which seems incorrect!
+                                    # el_srate = (k_B*T*self.E_D[tp]**2*norm(k)**2)/(3*pi*hbar**2*self.C_el*1e9*v)\
+                                    # *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*16.0217657
+
+                                    # The following is from Deformation potentials and... (DOI: 10.1103/PhysRev.80.72 )
+                                    el_srate = m_e*norm(k)*self.E_D[tp]**2*k_B*T/(2*pi*hbar**3*self.C_el)\
+                                        *(3-8*par_c**2+6*par_c**4) * 1 # units work out! that's why conversion is 1
                                 elif sname.upper() == "IMP":
                                     el_srate = np.array([1e7, 1e7, 1e7])
                                 elif sname.upper() == "PIE":
-                                    el_srate = np.array([1e7, 1e7, 1e7])
+                                    el_srate = (e**2*k_B*T* self.P_PIE**2) / (
+                                    6*pi*hbar**2*self.epsilon_s*epsilon_0*v) * (
+                                    3 - 6 * par_c**2 + 4 *par_c**4)*100/e
                                 elif sname.upper() == "DIS":
                                     el_srate = np.array([1e7, 1e7, 1e7])
                                 else:
@@ -1015,7 +1025,7 @@ class AMSET(object):
                                 sum = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
                                                             integrand=self.el_integrand_X,
                                                           ib=ib, ik=ik, c=c, T=T, sname = sname, g_suffix="")
-                                self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) *2e-7*pi/hbar
+                                self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * 2e-7 * pi/hbar
                                 if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1:
                                     self.kgrid[tp][sname][c][T][ib][ik] = [1e9, 1e9, 1e9]
                                 # for alpha in range(3):
@@ -1250,9 +1260,9 @@ class AMSET(object):
 
                     # mobility denominators
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
-                        self.egrid["mobility"][transport][c][T][tp]/=3*default_small_E*\
+                        self.egrid["mobility"][transport][c][T][tp]/=default_small_E*\
                                         self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
-                    self.egrid["J_th"][c][T][tp] /= 3*self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
+                    self.egrid["J_th"][c][T][tp] /= self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
                                                                                          T=T, xDOS=True, xvel=False)
 
                     faulty_overall_mobility = False
