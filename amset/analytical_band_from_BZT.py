@@ -17,9 +17,24 @@ e = _cd('elementary charge')
 # TODO: the reading from a fitted band structure file and reproduction of E, dE and d2E should be optimized in speed
 # TODO: adding doc to explain each functions their inputs and outputs once Analytical_bands class is optimized.
 
+
+def outer(v1, v2):
+    """returns the outer product of vectors v1 and v2. This is to be used instead of numpy.outer which is ~3x slower."""
+    return np.array([[v1[0] * v2[0], v1[0] * v2[1], v1[0] * v2[2]],
+                     [v1[1] * v2[0], v1[1] * v2[1], v1[1] * v2[2]],
+                     [v1[2] * v2[0], v1[2] * v2[1], v1[2] * v2[2]]])
+
+
+
 class Analytical_bands(object):
+    """This class is meant to read the BoltzTraP fitted band structure coefficients and facilitate calculation of
+    energy and its first and second derivatives w.r.t wave vector, k."""
+
+
     def __init__(self, coeff_file):
         self.coeff_file = coeff_file
+
+
 
     def stern(self,g,nsym,symop):
         ' Compute star function for a specific g vector '
@@ -30,23 +45,28 @@ class Analytical_bands(object):
         stg = np.concatenate((stg,np.zeros((nsym-nst,3))))
         return nst, stg
 
+
+
     def get_star_functions(self, latt_points, nsym,symop,nwave,br_dir=None):
         ' Compute star functions for all R vectors and symmetries '
 
         nstv = np.zeros(nwave,dtype='int')
         vec = np.zeros((nwave,nsym,3))
-        if br_dir != None:
+        if br_dir is not None:
             vec2 = np.zeros((nwave,nsym,3))
 
         for nw in xrange(nwave):
             nstv[nw], vec[nw]  = self.stern(latt_points[nw],nsym,symop)
-            if br_dir != None:
+            if br_dir is not None:
                 vec2[nw] = vec[nw].dot(br_dir)
+
         #print vec
-        if br_dir != None:
+        if br_dir is not None:
             return nstv, vec, vec2
         else:
             return nstv, vec
+
+
 
     def get_energy(self, xkpt,engre, nwave, nsym, nstv, vec, vec2=None, br_dir=None,cbm=True):
         ' Compute energy for a k-point from star functions '
@@ -58,7 +78,7 @@ class Analytical_bands(object):
         spwre=np.sum(tempc,axis=1)-(nsym-nstv)
         spwre/=nstv
         
-        if br_dir != None:
+        if br_dir is not None:
             dene = np.zeros(3)
             ddene = np.zeros((3,3))
             dspwre = np.zeros((nwave,3))
@@ -70,16 +90,18 @@ class Analytical_bands(object):
             #maybe possible a further speed up here
             for nw in xrange(nwave):
                 for i in xrange(nstv[nw]):
-                    ddspwre[nw] += np.outer(vec2[nw,i],vec2[nw,i])*(-tempc[nw,i])
+                    ddspwre[nw] += outer(vec2[nw,i],vec2[nw,i])*(-tempc[nw,i])
                 ddspwre[nw] /= nstv[nw]
         
         ene=spwre.dot(engre)
-        if br_dir != None:
+        if br_dir is not None:
             dene = np.sum(dspwre.T*engre,axis=1)
             ddene = np.sum(ddspwre*engre.reshape(nwave,1,1)*2,axis=0)
             return sign*ene, dene, ddene
         else:
             return sign*ene
+
+
 
     def get_engre(self,iband=None):
         filename = self.coeff_file
@@ -113,6 +135,8 @@ class Analytical_bands(object):
 
         return engre, latt_points, nwave, nsym, nsymop, symop, br_dir
 
+
+
     def get_extreme(self, kpt,iband,only_energy=False,cbm=True):
         engre,latt_points,nwave, nsym, nsymop, symop, br_dir = self.get_engre(iband)
         if only_energy == False:
@@ -121,9 +145,7 @@ class Analytical_bands(object):
         else:
             energy = self.get_energy(kpt,engre,nwave, nsym, nstv, vec, cbm=cbm)
             return Energy(energy,"Ry").to("eV") # This is in eV automatically
-
-    
-                
+        
     def get_dos(self,st,mesh,e_min,e_max,e_points,width=0.2):
         height = 1.0 / (width * np.sqrt(2 * np.pi))
         e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
@@ -144,7 +166,6 @@ class Analytical_bands(object):
                 dos += w * g
         return e_mesh,dos
 
-           
 if __name__ == "__main__":
     # user inputs
     cbm_bidx = 11
