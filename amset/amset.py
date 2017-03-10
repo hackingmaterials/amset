@@ -975,7 +975,41 @@ class AMSET(object):
                             # if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
                             #     print tp, c, T, ik, ib, sum, self.kgrid[tp][sname][c][T][ib][ik]
 
-    # def s_el_eq_isotropic(self, sname):
+
+
+    def s_el_eq_isotropic(self, sname, tp, c, T, ib, ik):
+        """returns elastic scattering rate (a numpy vector) at certain point (e.g. k-point, T, etc)
+        with the assumption that the band structure is isotropic.
+        This assumption significantly simplifies the model and the integrated rates at each
+        k/energy directly extracted from the literature can be used here."""
+
+        k = self.kgrid[tp]["actual kpoints"][ib][ik]
+        v = self.kgrid[tp]["velocity"][ib][ik]
+        par_c = self.kgrid[tp]["c"][ib][ik]
+
+        if sname.upper() == "ACD":
+            # The following two lines are from Rode's chapter (page 38) which seems incorrect!
+            # el_srate = (k_B*T*self.E_D[tp]**2*norm(k)**2)/(3*pi*hbar**2*self.C_el*1e9*v)\
+            # *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*16.0217657
+
+            # The following is from Deformation potentials and... (DOI: 10.1103/PhysRev.80.72 )
+            return m_e * norm(k) * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 3 * self.C_el) \
+                       * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * 1  # units work out! that's why conversion is 1
+
+        elif sname.upper() == "IMP":
+            return np.array([1e7, 1e7, 1e7])
+
+        elif sname.upper() == "PIE":
+            return (e ** 2 * k_B * T * self.P_PIE ** 2) / (
+                6 * pi * hbar ** 2 * self.epsilon_s * epsilon_0 * v) * (
+                           3 - 6 * par_c ** 2 + 4 * par_c ** 4) * 100 / e
+
+        elif sname.upper() == "DIS":
+            return np.array([1e7, 1e7, 1e7])
+
+        else:
+            raise ValueError('The elastic scattering name "{}" is NOT supported.'.format(sname))
+
 
 
     def s_elastic(self, sname):
@@ -999,28 +1033,7 @@ class AMSET(object):
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             if self.bs_is_isotropic:
-                                k = self.kgrid[tp]["actual kpoints"][ib][ik]
-                                v = self.kgrid[tp]["velocity"][ib][ik]
-                                par_c = self.kgrid[tp]["c"][ib][ik]
-                                if sname.upper() == "ACD":
-                                    # The following two lines are from Rode's chapter (page 38) which seems incorrect!
-                                    # el_srate = (k_B*T*self.E_D[tp]**2*norm(k)**2)/(3*pi*hbar**2*self.C_el*1e9*v)\
-                                    # *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*16.0217657
-
-                                    # The following is from Deformation potentials and... (DOI: 10.1103/PhysRev.80.72 )
-                                    el_srate = m_e*norm(k)*self.E_D[tp]**2*k_B*T/(2*pi*hbar**3*self.C_el)\
-                                        *(3-8*par_c**2+6*par_c**4) * 1 # units work out! that's why conversion is 1
-                                elif sname.upper() == "IMP":
-                                    el_srate = np.array([1e7, 1e7, 1e7])
-                                elif sname.upper() == "PIE":
-                                    el_srate = (e**2*k_B*T* self.P_PIE**2) / (
-                                    6*pi*hbar**2*self.epsilon_s*epsilon_0*v) * (
-                                    3 - 6 * par_c**2 + 4 *par_c**4)*100/e
-                                elif sname.upper() == "DIS":
-                                    el_srate = np.array([1e7, 1e7, 1e7])
-                                else:
-                                    raise ValueError('The elastic scattering name "{}" is NOT supported.'.format(sname))
-                                self.kgrid[tp][sname][c][T][ib][ik] = el_srate
+                                self.kgrid[tp][sname][c][T][ib][ik] = self.s_el_eq_isotropic(sname, tp, c, T, ib, ik)
                             else:
                                 sum = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
                                                             integrand=self.el_integrand_X,
