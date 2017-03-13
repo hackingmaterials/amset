@@ -674,6 +674,11 @@ class AMSET(object):
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
                                                     E_radius=0.0, forced_min_npoints=2, tolerance=self.dE_global)
+
+        for tp in ["n", "p"]:
+            self.nforced_POP = 0
+            for ib in range(len(self.kgrid[tp]["energy"])):
+                for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
                         E_radius= +hbar * self.kgrid[tp]["W_POP"][ib][ik], forced_min_npoints=2, tolerance=self.dE_global)
                     self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
@@ -744,9 +749,10 @@ class AMSET(object):
                 # X = self.cos_angle(k, k_prm)
                 # result.append((X, ib_prm, ik_prm + 1))
                 # result.append((X, ib_prm, ik_prm, k_prm))
-                result.append((self.cos_angle(k,self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm+1]),ib_prm,ik_prm))
+                result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm+1]),ib_prm,ik_prm))
                 # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
                 # result += symmetrically_equivalent_ks
+
                 ik_prm += 1
                 # counter += len(symmetrically_equivalent_ks) + 1
                 counter += 1
@@ -771,12 +777,24 @@ class AMSET(object):
         while counter < forced_min_npoints and ik_prm < nk - 1:
             # if E_radius >  0.0:
             #     print "EXTRA 1", ib, ik, E_radius
-            # k_prm = self.kgrid[tp]["actual kpoints"][ib][ik_prm + 1]
-            result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prm + 1]), ib, ik_prm))
+            ik_prm += 1
+            k_prm = self.kgrid[tp]["actual kpoints"][ib][ik_prm]
+            result.append((self.cos_angle(k, k_prm), ib, ik_prm))
+
+            # also add all values with the same energy at ik_prm
+            result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
+
+            # for X_ik_ib in self.kgrid[tp]["X_E_ik"][ib][ik_prm]:
+            #     print "added"
+            #     X, ib_new, ik_new = X_ik_ib
+            #     k_new = self.kgrid[tp]["actual kpoints"][ib_new][ik_new]
+            #     result.append(self.cos_angle(k_prm, k_new), ib_new, ik_new)
+            #     counter += 1
+
             # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
             # result += symmetrically_equivalent_ks
             # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prm + 1]), ib, ik_prm + 1))
-            ik_prm += 1
+
             # counter += 1 + len(symmetrically_equivalent_ks)
             counter += 1
             self.nforced_POP += 1
@@ -785,11 +803,16 @@ class AMSET(object):
             # if E_radius > 0.0:
             #     print "EXTRA 2", ib, ik, E_radius
             # k_prm = self.kgrid[tp]["actual kpoints"][ib][ik_prm - 1]
-            result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prm - 1]), ib, ik_prm))
+            ik_prm -= 1
+            result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prm]), ib, ik_prm))
+
+            # also add all values with the same energy at ik_prm
+            result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
+
             # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
             # result += symmetrically_equivalent_ks
             # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prm - 1]), ib, ik_prm - 1))
-            ik_prm -= 1
+
             # counter += 1 + len(symmetrically_equivalent_ks)
             counter += 1
             self.nforced_POP += 1
