@@ -446,7 +446,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 11 #99 #32
+            nkstep = 5 #99 #32
 
 
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
@@ -1499,11 +1499,16 @@ class AMSET(object):
 
         self.calculate_transport_properties()
 
-        remove_list = ["W_POP", "effective mass", "actual kpoints", "kweights", "a", "c"]
+        kremove_list = ["W_POP", "effective mass", "actual kpoints", "kweights", "a", "c"]
         for tp in ["n", "p"]:
-            for rm in remove_list:
+            for rm in kremove_list:
                 try:
-                    del (self.kgrid[tp][rm])
+                    del(self.kgrid[tp][rm])
+                except:
+                    pass
+            for erm in ["all_en_flat", "f0x1-f0", "f_th", "g_th"]:
+                try:
+                    del(self.egrid[tp][erm])
                 except:
                     pass
 
