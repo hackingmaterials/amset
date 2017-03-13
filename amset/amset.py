@@ -83,6 +83,15 @@ class AMSET(object):
 
      you can control the level of theory via various inputs. For example, constant relaxation time approximation (cRTA),
      constant mean free path (cMFP) can be used by setting these variables to True
+
+
+     References:
+         [R]: D. L. Rode, Low-Field Electron Transport, Elsevier, 1975, vol. 10., DOI: 10.1016/S0080-8784(08)60331-2
+         [A]: A. Faghaninia, C. S. Lo and J. W. Ager, Phys. Rev. B, "Ab initio electronic transport model with explicit
+          solution to the linearized Boltzmann transport equation" 2015, 91(23), 5100., DOI: 10.1103/PhysRevB.91.235123
+         [Q]: B. K. Ridley, Quantum Processes in Semiconductors, oxford university press, Oxford, 5th edn., 2013.
+          DOI: 10.1093/acprof:oso/9780199677214.001.0001
+
      """
 
 
@@ -991,14 +1000,14 @@ class AMSET(object):
                                     X, ib_pm, ik_pm = X_ib_ik
                                     k = norm(self.kgrid[tp]["actual kpoints"][ib][ik])
                                     k_pm = norm(self.kgrid[tp]["actual kpoints"][ib_pm][ik_pm])
-                                    # if k == k_pm:
+                                    if k == k_pm: # to prevent division by zero in eq-117&123 of ref. [R]
                                     #     print "k = k_prm"
                                     #     print k
                                     #     print ib, ik
                                     #     print k_pm
                                     #     print ib_pm, ik_pm
                                     #     print
-                                        # continue
+                                        continue
                                     a = self.kgrid[tp]["a"][ib][ik]
                                     c_ = self.kgrid[tp]["c"][ib][ik]
                                     v_pm = self.kgrid[tp]["velocity"][ib_pm][ik_pm]
@@ -1012,8 +1021,8 @@ class AMSET(object):
                                     A_pm = a*a_pm + c_*c_pm*(k_pm**2+k**2)/(2*k_pm*k)
                                     beta_pm = (e**2*self.kgrid[tp]["W_POP"][ib_pm][ik_pm]*k_pm)/(4*pi*hbar*k*v_pm)*\
                                         (1/(self.epsilon_inf*epsilon_0)-1/(self.epsilon_s*epsilon_0))*6.2415093e20
-                                    lamb_opm=beta_pm*(A_pm**2*log((k_pm+k)/abs(k_pm-k+1e-4))-A_pm*c_*c_pm-a*a_pm*c_*c_pm)
-                                    lamb_ipm=beta_pm*(A_pm**2*log((k_pm+k)/abs(k_pm-k+1e-4))*(k_pm**2+k**2)/(2*k*k_pm)-
+                                    lamb_opm=beta_pm*(A_pm**2*log((k_pm+k)/abs(k_pm-k))-A_pm*c_*c_pm-a*a_pm*c_*c_pm)
+                                    lamb_ipm=beta_pm*(A_pm**2*log((k_pm+k)/abs(k_pm-k))*(k_pm**2+k**2)/(2*k*k_pm)-
                                                       A_pm**2-c_**2*c_pm**2/3)
 
                                     S_o +=((N_POP + j+(-1)**j*f_pm)*lamb_opm)/len(self.kgrid[tp][X_Epm][ib][ik])
@@ -1060,7 +1069,7 @@ class AMSET(object):
             # el_srate = (k_B*T*self.E_D[tp]**2*norm(k)**2)/(3*pi*hbar**2*self.C_el*1e9*v)\
             # *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*16.0217657
 
-            # The following is from Deformation potentials and... (DOI: 10.1103/PhysRev.80.72 )
+            # The following is from Deformation potentials and... Ref. [Q] (DOI: 10.1103/PhysRev.80.72 )
             return m_e * knrm * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 3 * self.C_el) \
                        * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * 1  # units work out! that's why conversion is 1
 
