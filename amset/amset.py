@@ -446,7 +446,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 4 #99 #32
+            nkstep = 11 #99 #32
 
 
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
@@ -466,12 +466,12 @@ class AMSET(object):
             k = i[0]
             kpts.append(k)
             fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
-            for k_seq in fractional_ks:
-                if abs(k_seq[0]-k[0])<0.01 and (k_seq[1]-k[1])<0.01 and (k_seq[2]-k[2])<0.01:
-                    continue
-                else:
-                    kpts.append(k_seq)
-                    print k_seq
+            kpts += fractional_ks
+            # for k_seq in fractional_ks:
+            #     if abs(k_seq[0]-k[0])<0.01 and (k_seq[1]-k[1])<0.01 and (k_seq[2]-k[2])<0.01:
+            #         continue
+            #     else:
+            #         kpts.append(k_seq)
 
         # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
         kpts.append(self.cbm_vbm["n"]["kpoint"])
@@ -1146,16 +1146,18 @@ class AMSET(object):
 
 
 
-    def map_to_egrid(self, prop_name, c_and_T_idx=True):
+    def map_to_egrid(self, prop_name, c_and_T_idx=True, prop_type = "vector"):
         """
         maps a propery from kgrid to egrid conserving the nomenclature. The mapped property should have the
             kgrid[tp][prop_name][c][T][ib][ik] data structure and will have egrid[tp][prop_name][c][T][ie] structure
         :param prop_name (string): the name of the property to be mapped. It must be available in the kgrid.
+        :param c_and_T_idx (bool): if True, the propetry will be calculated and maped at each concentration, c, and T
+        :param prop_type (str): options are "scalar", "vector", "tensor"
         :return:
         """
         # scalar_properties = ["g"]
         if not c_and_T_idx:
-            self.initialize_var("egrid", prop_name, "vector", initval=self.gs, is_nparray=True, c_T_idx=False)
+            self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=False)
             for tp in ["n", "p"]:
                 # try:
                 #     self.egrid[tp][prop_name]
@@ -1182,8 +1184,10 @@ class AMSET(object):
                                 # N += 1
                                 N += 1
                     self.egrid[tp][prop_name][ie] /= N
+                    if self.bs_is_isotropic and prop_type=="vector":
+                        self.egrid[tp][prop_name][ie]=np.array([sum(self.egrid[tp][prop_name][ie])/3.0 for i in range(3)])
         else:
-            self.initialize_var("egrid", prop_name, "vector", initval=self.gs, is_nparray=True, c_T_idx=True)
+            self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=True)
 
             for tp in ["n", "p"]:
                 # try:
@@ -1204,7 +1208,9 @@ class AMSET(object):
                                         self.egrid[tp][prop_name][c][T][ie]+=self.kgrid[tp][prop_name][c][T][ib][ik]*1
                                         N += 1
                             self.egrid[tp][prop_name][c][T][ie] /= N
-
+                            if self.bs_is_isotropic and prop_type == "vector":
+                                self.egrid[tp][prop_name][c][T][ie] = np.array(
+                                    [sum(self.egrid[tp][prop_name][c][T][ie])/3.0 for i in range(3)])
 
     def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha = 0.02, max_iter = 1000):
         """
