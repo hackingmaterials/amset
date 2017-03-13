@@ -227,7 +227,7 @@ class AMSET(object):
         # # To avoid returning a denominator that is zero:
         # return {t:max(self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T), 1e-30)
         #         for t in ["n", "p"]}
-        return {t:1e-32+self.integrate_over_E(prop_list=["f0x1-f0"],tp=t,c=c,T=T,xDOS=True) for t in ["n", "p"]}
+        return {t:self.ds + self.integrate_over_E(prop_list=["f0x1-f0"],tp=t,c=c,T=T,xDOS=True) for t in ["n", "p"]}
 
 
 
@@ -240,10 +240,10 @@ class AMSET(object):
         """
         if for_all_E:
             for tp in ["n", "p"]:
-                self.egrid[tp][prop_name]={c: {T: [1e-20 for E in self.egrid[tp]["energy"]] for T in self.temperatures}
+                self.egrid[tp][prop_name]={c:{T: [self.ds for E in self.egrid[tp]["energy"]] for T in self.temperatures}
                                              for c in self.dopings}
         else:
-            self.egrid[prop_name] = {c: {T: 1e-20 for T in self.temperatures} for c in self.dopings}
+            self.egrid[prop_name] = {c: {T: self.ds for T in self.temperatures} for c in self.dopings}
         for c in self.dopings:
             for T in self.temperatures:
                 if for_all_E:
@@ -605,15 +605,8 @@ class AMSET(object):
 
         self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
                 "f", "f_th", "relaxation time", "df0dk", "electric force", "thermal force"],
-                        val_type="vector", initval=1e-32, is_nparray=True, c_T_idx=True)
-        self.initialize_var("kgrid", ["f0"], "scalar", 1e-32, is_nparray=False, c_T_idx=True)
-        # for tp in ["n", "p"]:
-        #     for prop in ["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP", "f", "f_th",
-        #                  "relaxation time", "df0dk", "df0dE", "electric force", "thermal force"]:
-        #         self.kgrid[tp][prop] = {c: {T: np.array([[[1e-32, 1e-32, 1e-32] for i in range(len(self.kgrid[tp]["kpoints"][ib]))]
-        #             for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
-        #     self.kgrid[tp]["f0"] = {c: {T: np.array([[1e-32 for i in range(len(self.kgrid[tp]["kpoints"][ib]))]
-        #         for j in range(self.cbm_vbm[tp]["included"])]) for T in self.temperatures} for c in self.dopings}
+                        val_type="vector", initval=self.ds, is_nparray=True, c_T_idx=True)
+        self.initialize_var("kgrid", ["f0"], "scalar", self.ds, is_nparray=False, c_T_idx=True)
 
 
 
@@ -838,7 +831,7 @@ class AMSET(object):
                    /(norm_diff_k ** 2 * 4.0 * pi**2 * hbar * epsilon_0 * self.epsilon_s)
 
         elif sname.upper() in ["DIS"]:
-            return 1e-20
+            return self.ds
 
         else:
             raise ValueError("The elastic scattering name {} is not supported!".format(sname))
@@ -864,7 +857,7 @@ class AMSET(object):
         if not interpolation_nsteps:
             interpolation_nsteps = max(5, int(500/len(self.egrid[tp]["energy"])) )
         diff = [0.0 for prop in prop_list]
-        integral = 1e-20
+        integral = self.ds
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             E = self.egrid[tp]["energy"][ie]
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
@@ -990,8 +983,8 @@ class AMSET(object):
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            S_i = 1e-32
-                            S_o = 1e-32
+                            S_i = self.ds
+                            S_o = self.ds
                             for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
                                 for X_ib_ik in self.kgrid[tp][X_Epm][ib][ik]:
                                     X, ib_pm, ik_pm = X_ib_ik
@@ -1139,7 +1132,7 @@ class AMSET(object):
         """
         # scalar_properties = ["g"]
         if not c_and_T_idx:
-            self.initialize_var("egrid", prop_name, "vector", initval=1e-32, is_nparray=True, c_T_idx=False)
+            self.initialize_var("egrid", prop_name, "vector", initval=self.ds, is_nparray=True, c_T_idx=False)
             for tp in ["n", "p"]:
                 # try:
                 #     self.egrid[tp][prop_name]
@@ -1167,7 +1160,7 @@ class AMSET(object):
                                 N += 1
                     self.egrid[tp][prop_name][ie] /= N
         else:
-            self.initialize_var("egrid", prop_name, "vector", initval=1e-32, is_nparray=True, c_T_idx=True)
+            self.initialize_var("egrid", prop_name, "vector", initval=self.ds, is_nparray=True, c_T_idx=True)
 
             for tp in ["n", "p"]:
                 # try:
@@ -1323,7 +1316,7 @@ class AMSET(object):
                             self.kgrid[tp]["g"][c][T] = (self.kgrid[tp]["S_i"][c][T] + self.kgrid[tp]["electric force"][c][
                                 T]) / (self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
                             self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
-                                self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+ 1e-32 )
+                                self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+ self.ds)
                             self.kgrid[tp]["g_th"][c][T][ib]=(self.kgrid[tp]["S_i_th"][c][T][ib]+self.kgrid[tp]["thermal force"][c][
                                 T][ib]) / (self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
 
