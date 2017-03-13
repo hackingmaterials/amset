@@ -1362,6 +1362,7 @@ class AMSET(object):
                     # self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + norm(self.egrid[tp]["g"][c][T])
                     # self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+norm(self.egrid[tp]["g_th"][c][T])
 
+                    # this ONLY makes a difference if f and f_th are used in the denominator; but f0 is currently used!
                     self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + norm(self.egrid[tp]["g"][c][T])
                     self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+norm(self.egrid[tp]["g_th"][c][T])
 
@@ -1499,14 +1500,16 @@ class AMSET(object):
 
         self.calculate_transport_properties()
 
-        kremove_list = ["W_POP", "effective mass", "actual kpoints", "kweights", "a", "c"]
+        kremove_list = ["W_POP","effective mass","actual kpoints","kweights","a","c","f",
+                        "f_th","g_th","S_i_th","S_o_th"]
+
         for tp in ["n", "p"]:
             for rm in kremove_list:
                 try:
                     del(self.kgrid[tp][rm])
                 except:
                     pass
-            for erm in ["all_en_flat", "f0x1-f0", "f_th", "g_th"]:
+            for erm in ["all_en_flat", "f0x1-f0", "f_th", "g_th", "S_i_th", "S_o_th"]:
                 try:
                     del(self.egrid[tp][erm])
                 except:
