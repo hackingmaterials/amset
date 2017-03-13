@@ -473,7 +473,7 @@ class AMSET(object):
                     kpts.append(k_seq)
                     print k_seq
 
-        # kpts = [i[0] for i in kpts_and_weights]
+        # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
         kpts.append(self.cbm_vbm["n"]["kpoint"])
         kpts.append(self.cbm_vbm["p"]["kpoint"])
 
@@ -483,9 +483,6 @@ class AMSET(object):
             for j in range(i+1, len(kpts)-1):
                 if np.array_equal(kpts[i], kpts[j]):
                     rm_list.append(j)
-
-
-        # rm_list.reverse()
         kpts = np.delete(kpts, rm_list, axis=0)
 
         print len(kpts)
