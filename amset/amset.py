@@ -1011,8 +1011,15 @@ class AMSET(object):
                             for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
                                 for X_ib_ik in self.kgrid[tp][X_Epm][ib][ik]:
                                     X, ib_pm, ik_pm = X_ib_ik
-                                    k = norm(self.kgrid[tp]["actual kpoints"][ib][ik])
-                                    k_pm = norm(self.kgrid[tp]["actual kpoints"][ib_pm][ik_pm])
+                                    v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
+                                    v_pm = sum(self.kgrid[tp]["velocity"][ib_pm][ik_pm])/3
+
+                                    k  = m_e*v/(hbar*e*1e11)
+                                    k_pm  = m_e*v_pm/(hbar*e*1e11)
+
+                                    # k = norm(self.kgrid[tp]["actual kpoints"][ib][ik])
+                                    # k_pm = norm(self.kgrid[tp]["actual kpoints"][ib_pm][ik_pm])
+
                                     if k == k_pm: # to prevent division by zero in eq-117&123 of ref. [R]
                                     #     print "k = k_prm"
                                     #     print k
@@ -1023,7 +1030,6 @@ class AMSET(object):
                                         continue
                                     a = self.kgrid[tp]["a"][ib][ik]
                                     c_ = self.kgrid[tp]["c"][ib][ik]
-                                    v_pm = self.kgrid[tp]["velocity"][ib_pm][ik_pm]
                                     a_pm = self.kgrid[tp]["a"][ib_pm][ik_pm]
                                     c_pm = self.kgrid[tp]["c"][ib_pm][ik_pm]
                                     g_pm = self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm]
