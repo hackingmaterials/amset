@@ -210,7 +210,7 @@ class Analytical_bands(object):
                 dos += w * g
         return e_mesh,dos
         
-    def get_dos(self,energies,weights,e_min,e_max,e_points,width=0.2):
+    def get_dos(self,energies,weights,e_min=None,e_max=None,e_points=None,width=0.2):
         '''
         Args:
         energies: list of values in eV 
@@ -225,8 +225,17 @@ class Analytical_bands(object):
         e_mesh:   energies in eV od the DOS
         dos:      density of states for each energy in e_mesh
         '''
+        if not e_min:
+            e_min = min(energies)
+        if not e_max:
+            e_max = max(energies)
+
         height = 1.0 / (width * np.sqrt(2 * np.pi))
-        e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
+        if e_points:
+            e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
+        else:
+            e_mesh = [e in energies]
+
         e_range = len(e_mesh)
 
         dos = np.zeros(e_range)
