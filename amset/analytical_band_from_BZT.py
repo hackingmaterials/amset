@@ -27,6 +27,42 @@ def outer(v1, v2):
 
 
 
+def get_dos(energies,weights,e_min=None,e_max=None,e_points=None,width=0.2):
+    '''
+    Args:
+    energies: list of values in eV
+              from a previous interpolation over all the bands
+              and all the irreducible k-points
+    weights:  list of multeplicities of each energies
+    e_min:    starting energy (eV) of DOS
+    e_max:    ending energy (eV) of DOS
+    e_points: number of points of the get_dos
+    width:    width in eV of the gaussians generated for each energy
+    Returns:
+    e_mesh:   energies in eV od the DOS
+    dos:      density of states for each energy in e_mesh
+    '''
+    if not e_min:
+        e_min = min(energies)
+    if not e_max:
+        e_max = max(energies)
+
+    height = 1.0 / (width * np.sqrt(2 * np.pi))
+    if e_points:
+        e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
+    else:
+        e_mesh = np.array([e for e in energies])
+
+    e_range = len(e_mesh)
+
+    dos = np.zeros(e_range)
+    for ene,w in zip(energies,weights):
+        g = height * np.exp(-((e_mesh - ene) / width) ** 2 / 2.)
+        dos += w * g
+    return e_mesh,dos
+
+
+
 class Analytical_bands(object):
     """This class is meant to read the BoltzTraP fitted band structure coefficients and facilitate calculation of
     energy and its first and second derivatives w.r.t wave vector, k."""
@@ -179,6 +215,8 @@ class Analytical_bands(object):
         for kpt,w in zip(ir_kpts,weights):
             for b in range(len(engre)):
                 e = self.get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
+                print e
+                print
                 g = height * np.exp(-((e_mesh - e) / width) ** 2 / 2.)
                 dos += w * g
         return e_mesh,dos
@@ -208,40 +246,6 @@ class Analytical_bands(object):
             for ene in kpt_ene:
                 g = height * np.exp(-((e_mesh - ene) / width) ** 2 / 2.)
                 dos += w * g
-        return e_mesh,dos
-        
-    def get_dos(self,energies,weights,e_min=None,e_max=None,e_points=None,width=0.2):
-        '''
-        Args:
-        energies: list of values in eV 
-                  from a previous interpolation over all the bands 
-                  and all the irreducible k-points
-        weights:  list of multeplicities of each energies
-        e_min:    starting energy (eV) of DOS
-        e_max:    ending energy (eV) of DOS
-        e_points: number of points of the get_dos
-        width:    width in eV of the gaussians generated for each energy
-        Returns:
-        e_mesh:   energies in eV od the DOS
-        dos:      density of states for each energy in e_mesh
-        '''
-        if not e_min:
-            e_min = min(energies)
-        if not e_max:
-            e_max = max(energies)
-
-        height = 1.0 / (width * np.sqrt(2 * np.pi))
-        if e_points:
-            e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
-        else:
-            e_mesh = [e in energies]
-
-        e_range = len(e_mesh)
-
-        dos = np.zeros(e_range)
-        for ene,w in zip(energies,weights):
-            g = height * np.exp(-((e_mesh - ene) / width) ** 2 / 2.)
-            dos += w * g
         return e_mesh,dos
         
 
@@ -311,8 +315,12 @@ if __name__ == "__main__":
             energies[-1].append(e)
     
     print len(energies),len(energies[0]) #120,21
-    
-    emesh,dos2 = analytical_bands.get_dos(energies,weights,-13,20,1000)
+
+    print energies
+    print weights
+    emesh,dos2 = get_dos(energies,weights,-13,20,21)
+    print emesh
+    print dos2
     plot(emesh,dos2)
     show()
 
