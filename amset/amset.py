@@ -446,7 +446,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 5 #99 #32
+            nkstep = 5 # 20170313_15
 
 
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
