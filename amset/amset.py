@@ -7,7 +7,7 @@ import time
 from pymatgen.electronic_structure.plotter import plot_brillouin_zone, plot_brillouin_zone_from_kpath
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
-from analytical_band_from_BZT import Analytical_bands, outer
+from analytical_band_from_BZT import Analytical_bands, outer, get_dos
 from pprint import pprint
 
 import numpy as np
@@ -297,26 +297,34 @@ class AMSET(object):
 
         # setting up energy grid and DOS:
         for tp in ["n", "p"]:
+            energy_counter = []
             i = 0
             last_is_counted = False
             while i<len(self.egrid[tp]["all_en_flat"])-1:
-                sum = self.egrid[tp]["all_en_flat"][i]
+                sum_e = self.egrid[tp]["all_en_flat"][i]
                 counter = 1.0
                 while i<len(self.egrid[tp]["all_en_flat"])-1 and \
                         abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][i+1]) < self.dE_global:
                     counter += 1
-                    sum += self.egrid[tp]["all_en_flat"][i+1]
+                    sum_e += self.egrid[tp]["all_en_flat"][i+1]
                     if i+1 == len(self.egrid[tp]["all_en_flat"])-1:
                         last_is_counted = True
                     i+=1
-                self.egrid[tp]["energy"].append(sum/counter)
-                if dos_tp=="simple":
+                self.egrid[tp]["energy"].append(sum_e/counter)
+                energy_counter.append(counter)
+                if dos_tp.lower()=="simple":
                     self.egrid[tp]["DOS"].append(counter/len(self.egrid[tp]["all_en_flat"]))
                 i+=1
             if not last_is_counted:
                 self.egrid[tp]["energy"].append(self.egrid[tp]["all_en_flat"][-1])
                 if dos_tp == "simple":
                     self.egrid[tp]["DOS"].append(1.0 / len(self.egrid[tp]["all_en_flat"]))
+
+            if dos_tp.lower()=="standard":
+                energy_counter = [ne/len(self.egrid[tp]["all_en_flat"]) for ne in energy_counter]
+
+                dum, self.egrid[tp]["DOS"] = get_dos(self.egrid[tp]["energy"], energy_counter)
+
 
         # initialize some fileds/properties
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
@@ -448,7 +456,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 15 # 20170313_15
+            nkstep = 9 # 20170313_15
 
 
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
@@ -1491,7 +1499,7 @@ class AMSET(object):
 
 # TODO: later add a more sophisticated DOS function, if developed
         if True:
-            self.init_egrid(dos_tp = "simple")
+            self.init_egrid(dos_tp = "standard")
         else:
             pass
 
