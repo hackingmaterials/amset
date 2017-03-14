@@ -184,7 +184,7 @@ class Analytical_bands(object):
         return e_mesh,dos
 
 
-    def get_dos(self,energies,weights,e_min,e_max,e_points,width=0.2):
+    def get_dos_standard(self,energies,weights,e_min,e_max,e_points,width=0.2):
         '''
         Args:
         energies: matrix (num_kpoints,num_bands) of values in eV 
@@ -210,6 +210,30 @@ class Analytical_bands(object):
                 dos += w * g
         return e_mesh,dos
         
+    def get_dos(self,energies,weights,e_min,e_max,e_points,width=0.2):
+        '''
+        Args:
+        energies: list of values in eV 
+                  from a previous interpolation over all the bands 
+                  and all the irreducible k-points
+        weights:  list of multeplicities of each energies
+        e_min:    starting energy (eV) of DOS
+        e_max:    ending energy (eV) of DOS
+        e_points: number of points of the get_dos
+        width:    width in eV of the gaussians generated for each energy
+        Returns:
+        e_mesh:   energies in eV od the DOS
+        dos:      density of states for each energy in e_mesh
+        '''
+        height = 1.0 / (width * np.sqrt(2 * np.pi))
+        e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
+        e_range = len(e_mesh)
+
+        dos = np.zeros(e_range)
+        for ene,w in zip(energies,weights):
+            g = height * np.exp(-((e_mesh - ene) / width) ** 2 / 2.)
+            dos += w * g
+        return e_mesh,dos
         
 
 
