@@ -1073,8 +1073,14 @@ class AMSET(object):
         This assumption significantly simplifies the model and the integrated rates at each
         k/energy directly extracted from the literature can be used here."""
 
-        knrm = norm(self.kgrid[tp]["actual kpoints"][ib][ik])
-        v = self.kgrid[tp]["velocity"][ib][ik]
+        #TODO: decide on knrm and whether it needs a reference (i.e. CBM/VBM). No ref. result in large rates in PbTe.
+        # I justify subtracting the CBM/VBM actual k-points as follows:
+        # knrm = norm(self.kgrid[tp]["actual kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
+        v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
+        # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
+        # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
+        knrm = m_e*v/(hbar*e*1e11)
+
         par_c = self.kgrid[tp]["c"][ib][ik]
 
         if sname.upper() == "ACD":
@@ -1083,8 +1089,14 @@ class AMSET(object):
             # *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*16.0217657
 
             # The following is from Deformation potentials and... Ref. [Q] (DOI: 10.1103/PhysRev.80.72 )
+            # if knrm < 1/(0.1*self._vrun.lattice.c*A_to_nm):
+
             return m_e * knrm * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 3 * self.C_el) \
                        * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * 1  # units work out! that's why conversion is 1
+
+            # replaced hbar*knrm with m_e*norm(v)/(1e11*e) which is momentum
+            # return m_e * m_e*norm(v) * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 4 * self.C_el) \
+            #        * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) / (1e11*e) # 1/1e11*e is to convert kg.cm/s to hbar.k units (i.e. ev.s/nm)
 
         elif sname.upper() == "IMP":
             beta = self.egrid["beta"][c][T][tp]
@@ -1515,7 +1527,7 @@ class AMSET(object):
                 except:
                     pass
 
-
+        pprint(self.egrid)
         if self.wordy:
             pprint(self.egrid)
             pprint(self.kgrid)
