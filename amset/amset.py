@@ -99,7 +99,7 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
         self.dE_global = k_B*300 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
@@ -448,7 +448,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 5 # 20170313_15
+            nkstep = 15 # 20170313_15
 
 
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
@@ -480,12 +480,15 @@ class AMSET(object):
         kpts.append(self.cbm_vbm["p"]["kpoint"])
 
         # remove further duplications due to copying a k-point twice because it is equivalent to two different k-points
+        start_time = time.time()
         rm_list = []
         for i in range(len(kpts)-2):
             for j in range(i+1, len(kpts)-1):
-                if np.array_equal(kpts[i], kpts[j]):
+                # if np.array_equal(kpts[i], kpts[j]): # this takes 77/969 seconds for nksteps==15 and include_POP==False
+                if kpts[i][0]==kpts[j][0] and kpts[i][1]==kpts[j][1] and kpts[i][2]==kpts[j][2]:
                     rm_list.append(j)
         kpts = np.delete(kpts, rm_list, axis=0)
+        print "total time to remove duplicate k-points = {} seconds".format(time.time()-start_time)
 
         print len(kpts)
         # kweights = [float(i[1]) for i in kpts_and_weights]
@@ -1036,34 +1039,32 @@ class AMSET(object):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             S_i = self.gs
                             S_o = self.gs
+
+                            v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
+
+                            k = m_e * v / (hbar * e * 1e11)
+                            a = self.kgrid[tp]["a"][ib][ik]
+                            c_ = self.kgrid[tp]["c"][ib][ik]
+                            f = self.kgrid[tp]["f0"][c][T][ib][ik]
+                            N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
+
                             for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
                                 for X_ib_ik in self.kgrid[tp][X_Epm][ib][ik]:
                                     X, ib_pm, ik_pm = X_ib_ik
-                                    v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
-                                    v_pm = sum(self.kgrid[tp]["velocity"][ib_pm][ik_pm])/3
 
-                                    k  = m_e*v/(hbar*e*1e11)
+                                    v_pm = sum(self.kgrid[tp]["velocity"][ib_pm][ik_pm])/3
                                     k_pm  = m_e*v_pm/(hbar*e*1e11)
 
                                     # k = norm(self.kgrid[tp]["actual kpoints"][ib][ik])
                                     # k_pm = norm(self.kgrid[tp]["actual kpoints"][ib_pm][ik_pm])
 
                                     if k == k_pm: # to prevent division by zero in eq-117&123 of ref. [R]
-                                    #     print "k = k_prm"
-                                    #     print k
-                                    #     print ib, ik
-                                    #     print k_pm
-                                    #     print ib_pm, ik_pm
-                                    #     print
                                         continue
-                                    a = self.kgrid[tp]["a"][ib][ik]
-                                    c_ = self.kgrid[tp]["c"][ib][ik]
+
                                     a_pm = self.kgrid[tp]["a"][ib_pm][ik_pm]
                                     c_pm = self.kgrid[tp]["c"][ib_pm][ik_pm]
                                     g_pm = sum(self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm])/3
-                                    f = self.kgrid[tp]["f0"][c][T][ib][ik]
                                     f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
-                                    N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
 
                                     A_pm = a*a_pm + c_*c_pm*(k_pm**2+k**2)/(2*k_pm*k)
                                     beta_pm = (e**2*self.kgrid[tp]["W_POP"][ib_pm][ik_pm]*k_pm)/(4*pi*hbar*k*v_pm)*\
@@ -1072,6 +1073,7 @@ class AMSET(object):
                                     lamb_ipm=beta_pm*(A_pm**2*log((k_pm+k)/abs(k_pm-k))*(k_pm**2+k**2)/(2*k*k_pm)-
                                                       A_pm**2-c_**2*c_pm**2/3)
 
+                                    # because in the scalar form k+ or k- is suppused to be unique, here we take average
                                     S_o +=((N_POP + j+(-1)**j*f_pm)*lamb_opm)/len(self.kgrid[tp][X_Epm][ib][ik])
                                     S_i += ((N_POP + (1-j) + (-1)**(1-j)*f) * lamb_ipm * g_pm) \
                                            / len(self.kgrid[tp][X_Epm][ib][ik])
@@ -1561,17 +1563,18 @@ class AMSET(object):
                 except:
                     pass
 
+        pprint(self.egrid["mobility"])
         # pprint(self.egrid)
         if self.wordy:
             pprint(self.egrid)
             pprint(self.kgrid)
 
-        with open("kgrid.txt", "w") as fout:
-            # pprint(self.kgrid["n"], stream=fout)
-            pprint(self.kgrid, stream=fout)
-        with open("egrid.txt", "w") as fout:
-            pprint(self.egrid, stream=fout)
-            # pprint(self.egrid["n"], stream=fout)
+        # with open("kgrid.txt", "w") as fout:
+        #     # pprint(self.kgrid["n"], stream=fout)
+        #     pprint(self.kgrid, stream=fout)
+        # with open("egrid.txt", "w") as fout:
+        #     pprint(self.egrid, stream=fout)
+        #     # pprint(self.egrid["n"], stream=fout)
 
 
 
