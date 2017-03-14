@@ -89,12 +89,12 @@ class Analytical_bands(object):
             dspwre /= nstv[:,np.newaxis]
     
             #maybe possible a further speed up here
-            for nw in xrange(nwave):
-                for i in xrange(nstv[nw]):
-                    ddspwre[nw] += outer(vec2[nw,i],vec2[nw,i])*(-tempc[nw,i])
-                ddspwre[nw] /= nstv[nw]
-            #out_tempc = out_vec2*(-tempc[:,:,np.newaxis,np.newaxis])
-            #ddspwre = np.sum(out_tempc,axis=1)/ nstv[:,np.newaxis,np.newaxis]
+            #for nw in xrange(nwave):
+                #for i in xrange(nstv[nw]):
+                    #ddspwre[nw] += outer(vec2[nw,i],vec2[nw,i])*(-tempc[nw,i])
+                #ddspwre[nw] /= nstv[nw]
+            out_tempc = out_vec2*(-tempc[:,:,np.newaxis,np.newaxis])
+            ddspwre = np.sum(out_tempc,axis=1)/ nstv[:,np.newaxis,np.newaxis]
         
         ene=spwre.dot(engre)
         if br_dir is not None:
@@ -224,7 +224,7 @@ if __name__ == "__main__":
     engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=[cbm_bidx])
     #generate the star functions only one time
     nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points,nsym,symop,nwave,br_dir=br_dir)
-    out_vec2 = np.zeros((nwave,nwave,3,3))
+    out_vec2 = np.zeros((nwave,max(nstv),3,3))
     for nw in xrange(nwave):
         for i in xrange(nstv[nw]):
             out_vec2[nw,i]= outer(vec2[nw,i],vec2[nw,i])
