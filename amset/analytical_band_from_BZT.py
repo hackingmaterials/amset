@@ -5,6 +5,7 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from scipy.constants.codata import value as _cd
 from math import pi
 import numpy as np
+from pylab import plot,show
 
 # global constants
 hbar = _cd('Planck constant in eV s')/(2*pi)
@@ -68,15 +69,15 @@ class Analytical_bands(object):
 
 
 
-    def get_energy(self, xkpt,engre, nwave, nsym, nstv, vec, vec2=None, br_dir=None,cbm=True):
+    def get_energy(self, xkpt,engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br_dir=None,cbm=True):
         ' Compute energy for a k-point from star functions '
 
         sign = -1 if cbm == False else 1
         
         arg = 2*np.pi*vec.dot(xkpt)
         tempc=np.cos(arg)
-        spwre=np.sum(tempc,axis=1)-(nsym-nstv)
-        spwre/=nstv
+        spwre=np.sum(tempc,axis=1)-(nsym-nstv)#[:,np.newaxis]
+        spwre/=nstv#[:,np.newaxis]
         
         if br_dir is not None:
             dene = np.zeros(3)
@@ -92,6 +93,8 @@ class Analytical_bands(object):
                 for i in xrange(nstv[nw]):
                     ddspwre[nw] += outer(vec2[nw,i],vec2[nw,i])*(-tempc[nw,i])
                 ddspwre[nw] /= nstv[nw]
+            #out_tempc = out_vec2*(-tempc[:,:,np.newaxis,np.newaxis])
+            #ddspwre = np.sum(out_tempc,axis=1)/ nstv[:,np.newaxis,np.newaxis]
         
         ene=spwre.dot(engre)
         if br_dir is not None:
@@ -145,8 +148,22 @@ class Analytical_bands(object):
         else:
             energy = self.get_energy(kpt,engre,nwave, nsym, nstv, vec, cbm=cbm)
             return Energy(energy,"Ry").to("eV") # This is in eV automatically
+
         
-    def get_dos(self,st,mesh,e_min,e_max,e_points,width=0.2):
+    def get_dos_from_scratch(self,st,mesh,e_min,e_max,e_points,width=0.2):
+        '''
+        Args:
+        st:       pmg object of crystal structure to calculate symmetries
+        mesh:     list of integers defining the k-mesh on which the dos is required
+        e_min:    starting energy (eV) of dos
+        e_max:    ending energy (eV) of dos
+        e_points: number of points of the get_dos
+        width:    width in eV of the gaussians generated for each energy
+        Returns:
+        e_mesh:   energies in eV od the DOS
+        dos:      density of states for each energy in e_mesh
+        '''
+
         height = 1.0 / (width * np.sqrt(2 * np.pi))
         e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
         e_range = len(e_mesh)
@@ -156,7 +173,7 @@ class Analytical_bands(object):
         ir_kpts = [k[0] for k in ir_kpts]
         weights = [k[1] for k in ir_kpts]
         w_sum = float(sum(weights))
-        weights = [w/w_sum for w in weights]
+        #weights = [w/w_sum for w in weights]
         #print len(ir_kpts)
         dos = np.zeros(e_range)
         for kpt,w in zip(ir_kpts,weights):
@@ -165,6 +182,36 @@ class Analytical_bands(object):
                 g = height * np.exp(-((e_mesh - e) / width) ** 2 / 2.)
                 dos += w * g
         return e_mesh,dos
+
+
+    def get_dos(self,energies,weights,e_min,e_max,e_points,width=0.2):
+        '''
+        Args:
+        energies: matrix (num_kpoints,num_bands) of values in eV 
+                  from a previous interpolation over all the bands (num_bands)
+                  and all the irreducible k-points (num_kpoints)
+        weights:  list of multeplicities of irreducible k-points
+        e_min:    starting energy (eV) of DOS
+        e_max:    ending energy (eV) of DOS
+        e_points: number of points of the get_dos
+        width:    width in eV of the gaussians generated for each energy
+        Returns:
+        e_mesh:   energies in eV od the DOS
+        dos:      density of states for each energy in e_mesh
+        '''
+        height = 1.0 / (width * np.sqrt(2 * np.pi))
+        e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
+        e_range = len(e_mesh)
+
+        dos = np.zeros(e_range)
+        for kpt_ene,w in zip(energies,weights):
+            for ene in kpt_ene:
+                g = height * np.exp(-((e_mesh - ene) / width) ** 2 / 2.)
+                dos += w * g
+        return e_mesh,dos
+        
+        
+
 
 if __name__ == "__main__":
     # user inputs
@@ -177,10 +224,15 @@ if __name__ == "__main__":
     engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=[cbm_bidx])
     #generate the star functions only one time
     nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points,nsym,symop,nwave,br_dir=br_dir)
+    out_vec2 = np.zeros((nwave,nwave,3,3))
+    for nw in xrange(nwave):
+        for i in xrange(nstv[nw]):
+            out_vec2[nw,i]= outer(vec2[nw,i],vec2[nw,i])
+            
     # setup
     en, den, dden = [], [], []
     for kpt in kpts:
-        energy, de, dde = analytical_bands.get_energy(kpt,engre[0], nwave, nsym, nstv, vec, vec2, br_dir)
+        energy, de, dde = analytical_bands.get_energy(kpt,engre[0], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
         en.append(energy*Ry_to_eV)
         den.append(de)
         dden.append(dde*2*pi)
@@ -204,7 +256,30 @@ if __name__ == "__main__":
 
     #dos caclulated on a 15x15x15 mesh of kpoints, 
     #in an energy range [-13,25] eV with 1000 points
-    emesh,dos = analytical_bands.get_dos(st,[15,15,15],-13,25,1000)
-    #plot(emesh,dos)
+    #from get_dos_from_scratch
+    kmesh = [15,15,15]
+    emesh,dos = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000)
+    plot(emesh,dos)
+    
+    #from a previous calculation of energies
+    engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband='A')
+    #generate the star functions only one time
+    nstv, vec = analytical_bands.get_star_functions(latt_points,nsym,symop,nwave)
 
+    energies = []
+    ir_kpts = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(kmesh)
+    ir_kpts = [k[0] for k in ir_kpts]
+    weights = [k[1] for k in ir_kpts]
+
+    for kpt in ir_kpts:
+        energies.append([])
+        for b in range(len(engre)):
+            e = analytical_bands.get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
+            energies[-1].append(e)
+    
+    print len(energies),len(energies[0]) #120,21
+    
+    emesh,dos2 = analytical_bands.get_dos(energies,weights,-13,20,1000)
+    plot(emesh,dos2)
+    show()
 
