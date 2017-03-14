@@ -2,10 +2,12 @@
 
 import warnings
 
+import time
+
 from pymatgen.electronic_structure.plotter import plot_brillouin_zone, plot_brillouin_zone_from_kpath
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
-from analytical_band_from_BZT import Analytical_bands
+from analytical_band_from_BZT import Analytical_bands, outer
 from pprint import pprint
 
 import numpy as np
@@ -121,7 +123,7 @@ class AMSET(object):
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
         self.wordy = False
-        self.maxiters = 6
+        self.maxiters = 5
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
@@ -554,20 +556,46 @@ class AMSET(object):
         low_v_ik = []
         low_v_ik.sort()
         analytical_bands = Analytical_bands(coeff_file=coeff_file)
-        once_called = False
-        bands_data = {tp: [() for ib in range(self.cbm_vbm[tp]["included"])] for tp in ["n", "p"]}
-        for i, tp in enumerate(["n", "p"]):
+        # once_called = False
+        # bands_data = {tp: [() for ib in range(self.cbm_vbm[tp]["included"])] for tp in ["n", "p"]}
+        all_ibands = []
+        for i, tp in enumerate(["p", "n"]):
+            for ib in range(self.cbm_vbm[tp]["included"]):
+                sgn = (-1) ** i
+                all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
+
+        engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
+        start_time = time.time()
+        nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
+        out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+        for nw in xrange(nwave):
+            for i in xrange(nstv[nw]):
+                out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+        print("time to calculate the outvec2: {} seconds".format(time.time() - start_time))
+
+
+        for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
-                engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
-                    analytical_bands.get_engre(iband=self.cbm_vbm[tp]["bidx"] + sgn * ib)
-                bands_data[tp][ib] = (engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
-                if not once_called:
-                    nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave,br_dir=br_dir)
-                    once_called = True
+                # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
+                #     analytical_bands.get_engre(iband=[self.cbm_vbm[tp]["bidx"] + sgn * ib])
+                # bands_data[tp][ib] = (engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
+
+                # if not once_called:
+                #     start_time = time.time()
+                #     nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave,br_dir=br_dir)
+                #     out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+                #     for nw in xrange(nwave):
+                #         for i in xrange(nstv[nw]):
+                #             out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+                #     print("time to calculate the outvec2: {} seconds".format(time.time() - start_time))
+                #
+                #     once_called = True
+
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     energy, de, dde = analytical_bands.get_energy(
-                        self.kgrid[tp]["kpoints"][ib][ik], engre, nwave, nsym, nstv, vec, vec2, br_dir=br_dir, cbm=True)
+                        self.kgrid[tp]["kpoints"][ib][ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
+                            nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
 
                     self.kgrid[tp]["energy"][ib][ik] = energy * Ry_to_eV + sgn * self.scissor/2
                     self.kgrid[tp]["velocity"][ib][ik] = abs(
@@ -1032,7 +1060,7 @@ class AMSET(object):
                                     c_ = self.kgrid[tp]["c"][ib][ik]
                                     a_pm = self.kgrid[tp]["a"][ib_pm][ik_pm]
                                     c_pm = self.kgrid[tp]["c"][ib_pm][ik_pm]
-                                    g_pm = self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm]
+                                    g_pm = sum(self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm])/3
                                     f = self.kgrid[tp]["f0"][c][T][ib][ik]
                                     f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
                                     N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
@@ -1367,8 +1395,8 @@ class AMSET(object):
                             self.kgrid[tp]["g_th"][c][T][ib]=(self.kgrid[tp]["S_i_th"][c][T][ib]+self.kgrid[tp]["thermal force"][c][
                                 T][ib]) / (self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
 
-            for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
-                self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
+        for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
+            self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
 
 
@@ -1533,7 +1561,7 @@ class AMSET(object):
                 except:
                     pass
 
-        pprint(self.egrid)
+        # pprint(self.egrid)
         if self.wordy:
             pprint(self.egrid)
             pprint(self.kgrid)
