@@ -323,15 +323,14 @@ class AMSET(object):
                 if dos_tp.lower()=="simple":
                     self.egrid[tp]["DOS"].append(counter/len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
-                    self.egrid[tp]["DOS"].append(self.dos[int(round(sum_e/counter-self.emin/self.dE_global))][1])
+                    self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_e/counter)][1])
                 i+=1
             if not last_is_counted:
                 self.egrid[tp]["energy"].append(self.egrid[tp]["all_en_flat"][-1])
                 if dos_tp.lower() == "simple":
                     self.egrid[tp]["DOS"].append(self.nelec / len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
-                    self.egrid[tp]["DOS"].append(
-                        self.dos[int(round(self.egrid[tp]["energy"][-1]-self.emin/self.dE_global))][1])
+                    self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(self.egrid[tp]["energy"][-1])][1])
 
             # if dos_tp.lower()=="standard":
             #     energy_counter = [ne/len(self.egrid[tp]["all_en_flat"]) for ne in energy_counter]
@@ -360,6 +359,11 @@ class AMSET(object):
         self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
         self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
         self.calculate_property(prop_name="Seebeck_integral_denominator", prop_func=self.seeb_int_denom)
+
+
+
+    def get_Eidx_in_dos(self, E):
+        return int(round(E - self.emin / self.dE_global))
 
 
 
@@ -1322,6 +1326,9 @@ class AMSET(object):
         while (relative_error > tolerance) and (iter<max_iter):
             iter += 1 # to avoid an infinite loop
             fermi += alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
+
+            for j, tp in enumerate(["n", "p"]):
+
 
             # calculate the overall concentration at the current fermi
             for j, tp in enumerate(["n", "p"]):
