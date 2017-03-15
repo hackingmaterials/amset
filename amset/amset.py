@@ -323,7 +323,8 @@ class AMSET(object):
             if dos_tp.lower()=="standard":
                 energy_counter = [ne/len(self.egrid[tp]["all_en_flat"]) for ne in energy_counter]
 
-                dum, self.egrid[tp]["DOS"] = get_dos(self.egrid[tp]["energy"], energy_counter)
+                #TODO: what is the best value to pick for width here?I guess the lower is more precisely at each energy?
+                dum, self.egrid[tp]["DOS"] = get_dos(self.egrid[tp]["energy"], energy_counter,width = 0.05)
 
 
         # initialize some fileds/properties
