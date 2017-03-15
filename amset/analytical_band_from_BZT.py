@@ -215,8 +215,6 @@ class Analytical_bands(object):
         for kpt,w in zip(ir_kpts,weights):
             for b in range(len(engre)):
                 e = self.get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
-                print e
-                print
                 g = height * np.exp(-((e_mesh - e) / width) ** 2 / 2.)
                 dos += w * g
         return e_mesh,dos
@@ -316,11 +314,11 @@ if __name__ == "__main__":
     
     print len(energies),len(energies[0]) #120,21
 
-    print energies
-    print weights
+    # print energies
+    # print weights
     emesh,dos2 = get_dos(energies,weights,-13,20,21)
-    print emesh
-    print dos2
+    # print emesh
+    # print dos2
     plot(emesh,dos2)
     show()
 
