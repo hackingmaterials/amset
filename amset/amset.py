@@ -119,6 +119,8 @@ class AMSET(object):
         self.bs_is_isotropic = bs_is_isotropic
         self.gs = 1e-32 # a global small value (generally used for an initial non-zero value)
         self.gl = 1e32 # a global large value
+        self.nkdos = 31
+        self.dos_bwidth = 0.1 # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
@@ -172,6 +174,12 @@ class AMSET(object):
             self.nelec = cbm_vbm["p"]["bidx"]*2
 
         bs = bs.as_dict()
+        if bs["is_spin_polarized"]:
+            self.emin = min(bs["bands"]["1"][0] + bs["bands"]["-1"][0])
+            self.emax = max(bs["bands"]["1"][-1] + bs["bands"]["-1"][-1])
+        else:
+            self.emin = min(bs["bands"]["1"][0])
+            self.emax = max(bs["bands"]["1"][-1])
 
         for i, tp in enumerate(["n", "p"]):
             sgn = (-1)**i
@@ -314,17 +322,21 @@ class AMSET(object):
                 energy_counter.append(counter)
                 if dos_tp.lower()=="simple":
                     self.egrid[tp]["DOS"].append(counter/len(self.egrid[tp]["all_en_flat"]))
+                elif dos_tp.lower() == "standard":
+                    self.egrid[tp]["DOS"].append(self.dos[int(round(sum_e/counter-self.emin/self.dE_global))][1])
                 i+=1
             if not last_is_counted:
                 self.egrid[tp]["energy"].append(self.egrid[tp]["all_en_flat"][-1])
-                if dos_tp == "simple":
-                    self.egrid[tp]["DOS"].append(1.0 / len(self.egrid[tp]["all_en_flat"]))
+                if dos_tp.lower() == "simple":
+                    self.egrid[tp]["DOS"].append(self.nelec / len(self.egrid[tp]["all_en_flat"]))
+                elif dos_tp.lower() == "standard":
+                    self.egrid[tp]["DOS"].append(
+                        self.dos[int(round(self.egrid[tp]["energy"][-1]-self.emin/self.dE_global))][1])
 
-            if dos_tp.lower()=="standard":
-                energy_counter = [ne/len(self.egrid[tp]["all_en_flat"]) for ne in energy_counter]
-
+            # if dos_tp.lower()=="standard":
+            #     energy_counter = [ne/len(self.egrid[tp]["all_en_flat"]) for ne in energy_counter]
                 #TODO: what is the best value to pick for width here?I guess the lower is more precisely at each energy?
-                dum, self.egrid[tp]["DOS"] = get_dos(self.egrid[tp]["energy"], energy_counter,width = 0.05)
+                # dum, self.egrid[tp]["DOS"] = get_dos(self.egrid[tp]["energy"], energy_counter,width = 0.05)
 
 
         # initialize some fileds/properties
@@ -457,7 +469,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 9 # 20170313_15
+            nkstep = 5 # 20170313_15
 
 
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
@@ -586,6 +598,18 @@ class AMSET(object):
         print("time to calculate the outvec2: {} seconds".format(time.time() - start_time))
 
 
+        # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
+        emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
+                        self.emin, self.emax, int(self.emax-self.emin)/self.dE_global, width=self.dos_bwidth)
+        integ = 0.0
+        for idos in range(len(dos)-2):
+            integ += (dos[idos+1]+ dos[idos])/2 * (emesh[idos+1] - emesh[idos])
+        # normalize DOS
+        dos = [g/integ * self.nelec for g in dos]
+        self.dos = zip(emesh, dos)
+
+
+        # initialize energy, velocity, etc in self.kgrid
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -1284,7 +1308,7 @@ class AMSET(object):
 
 
         # initialize parameters
-        relative_error = 1000
+        relative_error = self.gl
         iter = 0
         temp_doping = {"n": 0.0, "p": 0.0}
         typ = self.get_tp(c)
@@ -1295,7 +1319,6 @@ class AMSET(object):
                 *abs(self.integrate_over_DOSxE_dE(func=funcs[j], tp=typ, fermi=fermi, T=T))
 
 
-        # iterate around the CBM/VBM with finer and finer steps to find the Fermi level with a matching doping
         while (relative_error > tolerance) and (iter<max_iter):
             iter += 1 # to avoid an infinite loop
             fermi += alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
