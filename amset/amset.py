@@ -101,7 +101,7 @@ class AMSET(object):
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
-        self.dE_global = 0.01 # k_B*300 # in eV, the energy difference threshold below which two energy values are assumed equal
+        self.dE_global = 0.00447 # k_B*300 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -134,6 +134,7 @@ class AMSET(object):
         self.C_el = 128.84 #77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
         self.nforced_POP = 0
 
+        self.nkibz = 8  # 20170313_15
 
 
     def __getitem__(self, key):
@@ -473,8 +474,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 17 # 20170313_15
-
+            nkstep = self.nkibz
 
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
         # kx = list(np.linspace(-0.5, 0.5, nkstep))
@@ -667,11 +667,15 @@ class AMSET(object):
         if len(low_v_ik) > 0:
             self.omit_kpoints(low_v_ik)
 
+        # to save memory avoiding storage of variables that we don't need down the line
+        for tp in ["n", "p"]:
+            self.kgrid[tp].pop("effective mass", None)
+
         if len(self.kgrid["n"]["kpoints"][0]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
-        self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "effective mass", "a"], ascending=True)
+        self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "a"], ascending=True)
 
 
         for tp in ["n", "p"]:
@@ -756,14 +760,15 @@ class AMSET(object):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
                                                     E_radius=0.0, forced_min_npoints=2, tolerance=self.dE_global)
 
-        for tp in ["n", "p"]:
-            self.nforced_POP = 0
-            for ib in range(len(self.kgrid[tp]["energy"])):
-                for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                    self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
-                        E_radius= +hbar * self.kgrid[tp]["W_POP"][ib][ik], forced_min_npoints=2, tolerance=self.dE_global)
-                    self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
-                        E_radius= -hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2, tolerance=self.dE_global)
+        if "POP" in self.inelastic_scatterings:
+            for tp in ["n", "p"]:
+                self.nforced_POP = 0
+                for ib in range(len(self.kgrid[tp]["energy"])):
+                    for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                        self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
+                            E_radius= +hbar * self.kgrid[tp]["W_POP"][ib][ik], forced_min_npoints=2, tolerance=self.dE_global)
+                        self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
+                            E_radius= -hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2, tolerance=self.dE_global)
 
 
                 # if is_sparse(self.kgrid[tp]["X_E_ik"][ib]):
@@ -775,8 +780,10 @@ class AMSET(object):
                         #                  "you can try this k-point grid but without POP as an inelastic scattering")
 
             if self.nforced_POP/(len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
+                print self.nforced_POP
+                print (len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib]))
                 # TODO: this should be an exception but for now I turned to warning for testing.
-                    warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering in {} bands;"
+                warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering in {} bands;"
                           " you can try this k-point grid but without POP as an inelastic scattering.".format(
                         ["conduction", "valence"][["n", "p"].index(tp)]))
 
@@ -1409,8 +1416,15 @@ class AMSET(object):
 
 
 
-    def to_json(self, kgrid=True, trimmed=False):
+    def to_json(self, kgrid=True, trimmed=False, max_ndata = None):
+
+        if not max_ndata:
+            max_ndata = 100
+            # max_ndata = int(self.gl)
+
+        # self.egrid trimming
         if trimmed:
+            nmax = min([max_ndata+1, min([len(self.egrid["n"]["energy"]), len(self.egrid["p"]["energy"])]) ])
             remove_list = []
             for tp in ["n", "p"]:
                 for rm in remove_list:
@@ -1418,11 +1432,25 @@ class AMSET(object):
                         del (self.egrid[tp][rm])
                     except:
                         pass
+
+                for key in self.egrid[tp]:
+                    try:
+                        for c in self.dopings:
+                            for T in self.temperatures:
+                                self.egrid[tp][key][c][T] = self.egrid[tp][key][c][T][0:nmax]
+                    except:
+                        try:
+                            self.egrid[tp][key] = self.egrid[tp][key][0:nmax]
+                        except:
+                            pass
+
         with open("egrid.json", 'w') as fp:
             json.dump(self.egrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
 
+        # self.kgrid trimming
         if kgrid:
             if trimmed:
+                nmax = min([max_ndata+1, min([len(self.kgrid["n"]["kpoints"][0]), len(self.kgrid["p"]["kpoints"][0])])])
                 remove_list = ["W_POP", "effective mass", "actual kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
                 for tp in ["n", "p"]:
                     for rm in remove_list:
@@ -1430,6 +1458,21 @@ class AMSET(object):
                             del (self.kgrid[tp][rm])
                         except:
                             pass
+
+                    for key in self.kgrid[tp]:
+                        try:
+                            for c in self.dopings:
+                                for T in self.temperatures:
+                                    # self.kgrid[tp][key][c][T] = 1
+                                    self.kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][0:nmax] for b in range(self.cbm_vbm[tp]["included"])]
+                        except:
+                            try:
+                                self.kgrid[tp][key] = [self.kgrid[tp][key][b][0:nmax] for b in range(self.cbm_vbm[tp]["included"])]
+                            except:
+                                pass
+
+
+
             with open("kgrid.json", 'w') as fp:
                 json.dump(self.kgrid, fp,sort_keys = True, indent = 4, ensure_ascii=False, cls=MontyEncoder)
 
@@ -1658,4 +1701,4 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.to_json(trimmed=True)
+    AMSET.to_json(trimmed=True, max_ndata=10)
