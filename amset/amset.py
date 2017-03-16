@@ -473,7 +473,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 34 # 20170313_15
+            nkstep = 17 # 20170313_15
 
 
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
@@ -505,15 +505,28 @@ class AMSET(object):
         kpts.append(self.cbm_vbm["p"]["kpoint"])
 
         # remove further duplications due to copying a k-point twice because it is equivalent to two different k-points
+        # if len(kpts) < 2000: # this part scales with O(len(kpts)**2) and the small improvement in speed is not worth it
+        #     start_time = time.time()
+        #     rm_list = []
+        #     for i in range(len(kpts)-2):
+        #         for j in range(i+1, len(kpts)-1):
+        #     #         if np.array_equal(kpts[i], kpts[j]): # this takes 77/969 seconds for nksteps==15 and include_POP==False
+        #             if kpts[i][0]==kpts[j][0] and kpts[i][1]==kpts[j][1] and kpts[i][2]==kpts[j][2]:
+        #                 rm_list.append(j)
+        #     kpts = np.delete(kpts, rm_list, axis=0)
+        #     print "total time to remove duplicate k-points = {} seconds".format(time.time()-start_time)
+
+        # speedier k-poit duplication removal
+        #TODO: test to see if this removal is better at VERY large nkstep
         start_time = time.time()
         rm_list = []
+        kpts.sort(key=lambda x: x[0])
         for i in range(len(kpts)-2):
-            for j in range(i+1, len(kpts)-1):
-                # if np.array_equal(kpts[i], kpts[j]): # this takes 77/969 seconds for nksteps==15 and include_POP==False
-                if kpts[i][0]==kpts[j][0] and kpts[i][1]==kpts[j][1] and kpts[i][2]==kpts[j][2]:
-                    rm_list.append(j)
+            if kpts[i][0] == kpts[i+1][0] and kpts[i][1] == kpts[i+1][1] and kpts[i][2] == kpts[i+1][2]:
+                rm_list.append(i)
         kpts = np.delete(kpts, rm_list, axis=0)
-        print "total time to remove duplicate k-points = {} seconds".format(time.time()-start_time)
+        print "total time to remove duplicate k-points = {} seconds".format(time.time() - start_time)
+
 
         print len(kpts)
         # kweights = [float(i[1]) for i in kpts_and_weights]
@@ -593,13 +606,13 @@ class AMSET(object):
                 all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
 
         engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
-        start_time = time.time()
+        # start_time = time.time()
         nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
         out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
         for nw in xrange(nwave):
             for i in xrange(nstv[nw]):
                 out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
-        print("time to calculate the outvec2: {} seconds".format(time.time() - start_time))
+        # print("time to calculate the outvec2: {} seconds".format(time.time() - start_time))
 
 
         # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
