@@ -101,7 +101,7 @@ class AMSET(object):
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
-        self.dE_global = k_B*300 # in eV, the energy difference threshold below which two energy values are assumed equal
+        self.dE_global = 0.01 # k_B*300 # in eV, the energy difference threshold below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -192,7 +192,6 @@ class AMSET(object):
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
 
         self.cbm_vbm = cbm_vbm
-
 
 
     def get_tp(self, c):
@@ -363,7 +362,7 @@ class AMSET(object):
 
 
     def get_Eidx_in_dos(self, E):
-        return int(round(E - self.emin / self.dE_global))
+        return int(round((E - self.emin) / self.dE_global))
 
 
 
@@ -418,6 +417,7 @@ class AMSET(object):
                 for ik in ik_list:
                     if (-1)**i * self.kgrid[tp]["energy"][ib][ik] < temp_min[tp]:
                         self.cbm_vbm[tp]["eff_mass_xx"]=(-1)**i*self.kgrid[tp]["effective mass"][ib][ik].diagonal()
+                        self.cbm_vbm[tp]["energy"] = self.kgrid[tp]["energy"][ib][ik]
                     for prop in ["energy", "a", "c", "kpoints", "kweights"]:
                         self.kgrid[tp][prop][ib].pop(ik)
 
@@ -473,7 +473,7 @@ class AMSET(object):
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
-            nkstep = 5 # 20170313_15
+            nkstep = 34 # 20170313_15
 
 
         # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
@@ -668,8 +668,8 @@ class AMSET(object):
                 self.kgrid[tp]["W_POP"][ib] = [self.W_POP for i in range(len(self.kgrid[tp]["kpoints"][ib]))]
 
         # Match the CBM/VBM energy values to those obtained from the coefficients file rather than vasprun.xml
-        self.cbm_vbm["n"]["energy"] = self.kgrid["n"]["energy"][0][0]
-        self.cbm_vbm["p"]["energy"] = self.kgrid["n"]["energy"][0][-1]
+        # self.cbm_vbm["n"]["energy"] = self.kgrid["n"]["energy"][0][0]
+        # self.cbm_vbm["p"]["energy"] = self.kgrid["p"]["energy"][0][-1]
 
         self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
                 "f", "f_th", "relaxation time", "df0dk", "electric force", "thermal force"],
@@ -1247,7 +1247,7 @@ class AMSET(object):
                 # try:
                 #     self.egrid[tp][prop_name]
                 #     print prop_name
-                # except:
+                # except:f
                 #     # if prop_name in scalar_properties:
                 #     #     self.egrid[tp][prop_name] = np.array([1e-20 for i in range(len(self.egrid[tp]["energy"]))])
                 #     # else:
@@ -1319,21 +1319,41 @@ class AMSET(object):
         fermi = self.cbm_vbm[typ]["energy"]
         j = ["n", "p"].index(typ)
         funcs = [lambda E, fermi, T: f0(E,fermi,T), lambda E, fermi, T: 1-f0(E,fermi,T)]
-        calc_doping = (-1)**(j+1) *self.nelec/self.volume / (A_to_m*m_to_cm)**3 \
+        calc_doping = (-1)**(j+1) /self.volume / (A_to_m*m_to_cm)**3 \
                 *abs(self.integrate_over_DOSxE_dE(func=funcs[j], tp=typ, fermi=fermi, T=T))
 
+        # print "here"
+        # j = 0
+        # print (1 - j) * self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]) + 0
+        # print self.dos [(1 - j) * self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]) + 0]
+        # print (1-j)*len(self.dos)-2 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1
+        # print self.dos[(1-j)*len(self.dos)-2 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1]
+        # print
+        # j = 1
+        # print (1 - j) * self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]) + 0
+        # print self.dos [(1 - j) * self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]) + 0]
+        # print (1-j)*len(self.dos)-2 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1
+        # print self.dos[(1-j)*len(self.dos)-2 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1]
 
         while (relative_error > tolerance) and (iter<max_iter):
             iter += 1 # to avoid an infinite loop
             fermi += alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
 
-            for j, tp in enumerate(["n", "p"]):
 
+            for j, tp in enumerate(["n", "p"]):
+                integral = 0.0
+
+
+                for ie in range((1-j)*self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])+0,
+                                (1-j)*len(self.dos)-2 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1):
+                    integral += (self.dos[ie+1][1] + self.dos[ie][1])/2*funcs[j](self.dos[ie][0],fermi,T)*\
+                                (self.dos[ie+1][0] - self.dos[ie][0])
+                temp_doping[tp] = (-1) ** (j + 1) * abs(integral/(self.volume * (A_to_m*m_to_cm)**3) )
 
             # calculate the overall concentration at the current fermi
-            for j, tp in enumerate(["n", "p"]):
-                integral = self.integrate_over_DOSxE_dE(func=funcs[j], tp=tp, fermi=fermi, T=T)
-                temp_doping[tp] = (-1)**(j+1) * abs(integral*self.nelec/self.volume / (A_to_m*m_to_cm)**3)
+            # for j, tp in enumerate(["n", "p"]):
+            #     integral = self.integrate_over_DOSxE_dE(func=funcs[j], tp=tp, fermi=fermi, T=T)
+            #     temp_doping[tp] = (-1)**(j+1) * abs(integral/self.volume / (A_to_m*m_to_cm)**3)
             calc_doping = temp_doping["n"] + temp_doping["p"]
             if abs(calc_doping) < 1e-2:
                 calc_doping = np.sign(calc_doping)*0.01 # just so that calc_doping doesn't get stuck to zero!
@@ -1579,7 +1599,7 @@ class AMSET(object):
                             # df0dz_temp = f0(E, fermi, T) * (1 - f0(E, fermi, T)) * (
                                 # E / (k_B * T) - df0dz_integral) * 1 / T * dTdz
         self.map_to_egrid(prop_name="f0")
-        self.map_to_egrid(prop_name="df0dk") # This mapping is not correct as df0dk(E) is meaningless
+        self.map_to_egrid(prop_name="df0dk")
 
         # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
         # if "POP" in self.inelastic_scatterings:
