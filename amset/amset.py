@@ -101,7 +101,10 @@ class AMSET(object):
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
-        self.dE_global = 0.00447 # k_B*300 # in eV, the energy difference threshold below which two energy values are assumed equal
+
+        self.nkibz = 5  # 20170313_15
+
+        self.dE_global = 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -119,8 +122,8 @@ class AMSET(object):
         self.bs_is_isotropic = bs_is_isotropic
         self.gs = 1e-32 # a global small value (generally used for an initial non-zero value)
         self.gl = 1e32 # a global large value
-        self.nkdos = 31
         self.dos_bwidth = 0.1 # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
+        self.nkdos = 31
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
@@ -134,7 +137,6 @@ class AMSET(object):
         self.C_el = 128.84 #77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
         self.nforced_POP = 0
 
-        self.nkibz = 8  # 20170313_15
 
 
     def __getitem__(self, key):
@@ -332,6 +334,7 @@ class AMSET(object):
                 elif dos_tp.lower() == "standard":
                     self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(self.egrid[tp]["energy"][-1])][1])
 
+            self.egrid[tp]["size"] = len(self.egrid[tp]["energy"])
             # if dos_tp.lower()=="standard":
             #     energy_counter = [ne/len(self.egrid[tp]["all_en_flat"]) for ne in energy_counter]
                 #TODO: what is the best value to pick for width here?I guess the lower is more precisely at each energy?
@@ -578,6 +581,7 @@ class AMSET(object):
         for tp in ["n", "p"]:
             self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
             self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
+            self.kgrid[tp]["size"] = len(kpts)
 
         self.initialize_var("kgrid", ["energy", "a", "c", "W_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["velocity", "actual kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
@@ -1701,4 +1705,4 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.to_json(trimmed=True, max_ndata=10)
+    AMSET.to_json(trimmed=True, max_ndata=5)
