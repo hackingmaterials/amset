@@ -416,8 +416,10 @@ class AMSET(object):
 
 
 
-    def get_Eidx_in_dos(self, E):
-        return int(round((E - self.emin) / self.dE_global))
+    def get_Eidx_in_dos(self, E, Estep=None):
+        if not Estep:
+            Estep = self.dE_global
+        return int(round((E - self.emin) / Estep))
 
 
 
@@ -1330,6 +1332,8 @@ class AMSET(object):
                             self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
                         self.egrid[tp][prop_name][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
 
+                        if self.bs_is_isotropic and prop_type=="vector":
+                            self.egrid[tp][prop_name][ie]=np.array([sum(self.egrid[tp][prop_name][ie])/3.0 for i in range(3)])
 
 
                 else:
@@ -1371,6 +1375,9 @@ class AMSET(object):
                                     self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
                                 self.egrid[tp][prop_name][c][T][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
 
+                                if self.bs_is_isotropic and prop_type == "vector":
+                                    self.egrid[tp][prop_name][c][T][ie] = np.array(
+                                        [sum(self.egrid[tp][prop_name][c][T][ie])/3.0 for i in range(3)])
 
                 else:
                     for c in self.dopings:
@@ -1698,8 +1705,8 @@ class AMSET(object):
             # raise ValueError("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
 
         # initialize g in the egrid
-        self.map_to_egrid("g")
-        self.map_to_egrid(prop_name="velocity", c_and_T_idx=False)
+        self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
+        self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
 
         # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
         self.generate_angles_and_indexes_for_integration()
@@ -1737,13 +1744,14 @@ class AMSET(object):
                             # df0dz_temp = f0(E, fermi, T) * (1 - f0(E, fermi, T)) * (
                                 # E / (k_B * T) - df0dz_integral) * 1 / T * dTdz
         self.map_to_egrid(prop_name="f0")
-        self.map_to_egrid(prop_name="df0dk")
+        self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
 
         # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
         # if "POP" in self.inelastic_scatterings:
         self.solve_BTE_iteratively()
 
         self.calculate_transport_properties()
+
 
         kremove_list = ["W_POP","effective mass","actual kpoints","kweights","a","c","f",
                         "f_th","g_th","S_i_th","S_o_th"]
