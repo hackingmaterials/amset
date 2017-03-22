@@ -72,7 +72,11 @@ def df0dE(E, fermi, T):
 
 def GB(x, eta):
     """Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function goes to the dirac-delta of x."""
+
     return 1/np.pi*1/eta*np.exp(-(x/eta)**2)
+
+    ## although both expressions conserve the final transport properties, the one below doesn't conserve the scat. rates
+    # return np.exp(-(x/eta)**2)
 
 
 
@@ -108,9 +112,14 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
 
-        self.nkibz = 25
+        self.nkibz = 6
 
-        self.dE_global = 0.001 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
+        #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
+        # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
+        # and that changes the actual values
+        self.gaussian_broadening = False
+
+        self.dE_global = 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -316,6 +325,29 @@ class AMSET(object):
             ieidxs = np.argsort(self.egrid[tp]["all_en_flat"])
             self.egrid[tp]["all_en_flat"] = [self.egrid[tp]["all_en_flat"][ie] for ie in ieidxs]
             E_idx = [E_idx[ie] for ie in ieidxs]
+
+
+        # TODO: the following is wrong
+        # for tp in ["n", "p"]:
+        #     last_is_counted = False
+        #     for j in range(len(self.egrid[tp]["energy"]) - 1):
+        #         current_ib_ie_idx = [E_idx[j]]
+        #         i=j
+        #         while i<len(self.egrid[tp]["energy"])-1 and \
+        #                         abs(self.egrid[tp]["energy"][i] - self.egrid[tp]["energy"][i + 1]) < 0.2:
+        #             current_ib_ie_idx.append(E_idx[i + 1])
+        #             if i + 1 == len(self.egrid[tp]["energy"]) - 1:
+        #                 last_is_counted = True
+        #             i += 1
+        #         i=j
+        #         while i>0 and abs(self.egrid[tp]["energy"][i] - self.egrid[tp]["energy"][i - 1]) < 0.2:
+        #             current_ib_ie_idx.append(E_idx[i - 1])
+        #             i -= 1
+        #         self.kgrid_to_egrid_idx[tp][j] += current_ib_ie_idx
+        # print self.kgrid_to_egrid_idx["n"]
+        # print len(self.kgrid_to_egrid_idx["n"])
+
+
 
         # setting up energy grid and DOS:
         for tp in ["n", "p"]:
@@ -1291,79 +1323,81 @@ class AMSET(object):
         if not c_and_T_idx:
             self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=False)
             for tp in ["n", "p"]:
-                # try:
-                #     self.egrid[tp][prop_name]
-                #     print prop_name
-                # except:f
-                #     # if prop_name in scalar_properties:
-                #     #     self.egrid[tp][prop_name] = np.array([1e-20 for i in range(len(self.egrid[tp]["energy"]))])
-                #     # else:
-                #     self.egrid[tp][prop_name] = np.array([[1e-20, 1e-20, 1e-20] \
-                #             for i in range(len(self.egrid[tp]["energy"]))])
 
 
-                for ie, en in enumerate(self.egrid[tp]["energy"]):
-                    for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                        self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
-                    self.egrid[tp][prop_name][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
+                if not self.gaussian_broadening:
+                    for ie, en in enumerate(self.egrid[tp]["energy"]):
+                        for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
+                            self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
+                        self.egrid[tp][prop_name][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
 
 
-                #
-                #
-                # for ie, en in enumerate(self.egrid[tp]["energy"]):
-                #     N = 0.0  # total number of instances with the same energy
-                #     for ib in range(self.cbm_vbm[tp]["included"]):
-                #         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                #             if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
-                #
-                #                 # weight = self.kgrid[tp]["kweights"][ib][ik]
-                #                 # if prop_name in scalar_properties:
-                #                 #     self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik]) * weight
-                #                 # else:
-                #                 self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik] * 1
-                #                 # N += 1
-                #                 N += 1
-                #     self.egrid[tp][prop_name][ie] /= N
+
+                else:
+                    for ie, en in enumerate(self.egrid[tp]["energy"]):
+                        N = 0.0  # total number of instances with the same energy
+                        for ib in range(self.cbm_vbm[tp]["included"]):
+                            for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                                self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik] * \
+                                    GB(self.kgrid[tp]["energy"][ib][ik]-self.egrid[tp]["energy"][ie], 0.005)
+
+                                # if GB(self.kgrid[tp]["energy"][ib][ik]-self.egrid[tp]["energy"][ie], 0.005) > 0.8:
+                                #     N+=1
+                        self.egrid[tp][prop_name][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
+
+                            # if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
+                            #
+                            #     # weight = self.kgrid[tp]["kweights"][ib][ik]
+                            #     # if prop_name in scalar_properties:
+                            #     #     self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik]) * weight
+                            #     # else:
+                            #     self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik] * 1
+                            #     # N += 1
+                            #     N += 1
+                        # self.egrid[tp][prop_name][ie] /= N
 
 
-                    if self.bs_is_isotropic and prop_type=="vector":
-                        self.egrid[tp][prop_name][ie]=np.array([sum(self.egrid[tp][prop_name][ie])/3.0 for i in range(3)])
+                        if self.bs_is_isotropic and prop_type=="vector":
+                            self.egrid[tp][prop_name][ie]=np.array([sum(self.egrid[tp][prop_name][ie])/3.0 for i in range(3)])
         else:
             self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=True)
-
             for tp in ["n", "p"]:
-                try:
-                    self.egrid[tp][prop_name]
-                except:
-                    self.egrid[tp][prop_name] = {c: {T: np.array([[1e-20, 1e-20, 1e-20]
-                        for i in range(len(self.egrid[tp]["energy"]))]) for T in self.temperatures}
-                                                                                                for c in self.dopings}
 
-                for c in self.dopings:
-                    for T in self.temperatures:
-                        for ie, en in enumerate(self.egrid[tp]["energy"]):
-                            for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                                self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
-                            self.egrid[tp][prop_name][c][T][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
+                if not self.gaussian_broadening:
+
+                    for c in self.dopings:
+                        for T in self.temperatures:
+                            for ie, en in enumerate(self.egrid[tp]["energy"]):
+                                for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
+                                    self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
+                                self.egrid[tp][prop_name][c][T][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
 
 
-                # for c in self.dopings:
-                #     for T in self.temperatures:
-                #         for ie, en in enumerate(self.egrid[tp]["energy"]):
-                #             N = 0.0 # total number of instances with the same energy
-                #             for ib in range(self.cbm_vbm[tp]["included"]):
-                #                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                #                     if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
-                #                         # wgt = self.kgrid[tp]["kweights"][ib][ik]
-                #                         self.egrid[tp][prop_name][c][T][ie]+=self.kgrid[tp][prop_name][c][T][ib][ik]*1
-                #                         N += 1
-                #             self.egrid[tp][prop_name][c][T][ie] /= N
-                #
+                else:
+                    for c in self.dopings:
+                        for T in self.temperatures:
+                            for ie, en in enumerate(self.egrid[tp]["energy"]):
+                                N = 0.0 # total number of instances with the same energy
+                                for ib in range(self.cbm_vbm[tp]["included"]):
+                                    for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                                        self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik] * \
+                                               GB(self.kgrid[tp]["energy"][ib][ik] -
+                                                                            self.egrid[tp]["energy"][ie], 0.005)
+                                        # if GB(self.kgrid[tp]["energy"][ib][ik]-self.egrid[tp]["energy"][ie], 0.005) > 0.8:
+                                        #     N+=1
+                                self.egrid[tp][prop_name][c][T][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
+
+                    #                     if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
+                    #                         # wgt = self.kgrid[tp]["kweights"][ib][ik]
+                    #                         self.egrid[tp][prop_name][c][T][ie]+=self.kgrid[tp][prop_name][c][T][ib][ik]*1
+                    #                         N += 1
+                    #             self.egrid[tp][prop_name][c][T][ie] /= N
+                    #
 
 
-                            if self.bs_is_isotropic and prop_type == "vector":
-                                self.egrid[tp][prop_name][c][T][ie] = np.array(
-                                    [sum(self.egrid[tp][prop_name][c][T][ie])/3.0 for i in range(3)])
+                                if self.bs_is_isotropic and prop_type == "vector":
+                                    self.egrid[tp][prop_name][c][T][ie] = np.array(
+                                        [sum(self.egrid[tp][prop_name][c][T][ie])/3.0 for i in range(3)])
 
     def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha = 0.02, max_iter = 1000):
         """
