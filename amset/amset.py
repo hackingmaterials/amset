@@ -102,7 +102,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
 
-        self.nkibz = 12
+        self.nkibz = 22
 
         self.dE_global = 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
@@ -620,14 +620,16 @@ class AMSET(object):
                 sgn = (-1) ** i
                 all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
 
+        start_time = time.time()
+
         engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
-        # start_time = time.time()
         nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
         out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
         for nw in xrange(nwave):
             for i in xrange(nstv[nw]):
                 out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
-        # print("time to calculate the outvec2: {} seconds".format(time.time() - start_time))
+
+        print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
 
 
         # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
@@ -639,6 +641,8 @@ class AMSET(object):
         # normalize DOS
         dos = [g/integ * self.nelec for g in dos]
         self.dos = zip(emesh, dos)
+
+        start_time = time.time()
 
 
         # initialize energy, velocity, etc in self.kgrid
@@ -688,6 +692,8 @@ class AMSET(object):
 
         if len(self.kgrid["n"]["kpoints"][0]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
+
+        print("total time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
         self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "a"], ascending=True)
