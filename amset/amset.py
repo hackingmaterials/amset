@@ -112,14 +112,14 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
 
-        self.nkibz = 6
+        self.nkibz = 18
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
         # and that changes the actual values
         self.gaussian_broadening = False
 
-        self.dE_global = 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
+        self.dE_global = 0.001 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -358,8 +358,10 @@ class AMSET(object):
                 sum_e = self.egrid[tp]["all_en_flat"][i]
                 counter = 1.0
                 current_ib_ie_idx = [E_idx[i]]
-                while i<len(self.egrid[tp]["all_en_flat"])-1 and \
-                        abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][i+1]) < self.dE_global:
+                # while i<len(self.egrid[tp]["all_en_flat"])-1 and \
+                #         abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][i+1]) < self.dE_global:
+                while i < len(self.egrid[tp]["all_en_flat"]) - 1 and \
+                         self.egrid[tp]["all_en_flat"][i] == self.egrid[tp]["all_en_flat"][i + 1] :
                     counter += 1
                     current_ib_ie_idx.append(E_idx[i+1])
                     sum_e += self.egrid[tp]["all_en_flat"][i+1]
@@ -884,7 +886,8 @@ class AMSET(object):
                 ik_prm = ik
             else:
                 ik_prm = max(0, ik-100) # different bands, we start comparing energies ahead as energies aren't equal
-            while (ik_prm<nk-1) and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm+1]-(E+E_radius)) < tolerance:
+            # while (ik_prm<nk-1) and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm+1]-(E+E_radius)) < tolerance:
+            while (ik_prm < nk - 1) and self.kgrid[tp]["energy"][ib_prm][ik_prm + 1] == (E + E_radius):
                 # if E_radius > 0.0:
                 #     print "AFTER", ib, ik, E_radius
                 # k_prm = self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm+1]
@@ -902,7 +905,8 @@ class AMSET(object):
                 ik_prm = ik
             else:
                 ik_prm = min(nk-1, ik+100)
-            while (ik_prm>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prm][ik_prm-1]) < tolerance:
+            # while (ik_prm>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prm][ik_prm-1]) < tolerance:
+            while (ik_prm > 0) and E + E_radius == self.kgrid[tp]["energy"][ib_prm][ik_prm - 1]:
                 # if E_radius > 0.0:
                 #     print "BEFORE", ib, ik, E_radius
                 # X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm - 1])
