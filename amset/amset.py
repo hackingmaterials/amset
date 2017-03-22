@@ -358,10 +358,10 @@ class AMSET(object):
                 sum_e = self.egrid[tp]["all_en_flat"][i]
                 counter = 1.0
                 current_ib_ie_idx = [E_idx[i]]
-                # while i<len(self.egrid[tp]["all_en_flat"])-1 and \
-                #         abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][i+1]) < self.dE_global:
-                while i < len(self.egrid[tp]["all_en_flat"]) - 1 and \
-                         self.egrid[tp]["all_en_flat"][i] == self.egrid[tp]["all_en_flat"][i + 1] :
+                while i<len(self.egrid[tp]["all_en_flat"])-1 and \
+                        abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][i+1]) < self.dE_global:
+                # while i < len(self.egrid[tp]["all_en_flat"]) - 1 and \
+                #          self.egrid[tp]["all_en_flat"][i] == self.egrid[tp]["all_en_flat"][i + 1] :
                     counter += 1
                     current_ib_ie_idx.append(E_idx[i+1])
                     sum_e += self.egrid[tp]["all_en_flat"][i+1]
@@ -888,8 +888,8 @@ class AMSET(object):
                 ik_prm = ik
             else:
                 ik_prm = max(0, ik-100) # different bands, we start comparing energies ahead as energies aren't equal
-            # while (ik_prm<nk-1) and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm+1]-(E+E_radius)) < tolerance:
-            while (ik_prm < nk - 1) and self.kgrid[tp]["energy"][ib_prm][ik_prm + 1] == (E + E_radius):
+            while (ik_prm<nk-1) and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm+1]-(E+E_radius)) < tolerance:
+            # while (ik_prm < nk - 1) and self.kgrid[tp]["energy"][ib_prm][ik_prm + 1] == (E + E_radius):
                 # if E_radius > 0.0:
                 #     print "AFTER", ib, ik, E_radius
                 # k_prm = self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm+1]
@@ -907,8 +907,8 @@ class AMSET(object):
                 ik_prm = ik
             else:
                 ik_prm = min(nk-1, ik+100)
-            # while (ik_prm>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prm][ik_prm-1]) < tolerance:
-            while (ik_prm > 0) and E + E_radius == self.kgrid[tp]["energy"][ib_prm][ik_prm - 1]:
+            while (ik_prm>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prm][ik_prm-1]) < tolerance:
+            # while (ik_prm > 0) and E + E_radius == self.kgrid[tp]["energy"][ib_prm][ik_prm - 1]:
                 # if E_radius > 0.0:
                 #     print "BEFORE", ib, ik, E_radius
                 # X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm - 1])
