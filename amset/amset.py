@@ -70,6 +70,12 @@ def df0dE(E, fermi, T):
 
 
 
+def GB(x, eta):
+    """Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function goes to the dirac-delta of x."""
+    return 1/np.pi*1/eta*np.exp(-(x/eta)**2)
+
+
+
 class AMSET(object):
     """ This class is used to run AMSET on a pymatgen Vasprun object. AMSET is an ab initio model for calculating
     the mobility and Seebeck coefficient using Boltzmann transport equation. The band structure is extracted from
@@ -102,9 +108,9 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
 
-        self.nkibz = 22
+        self.nkibz = 25
 
-        self.dE_global = 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
+        self.dE_global = 0.001 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -693,7 +699,7 @@ class AMSET(object):
         if len(self.kgrid["n"]["kpoints"][0]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
 
-        print("total time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
+        print("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
         self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "a"], ascending=True)
@@ -1461,8 +1467,9 @@ class AMSET(object):
     def to_json(self, kgrid=True, trimmed=False, max_ndata = None):
 
         if not max_ndata:
-            max_ndata = 100
-            # max_ndata = int(self.gl)
+            max_ndata = int(self.gl)
+            if not trimmed:
+                trimmed = True
 
         # self.egrid trimming
         if trimmed:
@@ -1743,4 +1750,4 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.to_json(trimmed=True, max_ndata=15)
+    AMSET.to_json(max_ndata=15)
