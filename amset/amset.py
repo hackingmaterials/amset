@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
 
-        self.nkibz = 18
+        self.nkibz = 8
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -721,8 +721,33 @@ class AMSET(object):
                     self.kgrid[tp]["a"][ib][ik] = 1.0
 
         #TODO: add kpoints and make smarter kgrid where energy values below CBM+dE and above VBM-dE (if necessary) are added in a way that Ediff is smaller so POP scattering is done more accurately and convergance obtained more easily and with much less k-points
+        kpoints_added = {"n": [], "p": []}
+        adaptive_E = 0.3
+        for tp in ["n", "p"]:
+            #TODO: if this worked, change it so that if self.dopings does not involve either of the types, don't add k-points for it
+            ies_sorted = np.argsort(self.kgrid[tp]["energy"][0])
+            # print ies_sorted
+            # print len(ies_sorted)
+            # print len(self.kgrid[tp]["energy"][0])
+            for ie in ies_sorted:
+                if abs(self.kgrid[tp]["energy"][0][ie]-self.kgrid[tp]["energy"][0][ies_sorted[0]]) < adaptive_E:
+                    kpoints_added[tp].append(ie)
+                else:
+                    break
+            kpoints_added[tp] = np.array([self.kgrid[tp]["kpoints"][0][ik] for ik in kpoints_added[tp]])
 
-
+        offset = 0.05
+        print "here"
+        print len(kpoints_added["n"])
+        print kpoints_added["n"]
+        for tp in ["n", "p"]:
+            temp = kpoints_added[tp]
+            kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
+            kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , offset, 0.0])), axis=0 )
+            kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([offset , 0.0, 0.0])), axis=0 )
+        print "here 1"
+        print len(kpoints_added["n"])
+        print kpoints_added["n"]
 
         if len(low_v_ik) > 0:
             self.omit_kpoints(low_v_ik)
