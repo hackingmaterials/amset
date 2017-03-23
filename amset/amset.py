@@ -720,6 +720,10 @@ class AMSET(object):
                         dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                     self.kgrid[tp]["a"][ib][ik] = 1.0
 
+        #TODO: add kpoints and make smarter kgrid where energy values below CBM+dE and above VBM-dE (if necessary) are added in a way that Ediff is smaller so POP scattering is done more accurately and convergance obtained more easily and with much less k-points
+
+
+
         if len(low_v_ik) > 0:
             self.omit_kpoints(low_v_ik)
 
