@@ -418,7 +418,7 @@ class AMSET(object):
 
     def get_Eidx_in_dos(self, E, Estep=None):
         if not Estep:
-            Estep = self.dE_global
+            Estep = max(self.dE_global, 0.0001)
         return int(round((E - self.emin) / Estep))
 
 
@@ -671,7 +671,7 @@ class AMSET(object):
 
         # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
         emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
-                        self.emin, self.emax, int(self.emax-self.emin)/self.dE_global, width=self.dos_bwidth)
+                    self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), width=self.dos_bwidth)
         integ = 0.0
         for idos in range(len(dos)-2):
             integ += (dos[idos+1]+ dos[idos])/2 * (emesh[idos+1] - emesh[idos])
