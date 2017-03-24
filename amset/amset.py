@@ -1758,8 +1758,6 @@ class AMSET(object):
 
         if not max_ndata:
             max_ndata = int(self.gl)
-            if not trimmed:
-                trimmed = True
 
         # self.egrid trimming
         if trimmed:
@@ -1781,9 +1779,10 @@ class AMSET(object):
                                 self.egrid[tp][key][c][T] = temp[0:nmax]
                     except:
                         try:
-                            self.egrid[tp][key] = self.egrid[tp][key][0:nmax]
+                            temp = self.egrid[tp][key]
+                            self.egrid[tp][key] = temp[0:nmax]
                         except:
-                            print "cutting data to {} numbers in egrid was NOT successful!".format(nmax)
+                            print "cutting data for {} numbers in egrid was NOT successful!".format(key)
                             pass
 
         with open("egrid.json", 'w') as fp:
@@ -1812,7 +1811,7 @@ class AMSET(object):
                                 temp = self.kgrid[tp][key]
                                 self.kgrid[tp][key] = [temp[b][0:nmax] for b in range(self.cbm_vbm[tp]["included"])]
                             except:
-                                print "cutting data to {} numbers in kgrid was NOT successful!".format(nmax)
+                                print "cutting data for {} numbers in kgrid was NOT successful!".format(key)
                                 pass
 
 
@@ -2046,4 +2045,4 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.to_json(max_ndata=5)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=5)
