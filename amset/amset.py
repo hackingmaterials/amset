@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
 
-        self.nkibz = 8
+        self.nkibz = 5
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -344,8 +344,7 @@ class AMSET(object):
         #             current_ib_ie_idx.append(E_idx[i - 1])
         #             i -= 1
         #         self.kgrid_to_egrid_idx[tp][j] += current_ib_ie_idx
-        # print self.kgrid_to_egrid_idx["n"]
-        # print len(self.kgrid_to_egrid_idx["n"])
+
 
 
 
@@ -391,6 +390,9 @@ class AMSET(object):
                 #TODO: what is the best value to pick for width here?I guess the lower is more precisely at each energy?
                 # dum, self.egrid[tp]["DOS"] = get_dos(self.egrid[tp]["energy"], energy_counter,width = 0.05)
 
+        print "here self.kgrid_to_egrid_idx"
+        # print self.kgrid_to_egrid_idx["n"]
+        print len(self.kgrid_to_egrid_idx["n"])
 
         # initialize some fileds/properties
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
@@ -405,6 +407,7 @@ class AMSET(object):
         # self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
         # self.calculate_property(prop_name="f", prop_func=f0, for_all_E=True)
         # self.calculate_property(prop_name="f_th", prop_func=f0, for_all_E=True)
+
         for prop in ["f", "f_th"]:
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
         self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi, T: f0(E, fermi, T)
@@ -475,10 +478,11 @@ class AMSET(object):
                     if (-1)**i * self.kgrid[tp]["energy"][ib][ik] < temp_min[tp]:
                         self.cbm_vbm[tp]["eff_mass_xx"]=(-1)**i*self.kgrid[tp]["effective mass"][ib][ik].diagonal()
                         self.cbm_vbm[tp]["energy"] = self.kgrid[tp]["energy"][ib][ik]
-                    for prop in ["energy", "a", "c", "kpoints", "kweights"]:
-                        self.kgrid[tp][prop][ib].pop(ik)
+                    # for prop in ["energy", "a", "c", "kpoints", "kweights"]:
+                    #     print prop
+                    #     self.kgrid[tp][prop][ib].pop(ik)
 
-                for prop in ["velocity", "effective mass"]:
+                for prop in ["velocity", "effective mass","energy", "a", "c", "kpoints", "kweights"]:
                     self.kgrid[tp][prop] = np.delete(self.kgrid[tp][prop], ik_list, axis=1)
 
 
@@ -543,6 +547,13 @@ class AMSET(object):
 
 
 
+    def get_intermediat_kpoints(self, k1, k2, nsteps):
+        """return a list nsteps number of k-points between k1 & k2 excluding k1 & k2 themselves. k1 & k2 are nparray"""
+        dkii = (k2 - k1) / float(nsteps + 1)
+        return [k1 + i * dkii for i in range(1, nsteps + 1)]
+
+
+
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
             nkstep = self.nkibz
@@ -577,8 +588,6 @@ class AMSET(object):
 
 
         kpts = self.remove_duplicate_kpoints(kpts)
-
-
         print len(kpts)
         # kweights = [float(i[1]) for i in kpts_and_weights]
         # kweights.append(0.0)
@@ -629,10 +638,9 @@ class AMSET(object):
         for tp in ["n", "p"]:
             self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
             self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
-            self.kgrid[tp]["size"] = len(kpts)
 
-        self.initialize_var("kgrid", ["energy", "a", "c", "W_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
-        self.initialize_var("kgrid", ["velocity", "actual kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["energy", "a", "c"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=False, c_T_idx=False)
         # for tp in ["n", "p"]:
         #     for prop in ["velocity"]:
@@ -722,7 +730,7 @@ class AMSET(object):
 
         #TODO: add kpoints and make smarter kgrid where energy values below CBM+dE and above VBM-dE (if necessary) are added in a way that Ediff is smaller so POP scattering is done more accurately and convergance obtained more easily and with much less k-points
         kpoints_added = {"n": [], "p": []}
-        adaptive_E = 0.3
+        adaptive_E = 0.5
         for tp in ["n", "p"]:
             #TODO: if this worked, change it so that if self.dopings does not involve either of the types, don't add k-points for it
             ies_sorted = np.argsort(self.kgrid[tp]["energy"][0])
@@ -737,24 +745,76 @@ class AMSET(object):
             kpoints_added[tp] = np.array([self.kgrid[tp]["kpoints"][0][ik] for ik in kpoints_added[tp]])
 
         offset = 0.05
-        print "here"
+        nsteps = 10
+        print "here initial k-points with low energy distance"
         print len(kpoints_added["n"])
-        print kpoints_added["n"]
+        # print kpoints_added["n"]
         for tp in ["n", "p"]:
-            temp = kpoints_added[tp]
-            kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
-            kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , offset, 0.0])), axis=0 )
-            kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([offset , 0.0, 0.0])), axis=0 )
-        print "here 1"
-        print len(kpoints_added["n"])
-        print kpoints_added["n"]
+            final_kpts_added = []
+            for ik in range(len(kpoints_added[tp])-2):
+                final_kpts_added += self.get_intermediat_kpoints(kpoints_added[tp][ik], kpoints_added[tp][ik+1], nsteps)
+
+            # temp = kpoints_added[tp]
+            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
+            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , offset, 0.0])), axis=0 )
+            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([offset , 0.0, 0.0])), axis=0 )
+        # print "here 1"
+        # print len(kpoints_added["n"])
+        # print kpoints_added["n"]
+
+
+        print "here length of added k-points"
+        print len(final_kpts_added)
+        final_kpts_added = self.remove_duplicate_kpoints(final_kpts_added)
+        print len(final_kpts_added)
+
+
+        # for i, tp in enumerate(["p", "n"]):
+        #     sgn = (-1) ** i
+        #     added_energy = []
+        #     added_velocity = [[] for j in range(self.cbm_vbm[tp]["included"])]
+        #     added_mass = [[] for j in range(self.cbm_vbm[tp]["included"]) ]
+        #     added_a = []
+        #     for ib in range(self.cbm_vbm[tp]["included"]):
+        #         for ik in range(len(final_kpts_added)):
+        #             # self.kgrid[tp]["kpoints"][ib].append(final_kpts_added[ik])
+        #             energy, de, dde = analytical_bands.get_energy(
+        #                 final_kpts_added[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
+        #                     nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+        #
+        #             added_energy.append(energy * Ry_to_eV + sgn * self.scissor/2)
+        #             added_velocity[ib].append(abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV))  # to get v in units of cm/s
+        #             if added_velocity[ib][-1][0] < 1 or added_velocity[ib][-1][1] < 1 or added_velocity[ib][-1][2] < 1:
+        #                 low_v_ik.append(len(self.kgrid[tp]["kpoints"][ib]) + ik)
+        #             added_mass[ib].append(hbar ** 2 / (dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV)  # m_tensor: the last part is unit conversion
+        #             added_a.append(1.0)
+        #
+        #         self.kgrid[tp]["kpoints"][ib] = np.concatenate((self.kgrid[tp]["kpoints"][ib], final_kpts_added))
+        #         self.kgrid[tp]["energy"][ib] = np.concatenate((self.kgrid[tp]["energy"][ib], added_energy))
+        #         # print self.kgrid[tp]["velocity"][ib]
+        #         # print added_velocity
+        #         self.kgrid[tp]["a"][ib] = np.concatenate((self.kgrid[tp]["a"][ib], added_a))
+        #         self.kgrid[tp]["c"][ib] += np.array([0.0 for i in range(len(final_kpts_added))])
+        #         self.kgrid[tp]["kweights"][ib] += [0.0 for i in range(len(final_kpts_added))]
+        #
+        #     temp = self.kgrid[tp]["velocity"]
+        #     self.kgrid[tp]["velocity"] = [ [v for v in np.concatenate((temp[ib], added_velocity[ib]),axis=0)] for ib in range(self.cbm_vbm[tp]["included"])]
+        #     temp = self.kgrid[tp]["effective mass"]
+        #     self.kgrid[tp]["effective mass"] = [ m for m in np.concatenate((temp[ib], added_mass[ib])) for ib in range(self.cbm_vbm[tp]["included"]) ]
+
 
         if len(low_v_ik) > 0:
             self.omit_kpoints(low_v_ik)
 
+        print "here the final number of k-points"
+        print len(self.kgrid["n"]["kpoints"][0])
+
+
+
         # to save memory avoiding storage of variables that we don't need down the line
         for tp in ["n", "p"]:
             self.kgrid[tp].pop("effective mass", None)
+            self.kgrid[tp]["size"] = len(self.kgrid[tp]["kpoints"])
 
         if len(self.kgrid["n"]["kpoints"][0]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
@@ -762,8 +822,11 @@ class AMSET(object):
         print("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
-        self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "a"], ascending=True)
+        self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "a", "c"], ascending=True)
 
+
+        self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["actual kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
 
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -1393,6 +1456,7 @@ class AMSET(object):
                             self.egrid[tp][prop_name][ie]=np.array([sum(self.egrid[tp][prop_name][ie])/3.0 for i in range(3)])
         else:
             self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=True)
+
             for tp in ["n", "p"]:
 
                 if not self.gaussian_broadening:
@@ -1400,6 +1464,7 @@ class AMSET(object):
                     for c in self.dopings:
                         for T in self.temperatures:
                             for ie, en in enumerate(self.egrid[tp]["energy"]):
+                                # print self.kgrid_to_egrid_idx[tp][ie]
                                 for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                                     self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
                                 self.egrid[tp][prop_name][c][T][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
