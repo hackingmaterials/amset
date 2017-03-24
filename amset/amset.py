@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None):
 
-        self.nkibz = 5
+        self.nkibz = 4
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -462,6 +462,7 @@ class AMSET(object):
         :return:
         """
 
+        print "kpoints indexes with low velocity"
         print low_v_ik
 
         ik_list = list(set(low_v_ik))
@@ -533,24 +534,38 @@ class AMSET(object):
 
     @staticmethod
     def remove_duplicate_kpoints(kpts):
-        """kpts (list of list): list of coordinates of electrons """
+        """kpts (list of list): list of coordinates of electrons
+         ALWAYS return either a list or ndarray: BE CONSISTENT with the input!!!"""
         start_time = time.time()
         rm_list = []
         kpts.sort(key=lambda x: x[0])
+        # kpts = np.sort(kpts, axis=0)
         for i in range(len(kpts)-2):
             if kpts[i][0] == kpts[i+1][0] and kpts[i][1] == kpts[i+1][1] and kpts[i][2] == kpts[i+1][2]:
                 rm_list.append(i)
         kpts = np.delete(kpts, rm_list, axis=0)
+        kpts = list(kpts)
         print "total time to remove duplicate k-points = {} seconds".format(time.time() - start_time)
 
         return kpts
 
 
 
-    def get_intermediat_kpoints(self, k1, k2, nsteps):
+    def get_intermediate_kpoints(self, k1, k2, nsteps):
         """return a list nsteps number of k-points between k1 & k2 excluding k1 & k2 themselves. k1 & k2 are nparray"""
         dkii = (k2 - k1) / float(nsteps + 1)
         return [k1 + i * dkii for i in range(1, nsteps + 1)]
+
+
+
+
+    def get_intermediate_kpoints_list(self, k1, k2, nsteps):
+        """return a list nsteps number of k-points between k1 & k2 excluding k1 & k2 themselves. k1 & k2 are lists"""
+        # dkii = (k2 - k1) / float(nsteps + 1)
+        dk = [(k2[i] - k1[i]) / float(nsteps + 1) for i in range(len(k1))]
+        # return [k1 + i * dkii for i in range(1, nsteps + 1)]
+        return [[k1[i] + n*dk[i] for i in  range(len(k1))] for n in range(1, nsteps+1)]
+
 
 
 
@@ -570,28 +585,154 @@ class AMSET(object):
 
         kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
         print len(kpts_and_weights)
-        kpts = []
-        for i in kpts_and_weights:
-            k = i[0]
-            kpts.append(k)
-            fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
-            kpts += fractional_ks
-            # for k_seq in fractional_ks:
-            #     if abs(k_seq[0]-k[0])<0.01 and (k_seq[1]-k[1])<0.01 and (k_seq[2]-k[2])<0.01:
-            #         continue
-            #     else:
-            #         kpts.append(k_seq)
+        kpts = [i[0] for i in kpts_and_weights]
+
+
 
         # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
         kpts.append(self.cbm_vbm["n"]["kpoint"])
         kpts.append(self.cbm_vbm["p"]["kpoint"])
 
-
+        print type(kpts)
         kpts = self.remove_duplicate_kpoints(kpts)
+        print type(kpts)
+        print "number of original k-points"
         print len(kpts)
+        print kpts
         # kweights = [float(i[1]) for i in kpts_and_weights]
         # kweights.append(0.0)
         # kweights.append(0.0)
+
+
+
+
+        analytical_bands = Analytical_bands(coeff_file=coeff_file)
+        # once_called = False
+        # bands_data = {tp: [() for ib in range(self.cbm_vbm[tp]["included"])] for tp in ["n", "p"]}
+        all_ibands = []
+        for i, tp in enumerate(["p", "n"]):
+            for ib in range(self.cbm_vbm[tp]["included"]):
+                sgn = (-1) ** i
+                all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
+
+        start_time = time.time()
+
+        engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
+        nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
+        out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+        for nw in xrange(nwave):
+            for i in xrange(nstv[nw]):
+                out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+
+        print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
+
+
+        # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
+        emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
+                    self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), width=self.dos_bwidth)
+        integ = 0.0
+        for idos in range(len(dos)-2):
+            integ += (dos[idos+1]+ dos[idos])/2 * (emesh[idos+1] - emesh[idos])
+        # normalize DOS
+        dos = [g/integ * self.nelec for g in dos]
+        self.dos = zip(emesh, dos)
+
+
+        energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
+        for i, tp in enumerate(["p", "n"]):
+            sgn = (-1) ** i
+            # for ib in range(self.cbm_vbm[tp]["included"]):
+            for ib in range(1):
+                # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
+                #     analytical_bands.get_engre(iband=[self.cbm_vbm[tp]["bidx"] + sgn * ib])
+                # bands_data[tp][ib] = (engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
+
+                # if not once_called:
+                #     start_time = time.time()
+                #     nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave,br_dir=br_dir)
+                #     out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+                #     for nw in xrange(nwave):
+                #         for i in xrange(nstv[nw]):
+                #             out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+                #     print("time to calculate the outvec2: {} seconds".format(time.time() - start_time))
+                #
+                #     once_called = True
+
+                for ik in range(len(kpts)):
+                    energy, de, dde = analytical_bands.get_energy(
+                        kpts[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
+                            nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+
+                    energies[tp][ik] = energy * Ry_to_eV + sgn * self.scissor/2
+
+
+        kpoints_added = {"n": [], "p": []}
+        adaptive_E = 0.5
+        for tp in ["n", "p"]:
+            #TODO: if this worked, change it so that if self.dopings does not involve either of the types, don't add k-points for it
+            ies_sorted = np.argsort(energies[tp])
+            # print ies_sorted
+            # print len(ies_sorted)
+            # print len(self.kgrid[tp]["energy"][0])
+            for ie in ies_sorted:
+                if abs(energies[tp][ie]-energies[tp][ies_sorted[0]]) < adaptive_E:
+                    kpoints_added[tp].append(kpts[ie])
+                else:
+                    break
+            # kpoints_added[tp] = np.array([self.kgrid[tp]["kpoints"][0][ik] for ik in kpoints_added[tp]])
+
+        offset = 0.05
+        nsteps = 3
+        print "here initial k-points with low energy distance"
+        print len(kpoints_added["n"])
+        # print kpoints_added["n"]
+        final_kpts_added = []
+        for tp in ["n", "p"]:
+            # final_kpts_added = []
+            #TODO: in future only add the relevant k-poits for "kpoints" for each type separately
+            print kpoints_added[tp]
+            for ik in range(len(kpoints_added[tp])-1):
+                final_kpts_added += self.get_intermediate_kpoints_list(list(kpoints_added[tp][ik]), list(kpoints_added[tp][ik+1]), nsteps)
+
+            # temp = kpoints_added[tp]
+            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
+            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , offset, 0.0])), axis=0 )
+            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([offset , 0.0, 0.0])), axis=0 )
+        # print "here 1"
+        # print len(kpoints_added["n"])
+        # print kpoints_added["n"]
+
+
+        print "here length of added k-points"
+        print len(final_kpts_added)
+        # print final_kpts_added
+
+        print type(kpts)
+        # kpts.tolist()
+        kpts += final_kpts_added
+        # if len(final_kpts_added) > 0:
+        #     kpts = np.concatenate((kpts, final_kpts_added), axis=0)
+
+
+        kpts = self.remove_duplicate_kpoints(kpts)
+        print type(kpts)
+        # final_kpts_added = self.remove_duplicate_kpoints(final_kpts_added)
+
+        print "debug0"
+        # print kpts
+        symmetrically_equivalent_ks = []
+        for k in kpts:
+            fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
+            symmetrically_equivalent_ks += fractional_ks
+            # symmetrically_equivalent_ks = np.concatenate((symmetrically_equivalent_ks, fractional_ks), axis=0)
+        kpts += symmetrically_equivalent_ks
+        # kpts = np.concatenate((kpts, symmetrically_equivalent_ks))
+
+        print "length of final kpts"
+        print len(kpts)
+        # print kpts
+
+
 
         kweights = [1.0 for i in kpts]
         # kweights = np.array(kweights)
@@ -654,42 +795,42 @@ class AMSET(object):
             #           range(self.cbm_vbm[tp]["included"])])
 
 
+        # low_v_ik = []
+        # low_v_ik.sort()
+        # analytical_bands = Analytical_bands(coeff_file=coeff_file)
+        # # once_called = False
+        # # bands_data = {tp: [() for ib in range(self.cbm_vbm[tp]["included"])] for tp in ["n", "p"]}
+        # all_ibands = []
+        # for i, tp in enumerate(["p", "n"]):
+        #     for ib in range(self.cbm_vbm[tp]["included"]):
+        #         sgn = (-1) ** i
+        #         all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
+        #
+        # start_time = time.time()
+        #
+        # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
+        # nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
+        # out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+        # for nw in xrange(nwave):
+        #     for i in xrange(nstv[nw]):
+        #         out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+        #
+        # print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
+        #
+        #
+        # # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
+        # emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
+        #             self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), width=self.dos_bwidth)
+        # integ = 0.0
+        # for idos in range(len(dos)-2):
+        #     integ += (dos[idos+1]+ dos[idos])/2 * (emesh[idos+1] - emesh[idos])
+        # # normalize DOS
+        # dos = [g/integ * self.nelec for g in dos]
+        # self.dos = zip(emesh, dos)
+
+        start_time = time.time()
+
         low_v_ik = []
-        low_v_ik.sort()
-        analytical_bands = Analytical_bands(coeff_file=coeff_file)
-        # once_called = False
-        # bands_data = {tp: [() for ib in range(self.cbm_vbm[tp]["included"])] for tp in ["n", "p"]}
-        all_ibands = []
-        for i, tp in enumerate(["p", "n"]):
-            for ib in range(self.cbm_vbm[tp]["included"]):
-                sgn = (-1) ** i
-                all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
-
-        start_time = time.time()
-
-        engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
-        nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
-        out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
-        for nw in xrange(nwave):
-            for i in xrange(nstv[nw]):
-                out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
-
-        print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
-
-
-        # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
-        emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
-                    self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), width=self.dos_bwidth)
-        integ = 0.0
-        for idos in range(len(dos)-2):
-            integ += (dos[idos+1]+ dos[idos])/2 * (emesh[idos+1] - emesh[idos])
-        # normalize DOS
-        dos = [g/integ * self.nelec for g in dos]
-        self.dos = zip(emesh, dos)
-
-        start_time = time.time()
-
-
         # initialize energy, velocity, etc in self.kgrid
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
@@ -729,44 +870,44 @@ class AMSET(object):
                     self.kgrid[tp]["a"][ib][ik] = 1.0
 
         #TODO: add kpoints and make smarter kgrid where energy values below CBM+dE and above VBM-dE (if necessary) are added in a way that Ediff is smaller so POP scattering is done more accurately and convergance obtained more easily and with much less k-points
-        kpoints_added = {"n": [], "p": []}
-        adaptive_E = 0.5
-        for tp in ["n", "p"]:
-            #TODO: if this worked, change it so that if self.dopings does not involve either of the types, don't add k-points for it
-            ies_sorted = np.argsort(self.kgrid[tp]["energy"][0])
-            # print ies_sorted
-            # print len(ies_sorted)
-            # print len(self.kgrid[tp]["energy"][0])
-            for ie in ies_sorted:
-                if abs(self.kgrid[tp]["energy"][0][ie]-self.kgrid[tp]["energy"][0][ies_sorted[0]]) < adaptive_E:
-                    kpoints_added[tp].append(ie)
-                else:
-                    break
-            kpoints_added[tp] = np.array([self.kgrid[tp]["kpoints"][0][ik] for ik in kpoints_added[tp]])
-
-        offset = 0.05
-        nsteps = 10
-        print "here initial k-points with low energy distance"
-        print len(kpoints_added["n"])
-        # print kpoints_added["n"]
-        for tp in ["n", "p"]:
-            final_kpts_added = []
-            for ik in range(len(kpoints_added[tp])-2):
-                final_kpts_added += self.get_intermediat_kpoints(kpoints_added[tp][ik], kpoints_added[tp][ik+1], nsteps)
-
-            # temp = kpoints_added[tp]
-            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
-            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , offset, 0.0])), axis=0 )
-            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([offset , 0.0, 0.0])), axis=0 )
-        # print "here 1"
+        # kpoints_added = {"n": [], "p": []}
+        # adaptive_E = 0.5
+        # for tp in ["n", "p"]:
+        #     #TODO: if this worked, change it so that if self.dopings does not involve either of the types, don't add k-points for it
+        #     ies_sorted = np.argsort(self.kgrid[tp]["energy"][0])
+        #     # print ies_sorted
+        #     # print len(ies_sorted)
+        #     # print len(self.kgrid[tp]["energy"][0])
+        #     for ie in ies_sorted:
+        #         if abs(self.kgrid[tp]["energy"][0][ie]-self.kgrid[tp]["energy"][0][ies_sorted[0]]) < adaptive_E:
+        #             kpoints_added[tp].append(ie)
+        #         else:
+        #             break
+        #     kpoints_added[tp] = np.array([self.kgrid[tp]["kpoints"][0][ik] for ik in kpoints_added[tp]])
+        #
+        # offset = 0.05
+        # nsteps = 10
+        # print "here initial k-points with low energy distance"
         # print len(kpoints_added["n"])
-        # print kpoints_added["n"]
-
-
-        print "here length of added k-points"
-        print len(final_kpts_added)
-        final_kpts_added = self.remove_duplicate_kpoints(final_kpts_added)
-        print len(final_kpts_added)
+        # # print kpoints_added["n"]
+        # for tp in ["n", "p"]:
+        #     final_kpts_added = []
+        #     for ik in range(len(kpoints_added[tp])-2):
+        #         final_kpts_added += self.get_intermediat_kpoints(kpoints_added[tp][ik], kpoints_added[tp][ik+1], nsteps)
+        #
+        #     # temp = kpoints_added[tp]
+        #     # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
+        #     # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , offset, 0.0])), axis=0 )
+        #     # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([offset , 0.0, 0.0])), axis=0 )
+        # # print "here 1"
+        # # print len(kpoints_added["n"])
+        # # print kpoints_added["n"]
+        #
+        #
+        # print "here length of added k-points"
+        # print len(final_kpts_added)
+        # final_kpts_added = self.remove_duplicate_kpoints(final_kpts_added)
+        # print len(final_kpts_added)
 
 
         # for i, tp in enumerate(["p", "n"]):
@@ -802,6 +943,8 @@ class AMSET(object):
         #     temp = self.kgrid[tp]["effective mass"]
         #     self.kgrid[tp]["effective mass"] = [ m for m in np.concatenate((temp[ib], added_mass[ib])) for ib in range(self.cbm_vbm[tp]["included"]) ]
 
+        print "here are the iks with very low velocity"
+        print low_v_ik
 
         if len(low_v_ik) > 0:
             self.omit_kpoints(low_v_ik)
@@ -814,12 +957,13 @@ class AMSET(object):
         # to save memory avoiding storage of variables that we don't need down the line
         for tp in ["n", "p"]:
             self.kgrid[tp].pop("effective mass", None)
-            self.kgrid[tp]["size"] = len(self.kgrid[tp]["kpoints"])
+            self.kgrid[tp]["size"] = len(self.kgrid[tp]["kpoints"][0])
 
         if len(self.kgrid["n"]["kpoints"][0]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
 
         print("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
+        print self.kgrid["n"]["energy"]
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
         self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "a", "c"], ascending=True)
@@ -1518,11 +1662,14 @@ class AMSET(object):
         iter = 0
         temp_doping = {"n": 0.0, "p": 0.0}
         typ = self.get_tp(c)
-        fermi = self.cbm_vbm[typ]["energy"]
+        # fermi = self.cbm_vbm[typ]["energy"]
+        fermi = self.egrid[typ]["energy"][0]
         j = ["n", "p"].index(typ)
         funcs = [lambda E, fermi, T: f0(E,fermi,T), lambda E, fermi, T: 1-f0(E,fermi,T)]
         calc_doping = (-1)**(j+1) /self.volume / (A_to_m*m_to_cm)**3 \
                 *abs(self.integrate_over_DOSxE_dE(func=funcs[j], tp=typ, fermi=fermi, T=T))
+
+        # calc_doping = c*1.1
 
         # print "here"
         # j = 0
@@ -1538,6 +1685,15 @@ class AMSET(object):
         # print self.dos[(1-j)*len(self.dos)-2 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1]
 
         while (relative_error > tolerance) and (iter<max_iter):
+            # print iter
+            # print "relative error:"
+            # print relative_error
+            # print "fermi:"
+            # print fermi
+            # print "calc_doping:"
+            # print calc_doping
+            # print
+
             iter += 1 # to avoid an infinite loop
             fermi += alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
 
@@ -1608,6 +1764,7 @@ class AMSET(object):
         # self.egrid trimming
         if trimmed:
             nmax = min([max_ndata+1, min([len(self.egrid["n"]["energy"]), len(self.egrid["p"]["energy"])]) ])
+            print nmax
             remove_list = []
             for tp in ["n", "p"]:
                 for rm in remove_list:
@@ -1620,11 +1777,13 @@ class AMSET(object):
                     try:
                         for c in self.dopings:
                             for T in self.temperatures:
-                                self.egrid[tp][key][c][T] = self.egrid[tp][key][c][T][0:nmax]
+                                temp = self.egrid[tp][key][c][T]
+                                self.egrid[tp][key][c][T] = temp[0:nmax]
                     except:
                         try:
                             self.egrid[tp][key] = self.egrid[tp][key][0:nmax]
                         except:
+                            print "cutting data to {} numbers in egrid was NOT successful!".format(nmax)
                             pass
 
         with open("egrid.json", 'w') as fp:
@@ -1646,12 +1805,14 @@ class AMSET(object):
                         try:
                             for c in self.dopings:
                                 for T in self.temperatures:
-                                    # self.kgrid[tp][key][c][T] = 1
-                                    self.kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][0:nmax] for b in range(self.cbm_vbm[tp]["included"])]
+                                    temp =  self.kgrid[tp][key][c][T]
+                                    self.kgrid[tp][key][c][T] = [temp[b][0:nmax] for b in range(self.cbm_vbm[tp]["included"])]
                         except:
                             try:
-                                self.kgrid[tp][key] = [self.kgrid[tp][key][b][0:nmax] for b in range(self.cbm_vbm[tp]["included"])]
+                                temp = self.kgrid[tp][key]
+                                self.kgrid[tp][key] = [temp[b][0:nmax] for b in range(self.cbm_vbm[tp]["included"])]
                             except:
+                                print "cutting data to {} numbers in kgrid was NOT successful!".format(nmax)
                                 pass
 
 
@@ -1885,4 +2046,4 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.to_json(max_ndata=15)
+    AMSET.to_json(max_ndata=5)
