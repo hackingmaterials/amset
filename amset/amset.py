@@ -110,9 +110,9 @@ class AMSET(object):
     def __init__(self, path_dir=None,
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
-                 donor_charge=None, acceptor_charge=None, dislocations_charge=None):
+                 donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=True):
 
-        self.nkibz = 13
+        self.nkibz = 30
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -139,6 +139,8 @@ class AMSET(object):
         self.gl = 1e32 # a global large value
         self.dos_bwidth = 0.1 # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
         self.nkdos = 31
+
+        self.adaptive_mesh = adaptive_mesh
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
 
@@ -241,17 +243,9 @@ class AMSET(object):
                     pass
 
         pprint(self.egrid["mobility"])
-        # pprint(self.egrid)
         if self.wordy:
             pprint(self.egrid)
             pprint(self.kgrid)
-
-            # with open("kgrid.txt", "w") as fout:
-            #     # pprint(self.kgrid["n"], stream=fout)
-            #     pprint(self.kgrid, stream=fout)
-            # with open("egrid.txt", "w") as fout:
-            #     pprint(self.egrid, stream=fout)
-            #     # pprint(self.egrid["n"], stream=fout)
 
 
     def __getitem__(self, key):
@@ -427,27 +421,6 @@ class AMSET(object):
             E_idx = [E_idx[ie] for ie in ieidxs]
 
 
-        # TODO: the following is wrong
-        # for tp in ["n", "p"]:
-        #     last_is_counted = False
-        #     for j in range(len(self.egrid[tp]["energy"]) - 1):
-        #         current_ib_ie_idx = [E_idx[j]]
-        #         i=j
-        #         while i<len(self.egrid[tp]["energy"])-1 and \
-        #                         abs(self.egrid[tp]["energy"][i] - self.egrid[tp]["energy"][i + 1]) < 0.2:
-        #             current_ib_ie_idx.append(E_idx[i + 1])
-        #             if i + 1 == len(self.egrid[tp]["energy"]) - 1:
-        #                 last_is_counted = True
-        #             i += 1
-        #         i=j
-        #         while i>0 and abs(self.egrid[tp]["energy"][i] - self.egrid[tp]["energy"][i - 1]) < 0.2:
-        #             current_ib_ie_idx.append(E_idx[i - 1])
-        #             i -= 1
-        #         self.kgrid_to_egrid_idx[tp][j] += current_ib_ie_idx
-
-
-
-
         # setting up energy grid and DOS:
         for tp in ["n", "p"]:
             energy_counter = []
@@ -570,8 +543,6 @@ class AMSET(object):
 
         # omit the points with v~0 and try to find the parabolic band equivalent effective mass at the CBM and the VBM
         temp_min = {"n": self.gl, "p": self.gl}
-        # self.kgrid[tp]["kpoints"][ib] = np.delete(self.kgrid[tp]["kpoints"][ib], ik_list, axis=0)
-        # self.kgrid[tp]["kpoints"][ib].pop(ik)
         for i, tp in enumerate(["n", "p"]):
             for ib in range(self.cbm_vbm[tp]["included"]):
                 # for ik in ik_list:
@@ -668,6 +639,41 @@ class AMSET(object):
 
 
 
+    def get_adaptive_kpoints(self, kpts, energies, adaptive_Erange, nsteps):
+        #TODO: make this function which is meant to be called several times more efficient to sort energies ONLY ONCE outside of the function
+        all_signs = [np.sign(c) for c in self.dopings]
+
+        kpoints_added = {"n": [], "p": []}
+        for i, tp in enumerate(["n", "p"]):
+            sgn = (-1) ** (i + 1)
+            if sgn not in all_signs:
+                continue
+            # TODO: if this worked, change it so that if self.dopings does not involve either of the types, don't add k-points for it
+            ies_sorted = np.argsort(energies[tp])
+            # print ies_sorted
+            # print len(ies_sorted)
+            # print len(self.kgrid[tp]["energy"][0])
+            for ie in ies_sorted:
+                Ediff = abs(energies[tp][ie] - energies[tp][ies_sorted[0]])
+                if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
+                    kpoints_added[tp].append(kpts[ie])
+                else:
+                    break
+                    # kpoints_added[tp] = np.array([self.kgrid[tp]["kpoints"][0][ik] for ik in kpoints_added[tp]])
+
+        print "here initial k-points with low energy distance"
+        print len(kpoints_added["n"])
+        # print kpoints_added["n"]
+        final_kpts_added = []
+        for tp in ["n", "p"]:
+            # final_kpts_added = []
+            # TODO: in future only add the relevant k-poits for "kpoints" for each type separately
+            # print kpoints_added[tp]
+            for ik in range(len(kpoints_added[tp]) - 1):
+                final_kpts_added += self.get_intermediate_kpoints_list(list(kpoints_added[tp][ik]),
+                                                                       list(kpoints_added[tp][ik + 1]), nsteps)
+
+        return final_kpts_added
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
@@ -687,8 +693,6 @@ class AMSET(object):
         print len(kpts_and_weights)
         kpts = [i[0] for i in kpts_and_weights]
 
-
-
         # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
         kpts.append(self.cbm_vbm["n"]["kpoint"])
         kpts.append(self.cbm_vbm["p"]["kpoint"])
@@ -698,17 +702,9 @@ class AMSET(object):
         print type(kpts)
         print "number of original k-points"
         print len(kpts)
-        print kpts
-        # kweights = [float(i[1]) for i in kpts_and_weights]
-        # kweights.append(0.0)
-        # kweights.append(0.0)
-
-
 
 
         analytical_bands = Analytical_bands(coeff_file=coeff_file)
-        # once_called = False
-        # bands_data = {tp: [() for ib in range(self.cbm_vbm[tp]["included"])] for tp in ["n", "p"]}
         all_ibands = []
         for i, tp in enumerate(["p", "n"]):
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -738,10 +734,12 @@ class AMSET(object):
         self.dos = zip(emesh, dos)
 
 
+        # calculate the energies in initial ibz k-points and look at the first band to decide on additional/adaptive ks
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
+            # for now we only look at
             for ib in range(1):
                 # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
                 #     analytical_bands.get_engre(iband=[self.cbm_vbm[tp]["bidx"] + sgn * ib])
@@ -765,34 +763,13 @@ class AMSET(object):
 
                     energies[tp][ik] = energy * Ry_to_eV + sgn * self.scissor/2
 
+        all_added_kpoints = []
+        Tmx = max(self.temperatures)
+        all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=20)
+        all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[1*k_B*Tmx, 2*k_B*Tmx], nsteps=12)
+        all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[2*k_B*Tmx, 5*k_B*Tmx], nsteps=8)
+        all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[5*k_B*Tmx, 10*k_B*Tmx], nsteps=2)
 
-        kpoints_added = {"n": [], "p": []}
-        adaptive_E = 0.4
-        for tp in ["n", "p"]:
-            #TODO: if this worked, change it so that if self.dopings does not involve either of the types, don't add k-points for it
-            ies_sorted = np.argsort(energies[tp])
-            # print ies_sorted
-            # print len(ies_sorted)
-            # print len(self.kgrid[tp]["energy"][0])
-            for ie in ies_sorted:
-                if abs(energies[tp][ie]-energies[tp][ies_sorted[0]]) < adaptive_E:
-                    kpoints_added[tp].append(kpts[ie])
-                else:
-                    break
-            # kpoints_added[tp] = np.array([self.kgrid[tp]["kpoints"][0][ik] for ik in kpoints_added[tp]])
-
-        offset = 0.05
-        nsteps = 6
-        print "here initial k-points with low energy distance"
-        print len(kpoints_added["n"])
-        # print kpoints_added["n"]
-        final_kpts_added = []
-        for tp in ["n", "p"]:
-            # final_kpts_added = []
-            #TODO: in future only add the relevant k-poits for "kpoints" for each type separately
-            print kpoints_added[tp]
-            for ik in range(len(kpoints_added[tp])-1):
-                final_kpts_added += self.get_intermediate_kpoints_list(list(kpoints_added[tp][ik]), list(kpoints_added[tp][ik+1]), nsteps)
 
             # temp = kpoints_added[tp]
             # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
@@ -804,12 +781,13 @@ class AMSET(object):
 
 
         print "here length of added k-points"
-        print len(final_kpts_added)
+        print len(all_added_kpoints)
         # print final_kpts_added
 
         print type(kpts)
         # kpts.tolist()
-        kpts += final_kpts_added
+        if self.adaptive_mesh:
+            kpts += all_added_kpoints
         # if len(final_kpts_added) > 0:
         #     kpts = np.concatenate((kpts, final_kpts_added), axis=0)
 
@@ -2035,13 +2013,30 @@ class AMSET(object):
 
     def plot(self, path=None):
         if not path:
-            path = os.getcwd()
+            path = os.path.join( os.getcwd(), "plots" )
+        fformat = "html"
 
-        plt = PlotlyFig(plot_title=None, x_title="energy", y_title="energy", hovermode='closest', filename="test.png",
+        for tp in ["n"]:
+            plt = PlotlyFig(plot_title=None, x_title="Energy (eV)", y_title="Energy (eV)", hovermode='closest',
+                            filename=os.path.join(path, "{}_{}.{}".format("Energy", tp, fformat)),
                  plot_mode='offline', username=None, api_key=None, textsize=30, ticksize=25, fontfamily=None,
-                 height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=80, margin_right=80,
+                 height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120, margin_right=80,
                  pad=0)
-        plt.xy_plot(x_col=self.egrid["n"]["energy"], y_col=self.egrid["n"]["energy"])
+
+            plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=self.egrid[tp]["energy"])
+
+                    # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
+
+
+            plt = PlotlyFig(plot_title=None, x_title="Energy (eV)", y_title="Ediff (eV)", hovermode='closest',
+                            filename=os.path.join(path, "{}_{}.{}".format("Ediff", tp, fformat)),
+                 plot_mode='offline', username=None, api_key=None, textsize=30, ticksize=25, fontfamily=None,
+                 height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120, margin_right=80,
+                 pad=0)
+
+            plt.xy_plot(x_col=self.egrid[tp]["energy"][:-1], y_col=[ self.egrid[tp]["energy"][i+1]-\
+                                        self.egrid[tp]["energy"][i] for i in range(len(self.egrid[tp]["energy"])-1)])\
+                    # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
 if __name__ == "__main__":
     coeff_file = 'fort.123'
