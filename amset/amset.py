@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=True):
 
-        self.nkibz = 30
+        self.nkibz = 15
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -617,6 +617,8 @@ class AMSET(object):
         kpts = np.delete(kpts, rm_list, axis=0)
         kpts = list(kpts)
         print "total time to remove duplicate k-points = {} seconds".format(time.time() - start_time)
+        print "number of duplicates removed:"
+        print len(rm_list)
 
         return kpts
 
@@ -639,17 +641,39 @@ class AMSET(object):
 
 
 
+    def get_ks_with_intermediate_energy(self, kpts, energies):
+        all_signs = [np.sign(c) for c in self.dopings]
+        kpoints_added = {"n": [], "p": []}
+        final_kpts_added = []
+        Tmx = max(self.temperatures)
+        for i, tp in enumerate(["n", "p"]):
+            sgn = (-1) ** (i + 1)
+            if sgn not in all_signs:
+                continue
+            ies_sorted = list(np.argsort(energies[tp]))
+            if tp=="p":
+                ies_sorted.reverse()
+            for idx, ie in enumerate(ies_sorted[:-1]):
+                Ediff = abs(energies[tp][ie] - energies[tp][ies_sorted[0]])
+                if Ediff > 10*k_B*Tmx:
+                    break
+                final_kpts_added += self.get_intermediate_kpoints_list(list(kpts[ies_sorted[idx]]),
+                                                   list(kpts[ies_sorted[idx+1]]), int(Ediff/0.01))
+        return final_kpts_added
+
+
     def get_adaptive_kpoints(self, kpts, energies, adaptive_Erange, nsteps):
         #TODO: make this function which is meant to be called several times more efficient to sort energies ONLY ONCE outside of the function
         all_signs = [np.sign(c) for c in self.dopings]
-
         kpoints_added = {"n": [], "p": []}
         for i, tp in enumerate(["n", "p"]):
             sgn = (-1) ** (i + 1)
             if sgn not in all_signs:
                 continue
             # TODO: if this worked, change it so that if self.dopings does not involve either of the types, don't add k-points for it
-            ies_sorted = np.argsort(energies[tp])
+            ies_sorted = list(np.argsort(energies[tp]))
+            if tp=="p":
+                ies_sorted.reverse()
             # print ies_sorted
             # print len(ies_sorted)
             # print len(self.kgrid[tp]["energy"][0])
@@ -657,9 +681,7 @@ class AMSET(object):
                 Ediff = abs(energies[tp][ie] - energies[tp][ies_sorted[0]])
                 if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
                     kpoints_added[tp].append(kpts[ie])
-                else:
-                    break
-                    # kpoints_added[tp] = np.array([self.kgrid[tp]["kpoints"][0][ik] for ik in kpoints_added[tp]])
+
 
         print "here initial k-points with low energy distance"
         print len(kpoints_added["n"])
@@ -765,11 +787,17 @@ class AMSET(object):
 
         all_added_kpoints = []
         Tmx = max(self.temperatures)
-        all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=20)
-        all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[1*k_B*Tmx, 2*k_B*Tmx], nsteps=12)
-        all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[2*k_B*Tmx, 5*k_B*Tmx], nsteps=8)
-        all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[5*k_B*Tmx, 10*k_B*Tmx], nsteps=2)
+        print "enegies of valence and conduction bands"
+        # print energies
+        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
+        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[1*k_B*Tmx, 2*k_B*Tmx], nsteps=15)
+        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[2*k_B*Tmx, 5*k_B*Tmx], nsteps=8)
+        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[5*k_B*Tmx, 10*k_B*Tmx], nsteps=3)
+        #
+        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 10*k_B*Tmx], nsteps=10)
+        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 5*k_B*Tmx], nsteps=20)
 
+        # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts, energies)
 
             # temp = kpoints_added[tp]
             # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
@@ -782,6 +810,7 @@ class AMSET(object):
 
         print "here length of added k-points"
         print len(all_added_kpoints)
+        print all_added_kpoints
         # print final_kpts_added
 
         print type(kpts)
@@ -790,7 +819,6 @@ class AMSET(object):
             kpts += all_added_kpoints
         # if len(final_kpts_added) > 0:
         #     kpts = np.concatenate((kpts, final_kpts_added), axis=0)
-
 
         kpts = self.remove_duplicate_kpoints(kpts)
         print type(kpts)
@@ -2017,15 +2045,29 @@ class AMSET(object):
         fformat = "html"
 
         for tp in ["n"]:
-            plt = PlotlyFig(plot_title=None, x_title="Energy (eV)", y_title="Energy (eV)", hovermode='closest',
-                            filename=os.path.join(path, "{}_{}.{}".format("Energy", tp, fformat)),
-                 plot_mode='offline', username=None, api_key=None, textsize=30, ticksize=25, fontfamily=None,
-                 height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120, margin_right=80,
-                 pad=0)
+            plt = PlotlyFig(plot_mode='offline', y_title="# of repeated energy in kgrid", x_title="Energy (eV)",
+                   plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
+                            textsize=30, ticksize=45, scale=1, margin_left=120)
 
-            plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=self.egrid[tp]["energy"])
+            frequency = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
+            # plt.histogram(x=self.egrid[tp]["energy"], bin_size=binsize, x_start=min(data) - binsize / 2)
+            plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=frequency)
 
-                    # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
+            # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
+
+            for c in self.dopings:
+                for T in self.temperatures:
+                    for prop_name in ["relaxation time", "_all_elastic", "ACD", "IMP", "PIE"]:
+                        plt = PlotlyFig(plot_title="c={} 1/cm3, T={} K".format(c, T), x_title="Energy (eV)",
+                                y_title=prop_name, hovermode='closest',
+                            filename=os.path.join(path, "{}_{}_{}_{}.{}".format(prop_name, tp, c, T, fformat)),
+                            plot_mode='offline', username=None, api_key=None, textsize=30, ticksize=25, fontfamily=None,
+                            height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120,
+                            margin_right=80,
+                            pad=0)
+                        prpp = [sum(p)/3 for p in self.egrid[tp][prop_name][c][T]]
+                        plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=prop)
+
 
 
             plt = PlotlyFig(plot_title=None, x_title="Energy (eV)", y_title="Ediff (eV)", hovermode='closest',
@@ -2035,7 +2077,7 @@ class AMSET(object):
                  pad=0)
 
             plt.xy_plot(x_col=self.egrid[tp]["energy"][:-1], y_col=[ self.egrid[tp]["energy"][i+1]-\
-                                        self.egrid[tp]["energy"][i] for i in range(len(self.egrid[tp]["energy"])-1)])\
+                                        self.egrid[tp]["energy"][i] for i in range(len(self.egrid[tp]["energy"])-1)])
                     # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
 if __name__ == "__main__":
