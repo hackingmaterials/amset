@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=True):
 
-        self.nkibz = 15
+        self.nkibz = 20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -797,7 +797,7 @@ class AMSET(object):
         # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 10*k_B*Tmx], nsteps=10)
         # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 5*k_B*Tmx], nsteps=20)
 
-        # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts, energies)
+        all_added_kpoints += self.get_ks_with_intermediate_energy(kpts, energies)
 
             # temp = kpoints_added[tp]
             # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
@@ -1574,6 +1574,8 @@ class AMSET(object):
         v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
         # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
+
+        # knrm = norm(self.kgrid[tp]["kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
         knrm = m_e*v/(hbar*e*1e11)
 
         par_c = self.kgrid[tp]["c"][ib][ik]
@@ -2056,8 +2058,9 @@ class AMSET(object):
             # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
             for c in self.dopings:
-                for T in self.temperatures:
-                    for prop_name in ["relaxation time", "_all_elastic", "ACD", "IMP", "PIE"]:
+                # for T in self.temperatures:
+                for T in [300.0]:
+                    for prop_name in ["relaxation time", "_all_elastic", "ACD", "IMP", "PIE", "df0dk"]:
                         plt = PlotlyFig(plot_title="c={} 1/cm3, T={} K".format(c, T), x_title="Energy (eV)",
                                 y_title=prop_name, hovermode='closest',
                             filename=os.path.join(path, "{}_{}_{}_{}.{}".format(prop_name, tp, c, T, fformat)),
@@ -2065,7 +2068,7 @@ class AMSET(object):
                             height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120,
                             margin_right=80,
                             pad=0)
-                        prpp = [sum(p)/3 for p in self.egrid[tp][prop_name][c][T]]
+                        prop = [sum(p)/3 for p in self.egrid[tp][prop_name][c][T]]
                         plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=prop)
 
 
