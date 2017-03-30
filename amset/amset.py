@@ -805,11 +805,7 @@ class AMSET(object):
         # print energies
         # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
         # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[1*k_B*Tmx, 2*k_B*Tmx], nsteps=15)
-        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[2*k_B*Tmx, 5*k_B*Tmx], nsteps=8)
-        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[5*k_B*Tmx, 10*k_B*Tmx], nsteps=3)
-        #
-        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 10*k_B*Tmx], nsteps=10)
-        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 5*k_B*Tmx], nsteps=20)
+
 
         # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=1*k_B*Tmx,target_Ediff=0.0001)
 
