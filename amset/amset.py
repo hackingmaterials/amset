@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=True):
 
-        self.nkibz = 20
+        self.nkibz = 40
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -635,17 +635,30 @@ class AMSET(object):
     def get_intermediate_kpoints_list(self, k1, k2, nsteps):
         """return a list nsteps number of k-points between k1 & k2 excluding k1 & k2 themselves. k1 & k2 are lists"""
         # dkii = (k2 - k1) / float(nsteps + 1)
+        if nsteps < 1:
+            return []
         dk = [(k2[i] - k1[i]) / float(nsteps + 1) for i in range(len(k1))]
         # return [k1 + i * dkii for i in range(1, nsteps + 1)]
         return [[k1[i] + n*dk[i] for i in  range(len(k1))] for n in range(1, nsteps+1)]
 
 
 
-    def get_ks_with_intermediate_energy(self, kpts, energies):
+    @staticmethod
+    def get_perturbed_ks(k):
+        all_perturbed_ks = []
+        for p in [0.01, 0.03, 0.05]:
+            all_perturbed_ks.append([ k_i+p*np.sign(random()-0.5) for k_i in k] )
+        return all_perturbed_ks
+
+
+
+    def get_ks_with_intermediate_energy(self, kpts, energies, max_Ediff = None, target_Ediff = 0.01):
         all_signs = [np.sign(c) for c in self.dopings]
         kpoints_added = {"n": [], "p": []}
         final_kpts_added = []
         Tmx = max(self.temperatures)
+        if not max_Ediff:
+            max_Ediff = 10*k_B*Tmx
         for i, tp in enumerate(["n", "p"]):
             sgn = (-1) ** (i + 1)
             if sgn not in all_signs:
@@ -655,10 +668,11 @@ class AMSET(object):
                 ies_sorted.reverse()
             for idx, ie in enumerate(ies_sorted[:-1]):
                 Ediff = abs(energies[tp][ie] - energies[tp][ies_sorted[0]])
-                if Ediff > 10*k_B*Tmx:
+                final_kpts_added += self.get_perturbed_ks(kpts[ies_sorted[idx]])
+                if Ediff > max_Ediff:
                     break
                 final_kpts_added += self.get_intermediate_kpoints_list(list(kpts[ies_sorted[idx]]),
-                                                   list(kpts[ies_sorted[idx+1]]), int(Ediff/0.01))
+                                                   list(kpts[ies_sorted[idx+1]]), max(int(Ediff/target_Ediff) , 1))
         return final_kpts_added
 
 
@@ -797,7 +811,9 @@ class AMSET(object):
         # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 10*k_B*Tmx], nsteps=10)
         # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 5*k_B*Tmx], nsteps=20)
 
-        all_added_kpoints += self.get_ks_with_intermediate_energy(kpts, energies)
+        # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=1*k_B*Tmx,target_Ediff=0.0001)
+
+        all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=2*k_B*Tmx,target_Ediff=0.01)
 
             # temp = kpoints_added[tp]
             # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
@@ -2091,5 +2107,5 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=5)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100)
     AMSET.plot()
