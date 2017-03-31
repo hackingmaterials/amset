@@ -109,10 +109,10 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=True):
 
-        self.nkibz = 40
+        self.nkibz = 5
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -1178,9 +1178,9 @@ class AMSET(object):
                 for ib in range(len(self.kgrid[tp]["energy"])):
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
-                            E_radius= +hbar * self.kgrid[tp]["W_POP"][ib][ik], forced_min_npoints=2, tolerance=self.dE_global)
+                            E_radius= +hbar * self.kgrid[tp]["W_POP"][ib][ik], forced_min_npoints=2, tolerance=0.001)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
-                            E_radius= -hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2, tolerance=self.dE_global)
+                            E_radius= -hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2, tolerance=0.001)
 
 
                 # if is_sparse(self.kgrid[tp]["X_E_ik"][ib]):
@@ -1193,6 +1193,7 @@ class AMSET(object):
 
             if self.nforced_POP/(len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
                 print self.nforced_POP
+                print "here this ib x k length:"
                 print (len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib]))
                 # TODO: this should be an exception but for now I turned to warning for testing.
                 warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering in {} bands;"
@@ -1286,6 +1287,7 @@ class AMSET(object):
             # also add all values with the same energy at ik_prm
             result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
 
+
             # for X_ik_ib in self.kgrid[tp]["X_E_ik"][ib][ik_prm]:
             #     print "added"
             #     X, ib_new, ik_new = X_ik_ib
@@ -1310,6 +1312,7 @@ class AMSET(object):
 
             # also add all values with the same energy at ik_prm
             result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
+
 
             # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
             # result += symmetrically_equivalent_ks
@@ -1520,6 +1523,8 @@ class AMSET(object):
                             N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
 
                             for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
+                                if len(self.kgrid[tp][X_Epm][ib][ik]) == 0:
+                                    print "WARNING!!!! element {} of {} is empty!!".format(ik, X_Epm)
                                 for X_ib_ik in self.kgrid[tp][X_Epm][ib][ik]:
                                     X, ib_pm, ik_pm = X_ib_ik
 
@@ -1529,8 +1534,19 @@ class AMSET(object):
                                     # k = norm(self.kgrid[tp]["actual kpoints"][ib][ik])
                                     # k_pm = norm(self.kgrid[tp]["actual kpoints"][ib_pm][ik_pm])
 
-                                    if k == k_pm: # to prevent division by zero in eq-117&123 of ref. [R]
-                                        continue
+                                    # if k == k_pm: # to prevent division by zero in eq-117&123 of ref. [R]
+                                        # print "WARNING! k == k_pm"
+                                        # print ik
+                                        # print self.kgrid[tp]["velocity"][ib][ik]
+                                        # print self.kgrid[tp]["kpoints"][ib][ik]
+                                        # print X_ib_ik
+                                        # print
+                                        #
+                                        # print ik_pm
+                                        # print self.kgrid[tp]["velocity"][ib][ik_pm]
+                                        # print self.kgrid[tp]["kpoints"][ib][ik_pm]
+
+                                        # continue
 
                                     a_pm = self.kgrid[tp]["a"][ib_pm][ik_pm]
                                     c_pm = self.kgrid[tp]["c"][ib_pm][ik_pm]
@@ -1540,16 +1556,25 @@ class AMSET(object):
                                     A_pm = a*a_pm + c_*c_pm*(k_pm**2+k**2)/(2*k_pm*k)
                                     beta_pm = (e**2*self.kgrid[tp]["W_POP"][ib_pm][ik_pm]*k_pm)/(4*pi*hbar*k*v_pm)*\
                                         (1/(self.epsilon_inf*epsilon_0)-1/(self.epsilon_s*epsilon_0))*6.2415093e20
-                                    lamb_opm=beta_pm*(A_pm**2*log((k_pm+k)/abs(k_pm-k))-A_pm*c_*c_pm-a*a_pm*c_*c_pm)
-                                    lamb_ipm=beta_pm*(A_pm**2*log((k_pm+k)/abs(k_pm-k))*(k_pm**2+k**2)/(2*k*k_pm)-
+                                    lamb_opm=beta_pm*(A_pm**2*log((k_pm+k)/abs(k_pm-k+1e-4))-A_pm*c_*c_pm-a*a_pm*c_*c_pm)
+
+                                    lamb_ipm=beta_pm*(A_pm**2*log((k_pm+k)/abs(k_pm-k+1e-4))*(k_pm**2+k**2)/(2*k*k_pm)-
                                                       A_pm**2-c_**2*c_pm**2/3)
 
                                     # because in the scalar form k+ or k- is suppused to be unique, here we take average
                                     S_o +=((N_POP + j+(-1)**j*f_pm)*lamb_opm)/len(self.kgrid[tp][X_Epm][ib][ik])
+
                                     S_i += ((N_POP + (1-j) + (-1)**(1-j)*f) * lamb_ipm * g_pm) \
                                            / len(self.kgrid[tp][X_Epm][ib][ik])
 
                             self.kgrid[tp]["S_o" + g_suffix][c][T][ib][ik] = S_o
+                            # if S_o < 1:
+                            #     print "here"
+                            #     print tp
+                            #     print ik
+                            #     print S_o
+                            #     print lamb_opm
+                            #     print beta_pm
                             self.kgrid[tp]["S_i" + g_suffix][c][T][ib][ik] = S_i
 
 
@@ -1874,7 +1899,7 @@ class AMSET(object):
 
 
 
-    def to_json(self, kgrid=True, trimmed=False, max_ndata = None):
+    def to_json(self, kgrid=True, trimmed=False, max_ndata = None, nstart=0):
 
         if not max_ndata:
             max_ndata = int(self.gl)
@@ -1896,10 +1921,10 @@ class AMSET(object):
                     try:
                         for c in self.dopings:
                             for T in self.temperatures:
-                                egrid[tp][key][c][T] = self.egrid[tp][key][c][T][0:nmax]
+                                egrid[tp][key][c][T] = self.egrid[tp][key][c][T][nstart:nstart+nmax]
                     except:
                         try:
-                            egrid[tp][key] = self.egrid[tp][key][0:nmax]
+                            egrid[tp][key] = self.egrid[tp][key][nstart:nstart+nmax]
                         except:
                             print "cutting data for {} numbers in egrid was NOT successful!".format(key)
                             pass
@@ -1914,7 +1939,8 @@ class AMSET(object):
             print "time to copy kgrid = {} seconds".format(time.time() - start_time)
             if trimmed:
                 nmax = min([max_ndata+1, min([len(kgrid["n"]["kpoints"][0]), len(kgrid["p"]["kpoints"][0])])])
-                remove_list = ["W_POP", "effective mass", "actual kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
+                # remove_list = ["W_POP", "effective mass", "actual kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
+                remove_list = ["W_POP", "effective mass", "actual kpoints"]
                 for tp in ["n", "p"]:
                     for rm in remove_list:
                         try:
@@ -1926,10 +1952,12 @@ class AMSET(object):
                         try:
                             for c in self.dopings:
                                 for T in self.temperatures:
-                                    kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][0:nmax] for b in range(self.cbm_vbm[tp]["included"])]
+                                    kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][nstart:nstart+nmax]
+                                                            for b in range(self.cbm_vbm[tp]["included"])]
                         except:
                             try:
-                                kgrid[tp][key] = [self.kgrid[tp][key][b][0:nmax] for b in range(self.cbm_vbm[tp]["included"])]
+                                kgrid[tp][key] = [self.kgrid[tp][key][b][nstart:nstart+nmax]
+                                                  for b in range(self.cbm_vbm[tp]["included"])]
                             except:
                                 print "cutting data for {} numbers in kgrid was NOT successful!".format(key)
                                 pass
@@ -1954,6 +1982,8 @@ class AMSET(object):
                 for g_suffix in ["", "_th"]:
                     if self.bs_is_isotropic:
                         self.s_inel_eq_isotropic(g_suffix=g_suffix)
+                        print "here S_o"
+                        print self.kgrid["n"]["S_o"][-1e19][300.0]
                     else:
                         self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
             for c in self.dopings:
@@ -1997,6 +2027,7 @@ class AMSET(object):
                         self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar* \
                             self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True)
                     for mu_inel in self.inelastic_scatterings:
+                            # calculate mobility["POP"] based on g_POP
                             self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(prop_list=["g_"+mu_inel],
                                                                                 tp=tp,c=c,T=T,xDOS=True,xvel=True)
                     self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
@@ -2031,6 +2062,8 @@ class AMSET(object):
                     self.egrid["conductivity"][c][T][tp] = self.egrid["mobility"]["overall"][c][T][tp]* e * abs(c)
                     self.egrid["seebeck"][c][T][tp] = -1e6*k_B*( self.egrid["Seebeck_integral_numerator"][c][T][tp] \
                         / self.egrid["Seebeck_integral_denominator"][c][T][tp] - self.egrid["fermi"][c][T]/(k_B*T) )
+                    self.egrid["TE_power_factor"][c][T][tp] = self.egrid["seebeck"][c][T][tp]**2 \
+                        * self.egrid["conductivity"][c][T][tp] / 1e6 # in uW/cm2K
                     if "POP" in self.inelastic_scatterings:     # when POP is not available J_th is unreliable
                         self.egrid["seebeck"][c][T][tp] += 0.0
                         # TODO: for now, we ignore the following until we figure out the units see why values are high!
@@ -2069,10 +2102,13 @@ class AMSET(object):
 
             # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
+            prop_list = ["relaxation time", "_all_elastic", "ACD", "IMP", "PIE", "df0dk"]
+            if "POP" in self.inelastic_scatterings:
+                prop_list += ["g", "g_POP", "S_i", "S_o"]
             for c in self.dopings:
                 # for T in self.temperatures:
                 for T in [300.0]:
-                    for prop_name in ["relaxation time", "_all_elastic", "ACD", "IMP", "PIE", "df0dk"]:
+                    for prop_name in prop_list:
                         plt = PlotlyFig(plot_title="c={} 1/cm3, T={} K".format(c, T), x_title="Energy (eV)",
                                 y_title=prop_name, hovermode='closest',
                             filename=os.path.join(path, "{}_{}_{}_{}.{}".format(prop_name, tp, c, T, fformat)),
@@ -2084,15 +2120,19 @@ class AMSET(object):
                         plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=prop)
 
 
-
-            plt = PlotlyFig(plot_title=None, x_title="Energy (eV)", y_title="Ediff (eV)", hovermode='closest',
-                            filename=os.path.join(path, "{}_{}.{}".format("Ediff", tp, fformat)),
+            prop_list = ["velocity", "Ediff"]
+            for prop_name in prop_list:
+                plt = PlotlyFig(plot_title=None, x_title="Energy (eV)", y_title=prop_name, hovermode='closest',
+                            filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
                  plot_mode='offline', username=None, api_key=None, textsize=30, ticksize=25, fontfamily=None,
                  height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120, margin_right=80,
                  pad=0)
-
-            plt.xy_plot(x_col=self.egrid[tp]["energy"][:-1], y_col=[ self.egrid[tp]["energy"][i+1]-\
-                                        self.egrid[tp]["energy"][i] for i in range(len(self.egrid[tp]["energy"])-1)])
+                if "Ediff" in prop_name:
+                    y_col = [self.egrid[tp]["energy"][i+1]-\
+                                        self.egrid[tp]["energy"][i] for i in range(len(self.egrid[tp]["energy"])-1)]
+                else:
+                    y_col = [sum(p)/3 for p in self.egrid[tp][prop_name]]
+                    plt.xy_plot(x_col=self.egrid[tp]["energy"][:len(y_col)], y_col=y_col)
                     # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
 if __name__ == "__main__":
@@ -2103,5 +2143,5 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=15, nstart=80)
     AMSET.plot()
