@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=True):
 
-        self.nkibz = 6 #20
+        self.nkibz = 45 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -1108,7 +1108,7 @@ class AMSET(object):
                         val_type="vector", initval=self.gs, is_nparray=True, c_T_idx=True)
         self.initialize_var("kgrid", ["f0", "f_plus", "f_minus","g_plus", "g_minus"], "vector", self.gs, is_nparray=False, c_T_idx=True)
         self.initialize_var("kgrid", ["lambda_i_plus", "lambda_i_minus", "lambda_o_plus", "lambda_o_minus"]
-                            , "vector", self.gs, is_nparray=False, c_T_idx=False)
+                            , "vector", self.gs, is_nparray=True, c_T_idx=False)
 
 
     def sort_vars_based_on_energy(self, args, ascending=True):
@@ -1182,9 +1182,9 @@ class AMSET(object):
                 for ib in range(len(self.kgrid[tp]["energy"])):
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
-                            E_radius= +hbar * self.kgrid[tp]["W_POP"][ib][ik], forced_min_npoints=2, tolerance=self.dE_global)
+                            E_radius= + hbar * self.kgrid[tp]["W_POP"][ib][ik], forced_min_npoints=2, tolerance=self.dE_global)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
-                            E_radius= -hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2, tolerance=self.dE_global)
+                            E_radius= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2, tolerance=self.dE_global)
 
 
                 # if is_sparse(self.kgrid[tp]["X_E_ik"][ib]):
@@ -1242,6 +1242,8 @@ class AMSET(object):
         #     counter += len(symmetrically_equivalent_ks)
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
+        min_vdiff = 3*hbar*e*1e11*1e-4/m_e
+
         for ib_prm in range(self.cbm_vbm[tp]["included"]):
             if ib==ib_prm:
                 ik_prm = ik
@@ -1262,6 +1264,9 @@ class AMSET(object):
                 ik_prm += 1
                 # counter += len(symmetrically_equivalent_ks) + 1
                 counter += 1
+                if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
+                    counter -= 1
+
             if ib==ib_prm:
                 ik_prm = ik
             else:
@@ -1278,6 +1283,8 @@ class AMSET(object):
                 ik_prm -= 1
                 # counter += len(symmetrically_equivalent_ks) + 1
                 counter += 1
+                if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
+                    counter -= 1
 
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
 
@@ -1294,7 +1301,6 @@ class AMSET(object):
             # also add all values with the same energy at ik_prm
             result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
 
-
             # for X_ik_ib in self.kgrid[tp]["X_E_ik"][ib][ik_prm]:
             #     print "added"
             #     X, ib_new, ik_new = X_ik_ib
@@ -1309,7 +1315,7 @@ class AMSET(object):
             # counter += 1 + len(symmetrically_equivalent_ks)
             counter += 1
 
-            if abs(sum(self.kgrid["n"]["velocity"][ib, ik]) - sum(self.kgrid["n"]["velocity"][ib, ik_prm])) < 1:
+            if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
                 counter -= 1
 
             self.nforced_POP += 1
@@ -1332,7 +1338,7 @@ class AMSET(object):
             # counter += 1 + len(symmetrically_equivalent_ks)
             counter += 1
 
-            if abs(sum(self.kgrid["n"]["velocity"][ib, ik]) - sum(self.kgrid["n"]["velocity"][ib, ik_prm])) < 1:
+            if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
                 counter -= 1
             self.nforced_POP += 1
 
@@ -1518,8 +1524,77 @@ class AMSET(object):
         return integ
 
 
-
     def s_inel_eq_isotropic(self, g_suffix, once_called=False):
+        for tp in ["n", "p"]:
+            for c in self.dopings:
+                for T in self.temperatures:
+                    for ib in range(len(self.kgrid[tp]["energy"])):
+                        for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                            # S_i = np.array([self.gs, self.gs, self.gs])
+                            S_i = self.gs
+                            # S_o = np.array([self.gs, self.gs, self.gs])
+
+                            v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
+                            # v = self.kgrid[tp]["velocity"][ib][ik]
+
+                            k = m_e * v / (hbar * e * 1e11)
+                            a = self.kgrid[tp]["a"][ib][ik]
+                            c_ = self.kgrid[tp]["c"][ib][ik]
+                            f = self.kgrid[tp]["f0"][c][T][ib][ik]
+                            N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
+                            # N_POP = self.kgrid[tp]["N_POP"][c][T][ib][ik]
+                            for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
+                                len_eqE = len(self.kgrid[tp][X_Epm][ib][ik])
+                                # if len_eqE == 0:
+                                #     print "WARNING!!!! element {} of {} is empty!!".format(ik, X_Epm)
+                                for X_ib_ik in self.kgrid[tp][X_Epm][ib][ik]:
+                                    X, ib_pm, ik_pm = X_ib_ik
+
+                                    v_pm = sum(self.kgrid[tp]["velocity"][ib_pm][ik_pm])/3
+                                    # v_pm = self.kgrid[tp]["velocity"][ib_pm][ik_pm]
+
+                                    k_pm  = m_e*v_pm/(hbar*e*1e11)
+
+                                    abs_kdiff = abs(k_pm - k)
+                                    if abs_kdiff < 1e-4:
+                                        continue
+
+                                    a_pm = self.kgrid[tp]["a"][ib_pm][ik_pm]
+                                    c_pm = self.kgrid[tp]["c"][ib_pm][ik_pm]
+                                    # g_pm = sum(self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm])/3
+                                    g_pm = self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm]
+
+                                    f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
+
+                                    A_pm = a*a_pm + c_*c_pm*(k_pm**2+k**2)/(2*k_pm*k)
+
+                                    beta_pm = (e**2*self.kgrid[tp]["W_POP"][ib_pm][ik_pm]*k_pm)/(4*pi*hbar*k*v_pm)*\
+                                        (1/(self.epsilon_inf*epsilon_0)-1/(self.epsilon_s*epsilon_0))*6.2415093e20
+
+                                    if not once_called:
+                                        lamb_opm=beta_pm*(A_pm**2*log((k_pm+k)/abs_kdiff+1e-4)-A_pm*c_*c_pm-a*a_pm*c_*c_pm)
+                                        # because in the scalar form k+ or k- is suppused to be unique, here we take average
+                                        self.kgrid[tp]["S_o" + g_suffix][c][T][ib][ik] +=((N_POP + j+(-1)**j*f_pm)*lamb_opm)/len_eqE
+                                        # S_o +=((N_POP + j+(-1)**j*f_pm)*lamb_opm)/len_eqE
+                                        # if S_o[0] < 1:
+                                        #     print "WARNINGGGGG!!!!"
+                                        #     warnings.warn("abnormal S_o")
+                                        #     print ik
+                                        #     print ik_pm
+                                        #     print abs_kdiff
+
+                                    lamb_ipm=beta_pm*(A_pm**2*log((k_pm+k)/abs_kdiff+1e-4)*(k_pm**2+k**2)/(2*k*k_pm)-
+                                                      A_pm**2-c_**2*c_pm**2/3)
+
+                                    S_i += ((N_POP + (1-j) + (-1)**(1-j)*f) * lamb_ipm * g_pm)/len_eqE
+
+                            # self.kgrid[tp]["S_o" + g_suffix][c][T][ib][ik] = S_o
+                            self.kgrid[tp]["S_i" + g_suffix][c][T][ib][ik] = S_i
+
+
+
+
+    def backup_s_inel_eq_isotropic(self, g_suffix, once_called=False):
         if once_called:
             for tp in ["n", "p"]:
                 for c in self.dopings:
@@ -1531,21 +1606,56 @@ class AMSET(object):
                             print self.kgrid[tp]["lambda_o_minus"][ib][:4]
                             print self.kgrid[tp]["f_plus"][c][T][ib][:4]
                             print self.kgrid[tp]["lambda_o_plus"][ib][:4]
-                            self.kgrid[tp]["S_o" + g_suffix][c][T][ib] = (self.kgrid[tp]["N_POP"][c][T][ib] + 1 \
-                                                                          + self.kgrid[tp]["f_minus"][c][T][ib]) * \
-                                                                         self.kgrid[tp]["lambda_o_minus"][ib] + ( \
-                                                                             self.kgrid[tp]["N_POP"][c][T][ib] +
-                                                                             self.kgrid[tp]["f_plus"][c][T][ib] * \
-                                                                             self.kgrid[tp]["lambda_o_plus"][ib])
+                            # N_POP = np.array([[n, n, n] for n in self.kgrid[tp]["N_POP"][c][T][ib]])
+                            # f_vec = np.array([[ff, ff, ff] for ff in self.kgrid[tp]["f0"][c][T][ib]])
 
-                            self.kgrid[tp]["S_i" + g_suffix][c][T][ib] = (self.kgrid[tp]["N_POP"][c][T][ib]  \
-                                                                          + self.kgrid[tp]["f0"][c][T][ib])* \
-                                                                         self.kgrid[tp]["lambda_i_minus"][ib]* \
-                                                                         self.kgrid[tp]["g_minus"][c][T][ib] + \
-                                                                         (self.kgrid[tp]["N_POP"][c][T][ib] + 1 \
-                                                                          - self.kgrid[tp]["f0"][c][T][ib])* \
-                                                                         self.kgrid[tp]["lambda_i_plus"][ib] * \
-                                                                         self.kgrid[tp]["g_plus"][c][T][ib]
+
+
+
+                            for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                                self.kgrid[tp]["g_plus"][c][T][ib][ik] = 0.0
+                                self.kgrid[tp]["g_minus"][c][T][ib][ik] = 0.0
+
+                                for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
+                                    len_eqE = len(self.kgrid[tp][X_Epm][ib][ik])
+                                    for X_ib_ik in self.kgrid[tp][X_Epm][ib][ik]:
+                                        X, ib_pm, ik_pm = X_ib_ik
+                                        # v_pm = sum(self.kgrid[tp]["velocity"][ib_pm][ik_pm]) / 3
+                                        # k_pm = m_e * v_pm / (hbar * e * 1e11)
+
+                                        if j==0:
+                                            self.kgrid[tp]["g_plus"][c][T][ib][ik] += self.kgrid[tp]["g" + g_suffix][c][T][ib_pm][ik_pm]/len_eqE
+                                        else:
+                                            self.kgrid[tp]["g_minus"][c][T][ib][ik] += self.kgrid[tp]["g" + g_suffix][c][T][ib_pm][ik_pm]/len_eqE
+
+                                        # g_pm = self.kgrid[tp]["g" + g_suffix][c][T][ib_pm][ik_pm]
+
+
+
+                                self.kgrid[tp]["S_i" + g_suffix][c][T][ib][ik] = (self.kgrid[tp]["N_POP"][c][T][ib][ik]\
+                                                                              + self.kgrid[tp]["f0"][c][T][ib][ik]) * \
+                                                                             self.kgrid[tp]["lambda_i_minus"][ib][ik] * \
+                                                                             self.kgrid[tp]["g_minus"][c][T][ib][ik] + \
+                                                                             (self.kgrid[tp]["N_POP"][c][T][ib][ik] + 1 \
+                                                                              - self.kgrid[tp]["f0"][c][T][ib][ik]) * \
+                                                                             self.kgrid[tp]["lambda_i_plus"][ib][ik] * \
+                                                                             self.kgrid[tp]["g_plus"][c][T][ib][ik]
+
+                            # self.kgrid[tp]["S_o" + g_suffix][c][T][ib] = (N_POP + 1 \
+                            #                                               + self.kgrid[tp]["f_minus"][c][T][ib]) * \
+                            #                                              self.kgrid[tp]["lambda_o_minus"][ib] + ( \
+                            #     N_POP +
+                            #                                                  self.kgrid[tp]["f_plus"][c][T][ib] * \
+                            #                                                  self.kgrid[tp]["lambda_o_plus"][ib])
+                            #
+                            # self.kgrid[tp]["S_i" + g_suffix][c][T][ib] = (N_POP  \
+                            #                                               + f_vec)* \
+                            #                                              self.kgrid[tp]["lambda_i_minus"][ib]* \
+                            #                                              self.kgrid[tp]["g_minus"][c][T][ib] + \
+                            #                                              (N_POP + 1 \
+                            #                                               - f_vec)* \
+                            #                                              self.kgrid[tp]["lambda_i_plus"][ib] * \
+                            #                                              self.kgrid[tp]["g_plus"][c][T][ib]
 
 
         else:
@@ -1554,8 +1664,8 @@ class AMSET(object):
                     for T in self.temperatures:
                         for ib in range(len(self.kgrid[tp]["energy"])):
                             for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                                S_i = self.gs
-                                S_o = self.gs
+                                S_i = np.array([self.gs, self.gs, self.gs])
+                                S_o = np.array([self.gs, self.gs, self.gs])
 
                                 v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
                                 # v = self.kgrid[tp]["velocity"][ib][ik]
@@ -1623,6 +1733,8 @@ class AMSET(object):
                                             self.kgrid[tp]["lambda_o_minus"]+=lamb_opm/len_eqE
                                             self.kgrid[tp]["f_minus"][c][T][ib][ik] += f_pm / len_eqE
                                             self.kgrid[tp]["g_minus"][c][T][ib][ik] += g_pm / len_eqE
+
+
 
                                         # lamb_opm = np.array([0.0, 0.0, 0.0])
                                         # lamb_ipm = np.array([0.0, 0.0, 0.0])
@@ -1803,21 +1915,7 @@ class AMSET(object):
                                 self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik] * \
                                     GB(self.kgrid[tp]["energy"][ib][ik]-self.egrid[tp]["energy"][ie], 0.005)
 
-                                # if GB(self.kgrid[tp]["energy"][ib][ik]-self.egrid[tp]["energy"][ie], 0.005) > 0.8:
-                                #     N+=1
                         self.egrid[tp][prop_name][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
-
-                            # if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
-                            #
-                            #     # weight = self.kgrid[tp]["kweights"][ib][ik]
-                            #     # if prop_name in scalar_properties:
-                            #     #     self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik]) * weight
-                            #     # else:
-                            #     self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik] * 1
-                            #     # N += 1
-                            #     N += 1
-                        # self.egrid[tp][prop_name][ie] /= N
-
 
                         if self.bs_is_isotropic and prop_type=="vector":
                             self.egrid[tp][prop_name][ie]=np.array([sum(self.egrid[tp][prop_name][ie])/3.0 for i in range(3)])
@@ -1850,16 +1948,7 @@ class AMSET(object):
                                         self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik] * \
                                                GB(self.kgrid[tp]["energy"][ib][ik] -
                                                                             self.egrid[tp]["energy"][ie], 0.005)
-                                        # if GB(self.kgrid[tp]["energy"][ib][ik]-self.egrid[tp]["energy"][ie], 0.005) > 0.8:
-                                        #     N+=1
                                 self.egrid[tp][prop_name][c][T][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
-
-                    #                     if abs(self.kgrid[tp]["energy"][ib][ik] - en) < self.dE_global:
-                    #                         # wgt = self.kgrid[tp]["kweights"][ib][ik]
-                    #                         self.egrid[tp][prop_name][c][T][ie]+=self.kgrid[tp][prop_name][c][T][ib][ik]*1
-                    #                         N += 1
-                    #             self.egrid[tp][prop_name][c][T][ie] /= N
-                    #
 
 
                                 if self.bs_is_isotropic and prop_type == "vector":
@@ -1892,31 +1981,7 @@ class AMSET(object):
         calc_doping = (-1)**(j+1) /self.volume / (A_to_m*m_to_cm)**3 \
                 *abs(self.integrate_over_DOSxE_dE(func=funcs[j], tp=typ, fermi=fermi, T=T))
 
-        # calc_doping = c*1.1
-
-        # print "here"
-        # j = 0
-        # print (1 - j) * self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]) + 0
-        # print self.dos [(1 - j) * self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]) + 0]
-        # print (1-j)*len(self.dos)-2 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1
-        # print self.dos[(1-j)*len(self.dos)-2 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1]
-        # print
-        # j = 1
-        # print (1 - j) * self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]) + 0
-        # print self.dos [(1 - j) * self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]) + 0]
-        # print (1-j)*len(self.dos)-2 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1
-        # print self.dos[(1-j)*len(self.dos)-2 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1]
-
         while (relative_error > tolerance) and (iter<max_iter):
-            # print iter
-            # print "relative error:"
-            # print relative_error
-            # print "fermi:"
-            # print fermi
-            # print "calc_doping:"
-            # print calc_doping
-            # print
-
             iter += 1 # to avoid an infinite loop
             fermi += alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
 
@@ -2083,13 +2148,36 @@ class AMSET(object):
                             self.kgrid[tp]["g"][c][T] = (self.kgrid[tp]["S_i"][c][T] + self.kgrid[tp]["electric force"][c][
                                 T]) / (self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
                             self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
-                                self.kgrid[tp]["electric force"][c][T]) / (self.kgrid[tp]["S_o"][c][T]+ self.gs)
+                                self.kgrid[tp]["electric force"][c][T][ib]) / (self.kgrid[tp]["S_o"][c][T][ib]+ self.gs)
                             self.kgrid[tp]["g_th"][c][T][ib]=(self.kgrid[tp]["S_i_th"][c][T][ib]+self.kgrid[tp]["thermal force"][c][
                                 T][ib]) / (self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
+
+                            for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                                if  norm(self.kgrid[tp]["g_POP"][c][T][ib][ik]) > 1 and iter > 0:
+                            # because only when there are no S_o/S_i scattering events, g_POP>>1 while it should be zero
+                                    self.kgrid[tp]["g_POP"][c][T][ib][ik] = [self.gs, self.gs, self.gs]
+
+                                    # print("g_POP > 1 !!!!!")
+                                    # print self.kgrid[tp]["g_POP"][c][T][ib][ik]
+                                    # print ib
+                                    # print ik
+                                    # print self.kgrid[tp]["S_i"][c][T][ib][ik]
+                                    # print self.kgrid[tp]["electric force"][c][T][ib][ik]
+                                    # print self.kgrid[tp]["S_o"][c][T][ib][ik]
+                                    # print self.kgrid[tp]["velocity"][ib][ik]
+
+                                    # print self.kgrid[tp]["X_Eplus_ik"][ib][ik]
+                                    # print self.kgrid[tp]["X_Eminus_ik"][ib][ik]
 
         for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
+        for tp in ["n", "p"]:
+            for c in self.dopings:
+                for T in self.temperatures:
+                    for ie in range(len(self.egrid[tp]["g_POP"][c][T])):
+                        if norm(self.egrid[tp]["g_POP"][c][T][ie]) > 1:
+                            self.egrid[tp]["g_POP"][c][T][ie] = [1e-5, 1e-5, 1e-5]
 
 
     def calculate_transport_properties(self):
