@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=True):
 
-        self.nkibz = 45 #30 #20
+        self.nkibz = 30 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -152,7 +152,8 @@ class AMSET(object):
         self.P_PIE = 0.15
         self.E_D = {"n": 4.0, "p": 3.93}
         self.C_el = 128.84 #77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
-        self.nforced_POP = 0
+
+        self.all_types = [self.get_tp(c) for c in self.dopings]
 
     def run(self, coeff_file, kgrid_tp="coarse"):
         """
@@ -653,15 +654,12 @@ class AMSET(object):
 
 
     def get_ks_with_intermediate_energy(self, kpts, energies, max_Ediff = None, target_Ediff = 0.01):
-        all_signs = [np.sign(c) for c in self.dopings]
-        kpoints_added = {"n": [], "p": []}
         final_kpts_added = []
         Tmx = max(self.temperatures)
         if not max_Ediff:
             max_Ediff = 10*k_B*Tmx
-        for i, tp in enumerate(["n", "p"]):
-            sgn = (-1) ** (i + 1)
-            if sgn not in all_signs:
+        for tp in ["n", "p"]:
+            if tp not in self.all_types:
                 continue
             ies_sorted = list(np.argsort(energies[tp]))
             if tp=="p":
@@ -678,11 +676,9 @@ class AMSET(object):
 
     def get_adaptive_kpoints(self, kpts, energies, adaptive_Erange, nsteps):
         #TODO: make this function which is meant to be called several times more efficient to sort energies ONLY ONCE outside of the function
-        all_signs = [np.sign(c) for c in self.dopings]
         kpoints_added = {"n": [], "p": []}
-        for i, tp in enumerate(["n", "p"]):
-            sgn = (-1) ** (i + 1)
-            if sgn not in all_signs:
+        for tp in ["n", "p"]:
+            if tp not in self.all_types:
                 continue
             # TODO: if this worked, change it so that if self.dopings does not involve either of the types, don't add k-points for it
             ies_sorted = list(np.argsort(energies[tp]))
@@ -736,7 +732,7 @@ class AMSET(object):
         print type(kpts)
         kpts = self.remove_duplicate_kpoints(kpts)
         print type(kpts)
-        print "number of original k-points"
+        print "number of original ibz k-points"
         print len(kpts)
 
 
@@ -1107,8 +1103,8 @@ class AMSET(object):
                 "f", "f_th", "relaxation time", "df0dk", "electric force", "thermal force"],
                         val_type="vector", initval=self.gs, is_nparray=True, c_T_idx=True)
         self.initialize_var("kgrid", ["f0", "f_plus", "f_minus","g_plus", "g_minus"], "vector", self.gs, is_nparray=False, c_T_idx=True)
-        self.initialize_var("kgrid", ["lambda_i_plus", "lambda_i_minus", "lambda_o_plus", "lambda_o_minus"]
-                            , "vector", self.gs, is_nparray=True, c_T_idx=False)
+        # self.initialize_var("kgrid", ["lambda_i_plus", "lambda_i_minus", "lambda_o_plus", "lambda_o_minus"]
+        #                     , "vector", self.gs, is_nparray=True, c_T_idx=False)
 
 
     def sort_vars_based_on_energy(self, args, ascending=True):
@@ -1170,16 +1166,32 @@ class AMSET(object):
 
 
         for tp in ["n", "p"]:
-            self.nforced_POP = 0
             for ib in range(len(self.kgrid[tp]["energy"])):
+                self.nforced_scat = {"n": 0.0, "p": 0.0}
+                self.ediff_scat = {"n": [], "p": []}
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
                                                     E_radius=0.0, forced_min_npoints=2, tolerance=self.dE_global)
+                if self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
+                    print "here nforced k-points ratio"
+                    print self.nforced_scat[tp] / (2*len(self.kgrid[tp]["kpoints"][ib]))
+                    print "here this ib x k length:"
+                    print (len(self.kgrid[tp]["energy"]) * len(self.kgrid[tp]["kpoints"][ib]))
+                    # TODO: this should be an exception but for now I turned to warning for testing.
+                    warnings.warn("the k-grid is too coarse for an acceptable simulation of elastic scattering in {} bands;"
+                                  .format(["conduction", "valence"][["n", "p"].index(tp)]))
+
+                print "{}-type energy difference of the enforced scatterer k-points + its average:".format(tp)
+                print sum(self.ediff_scat[tp])/len(self.ediff_scat[tp])
+                print self.ediff_scat[tp]
+
+
 
         if "POP" in self.inelastic_scatterings:
             for tp in ["n", "p"]:
-                self.nforced_POP = 0
                 for ib in range(len(self.kgrid[tp]["energy"])):
+                    self.nforced_scat = {"n": 0.0, "p": 0.0}
+                    self.ediff_scat = {"n": [], "p": []}
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
                             E_radius= + hbar * self.kgrid[tp]["W_POP"][ib][ik], forced_min_npoints=2, tolerance=self.dE_global)
@@ -1195,14 +1207,24 @@ class AMSET(object):
                         # warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering, "
                         #                  "you can try this k-point grid but without POP as an inelastic scattering")
 
-            if self.nforced_POP/(len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
-                print self.nforced_POP
-                print "here this ib x k length:"
-                print (len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib]))
-                # TODO: this should be an exception but for now I turned to warning for testing.
-                warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering in {} bands;"
+                    # if self.nforced_scat[tp]/(len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
+                    if self.nforced_scat[tp] / (2*2*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
+
+                        print "here nforced k-points ratio"
+                        # one of the 2s is for plus and minus and the other one is the selected forced_min_npoints
+                        print self.nforced_scat[tp] / (2*2*len(self.kgrid[tp]["kpoints"][ib]))
+                        print self.nforced_scat[tp]
+                        print (2*2*len(self.kgrid[tp]["kpoints"][ib]))
+                        print "here this ib x k length:"
+                        print (len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib]))
+                        # TODO: this should be an exception but for now I turned to warning for testing.
+                        warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering in {} bands;"
                           " you can try this k-point grid but without POP as an inelastic scattering.".format(
                         ["conduction", "valence"][["n", "p"].index(tp)]))
+
+                    print "{}-type energy difference of the enforced scatterer k-points + its average:".format(tp)
+                    print sum(self.ediff_scat[tp]) / len(self.ediff_scat[tp])
+                    print self.ediff_scat[tp]
 
 
 
@@ -1264,8 +1286,9 @@ class AMSET(object):
                 ik_prm += 1
                 # counter += len(symmetrically_equivalent_ks) + 1
                 counter += 1
-                if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
-                    counter -= 1
+
+                # if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
+                #     counter -= 1
 
             if ib==ib_prm:
                 ik_prm = ik
@@ -1283,8 +1306,9 @@ class AMSET(object):
                 ik_prm -= 1
                 # counter += len(symmetrically_equivalent_ks) + 1
                 counter += 1
-                if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
-                    counter -= 1
+
+                # if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
+                #     counter -= 1
 
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
 
@@ -1317,8 +1341,12 @@ class AMSET(object):
 
             if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
                 counter -= 1
+                self.nforced_scat[tp] -= 1
 
-            self.nforced_POP += 1
+            self.nforced_scat[tp] += 1
+            self.ediff_scat[tp].append(self.kgrid["n"]["energy"][ib][ik_prm]-self.kgrid["n"]["energy"][ib][ik])
+
+
         ik_prm = ik
         while counter < forced_min_npoints and ik_prm > 0:
             # if E_radius > 0.0:
@@ -1340,7 +1368,9 @@ class AMSET(object):
 
             if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
                 counter -= 1
-            self.nforced_POP += 1
+                self.nforced_scat[tp] -= 1
+            self.nforced_scat[tp] += 1
+            self.ediff_scat[tp].append(self.kgrid["n"]["energy"][ib][ik]-self.kgrid["n"]["energy"][ib][ik_prm])
 
         result.sort(key=lambda x: x[0])
         return result
