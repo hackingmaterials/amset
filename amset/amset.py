@@ -1182,7 +1182,7 @@ class AMSET(object):
                                   .format(["conduction", "valence"][["n", "p"].index(tp)]))
 
                 print "{}-type energy difference of the enforced scatterer k-points + its average:".format(tp)
-                print sum(self.ediff_scat[tp])/len(self.ediff_scat[tp])
+                print sum(self.ediff_scat[tp])/max(len(self.ediff_scat[tp]), 0)
                 print self.ediff_scat[tp]
 
 
@@ -1223,7 +1223,7 @@ class AMSET(object):
                         ["conduction", "valence"][["n", "p"].index(tp)]))
 
                     print "{}-type energy difference of the enforced scatterer k-points + its average:".format(tp)
-                    print sum(self.ediff_scat[tp]) / len(self.ediff_scat[tp])
+                    print sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 0)
                     print self.ediff_scat[tp]
 
 
@@ -1267,10 +1267,11 @@ class AMSET(object):
         min_vdiff = 3*hbar*e*1e11*1e-4/m_e
 
         for ib_prm in range(self.cbm_vbm[tp]["included"]):
-            if ib==ib_prm:
+            if ib==ib_prm and E_radius==0.0:
                 ik_prm = ik
             else:
-                ik_prm = max(0, ik-100) # different bands, we start comparing energies ahead as energies aren't equal
+                ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() - 1
+                # ik_prm = max(0, ik-100) # different bands, we start comparing energies ahead as energies aren't equal
             while (ik_prm<nk-1) and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm+1]-(E+E_radius)) < tolerance:
             # while (ik_prm < nk - 1) and self.kgrid[tp]["energy"][ib_prm][ik_prm + 1] == (E + E_radius):
                 # if E_radius > 0.0:
@@ -1290,10 +1291,11 @@ class AMSET(object):
                 # if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
                 #     counter -= 1
 
-            if ib==ib_prm:
+            if ib==ib_prm and E_radius==0.0:
                 ik_prm = ik
             else:
-                ik_prm = min(nk-1, ik+100)
+                ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() + 1
+                # ik_prm = min(nk-1, ik+100)
             while (ik_prm>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prm][ik_prm-1]) < tolerance:
             # while (ik_prm > 0) and E + E_radius == self.kgrid[tp]["energy"][ib_prm][ik_prm - 1]:
                 # if E_radius > 0.0:
