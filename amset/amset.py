@@ -1123,7 +1123,7 @@ class AMSET(object):
 
 
 
-    def generate_angles_and_indexes_for_integration(self):
+    def generate_angles_and_indexes_for_integration(self, avg_Ediff_tolerance=0.01):
 
 
         # def is_sparse(list_of_lists, threshold=0.1):
@@ -1181,9 +1181,11 @@ class AMSET(object):
                     warnings.warn("the k-grid is too coarse for an acceptable simulation of elastic scattering in {} bands;"
                                   .format(["conduction", "valence"][["n", "p"].index(tp)]))
 
-                print "{}-type energy difference of the enforced scatterer k-points + its average:".format(tp)
-                print sum(self.ediff_scat[tp])/max(len(self.ediff_scat[tp]), 1)
-                # print self.ediff_scat[tp]
+                avg_Ediff = sum(self.ediff_scat[tp])/max(len(self.ediff_scat[tp]), 1)
+                if avg_Ediff > avg_Ediff_tolerance:
+                    raise ValueError("{}-type average energy difference of the enforced scattered k-points is more than"
+                                     " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
+
 
 
 
@@ -1222,9 +1224,11 @@ class AMSET(object):
                           " you can try this k-point grid but without POP as an inelastic scattering.".format(
                         ["conduction", "valence"][["n", "p"].index(tp)]))
 
-                    print "{}-type energy difference of the enforced scatterer k-points + its average:".format(tp)
-                    print sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 1)
-                    # print self.ediff_scat[tp]
+                    avg_Ediff = sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 1)
+                    if avg_Ediff > avg_Ediff_tolerance:
+                        raise ValueError(
+                            "{}-type average energy difference of the enforced scattered k-points is more than"
+                            " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
 
 
 
