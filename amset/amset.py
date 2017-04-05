@@ -1182,8 +1182,8 @@ class AMSET(object):
                                   .format(["conduction", "valence"][["n", "p"].index(tp)]))
 
                 print "{}-type energy difference of the enforced scatterer k-points + its average:".format(tp)
-                print sum(self.ediff_scat[tp])/max(len(self.ediff_scat[tp]), 0)
-                print self.ediff_scat[tp]
+                print sum(self.ediff_scat[tp])/max(len(self.ediff_scat[tp]), 1)
+                # print self.ediff_scat[tp]
 
 
 
@@ -1223,8 +1223,8 @@ class AMSET(object):
                         ["conduction", "valence"][["n", "p"].index(tp)]))
 
                     print "{}-type energy difference of the enforced scatterer k-points + its average:".format(tp)
-                    print sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 0)
-                    print self.ediff_scat[tp]
+                    print sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 1)
+                    # print self.ediff_scat[tp]
 
 
 
@@ -1346,7 +1346,7 @@ class AMSET(object):
                 self.nforced_scat[tp] -= 1
 
             self.nforced_scat[tp] += 1
-            self.ediff_scat[tp].append(self.kgrid["n"]["energy"][ib][ik_prm]-self.kgrid["n"]["energy"][ib][ik])
+            self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik_prm]-self.kgrid[tp]["energy"][ib][ik])
 
 
         ik_prm = ik
@@ -1372,7 +1372,7 @@ class AMSET(object):
                 counter -= 1
                 self.nforced_scat[tp] -= 1
             self.nforced_scat[tp] += 1
-            self.ediff_scat[tp].append(self.kgrid["n"]["energy"][ib][ik]-self.kgrid["n"]["energy"][ib][ik_prm])
+            self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik]-self.kgrid[tp]["energy"][ib][ik_prm])
 
         result.sort(key=lambda x: x[0])
         return result
