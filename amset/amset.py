@@ -110,9 +110,9 @@ class AMSET(object):
     def __init__(self, path_dir=None,
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
-                 donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=True):
+                 donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False):
 
-        self.nkibz = 30 #30 #20
+        self.nkibz = 90 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -795,38 +795,40 @@ class AMSET(object):
 
                     energies[tp][ik] = energy * Ry_to_eV + sgn * self.scissor/2
 
-        all_added_kpoints = []
-        Tmx = max(self.temperatures)
-        print "enegies of valence and conduction bands"
-        # print energies
-        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
-        # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[1*k_B*Tmx, 2*k_B*Tmx], nsteps=15)
-
-
-        # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=1*k_B*Tmx,target_Ediff=0.0001)
-
-        all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=2*k_B*Tmx,target_Ediff=0.01)
-
-            # temp = kpoints_added[tp]
-            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
-            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , offset, 0.0])), axis=0 )
-            # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([offset , 0.0, 0.0])), axis=0 )
-        # print "here 1"
-        # print len(kpoints_added["n"])
-        # print kpoints_added["n"]
-
-
-        print "here length of added k-points"
-        print len(all_added_kpoints)
-        print all_added_kpoints
-        # print final_kpts_added
-
-        print type(kpts)
-        # kpts.tolist()
         if self.adaptive_mesh:
+
+            all_added_kpoints = []
+            Tmx = max(self.temperatures)
+            print "enegies of valence and conduction bands"
+            # print energies
+            # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
+            # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[1*k_B*Tmx, 2*k_B*Tmx], nsteps=15)
+
+
+            # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=1*k_B*Tmx,target_Ediff=0.0001)
+
+            all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=2*k_B*Tmx,target_Ediff=0.01)
+
+                # temp = kpoints_added[tp]
+                # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
+                # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , offset, 0.0])), axis=0 )
+                # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([offset , 0.0, 0.0])), axis=0 )
+            # print "here 1"
+            # print len(kpoints_added["n"])
+            # print kpoints_added["n"]
+
+
+            print "here the number of added k-points"
+            print len(all_added_kpoints)
+            print all_added_kpoints
+            # print final_kpts_added
+
+            print type(kpts)
+            # kpts.tolist()
+
             kpts += all_added_kpoints
-        # if len(final_kpts_added) > 0:
-        #     kpts = np.concatenate((kpts, final_kpts_added), axis=0)
+            # if len(final_kpts_added) > 0:
+            #     kpts = np.concatenate((kpts, final_kpts_added), axis=0)
 
         kpts = self.remove_duplicate_kpoints(kpts)
         print type(kpts)
