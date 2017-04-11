@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False):
 
-        self.nkibz = 6 #30 #20
+        self.nkibz = 30 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -1400,8 +1400,10 @@ class AMSET(object):
         """
         norm_diff_k = norm(k - k_prm)
         if norm_diff_k == 0:
-            warnings.warn("same k and k' vectors as input of the elastic scattering equation")
-            return 0
+            # warnings.warn("same k and k' vectors as input of the elastic scattering equation")
+            raise ValueError("same k and k' vectors as input of the elastic scattering equation."
+                             "Check get_X_ib_ik_within_E_radius for possible error")
+            # return 0
 
         if sname.upper() in ["IMP"]: # ionized impurity scattering
             unit_conversion = 0.001 / e**2
