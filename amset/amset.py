@@ -109,10 +109,10 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False):
 
-        self.nkibz = 90 #30 #20
+        self.nkibz = 20 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -120,7 +120,7 @@ class AMSET(object):
         self.gaussian_broadening = False
 
         self.dE_global = 0.0001 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
-        self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
+        self.dopings = [-1e19, -1e21] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self.epsilon_inf = 25.57 # example for PbTe
@@ -1416,6 +1416,12 @@ class AMSET(object):
             return unit_conversion * e**2 * k_B * T * self.P_PIE**2 \
                    /(norm_diff_k ** 2 * 4.0 * pi**2 * hbar * epsilon_0 * self.epsilon_s)
 
+        # isotropic PIE
+        #     return (e ** 2 * k_B * T * self.P_PIE ** 2) / (
+        #         6 * pi * hbar ** 2 * self.epsilon_s * epsilon_0 * v) * (
+        #                    3 - 6 * par_c ** 2 + 4 * par_c ** 4) * 100 / e
+
+
         elif sname.upper() in ["DIS"]:
             return self.gs
 
@@ -1496,9 +1502,14 @@ class AMSET(object):
 
 
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
+
+        # k = m_e * self.kgrid[tp]["velocity"][ib][ik] / (hbar * e * 1e11)
+        # k_prm = m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (hbar * e * 1e11)
+
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm]
-        return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+
+        return (1 - X) * norm(k_prm-k)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
                / self.kgrid[tp]["velocity"][ib_prm][ik_prm]
                 # / abs(self.kgrid[tp]["velocity"][ib_prm][ik_prm][alpha])
@@ -2175,5 +2186,5 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=15, nstart=80)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=40, nstart=0)
     AMSET.plot()
