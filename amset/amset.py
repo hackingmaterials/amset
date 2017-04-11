@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False):
 
-        self.nkibz = 20 #30 #20
+        self.nkibz = 6 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -120,7 +120,7 @@ class AMSET(object):
         self.gaussian_broadening = False
 
         self.dE_global = 0.0001 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
-        self.dopings = [-1e19, -1e21] # 1/cm**3 list of carrier concentrations
+        self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self.epsilon_inf = 25.57 # example for PbTe
@@ -1173,7 +1173,7 @@ class AMSET(object):
                 self.ediff_scat = {"n": [], "p": []}
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
-                                                    E_radius=0.0, forced_min_npoints=2, tolerance=self.dE_global)
+                                                    E_radius=0.0, forced_min_npoints=2, tolerance=0.001)
                 if self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
                     print "here nforced k-points ratio"
                     print self.nforced_scat[tp] / (2*len(self.kgrid[tp]["kpoints"][ib]))
@@ -1280,17 +1280,18 @@ class AMSET(object):
                 # ik_prm = max(0, ik-100) # different bands, we start comparing energies ahead as energies aren't equal
             while (ik_prm<nk-1) and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm+1]-(E+E_radius)) < tolerance:
             # while (ik_prm < nk - 1) and self.kgrid[tp]["energy"][ib_prm][ik_prm + 1] == (E + E_radius):
+                ik_prm += 1
                 # if E_radius > 0.0:
                 #     print "AFTER", ib, ik, E_radius
                 # k_prm = self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm+1]
                 # X = self.cos_angle(k, k_prm)
                 # result.append((X, ib_prm, ik_prm + 1))
                 # result.append((X, ib_prm, ik_prm, k_prm))
-                result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm+1]),ib_prm,ik_prm))
+                result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm]),ib_prm,ik_prm))
                 # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
                 # result += symmetrically_equivalent_ks
 
-                ik_prm += 1
+
                 # counter += len(symmetrically_equivalent_ks) + 1
                 counter += 1
 
@@ -1304,14 +1305,15 @@ class AMSET(object):
                 # ik_prm = min(nk-1, ik+100)
             while (ik_prm>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prm][ik_prm-1]) < tolerance:
             # while (ik_prm > 0) and E + E_radius == self.kgrid[tp]["energy"][ib_prm][ik_prm - 1]:
+                ik_prm -= 1
                 # if E_radius > 0.0:
                 #     print "BEFORE", ib, ik, E_radius
                 # X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm - 1])
                 # result.append((X, ib_prm, ik_prm - 1))
-                result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm - 1]), ib_prm, ik_prm))
+                result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
                 # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
                 # result += symmetrically_equivalent_ks
-                ik_prm -= 1
+
                 # counter += len(symmetrically_equivalent_ks) + 1
                 counter += 1
 
@@ -1482,20 +1484,29 @@ class AMSET(object):
     def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None, g_suffix=""):
         sum = np.array([0.0, 0.0, 0.0])
         if len(X_E_index[ib][ik]) == 0:
-            return sum
+            raise ValueError("enforcing scattering points did NOT work, {}[{}][{}] is empty".format(X_E_index,ib,ik))
+            # return sum
         for i in range(len(X_E_index[ib][ik]) - 1):
             DeltaX = X_E_index[ib][ik][i + 1][0] - \
                      X_E_index[ib][ik][i][0]
             if DeltaX == 0.0:
                 continue
-            # for alpha in range(3):
-            dum = np.array([0.0, 0.0, 0.0])
-            for j in range(2):
-                # extract the indecies
-                X, ib_prm, ik_prm = X_E_index[ib][ik][i + j]
-                dum += integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
 
-            dum /= 2.0  # the average of points i and i+1 to integrate via the trapezoidal rule
+
+
+            # dum = np.array([0.0, 0.0, 0.0])
+            # for j in range(2):
+            #     # extract the indecies
+            #     X, ib_prm, ik_prm = X_E_index[ib][ik][i + j]
+            #     dum += integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
+
+            # dum /= 2.0  # the average of points i and i+1 to integrate via the trapezoidal rule
+
+
+            X, ib_prm, ik_prm = X_E_index[ib][ik][i]
+            # integrand is
+            dum = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
+
             sum += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
         return sum
 
@@ -1509,13 +1520,14 @@ class AMSET(object):
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm]
 
-        return (1 - X) * norm(k_prm-k)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
                / self.kgrid[tp]["velocity"][ib_prm][ik_prm]
-                # / abs(self.kgrid[tp]["velocity"][ib_prm][ik_prm][alpha])
-        # We take |v| as scattering depends on the velocity itself and not the direction
 
-
+        # This results in VERY LOW scattering rates (in order of 1-10 1/s!) in some k-points
+        # return (1 - X) * norm(k_prm-k)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
+        #        / self.kgrid[tp]["velocity"][ib_prm][ik_prm]
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
@@ -1745,7 +1757,12 @@ class AMSET(object):
                                                             integrand=self.el_integrand_X,
                                                           ib=ib, ik=ik, c=c, T=T, sname = sname, g_suffix="")
                                 self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * 2e-7 * pi/hbar
-                                if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1:
+                                if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1 and sname not in ["DIS"]:
+                                    print "WARNING!!! here scattering {} < 1".format(sname)
+                                    # if self.kgrid[tp]["df0dk"][c][T][ib][ik][0] > 1e-32:
+                                    #     print self.kgrid[tp]["df0dk"][c][T][ib][ik]
+                                    print self.kgrid[tp]["X_E_ik"][ib][ik]
+
                                     self.kgrid[tp][sname][c][T][ib][ik] = [1e9, 1e9, 1e9]
                                 # for alpha in range(3):
                                 #     if self.kgrid[tp][sname][c][T][ib][ik][alpha] < 1:
