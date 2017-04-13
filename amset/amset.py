@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False):
 
-        self.nkibz = 30 #30 #20
+        self.nkibz = 40 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -228,7 +228,7 @@ class AMSET(object):
 
         self.calculate_transport_properties()
 
-        kremove_list = ["W_POP", "effective mass", "actual kpoints", "kweights", "a", "c", "f",
+        kremove_list = ["W_POP", "effective mass", "kweights", "a", "c", "f",
                         "f_th", "g_th", "S_i_th", "S_o_th"]
 
         for tp in ["n", "p"]:
@@ -415,6 +415,7 @@ class AMSET(object):
         for tp in ["n", "p"]:
             for ib, en_vec in enumerate(self.kgrid[tp]["energy"]):
                 self.egrid[tp]["all_en_flat"] += list(en_vec)
+                # also store the flatten energy (i.e. no band index) as a tuple of band and k-indexes
                 E_idx += [(ib, iek) for iek in range(len(en_vec))]
             # self.egrid[tp]["all_en_flat"].sort()
             ieidxs = np.argsort(self.egrid[tp]["all_en_flat"])
@@ -452,7 +453,7 @@ class AMSET(object):
 
             if not last_is_counted:
                 self.egrid[tp]["energy"].append(self.egrid[tp]["all_en_flat"][-1])
-                self.kgrid_to_egrid_idx[tp].append(E_idx[-1])
+                self.kgrid_to_egrid_idx[tp].append([E_idx[-1]])
                 if dos_tp.lower() == "simple":
                     self.egrid[tp]["DOS"].append(self.nelec / len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
@@ -605,21 +606,96 @@ class AMSET(object):
 
 
     @staticmethod
-    def remove_duplicate_kpoints(kpts):
+    def remove_duplicate_kpoints(kpts, dk = 0.0001):
         """kpts (list of list): list of coordinates of electrons
-         ALWAYS return either a list or ndarray: BE CONSISTENT with the input!!!"""
+         ALWAYS return either a list or ndarray: BE CONSISTENT with the input!!!
+
+         Attention: it is better to call this method only once as calculating the norms takes time.
+         """
         start_time = time.time()
+
         rm_list = []
-        kpts.sort(key=lambda x: x[0])
-        # kpts = np.sort(kpts, axis=0)
-        for i in range(len(kpts)-2):
-            if kpts[i][0] == kpts[i+1][0] and kpts[i][1] == kpts[i+1][1] and kpts[i][2] == kpts[i+1][2]:
-                rm_list.append(i)
+
+        kdist = [norm(k) for k in kpts]
+        ktuple = zip(kdist, kpts)
+        ktuple.sort(key=lambda x: x[0])
+        kpts = [tup[1] for tup in ktuple]
+
+        # kpts.sort(key=lambda x: norm(x))
+
+        i = -1
+        while i+1 < len(kpts)-1:
+            i+=1
+            j = i
+            while j < len(kpts)-1 and ktuple[j+1][0] - ktuple[i][0] < dk :
+
+            # for i in range(len(kpts)-2):
+                # if kpts[i][0] == kpts[i+1][0] and kpts[i][1] == kpts[i+1][1] and kpts[i][2] == kpts[i+1][2]:
+                if (abs(kpts[i][0]-kpts[j+1][0])<dk or abs(kpts[i][0])==abs(kpts[j+1][0])==0.5) and \
+                    (abs(kpts[i][1]-kpts[j+1][1]) < dk or abs(kpts[i][1]) == abs(kpts[j+1][1]) == 0.5) and \
+                    (abs(kpts[i][2]-kpts[j+1][2]) < dk or abs(kpts[i][2]) == abs(kpts[j+1][2]) == 0.5):
+                    rm_list.append(j+1)
+                j += 1
+
+
+        # The reason the following does NOT work is this example: [[0,3,4], [4,3,0], [0.001, 3, 4]]: In this example,
+        # the k-points are correctly sorted based on their norm but 0&1 or 1&2 are NOT equal but 0&3 are but not captured
+        # for i in range(len(kpts)-2):
+        #     if (abs(kpts[i][0]-kpts[i+1][0])<dk or abs(kpts[i][0])==abs(kpts[i+1][0])==0.5) and \
+        #             (abs(kpts[i][1]-kpts[i+1][1]) < dk or abs(kpts[i][1]) == abs(kpts[i+1][1]) == 0.5) and \
+        #             (abs(kpts[i][2]-kpts[i+1][2]) < dk or abs(kpts[i][2]) == abs(kpts[i+1][2]) == 0.5):
+        #             rm_list.append(i+1)
+
+
+
+
         kpts = np.delete(kpts, rm_list, axis=0)
         kpts = list(kpts)
+
+
+        # even if this works (i.e. the shape of kpts is figured out, etc), it's not good as does not consider 0.0001 and 0.0002 equal
+        # kpts = np.vstack({tuple(row) for row in kpts})
+
+
+
+        # TODO: failed attempt to speed up duplication removal process by sorting the k-points in one direction first
+        # kpts.sort(key=lambda x: x[0])
+        # old_idx = 0
+        # for i in range(len(kpts)-2):
+        #     # look for duplicate k-points in a sublist of kpts where kx values are almost equal
+        #     # if abs(abs(kpts[i][0]) - 0.5) < 0.0001 and abs(abs(kpts[i][1]) - 0.5) < 0.0001 and abs(abs(kpts[i][2]) - 0.5) < 0.0001:
+        #     #     rm_list.append(i)
+        #     #     continue
+        #     if abs(kpts[i][0]-kpts[i + 1][0]) > 0.0001:
+        #         for j in range(old_idx, i):
+        #             for jj in range(j+1, i+1):
+        #                 if abs(kpts[j][1]-kpts[jj][1])<0.0001 and abs(kpts[j][2]-kpts[jj][2])<0.0001:
+        #                     rm_list.append(jj)
+        #         old_idx = i+1
+
+
+        # CORRECT BUT TIME CONSUMING WAY OF REMOVING DUPLICATES
+        # for i in range(len(kpts)-2):
+        #     # if abs(abs(kpts[i][0]) - 0.5) < 0.0001 and abs(abs(kpts[i][1]) - 0.5) < 0.0001 and abs(abs(kpts[i][2]) - 0.5) < 0.0001:
+        #     #     rm_list.append(i)
+        #     #     continue
+        #     for j in range(i+1, len(kpts)-1):
+        #         if (abs(kpts[i][0] - kpts[j][0]) < 0.0001 or abs(kpts[i][0])==abs(kpts[j][0])==0.5) and \
+        #                 (abs(kpts[i][1] - kpts[j][1]) < 0.0001 or abs(kpts[i][1]) == abs(kpts[j][1]) == 0.5) and\
+        #             (abs(kpts[i][2] - kpts[j][2]) < 0.0001 or abs(kpts[i][2]) == abs(kpts[j][2]) == 0.5):
+        #
+        #             rm_list.append(j)
+        #
+        # kpts = np.delete(kpts, rm_list, axis=0)
+        # kpts = list(kpts)
+
+
         print "total time to remove duplicate k-points = {} seconds".format(time.time() - start_time)
         print "number of duplicates removed:"
         print len(rm_list)
+
+
+        # print kpts
 
         return kpts
 
@@ -671,7 +747,7 @@ class AMSET(object):
                     break
                 final_kpts_added += self.get_intermediate_kpoints_list(list(kpts[ies_sorted[idx]]),
                                                    list(kpts[ies_sorted[idx+1]]), max(int(Ediff/target_Ediff) , 1))
-        return final_kpts_added
+        return  self.kpts_to_first_BZ(final_kpts_added)
 
 
     def get_adaptive_kpoints(self, kpts, energies, adaptive_Erange, nsteps):
@@ -705,7 +781,21 @@ class AMSET(object):
                 final_kpts_added += self.get_intermediate_kpoints_list(list(kpoints_added[tp][ik]),
                                                                        list(kpoints_added[tp][ik + 1]), nsteps)
 
-        return final_kpts_added
+        return self.kpts_to_first_BZ(final_kpts_added)
+
+
+
+    def kpts_to_first_BZ(self, kpts):
+        for i, k in enumerate(kpts):
+            for alpha in range(3):
+                if k[alpha] > 0.5:
+                    k[alpha] -= 1
+                if k[alpha] < -0.5:
+                    k[alpha] += 1
+            kpts[i] = k
+        return kpts
+
+
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
@@ -722,16 +812,14 @@ class AMSET(object):
         self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
 
         kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
-        print len(kpts_and_weights)
         kpts = [i[0] for i in kpts_and_weights]
+        kpts = self.kpts_to_first_BZ(kpts)
+
 
         # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
         kpts.append(self.cbm_vbm["n"]["kpoint"])
         kpts.append(self.cbm_vbm["p"]["kpoint"])
 
-        print type(kpts)
-        kpts = self.remove_duplicate_kpoints(kpts)
-        print type(kpts)
         print "number of original ibz k-points"
         print len(kpts)
 
@@ -830,8 +918,8 @@ class AMSET(object):
             # if len(final_kpts_added) > 0:
             #     kpts = np.concatenate((kpts, final_kpts_added), axis=0)
 
-        kpts = self.remove_duplicate_kpoints(kpts)
-        print type(kpts)
+        # kpts = self.remove_duplicate_kpoints(kpts)
+        # print type(kpts)
         # final_kpts_added = self.remove_duplicate_kpoints(final_kpts_added)
 
         print "debug0"
@@ -841,8 +929,9 @@ class AMSET(object):
             fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
             symmetrically_equivalent_ks += fractional_ks
             # symmetrically_equivalent_ks = np.concatenate((symmetrically_equivalent_ks, fractional_ks), axis=0)
-        kpts += symmetrically_equivalent_ks
+        kpts += self.kpts_to_first_BZ(symmetrically_equivalent_ks)
         # kpts = np.concatenate((kpts, symmetrically_equivalent_ks))
+        kpts = self.remove_duplicate_kpoints(kpts)
 
         print "length of final kpts"
         print len(kpts)
@@ -1173,7 +1262,7 @@ class AMSET(object):
                 self.ediff_scat = {"n": [], "p": []}
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
-                                                    E_radius=0.0, forced_min_npoints=2, tolerance=0.001)
+                                                    E_radius=0.0, forced_min_npoints=2, tolerance=self.dE_global)
                 if self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
                     print "here nforced k-points ratio"
                     print self.nforced_scat[tp] / (2*len(self.kgrid[tp]["kpoints"][ib]))
@@ -1185,8 +1274,11 @@ class AMSET(object):
 
                 avg_Ediff = sum(self.ediff_scat[tp])/max(len(self.ediff_scat[tp]), 1)
                 if avg_Ediff > avg_Ediff_tolerance:
-                    raise ValueError("{}-type average energy difference of the enforced scattered k-points is more than"
+                    #TODO: change it back to ValueError as it was originally, it was switched to warning for fast debug
+                    warnings.warn("{}-type average energy difference of the enforced scattered k-points is more than"
                                      " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
+                    # raise ValueError("{}-type average energy difference of the enforced scattered k-points is more than"
+                    #                  " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
 
 
 
@@ -1400,10 +1492,11 @@ class AMSET(object):
         """
         norm_diff_k = norm(k - k_prm)
         if norm_diff_k == 0:
+            print "WARNING!!! same k and k' vectors as input of the elastic scattering equation"
             # warnings.warn("same k and k' vectors as input of the elastic scattering equation")
-            raise ValueError("same k and k' vectors as input of the elastic scattering equation."
-                             "Check get_X_ib_ik_within_E_radius for possible error")
-            # return 0
+            # raise ValueError("same k and k' vectors as input of the elastic scattering equation."
+            #                  "Check get_X_ib_ik_within_E_radius for possible error")
+            return 0
 
         if sname.upper() in ["IMP"]: # ionized impurity scattering
             unit_conversion = 0.001 / e**2
@@ -1484,10 +1577,13 @@ class AMSET(object):
 
 
     def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None, g_suffix=""):
+        """integrate numerically with a simple trapezoidal algorithm."""
         sum = np.array([0.0, 0.0, 0.0])
         if len(X_E_index[ib][ik]) == 0:
             raise ValueError("enforcing scattering points did NOT work, {}[{}][{}] is empty".format(X_E_index,ib,ik))
             # return sum
+        X, ib_prm, ik_prm = X_E_index[ib][ik][0]
+        current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
         for i in range(len(X_E_index[ib][ik]) - 1):
             DeltaX = X_E_index[ib][ik][i + 1][0] - \
                      X_E_index[ib][ik][i][0]
@@ -1504,13 +1600,14 @@ class AMSET(object):
 
             # dum /= 2.0  # the average of points i and i+1 to integrate via the trapezoidal rule
 
+            dum = current_integrand/2
 
-            X, ib_prm, ik_prm = X_E_index[ib][ik][i]
-            # integrand is
-            dum = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
+            X, ib_prm, ik_prm = X_E_index[ib][ik][i+1]
+            current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
 
+            dum += current_integrand/2
             sum += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
-        return sum
+        return sum/len(X_E_index[ib][ik])
 
 
 
@@ -1759,16 +1856,19 @@ class AMSET(object):
                                                             integrand=self.el_integrand_X,
                                                           ib=ib, ik=ik, c=c, T=T, sname = sname, g_suffix="")
                                 self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * 2e-7 * pi/hbar
-                                if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1 and sname not in ["DIS"]:
+                                if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 100 and sname not in ["DIS"]:
                                     print "WARNING!!! here scattering {} < 1".format(sname)
                                     # if self.kgrid[tp]["df0dk"][c][T][ib][ik][0] > 1e-32:
                                     #     print self.kgrid[tp]["df0dk"][c][T][ib][ik]
                                     print self.kgrid[tp]["X_E_ik"][ib][ik]
 
-                                    self.kgrid[tp][sname][c][T][ib][ik] = [1e9, 1e9, 1e9]
-                                # for alpha in range(3):
-                                #     if self.kgrid[tp][sname][c][T][ib][ik][alpha] < 1:
-                                #         self.kgrid[tp][sname][c][T][ib][ik][alpha] = 1e9
+                                    self.kgrid[tp][sname][c][T][ib][ik] = [1e10, 1e10, 1e10]
+
+                                if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e20:
+                                    print "WARNING!!! TOO LARGE of scattering rate for {}:".format(sname)
+                                    print sum
+                                    print self.kgrid[tp]["X_E_ik"][ib][ik]
+                                    print
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
                         self.kgrid[tp]["relaxation time"][c][T][ib] = 1/self.kgrid[tp]["_all_elastic"][c][T][ib]
 
@@ -1975,7 +2075,7 @@ class AMSET(object):
             if trimmed:
                 nmax = min([max_ndata+1, min([len(kgrid["n"]["kpoints"][0]), len(kgrid["p"]["kpoints"][0])])])
                 # remove_list = ["W_POP", "effective mass", "actual kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
-                remove_list = ["W_POP", "effective mass", "actual kpoints"]
+                remove_list = ["W_POP", "effective mass"]
                 for tp in ["n", "p"]:
                     for rm in remove_list:
                         try:
