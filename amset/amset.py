@@ -109,10 +109,10 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False):
 
-        self.nkibz = 40 #30 #20
+        self.nkibz = 60 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -1619,6 +1619,7 @@ class AMSET(object):
         k = self.kgrid[tp]["actual kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm]
 
+        # TODO: if only use norm(k_prm), I get ACD mobility that is almost exactly inversely proportional to temperature
         return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
                / self.kgrid[tp]["velocity"][ib_prm][ik_prm]
@@ -2113,6 +2114,7 @@ class AMSET(object):
 
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.maxiters):
+            print("Performing iteration # {}".format(iter))
             if "POP" in self.inelastic_scatterings:
                 for g_suffix in ["", "_th"]:
                     if self.bs_is_isotropic:
