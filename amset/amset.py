@@ -109,10 +109,10 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=False,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False):
 
-        self.nkibz = 60 #30 #20
+        self.nkibz = 80 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -417,9 +417,12 @@ class AMSET(object):
                 self.egrid[tp]["all_en_flat"] += list(en_vec)
                 # also store the flatten energy (i.e. no band index) as a tuple of band and k-indexes
                 E_idx += [(ib, iek) for iek in range(len(en_vec))]
-            # self.egrid[tp]["all_en_flat"].sort()
+
+            # get the indexes of sorted flattened energy
             ieidxs = np.argsort(self.egrid[tp]["all_en_flat"])
             self.egrid[tp]["all_en_flat"] = [self.egrid[tp]["all_en_flat"][ie] for ie in ieidxs]
+
+            # sort the tuples of band and energy based on their energy
             E_idx = [E_idx[ie] for ie in ieidxs]
 
 
@@ -432,16 +435,17 @@ class AMSET(object):
                 sum_e = self.egrid[tp]["all_en_flat"][i]
                 counter = 1.0
                 current_ib_ie_idx = [E_idx[i]]
-                while i<len(self.egrid[tp]["all_en_flat"])-1 and \
-                        abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][i+1]) < self.dE_global:
+                j = i
+                while j<len(self.egrid[tp]["all_en_flat"])-1 and \
+                        abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][j+1]) < self.dE_global:
                 # while i < len(self.egrid[tp]["all_en_flat"]) - 1 and \
                 #          self.egrid[tp]["all_en_flat"][i] == self.egrid[tp]["all_en_flat"][i + 1] :
                     counter += 1
-                    current_ib_ie_idx.append(E_idx[i+1])
-                    sum_e += self.egrid[tp]["all_en_flat"][i+1]
-                    if i+1 == len(self.egrid[tp]["all_en_flat"])-1:
+                    current_ib_ie_idx.append(E_idx[j+1])
+                    sum_e += self.egrid[tp]["all_en_flat"][j+1]
+                    if j+1 == len(self.egrid[tp]["all_en_flat"])-1:
                         last_is_counted = True
-                    i+=1
+                    j+=1
                 self.egrid[tp]["energy"].append(sum_e/counter)
                 self.kgrid_to_egrid_idx[tp].append(current_ib_ie_idx)
                 energy_counter.append(counter)
@@ -449,7 +453,7 @@ class AMSET(object):
                     self.egrid[tp]["DOS"].append(counter/len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
                     self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_e/counter)][1])
-                i+=1
+                i = j + 1
 
             if not last_is_counted:
                 self.egrid[tp]["energy"].append(self.egrid[tp]["all_en_flat"][-1])
@@ -623,9 +627,8 @@ class AMSET(object):
 
         # kpts.sort(key=lambda x: norm(x))
 
-        i = -1
-        while i+1 < len(kpts)-1:
-            i+=1
+        i = 0
+        while i < len(kpts)-1:
             j = i
             while j < len(kpts)-1 and ktuple[j+1][0] - ktuple[i][0] < dk :
 
@@ -636,6 +639,7 @@ class AMSET(object):
                     (abs(kpts[i][2]-kpts[j+1][2]) < dk or abs(kpts[i][2]) == abs(kpts[j+1][2]) == 0.5):
                     rm_list.append(j+1)
                 j += 1
+            i+=1
 
 
         # The reason the following does NOT work is this example: [[0,3,4], [4,3,0], [0.001, 3, 4]]: In this example,
