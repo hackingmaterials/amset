@@ -112,7 +112,7 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False):
 
-        self.nkibz = 80 #30 #20
+        self.nkibz = 30 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -1624,14 +1624,14 @@ class AMSET(object):
         k_prm = self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm]
 
         # TODO: if only use norm(k_prm), I get ACD mobility that is almost exactly inversely proportional to temperature
-        return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-               * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
-               / self.kgrid[tp]["velocity"][ib_prm][ik_prm]
-
-        # This results in VERY LOW scattering rates (in order of 1-10 1/s!) in some k-points
-        # return (1 - X) * norm(k_prm-k)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        # return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
         #        * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
         #        / self.kgrid[tp]["velocity"][ib_prm][ik_prm]
+
+        # This results in VERY LOW scattering rates (in order of 1-10 1/s!) in some k-points
+        return (1 - X) * (m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (hbar * e * 1e11))** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+               * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
+               / self.kgrid[tp]["velocity"][ib_prm][ik_prm]
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
