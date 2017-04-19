@@ -19,6 +19,13 @@ e = _cd('elementary charge')
 # TODO: adding doc to explain each functions their inputs and outputs once Analytical_bands class is optimized.
 
 
+
+def norm(v):
+    """method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as numpy.linalg.norm is slower for this case"""
+    return (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
+
+
+
 def outer(v1, v2):
     """returns the outer product of vectors v1 and v2. This is to be used instead of numpy.outer which is ~3x slower."""
     return np.array([[v1[0] * v2[0], v1[0] * v2[1], v1[0] * v2[2]],
@@ -26,6 +33,88 @@ def outer(v1, v2):
                      [v1[2] * v2[0], v1[2] * v2[1], v1[2] * v2[2]]])
 
 
+
+def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1):
+    """
+
+    :param kpt:
+    :param rotations: symmetry rotation operations
+    :param translations: symmetry translational operations
+    :param poly_bands [[tuple]]: each member of the first list represents a band: in each band a list of tuples and each
+        tuple represents the extrema k-point (1st member of the tuple)  and a list of polynomial coefficients with
+        the coeffciient of x**0 being the first member and the length of that list determines the degree of polynomial
+        for example poly_bands = [[ [[[0.5, 0.5, 0.5]], [0, 0, 1]], [[[0, 0, 0]], [0.5, 1, 2]]]] represents a
+        band structure with a single band; this band has a shape of k**2+bandgap at point X where k is norm(k-[0.5,0.5,0.5]) if
+         the k-point is closer to X than Gamma. Additionally, this band has another extremum at an energy level 0.5 eV
+         above the first/main extremum/CBM and have the shape 0.5+bandgap+k+2*k**2 for k's that are closer to Gamma than they
+         are to X. If type is "p" the band structure would be a mirror image hence the formula for this example
+         band structure would be -k**2 and -0.5-k+2-k**2 respectively (i.e. 0.0 eV is always at the VBM)
+
+    :param type (str): "n" or "p"
+    :param ib (int): the band index, 0 is for the first band and maximum allowed value is len(poly_bands)-1
+    :param bandgap:
+    :return:
+    """
+    # determine the sign of energy from type; e.g. p-type energies are negative with VBM=0.0
+    sgn = (-1)**(["p", "n"].index(type)+1)
+
+    band_shapes = poly_bands[ib]
+    min_kdistance = 1e32
+    for ks, c in band_shapes: #ks are all symmetrically equivalent k-points to the extremum k that are in the first BZ
+        distance = min([norm(kpt-k) for k in ks])
+        # for k in ks:
+        #     distance = norm(kpt-k)
+        if distance < min_kdistance:
+            min_kdistance = distance
+            coefficients = c
+
+    e = bandgap*["p", "n"].index(type) # if p-type we do not add any value to the calculated energy for the band gap
+    de = 0
+    dde = 0
+    for i, c in enumerate(coefficients):
+        e += c * min_kdistance**i * sgn
+        if i > 0:
+            de += i * c *min_kdistance**(i-1)
+            if i > 1:
+                dde += i * (i-1) * c * min_kdistance ** (i - 2)
+    de = np.array([de, de, de])
+    dde = np.array([[dde, 0.0, 0.0],
+                    [0.0, dde, 0.0],
+                    [0.0, 0.0, dde] ])
+    return e, de, dde
+
+
+
+def get_dos_from_poly_bands(st, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.2):
+        '''
+        Args:
+        st:       pmg object of crystal structure to calculate symmetries
+        mesh:     list of integers defining the k-mesh on which the dos is required
+        e_min:    starting energy (eV) of dos
+        e_max:    ending energy (eV) of dos
+        e_points: number of points of the get_dos
+        width:    width in eV of the gaussians generated for each energy
+        Returns:
+        e_mesh:   energies in eV od the DOS
+        dos:      density of states for each energy in e_mesh
+        '''
+
+        height = 1.0 / (width * np.sqrt(2 * np.pi))
+        e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
+        e_range = len(e_mesh)
+        ir_kpts = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
+        ir_kpts = [k[0] for k in ir_kpts]
+        weights = [k[1] for k in ir_kpts]
+        w_sum = float(sum(weights))
+
+        dos = np.zeros(e_range)
+        for kpt,w in zip(ir_kpts,weights):
+            for tp in ["n", "p"]:
+                for ib in range(len(poly_bands)):
+                    e, de, dde = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap)
+                    g = height * np.exp(-((e_mesh - e) / width) ** 2 / 2.)
+                    dos += w * g
+        return e_mesh,dos
 
 def get_dos(energies,weights,e_min=None,e_max=None,e_points=None,width=0.2):
     '''
@@ -109,7 +198,6 @@ class Analytical_bands(object):
         ' Compute energy for a k-point from star functions '
 
         sign = -1 if cbm == False else 1
-        
         arg = 2*np.pi*vec.dot(xkpt)
         tempc=np.cos(arg)
         spwre=np.sum(tempc,axis=1)-(nsym-nstv)#[:,np.newaxis]
@@ -252,6 +340,17 @@ if __name__ == "__main__":
     # user inputs
     cbm_bidx = 11
     kpts = np.array([[0.5, 0.5, 0.5]])
+    kpts = np.array([
+        [
+            -0.5,
+            -0.5,
+            0.10000000000000009
+        ],
+        [
+            0.5,
+            0.5,
+            -0.10000000000000009
+        ], ])
     coeff_file = 'fort.123'
 
     analytical_bands = Analytical_bands(coeff_file=coeff_file)

@@ -7,7 +7,7 @@ import time
 from pymatgen.electronic_structure.plotter import plot_brillouin_zone, plot_brillouin_zone_from_kpath
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
-from analytical_band_from_BZT import Analytical_bands, outer, get_dos
+from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_poly_energy
 from pprint import pprint
 
 import numpy as np
@@ -110,9 +110,11 @@ class AMSET(object):
     def __init__(self, path_dir=None,
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
-                 donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False):
+                 donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
+                 # poly_bands = None):
+                 poly_bands=[ [ [[0.5, 0.5, 0.5], [0, 0, 1] ] ] ]):
 
-        self.nkibz = 30 #30 #20
+        self.nkibz = 10 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -139,7 +141,7 @@ class AMSET(object):
         self.gl = 1e32 # a global large value
         self.dos_bwidth = 0.1 # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
         self.nkdos = 31
-
+        self.poly_bands = poly_bands
         self.adaptive_mesh = adaptive_mesh
 
 #TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
@@ -281,6 +283,8 @@ class AMSET(object):
         cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.up][-1]
         cbm_vbm["p"]["kpoint"] = bs.kpoints[vbm["kpoint_index"][0]].frac_coords
 
+        self.dft_gap = cbm["energy"] - vbm["energy"]
+        print "DFT gap from vasprun.xml : {} eV".format(self.dft_gap)
         if self.soc:
             self.nelec = cbm_vbm["p"]["bidx"]
         else:
@@ -801,6 +805,12 @@ class AMSET(object):
 
 
 
+    def get_sym_eq_ks_in_first_BZ(self, k):
+        fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
+        return self.kpts_to_first_BZ(fractional_ks)
+
+
+
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         if kgrid_tp=="coarse":
             nkstep = self.nkibz
@@ -828,43 +838,55 @@ class AMSET(object):
         print len(kpts)
 
 
-        analytical_bands = Analytical_bands(coeff_file=coeff_file)
-        all_ibands = []
-        for i, tp in enumerate(["p", "n"]):
-            for ib in range(self.cbm_vbm[tp]["included"]):
-                sgn = (-1) ** i
-                all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
+        if not self.poly_bands:
+            analytical_bands = Analytical_bands(coeff_file=coeff_file)
+            all_ibands = []
+            for i, tp in enumerate(["p", "n"]):
+                for ib in range(self.cbm_vbm[tp]["included"]):
+                    sgn = (-1) ** i
+                    all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
 
-        start_time = time.time()
+            start_time = time.time()
 
-        engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
-        nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
-        out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
-        for nw in xrange(nwave):
-            for i in xrange(nstv[nw]):
-                out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+            engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
+            nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
+            out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+            for nw in xrange(nwave):
+                for i in xrange(nstv[nw]):
+                    out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
 
-        print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
+            print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
 
 
-        # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
-        emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
-                    self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), width=self.dos_bwidth)
+            # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
+            emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
+                        self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), width=self.dos_bwidth)
+        else:
+            # first modify the self.poly_bands to include all symmetrically equivalent k-points
+            for ib in range(len(self.poly_bands)):
+                for j in range(len(self.poly_bands[ib])):
+                    self.poly_bands[ib][j][0] = self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0])
+            # print "here self.poly_bands"
+            # print self.poly_bands
+
+            # now construct the DOS
+            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
+                self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), poly_bands=self.poly_bands,
+                    bandgap=self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]+self.scissor, width=self.dos_bwidth)
+
         integ = 0.0
-        for idos in range(len(dos)-2):
-            integ += (dos[idos+1]+ dos[idos])/2 * (emesh[idos+1] - emesh[idos])
+        for idos in range(len(dos) - 2):
+            integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
         # normalize DOS
-        dos = [g/integ * self.nelec for g in dos]
+        dos = [g / integ * self.nelec for g in dos]
         self.dos = zip(emesh, dos)
-
-
         # calculate the energies in initial ibz k-points and look at the first band to decide on additional/adaptive ks
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
             # for now we only look at
-            for ib in range(1):
+            for ib in range(self.cbm_vbm[tp]["included"]):
                 # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
                 #     analytical_bands.get_engre(iband=[self.cbm_vbm[tp]["bidx"] + sgn * ib])
                 # bands_data[tp][ib] = (engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
@@ -881,17 +903,23 @@ class AMSET(object):
                 #     once_called = True
 
                 for ik in range(len(kpts)):
-                    energy, de, dde = analytical_bands.get_energy(
-                        kpts[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
-                            nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+                    if not self.poly_bands:
+                        energy, de, dde = analytical_bands.get_energy(
+                            kpts[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
+                                nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
 
-                    energies[tp][ik] = energy * Ry_to_eV + sgn * self.scissor/2
+                        energies[tp][ik] = energy * Ry_to_eV + sgn * self.scissor/2
+                    else:
+                        energy, de, dde = get_poly_energy(kpts[ik], poly_bands=self.poly_bands, type=tp, ib=ib,
+                            bandgap=self.dft_gap + self.scissor)
+                        energies[tp][ik] = energy
+
 
         if self.adaptive_mesh:
 
             all_added_kpoints = []
             Tmx = max(self.temperatures)
-            print "enegies of valence and conduction bands"
+            # print "enegies of valence and conduction bands"
             # print energies
             # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
             # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[1*k_B*Tmx, 2*k_B*Tmx], nsteps=15)
@@ -924,16 +952,19 @@ class AMSET(object):
 
         # kpts = self.remove_duplicate_kpoints(kpts)
         # print type(kpts)
-        # final_kpts_added = self.remove_duplicate_kpoints(final_kpts_added)
+        # final_kpts_added = self.remove_duplicate_kpoints(final_kpts_added
 
         print "debug0"
         # print kpts
+
         symmetrically_equivalent_ks = []
         for k in kpts:
-            fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
-            symmetrically_equivalent_ks += fractional_ks
+            symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
+            # fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
+            # symmetrically_equivalent_ks += fractional_ks
             # symmetrically_equivalent_ks = np.concatenate((symmetrically_equivalent_ks, fractional_ks), axis=0)
-        kpts += self.kpts_to_first_BZ(symmetrically_equivalent_ks)
+        kpts += symmetrically_equivalent_ks
+        # kpts += self.kpts_to_first_BZ(symmetrically_equivalent_ks)
         # kpts = np.concatenate((kpts, symmetrically_equivalent_ks))
         kpts = self.remove_duplicate_kpoints(kpts)
 
@@ -941,7 +972,15 @@ class AMSET(object):
         print len(kpts)
         # print kpts
 
-
+        #test, remove this later:
+        # symmetrically_equivalent_ks = []
+        # for k in [[0.5, 0.5, 0.5]]:
+        #     fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
+        #     symmetrically_equivalent_ks += fractional_ks
+        # print "symmetrically equivalent k-points to X"
+        # print symmetrically_equivalent_ks
+        # print "now back to first BZ:"
+        # print self.kpts_to_first_BZ(symmetrically_equivalent_ks)
 
         kweights = [1.0 for i in kpts]
         # kweights = np.array(kweights)
@@ -1060,13 +1099,22 @@ class AMSET(object):
                 #     once_called = True
 
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                    energy, de, dde = analytical_bands.get_energy(
-                        self.kgrid[tp]["kpoints"][ib][ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
-                            nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+                    if not self.poly_bands:
+                        energy, de, dde = analytical_bands.get_energy(
+                            self.kgrid[tp]["kpoints"][ib][ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
+                                nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+                        energy = energy * Ry_to_eV + sgn * self.scissor/2
+                        velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)# to get v in cm/s
+                        effective_mass = hbar ** 2 / (
+                        dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                    else:
+                        energy, de, dde = get_poly_energy(self.kgrid[tp]["kpoints"][ib][ik], poly_bands=self.poly_bands,
+                            type=tp, ib=ib,bandgap=self.dft_gap+self.scissor)
+                        velocity = abs(de / hbar * A_to_m * m_to_cm)# to get v in cm/s
+                        effective_mass = hbar ** 2 / (dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e  # m_tensor
 
-                    self.kgrid[tp]["energy"][ib][ik] = energy * Ry_to_eV + sgn * self.scissor/2
-                    self.kgrid[tp]["velocity"][ib][ik] = abs(
-                        de / hbar * A_to_m * m_to_cm * Ry_to_eV)  # to get v in units of cm/s
+                    self.kgrid[tp]["energy"][ib][ik] = energy
+                    self.kgrid[tp]["velocity"][ib][ik] = velocity
                     # self.kgrid[tp]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
                     # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
                     # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
@@ -1074,8 +1122,7 @@ class AMSET(object):
                     if self.kgrid[tp]["velocity"][ib][ik][0] < 1 or self.kgrid[tp]["velocity"][ib][ik][1] < 1 \
                             or self.kgrid[tp]["velocity"][ib][ik][2] < 1:
                         low_v_ik.append(ik)
-                    self.kgrid[tp]["effective mass"][ib][ik] = hbar ** 2 / (
-                        dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                    self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
                     self.kgrid[tp]["a"][ib][ik] = 1.0
 
         #TODO: add kpoints and make smarter kgrid where energy values below CBM+dE and above VBM-dE (if necessary) are added in a way that Ediff is smaller so POP scattering is done more accurately and convergance obtained more easily and with much less k-points
@@ -2288,6 +2335,7 @@ class AMSET(object):
                         plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=prop)
 
 
+            # plot versus energy in self.egrid
             prop_list = ["velocity", "Ediff"]
             for prop_name in prop_list:
                 plt = PlotlyFig(plot_title=None, x_title="Energy (eV)", y_title=prop_name, hovermode='closest',
@@ -2302,6 +2350,22 @@ class AMSET(object):
                     y_col = [sum(p)/3 for p in self.egrid[tp][prop_name]]
                     plt.xy_plot(x_col=self.egrid[tp]["energy"][:len(y_col)], y_col=y_col)
                     # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
+
+            # plot versus norm(k) in self.kgrid
+            prop_list = ["energy"]
+            for prop_name in prop_list:
+                x_col = [norm(k) for k in self.kgrid[tp]["kpoints"][0]]
+                plt = PlotlyFig(plot_title=None, x_title="norm(cartesian k)",
+                                y_title="{} at the 1st band".format(prop_name), hovermode='closest',
+                            filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
+                        plot_mode='offline', username=None, api_key=None, textsize=30, ticksize=25, fontfamily=None,
+                    height=800, width=1000, scale=None, margin_left=120, margin_right=80)
+                try:
+                    y_col = [sum(p)/3 for p in self.kgrid[tp][prop_name][0] ]
+                except:
+                    y_col = self.kgrid[tp][prop_name][0]
+                plt.xy_plot(x_col=x_col, y_col=y_col)
+                # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
 if __name__ == "__main__":
     coeff_file = 'fort.123'
