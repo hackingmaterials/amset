@@ -40,7 +40,7 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1):
     :param kpt:
     :param rotations: symmetry rotation operations
     :param translations: symmetry translational operations
-    :param poly_bands [[tuple]]: each member of the first list represents a band: in each band a list of tuples and each
+    :param poly_bands [[list]]: each member of the first list represents a band: in each band a list of tuples and each
         tuple represents the extrema k-point (1st member of the tuple)  and a list of polynomial coefficients with
         the coeffciient of x**0 being the first member and the length of that list determines the degree of polynomial
         for example poly_bands = [[ [[[0.5, 0.5, 0.5]], [0, 0, 1]], [[[0, 0, 0]], [0.5, 1, 2]]]] represents a

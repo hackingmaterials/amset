@@ -861,11 +861,15 @@ class AMSET(object):
             # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
             emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
                         self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), width=self.dos_bwidth)
+            total_nelec = self.nelec
         else:
             # first modify the self.poly_bands to include all symmetrically equivalent k-points
+            # poly_band_short = [i for i in self.poly_bands]
             for ib in range(len(self.poly_bands)):
                 for j in range(len(self.poly_bands[ib])):
+                    # poly_band_short[ib][j][0] = [self.poly_bands[ib][j][0]]
                     self.poly_bands[ib][j][0] = self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0])
+
             # print "here self.poly_bands"
             # print self.poly_bands
 
@@ -873,12 +877,13 @@ class AMSET(object):
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
                 self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), poly_bands=self.poly_bands,
                     bandgap=self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]+self.scissor, width=self.dos_bwidth)
+            total_nelec = len(self.poly_bands) * 2 # basically 2x number of inlcuded bands
 
         integ = 0.0
         for idos in range(len(dos) - 2):
             integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
         # normalize DOS
-        dos = [g / integ * self.nelec for g in dos]
+        dos = [g / integ * total_nelec for g in dos]
         self.dos = zip(emesh, dos)
         # calculate the energies in initial ibz k-points and look at the first band to decide on additional/adaptive ks
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
