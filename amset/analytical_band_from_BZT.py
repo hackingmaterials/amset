@@ -12,6 +12,7 @@ hbar = _cd('Planck constant in eV s')/(2*pi)
 m_e = _cd('electron mass') # in kg
 Ry_to_eV = 13.605698066
 A_to_m = 1e-10
+A_to_nm = 0.1
 m_to_cm = 100
 e = _cd('elementary charge')
 
@@ -34,7 +35,7 @@ def outer(v1, v2):
 
 
 
-def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1):
+def get_poly_energy(kpt, lattice_matrix, poly_bands, type, ib=0, bandgap=1):
     """
 
     :param kpt:
@@ -57,35 +58,42 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1):
     """
     # determine the sign of energy from type; e.g. p-type energies are negative with VBM=0.0
     sgn = (-1)**(["p", "n"].index(type)+1)
-
+    kpt = np.dot(np.array(kpt),lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
     band_shapes = poly_bands[ib]
     min_kdistance = 1e32
     for ks, c in band_shapes: #ks are all symmetrically equivalent k-points to the extremum k that are in the first BZ
-        distance = min([norm(kpt-k) for k in ks])
+        distance = min([norm(kpt-np.dot(np.array(k),lattice_matrix)*1/A_to_nm*2*pi) for k in ks])
         # for k in ks:
         #     distance = norm(kpt-k)
         if distance < min_kdistance:
             min_kdistance = distance
             coefficients = c
 
-    e = bandgap*["p", "n"].index(type) # if p-type we do not add any value to the calculated energy for the band gap
-    de = 0
-    dde = 0
-    for i, c in enumerate(coefficients):
-        e += c * min_kdistance**i * sgn
-        if i > 0:
-            de += i * c *min_kdistance**(i-1)
-            if i > 1:
-                dde += i * (i-1) * c * min_kdistance ** (i - 2)
-    de = np.array([de, de, de])
-    dde = np.array([[dde, 0.0, 0.0],
-                    [0.0, dde, 0.0],
-                    [0.0, 0.0, dde] ])
-    return e, de, dde
+    # coefficients[0] is the constant
+    # coefficient[1] is the effective mass
+    eff_m = coefficients[1]
+    energy = bandgap*["p", "n"].index(type) # if p-type we do not add any value to the calculated energy for the band gap
+    energy += coefficients[0] + hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18 # last part is unit conv. to eV
+    v = hbar*min_kdistance/(m_e*eff_m) *1e11*e # last part is unit conversion to cm/2
+    return energy, np.array([v, v, v]), np.array([[eff_m, 0.0, 0.0], [0.0, eff_m, 0.0], [0.0, 0.0, eff_m]])
+
+    # de = 0
+    # dde = 0
+    # for i, c in enumerate(coefficients):
+    #     energy += c * min_kdistance**i * sgn
+    #     if i > 0:
+    #         de += i * c *min_kdistance**(i-1)
+    #         if i > 1:
+    #             dde += i * (i-1) * c * min_kdistance ** (i - 2)
+    # de = np.array([de, de, de])
+    # dde = np.array([[dde, 0.0, 0.0],
+    #                 [0.0, dde, 0.0],
+    #                 [0.0, 0.0, dde] ])
+    # return energy, de, dde
 
 
 
-def get_dos_from_poly_bands(st, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.2):
+def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.2):
         '''
         Args:
         st:       pmg object of crystal structure to calculate symmetries
@@ -111,7 +119,7 @@ def get_dos_from_poly_bands(st, mesh, e_min, e_max, e_points, poly_bands, bandga
         for kpt,w in zip(ir_kpts,weights):
             for tp in ["n", "p"]:
                 for ib in range(len(poly_bands)):
-                    e, de, dde = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap)
+                    e, v, m_eff = get_poly_energy(kpt, lattice_matrix, poly_bands, tp, ib=ib, bandgap=bandgap)
                     g = height * np.exp(-((e_mesh - e) / width) ** 2 / 2.)
                     dos += w * g
         return e_mesh,dos
