@@ -58,24 +58,28 @@ def get_poly_energy(kpt, lattice_matrix, poly_bands, type, ib=0, bandgap=1):
     """
     # determine the sign of energy from type; e.g. p-type energies are negative with VBM=0.0
     sgn = (-1)**(["p", "n"].index(type)+1)
-    kpt = np.dot(np.array(kpt),lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
+    # kpt = np.dot(np.array(kpt),lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
     band_shapes = poly_bands[ib]
     min_kdistance = 1e32
     for ks, c in band_shapes: #ks are all symmetrically equivalent k-points to the extremum k that are in the first BZ
-        distance = min([norm(kpt-np.dot(np.array(k),lattice_matrix)*1/A_to_nm*2*pi) for k in ks])
+        # distance = min([norm(kpt-np.dot(np.array(k),lattice_matrix)*1/A_to_nm*2*pi) for k in ks])
+        distance = min([norm(kpt-k) for k in ks])
         # for k in ks:
         #     distance = norm(kpt-k)
         if distance < min_kdistance:
             min_kdistance = distance
             coefficients = c
 
+    min_kdistance /= 2*pi
+
     # coefficients[0] is the constant
     # coefficient[1] is the effective mass
     eff_m = coefficients[1]
     energy = bandgap*["p", "n"].index(type) # if p-type we do not add any value to the calculated energy for the band gap
-    energy += coefficients[0] + hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18 # last part is unit conv. to eV
+    energy += sgn*(coefficients[0] + hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18) # last part is unit conv. to eV
+    # print hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18
     v = hbar*min_kdistance/(m_e*eff_m) *1e11*e # last part is unit conversion to cm/2
-    return energy, np.array([v, v, v]), np.array([[eff_m, 0.0, 0.0], [0.0, eff_m, 0.0], [0.0, 0.0, eff_m]])
+    return energy, np.array([v, v, v]), sgn*np.array([[eff_m, 0.0, 0.0], [0.0, eff_m, 0.0], [0.0, 0.0, eff_m]])
 
     # de = 0
     # dde = 0
@@ -114,13 +118,24 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
         ir_kpts = [k[0] for k in ir_kpts]
         weights = [k[1] for k in ir_kpts]
         w_sum = float(sum(weights))
-
         dos = np.zeros(e_range)
+
+        # volume = st.volume
+        # for ie, energy in enumerate(e_mesh):
+        #     dos[ie] = volume/(2*pi**2)*(2*m_e/hbar**2)**1.5 * 1e-30/e**1.5
+        #     if energy < 0:
+        #          dos[ie] *= (-energy)**0.5
+        #     elif energy >=bandgap:
+        #         dos[ie] *= (energy-bandgap)**0.5
+        #     else:
+        #         dos[ie] = 0
+
+
         for kpt,w in zip(ir_kpts,weights):
             for tp in ["n", "p"]:
                 for ib in range(len(poly_bands)):
-                    e, v, m_eff = get_poly_energy(kpt, lattice_matrix, poly_bands, tp, ib=ib, bandgap=bandgap)
-                    g = height * np.exp(-((e_mesh - e) / width) ** 2 / 2.)
+                    energy, v, m_eff = get_poly_energy(kpt, lattice_matrix, poly_bands, tp, ib=ib, bandgap=bandgap)
+                    g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                     dos += w * g
         return e_mesh,dos
 
@@ -148,7 +163,7 @@ def get_dos(energies,weights,e_min=None,e_max=None,e_points=None,width=0.2):
     if e_points:
         e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
     else:
-        e_mesh = np.array([e for e in energies])
+        e_mesh = np.array([en for en in energies])
 
     e_range = len(e_mesh)
 
@@ -310,8 +325,8 @@ class Analytical_bands(object):
         dos = np.zeros(e_range)
         for kpt,w in zip(ir_kpts,weights):
             for b in range(len(engre)):
-                e = self.get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
-                g = height * np.exp(-((e_mesh - e) / width) ** 2 / 2.)
+                energy = self.get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
+                g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                 dos += w * g
         return e_mesh,dos
 
@@ -416,8 +431,8 @@ if __name__ == "__main__":
     for kpt in ir_kpts:
         energies.append([])
         for b in range(len(engre)):
-            e = analytical_bands.get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
-            energies[-1].append(e)
+            energy = analytical_bands.get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
+            energies[-1].append(energy)
     
     print len(energies),len(energies[0]) #120,21
 

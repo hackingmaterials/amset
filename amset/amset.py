@@ -112,9 +112,9 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
-                 poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.05] ] ] ]):
+                 poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.1] ] ] ]):
 
-        self.nkibz = 10 #30 #20
+        self.nkibz = 50 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -645,9 +645,14 @@ class AMSET(object):
 
             # for i in range(len(kpts)-2):
                 # if kpts[i][0] == kpts[i+1][0] and kpts[i][1] == kpts[i+1][1] and kpts[i][2] == kpts[i+1][2]:
+
                 if (abs(kpts[i][0]-kpts[j+1][0])<dk or abs(kpts[i][0])==abs(kpts[j+1][0])==0.5) and \
                     (abs(kpts[i][1]-kpts[j+1][1]) < dk or abs(kpts[i][1]) == abs(kpts[j+1][1]) == 0.5) and \
                     (abs(kpts[i][2]-kpts[j+1][2]) < dk or abs(kpts[i][2]) == abs(kpts[j+1][2]) == 0.5):
+                #
+                # if abs(kpts[i][0] - kpts[j + 1][0]) < dk and \
+                #     abs(kpts[i][1] - kpts[j + 1][1]) < dk and \
+                #     abs(kpts[i][2] - kpts[j + 1][2]) < dk:
                     rm_list.append(j+1)
                 j += 1
             i+=1
@@ -878,7 +883,8 @@ class AMSET(object):
             for ib in range(len(self.poly_bands)):
                 for j in range(len(self.poly_bands[ib])):
                     # poly_band_short[ib][j][0] = [self.poly_bands[ib][j][0]]
-                    self.poly_bands[ib][j][0] = self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0],cartesian=True)
+                    self.poly_bands[ib][j][0] = self.remove_duplicate_kpoints(
+                        self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0],cartesian=True))
 
             print "here self.poly_bands"
             print self.poly_bands
@@ -888,6 +894,7 @@ class AMSET(object):
                 self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), poly_bands=self.poly_bands,
                     bandgap=self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]+self.scissor, width=self.dos_bwidth)
             total_nelec = len(self.poly_bands) * 2 * 2 # basically 2x number of included bands and 2x for both n-&p-type
+            # total_nelec = self.nelec
 
         integ = 0.0
         for idos in range(len(dos) - 2):
@@ -925,8 +932,9 @@ class AMSET(object):
 
                         energies[tp][ik] = energy * Ry_to_eV + sgn * self.scissor/2
                     else:
-                        energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi),\
-                                                    self._lattice_matrix, poly_bands=self.poly_bands, type=tp, ib=ib,
+                        # energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi), \
+                        energy, velocity, effective_m=get_poly_energy(kpts[ik], \
+                                self._lattice_matrix, poly_bands=self.poly_bands, type=tp, ib=ib,
                             bandgap=self.dft_gap + self.scissor)
                         energies[tp][ik] = energy
 
@@ -1248,7 +1256,7 @@ class AMSET(object):
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
 
         print("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
-        print self.kgrid["n"]["energy"]
+        # print self.kgrid["n"]["energy"]
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
         self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "a", "c"], ascending=True)
@@ -1256,16 +1264,18 @@ class AMSET(object):
 
         print "energy of conduction band:"
         # self.kgrid["n"]["energy"][0].sort()
-        print self.kgrid["n"]["energy"][0][0:min(10,len(self.kgrid["n"]["energy"][0]))]
-        print self.kgrid["n"]["energy"][0][min(10,len(self.kgrid["n"]["energy"][0])):-1]
+        maxdata = 20
+        print self.kgrid["n"]["energy"][0][0:min(maxdata,len(self.kgrid["n"]["energy"][0]))]
+        print "..."
+        print self.kgrid["n"]["energy"][0][-min(maxdata,len(self.kgrid["n"]["energy"][0])):-1]
 
         print "velocity of conduction band:"
         a = [norm (v) for v in self.kgrid["n"]["velocity"][0]]
         # a.sort()
-        print a[0:min(10,len(a))]
+        print a[0:min(maxdata,len(a))]
         print "..."
-        print a[min(10,len(a)):-1]
-        
+        print a[-min(maxdata,len(a)):-1]
+
 
         self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["N_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=True)
