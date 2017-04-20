@@ -13,7 +13,7 @@ from pprint import pprint
 import numpy as np
 from math import log
 import sys
-from pymatgen.io.vasp import Vasprun, Spin
+from pymatgen.io.vasp import Vasprun, Spin, Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer, generate_full_symmops
 from scipy.constants.codata import value as _cd
 from math import pi
@@ -112,9 +112,9 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
-                 poly_bands=[ [ [[0.5, 0.5, 0.5], [0, 0, 1] ] ] ]):
+                 poly_bands=[ [ [[0.5, 0.5, 0.5], [0, 0.05] ] ] ]):
 
-        self.nkibz = 10 #30 #20
+        self.nkibz = 20 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -263,6 +263,11 @@ class AMSET(object):
 
     def read_vrun(self, path_dir=".", filename="vasprun.xml"):
         self._vrun = Vasprun(os.path.join(path_dir, filename))
+
+        # kpoints and actual_kpoints are the same fractional k-points in pymatgen, just in different formats.
+        # print self._vrun.kpoints
+        # print self._vrun.actual_kpoints
+        # print self._vrun.lattice.get_cartesian_coords(self._vrun.actual_kpoints)
         self.volume = self._vrun.final_structure.volume
         self.density = self._vrun.final_structure.density
         self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
@@ -874,10 +879,10 @@ class AMSET(object):
             # print self.poly_bands
 
             # now construct the DOS
-            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
+            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix, [self.nkdos,self.nkdos,self.nkdos],
                 self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), poly_bands=self.poly_bands,
                     bandgap=self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]+self.scissor, width=self.dos_bwidth)
-            total_nelec = len(self.poly_bands) * 2 # basically 2x number of inlcuded bands
+            total_nelec = len(self.poly_bands) * 2 * 2 # basically 2x number of included bands and 2x for both n-&p-type
 
         integ = 0.0
         for idos in range(len(dos) - 2):
@@ -915,7 +920,7 @@ class AMSET(object):
 
                         energies[tp][ik] = energy * Ry_to_eV + sgn * self.scissor/2
                     else:
-                        energy, de, dde = get_poly_energy(kpts[ik], poly_bands=self.poly_bands, type=tp, ib=ib,
+                        energy, velocity, effective_m = get_poly_energy(kpts[ik],self._lattice_matrix, poly_bands=self.poly_bands, type=tp, ib=ib,
                             bandgap=self.dft_gap + self.scissor)
                         energies[tp][ik] = energy
 
@@ -1001,7 +1006,7 @@ class AMSET(object):
         #   1) use the symmetry operations given by SpacegroupAnalyzer._get_symmetry() on the fractional coordinates and
         #  then convert to cartesian via lattice_matrix
         #   2) use the cartesian symmetry operations given by SpacegroupAnalyzer.get_symmetry_operations(cartesian=True)
-        # directly on "actual kpoints" to get new cartesian (2pi*lattice_matrix*fractional-k) equivalent k-point
+        # directly on "cartesian kpoints" to get new cartesian (2pi*lattice_matrix*fractional-k) equivalent k-point
 
 
         #
@@ -1110,13 +1115,18 @@ class AMSET(object):
                                 nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                         energy = energy * Ry_to_eV + sgn * self.scissor/2
                         velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)# to get v in cm/s
+                        # velocity = abs(np.dot(de, self._lattice_matrix) / hbar * A_to_m * m_to_cm * Ry_to_eV)# to get v in cm/s
                         effective_mass = hbar ** 2 / (
                         dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                     else:
-                        energy, de, dde = get_poly_energy(self.kgrid[tp]["kpoints"][ib][ik], poly_bands=self.poly_bands,
+                        # energy, de, dde = get_poly_energy(self.kgrid[tp]["kpoints"][ib][ik], self._lattice_matrix,
+                        energy, velocity, effective_mass=get_poly_energy(self.kgrid[tp]["kpoints"][ib][ik],
+                                                                              self._lattice_matrix,
+                                                                              poly_bands=self.poly_bands,
                             type=tp, ib=ib,bandgap=self.dft_gap+self.scissor)
-                        velocity = abs(de / hbar * A_to_m * m_to_cm)# to get v in cm/s
-                        effective_mass = hbar ** 2 / (dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e  # m_tensor
+
+                        # velocity = abs(de / hbar * A_to_m * m_to_cm)# to get v in cm/s
+                        # effective_mass = hbar ** 2 / (dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e  # m_tensor
 
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
@@ -1232,11 +1242,11 @@ class AMSET(object):
 
         self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["N_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=True)
-        self.initialize_var("kgrid", ["actual kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
 
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
-                self.kgrid[tp]["actual kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
+                self.kgrid[tp]["cartesian kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
         # TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
                 self.kgrid[tp]["W_POP"][ib] = [self.W_POP for i in range(len(self.kgrid[tp]["kpoints"][ib]))]
                 for c in self.dopings:
@@ -1294,9 +1304,9 @@ class AMSET(object):
         #         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
         #             for ib_prm in range(len(self.kgrid[tp]["energy"])):
         #                 for ik_prm in range(len(self.kgrid[tp]["kpoints"][ib])):
-        #                     k = self.kgrid[tp]["actual kpoints"][ib][ik]
+        #                     k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
                             # E = self.kgrid[tp]["energy"][ib][ik]
-                            # X = self.cos_angle(self.kgrid[tp]["actual kpoints"][ib][ik], self.kgrid[tp]["actual kpoints"][ib][ik_prm])
+                            # X = self.cos_angle(self.kgrid[tp]["cartesian kpoints"][ib][ik], self.kgrid[tp]["cartesian kpoints"][ib][ik_prm])
                             #
                             # if abs(E - self.kgrid[tp]["energy"][ib_prm][ik_prm]) < self.dE_global:
                             #      self.kgrid[tp]["X_E_ik"][ib][ik].append((X, ib_prm, ik_prm))
@@ -1408,7 +1418,7 @@ class AMSET(object):
             Attention! this function assumes self.kgrid is sorted based on the energy in ascending order."""
         forced = False
         E = self.kgrid[tp]["energy"][ib][ik]
-        k = self.kgrid[tp]["actual kpoints"][ib][ik]
+        k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         result = []
         counter = 0
         # if E_radius == 0.0: # because then all the symmetrically equivalent k-points to current k have the same energy
@@ -1431,11 +1441,11 @@ class AMSET(object):
                 ik_prm += 1
                 # if E_radius > 0.0:
                 #     print "AFTER", ib, ik, E_radius
-                # k_prm = self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm+1]
+                # k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm+1]
                 # X = self.cos_angle(k, k_prm)
                 # result.append((X, ib_prm, ik_prm + 1))
                 # result.append((X, ib_prm, ik_prm, k_prm))
-                result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm]),ib_prm,ik_prm))
+                result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]),ib_prm,ik_prm))
                 # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
                 # result += symmetrically_equivalent_ks
 
@@ -1456,9 +1466,9 @@ class AMSET(object):
                 ik_prm -= 1
                 # if E_radius > 0.0:
                 #     print "BEFORE", ib, ik, E_radius
-                # X = self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm - 1])
+                # X = self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm - 1])
                 # result.append((X, ib_prm, ik_prm - 1))
-                result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
+                result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
                 # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
                 # result += symmetrically_equivalent_ks
 
@@ -1475,7 +1485,7 @@ class AMSET(object):
             # if E_radius >  0.0:
             #     print "EXTRA 1", ib, ik, E_radius
             ik_prm += 1
-            k_prm = self.kgrid[tp]["actual kpoints"][ib][ik_prm]
+            k_prm = self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]
 
 
             result.append((self.cos_angle(k, k_prm), ib, ik_prm))
@@ -1486,13 +1496,13 @@ class AMSET(object):
             # for X_ik_ib in self.kgrid[tp]["X_E_ik"][ib][ik_prm]:
             #     print "added"
             #     X, ib_new, ik_new = X_ik_ib
-            #     k_new = self.kgrid[tp]["actual kpoints"][ib_new][ik_new]
+            #     k_new = self.kgrid[tp]["cartesian kpoints"][ib_new][ik_new]
             #     result.append(self.cos_angle(k_prm, k_new), ib_new, ik_new)
             #     counter += 1
 
             # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
             # result += symmetrically_equivalent_ks
-            # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prm + 1]), ib, ik_prm + 1))
+            # result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm + 1]), ib, ik_prm + 1))
 
             # counter += 1 + len(symmetrically_equivalent_ks)
             counter += 1
@@ -1509,9 +1519,9 @@ class AMSET(object):
         while counter < forced_min_npoints and ik_prm > 0:
             # if E_radius > 0.0:
             #     print "EXTRA 2", ib, ik, E_radius
-            # k_prm = self.kgrid[tp]["actual kpoints"][ib][ik_prm - 1]
+            # k_prm = self.kgrid[tp]["cartesian kpoints"][ib][ik_prm - 1]
             ik_prm -= 1
-            result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prm]), ib, ik_prm))
+            result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib, ik_prm))
 
             # also add all values with the same energy at ik_prm
             result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
@@ -1519,7 +1529,7 @@ class AMSET(object):
 
             # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
             # result += symmetrically_equivalent_ks
-            # result.append((self.cos_angle(k, self.kgrid[tp]["actual kpoints"][ib][ik_prm - 1]), ib, ik_prm - 1))
+            # result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm - 1]), ib, ik_prm - 1))
 
             # counter += 1 + len(symmetrically_equivalent_ks)
             counter += 1
@@ -1672,8 +1682,8 @@ class AMSET(object):
         # k = m_e * self.kgrid[tp]["velocity"][ib][ik] / (hbar * e * 1e11)
         # k_prm = m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (hbar * e * 1e11)
 
-        k = self.kgrid[tp]["actual kpoints"][ib][ik]
-        k_prm = self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm]
+        k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
+        k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
         # TODO: if only use norm(k_prm), I get ACD mobility that is almost exactly inversely proportional to temperature
         # return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
@@ -1700,9 +1710,9 @@ class AMSET(object):
         :param sname:
         :return:
         """
-        k = self.kgrid[tp]["actual kpoints"][ib][ik]
+        k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         f = self.kgrid[tp]["f0"][c][T][ib][ik]
-        k_prm = self.kgrid[tp]["actual kpoints"][ib_prm][ik_prm]
+        k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
         v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
         f_prm = self.kgrid[tp]["f0"][c][T][ib_prm][ik_prm]
 
@@ -1838,7 +1848,7 @@ class AMSET(object):
 
         #TODO: decide on knrm and whether it needs a reference (i.e. CBM/VBM). No ref. result in large rates in PbTe.
         # I justify subtracting the CBM/VBM actual k-points as follows:
-        # knrm = norm(self.kgrid[tp]["actual kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
+        # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
         v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
         # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
@@ -2131,7 +2141,7 @@ class AMSET(object):
             print "time to copy kgrid = {} seconds".format(time.time() - start_time)
             if trimmed:
                 nmax = min([max_ndata+1, min([len(kgrid["n"]["kpoints"][0]), len(kgrid["p"]["kpoints"][0])])])
-                # remove_list = ["W_POP", "effective mass", "actual kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
+                # remove_list = ["W_POP", "effective mass", "cartesian kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
                 remove_list = ["W_POP", "effective mass"]
                 for tp in ["n", "p"]:
                     for rm in remove_list:
@@ -2359,7 +2369,7 @@ class AMSET(object):
             # plot versus norm(k) in self.kgrid
             prop_list = ["energy"]
             for prop_name in prop_list:
-                x_col = [norm(k) for k in self.kgrid[tp]["kpoints"][0]]
+                x_col = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][0]]
                 plt = PlotlyFig(plot_title=None, x_title="norm(cartesian k)",
                                 y_title="{} at the 1st band".format(prop_name), hovermode='closest',
                             filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
