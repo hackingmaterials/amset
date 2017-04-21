@@ -114,7 +114,7 @@ class AMSET(object):
                  # poly_bands = None):
                  poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.1] ] ] ]):
 
-        self.nkibz = 20 #30 #20
+        self.nkibz = 50 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -197,22 +197,22 @@ class AMSET(object):
         self.map_to_egrid(prop_name="_all_elastic")
         self.map_to_egrid(prop_name="relaxation time")
 
-        for tp in ["n", "p"]:
-            for c in self.dopings:
-                for T in self.temperatures:
-                    fermi = self.egrid["fermi"][c][T]
+        for c in self.dopings:
+            for T in self.temperatures:
+                fermi = self.egrid["fermi"][c][T]
+                for tp in ["n", "p"]:
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             E = self.kgrid[tp]["energy"][ib][ik]
                             v = self.kgrid[tp]["velocity"][ib][ik]
 
-                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0_value = f0(E, fermi, T)
+                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
                             self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E, fermi, T) * v  # in cm
                             self.kgrid[tp]["electric force"][c][T][ib][ik] = -1 * \
                                                                              self.kgrid[tp]["df0dk"][c][T][ib][
                                                                                  ik] * default_small_E / hbar  # in 1/s
                             # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
-                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0_value * (1 - f0_value) * ( \
+                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0(E, fermi, T) * (1 - f0(E, fermi, T)) * ( \
                                 E / (k_B * T) - self.egrid["Seebeck_integral_numerator"][c][T][tp] /
                                 self.egrid["Seebeck_integral_denominator"][c][T][tp]) * dTdz / T
 
@@ -221,7 +221,10 @@ class AMSET(object):
                             # self.kgrid[tp]["thermal force"][c][T][ib][ik] = v * df0dz * unit_conversion
                             # df0dz_temp = f0(E, fermi, T) * (1 - f0(E, fermi, T)) * (
                             # E / (k_B * T) - df0dz_integral) * 1 / T * dTdz
-        self.map_to_egrid(prop_name="f0")
+
+        print "here f0"
+        print self.kgrid["n"]["f0"]
+        self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
         self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
 
         # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
@@ -494,6 +497,8 @@ class AMSET(object):
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
+
+        # n case specific fermi levels are to be tested:
         # self.egrid["fermi"] ={
         # -1e+19: {
         #     # original
@@ -501,8 +506,8 @@ class AMSET(object):
         #     # 600.0: 0.94478632328484025,
         #
         #     # new
-        #     300.0: 1.0398518995648691,
-        #     600.0: 0.94478632328484025
+        #     300.0: 1.0698518995648691,
+        #     600.0: 0.97478632328484025
         #
         # } }
 
@@ -627,10 +632,14 @@ class AMSET(object):
                         self[grid][tp][name] = {c: {T: np.array(init_content) for T in self.temperatures} for c in
                                                 self.dopings}
                 else:
-                    if not c_T_idx:
-                        self[grid][tp][name] = init_content
+                    # TODO: if not is_nparray both temperature values will be equal probably because both are equal to init_content that are a list and FOREVER they will change together. Keep is_nparray as True as it makes a copy, otherwise you are doomed! See if you can fix this later
+                    if val_type not in ["scalar"] and c_T_idx:
+                        raise ValueError("For now keep using is_nparray=True to see why for not is_nparray everything becomes equal at all temepratures (lists are not copied but they are all the same)")
                     else:
-                        self[grid][tp][name] = {c: {T: init_content for T in self.temperatures} for c in self.dopings}
+                        if not c_T_idx:
+                            self[grid][tp][name] = init_content
+                        else:
+                            self[grid][tp][name] = {c: {T: init_content for T in self.temperatures} for c in self.dopings}
 
 
     @staticmethod
@@ -906,8 +915,8 @@ class AMSET(object):
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix, [self.nkdos,self.nkdos,self.nkdos],
                 self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), poly_bands=self.poly_bands,
                     bandgap=self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]+self.scissor, width=self.dos_bwidth)
-            total_nelec = len(self.poly_bands) * 2 * 2 # basically 2x number of included bands and 2x for both n-&p-type
-            # total_nelec = self.nelec
+            # total_nelec = len(self.poly_bands) * 2 * 2 # basically 2x number of included bands and 2x for both n-&p-type
+            total_nelec = self.nelec
 
         integ = 0.0
         for idos in range(len(dos) - 2):
@@ -1307,7 +1316,7 @@ class AMSET(object):
         self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
                 "f", "f_th", "relaxation time", "df0dk", "electric force", "thermal force"],
                         val_type="vector", initval=self.gs, is_nparray=True, c_T_idx=True)
-        self.initialize_var("kgrid", ["f0", "f_plus", "f_minus","g_plus", "g_minus"], "vector", self.gs, is_nparray=False, c_T_idx=True)
+        self.initialize_var("kgrid", ["f0", "f_plus", "f_minus","g_plus", "g_minus"], "vector", self.gs, is_nparray=True, c_T_idx=True)
         # self.initialize_var("kgrid", ["lambda_i_plus", "lambda_i_minus", "lambda_o_plus", "lambda_o_minus"]
         #                     , "vector", self.gs, is_nparray=True, c_T_idx=False)
 
@@ -2297,14 +2306,14 @@ class AMSET(object):
                     # self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+norm(self.egrid[tp]["g_th"][c][T])
 
                     # this ONLY makes a difference if f and f_th are used in the denominator; but f0 is currently used!
-                    self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + norm(self.egrid[tp]["g"][c][T])
-                    self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+norm(self.egrid[tp]["g_th"][c][T])
+                    # self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + norm(self.egrid[tp]["g"][c][T])
+                    # self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+norm(self.egrid[tp]["g_th"][c][T])
 
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
                         self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar* \
                             self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True)
-                        print "T = {}".format(T)
+
 
                     for mu_inel in self.inelastic_scatterings:
                             # calculate mobility["POP"] based on g_POP
@@ -2312,7 +2321,6 @@ class AMSET(object):
                                                                                 tp=tp,c=c,T=T,xDOS=True,xvel=True)
                     self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
                                                                                 tp=tp,c=c,T=T,xDOS=True,xvel=True)
-                    print "T = {}".format(T)
 
                     self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"],
                             tp=tp, c=c, T=T, xDOS=True, xvel=True) * e * 1e24 # to bring J to A/cm2 units
@@ -2321,10 +2329,16 @@ class AMSET(object):
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
                         self.egrid["mobility"][transport][c][T][tp]/=default_small_E*\
                                         self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
+
                     self.egrid["J_th"][c][T][tp] /= self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
                                                                                          T=T, xDOS=True, xvel=False)
 
-                    print "T = {}".format(T)
+                    print "here {}-ACD at {}".format(tp, T)
+                    print self.egrid["mobility"]["ACD"][c][T][tp]
+
+                    print "here denominator {}-ACD at {}".format(tp, T)
+                    print default_small_E*self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
+
 
                     faulty_overall_mobility = False
                     mu_overrall_norm = norm(self.egrid["mobility"]["overall"][c][T][tp])
