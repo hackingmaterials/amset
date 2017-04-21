@@ -114,7 +114,7 @@ class AMSET(object):
                  # poly_bands = None):
                  poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.1] ] ] ]):
 
-        self.nkibz = 50 #30 #20
+        self.nkibz = 30 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -216,14 +216,6 @@ class AMSET(object):
                                 E / (k_B * T) - self.egrid["Seebeck_integral_numerator"][c][T][tp] /
                                 self.egrid["Seebeck_integral_denominator"][c][T][tp]) * dTdz / T
 
-
-
-                            # self.kgrid[tp]["thermal force"][c][T][ib][ik] = v * df0dz * unit_conversion
-                            # df0dz_temp = f0(E, fermi, T) * (1 - f0(E, fermi, T)) * (
-                            # E / (k_B * T) - df0dz_integral) * 1 / T * dTdz
-
-        print "here f0"
-        print self.kgrid["n"]["f0"]
         self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
         self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
 
@@ -912,7 +904,7 @@ class AMSET(object):
             print self.poly_bands
 
             # now construct the DOS
-            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix, [self.nkdos,self.nkdos,self.nkdos],
+            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, [self.nkdos,self.nkdos,self.nkdos],
                 self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), poly_bands=self.poly_bands,
                     bandgap=self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]+self.scissor, width=self.dos_bwidth)
             # total_nelec = len(self.poly_bands) * 2 * 2 # basically 2x number of included bands and 2x for both n-&p-type
@@ -955,8 +947,7 @@ class AMSET(object):
                         energies[tp][ik] = energy * Ry_to_eV + sgn * self.scissor/2
                     else:
                         # energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi), \
-                        energy, velocity, effective_m=get_poly_energy(kpts[ik], \
-                                self._lattice_matrix, poly_bands=self.poly_bands, type=tp, ib=ib,
+                        energy,velocity,effective_m=get_poly_energy(kpts[ik], poly_bands=self.poly_bands, type=tp,ib=ib,
                             bandgap=self.dft_gap + self.scissor)
                         energies[tp][ik] = energy
 
@@ -1164,7 +1155,6 @@ class AMSET(object):
                     else:
                         # energy, de, dde = get_poly_energy(self.kgrid[tp]["kpoints"][ib][ik], self._lattice_matrix,
                         energy, velocity, effective_mass=get_poly_energy(self.kgrid[tp]["cartesian kpoints"][ib][ik],
-                                                                              self._lattice_matrix,
                                                                               poly_bands=self.poly_bands,
                             type=tp, ib=ib,bandgap=self.dft_gap+self.scissor)
 
@@ -2333,11 +2323,11 @@ class AMSET(object):
                     self.egrid["J_th"][c][T][tp] /= self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
                                                                                          T=T, xDOS=True, xvel=False)
 
-                    print "here {}-ACD at {}".format(tp, T)
-                    print self.egrid["mobility"]["ACD"][c][T][tp]
-
-                    print "here denominator {}-ACD at {}".format(tp, T)
-                    print default_small_E*self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
+                    # print "here {}-ACD at {}".format(tp, T)
+                    # print self.egrid["mobility"]["ACD"][c][T][tp]
+                    #
+                    # print "here denominator {}-ACD at {}".format(tp, T)
+                    # print default_small_E*self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
 
 
                     faulty_overall_mobility = False
