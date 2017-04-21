@@ -35,21 +35,21 @@ def outer(v1, v2):
 
 
 
-def get_poly_energy(kpt, lattice_matrix, poly_bands, type, ib=0, bandgap=1):
+def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1):
     """
 
     :param kpt:
     :param rotations: symmetry rotation operations
     :param translations: symmetry translational operations
-    :param poly_bands [[list]]: each member of the first list represents a band: in each band a list of tuples and each
-        tuple represents the extrema k-point (1st member of the tuple)  and a list of polynomial coefficients with
-        the coeffciient of x**0 being the first member and the length of that list determines the degree of polynomial
-        for example poly_bands = [[ [[[0.5, 0.5, 0.5]], [0, 0, 1]], [[[0, 0, 0]], [0.5, 1, 2]]]] represents a
-        band structure with a single band; this band has a shape of k**2+bandgap at point X where k is norm(k-[0.5,0.5,0.5]) if
-         the k-point is closer to X than Gamma. Additionally, this band has another extremum at an energy level 0.5 eV
-         above the first/main extremum/CBM and have the shape 0.5+bandgap+k+2*k**2 for k's that are closer to Gamma than they
-         are to X. If type is "p" the band structure would be a mirror image hence the formula for this example
-         band structure would be -k**2 and -0.5-k+2-k**2 respectively (i.e. 0.0 eV is always at the VBM)
+    :param poly_bands [[lists]]: each member of the first list represents a band: in each band a list of lists of lists
+        should contain a list of two-member lists: the two members are: the coordinates of extrema k-point and its
+        symmetrically equivalent points and another two members list of
+        [first member: energy offset from the main extremum (i.e. CBM/VBM), second member: the effective mass]
+        example poly_bands = [[ [[[0.5, 0.5, 0.5]], [0, 0.1]], [[[0, 0, 0]], [0.5, 0.2]]]] represents a
+        band structure with a single band; this parabolic band (hbar**2k**2/2m*) at point X
+        where k is norm(k-[0.5,0.5,0.5]) if the k-point is closer to X than Gamma. Additionally, this band has
+        another extremum at an energy level 0.5 eV above the first/main extremum/CBM. If type is "p" the band structure
+        would be a mirror image. VBM is always set to 0.0 eV and the CBM is set to the bandgap
 
     :param type (str): "n" or "p"
     :param ib (int): the band index, 0 is for the first band and maximum allowed value is len(poly_bands)-1
@@ -97,7 +97,7 @@ def get_poly_energy(kpt, lattice_matrix, poly_bands, type, ib=0, bandgap=1):
 
 
 
-def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.2):
+def get_dos_from_poly_bands(st, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.2):
         '''
         Args:
         st:       pmg object of crystal structure to calculate symmetries
@@ -134,7 +134,7 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
         for kpt,w in zip(ir_kpts,weights):
             for tp in ["n", "p"]:
                 for ib in range(len(poly_bands)):
-                    energy, v, m_eff = get_poly_energy(kpt, lattice_matrix, poly_bands, tp, ib=ib, bandgap=bandgap)
+                    energy, v, m_eff = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap)
                     g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                     dos += w * g
         return e_mesh,dos
