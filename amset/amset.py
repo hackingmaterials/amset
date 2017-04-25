@@ -70,6 +70,19 @@ def df0dE(E, fermi, T):
 
 
 
+def fermi_integral(order, fermi, T, initial_energy=0):
+    # fermi = fermi - initial_energy
+    integral = 0.
+    emesh = np.linspace(initial_energy, 30*k_B*T, 1000000.0) # We choose 20kBT instead of infinity as the fermi distribution will be 0
+    dE = (emesh[-1]-emesh[0])/(1000000.0-1.0)
+    for E in emesh:
+        integral += dE * (E/(k_B*T))**order / (1. + np.exp((E-fermi)/(k_B*T)))
+
+    print "order {} fermi integral at fermi={} and {} K".format(order,fermi, T)
+    print integral
+    return integral
+
+
 def GB(x, eta):
     """Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function goes to the dirac-delta of x."""
 
@@ -114,7 +127,7 @@ class AMSET(object):
                  # poly_bands = None):
                  poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.1] ] ] ]):
 
-        self.nkibz = 30 #30 #20
+        self.nkibz = 10 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -152,7 +165,8 @@ class AMSET(object):
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
         self.P_PIE = 0.15
-        self.E_D = {"n": 4.0, "p": 3.93}
+        # self.E_D = {"n": 4.0, "p": 3.93}
+        self.E_D = {"n": 4.0, "p": 4.0}
         self.C_el = 128.84 #77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
 
         self.all_types = [self.get_tp(c) for c in self.dopings]
@@ -481,7 +495,7 @@ class AMSET(object):
 
         # initialize some fileds/properties
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-        for sn in self.elastic_scatterings + self.inelastic_scatterings +["overall", "average"]:
+        for sn in self.elastic_scatterings + self.inelastic_scatterings +["overall", "average", "SPB_ACD"]:
             # self.egrid["mobility"+"_"+sn]={c:{T:{"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
             self.egrid["mobility"][sn] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
         for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
@@ -489,18 +503,19 @@ class AMSET(object):
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
-
-        # n case specific fermi levels are to be tested:
+        #
+        ##  in case specific fermi levels are to be tested:
         # self.egrid["fermi"] ={
         # -1e+19: {
         #     # original
-        #     # 300.0: 1.0698518995648691,
-        #     # 600.0: 0.94478632328484025,
+        #     300.0: 1.28698518995648691,
+        #     600.0: 1.174478632328484025,
         #
         #     # new
-        #     300.0: 1.0698518995648691,
-        #     600.0: 0.97478632328484025
+        #     # 300.0: hbar**2/(2*m_e)*(3*pi**2*2/self.volume)**(2./3.0)*1e20*e,
         #
+        #     # 300.0: 0.83321207744528014,
+        #     # 600.0: 0.83321207744528014
         # } }
 
 
@@ -830,9 +845,8 @@ class AMSET(object):
         return kpts
 
 
-
     def get_sym_eq_ks_in_first_BZ(self, k, cartesian=False):
-        fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
+        fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
         if cartesian:
             return [np.dot(k, self._lattice_matrix/A_to_nm*2*pi) for k in self.kpts_to_first_BZ(fractional_ks)]
         else:
@@ -853,6 +867,14 @@ class AMSET(object):
 
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
         self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
+
+        test_k = [0.1, 0.2, 0.3]
+        print "equivalent ks"
+        # a = self.remove_duplicate_kpoints([np.dot(test_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))])
+        a = self.get_sym_eq_ks_in_first_BZ(test_k)
+        # a = [np.dot(test_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
+        a = [i.tolist() for i in a]
+        print a
 
         kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
         kpts = [i[0] for i in kpts_and_weights]
@@ -907,8 +929,8 @@ class AMSET(object):
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, [self.nkdos,self.nkdos,self.nkdos],
                 self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), poly_bands=self.poly_bands,
                     bandgap=self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]+self.scissor, width=self.dos_bwidth)
-            # total_nelec = len(self.poly_bands) * 2 * 2 # basically 2x number of included bands and 2x for both n-&p-type
-            total_nelec = self.nelec
+            total_nelec = len(self.poly_bands) * 2 # basically 2x number of included occupied bands (valence bands)
+            # total_nelec = self.nelec
 
         integ = 0.0
         for idos in range(len(dos) - 2):
@@ -1000,7 +1022,7 @@ class AMSET(object):
         symmetrically_equivalent_ks = []
         for k in kpts:
             symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
-            # fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
+            # fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
             # symmetrically_equivalent_ks += fractional_ks
             # symmetrically_equivalent_ks = np.concatenate((symmetrically_equivalent_ks, fractional_ks), axis=0)
         kpts += symmetrically_equivalent_ks
@@ -1015,7 +1037,7 @@ class AMSET(object):
         #test, remove this later:
         # symmetrically_equivalent_ks = []
         # for k in [[0.5, 0.5, 0.5]]:
-        #     fractional_ks = [np.dot(self.rotations[i], k) + self.translations[i] for i in range(len(self.rotations))]
+        #     fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
         #     symmetrically_equivalent_ks += fractional_ks
         # print "symmetrically equivalent k-points to X"
         # print symmetrically_equivalent_ks
@@ -1441,7 +1463,7 @@ class AMSET(object):
 
     def unique_X_ib_ik_symmetrically_equivalent(self, tp, ib, ik):
         frac_k = self.kgrid[tp]["kpoints"][ib][ik]
-        fractional_ks = [np.dot(self.rotations[i], frac_k) + self.translations[i] for i in range(len(self.rotations))]
+        fractional_ks = [np.dot(frac_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
 
         k = self.kgrid[tp]["kpoints"][ib][ik]
         seks = [np.dot(frac_k, self._lattice_matrix)*1/A_to_nm*2*pi for frac_k in fractional_ks]
@@ -2321,13 +2343,17 @@ class AMSET(object):
                                         self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
 
                     self.egrid["J_th"][c][T][tp] /= self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
-                                                                                         T=T, xDOS=True, xvel=False)
+                                                                                      T=T, xDOS=True, xvel=False)
 
-                    # print "here {}-ACD at {}".format(tp, T)
-                    # print self.egrid["mobility"]["ACD"][c][T][tp]
-                    #
-                    # print "here denominator {}-ACD at {}".format(tp, T)
-                    # print default_small_E*self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
+                    # other semi-empirical mobility values:
+                    fermi = self.egrid["fermi"][c][T]
+                    energy = self.cbm_vbm[tp]["energy"]
+
+                    # ACD mobility based on single parabolic band extracted from Thermoelectric Nanomaterials,
+                    # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
+                    self.egrid["mobility"]["SPB_ACD"][c][T][tp] = 2**0.5*pi*hbar**4*e*self.C_el*1e9/( # C_el in GPa
+                        3*(self.cbm_vbm[tp]["eff_mass_xx"]*m_e)**2.5*(k_B*T)**1.5*self.E_D[tp]**2)*\
+                        fermi_integral(0,fermi,T,energy)/fermi_integral(0.5,fermi,T,energy) * e**0.5*1e4 #  to cm2/V.s
 
 
                     faulty_overall_mobility = False
