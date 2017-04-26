@@ -5,7 +5,7 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from scipy.constants.codata import value as _cd
 from math import pi
 import numpy as np
-from pylab import plot,show
+from pylab import plot,show, scatter
 
 # global constants
 hbar = _cd('Planck constant in eV s')/(2*pi)
@@ -35,7 +35,7 @@ def outer(v1, v2):
 
 
 
-def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1):
+def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
     """
 
     :param kpt:
@@ -61,14 +61,19 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1):
     # kpt = np.dot(np.array(kpt),lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
     band_shapes = poly_bands[ib]
     min_kdistance = 1e32
+    energy_list = []
     for ks, c in band_shapes: #ks are all symmetrically equivalent k-points to the extremum k that are in the first BZ
+        for k in ks:
         # distance = min([norm(kpt-np.dot(np.array(k),lattice_matrix)*1/A_to_nm*2*pi) for k in ks])
-        distance = min([norm(kpt-k) for k in ks])
-        # for k in ks:
-        #     distance = norm(kpt-k)
-        if distance < min_kdistance:
-            min_kdistance = distance
-            coefficients = c
+        # distance = min([norm(kpt-k) for k in ks])
+            distance = norm(kpt-k)
+            energy_list.append(bandgap * ["p", "n"].index(type) +\
+                               sgn * (c[0] + hbar ** 2 * (distance/(2*pi)) ** 2 / (2 * m_e * c[1]) * e * 1e18))
+            # for k in ks:
+            #     distance = norm(kpt-k)
+            if distance < min_kdistance:
+                min_kdistance = distance
+                coefficients = c
 
     min_kdistance /= 2*pi
 
@@ -79,8 +84,11 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1):
     energy += sgn*(coefficients[0] + hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18) # last part is unit conv. to eV
     # print hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18
     v = hbar*min_kdistance/(m_e*eff_m) *1e11*e # last part is unit conversion to cm/2
-    return energy, np.array([v, v, v]), sgn*np.array([[eff_m, 0.0, 0.0], [0.0, eff_m, 0.0], [0.0, 0.0, eff_m]])
 
+    if not all_values:
+        return energy, np.array([v, v, v]), sgn*np.array([[eff_m, 0.0, 0.0], [0.0, eff_m, 0.0], [0.0, 0.0, eff_m]])
+    else:
+        return energy_list, min_kdistance
     # de = 0
     # dde = 0
     # for i, c in enumerate(coefficients):
@@ -97,7 +105,7 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1):
 
 
 
-def get_dos_from_poly_bands(st, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.2):
+def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.1, SPB_DOS=False, all_values=False):
         '''
         Args:
         st:       pmg object of crystal structure to calculate symmetries
@@ -113,30 +121,70 @@ def get_dos_from_poly_bands(st, mesh, e_min, e_max, e_points, poly_bands, bandga
 
         height = 1.0 / (width * np.sqrt(2 * np.pi))
         e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
+
         e_range = len(e_mesh)
-        ir_kpts = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
-        ir_kpts = [k[0] for k in ir_kpts]
-        weights = [k[1] for k in ir_kpts]
+        ir_kpts_n_weights = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
+        ir_kpts = [k[0] for k in ir_kpts_n_weights]
+        weights = [k[1] for k in ir_kpts_n_weights]
+
+
+        # ir_kpts_base = [k for k in ir_kpts]
+        # counter = 1
+        # for x in range(1,1):
+        #     for y in range(1,1):
+        #         for z in range(1,1):
+        #             counter += 1
+        #             ir_kpts += [k+[x, y, z] for k in ir_kpts_base]
+        # weights *= counter
+
+        ir_kpts = [np.dot(lattice_matrix, k)*2*pi/A_to_nm for k in ir_kpts]
+
         w_sum = float(sum(weights))
         dos = np.zeros(e_range)
 
-        # volume = st.volume
-        # for ie, energy in enumerate(e_mesh):
-        #     dos[ie] = volume/(2*pi**2)*(2*m_e/hbar**2)**1.5 * 1e-30/e**1.5
-        #     if energy < 0:
-        #          dos[ie] *= (-energy)**0.5
-        #     elif energy >=bandgap:
-        #         dos[ie] *= (energy-bandgap)**0.5
-        #     else:
-        #         dos[ie] = 0
+        if SPB_DOS:
+            volume = st.volume
+            for band in poly_bands:
+                for valley in band:
+                    offset = valley[-1][0] # each valley has a list of k-points (valley[0]) and [offset, m*] (valley[1]) info
+                    m_eff = valley[-1][1]
+                    degeneracy = len(valley[0])
+                    print "offset"
+                    print offset
+                    for ie, energy in enumerate(e_mesh):
+                        dos_temp = volume/(2*pi**2)*(2*m_e*m_eff/hbar**2)**1.5 * 1e-30/e**1.5
+                        if energy < 0-offset:
+                            dos_temp *= (-energy-offset)**0.5
+                        elif energy >=bandgap+offset:
+                            dos_temp *= (energy-bandgap-offset)**0.5
+                        else:
+                            dos_temp = 0
+                        dos[ie] += dos_temp * degeneracy
+
+        else:
+            all_energies = []
+            all_ks = []
+            for kpt,w in zip(ir_kpts,weights):
+                for tp in ["n", "p"]:
+                    for ib in range(len(poly_bands)):
+                        if all_values:
+                            energy_list, k_dist = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap,
+                                                               all_values=all_values)
+                            all_energies += energy_list
+                            all_ks += [k_dist]*len(energy_list)
+                            for energy in energy_list:
+                                g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
+                                dos += w * g
+                        else:
+                            energy, v, m_eff = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap, all_values=all_values)
+                            g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
+                            dos += w * g
+
+            if all_values:
+                scatter(all_ks, all_energies)
+                show()
 
 
-        for kpt,w in zip(ir_kpts,weights):
-            for tp in ["n", "p"]:
-                for ib in range(len(poly_bands)):
-                    energy, v, m_eff = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap)
-                    g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
-                    dos += w * g
         return e_mesh,dos
 
 def get_dos(energies,weights,e_min=None,e_max=None,e_points=None,width=0.2):
@@ -362,18 +410,18 @@ class Analytical_bands(object):
 if __name__ == "__main__":
     # user inputs
     cbm_bidx = 11
-    kpts = np.array([[0.5, 0.5, 0.5]])
-    kpts = np.array([
-        [
-            -0.5,
-            -0.5,
-            0.10000000000000009
-        ],
-        [
-            0.5,
-            0.5,
-            -0.10000000000000009
-        ], ])
+    # kpts = np.array([[0.5, 0.5, 0.5]])
+    kpts = np.array(
+        [[-0.1, 0.19999999999999998, 0.1], [0.1, -0.19999999999999998, -0.1], [0.1, -0.1, -0.19999999999999998],
+         [-0.1, 0.1, 0.19999999999999998], [-0.19999999999999998, 0.1, -0.1], [0.19999999999999998, -0.1, 0.1],
+         [0.19999999999999998, 0.1, -0.1], [-0.19999999999999998, -0.1, 0.1], [0.1, -0.1, 0.19999999999999998],
+         [-0.1, 0.1, -0.19999999999999998], [-0.1, -0.19999999999999998, 0.1], [0.1, 0.19999999999999998, -0.1],
+         [0.09999999999999998, 0.3, 0.19999999999999998], [-0.09999999999999998, -0.3, -0.19999999999999998],
+         [-0.09999999999999998, -0.19999999999999998, -0.3], [0.09999999999999998, 0.19999999999999998, 0.3],
+         [0.19999999999999998, 0.09999999999999998, 0.3], [-0.19999999999999998, -0.09999999999999998, -0.3],
+         [-0.3, -0.09999999999999998, -0.19999999999999998], [0.3, 0.09999999999999998, 0.19999999999999998],
+         [0.2, 0.3, 0.1], [-0.2, -0.3, -0.1], [0.3, 0.19999999999999998, 0.09999999999999998],
+         [-0.3, -0.19999999999999998, -0.09999999999999998]])
     coeff_file = 'fort.123'
 
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
@@ -394,53 +442,59 @@ if __name__ == "__main__":
         den.append(de)
         dden.append(dde*2*pi)
 
-        print("outputs:")
-        print("Energy: {}".format(en))
-        print("1st derivate:")
-        print den
-        print("2nd derivative:")
-        print dde
-        m_tensor = hbar ** 2 /(dde*4*pi**2) / m_e / A_to_m ** 2 * e * Ry_to_eV # m_tensor: the last part is unit conversion
-        print("effective mass tensor")
-        print(m_tensor)
+    print("outputs:")
+    print("Energy: {}".format(en))
+    print("1st derivate:")
+    print den
+    print("2nd derivative:")
+    print dde
+    m_tensor = hbar ** 2 /(dde*4*pi**2) / m_e / A_to_m ** 2 * e * Ry_to_eV # m_tensor: the last part is unit conversion
+    print("effective mass tensor")
+    print(m_tensor)
 
-        print("group velocity:")
-        v = de /hbar*A_to_m*m_to_cm * Ry_to_eV # to get v in units of cm/s
-        print v
+    print("group velocity:")
+    v = de /hbar*A_to_m*m_to_cm * Ry_to_eV # to get v in units of cm/s
+    print v
 
     run = Vasprun('vasprun.xml')
+    lattice_matrix = run.lattice_rec.matrix / (2 * pi)
     st = run.structures[0]
 
     #dos caclulated on a 15x15x15 mesh of kpoints, 
     #in an energy range [-13,25] eV with 1000 points
     #from get_dos_from_scratch
     kmesh = [15,15,15]
-    emesh,dos = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000)
+    # emesh,dos = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000)
+    poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.25]]]]
+
+    # adding an extra valley at offest of 1 eV
+    # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.25]]] , [[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [2, 0.25]]]]
+
+    emesh, dos = get_dos_from_poly_bands(st,lattice_matrix,[6,6,6],-13,20,1000,poly_bands=poly_bands, bandgap=0.8, width=0.05, all_values=True)
     plot(emesh,dos)
-    
-    #from a previous calculation of energies
-    engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband='A')
-    #generate the star functions only one time
-    nstv, vec = analytical_bands.get_star_functions(latt_points,nsym,symop,nwave)
-
-    energies = []
-    ir_kpts = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(kmesh)
-    ir_kpts = [k[0] for k in ir_kpts]
-    weights = [k[1] for k in ir_kpts]
-
-    for kpt in ir_kpts:
-        energies.append([])
-        for b in range(len(engre)):
-            energy = analytical_bands.get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
-            energies[-1].append(energy)
-    
-    print len(energies),len(energies[0]) #120,21
-
-    # print energies
-    # print weights
-    emesh,dos2 = get_dos(energies,weights,-13,20,21)
-    # print emesh
-    # print dos2
-    plot(emesh,dos2)
     show()
+
+    # this part is not working well:
+    #
+    # #from a previous calculation of energies
+    # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband='A')
+    # #generate the star functions only one time
+    # nstv, vec = analytical_bands.get_star_functions(latt_points,nsym,symop,nwave)
+    #
+    # energies = []
+    # ir_kpts = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(kmesh)
+    # ir_kpts = [k[0] for k in ir_kpts]
+    # weights = [k[1] for k in ir_kpts]
+    #
+    # for kpt in ir_kpts:
+    #     energies.append([])
+    #     for b in range(len(engre)):
+    #         energy = analytical_bands.get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
+    #         energies[-1].append(energy)
+    #
+    # print len(energies),len(energies[0]) #120,21
+    #
+    # emesh,dos2 = get_dos(energies,weights,-13,20,21)
+    # plot(emesh,dos2)
+    # show()
 

@@ -73,7 +73,7 @@ def df0dE(E, fermi, T):
 def fermi_integral(order, fermi, T, initial_energy=0):
     # fermi = fermi - initial_energy
     integral = 0.
-    emesh = np.linspace(initial_energy, 30*k_B*T, 1000000.0) # We choose 20kBT instead of infinity as the fermi distribution will be 0
+    emesh = np.linspace(0.0, 30*k_B*T, 1000000.0) # We choose 20kBT instead of infinity as the fermi distribution will be 0
     dE = (emesh[-1]-emesh[0])/(1000000.0-1.0)
     for E in emesh:
         integral += dE * (E/(k_B*T))**order / (1. + np.exp((E-fermi)/(k_B*T)))
@@ -125,9 +125,9 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
-                 poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.1] ] ] ]):
+                 poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.2] ] ] ]):
 
-        self.nkibz = 10 #30 #20
+        self.nkibz = 20 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -291,6 +291,10 @@ class AMSET(object):
         cbm = bs.get_cbm()
         vbm = bs.get_vbm()
 
+        print "total number of bands"
+        print self._vrun.get_band_structure().nb_bands
+        # print bs.nb_bands
+
         cbm_vbm["n"]["energy"] = cbm["energy"]
         cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.up][0]
         cbm_vbm["n"]["kpoint"] = bs.kpoints[cbm["kpoint_index"][0]].frac_coords
@@ -303,8 +307,11 @@ class AMSET(object):
         print "DFT gap from vasprun.xml : {} eV".format(self.dft_gap)
         if self.soc:
             self.nelec = cbm_vbm["p"]["bidx"]
+            self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands
         else:
             self.nelec = cbm_vbm["p"]["bidx"]*2
+            self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands*2
+
 
         bs = bs.as_dict()
         if bs["is_spin_polarized"]:
@@ -429,6 +436,7 @@ class AMSET(object):
             "mobility": {}
              }
         self.kgrid_to_egrid_idx = {"n":[], "p":[]} # list of band and k index that are mapped to each memeber of egrid
+        self.Efrequency = {"n": [], "p": []}
 
         # reshape energies of all bands to one vector:
         E_idx = []
@@ -493,6 +501,12 @@ class AMSET(object):
         # print self.kgrid_to_egrid_idx["n"]
         print len(self.kgrid_to_egrid_idx["n"])
 
+        for tp in ["n", "p"]:
+            self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
+
+        print "here total number of ks from self.Efrequency for n-type"
+        print sum(self.Efrequency["n"])
+
         # initialize some fileds/properties
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
         for sn in self.elastic_scatterings + self.inelastic_scatterings +["overall", "average", "SPB_ACD"]:
@@ -508,8 +522,8 @@ class AMSET(object):
         # self.egrid["fermi"] ={
         # -1e+19: {
         #     # original
-        #     300.0: 1.28698518995648691,
-        #     600.0: 1.174478632328484025,
+        #     300.0: 0.28698518995648691,
+        #     600.0: 0.174478632328484025,
         #
         #     # new
         #     # 300.0: hbar**2/(2*m_e)*(3*pi**2*2/self.volume)**(2./3.0)*1e20*e,
@@ -868,10 +882,12 @@ class AMSET(object):
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
         self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
 
-        test_k = [0.1, 0.2, 0.3]
+
+        test_k = [0.5, 0.5, 0.5]
         print "equivalent ks"
         # a = self.remove_duplicate_kpoints([np.dot(test_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))])
         a = self.get_sym_eq_ks_in_first_BZ(test_k)
+        # a = self.remove_duplicate_kpoints(a)
         # a = [np.dot(test_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
         a = [i.tolist() for i in a]
         print a
@@ -912,7 +928,6 @@ class AMSET(object):
             # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
             emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
                         self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), width=self.dos_bwidth)
-            total_nelec = self.nelec
         else:
             # first modify the self.poly_bands to include all symmetrically equivalent k-points
             # poly_band_short = [i for i in self.poly_bands]
@@ -926,18 +941,23 @@ class AMSET(object):
             print self.poly_bands
 
             # now construct the DOS
-            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, [self.nkdos,self.nkdos,self.nkdos],
+            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix, [self.nkdos,self.nkdos,self.nkdos],
                 self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), poly_bands=self.poly_bands,
-                    bandgap=self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]+self.scissor, width=self.dos_bwidth)
-            total_nelec = len(self.poly_bands) * 2 # basically 2x number of included occupied bands (valence bands)
+                    bandgap=self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]+self.scissor, width=self.dos_bwidth, SPB_DOS=True)
+            # total_nelec = len(self.poly_bands) * 2 # basically 2x number of included occupied bands (valence bands)
             # total_nelec = self.nelec
+            self.dos_normalization_factor = len(self.poly_bands) # it is *2 elec/band but /2 because DOS is repeated in valence/conduction
 
         integ = 0.0
         for idos in range(len(dos) - 2):
+            if emesh[idos] > self.cbm_vbm["n"]["energy"]:
+                break
             integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
         # normalize DOS
-        dos = [g / integ * total_nelec for g in dos]
+        dos = [g / integ * self.nelec for g in dos]
         self.dos = zip(emesh, dos)
+        self.dos = [list(a) for a in self.dos]
+
         # calculate the energies in initial ibz k-points and look at the first band to decide on additional/adaptive ks
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
         for i, tp in enumerate(["p", "n"]):
@@ -968,9 +988,10 @@ class AMSET(object):
 
                         energies[tp][ik] = energy * Ry_to_eV + sgn * self.scissor/2
                     else:
-                        # energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi), \
-                        energy,velocity,effective_m=get_poly_energy(kpts[ik], poly_bands=self.poly_bands, type=tp,ib=ib,
-                            bandgap=self.dft_gap + self.scissor)
+                        energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi),
+                                poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+                        # energy,velocity,effective_m=get_poly_energy(kpts[ik], poly_bands=self.poly_bands, type=tp,ib=ib,
+                        #     bandgap=self.dft_gap + self.scissor)
                         energies[tp][ik] = energy
 
         # print "first energies:"
@@ -1672,12 +1693,14 @@ class AMSET(object):
             dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
             for i in range(interpolation_nsteps):
                 # TODO:The DOS used is too simplistic and wrong (e.g., calc_doping might hit a limit), try 2*[2pim_hk_BT/hbar**2]**1.5
-                integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
+                # integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
+                integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS)*func(E + i * dE, fermi, T)*self.Efrequency[tp][ie]
         return integral
+        # return integral/sum(self.Efrequency[tp][:-1])
 
 
 
-    def integrate_over_E(self, prop_list, tp, c, T, xDOS=True, xvel=False, interpolation_nsteps=None):
+    def integrate_over_E(self, prop_list, tp, c, T, xDOS=True, xvel=False, weighted=False, interpolation_nsteps=None):
         if not interpolation_nsteps:
             interpolation_nsteps = max(5, int(500.0/len(self.egrid[tp]["energy"])) )
         diff = [0.0 for prop in prop_list]
@@ -1706,8 +1729,15 @@ class AMSET(object):
                     multi *= self.egrid[tp]["DOS"][ie] + dS*i
                 if xvel:
                     multi *= self.egrid[tp]["velocity"][ie] + dv*i
-                integral += multi
-        return integral
+                if weighted:
+                    integral += multi * self.Efrequency[tp][ie]
+                else:
+                    integral += multi
+        if weighted:
+            return integral/sum(self.Efrequency[tp][:-1])
+        else:
+            return integral
+
 
 
 
@@ -2113,6 +2143,15 @@ class AMSET(object):
             iter += 1 # to avoid an infinite loop
             fermi += alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
 
+            ## DOS re-normalization: NOT NECESSARY; this changes DOS at each T and makes AMSET slow;
+            ## initial normalization based on zero-T should suffice
+            # integ = 0.0
+            # for idos in range(len(self.dos)-1):
+            #     integ+= (self.dos[idos+1][0] - self.dos[idos][0])*self.dos[idos][1]*f0(self.dos[idos][0], fermi, T)
+            # for idos in range(len(self.dos)):
+            #     self.dos[idos] *= self.nelec/integ
+
+
 
             for j, tp in enumerate(["n", "p"]):
                 integral = 0.0
@@ -2324,18 +2363,18 @@ class AMSET(object):
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
                         self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar* \
-                            self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True)
+                            self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True, weighted=False)
 
 
                     for mu_inel in self.inelastic_scatterings:
                             # calculate mobility["POP"] based on g_POP
                             self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(prop_list=["g_"+mu_inel],
-                                                                                tp=tp,c=c,T=T,xDOS=True,xvel=True)
+                                                                                tp=tp,c=c,T=T,xDOS=True,xvel=True, weighted=False)
                     self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
-                                                                                tp=tp,c=c,T=T,xDOS=True,xvel=True)
+                                                                                tp=tp,c=c,T=T,xDOS=True,xvel=True, weighted=False)
 
                     self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"],
-                            tp=tp, c=c, T=T, xDOS=True, xvel=True) * e * 1e24 # to bring J to A/cm2 units
+                            tp=tp, c=c, T=T, xDOS=True, xvel=True, weighted=True) * e * 1e24 # to bring J to A/cm2 units
 
                     # mobility denominators
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
@@ -2352,8 +2391,8 @@ class AMSET(object):
                     # ACD mobility based on single parabolic band extracted from Thermoelectric Nanomaterials,
                     # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
                     self.egrid["mobility"]["SPB_ACD"][c][T][tp] = 2**0.5*pi*hbar**4*e*self.C_el*1e9/( # C_el in GPa
-                        3*(self.cbm_vbm[tp]["eff_mass_xx"]*m_e)**2.5*(k_B*T)**1.5*self.E_D[tp]**2)*\
-                        fermi_integral(0,fermi,T,energy)/fermi_integral(0.5,fermi,T,energy) * e**0.5*1e4 #  to cm2/V.s
+                        3*(self.cbm_vbm[tp]["eff_mass_xx"]*m_e)**2.5*(k_B*T)**1.5*self.E_D[tp]**2)\
+                        *fermi_integral(0,fermi,T,energy)/fermi_integral(0.5,fermi,T,energy) * e**0.5*1e4 #  to cm2/V.s
 
 
                     faulty_overall_mobility = False
@@ -2410,9 +2449,8 @@ class AMSET(object):
                    plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
                             textsize=30, ticksize=45, scale=1, margin_left=120)
 
-            frequency = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
             # plt.histogram(x=self.egrid[tp]["energy"], bin_size=binsize, x_start=min(data) - binsize / 2)
-            plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=frequency)
+            plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=self.Efrequency[tp])
 
             # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
