@@ -122,19 +122,19 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
-                 # poly_bands = None):
-                 poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.2] ] ] ]):
+                 poly_bands = None):
+                 # poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.2] ] ] ]):
 
-        self.nkibz = 20 #30 #20
+        self.nkibz = 25 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
         # and that changes the actual values
         self.gaussian_broadening = False
 
-        self.dE_global = 0.0001 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
+        self.dE_global = 0.01 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -199,6 +199,9 @@ class AMSET(object):
         # initialize g in the egrid
         self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
+
+        print "average of the group velocity in e-grid!"
+        print np.mean(self.egrid["n"]["velocity"], 0)
 
         # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
         self.generate_angles_and_indexes_for_integration()
@@ -500,6 +503,8 @@ class AMSET(object):
         print "here self.kgrid_to_egrid_idx"
         # print self.kgrid_to_egrid_idx["n"]
         print len(self.kgrid_to_egrid_idx["n"])
+
+
 
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
@@ -889,7 +894,7 @@ class AMSET(object):
         a = self.get_sym_eq_ks_in_first_BZ(test_k)
         # a = self.remove_duplicate_kpoints(a)
         # a = [np.dot(test_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
-        a = [i.tolist() for i in a]
+        a = [i.tolist() for i in self.remove_duplicate_kpoints(a)]
         print a
 
         kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
@@ -1217,6 +1222,9 @@ class AMSET(object):
                     self.kgrid[tp]["a"][ib][ik] = 1.0
 
 
+        print "average of the group velocity (to detect inherent or artificially created anisotropy"
+        print np.mean(self.kgrid["n"]["velocity"][0], 0)
+
         #TODO: add kpoints and make smarter kgrid where energy values below CBM+dE and above VBM-dE (if necessary) are added in a way that Ediff is smaller so POP scattering is done more accurately and convergance obtained more easily and with much less k-points
         # kpoints_added = {"n": [], "p": []}
         # adaptive_E = 0.5
@@ -1301,7 +1309,6 @@ class AMSET(object):
         print len(self.kgrid["n"]["kpoints"][0])
 
 
-
         # to save memory avoiding storage of variables that we don't need down the line
         for tp in ["n", "p"]:
             self.kgrid[tp].pop("effective mass", None)
@@ -1315,6 +1322,7 @@ class AMSET(object):
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
         self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "a", "c"], ascending=True)
+
 
 
         print "energy of conduction band:"
@@ -1367,7 +1375,6 @@ class AMSET(object):
                     #     self.kgrid[arg] = np.array([self.kgrid[arg][ik] for ik in ikidxs])
                     # else:
                     self.kgrid[tp][arg][ib] = np.array([self.kgrid[tp][arg][ib][ik] for ik in ikidxs])
-
 
 
     def generate_angles_and_indexes_for_integration(self, avg_Ediff_tolerance=0.01):
@@ -1778,21 +1785,25 @@ class AMSET(object):
 
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
 
+        # The following (if passed on to s_el_eq) result in many cases k and k_prm being equal which we don't want.
         # k = m_e * self.kgrid[tp]["velocity"][ib][ik] / (hbar * e * 1e11)
         # k_prm = m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (hbar * e * 1e11)
 
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
+
         # TODO: if only use norm(k_prm), I get ACD mobility that is almost exactly inversely proportional to temperature
         return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-               * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
-               / self.kgrid[tp]["velocity"][ib_prm][ik_prm]
+               * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
+               * norm(1. / self.kgrid[tp]["velocity"][ib_prm][ik_prm])
+                # / self.kgrid[tp]["velocity"][ib_prm][ik_prm] # this is wrong: when converting
+                    # from dk (k being norm(k)) to dE, dk = 1/hbar*norm(1/v)*dE rather than simply 1/(hbar*v)*dE
 
         # This results in VERY LOW scattering rates (in order of 1-10 1/s!) in some k-points
         # return (1 - X) * (m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (hbar * e * 1e11))** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
         #        * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
-        #        / self.kgrid[tp]["velocity"][ib_prm][ik_prm]
+        #        * norm(1. / self.kgrid[tp]["velocity"][ib_prm][ik_prm])
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
@@ -1828,7 +1839,8 @@ class AMSET(object):
         # print norm(k_prm)**2
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         # integ = norm(k_prm)**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/(v[alpha]*norm_diff**2)
-        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/v_prm
+        # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/v_prm # simply /v_prm is wrong and creates artificial anisotropy
+        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
         if "S_i" in sname:
             integ *= abs(X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
