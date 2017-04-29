@@ -127,7 +127,7 @@ class AMSET(object):
                  poly_bands = None):
                  # poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.2] ] ] ]):
 
-        self.nkibz = 25 #30 #20
+        self.nkibz = 5 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -588,7 +588,7 @@ class AMSET(object):
 
 
 
-    def omit_kpoints(self, low_v_ik):
+    def omit_kpoints(self, low_v_ik, rearranged_props):
         """
         The k-points with velocity < 1 cm/s (either in valence or conduction band) are taken out as those are
             troublesome later with extreme values (e.g. too high elastic scattering rates)
@@ -615,7 +615,7 @@ class AMSET(object):
                     #     print prop
                     #     self.kgrid[tp][prop][ib].pop(ik)
 
-                for prop in ["velocity","effective mass","energy", "a", "c", "kpoints","cartesian kpoints","kweights"]:
+                for prop in rearranged_props:
                     self.kgrid[tp][prop] = np.delete(self.kgrid[tp][prop], ik_list, axis=1)
 
 
@@ -1116,7 +1116,7 @@ class AMSET(object):
             self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
             self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
 
-        self.initialize_var("kgrid", ["energy", "a", "c"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["energy", "a", "c", "norm(1/v)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=False, c_T_idx=False)
         # for tp in ["n", "p"]:
@@ -1211,6 +1211,8 @@ class AMSET(object):
 
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
+                    self.kgrid[tp]["norm(1/v)"][ib][ik] = norm(1.0/velocity)
+
                     # self.kgrid[tp]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
                     # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
                     # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
@@ -1299,20 +1301,18 @@ class AMSET(object):
         #     temp = self.kgrid[tp]["effective mass"]
         #     self.kgrid[tp]["effective mass"] = [ m for m in np.concatenate((temp[ib], added_mass[ib])) for ib in range(self.cbm_vbm[tp]["included"]) ]
 
+
+
         print "here are the iks with very low velocity"
         print low_v_ik
 
+        rearranged_props = ["velocity","effective mass","energy", "a", "c", "kpoints","cartesian kpoints","kweights",
+                             "norm(1/v)"]
         if len(low_v_ik) > 0:
-            self.omit_kpoints(low_v_ik)
+            self.omit_kpoints(low_v_ik, rearranged_props=rearranged_props)
 
         print "here the final number of k-points"
         print len(self.kgrid["n"]["kpoints"][0])
-
-
-        # to save memory avoiding storage of variables that we don't need down the line
-        for tp in ["n", "p"]:
-            self.kgrid[tp].pop("effective mass", None)
-            self.kgrid[tp]["size"] = len(self.kgrid[tp]["kpoints"][0])
 
         if len(self.kgrid["n"]["kpoints"][0]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
@@ -1321,9 +1321,12 @@ class AMSET(object):
         # print self.kgrid["n"]["energy"]
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
-        self.sort_vars_based_on_energy(args=["kpoints", "kweights", "velocity", "a", "c"], ascending=True)
+        self.sort_vars_based_on_energy(args=rearranged_props, ascending=True)
 
-
+        # to save memory avoiding storage of variables that we don't need down the line
+        for tp in ["n", "p"]:
+            self.kgrid[tp].pop("effective mass", None)
+            self.kgrid[tp]["size"] = len(self.kgrid[tp]["kpoints"][0])
 
         print "energy of conduction band:"
         # self.kgrid["n"]["energy"][0].sort()
@@ -1332,12 +1335,12 @@ class AMSET(object):
         print "..."
         print self.kgrid["n"]["energy"][0][-min(maxdata,len(self.kgrid["n"]["energy"][0])):-1]
 
-        print "velocity of conduction band:"
-        a = [norm (v) for v in self.kgrid["n"]["velocity"][0]]
+        # print "velocity of conduction band:"
+        # a = [norm (v) for v in self.kgrid["n"]["velocity"][0]]
         # a.sort()
-        print a[0:min(maxdata,len(a))]
-        print "..."
-        print a[-min(maxdata,len(a)):-1]
+        # print a[0:min(maxdata,len(a))]
+        # print "..."
+        # print a[-min(maxdata,len(a)):-1]
 
 
         self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
@@ -1792,12 +1795,18 @@ class AMSET(object):
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
+        # print "compare"
+        # print self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
+        # print norm(1/self.kgrid[tp]["velocity"][ib_prm][ik_prm])
+        # print
 
         # TODO: if only use norm(k_prm), I get ACD mobility that is almost exactly inversely proportional to temperature
         return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
-               * norm(1. / self.kgrid[tp]["velocity"][ib_prm][ik_prm])
-                # / self.kgrid[tp]["velocity"][ib_prm][ik_prm] # this is wrong: when converting
+               * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
+                # * norm(1/self.kgrid[tp]["velocity"][ib_prm][ik_prm])
+
+        # / self.kgrid[tp]["velocity"][ib_prm][ik_prm] # this is wrong: when converting
                     # from dk (k being norm(k)) to dE, dk = 1/hbar*norm(1/v)*dE rather than simply 1/(hbar*v)*dE
 
         # This results in VERY LOW scattering rates (in order of 1-10 1/s!) in some k-points
@@ -1823,7 +1832,7 @@ class AMSET(object):
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         f = self.kgrid[tp]["f0"][c][T][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
-        v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
+        # v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
         f_prm = self.kgrid[tp]["f0"][c][T][ib_prm][ik_prm]
 
 
@@ -1840,7 +1849,8 @@ class AMSET(object):
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         # integ = norm(k_prm)**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/(v[alpha]*norm_diff**2)
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/v_prm # simply /v_prm is wrong and creates artificial anisotropy
-        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
+        # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
+        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
         if "S_i" in sname:
             integ *= abs(X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
