@@ -122,12 +122,12 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
-                 donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
+                 donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=True,
                  poly_bands = None):
                  # poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.2] ] ] ]):
 
-        self.nkibz = 5 #30 #20
+        self.nkibz = 15 #30 #20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -1326,6 +1326,7 @@ class AMSET(object):
         # to save memory avoiding storage of variables that we don't need down the line
         for tp in ["n", "p"]:
             self.kgrid[tp].pop("effective mass", None)
+            self.kgrid[tp].pop("kweights", None)
             self.kgrid[tp]["size"] = len(self.kgrid[tp]["kpoints"][0])
 
         print "energy of conduction band:"
@@ -1368,12 +1369,26 @@ class AMSET(object):
     def sort_vars_based_on_energy(self, args, ascending=True):
         """sort the list of variables specified by "args" (type: [str]) in self.kgrid based on the "energy" values
         in each band for both "n"- and "p"-type bands and in ascending order by default."""
+
+
+        # ikidxs = {"n": [], "p": []}
+        # for tp in ["n", "p"]:
+        #     ikidxs[tp] = [np.argsort(self.kgrid[tp]["energy"][ib]) for ib in range(self.cbm_vbm[tp]["included"])]
+        #
+        # for tp in ["n", "p"]:
+        #     for arg in args:
+        #         # if arg in ["k-points", "kweights"]:
+        #         #     self.kgrid[arg] = np.array([self.kgrid[arg][ik] for ik in ikidxs])
+        #         # else:
+        #         self.kgrid[tp][arg] = np.array([[self.kgrid[tp][arg][ib][ik] for ik in ikidxs[tp][ib]] for ib in range(self.cbm_vbm[tp]["included"])])
+
+
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
                 ikidxs = np.argsort(self.kgrid[tp]["energy"][ib])
                 if not ascending:
                     ikidxs.reverse()
-                for arg in args + ["energy"]:
+                for arg in args:
                     # if arg in ["k-points", "kweights"]:
                     #     self.kgrid[arg] = np.array([self.kgrid[arg][ik] for ik in ikidxs])
                     # else:
