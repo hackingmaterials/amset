@@ -4,17 +4,17 @@ import warnings
 
 import time
 
-from pymatgen.electronic_structure.plotter import plot_brillouin_zone, plot_brillouin_zone_from_kpath
-from pymatgen.symmetry.bandstructure import HighSymmKpath
+# from pymatgen.electronic_structure.plotter import plot_brillouin_zone, plot_brillouin_zone_from_kpath
+# from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_poly_energy
 from pprint import pprint
 
 import numpy as np
 from math import log
-import sys
+# import sys
 from pymatgen.io.vasp import Vasprun, Spin, Structure
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer, generate_full_symmops
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from scipy.constants.codata import value as _cd
 from math import pi
 import os
@@ -23,7 +23,6 @@ from monty.json import MontyEncoder
 from random import random
 from matminer.figrecipes.plotly.make_plots import PlotlyFig
 import cProfile
-import re
 from copy import deepcopy
 
 # global constants
