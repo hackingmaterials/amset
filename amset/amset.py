@@ -121,12 +121,12 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
                  poly_bands=[ [ [[0.0, 0.0, 0.0], [0.0, 0.1] ] ] ]):
 
-        self.nkibz = 21
+        self.nkibz = 17
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -2177,8 +2177,8 @@ class AMSET(object):
         iter = 0
         temp_doping = {"n": 0.0, "p": 0.0}
         typ = self.get_tp(c)
-        # fermi = self.cbm_vbm[typ]["energy"]
-        fermi = self.egrid[typ]["energy"][0]
+        fermi = self.cbm_vbm[typ]["energy"]
+        # fermi = self.egrid[typ]["energy"][0]
         j = ["n", "p"].index(typ)
         funcs = [lambda E, fermi0, T: f0(E,fermi0,T), lambda E, fermi0, T: 1-f0(E,fermi0,T)]
         calc_doping = (-1)**(j+1) /self.volume / (A_to_m*m_to_cm)**3 \
@@ -2190,9 +2190,6 @@ class AMSET(object):
             iter += 1 # to avoid an infinite loop
             fermi += alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
 
-            print "fermi"
-            print fermi
-            print calc_doping
             ## DOS re-normalization: NOT NECESSARY; this changes DOS at each T and makes AMSET slow;
             ## initial normalization based on zero-T should suffice
             # integ = 0.0
@@ -2213,8 +2210,6 @@ class AMSET(object):
                                 (self.dos[ie+1][0] - self.dos[ie][0])
                 temp_doping[tp] = (-1) ** (j + 1) * abs(integral/(self.volume * (A_to_m*m_to_cm)**3) )
 
-            print "temp_doping"
-            print temp_doping
             # calculate the overall concentration at the current fermi
             # for j, tp in enumerate(["n", "p"]):
             #     integral = self.integrate_over_DOSxE_dE(func=funcs[j], tp=tp, fermi=fermi, T=T)
