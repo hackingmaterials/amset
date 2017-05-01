@@ -122,11 +122,11 @@ class AMSET(object):
     def __init__(self, path_dir=None,
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
-                 donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=True,
-                 poly_bands = None):
-                 # poly_bands=[ [ [[0.5, 0.5, 0.5], [0.0, 0.2] ] ] ]):
+                 donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
+                 # poly_bands = None):
+                 poly_bands=[ [ [[0.0, 0.0, 0.0], [0.0, 0.1] ] ] ]):
 
-        self.nkibz = 15 #30 #20
+        self.nkibz = 21
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -143,7 +143,8 @@ class AMSET(object):
         self.path_dir = path_dir or "../test_files/PbTe_nscf_uniform/nscf_line"
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
-        self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE", "DIS"]
+        # self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE", "DIS"]
+        self.elastic_scatterings = elastic_scatterings or ["ACD"]
         self.inelastic_scatterings = []
         if include_POP:
             self.inelastic_scatterings += ["POP"]
@@ -162,6 +163,11 @@ class AMSET(object):
         self.maxiters = 5
         self.soc = False
         self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
+        if self.poly_bands:
+            self.cbm_vbm["n"]["energy"] = self.dft_gap
+            self.cbm_vbm["p"]["energy"] = 0.0
+            self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
+
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
         self.P_PIE = 0.15
         # self.E_D = {"n": 4.0, "p": 3.93}
@@ -314,6 +320,7 @@ class AMSET(object):
             self.nelec = cbm_vbm["p"]["bidx"]*2
             self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands*2
 
+        print("total number of electrons nelec: {}".format(self.nelec))
 
         bs = bs.as_dict()
         if bs["is_spin_polarized"]:
@@ -790,8 +797,9 @@ class AMSET(object):
     @staticmethod
     def get_perturbed_ks(k):
         all_perturbed_ks = []
-        for p in [0.01, 0.03, 0.05]:
-            all_perturbed_ks.append([ k_i+p*np.sign(random()-0.5) for k_i in k] )
+        # for p in [0.01, 0.03, 0.05]:
+        for p in [0.03, 0.05, 0.08]:
+                all_perturbed_ks.append([ k_i+p*np.sign(random()-0.5) for k_i in k] )
         return all_perturbed_ks
 
 
@@ -1196,7 +1204,7 @@ class AMSET(object):
                                 nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                         energy = energy * Ry_to_eV + sgn * self.scissor/2
                         velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)# to get v in cm/s
-                        # velocity = abs(np.dot(de, self._lattice_matrix) / hbar * A_to_m * m_to_cm * Ry_to_eV)# to get v in cm/s
+                        # velocity = de / hbar * A_to_m * m_to_cm * Ry_to_eV# to get v in cm/s
                         effective_mass = hbar ** 2 / (
                         dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                     else:
@@ -1328,12 +1336,12 @@ class AMSET(object):
             self.kgrid[tp].pop("kweights", None)
             self.kgrid[tp]["size"] = len(self.kgrid[tp]["kpoints"][0])
 
-        print "energy of conduction band:"
-        # self.kgrid["n"]["energy"][0].sort()
-        maxdata = 20
-        print self.kgrid["n"]["energy"][0][0:min(maxdata,len(self.kgrid["n"]["energy"][0]))]
-        print "..."
-        print self.kgrid["n"]["energy"][0][-min(maxdata,len(self.kgrid["n"]["energy"][0])):-1]
+            print "energy of {} band:".format(["conduction", "valence"][["n", "p"].index(tp)])
+            # self.kgrid["n"]["energy"][0].sort()
+            maxdata = 20
+            print self.kgrid[tp]["energy"][0][0:min(maxdata,len(self.kgrid[tp]["energy"][0]))]
+            print "..."
+            print self.kgrid[tp]["energy"][0][-min(maxdata,len(self.kgrid[tp]["energy"][0])):-1]
 
         # print "velocity of conduction band:"
         # a = [norm (v) for v in self.kgrid["n"]["velocity"][0]]
@@ -1443,9 +1451,9 @@ class AMSET(object):
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
                                                     E_radius=0.0, forced_min_npoints=2, tolerance=self.dE_global)
+                print "here nforced k-points ratio for elastic scattering"
+                print self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib]))
                 if self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
-                    print "here nforced k-points ratio"
-                    print self.nforced_scat[tp] / (2*len(self.kgrid[tp]["kpoints"][ib]))
                     print "here this ib x k length:"
                     print (len(self.kgrid[tp]["energy"]) * len(self.kgrid[tp]["kpoints"][ib]))
                     # TODO: this should be an exception but for now I turned to warning for testing.
@@ -1484,13 +1492,14 @@ class AMSET(object):
                         #                  "you can try this k-point grid but without POP as an inelastic scattering")
 
                     # if self.nforced_scat[tp]/(len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
-                    if self.nforced_scat[tp] / (2*2*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
 
-                        print "here nforced k-points ratio"
-                        # one of the 2s is for plus and minus and the other one is the selected forced_min_npoints
-                        print self.nforced_scat[tp] / (2*2*len(self.kgrid[tp]["kpoints"][ib]))
-                        print self.nforced_scat[tp]
-                        print (2*2*len(self.kgrid[tp]["kpoints"][ib]))
+                    print "here nforced k-points ratio for POP scattering"
+                    # one of the 2s is for plus and minus and the other one is the selected forced_min_npoints
+                    print self.nforced_scat[tp] / (2 * 2 * len(self.kgrid[tp]["kpoints"][ib]))
+                    print self.nforced_scat[tp]
+                    print (2 * 2 * len(self.kgrid[tp]["kpoints"][ib]))
+
+                    if self.nforced_scat[tp] / (2*2*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
                         print "here this ib x k length:"
                         print (len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib]))
                         # TODO: this should be an exception but for now I turned to warning for testing.
@@ -1809,6 +1818,7 @@ class AMSET(object):
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
+
         # print "compare"
         # print self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
         # print norm(1/self.kgrid[tp]["velocity"][ib_prm][ik_prm])
@@ -1818,15 +1828,14 @@ class AMSET(object):
         return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
                * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
-                # * norm(1/self.kgrid[tp]["velocity"][ib_prm][ik_prm])
 
         # / self.kgrid[tp]["velocity"][ib_prm][ik_prm] # this is wrong: when converting
                     # from dk (k being norm(k)) to dE, dk = 1/hbar*norm(1/v)*dE rather than simply 1/(hbar*v)*dE
 
         # This results in VERY LOW scattering rates (in order of 1-10 1/s!) in some k-points
-        # return (1 - X) * (m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (hbar * e * 1e11))** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        # return (1 - X) * (m_e * norm(self.kgrid[tp]["velocity"][ib_prm][ik_prm]) / (hbar * e * 1e11)) * self.s_el_eq(sname, tp, c, T, k, k_prm) \
         #        * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
-        #        * norm(1. / self.kgrid[tp]["velocity"][ib_prm][ik_prm])
+        #        * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
@@ -2171,14 +2180,19 @@ class AMSET(object):
         # fermi = self.cbm_vbm[typ]["energy"]
         fermi = self.egrid[typ]["energy"][0]
         j = ["n", "p"].index(typ)
-        funcs = [lambda E, fermi, T: f0(E,fermi,T), lambda E, fermi, T: 1-f0(E,fermi,T)]
+        funcs = [lambda E, fermi0, T: f0(E,fermi0,T), lambda E, fermi0, T: 1-f0(E,fermi0,T)]
         calc_doping = (-1)**(j+1) /self.volume / (A_to_m*m_to_cm)**3 \
                 *abs(self.integrate_over_DOSxE_dE(func=funcs[j], tp=typ, fermi=fermi, T=T))
 
+        print "fermi"
+        print fermi
         while (relative_error > tolerance) and (iter<max_iter):
             iter += 1 # to avoid an infinite loop
             fermi += alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
 
+            print "fermi"
+            print fermi
+            print calc_doping
             ## DOS re-normalization: NOT NECESSARY; this changes DOS at each T and makes AMSET slow;
             ## initial normalization based on zero-T should suffice
             # integ = 0.0
@@ -2193,12 +2207,14 @@ class AMSET(object):
                 integral = 0.0
 
 
-                for ie in range((1-j)*self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])+0,
-                                (1-j)*len(self.dos)-2 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1):
+                for ie in range((1-j)*self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])+j*0,
+                                (1-j)*len(self.dos)-1 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1):
                     integral += (self.dos[ie+1][1] + self.dos[ie][1])/2*funcs[j](self.dos[ie][0],fermi,T)*\
                                 (self.dos[ie+1][0] - self.dos[ie][0])
                 temp_doping[tp] = (-1) ** (j + 1) * abs(integral/(self.volume * (A_to_m*m_to_cm)**3) )
 
+            print "temp_doping"
+            print temp_doping
             # calculate the overall concentration at the current fermi
             # for j, tp in enumerate(["n", "p"]):
             #     integral = self.integrate_over_DOSxE_dE(func=funcs[j], tp=tp, fermi=fermi, T=T)
@@ -2264,6 +2280,8 @@ class AMSET(object):
                         pass
 
                 for key in egrid[tp]:
+                    if key in ["size"]:
+                        continue
                     try:
                         for c in self.dopings:
                             for T in self.temperatures:
@@ -2295,6 +2313,8 @@ class AMSET(object):
                             pass
 
                     for key in kgrid[tp]:
+                        if key in ["size"]:
+                            continue
                         try:
                             for c in self.dopings:
                                 for T in self.temperatures:
@@ -2481,6 +2501,7 @@ class AMSET(object):
         fformat = "html"
 
         for tp in ["n"]:
+            print('plotting: first set of plots: "relaxation time", "_all_elastic", "ACD", "df0dk"')
             plt = PlotlyFig(plot_mode='offline', y_title="# of repeated energy in kgrid", x_title="Energy (eV)",
                    plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
                             textsize=30, ticksize=45, scale=1, margin_left=120)
@@ -2490,7 +2511,8 @@ class AMSET(object):
 
             # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
-            prop_list = ["relaxation time", "_all_elastic", "ACD", "IMP", "PIE", "df0dk"]
+            # prop_list = ["relaxation time", "_all_elastic", "ACD", "IMP", "PIE", "df0dk"]
+            prop_list = ["relaxation time", "_all_elastic", "ACD", "df0dk"]
             if "POP" in self.inelastic_scatterings:
                 prop_list += ["g", "g_POP", "S_i", "S_o"]
             for c in self.dopings:
@@ -2507,6 +2529,7 @@ class AMSET(object):
                         prop = [sum(p)/3 for p in self.egrid[tp][prop_name][c][T]]
                         plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=prop)
 
+            print('plotting: second set of plots: "velocity", "Ediff"')
 
             # plot versus energy in self.egrid
             prop_list = ["velocity", "Ediff"]
