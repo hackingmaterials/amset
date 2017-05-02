@@ -121,19 +121,19 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
                  poly_bands=[ [ [[0.0, 0.0, 0.0], [0.0, 0.1] ] ] ]):
 
-        self.nkibz = 17
+        self.nkibz = 10
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
         # and that changes the actual values
         self.gaussian_broadening = False
 
-        self.dE_global = 0.01 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
+        self.dE_global = 0.001 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
         self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
@@ -2004,14 +2004,15 @@ class AMSET(object):
 
         if sname.upper() == "ACD":
             # The following two lines are from Rode's chapter (page 38) which seems incorrect!
-            # el_srate = (k_B*T*self.E_D[tp]**2*norm(k)**2)/(3*pi*hbar**2*self.C_el*1e9*v)\
-            # *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*16.0217657
+            el_srate = (k_B*T*self.E_D[tp]**2*knrm**2)/(3*pi*hbar**2*self.C_el*1e9*v)\
+            *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*e*1e20
+            return el_srate
 
-            # The following is from Deformation potentials and... Ref. [Q] (DOI: 10.1103/PhysRev.80.72 )
+            # The following is from Deformation potentials and... Ref. [Q] (DOI: 10.1103/PhysRev.80.72 ) pagew 82?
             # if knrm < 1/(0.1*self._vrun.lattice.c*A_to_nm):
 
-            return m_e * knrm * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 3 * self.C_el) \
-                       * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * 1  # units work out! that's why conversion is 1
+            # return m_e * knrm * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 3 * self.C_el) \
+            #            * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * 1  # units work out! that's why conversion is 1
 
             # replaced hbar*knrm with m_e*norm(v)/(1e11*e) which is momentum
             # return m_e * m_e*norm(v) * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 4 * self.C_el) \
@@ -2568,5 +2569,6 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=40, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=200, nstart=0)
+    # AMSET.to_json(kgrid=True, trimmed=True)
     AMSET.plot()
