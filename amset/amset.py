@@ -126,7 +126,7 @@ class AMSET(object):
                  # poly_bands = None):
                  poly_bands=[ [ [[0.0, 0.0, 0.0], [0.0, 0.1] ] ] ]):
 
-        self.nkibz = 10
+        self.nkibz = 20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -1805,7 +1805,8 @@ class AMSET(object):
 
             dum += current_integrand/2
             sum += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
-        return sum/len(X_E_index[ib][ik])
+        # return sum/len(X_E_index[ib][ik])
+        return sum
 
 
 
@@ -1825,17 +1826,17 @@ class AMSET(object):
         # print
 
         # TODO: if only use norm(k_prm), I get ACD mobility that is almost exactly inversely proportional to temperature
-        return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-               * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
-               * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
+        # return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
+        #        * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
 
         # / self.kgrid[tp]["velocity"][ib_prm][ik_prm] # this is wrong: when converting
                     # from dk (k being norm(k)) to dE, dk = 1/hbar*norm(1/v)*dE rather than simply 1/(hbar*v)*dE
 
         # This results in VERY LOW scattering rates (in order of 1-10 1/s!) in some k-points
-        # return (1 - X) * (m_e * norm(self.kgrid[tp]["velocity"][ib_prm][ik_prm]) / (hbar * e * 1e11)) * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
-        #        * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
+        return (1 - X) * (m_e * norm(self.kgrid[tp]["velocity"][ib_prm][ik_prm]) / (hbar * e * 1e11))**2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+               * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
+               * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]/3 # not sure where this 3 comes from yet but for iso and aniso to match in SPB, its presence is necessary
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
@@ -1993,7 +1994,8 @@ class AMSET(object):
         #TODO: decide on knrm and whether it needs a reference (i.e. CBM/VBM). No ref. result in large rates in PbTe.
         # I justify subtracting the CBM/VBM actual k-points as follows:
         # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
-        v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
+        # v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
+        v = norm(self.kgrid[tp]["velocity"][ib][ik])
         # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
 
@@ -2004,15 +2006,19 @@ class AMSET(object):
 
         if sname.upper() == "ACD":
             # The following two lines are from Rode's chapter (page 38) which seems incorrect!
-            el_srate = (k_B*T*self.E_D[tp]**2*knrm**2)/(3*pi*hbar**2*self.C_el*1e9*v)\
+            return (k_B*T*self.E_D[tp]**2*knrm**2)/(3*pi*hbar**2*self.C_el*1e9* v)\
             *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*e*1e20
-            return el_srate
 
-            # The following is from Deformation potentials and... Ref. [Q] (DOI: 10.1103/PhysRev.80.72 ) pagew 82?
-            # if knrm < 1/(0.1*self._vrun.lattice.c*A_to_nm):
+            return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) *norm(1.0/v)/ (3 * pi * hbar ** 2 * self.C_el * 1e9) \
+                * (3 - 8 * self.kgrid[tp]["c"][ib][ik] ** 2 + 6 * self.kgrid[tp]["c"][ib][ik] ** 4) * e * 1e20
 
-            # return m_e * knrm * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 3 * self.C_el) \
+            # it is equivalent to the following also from Rode but always isotropic
+            # return m_e * knrm * self.E_D[tp] ** 2 * k_B * T / ( 3* pi * hbar ** 3 * self.C_el) \
             #            * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * 1  # units work out! that's why conversion is 1
+
+
+            # The following is from Deformation potentials and... Ref. [Q] (DOI: 10.1103/PhysRev.80.72 ) page 82?
+            # if knrm < 1/(0.1*self._vrun.lattice.c*A_to_nm):
 
             # replaced hbar*knrm with m_e*norm(v)/(1e11*e) which is momentum
             # return m_e * m_e*norm(v) * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 4 * self.C_el) \
