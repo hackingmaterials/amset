@@ -126,7 +126,7 @@ class AMSET(object):
                  # poly_bands = None):
                  poly_bands=[ [ [[0.0, 0.0, 0.0], [0.0, 0.1] ] ] ]):
 
-        self.nkibz = 20
+        self.nkibz = 12
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -1834,9 +1834,15 @@ class AMSET(object):
                     # from dk (k being norm(k)) to dE, dk = 1/hbar*norm(1/v)*dE rather than simply 1/(hbar*v)*dE
 
         # This results in VERY LOW scattering rates (in order of 1-10 1/s!) in some k-points
-        return (1 - X) * (m_e * norm(self.kgrid[tp]["velocity"][ib_prm][ik_prm]) / (hbar * e * 1e11))**2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-               * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
-               * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]/3 # not sure where this 3 comes from yet but for iso and aniso to match in SPB, its presence is necessary
+        # return (1 - X) * (m_e * norm(self.kgrid[tp]["velocity"][ib_prm][ik_prm]) / (hbar * e * 1e11))**2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
+        #        * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]/3 # not sure where this 3 comes from yet but for iso and aniso to match in SPB, its presence is necessary
+
+        return (1 - X) * (m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
+        hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+               * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
+               * 1.0/self.kgrid[tp]["velocity"][ib_prm][ik_prm]
+
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
@@ -1995,7 +2001,8 @@ class AMSET(object):
         # I justify subtracting the CBM/VBM actual k-points as follows:
         # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
         # v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
-        v = norm(self.kgrid[tp]["velocity"][ib][ik])
+        # v = norm(self.kgrid[tp]["velocity"][ib][ik])
+        v = self.kgrid[tp]["velocity"][ib][ik] # because it's isotropic, it doesn't matter which one we choose
         # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
 
@@ -2009,8 +2016,8 @@ class AMSET(object):
             return (k_B*T*self.E_D[tp]**2*knrm**2)/(3*pi*hbar**2*self.C_el*1e9* v)\
             *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*e*1e20
 
-            return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) *norm(1.0/v)/ (3 * pi * hbar ** 2 * self.C_el * 1e9) \
-                * (3 - 8 * self.kgrid[tp]["c"][ib][ik] ** 2 + 6 * self.kgrid[tp]["c"][ib][ik] ** 4) * e * 1e20
+            # return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) *norm(1.0/v)/ (3 * pi * hbar ** 2 * self.C_el * 1e9) \
+            #     * (3 - 8 * self.kgrid[tp]["c"][ib][ik] ** 2 + 6 * self.kgrid[tp]["c"][ib][ik] ** 4) * e * 1e20
 
             # it is equivalent to the following also from Rode but always isotropic
             # return m_e * knrm * self.E_D[tp] ** 2 * k_B * T / ( 3* pi * hbar ** 3 * self.C_el) \
@@ -2528,7 +2535,7 @@ class AMSET(object):
                             height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120,
                             margin_right=80,
                             pad=0)
-                        prop = [sum(p)/3 for p in self.egrid[tp][prop_name][c][T]]
+                        prop = [norm(p) for p in self.egrid[tp][prop_name][c][T]]
                         plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=prop)
 
             print('plotting: second set of plots: "velocity", "Ediff"')
@@ -2545,7 +2552,7 @@ class AMSET(object):
                     y_col = [self.egrid[tp]["energy"][i+1]-\
                                         self.egrid[tp]["energy"][i] for i in range(len(self.egrid[tp]["energy"])-1)]
                 else:
-                    y_col = [sum(p)/3 for p in self.egrid[tp][prop_name]]
+                    y_col = [norm(p) for p in self.egrid[tp][prop_name]]
                     plt.xy_plot(x_col=self.egrid[tp]["energy"][:len(y_col)], y_col=y_col)
                     # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
@@ -2554,14 +2561,14 @@ class AMSET(object):
             eff_m = 0.1
             for prop_name in prop_list:
                 # x_col = [norm(k-np.dot(np.array([0.5, 0.5, 0.5]), self._lattice_matrix)/A_to_nm*2*pi) for k in self.kgrid[tp]["cartesian kpoints"][0]]
-                x_col = [sum(v)/3*m_e*eff_m/ (hbar*1e11*e) for v in self.kgrid[tp]["velocity"][0]]
+                x_col = [norm(v)*m_e*eff_m/ (hbar*1e11*e) for v in self.kgrid[tp]["velocity"][0]]
                 plt = PlotlyFig(plot_title=None, x_title="k [1/nm] (extracted from momentum, mv)",
                                 y_title="{} at the 1st band".format(prop_name), hovermode='closest',
                             filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
                         plot_mode='offline', username=None, api_key=None, textsize=30, ticksize=25, fontfamily=None,
                     height=800, width=1000, scale=None, margin_left=120, margin_right=80)
                 try:
-                    y_col = [sum(p)/3 for p in self.kgrid[tp][prop_name][0] ]
+                    y_col = [norm(p) for p in self.kgrid[tp][prop_name][0] ]
                 except:
                     y_col = self.kgrid[tp][prop_name][0]
                 plt.xy_plot(x_col=x_col, y_col=y_col)
