@@ -124,7 +124,8 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
-                 poly_bands=[ [ [[0.0, 0.0, 0.0], [0.0, 0.1] ] ] ]):
+                 poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, 0.2] ] ]]):
+                    # poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.2]]], [[[0.25, 0.25, 0.25], [0.0, 0.1]]]]):
 
         self.nkibz = 12
 
@@ -1838,10 +1839,15 @@ class AMSET(object):
         #        * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
         #        * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]/3 # not sure where this 3 comes from yet but for iso and aniso to match in SPB, its presence is necessary
 
-        return (1 - X) * (m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
-        hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        # return (1 - X) * (m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
+        #     hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
+        #        * 1.0/self.kgrid[tp]["velocity"][ib_prm][ik_prm]
+
+        return (1 - X) * (m_e * norm(self.kgrid[tp]["velocity"][ib_prm][ik_prm]) / (
+            hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
-               * 1.0/self.kgrid[tp]["velocity"][ib_prm][ik_prm]
+               * 1.0 / norm(self.kgrid[tp]["velocity"][ib_prm][ik_prm])
 
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
@@ -2001,8 +2007,8 @@ class AMSET(object):
         # I justify subtracting the CBM/VBM actual k-points as follows:
         # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
         # v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
-        # v = norm(self.kgrid[tp]["velocity"][ib][ik])
-        v = self.kgrid[tp]["velocity"][ib][ik] # because it's isotropic, it doesn't matter which one we choose
+        v = norm(self.kgrid[tp]["velocity"][ib][ik])
+        # v = self.kgrid[tp]["velocity"][ib][ik] # because it's isotropic, it doesn't matter which one we choose
         # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
 
@@ -2535,7 +2541,7 @@ class AMSET(object):
                             height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120,
                             margin_right=80,
                             pad=0)
-                        prop = [norm(p) for p in self.egrid[tp][prop_name][c][T]]
+                        prop = [sum(p)/3 for p in self.egrid[tp][prop_name][c][T]] # scat. rates are not vectors all 3 numbers represent single isotropic scattering rate
                         plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=prop)
 
             print('plotting: second set of plots: "velocity", "Ediff"')
@@ -2552,16 +2558,21 @@ class AMSET(object):
                     y_col = [self.egrid[tp]["energy"][i+1]-\
                                         self.egrid[tp]["energy"][i] for i in range(len(self.egrid[tp]["energy"])-1)]
                 else:
-                    y_col = [norm(p) for p in self.egrid[tp][prop_name]]
+                    y_col = [norm(p) for p in self.egrid[tp][prop_name]] # velocity is actually a vector so we take norm
                     plt.xy_plot(x_col=self.egrid[tp]["energy"][:len(y_col)], y_col=y_col)
                     # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
             # plot versus norm(k) in self.kgrid
             prop_list = ["energy"]
-            eff_m = 0.1
+            # eff_m = 0.1
             for prop_name in prop_list:
                 # x_col = [norm(k-np.dot(np.array([0.5, 0.5, 0.5]), self._lattice_matrix)/A_to_nm*2*pi) for k in self.kgrid[tp]["cartesian kpoints"][0]]
-                x_col = [norm(v)*m_e*eff_m/ (hbar*1e11*e) for v in self.kgrid[tp]["velocity"][0]]
+                if not self.poly_bands:
+                    x_col = [norm(v)*m_e*sum(self.cbm_vbm[tp]["eff_mass_xx"])/3/ (hbar*1e11*e) for v in
+                             self.kgrid[tp]["velocity"][0]]
+                else:
+                    x_col = [norm(k)/(2*pi) for k in self.kgrid[tp]["cartesian kpoints"][0]]
+
                 plt = PlotlyFig(plot_title=None, x_title="k [1/nm] (extracted from momentum, mv)",
                                 y_title="{} at the 1st band".format(prop_name), hovermode='closest',
                             filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
