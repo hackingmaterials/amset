@@ -1124,7 +1124,7 @@ class AMSET(object):
             self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
             self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
 
-        self.initialize_var("kgrid", ["energy", "a", "c", "norm(1/v)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=False, c_T_idx=False)
         # for tp in ["n", "p"]:
@@ -1219,7 +1219,7 @@ class AMSET(object):
 
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
-                    self.kgrid[tp]["norm(1/v)"][ib][ik] = norm(1.0/velocity)
+                    self.kgrid[tp]["norm(v)"][ib][ik] = norm(velocity)
 
                     # self.kgrid[tp]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
                     # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
@@ -1315,7 +1315,7 @@ class AMSET(object):
         print low_v_ik
 
         rearranged_props = ["velocity","effective mass","energy", "a", "c", "kpoints","cartesian kpoints","kweights",
-                             "norm(1/v)"]
+                             "norm(v)"]
         if len(low_v_ik) > 0:
             self.omit_kpoints(low_v_ik, rearranged_props=rearranged_props)
 
@@ -1680,7 +1680,7 @@ class AMSET(object):
         :param k_prm:
         :return:
         """
-        norm_diff_k = norm(k - k_prm)
+        norm_diff_k = norm(k - k_prm)/(2*pi)
         if norm_diff_k == 0:
             print "WARNING!!! same k and k' vectors as input of the elastic scattering equation"
             # warnings.warn("same k and k' vectors as input of the elastic scattering equation")
@@ -1886,7 +1886,7 @@ class AMSET(object):
         # integ = norm(k_prm)**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/(v[alpha]*norm_diff**2)
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/v_prm # simply /v_prm is wrong and creates artificial anisotropy
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
-        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
+        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
         if "S_i" in sname:
             integ *= abs(X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
