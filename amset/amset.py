@@ -1844,10 +1844,10 @@ class AMSET(object):
         #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
         #        * 1.0/self.kgrid[tp]["velocity"][ib_prm][ik_prm]
 
-        return (1 - X) * (m_e * norm(self.kgrid[tp]["velocity"][ib_prm][ik_prm]) / (
+        return (1 - X) * (m_e * self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / (
             hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
-               * 1.0 / norm(self.kgrid[tp]["velocity"][ib_prm][ik_prm])
+               * 1.0 / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
 
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
@@ -2007,7 +2007,8 @@ class AMSET(object):
         # I justify subtracting the CBM/VBM actual k-points as follows:
         # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
         # v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
-        v = norm(self.kgrid[tp]["velocity"][ib][ik])
+        # v = norm(self.kgrid[tp]["velocity"][ib][ik])
+        v = self.kgrid[tp]["norm(v)"][ib][ik]
         # v = self.kgrid[tp]["velocity"][ib][ik] # because it's isotropic, it doesn't matter which one we choose
         # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
