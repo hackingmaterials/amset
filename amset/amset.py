@@ -121,13 +121,13 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
                  poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, 0.2] ] ]]):
                     # poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.2]]], [[[0.25, 0.25, 0.25], [0.0, 0.1]]]]):
 
-        self.nkibz = 12
+        self.nkibz = 10
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -144,8 +144,8 @@ class AMSET(object):
         self.path_dir = path_dir or "../test_files/PbTe_nscf_uniform/nscf_line"
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
-        # self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE", "DIS"]
-        self.elastic_scatterings = elastic_scatterings or ["ACD"]
+        self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE", "DIS"]
+        # self.elastic_scatterings = elastic_scatterings or ["ACD"]
         self.inelastic_scatterings = []
         if include_POP:
             self.inelastic_scatterings += ["POP"]
@@ -1403,7 +1403,7 @@ class AMSET(object):
                     self.kgrid[tp][arg][ib] = np.array([self.kgrid[tp][arg][ib][ik] for ik in ikidxs])
 
 
-    def generate_angles_and_indexes_for_integration(self, avg_Ediff_tolerance=0.01):
+    def generate_angles_and_indexes_for_integration(self, avg_Ediff_tolerance=0.02):
 
 
         # def is_sparse(list_of_lists, threshold=0.1):
@@ -1510,7 +1510,9 @@ class AMSET(object):
 
                     avg_Ediff = sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 1)
                     if avg_Ediff > avg_Ediff_tolerance:
-                        raise ValueError(
+                        # TODO: this should be an exception but for now I turned to warning for testing.
+                        # raise ValueError(
+                        warnings.warn(
                             "{}-type average energy difference of the enforced scattered k-points is more than"
                             " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
 
@@ -1680,7 +1682,7 @@ class AMSET(object):
         :param k_prm:
         :return:
         """
-        norm_diff_k = norm(k - k_prm)/(2*pi)
+        norm_diff_k = norm(k - k_prm)
         if norm_diff_k == 0:
             print "WARNING!!! same k and k' vectors as input of the elastic scattering equation"
             # warnings.warn("same k and k' vectors as input of the elastic scattering equation")
@@ -1886,7 +1888,7 @@ class AMSET(object):
         # integ = norm(k_prm)**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/(v[alpha]*norm_diff**2)
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/v_prm # simply /v_prm is wrong and creates artificial anisotropy
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
-        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
+        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
         if "S_i" in sname:
             integ *= abs(X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
@@ -2511,7 +2513,7 @@ class AMSET(object):
                 self.egrid["conductivity"][c][T][actual_type] += self.egrid["conductivity"][c][T][other_type]
 
 
-    def plot(self, path=None):
+    def plot(self, path=None, textsize=45, ticksize=50):
         if not path:
             path = os.path.join( os.getcwd(), "plots" )
         fformat = "html"
@@ -2520,7 +2522,7 @@ class AMSET(object):
             print('plotting: first set of plots: "relaxation time", "_all_elastic", "ACD", "df0dk"')
             plt = PlotlyFig(plot_mode='offline', y_title="# of repeated energy in kgrid", x_title="Energy (eV)",
                    plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
-                            textsize=30, ticksize=45, scale=1, margin_left=120)
+                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=120)
 
             # plt.histogram(x=self.egrid[tp]["energy"], bin_size=binsize, x_start=min(data) - binsize / 2)
             plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=self.Efrequency[tp])
@@ -2528,7 +2530,7 @@ class AMSET(object):
             # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
             # prop_list = ["relaxation time", "_all_elastic", "ACD", "IMP", "PIE", "df0dk"]
-            prop_list = ["relaxation time", "_all_elastic", "ACD", "df0dk"]
+            prop_list = ["relaxation time", "_all_elastic", "df0dk"] + self.elastic_scatterings
             if "POP" in self.inelastic_scatterings:
                 prop_list += ["g", "g_POP", "S_i", "S_o"]
             for c in self.dopings:
@@ -2538,7 +2540,7 @@ class AMSET(object):
                         plt = PlotlyFig(plot_title="c={} 1/cm3, T={} K".format(c, T), x_title="Energy (eV)",
                                 y_title=prop_name, hovermode='closest',
                             filename=os.path.join(path, "{}_{}_{}_{}.{}".format(prop_name, tp, c, T, fformat)),
-                            plot_mode='offline', username=None, api_key=None, textsize=30, ticksize=25, fontfamily=None,
+                            plot_mode='offline', username=None, api_key=None, textsize=textsize, ticksize=ticksize, fontfamily=None,
                             height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120,
                             margin_right=80,
                             pad=0)
@@ -2552,7 +2554,7 @@ class AMSET(object):
             for prop_name in prop_list:
                 plt = PlotlyFig(plot_title=None, x_title="Energy (eV)", y_title=prop_name, hovermode='closest',
                             filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
-                 plot_mode='offline', username=None, api_key=None, textsize=30, ticksize=25, fontfamily=None,
+                 plot_mode='offline', username=None, api_key=None, textsize=textsize, ticksize=ticksize, fontfamily=None,
                  height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120, margin_right=80,
                  pad=0)
                 if "Ediff" in prop_name:
@@ -2577,7 +2579,7 @@ class AMSET(object):
                 plt = PlotlyFig(plot_title=None, x_title="k [1/nm] (extracted from momentum, mv)",
                                 y_title="{} at the 1st band".format(prop_name), hovermode='closest',
                             filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
-                        plot_mode='offline', username=None, api_key=None, textsize=30, ticksize=25, fontfamily=None,
+                        plot_mode='offline', username=None, api_key=None, textsize=textsize, ticksize=ticksize, fontfamily=None,
                     height=800, width=1000, scale=None, margin_left=120, margin_right=80)
                 try:
                     y_col = [norm(p) for p in self.kgrid[tp][prop_name][0] ]
