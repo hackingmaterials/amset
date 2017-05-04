@@ -121,10 +121,10 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
-                 poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, 0.2] ] ]]):
+                 poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, 0.08] ] ]]):
                     # poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.2]]], [[[0.25, 0.25, 0.25], [0.0, 0.1]]]]):
 
         self.nkibz = 5
@@ -2513,7 +2513,7 @@ class AMSET(object):
                 self.egrid["conductivity"][c][T][actual_type] += self.egrid["conductivity"][c][T][other_type]
 
 
-    def plot(self, path=None, textsize=45, ticksize=50):
+    def plot(self, path=None, textsize=45, ticksize=50, margin_left = 160, margin_bottom=120):
         if not path:
             path = os.path.join( os.getcwd(), "plots" )
         fformat = "html"
@@ -2522,7 +2522,7 @@ class AMSET(object):
             print('plotting: first set of plots: "relaxation time", "_all_elastic", "ACD", "df0dk"')
             plt = PlotlyFig(plot_mode='offline', y_title="# of repeated energy in kgrid", x_title="Energy (eV)",
                    plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
-                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=120)
+                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left, margin_bottom=margin_bottom)
 
             # plt.histogram(x=self.egrid[tp]["energy"], bin_size=binsize, x_start=min(data) - binsize / 2)
             plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=self.Efrequency[tp])
@@ -2541,7 +2541,7 @@ class AMSET(object):
                                 y_title=prop_name, hovermode='closest',
                             filename=os.path.join(path, "{}_{}_{}_{}.{}".format(prop_name, tp, c, T, fformat)),
                             plot_mode='offline', username=None, api_key=None, textsize=textsize, ticksize=ticksize, fontfamily=None,
-                            height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120,
+                            height=800, width=1000, scale=None, margin_top=100, margin_bottom=margin_bottom, margin_left=margin_left,
                             margin_right=80,
                             pad=0)
                         prop = [sum(p)/3 for p in self.egrid[tp][prop_name][c][T]] # scat. rates are not vectors all 3 numbers represent single isotropic scattering rate
@@ -2555,7 +2555,7 @@ class AMSET(object):
                 plt = PlotlyFig(plot_title=None, x_title="Energy (eV)", y_title=prop_name, hovermode='closest',
                             filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
                  plot_mode='offline', username=None, api_key=None, textsize=textsize, ticksize=ticksize, fontfamily=None,
-                 height=800, width=1000, scale=None, margin_top=100, margin_bottom=80, margin_left=120, margin_right=80,
+                 height=800, width=1000, scale=None, margin_top=100, margin_bottom=margin_bottom, margin_left=margin_left, margin_right=80,
                  pad=0)
                 if "Ediff" in prop_name:
                     y_col = [self.egrid[tp]["energy"][i+1]-\
@@ -2580,7 +2580,7 @@ class AMSET(object):
                                 y_title="{} at the 1st band".format(prop_name), hovermode='closest',
                             filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
                         plot_mode='offline', username=None, api_key=None, textsize=textsize, ticksize=ticksize, fontfamily=None,
-                    height=800, width=1000, scale=None, margin_left=120, margin_right=80)
+                    height=800, width=1000, scale=None, margin_left=margin_left, margin_right=80, margin_bottom=margin_bottom)
                 try:
                     y_col = [norm(p) for p in self.kgrid[tp][prop_name][0] ]
                 except:
