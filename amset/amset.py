@@ -121,13 +121,13 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
                  poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, 0.08] ] ]]):
                     # poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.2]]], [[[0.25, 0.25, 0.25], [0.0, 0.1]]]]):
 
-        self.nkibz = 5
+        self.nkibz = 8
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -135,7 +135,7 @@ class AMSET(object):
         self.gaussian_broadening = False
 
         self.dE_global = 0.001 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
-        self.dopings = [-1e19] # 1/cm**3 list of carrier concentrations
+        self.dopings = [-1e21] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self.epsilon_inf = 25.57 # example for PbTe
@@ -2513,7 +2513,7 @@ class AMSET(object):
                 self.egrid["conductivity"][c][T][actual_type] += self.egrid["conductivity"][c][T][other_type]
 
 
-    def plot(self, path=None, textsize=45, ticksize=50, margin_left = 160, margin_bottom=120):
+    def plot(self, path=None, textsize=40, ticksize=35, margin_left = 160, margin_bottom=120):
         if not path:
             path = os.path.join( os.getcwd(), "plots" )
         fformat = "html"
