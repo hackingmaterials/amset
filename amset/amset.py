@@ -127,7 +127,7 @@ class AMSET(object):
                  poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, 0.2] ] ]]):
                     # poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.2]]], [[[0.25, 0.25, 0.25], [0.0, 0.1]]]]):
 
-        self.nkibz = 10
+        self.nkibz = 5
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -1920,8 +1920,8 @@ class AMSET(object):
                             S_i = self.gs
                             # S_o = np.array([self.gs, self.gs, self.gs])
 
-                            v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
-                            # v = self.kgrid[tp]["velocity"][ib][ik]
+                            # v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
+                            v = self.kgrid[tp]["norm(v)"][ib][ik]
 
                             k = m_e * v / (hbar * e * 1e11)
                             a = self.kgrid[tp]["a"][ib][ik]
@@ -1936,8 +1936,8 @@ class AMSET(object):
                                 for X_ib_ik in self.kgrid[tp][X_Epm][ib][ik]:
                                     X, ib_pm, ik_pm = X_ib_ik
 
-                                    v_pm = sum(self.kgrid[tp]["velocity"][ib_pm][ik_pm])/3
-                                    # v_pm = self.kgrid[tp]["velocity"][ib_pm][ik_pm]
+                                    # v_pm = sum(self.kgrid[tp]["velocity"][ib_pm][ik_pm])/3
+                                    v_pm = self.kgrid[tp]["norm(v)"][ib_pm][ik_pm]
 
                                     k_pm  = m_e*v_pm/(hbar*e*1e11)
 
