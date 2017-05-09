@@ -59,13 +59,21 @@ def norm(v):
 
 def f0(E, fermi, T):
     """returns the value of Fermi-Dirac at equilibrium for E (energy), fermi [level] and T (temperature)"""
-    return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
+    if E-fermi > 5:
+        return 0.0
+    elif E-fermi < -5:
+        return 1.0
+    else:
+        return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
 
 
 
 def df0dE(E, fermi, T):
     """returns the energy derivative of the Fermi-Dirac equilibrium distribution"""
-    return -1 / (k_B * T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
+    if E-fermi > 5 or E-fermi < -5: # This is necessary so at too low numbers python doesn't return NaN
+        return 0.0
+    else:
+        return -1 / (k_B * T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
 
 
 
@@ -122,13 +130,13 @@ class AMSET(object):
 
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
-                 poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, 0.08] ] ]]):
+                 poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, 0.32] ] ]]):
                     # poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.2]]], [[[0.25, 0.25, 0.25], [0.0, 0.1]]]]):
 
-        self.nkibz = 7
+        self.nkibz = 6
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -145,8 +153,8 @@ class AMSET(object):
         self.path_dir = path_dir or "../test_files/PbTe_nscf_uniform/nscf_line"
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
-        self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE", "DIS"]
-        # self.elastic_scatterings = elastic_scatterings or ["ACD"]
+        # self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE", "DIS"]
+        self.elastic_scatterings = elastic_scatterings or ["ACD"]
         self.inelastic_scatterings = []
         if include_POP:
             self.inelastic_scatterings += ["POP"]
@@ -173,7 +181,7 @@ class AMSET(object):
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
         self.P_PIE = 0.15
         # self.E_D = {"n": 4.0, "p": 3.93}
-        self.E_D = {"n": 4.0, "p": 4.0}
+        self.E_D = {"n": 14.0, "p": 14.0}
         self.C_el = 128.84 #77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
 
         self.all_types = [self.get_tp(c) for c in self.dopings]
@@ -326,8 +334,8 @@ class AMSET(object):
 
         bs = bs.as_dict()
         if bs["is_spin_polarized"]:
-            self.emin = min(bs["bands"]["1"][0] + bs["bands"]["-1"][0])
-            self.emax = max(bs["bands"]["1"][-1] + bs["bands"]["-1"][-1])
+            self.emin = min(bs["bands"]["1"][0] , bs["bands"]["-1"][0])
+            self.emax = max(bs["bands"]["1"][-1] , bs["bands"]["-1"][-1])
         else:
             self.emin = min(bs["bands"]["1"][0])
             self.emax = max(bs["bands"]["1"][-1])
@@ -488,9 +496,14 @@ class AMSET(object):
                 self.egrid[tp]["energy"].append(sum_e/counter)
                 self.kgrid_to_egrid_idx[tp].append(current_ib_ie_idx)
                 energy_counter.append(counter)
+
                 if dos_tp.lower()=="simple":
                     self.egrid[tp]["DOS"].append(counter/len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
+                    # print sum_e/counter
+                    # print self.get_Eidx_in_dos(sum_e/counter)
+                    # print len(self.dos)
+                    # print self.dos[self.get_Eidx_in_dos(sum_e/counter)]
                     self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_e/counter)][1])
                 i = j + 1
 
@@ -569,6 +582,8 @@ class AMSET(object):
         if not Estep:
             Estep = max(self.dE_global, 0.0001)
         return int(round((E - self.emin) / Estep))
+
+        # return min(int(round((E - self.emin) / Estep)) , len(self.dos)-1)
 
 
 
@@ -943,9 +958,7 @@ class AMSET(object):
             print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
 
 
-            # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
-            emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
-                        self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), width=self.dos_bwidth)
+
         else:
             # first modify the self.poly_bands to include all symmetrically equivalent k-points
             # poly_band_short = [i for i in self.poly_bands]
@@ -955,26 +968,6 @@ class AMSET(object):
                     self.poly_bands[ib][j][0] = self.remove_duplicate_kpoints(
                         self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0],cartesian=True))
 
-            print "here self.poly_bands"
-            print self.poly_bands
-
-            # now construct the DOS
-            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix, [self.nkdos,self.nkdos,self.nkdos],
-                self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), poly_bands=self.poly_bands,
-                    bandgap=self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]+self.scissor, width=self.dos_bwidth, SPB_DOS=True)
-            # total_nelec = len(self.poly_bands) * 2 # basically 2x number of included occupied bands (valence bands)
-            # total_nelec = self.nelec
-            self.dos_normalization_factor = len(self.poly_bands) # it is *2 elec/band but /2 because DOS is repeated in valence/conduction
-
-        integ = 0.0
-        for idos in range(len(dos) - 2):
-            if emesh[idos] > self.cbm_vbm["n"]["energy"]:
-                break
-            integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
-        # normalize DOS
-        dos = [g / integ * self.nelec for g in dos]
-        self.dos = zip(emesh, dos)
-        self.dos = [list(a) for a in self.dos]
 
         # calculate the energies in initial ibz k-points and look at the first band to decide on additional/adaptive ks
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
@@ -1377,6 +1370,47 @@ class AMSET(object):
         self.initialize_var("kgrid", ["f0", "f_plus", "f_minus","g_plus", "g_minus"], "vector", self.gs, is_nparray=True, c_T_idx=True)
         # self.initialize_var("kgrid", ["lambda_i_plus", "lambda_i_minus", "lambda_o_plus", "lambda_o_minus"]
         #                     , "vector", self.gs, is_nparray=True, c_T_idx=False)
+
+
+        if not self.poly_bands:
+            # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
+            emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
+                        self.emin, self.emax, int(round((self.emax-self.emin)/max(self.dE_global, 0.0001)))+1, width=self.dos_bwidth)
+        else:
+            print "here self.poly_bands"
+            print self.poly_bands
+
+            # Alter self.emin and self.emax; they were initialized before based on the real input band structure
+            self.emin = min(self.kgrid["p"]["energy"][-1])
+            self.emax = max(self.kgrid["n"]["energy"][-1])
+
+            print "emin and emax"
+            print self.emin
+            print self.emax
+
+            # now construct the DOS
+            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix,
+                                                 [self.nkdos, self.nkdos, self.nkdos],
+                                                 self.emin, self.emax,
+                                                 int(round((self.emax - self.emin) / max(self.dE_global, 0.0001)))+1,
+                                                 poly_bands=self.poly_bands,
+                                                 bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
+                                                     "energy"] + self.scissor, width=self.dos_bwidth, SPB_DOS=True)
+            # total_nelec = len(self.poly_bands) * 2 # basically 2x number of included occupied bands (valence bands)
+            # total_nelec = self.nelec
+            self.dos_normalization_factor = len(
+                self.poly_bands)  # it is *2 elec/band but /2 because DOS is repeated in valence/conduction
+
+        integ = 0.0
+        for idos in range(len(dos) - 2):
+            if emesh[idos] > self.cbm_vbm["n"]["energy"]:
+                break
+            integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
+        # normalize DOS
+        dos = [g / integ * self.nelec for g in dos]
+        self.dos = zip(emesh, dos)
+        self.dos = [list(a) for a in self.dos]
+
 
 
     def sort_vars_based_on_energy(self, args, ascending=True):
@@ -2467,6 +2501,8 @@ class AMSET(object):
                         self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar* \
                             self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True, weighted=False)
 
+                    print "numerator"
+                    print tp, mu_el, c, T, self.egrid["mobility"][mu_el][c][T][tp]
 
                     for mu_inel in self.inelastic_scatterings:
                             # calculate mobility["POP"] based on g_POP
@@ -2606,7 +2642,8 @@ class AMSET(object):
                     x_col = [norm(v)*m_e*sum(self.cbm_vbm[tp]["eff_mass_xx"])/3/ (hbar*1e11*e) for v in
                              self.kgrid[tp]["velocity"][0]]
                 else:
-                    x_col = [norm(k)/(2*pi) for k in self.kgrid[tp]["cartesian kpoints"][0]]
+                    # x_col = [norm(k)/(2*pi) for k in self.kgrid[tp]["cartesian kpoints"][0]]
+                    x_col = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][0]]
 
                 plt = PlotlyFig(plot_title=None, x_title="k [1/nm] (extracted from momentum, mv)",
                                 y_title="{} at the 1st band".format(prop_name), hovermode='closest',
@@ -2628,6 +2665,6 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=200, nstart=0)
-    # AMSET.to_json(kgrid=True, trimmed=True)
+    # AMSET.to_json(kgrid=True, trimmed=True, max_ndata=200, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True)
     AMSET.plot()
