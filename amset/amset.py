@@ -69,16 +69,17 @@ def df0dE(E, fermi, T):
 
 
 
-def fermi_integral(order, fermi, T, initial_energy=0):
-    # fermi = fermi - initial_energy
+def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
+    fermi = fermi - initial_energy
     integral = 0.
     emesh = np.linspace(0.0, 30*k_B*T, 1000000.0) # We choose 20kBT instead of infinity as the fermi distribution will be 0
     dE = (emesh[-1]-emesh[0])/(1000000.0-1.0)
     for E in emesh:
         integral += dE * (E/(k_B*T))**order / (1. + np.exp((E-fermi)/(k_B*T)))
 
-    print "order {} fermi integral at fermi={} and {} K".format(order,fermi, T)
-    print integral
+    if wordy:
+        print "order {} fermi integral at fermi={} and {} K".format(order,fermi, T)
+        print integral
     return integral
 
 
@@ -127,15 +128,15 @@ class AMSET(object):
                  poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, 0.08] ] ]]):
                     # poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.2]]], [[[0.25, 0.25, 0.25], [0.0, 0.1]]]]):
 
-        self.nkibz = 8
+        self.nkibz = 7
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
         # and that changes the actual values
         self.gaussian_broadening = False
 
-        self.dE_global = 0.001 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
-        self.dopings = [-1e21] # 1/cm**3 list of carrier concentrations
+        self.dE_global = 0.01 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
+        self.dopings = [-1e20] # 1/cm**3 list of carrier concentrations
         self.temperatures = map(float, [300, 600]) # in K, list of temperatures
         self.epsilon_s = 44.360563 # example for PbTe
         self.epsilon_inf = 25.57 # example for PbTe
@@ -529,6 +530,10 @@ class AMSET(object):
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
+
+        # Since the SPB generated band structure may have several valleys, it's better to use the Fermi calculated from the actual band structure
+        # self.calculate_property(prop_name="fermi_SPB", prop_func=self.find_fermi_SPB)
+
         #
         ##  in case specific fermi levels are to be tested:
         # self.egrid["fermi"] ={
@@ -2021,7 +2026,7 @@ class AMSET(object):
         par_c = self.kgrid[tp]["c"][ib][ik]
 
         if sname.upper() == "ACD":
-            # The following two lines are from Rode's chapter (page 38) which seems incorrect!
+            # The following two lines are from Rode's chapter (page 38)
             return (k_B*T*self.E_D[tp]**2*knrm**2)/(3*pi*hbar**2*self.C_el*1e9* v)\
             *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*e*1e20
 
@@ -2181,6 +2186,31 @@ class AMSET(object):
                                     self.egrid[tp][prop_name][c][T][ie] = np.array(
                                         [sum(self.egrid[tp][prop_name][c][T][ie])/3.0 for i in range(3)])
 
+
+
+    def find_fermi_SPB(self, c, T , tolerance=0.001, tolerance_loose=0.03, alpha = 0.4, max_iter = 1000):
+
+        sgn = np.sign(c)
+        m_eff = np.prod(self.cbm_vbm["n"]["eff_mass_xx"])**(1.0/3.0)
+        c *= sgn
+        initial_energy = self.cbm_vbm["n"]["energy"]
+        fermi = initial_energy + 0.02
+        iter = 0
+        for iter in range(max_iter):
+            calc_doping = 4*pi*(2*m_eff*m_e*k_B*T/hbar**2)**1.5 *fermi_integral(0.5,fermi,T,initial_energy)*1e-6/e**1.5
+            fermi += alpha * sgn*(calc_doping - c) / abs(c + calc_doping) * fermi
+            relative_error = abs(calc_doping - c) / abs(c)
+            if relative_error <= tolerance:
+                # This here assumes that the SPB generator set the VBM to 0.0 and CBM=  gap + scissor
+                if sgn < 0:
+                    return fermi
+                else:
+                    return -(fermi - initial_energy)
+        if relative_error > tolerance:
+            raise ValueError("could NOT find a corresponding SPB fermi level after {} itenrations".format(max_iter))
+
+
+
     def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha = 0.02, max_iter = 1000):
         """
         To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
@@ -2207,8 +2237,6 @@ class AMSET(object):
         calc_doping = (-1)**(j+1) /self.volume / (A_to_m*m_to_cm)**3 \
                 *abs(self.integrate_over_DOSxE_dE(func=funcs[j], tp=typ, fermi=fermi, T=T))
 
-        print "fermi"
-        print fermi
         while (relative_error > tolerance) and (iter<max_iter):
             iter += 1 # to avoid an infinite loop
             fermi += alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
@@ -2460,13 +2488,17 @@ class AMSET(object):
 
                     # other semi-empirical mobility values:
                     fermi = self.egrid["fermi"][c][T]
-                    energy = self.cbm_vbm[tp]["energy"]
+
+
+                    # fermi_SPB = self.egrid["fermi_SPB"][c][T]
+                    energy = self.cbm_vbm["n"]["energy"]
 
                     # ACD mobility based on single parabolic band extracted from Thermoelectric Nanomaterials,
                     # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
                     self.egrid["mobility"]["SPB_ACD"][c][T][tp] = 2**0.5*pi*hbar**4*e*self.C_el*1e9/( # C_el in GPa
                         3*(self.cbm_vbm[tp]["eff_mass_xx"]*m_e)**2.5*(k_B*T)**1.5*self.E_D[tp]**2)\
-                        *fermi_integral(0,fermi,T,energy)/fermi_integral(0.5,fermi,T,energy) * e**0.5*1e4 #  to cm2/V.s
+                        *fermi_integral(0,fermi,T,energy,wordy=True)\
+                            /fermi_integral(0.5,fermi,T,energy, wordy=True) * e**0.5*1e4 #  to cm2/V.s
 
 
                     faulty_overall_mobility = False
