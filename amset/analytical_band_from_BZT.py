@@ -66,16 +66,16 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
         for k in ks:
         # distance = min([norm(kpt-np.dot(np.array(k),lattice_matrix)*1/A_to_nm*2*pi) for k in ks])
         # distance = min([norm(kpt-k) for k in ks])
+        #     distance = norm(kpt-k)/(2*pi)
             distance = norm(kpt-k)
             energy_list.append(bandgap * ["p", "n"].index(type) +\
-                               sgn * (c[0] + hbar ** 2 * (distance/(2*pi)) ** 2 / (2 * m_e * c[1]) * e * 1e18))
+                               sgn * (c[0] + hbar ** 2 * (distance) ** 2 / (2 * m_e * c[1]) * e * 1e18))
             # for k in ks:
             #     distance = norm(kpt-k)
             if distance < min_kdistance:
                 min_kdistance = distance
                 coefficients = c
 
-    min_kdistance /= 2*pi
 
     # coefficients[0] is the constant
     # coefficient[1] is the effective mass
@@ -463,14 +463,20 @@ if __name__ == "__main__":
     #dos caclulated on a 15x15x15 mesh of kpoints, 
     #in an energy range [-13,25] eV with 1000 points
     #from get_dos_from_scratch
-    kmesh = [15,15,15]
+    kmesh = [31,31,31]
     # emesh,dos = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000)
-    poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.25]]]]
+    # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.1]]]]
+
+    # Gamma and X
+    poly_bands = [[[[np.array([ 0.,  0.,  0.])], [1.0, 2.2]]], [[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.1]]]]
+
+    # Gamma centered
+    # poly_bands = [[[[np.array([ 0.,  0.,  0.])], [0.0, 0.2]]]]
 
     # adding an extra valley at offest of 1 eV
     # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.25]]] , [[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [2, 0.25]]]]
 
-    emesh, dos = get_dos_from_poly_bands(st,lattice_matrix,[6,6,6],-13,20,1000,poly_bands=poly_bands, bandgap=0.8, width=0.05, all_values=True)
+    emesh, dos = get_dos_from_poly_bands(st,lattice_matrix,[6,6,6],-13,20,1000,poly_bands=poly_bands, bandgap=0.8, width=0.05, SPB_DOS=True, all_values=True)
     plot(emesh,dos)
     show()
 
