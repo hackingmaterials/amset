@@ -136,7 +136,7 @@ class AMSET(object):
                  poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, 0.32] ] ]]):
                     # poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.2]]], [[[0.25, 0.25, 0.25], [0.0, 0.1]]]]):
 
-        self.nkibz = 6
+        self.nkibz = 10
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -257,7 +257,7 @@ class AMSET(object):
 
         self.calculate_transport_properties()
 
-        kremove_list = ["W_POP", "effective mass", "kweights", "a", "c", "f",
+        kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
                         "f_th", "g_th", "S_i_th", "S_o_th"]
 
         for tp in ["n", "p"]:
@@ -1174,13 +1174,14 @@ class AMSET(object):
 
         low_v_ik = []
         self.initialize_var("kgrid", ["cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
 
         # initialize energy, velocity, etc in self.kgrid
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
                 self.kgrid[tp]["cartesian kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)/A_to_nm*2*pi #[1/nm]
-
+                self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][ib]]
                 # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
                 #     analytical_bands.get_engre(iband=[self.cbm_vbm[tp]["bidx"] + sgn * ib])
                 # bands_data[tp][ib] = (engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
@@ -1313,7 +1314,7 @@ class AMSET(object):
         print low_v_ik
 
         rearranged_props = ["velocity","effective mass","energy", "a", "c", "kpoints","cartesian kpoints","kweights",
-                             "norm(v)"]
+                             "norm(v)", "norm(k)"]
         if len(low_v_ik) > 0:
             self.omit_kpoints(low_v_ik, rearranged_props=rearranged_props)
 
@@ -2489,7 +2490,7 @@ class AMSET(object):
             for T in self.temperatures:
                 for tp in ["n", "p"]:
                     # norm is only for one vector but g has the ibxikx3 dimensions
-                    # self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + norm(self.egrid[tp]["g"][c][T])
+                    self.kgrid[tp]["f"][c][T] = self.kgrid[tp]["f0"][c][T] + self.kgrid[tp]["g"][c][T]
                     # self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+norm(self.egrid[tp]["g_th"][c][T])
 
                     # this ONLY makes a difference if f and f_th are used in the denominator; but f0 is currently used!
@@ -2639,11 +2640,13 @@ class AMSET(object):
             for prop_name in prop_list:
                 # x_col = [norm(k-np.dot(np.array([0.5, 0.5, 0.5]), self._lattice_matrix)/A_to_nm*2*pi) for k in self.kgrid[tp]["cartesian kpoints"][0]]
                 if not self.poly_bands:
-                    x_col = [norm(v)*m_e*sum(self.cbm_vbm[tp]["eff_mass_xx"])/3/ (hbar*1e11*e) for v in
-                             self.kgrid[tp]["velocity"][0]]
+                    # x_col = [norm(v)*m_e*sum(self.cbm_vbm[tp]["eff_mass_xx"])/3/ (hbar*1e11*e) for v in
+                    #          self.kgrid[tp]["velocity"][0]]
+                    x_col = m_e*sum(self.cbm_vbm[tp]["eff_mass_xx"])/3/ (hbar*1e11*e) * self.kgrid[tp]["norm(v)"][0]
                 else:
                     # x_col = [norm(k)/(2*pi) for k in self.kgrid[tp]["cartesian kpoints"][0]]
-                    x_col = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][0]]
+                    # x_col = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][0]]
+                    x_col = self.kgrid[tp]["norm(k)"][0]
 
                 plt = PlotlyFig(plot_title=None, x_title="k [1/nm] (extracted from momentum, mv)",
                                 y_title="{} at the 1st band".format(prop_name), hovermode='closest',
@@ -2665,6 +2668,6 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    # AMSET.to_json(kgrid=True, trimmed=True, max_ndata=200, nstart=0)
-    AMSET.to_json(kgrid=True, trimmed=True)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=200, nstart=0)
+    # AMSET.to_json(kgrid=True, trimmed=True)
     AMSET.plot()
