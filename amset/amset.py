@@ -1776,6 +1776,31 @@ class AMSET(object):
 
 
 
+    def integrate_over_BZ(self, tp, c, T, distribution, xvel=False):
+        """
+
+        :param tp:
+        :param c:
+        :param T:
+        :param distribution (str): can be switched between f, f0, g, g_POP, etc
+        :param xvel:
+        :return:
+        """
+        integral = np.array([self.gs, self.gs, self.gs])
+        for ie in range(len(self.egrid[tp]["energy"]) - 1):
+            dE = self.egrid[tp]["energy"][ie + 1] - self.egrid[tp]["energy"][ie]
+            sum_over_k = 0.0
+            for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
+                k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
+                product = self.kgrid[tp][distribution][c][T][ib][ik]*k_nrm**2/self.kgrid[tp]["norm(v)"][ib][ik]
+                if xvel:
+                    product *= self.egrid[tp]["velocity"][ie]
+                sum_over_k += product
+            integral += sum_over_k*dE
+
+        return integral / sum(self.Efrequency[tp][:-1])
+
+
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=True, xvel=False, weighted=False, interpolation_nsteps=None):
         if not interpolation_nsteps:
             interpolation_nsteps = max(5, int(500.0/len(self.egrid[tp]["energy"])) )
