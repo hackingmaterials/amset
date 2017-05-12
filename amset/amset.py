@@ -133,8 +133,8 @@ class AMSET(object):
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
-                 # poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
-                    poly_bands = [[ [[0.0, 0.0, 0.0], [0.0, mass]], [[0.25, 0.25, 0.25], [0.0, mass]] ]]):
+                 poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
+                    # poly_bands = [[ [[0.0, 0.0, 0.0], [0.0, mass]], [[0.25, 0.25, 0.25], [0.0, mass]] ]]):
 
                 #TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
@@ -551,11 +551,15 @@ class AMSET(object):
         #
         ##  in case specific fermi levels are to be tested:
 
-        self.egrid["fermi"]= {
-            -1e+20: {
-                300.0: 0.8376373933900645,
-                600.0: 0.7942975785104733
-            } }
+
+
+        # self.egrid["fermi"]= {
+        #     -1e+20: {
+        #         300.0: 0.8376373933900645,
+        #         600.0: 0.7942975785104733
+        #     } }
+
+
 
 
         # self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
@@ -1786,7 +1790,8 @@ class AMSET(object):
             dE = abs(self.egrid[tp]["energy"][ie + 1] - self.egrid[tp]["energy"][ie])
             sum_over_k = np.array([self.gs, self.gs, self.gs])
             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
+                # k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
+                k_nrm = m_e * self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
                 product = self.kgrid[tp][distribution][c][T][ib][ik]*k_nrm**2/self.kgrid[tp]["norm(v)"][ib][ik]
                 if xvel:
                     product *= self.kgrid[tp]["velocity"][ib][ik]
