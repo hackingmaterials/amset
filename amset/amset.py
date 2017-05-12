@@ -127,16 +127,18 @@ class AMSET(object):
 
      """
 
-
+    mass = 1.0
     def __init__(self, path_dir=None,
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
-                 poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, 0.32] ] ]]):
-                    # poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.2]]], [[[0.25, 0.25, 0.25], [0.0, 0.1]]]]):
+                 # poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
+                    poly_bands = [[ [[0.0, 0.0, 0.0], [0.0, mass]], [[0.25, 0.25, 0.25], [0.0, mass]] ]]):
 
-        self.nkibz = 10
+                #TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
+
+        self.nkibz = 20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -199,7 +201,6 @@ class AMSET(object):
         self.init_kgrid(coeff_file=coeff_file, kgrid_tp=kgrid_tp)
         print self.cbm_vbm
 
-        # TODO: later add a more sophisticated DOS function, if developed
         if True:
             self.init_egrid(dos_tp="standard")
         else:
@@ -549,18 +550,12 @@ class AMSET(object):
 
         #
         ##  in case specific fermi levels are to be tested:
-        # self.egrid["fermi"] ={
-        # -1e+19: {
-        #     # original
-        #     300.0: 0.28698518995648691,
-        #     600.0: 0.174478632328484025,
-        #
-        #     # new
-        #     # 300.0: hbar**2/(2*m_e)*(3*pi**2*2/self.volume)**(2./3.0)*1e20*e,
-        #
-        #     # 300.0: 0.83321207744528014,
-        #     # 600.0: 0.83321207744528014
-        # } }
+
+        self.egrid["fermi"]= {
+            -1e+20: {
+                300.0: 0.8376373933900645,
+                600.0: 0.7942975785104733
+            } }
 
 
         # self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
@@ -1788,13 +1783,13 @@ class AMSET(object):
         """
         integral = np.array([self.gs, self.gs, self.gs])
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
-            dE = self.egrid[tp]["energy"][ie + 1] - self.egrid[tp]["energy"][ie]
-            sum_over_k = 0.0
+            dE = abs(self.egrid[tp]["energy"][ie + 1] - self.egrid[tp]["energy"][ie])
+            sum_over_k = np.array([self.gs, self.gs, self.gs])
             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                 k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
                 product = self.kgrid[tp][distribution][c][T][ib][ik]*k_nrm**2/self.kgrid[tp]["norm(v)"][ib][ik]
                 if xvel:
-                    product *= self.egrid[tp]["velocity"][ie]
+                    product *= self.kgrid[tp]["velocity"][ib][ik]
                 sum_over_k += product
             integral += sum_over_k*dE
 
@@ -2525,25 +2520,36 @@ class AMSET(object):
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
                         self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar* \
-                            self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=True, xvel=True, weighted=False)
+                            self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
 
-                    print "numerator"
-                    print tp, mu_el, c, T, self.egrid["mobility"][mu_el][c][T][tp]
+                    common_denominator = self.integrate_over_BZ(tp,c,T,distribution="f", xvel=False)
+                    print "common denominator"
+                    print common_denominator
 
                     for mu_inel in self.inelastic_scatterings:
                             # calculate mobility["POP"] based on g_POP
                             self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(prop_list=["g_"+mu_inel],
-                                                                                tp=tp,c=c,T=T,xDOS=True,xvel=True, weighted=False)
-                    self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
-                                                                                tp=tp,c=c,T=T,xDOS=True,xvel=True, weighted=False)
+                                                                                tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=False)
+
+                    # self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
+                    #                                                             tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=False)
+                    #
+                    self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(tp, c, T, distribution="g", xvel=True)
+                    print "overll numerator"
+                    print self.egrid["mobility"]["overall"][c][T][tp]
+
 
                     self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"],
-                            tp=tp, c=c, T=T, xDOS=True, xvel=True, weighted=True) * e * 1e24 # to bring J to A/cm2 units
+                            tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True) * e * 1e24 # to bring J to A/cm2 units
 
                     # mobility denominators
+                    # denom = self.egrid["fermi"][c][T]
+                    denom = self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=True)
+                    print "denom"
+                    print denom
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
-                        self.egrid["mobility"][transport][c][T][tp]/=default_small_E*\
-                                        self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=True, xvel=False)
+                        # self.egrid["mobility"][transport][c][T][tp]/=default_small_E * denom
+                        self.egrid["mobility"][transport][c][T][tp] /= default_small_E * common_denominator
 
                     self.egrid["J_th"][c][T][tp] /= self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
                                                                                       T=T, xDOS=True, xvel=False)
@@ -2573,8 +2579,9 @@ class AMSET(object):
                     self.egrid["mobility"]["average"][c][T][tp] = 1 / self.egrid["mobility"]["average"][c][T][tp]
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
-                    if mu_overrall_norm == 0.0 or faulty_overall_mobility:
-                        self.egrid["mobility"]["overall"][c][T][tp] = self.egrid["mobility"]["average"][c][T][tp]
+                    #TODO: uncomment the following two I just commented them for a test.
+                    # if mu_overrall_norm == 0.0 or faulty_overall_mobility:
+                    #     self.egrid["mobility"]["overall"][c][T][tp] = self.egrid["mobility"]["average"][c][T][tp]
 
                     self.egrid["relaxation time constant"][c][T][tp] =  self.egrid["mobility"]["overall"][c][T][tp] \
                         * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
@@ -2622,6 +2629,16 @@ class AMSET(object):
             plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=self.Efrequency[tp])
 
             # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
+
+
+            plt = PlotlyFig(plot_mode='offline', y_title="energy (eV)", x_title="norm(k)",
+                            plot_title="energy in kgrid", filename=os.path.join(path, "{}_{}.{}".format("bs_kgrid", tp, fformat)),
+                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
+                            margin_bottom=margin_bottom)
+
+            plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp]["energy"][0])
+
+
 
             # prop_list = ["relaxation time", "_all_elastic", "ACD", "IMP", "PIE", "df0dk"]
             prop_list = ["relaxation time", "_all_elastic", "df0dk"] + self.elastic_scatterings
@@ -2693,6 +2710,7 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
+    AMSET.plot()
+
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=200, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
-    AMSET.plot()
