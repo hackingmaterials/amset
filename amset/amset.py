@@ -130,7 +130,7 @@ class AMSET(object):
     mass = 1.0
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
                  poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
@@ -156,7 +156,7 @@ class AMSET(object):
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
         # self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE", "DIS"]
-        self.elastic_scatterings = elastic_scatterings or ["ACD"]
+        self.elastic_scatterings = elastic_scatterings or ["IMP", "PIE"]
         self.inelastic_scatterings = []
         if include_POP:
             self.inelastic_scatterings += ["POP"]
@@ -1721,7 +1721,11 @@ class AMSET(object):
         :param k_prm:
         :return:
         """
-        norm_diff_k = norm(k - k_prm)
+        norm_diff_k = norm(k - k_prm) # the slope for PIE and IMP don't match with bs_is_isotropic
+        # norm_diff_k = norm(k) # slope kind of matches with bs_is_isotropic at least for PIE but it's 5X larger
+        # norm_diff_k = norm(k_prm) # slope kind of matches with bs_is_isotropic at least for PIE but it's 5X larger
+        # norm_diff_k = (norm(k_prm)**2 + norm(k)**2)**0.5 # doesn't work, the ratios are not a fixed number
+
         if norm_diff_k == 0:
             print "WARNING!!! same k and k' vectors as input of the elastic scattering equation"
             # warnings.warn("same k and k' vectors as input of the elastic scattering equation")
@@ -1775,7 +1779,7 @@ class AMSET(object):
 
 
 
-    def integrate_over_BZ(self, tp, c, T, distribution, xvel=False):
+    def integrate_over_BZ(self,prop_list, tp, c, T, xvel=False):
         """
 
         :param tp:
@@ -1792,9 +1796,14 @@ class AMSET(object):
             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                 # k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
                 k_nrm = m_e * self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
-                product = self.kgrid[tp][distribution][c][T][ib][ik]*k_nrm**2/self.kgrid[tp]["norm(v)"][ib][ik]
+                product = k_nrm**2/self.kgrid[tp]["norm(v)"][ib][ik]
                 if xvel:
                     product *= self.kgrid[tp]["velocity"][ib][ik]
+                for j, p in enumerate(prop_list):
+                    if p[0] == "/":
+                        product /= self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik]
+                    else:
+                        product *= self.kgrid[tp][p][c][T][ib][ik]
                 sum_over_k += product
             integral += sum_over_k*dE
 
@@ -1881,8 +1890,8 @@ class AMSET(object):
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
 
         # The following (if passed on to s_el_eq) result in many cases k and k_prm being equal which we don't want.
-        # k = m_e * self.kgrid[tp]["velocity"][ib][ik] / (hbar * e * 1e11)
-        # k_prm = m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (hbar * e * 1e11)
+        # k = m_e * self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
+        # k_prm = m_e * self.kgrid[tp]["normv"][ib_prm][ik_prm] / (hbar * e * 1e11)
 
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
@@ -2088,7 +2097,7 @@ class AMSET(object):
         if sname.upper() == "ACD":
             # The following two lines are from Rode's chapter (page 38)
             return (k_B*T*self.E_D[tp]**2*knrm**2)/(3*pi*hbar**2*self.C_el*1e9* v)\
-            *(3-8*self.kgrid[tp]["c"][ib][ik]**2+6*self.kgrid[tp]["c"][ib][ik]**4)*e*1e20
+            *(3-8*par_c**2+6*par_c**4)*e*1e20
 
             # return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) *norm(1.0/v)/ (3 * pi * hbar ** 2 * self.C_el * 1e9) \
             #     * (3 - 8 * self.kgrid[tp]["c"][ib][ik] ** 2 + 6 * self.kgrid[tp]["c"][ib][ik] ** 4) * e * 1e20
@@ -2105,11 +2114,12 @@ class AMSET(object):
             # return m_e * m_e*norm(v) * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 4 * self.C_el) \
             #        * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) / (1e11*e) # 1/1e11*e is to convert kg.cm/s to hbar.k units (i.e. ev.s/nm)
 
-        elif sname.upper() == "IMP":
+        elif sname.upper() == "IMP": # double-checked the units and equation on 5/12/2017
+            # knrm = self.kgrid[tp]["norm(k)"][ib][ik] don't use this! it's wrong anyway and shouldn't change knrm just for IMP
             beta = self.egrid["beta"][c][T][tp]
             B_II = (4*knrm**2/beta**2)/(1+4*knrm**2/beta**2)+8*(beta**2+2*knrm**2)/(beta**2+4*knrm**2)*par_c**2+\
                    (3*beta**4+6*beta**2*knrm**2-8*knrm**4)/((beta**2+4*knrm**2)*knrm**2)*par_c**4
-            D_II = 1+(2*beta**2*par_c**2/knrm**2)+(3*beta**4*par_c**4/(4*knrm**4))
+            D_II = 1+2*beta**2*par_c**2/knrm**2+3*beta**4*par_c**4/(4*knrm**4)
             return abs( (e**4*abs(self.egrid["N_II"][c][T]))/(8*pi*v*self.epsilon_s**2*epsilon_0**2*hbar**2*
                         knrm**2)*(D_II*log(1+4*knrm**2/beta**2)-B_II)*3.89564386e27 )
 
@@ -2524,10 +2534,14 @@ class AMSET(object):
 
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
-                        self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar* \
-                            self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
+                        # self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar* \
+                        #     self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
 
-                    common_denominator = self.integrate_over_BZ(tp,c,T,distribution="f", xvel=False)
+                        # integrate in kgrid
+                        self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar*\
+                            self.integrate_over_BZ(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xvel=True)
+
+                    common_denominator = self.integrate_over_BZ(["f"], tp,c,T, xvel=False)
                     print "common denominator"
                     print common_denominator
 
@@ -2539,7 +2553,7 @@ class AMSET(object):
                     # self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
                     #                                                             tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=False)
                     #
-                    self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(tp, c, T, distribution="g", xvel=True)
+                    self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T, xvel=True)
                     print "overll numerator"
                     print self.egrid["mobility"]["overall"][c][T][tp]
 
@@ -2547,7 +2561,7 @@ class AMSET(object):
                     self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"],
                             tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True) * e * 1e24 # to bring J to A/cm2 units
 
-                    # mobility denominators
+                    # mobility denominators in egrid
                     # denom = self.egrid["fermi"][c][T]
                     denom = self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=True)
                     print "denom"
