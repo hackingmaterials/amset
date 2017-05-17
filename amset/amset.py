@@ -183,7 +183,7 @@ class AMSET(object):
         self.W_POP = 10e12 * 2*pi # POP frequency in Hz
         self.P_PIE = 0.15
         # self.E_D = {"n": 4.0, "p": 3.93}
-        self.E_D = {"n": 14.0, "p": 14.0}
+        self.E_D = {"n": 4.0, "p": 4.0}
         self.C_el = 128.84 #77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
 
         self.all_types = [self.get_tp(c) for c in self.dopings]
@@ -2131,6 +2131,8 @@ class AMSET(object):
             # The following two lines are from Rode's chapter (page 38)
             return (k_B*T*self.E_D[tp]**2*knrm**2)/(3*pi*hbar**2*self.C_el*1e9* v)\
             *(3-8*par_c**2+6*par_c**4)*e*1e20
+
+
 
             # return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) *norm(1.0/v)/ (3 * pi * hbar ** 2 * self.C_el * 1e9) \
             #     * (3 - 8 * self.kgrid[tp]["c"][ib][ik] ** 2 + 6 * self.kgrid[tp]["c"][ib][ik] ** 4) * e * 1e20
