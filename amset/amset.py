@@ -127,21 +127,21 @@ class AMSET(object):
 
      """
 
-    mass = 1.0
+    mass = .5
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=False,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
                  poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
-                    # poly_bands = [[ [[0.0, 0.0, 0.0], [0.0, mass]], [[0.25, 0.25, 0.25], [0.0, mass]] ]]):
+                    # poly_bands = [[ [[0.0, 0.0, 0.0], [0.0, mass]], [[0.25, 0.25, 0.25], [0.0, mass]], [[0.15, 0.15, 0.15], [0.0, mass]] ]]):
 
                 #TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
         self.nkibz = 20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
-        # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
+        # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broa  dening
         # and that changes the actual values
         self.gaussian_broadening = False
 
@@ -156,7 +156,7 @@ class AMSET(object):
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
         # self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE", "DIS"]
-        self.elastic_scatterings = elastic_scatterings or ["IMP", "PIE"]
+        self.elastic_scatterings = elastic_scatterings or ["ACD", "IMP", "PIE"]
         self.inelastic_scatterings = []
         if include_POP:
             self.inelastic_scatterings += ["POP"]
@@ -570,6 +570,7 @@ class AMSET(object):
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
         self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi, T: f0(E, fermi, T)
                                                                         * (1 - f0(E, fermi, T)), for_all_E=True)
+        self.calculate_property(prop_name="df0dE", prop_func=df0dE, for_all_E=True)
         self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
         self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
         self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
@@ -1403,7 +1404,7 @@ class AMSET(object):
 
         integ = 0.0
         for idos in range(len(dos) - 2):
-            if emesh[idos] > self.cbm_vbm["n"]["energy"]:
+            if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
                 break
             integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
         # normalize DOS
@@ -1779,7 +1780,7 @@ class AMSET(object):
 
 
 
-    def integrate_over_BZ(self,prop_list, tp, c, T, xvel=False):
+    def integrate_over_BZ(self,prop_list, tp, c, T, xvel=False, weighted=True):
         """
 
         :param tp:
@@ -1789,6 +1790,9 @@ class AMSET(object):
         :param xvel:
         :return:
         """
+        wpower = 1
+        if xvel:
+            wpower += 1
         integral = np.array([self.gs, self.gs, self.gs])
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             dE = abs(self.egrid[tp]["energy"][ie + 1] - self.egrid[tp]["energy"][ie])
@@ -1805,17 +1809,36 @@ class AMSET(object):
                     else:
                         product *= self.kgrid[tp][p][c][T][ib][ik]
                 sum_over_k += product
+            if wpower > 1:
+                sum_over_k *= self.Efrequency[tp][ie]**(wpower-1)
             integral += sum_over_k*dE
 
-        return integral / sum(self.Efrequency[tp][:-1])
+
+        if weighted:
+            return integral / sum([freq**wpower for freq in self.Efrequency[tp][:-1]])
+        else:
+            return integral
+        # return integral / sum([self.egrid[tp]["f0"][c][T][ie][0]*self.Efrequency[tp][ie] for ie in range(len(self.Efrequency[tp][:-1]))])
 
 
-    def integrate_over_E(self, prop_list, tp, c, T, xDOS=True, xvel=False, weighted=False, interpolation_nsteps=None):
+    def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
+
+        wpower = 1
+        imax_occ = len(self.Efrequency[tp][:-1])
+        # imax_occ = 50
+        if xvel:
+            wpower += 1
         if not interpolation_nsteps:
             interpolation_nsteps = max(5, int(500.0/len(self.egrid[tp]["energy"])) )
         diff = [0.0 for prop in prop_list]
         integral = self.gs
-        for ie in range(len(self.egrid[tp]["energy"]) - 1):
+        # for ie in range(len(self.egrid[tp]["energy"]) - 1):
+        for ie in range(imax_occ):
+            if weighted:
+                f0 = self.egrid[tp]["f0"][c][T][ie]
+                dfdE = self.egrid[tp]["df0dE"][c][T][ie]
+                df0 = (self.egrid[tp]["f0"][c][T][ie + 1] - f0) / interpolation_nsteps
+                ddfdE = self.egrid[tp]["df0dE"][c][T][ie+1] - dfdE
             E = self.egrid[tp]["energy"][ie]
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if xDOS:
@@ -1840,14 +1863,24 @@ class AMSET(object):
                 if xvel:
                     multi *= self.egrid[tp]["velocity"][ie] + dv*i
                 if weighted:
+                    # integral += multi * self.Efrequency[tp][ie]**wpower * (-(dfdE + ddfdE))
+                    # integral += multi * self.Efrequency[tp][ie]**wpower *dfdE
+                    # integral += multi * self.Efrequency[tp][ie]**wpower * self.egrid[tp]["f0"][c][T][ie]
                     integral += multi * self.Efrequency[tp][ie]
+                    # integral += multi * self.Efrequency[tp][ie]**wpower * -self.egrid[tp]["df0dE"][c][T][ie]
                 else:
                     integral += multi
         if weighted:
-            return integral/sum(self.Efrequency[tp][:-1])
+            # return integral/sum(self.Efrequency[tp][:-1])
+            # return integral/(sum(self.Efrequency[tp][:-1]))
+            # return integral / sum([freq ** wpower for freq in self.Efrequency[tp][:-1]]) / sum(self.egrid[tp]["df0dE"][c][T][:-1])
+            return integral / sum([freq for freq in self.Efrequency[tp][0:imax_occ]])
+            # return integral / (sum([freq**wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))/(-sum(self.egrid[tp]["df0dE"][c][T]))
+            # return integral / (sum([freq**wpower*self.egrid[tp]["f0"][c][T][ie] for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))
+            # return integral / (sum([(-self.egrid[tp]["df0dE"][c][T][ie]) * self.Efrequency[tp][ie]**wpower for ie in
+            #                    range(len(self.Efrequency[tp][:-1]))]))
         else:
             return integral
-
 
 
 
@@ -2521,6 +2554,7 @@ class AMSET(object):
 
 
     def calculate_transport_properties(self):
+        integrate_over_kgrid = False
         for c in self.dopings:
             for T in self.temperatures:
                 for tp in ["n", "p"]:
@@ -2534,44 +2568,57 @@ class AMSET(object):
 
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
-                        # self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar* \
-                        #     self.integrate_over_E(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
+                        if integrate_over_kgrid:
+                            self.egrid["mobility"][mu_el][c][T][tp] = (-1) * default_small_E / hbar * (4 * pi) / hbar * \
+                                 self.integrate_over_BZ(prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c,
+                                        T=T, xvel=True, weighted=False) * 1e-7 * 1e-3 * self.volume
 
-                        # integrate in kgrid
-                        self.egrid["mobility"][mu_el][c][T][tp] = (-1)*default_small_E/hbar*\
-                            self.integrate_over_BZ(prop_list=["/"+mu_el, "df0dk"], tp=tp, c=c, T=T, xvel=True)
+                        else:
+                            self.egrid["mobility"][mu_el][c][T][tp] = (-1) * default_small_E / hbar * \
+                                self.integrate_over_E(prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c,T=T, xDOS=False, xvel=True, weighted=False)
 
-                    common_denominator = self.integrate_over_BZ(["f"], tp,c,T, xvel=False)
-                    print "common denominator"
-                    print common_denominator
+
+                    if integrate_over_kgrid:
+                        denom = 4*pi/hbar * self.integrate_over_BZ(["f0"], tp,c,T, xvel=False, weighted=False) * 1e-7*1e-3 *self.volume
+                        # common_denominator = self.integrate_over_E(["f0"], tp,c,T, xvel=False, xDOS=False, weighted=False)
+                        # if tp=="n":
+                        #     print "{}-type common denominator at {} K".format(tp, T)
+                        #     print common_denominator
+                        #     print "fermi at {} K".format(T)
+                        #     print self.egrid["fermi"][c][T]
+
+                        # common_denominator = self.egrid["fermi"][c][T]
+                    else:
+                        denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                        if tp == "n":
+                            print "denom"
+                            print denom
 
                     for mu_inel in self.inelastic_scatterings:
                             # calculate mobility["POP"] based on g_POP
                             self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(prop_list=["g_"+mu_inel],
-                                                                                tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=False)
+                                                                tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=False)
 
-                    # self.egrid["mobility"]["overall"][c][T][tp]=self.integrate_over_E(prop_list=["g"],
-                    #                                                             tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=False)
-                    #
-                    self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T, xvel=True)
-                    print "overll numerator"
-                    print self.egrid["mobility"]["overall"][c][T][tp]
 
+                    if integrate_over_kgrid:
+                        self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T, xvel=True, weighted=False)
+                        print "overll numerator"
+                        print self.egrid["mobility"]["overall"][c][T][tp]
+                    else:
+                        self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_E(prop_list=["g"],
+                            tp=tp,c=c,T=T,xDOS=False,xvel=True)
 
                     self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"],
                             tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True) * e * 1e24 # to bring J to A/cm2 units
 
                     # mobility denominators in egrid
                     # denom = self.egrid["fermi"][c][T]
-                    denom = self.integrate_over_E(prop_list=["f0"],tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=True)
-                    print "denom"
-                    print denom
+
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
-                        # self.egrid["mobility"][transport][c][T][tp]/=default_small_E * denom
-                        self.egrid["mobility"][transport][c][T][tp] /= default_small_E * common_denominator
+                        self.egrid["mobility"][transport][c][T][tp]/=default_small_E * denom
 
                     self.egrid["J_th"][c][T][tp] /= self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
-                                                                                      T=T, xDOS=True, xvel=False)
+                                                                    T=T, xDOS=True, xvel=False, weighted=False)
 
                     # other semi-empirical mobility values:
                     fermi = self.egrid["fermi"][c][T]
