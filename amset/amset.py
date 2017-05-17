@@ -127,7 +127,7 @@ class AMSET(object):
 
      """
 
-    mass = .5
+    mass = 1.0
     def __init__(self, path_dir=None,
 
                  N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
@@ -138,7 +138,7 @@ class AMSET(object):
 
                 #TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
-        self.nkibz = 20
+        self.nkibz = 42
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broa  dening
@@ -1781,6 +1781,9 @@ class AMSET(object):
 
 
     def integrate_over_BZ(self,prop_list, tp, c, T, xvel=False, weighted=True):
+
+        weighted = False
+
         """
 
         :param tp:
@@ -1809,13 +1812,13 @@ class AMSET(object):
                     else:
                         product *= self.kgrid[tp][p][c][T][ib][ik]
                 sum_over_k += product
-            if wpower > 1:
-                sum_over_k *= self.Efrequency[tp][ie]**(wpower-1)
+            if weighted:
+                sum_over_k *= self.Efrequency[tp][ie]**(wpower)
             integral += sum_over_k*dE
 
 
         if weighted:
-            return integral / sum([freq**wpower for freq in self.Efrequency[tp][:-1]])
+            return integral / sum([freq**(wpower) for freq in self.Efrequency[tp][:-1]])
         else:
             return integral
         # return integral / sum([self.egrid[tp]["f0"][c][T][ie][0]*self.Efrequency[tp][ie] for ie in range(len(self.Efrequency[tp][:-1]))])
@@ -1823,11 +1826,14 @@ class AMSET(object):
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
+        # weighted = False
+
         wpower = 1
-        imax_occ = len(self.Efrequency[tp][:-1])
-        # imax_occ = 50
         if xvel:
             wpower += 1
+        imax_occ = len(self.Efrequency[tp][:-1])
+        # imax_occ = 50
+
         if not interpolation_nsteps:
             interpolation_nsteps = max(5, int(500.0/len(self.egrid[tp]["energy"])) )
         diff = [0.0 for prop in prop_list]
@@ -1866,17 +1872,21 @@ class AMSET(object):
                     # integral += multi * self.Efrequency[tp][ie]**wpower * (-(dfdE + ddfdE))
                     # integral += multi * self.Efrequency[tp][ie]**wpower *dfdE
                     # integral += multi * self.Efrequency[tp][ie]**wpower * self.egrid[tp]["f0"][c][T][ie]
-                    integral += multi * self.Efrequency[tp][ie]
-                    # integral += multi * self.Efrequency[tp][ie]**wpower * -self.egrid[tp]["df0dE"][c][T][ie]
+                    # integral += multi * self.Efrequency[tp][ie]**wpower
+                    # integral += multi * self.Efrequency[tp][ie]**wpower
+                    integral += multi * self.Efrequency[tp][ie]**wpower
                 else:
                     integral += multi
         if weighted:
-            # return integral/sum(self.Efrequency[tp][:-1])
+            # return integral
             # return integral/(sum(self.Efrequency[tp][:-1]))
             # return integral / sum([freq ** wpower for freq in self.Efrequency[tp][:-1]]) / sum(self.egrid[tp]["df0dE"][c][T][:-1])
-            return integral / sum([freq for freq in self.Efrequency[tp][0:imax_occ]])
+            # return integral / sum([freq**wpower for freq in self.Efrequency[tp][0:imax_occ]])
             # return integral / (sum([freq**wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))/(-sum(self.egrid[tp]["df0dE"][c][T]))
-            # return integral / (sum([freq**wpower*self.egrid[tp]["f0"][c][T][ie] for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))
+
+            return integral / (sum([freq**wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))
+            # return integral / (sum([freq**wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))
+
             # return integral / (sum([(-self.egrid[tp]["df0dE"][c][T][ie]) * self.Efrequency[tp][ie]**wpower for ie in
             #                    range(len(self.Efrequency[tp][:-1]))]))
         else:
@@ -2573,25 +2583,25 @@ class AMSET(object):
                         if integrate_over_kgrid:
                             self.egrid["mobility"][mu_el][c][T][tp] = (-1) * default_small_E / hbar * (4 * pi) / hbar * \
                                  self.integrate_over_BZ(prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c,
-                                        T=T, xvel=True, weighted=False) * 1e-7 * 1e-3 * self.volume
+                                        T=T, xvel=True, weighted=True) * 1e-7 * 1e-3 * self.volume
 
                         else:
                             self.egrid["mobility"][mu_el][c][T][tp] = (-1) * default_small_E / hbar * \
-                                self.integrate_over_E(prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c,T=T, xDOS=False, xvel=True, weighted=False)
+                                self.integrate_over_E(prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c,T=T, xDOS=False, xvel=True, weighted=True)
 
 
                     if integrate_over_kgrid:
-                        denom = 4*pi/hbar * self.integrate_over_BZ(["f0"], tp,c,T, xvel=False, weighted=False) * 1e-7*1e-3 *self.volume
+                        denom = 4*pi/hbar * self.integrate_over_BZ(["f0"], tp,c,T, xvel=False, weighted=True) * 1e-7*1e-3 *self.volume
                         # common_denominator = self.integrate_over_E(["f0"], tp,c,T, xvel=False, xDOS=False, weighted=False)
-                        # if tp=="n":
-                        #     print "{}-type common denominator at {} K".format(tp, T)
-                        #     print common_denominator
-                        #     print "fermi at {} K".format(T)
+                        if tp=="n":
+                            print "{}-type common denominator at {} K".format(tp, T)
+                            print denom
+                            # print "fermi at {} K".format(T)
                         #     print self.egrid["fermi"][c][T]
 
                         # common_denominator = self.egrid["fermi"][c][T]
                     else:
-                        denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                        denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=True)
                         if tp == "n":
                             print "denom"
                             print denom
@@ -2599,16 +2609,16 @@ class AMSET(object):
                     for mu_inel in self.inelastic_scatterings:
                             # calculate mobility["POP"] based on g_POP
                             self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(prop_list=["g_"+mu_inel],
-                                                                tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=False)
+                                                                tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=True)
 
 
                     if integrate_over_kgrid:
-                        self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T, xvel=True, weighted=False)
+                        self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T, xvel=True, weighted=True)
                         print "overll numerator"
                         print self.egrid["mobility"]["overall"][c][T][tp]
                     else:
                         self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_E(prop_list=["g"],
-                            tp=tp,c=c,T=T,xDOS=False,xvel=True)
+                            tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=True)
 
                     self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"],
                             tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True) * e * 1e24 # to bring J to A/cm2 units
