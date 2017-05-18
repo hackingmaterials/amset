@@ -545,6 +545,9 @@ class AMSET(object):
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
+        for c in self.dopings:
+            for T in self.temperatures:
+                print "Fermi level at {} 1/cm3 and {} K: {}".format(c, T, self.egrid["fermi"][c][T])
 
         # Since the SPB generated band structure may have several valleys, it's better to use the Fermi calculated from the actual band structure
         # self.calculate_property(prop_name="fermi_SPB", prop_func=self.find_fermi_SPB)
@@ -903,6 +906,7 @@ class AMSET(object):
 
 
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
+        Tmx = max(self.temperatures)
         if kgrid_tp=="coarse":
             nkstep = self.nkibz
 
@@ -1013,7 +1017,7 @@ class AMSET(object):
         if self.adaptive_mesh:
 
             all_added_kpoints = []
-            Tmx = max(self.temperatures)
+
             # print "enegies of valence and conduction bands"
             # print energies
             # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
@@ -1226,7 +1230,8 @@ class AMSET(object):
                     # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
                     # TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
                     if self.kgrid[tp]["velocity"][ib][ik][0] < 1 or self.kgrid[tp]["velocity"][ib][ik][1] < 1 \
-                            or self.kgrid[tp]["velocity"][ib][ik][2] < 1:
+                            or self.kgrid[tp]["velocity"][ib][ik][2] < 1 or \
+                            self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"] > 20*k_B*Tmx:
                         low_v_ik.append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
                     self.kgrid[tp]["a"][ib][ik] = 1.0
@@ -1768,7 +1773,7 @@ class AMSET(object):
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
-        # weighted = False
+        weighted = False
 
         wpower = 1
         if xvel:
