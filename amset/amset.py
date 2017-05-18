@@ -6,7 +6,7 @@ import time
 
 # from pymatgen.electronic_structure.plotter import plot_brillouin_zone, plot_brillouin_zone_from_kpath
 # from pymatgen.symmetry.bandstructure import HighSymmKpath
-
+import logging
 from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_poly_energy
 from pprint import pprint
 
@@ -151,7 +151,7 @@ class AMSET(object):
         self.epsilon_s = 44.360563 # example for PbTe
         self.epsilon_inf = 25.57 # example for PbTe
         self._vrun = {}
-        self.max_e_range = 10*k_B*max(self.temperatures) # we set the max energy range after which occupation is zero
+        self.Ecut = 10*k_B*max(self.temperatures) # we set the max energy range after which occupation is zero
         self.path_dir = path_dir or "../test_files/PbTe_nscf_uniform/nscf_line"
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
@@ -345,7 +345,7 @@ class AMSET(object):
         for i, tp in enumerate(["n", "p"]):
             sgn = (-1)**i
             while abs(min(sgn*bs["bands"]["1"][cbm_vbm[tp]["bidx"]+sgn*cbm_vbm[tp]["included"]])-
-                                      sgn*cbm_vbm[tp]["energy"])<self.max_e_range:
+                                      sgn*cbm_vbm[tp]["energy"])<self.Ecut:
                 cbm_vbm[tp]["included"] += 1
 
 # TODO: change this later if the band indecies are fixed in Analytical_band class
@@ -1066,10 +1066,6 @@ class AMSET(object):
         # kpts = np.concatenate((kpts, symmetrically_equivalent_ks))
         kpts = self.remove_duplicate_kpoints(kpts)
 
-        print "length of final kpts"
-        print len(kpts)
-        # print kpts
-
         #test, remove this later:
         # symmetrically_equivalent_ks = []
         # for k in [[0.5, 0.5, 0.5]]:
@@ -1230,7 +1226,7 @@ class AMSET(object):
                     # TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
                     if self.kgrid[tp]["velocity"][ib][ik][0] < 1 or self.kgrid[tp]["velocity"][ib][ik][1] < 1 \
                             or self.kgrid[tp]["velocity"][ib][ik][2] < 1 or \
-                            self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"] > 20*k_B*Tmx:
+                            self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"] > self.Ecut:
                         low_v_ik.append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
                     self.kgrid[tp]["a"][ib][ik] = 1.0
@@ -1314,6 +1310,14 @@ class AMSET(object):
         #     self.kgrid[tp]["effective mass"] = [ m for m in np.concatenate((temp[ib], added_mass[ib])) for ib in range(self.cbm_vbm[tp]["included"]) ]
 
 
+        # Alter self.emin and self.emax; they were initialized based on the real input band structure but that should change if self.poly_bands
+        self.emin = min(self.kgrid["p"]["energy"][-1])
+        self.emax = max(self.kgrid["n"]["energy"][-1])
+
+        print "emin and emax"
+        print self.emin
+        print self.emax
+
 
         print "here are the iks with very low velocity"
         print low_v_ik
@@ -1334,6 +1338,11 @@ class AMSET(object):
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
         self.sort_vars_based_on_energy(args=rearranged_props, ascending=True)
+
+        for tp in ["n", "p"]:
+            for ib in range(len(self.kgrid[tp]["energy"])):
+                print "length of final {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib]))
+
 
         # to save memory avoiding storage of variables that we don't need down the line
         for tp in ["n", "p"]:
@@ -1386,13 +1395,6 @@ class AMSET(object):
             print "here self.poly_bands"
             print self.poly_bands
 
-            # Alter self.emin and self.emax; they were initialized before based on the real input band structure
-            self.emin = min(self.kgrid["p"]["energy"][-1])
-            self.emax = max(self.kgrid["n"]["energy"][-1])
-
-            print "emin and emax"
-            print self.emin
-            print self.emax
 
             # now construct the DOS
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix,
@@ -1414,6 +1416,8 @@ class AMSET(object):
             integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
         # normalize DOS
         dos = [g / integ * self.nelec for g in dos]
+        logging.debug("integral of dos: {}".format(integ))
+
         self.dos = zip(emesh, dos)
         self.dos = [list(a) for a in self.dos]
 
@@ -2728,7 +2732,7 @@ class AMSET(object):
 
 if __name__ == "__main__":
     coeff_file = 'fort.123'
-
+    logging.basicConfig(level=logging.DEBUG)
     # test
     AMSET = AMSET()
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
