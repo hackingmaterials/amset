@@ -559,11 +559,10 @@ class AMSET(object):
 
         # self.egrid["fermi"]= {
         #     -1e+20: {
-        #         300.0: 0.8376373933900645,
-        #         600.0: 0.7942975785104733
+        #         300.0: 0.741270585451,
+        #         600.0: 0.619743485311
         #     } }
-
-
+        #
 
 
         # self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
