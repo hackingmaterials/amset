@@ -130,7 +130,7 @@ class AMSET(object):
     mass = 1.0
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
                  poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
@@ -138,7 +138,7 @@ class AMSET(object):
 
                 #TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
-        self.nkibz = 42
+        self.nkibz = 30
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broa  dening
@@ -1582,7 +1582,6 @@ class AMSET(object):
         """Returns the sorted (based on angle, X) list of angle and band and k-point indexes of all the points
             that are withing the E_radius of E
             Attention! this function assumes self.kgrid is sorted based on the energy in ascending order."""
-        forced = False
         E = self.kgrid[tp]["energy"][ib][ik]
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         result = []
@@ -1594,6 +1593,7 @@ class AMSET(object):
         #     counter += len(symmetrically_equivalent_ks)
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
+        # using a threshold for minimum allowed difference in velocity is to ensure minimum distance in k_nrm when calculating scattering
         min_vdiff = 3*hbar*e*1e11*1e-4/m_e
 
         for ib_prm in range(self.cbm_vbm[tp]["included"]):
