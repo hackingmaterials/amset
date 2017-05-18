@@ -130,7 +130,7 @@ class AMSET(object):
     mass = 1.0
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
                  poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
@@ -138,7 +138,7 @@ class AMSET(object):
 
                 #TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
-        self.nkibz = 30
+        self.nkibz = 20
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broa  dening
@@ -1446,45 +1446,9 @@ class AMSET(object):
     def generate_angles_and_indexes_for_integration(self, avg_Ediff_tolerance=0.02):
 
 
-        # def is_sparse(list_of_lists, threshold=0.1):
-        #     """check to see if a list of lists has more than certain fraction (threshold) of empty lists inside."""
-        #     counter = 0
-        #     for i in list_of_lists:
-        #         if len(i)==0:
-        #             counter += 1
-        #     if counter/len(list_of_lists) > threshold:
-        #         return True
-        #     return False
-
-        # for each energy point, we want to store the ib and ik of those points with the same E, E士hbar*W_POP
-        # for tp in ["n", "p"]:
-        #     for angle_index_for_integration in ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]:
-        #         self.kgrid[tp][angle_index_for_integration] = [ [ [] for i in range(len(self.kgrid[tp]["kpoints"][ib])) ]
-        #                                                           for j in range(self.cbm_vbm[tp]["included"]) ]
         self.initialize_var("kgrid",["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"],"scalar",[],is_nparray=False, c_T_idx=False)
-        # for tp in ["n", "p"]:
-        #     for ib in range(len(self.kgrid[tp]["energy"])):
-        #         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-        #             for ib_prm in range(len(self.kgrid[tp]["energy"])):
-        #                 for ik_prm in range(len(self.kgrid[tp]["kpoints"][ib])):
-        #                     k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
-                            # E = self.kgrid[tp]["energy"][ib][ik]
-                            # X = self.cos_angle(self.kgrid[tp]["cartesian kpoints"][ib][ik], self.kgrid[tp]["cartesian kpoints"][ib][ik_prm])
-                            #
-                            # if abs(E - self.kgrid[tp]["energy"][ib_prm][ik_prm]) < self.dE_global:
-                            #      self.kgrid[tp]["X_E_ik"][ib][ik].append((X, ib_prm, ik_prm))
-                            # if abs( (E +  hbar * self.kgrid[tp]["W_POP"][ib][ik] ) \
-                            #                      - self.kgrid[tp]["energy"][ib_prm][ik_prm]) < self.dE_global:
-                            #     self.kgrid[tp]["X_Eplus_ik"][ib][ik].append((X, ib_prm, ik_prm))
-                            # if abs( (E -  hbar * self.kgrid[tp]["W_POP"][ib][ik] ) \
-                            #                      - self.kgrid[tp]["energy"][ib_prm][ik_prm]) < self.dE_global:
-                            #     self.kgrid[tp]["X_Eminus_ik"][ib][ik].append((X, ib_prm, ik_prm))
-                    #
-                    # self.kgrid[tp]["X_E_ik"][ib][ik].sort()
-                    # self.kgrid[tp]["X_Eplus_ik"][ib][ik].sort()
-                    # self.kgrid[tp]["X_Eminus_ik"][ib][ik].sort()
 
-
+        # elastic scattering
         for tp in ["n", "p"]:
             for ib in range(len(self.kgrid[tp]["energy"])):
                 self.nforced_scat = {"n": 0.0, "p": 0.0}
@@ -1506,12 +1470,9 @@ class AMSET(object):
                     #TODO: change it back to ValueError as it was originally, it was switched to warning for fast debug
                     warnings.warn("{}-type average energy difference of the enforced scattered k-points is more than"
                                      " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
-                    # raise ValueError("{}-type average energy difference of the enforced scattered k-points is more than"
-                    #                  " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
 
 
-
-
+        # inelastic scattering
         if "POP" in self.inelastic_scatterings:
             for tp in ["n", "p"]:
                 for ib in range(len(self.kgrid[tp]["energy"])):
@@ -1523,16 +1484,6 @@ class AMSET(object):
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
                             E_radius= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2, tolerance=self.dE_global)
 
-
-                # if is_sparse(self.kgrid[tp]["X_E_ik"][ib]):
-                #     raise ValueError("the k-grid is too coarse for an acceptable simulation of elastic scattering")
-                # if is_sparse(self.kgrid[tp]["X_Eplus_ik"][ib]) or is_sparse(self.kgrid[tp]["X_Eminus_ik"][ib]):
-                #     if "POP" in self.inelastic_scatterings:
-                #         raise ValueError("the k-grid is too coarse for an acceptable simulation of POP scattering, "
-                        # warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering, "
-                        #                  "you can try this k-point grid but without POP as an inelastic scattering")
-
-                    # if self.nforced_scat[tp]/(len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
 
                     print "here nforced k-points ratio for POP scattering"
                     # one of the 2s is for plus and minus and the other one is the selected forced_min_npoints
@@ -1551,7 +1502,6 @@ class AMSET(object):
                     avg_Ediff = sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 1)
                     if avg_Ediff > avg_Ediff_tolerance:
                         # TODO: this should be an exception but for now I turned to warning for testing.
-                        # raise ValueError(
                         warnings.warn(
                             "{}-type average energy difference of the enforced scattered k-points is more than"
                             " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
