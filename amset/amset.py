@@ -220,7 +220,8 @@ class AMSET(object):
         print np.mean(self.egrid["n"]["velocity"], 0)
 
         # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
-        self.generate_angles_and_indexes_for_integration()
+        if not self.bs_is_isotropic:
+            self.generate_angles_and_indexes_for_integration()
 
         # calculate all elastic scattering rates in kgrid and then map it to egrid:
         for sname in self.elastic_scatterings:
@@ -1544,7 +1545,7 @@ class AMSET(object):
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
         # using a threshold for minimum allowed difference in velocity is to ensure minimum distance in k_nrm when calculating scattering
-        min_vdiff = 3*hbar*e*1e11*1e-4/m_e
+        # min_vdiff = 3*hbar*e*1e11*1e-4/m_e
 
         for ib_prm in range(self.cbm_vbm[tp]["included"]):
             if ib==ib_prm and E_radius==0.0:
@@ -1553,19 +1554,10 @@ class AMSET(object):
                 ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() - 1
                 # ik_prm = max(0, ik-100) # different bands, we start comparing energies ahead as energies aren't equal
             while (ik_prm<nk-1) and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm+1]-(E+E_radius)) < tolerance:
-            # while (ik_prm < nk - 1) and self.kgrid[tp]["energy"][ib_prm][ik_prm + 1] == (E + E_radius):
                 ik_prm += 1
-                # if E_radius > 0.0:
-                #     print "AFTER", ib, ik, E_radius
-                # k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm+1]
-                # X = self.cos_angle(k, k_prm)
-                # result.append((X, ib_prm, ik_prm + 1))
-                # result.append((X, ib_prm, ik_prm, k_prm))
                 result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]),ib_prm,ik_prm))
                 # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
                 # result += symmetrically_equivalent_ks
-
-
                 # counter += len(symmetrically_equivalent_ks) + 1
                 counter += 1
 
@@ -1623,9 +1615,9 @@ class AMSET(object):
             # counter += 1 + len(symmetrically_equivalent_ks)
             counter += 1
 
-            if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
-                counter -= 1
-                self.nforced_scat[tp] -= 1
+            # if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
+            #     counter -= 1
+            #     self.nforced_scat[tp] -= 1
 
             self.nforced_scat[tp] += 1
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik_prm]-self.kgrid[tp]["energy"][ib][ik])
@@ -1650,9 +1642,9 @@ class AMSET(object):
             # counter += 1 + len(symmetrically_equivalent_ks)
             counter += 1
 
-            if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
-                counter -= 1
-                self.nforced_scat[tp] -= 1
+            # if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
+            #     counter -= 1
+            #     self.nforced_scat[tp] -= 1
             self.nforced_scat[tp] += 1
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik]-self.kgrid[tp]["energy"][ib][ik_prm])
 
