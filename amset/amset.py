@@ -1213,9 +1213,6 @@ class AMSET(object):
                                                                               poly_bands=self.poly_bands,
                             type=tp, ib=ib,bandgap=self.dft_gap+self.scissor)
 
-                        # velocity = abs(de / hbar * A_to_m * m_to_cm)# to get v in cm/s
-                        # effective_mass = hbar ** 2 / (dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e  # m_tensor
-
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
                     self.kgrid[tp]["norm(v)"][ib][ik] = norm(velocity)
@@ -1776,7 +1773,7 @@ class AMSET(object):
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
-        weighted = False
+        # weighted = False
 
         wpower = 1
         if xvel:
