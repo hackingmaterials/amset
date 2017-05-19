@@ -130,7 +130,7 @@ class AMSET(object):
     mass = 1.0
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
                  poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
@@ -138,7 +138,7 @@ class AMSET(object):
 
                 #TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
-        self.nkibz = 30
+        self.nkibz = 45
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broa  dening
@@ -220,7 +220,7 @@ class AMSET(object):
         print np.mean(self.egrid["n"]["velocity"], 0)
 
         # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
-        if not self.bs_is_isotropic:
+        if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
             self.generate_angles_and_indexes_for_integration()
 
         # calculate all elastic scattering rates in kgrid and then map it to egrid:
@@ -1227,9 +1227,6 @@ class AMSET(object):
         print self.emin
         print self.emax
 
-
-        print "here are the iks with very low velocity"
-        print low_v_ik
 
         rearranged_props = ["velocity","effective mass","energy", "a", "c", "kpoints","cartesian kpoints","kweights",
                              "norm(v)", "norm(k)"]
