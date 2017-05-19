@@ -127,14 +127,14 @@ class AMSET(object):
 
      """
 
-    mass = 1.0
+    mass = 0.2
     def __init__(self, path_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
-                 poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
-                    # poly_bands = [[ [[0.0, 0.0, 0.0], [0.0, mass]], [[0.25, 0.25, 0.25], [0.0, mass]], [[0.15, 0.15, 0.15], [0.0, mass]] ]]):
+                 # poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
+                    poly_bands = [[ [[0.0, 0.0, 0.0], [0.0, mass]], [[0.25, 0.25, 0.25], [0.0, mass]], [[0.15, 0.15, 0.15], [0.0, mass]] ]]):
 
                 #TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
@@ -618,17 +618,18 @@ class AMSET(object):
 
 
 
-    def omit_kpoints(self, low_v_ik, rearranged_props):
+    def remove_indexes(self, rm_idx_list, rearranged_props):
         """
         The k-points with velocity < 1 cm/s (either in valence or conduction band) are taken out as those are
             troublesome later with extreme values (e.g. too high elastic scattering rates)
-        :param low_v_ik:
+        :param rm_idx_list ([int]): the kpoint indexes that need to be removed for each property
+        :param rearranged_props ([str]): list of properties for which some indexes need to be removed
         :return:
         """
 
-        ik_list = list(set(low_v_ik))
-        ik_list.sort(reverse=True)
-        logging.debug("# of kpoints indexes with low velocity: {}".format(len(ik_list)))
+        rm_idx_list = list(set(rm_idx_list))
+        rm_idx_list.sort(reverse=True)
+        logging.debug("# of kpoints indexes with low velocity: {}".format(len(rm_idx_list)))
 
 
 
@@ -636,8 +637,8 @@ class AMSET(object):
         temp_min = {"n": self.gl, "p": self.gl}
         for i, tp in enumerate(["n", "p"]):
             for ib in range(self.cbm_vbm[tp]["included"]):
-                # for ik in ik_list:
-                for ik in ik_list:
+                # for ik in rm_idx_list:
+                for ik in rm_idx_list:
                     if (-1)**i * self.kgrid[tp]["energy"][ib][ik] < temp_min[tp]:
                         self.cbm_vbm[tp]["eff_mass_xx"]=(-1)**i*self.kgrid[tp]["effective mass"][ib][ik].diagonal()
                         self.cbm_vbm[tp]["energy"] = self.kgrid[tp]["energy"][ib][ik]
@@ -646,7 +647,7 @@ class AMSET(object):
                     #     self.kgrid[tp][prop][ib].pop(ik)
 
                 for prop in rearranged_props:
-                    self.kgrid[tp][prop] = np.delete(self.kgrid[tp][prop], ik_list, axis=1)
+                    self.kgrid[tp][prop] = np.delete(self.kgrid[tp][prop], rm_idx_list, axis=1)
 
 
 
@@ -1098,7 +1099,7 @@ class AMSET(object):
 
         start_time = time.time()
 
-        low_v_ik = []
+        rm_idx_list = []
         self.initialize_var("kgrid", ["cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
 
@@ -1136,7 +1137,7 @@ class AMSET(object):
                     if self.kgrid[tp]["velocity"][ib][ik][0] < 1 or self.kgrid[tp]["velocity"][ib][ik][1] < 1 \
                             or self.kgrid[tp]["velocity"][ib][ik][2] < 1 or \
                             self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"] > self.Ecut:
-                        low_v_ik.append(ik)
+                        rm_idx_list.append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
                     self.kgrid[tp]["a"][ib][ik] = 1.0
 
@@ -1201,7 +1202,7 @@ class AMSET(object):
         #             added_energy.append(energy * Ry_to_eV + sgn * self.scissor/2)
         #             added_velocity[ib].append(abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV))  # to get v in units of cm/s
         #             if added_velocity[ib][-1][0] < 1 or added_velocity[ib][-1][1] < 1 or added_velocity[ib][-1][2] < 1:
-        #                 low_v_ik.append(len(self.kgrid[tp]["kpoints"][ib]) + ik)
+        #                 rm_idx_list.append(len(self.kgrid[tp]["kpoints"][ib]) + ik)
         #             added_mass[ib].append(hbar ** 2 / (dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV)  # m_tensor: the last part is unit conversion
         #             added_a.append(1.0)
         #
@@ -1230,8 +1231,8 @@ class AMSET(object):
 
         rearranged_props = ["velocity","effective mass","energy", "a", "c", "kpoints","cartesian kpoints","kweights",
                              "norm(v)", "norm(k)"]
-        if len(low_v_ik) > 0:
-            self.omit_kpoints(low_v_ik, rearranged_props=rearranged_props)
+        if len(rm_idx_list) > 0:
+            self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
 
         print "here the final number of k-points"
         print len(self.kgrid["n"]["kpoints"][0])
@@ -2487,7 +2488,7 @@ class AMSET(object):
                         self.egrid["mobility"][transport][c][T][tp]/=default_small_E * denom
 
                     self.egrid["J_th"][c][T][tp] /= self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
-                                                                    T=T, xDOS=True, xvel=False, weighted=False)
+                                                                    T=T, xDOS=True, xvel=False, weighted=True)
 
                     # other semi-empirical mobility values:
                     fermi = self.egrid["fermi"][c][T]
