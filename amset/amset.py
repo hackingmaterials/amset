@@ -138,7 +138,7 @@ class AMSET(object):
 
                 #TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
-        self.nkibz = 20
+        self.nkibz = 30
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broa  dening
@@ -626,11 +626,11 @@ class AMSET(object):
         :return:
         """
 
-        print "kpoints indexes with low velocity"
-        print low_v_ik
-
         ik_list = list(set(low_v_ik))
         ik_list.sort(reverse=True)
+        logging.debug("# of kpoints indexes with low velocity: {}".format(len(ik_list)))
+
+
 
         # omit the points with v~0 and try to find the parabolic band equivalent effective mass at the CBM and the VBM
         temp_min = {"n": self.gl, "p": self.gl}
@@ -1052,8 +1052,6 @@ class AMSET(object):
         # print type(kpts)
         # final_kpts_added = self.remove_duplicate_kpoints(final_kpts_added
 
-        print "debug0"
-        # print kpts
 
         symmetrically_equivalent_ks = []
         for k in kpts:
@@ -1084,36 +1082,8 @@ class AMSET(object):
         # kpath = HighSymmKpath(self._vrun.final_structure)
         # plt = plot_brillouin_zone_from_kpath(kpath=kpath)
 
-        # ATTENTION!!!!: there are two ways to generate symmetrically equivalent points (actually I checked the second
-        # and is NOT equivalent to the first one; I'd say use the first one for now because I am sure of this:
-        #  k-point in cartesian = np.dot( self._lattice_matrix.transpose(), fractional-k-point)
-        #   1) use the symmetry operations given by SpacegroupAnalyzer._get_symmetry() on the fractional coordinates and
-        #  then convert to cartesian via lattice_matrix
-        #   2) use the cartesian symmetry operations given by SpacegroupAnalyzer.get_symmetry_operations(cartesian=True)
-        # directly on "cartesian kpoints" to get new cartesian (2pi*lattice_matrix*fractional-k) equivalent k-point
-
-
-        #
-
-
-        # self.symmetry_operations = sg.get_symmetry_operations(cartesian=True)
-        # print self.symmetry_operations
-        # new_rot = np.array([[ 0.16666667,  0.47140451, -0.86602538],
-        #             [-0.94280907,  0.33333333,  0.        ],
-        #              [ 0.28867514,  0.81649659,  0.5       ]])
-
-
-
-        # for rot in self.rotations:
-        #     print np.dot(self._lattice_matrix.transpose(), np.dot(rot, k))
-        #     print np.dot(new_rot, (np.dot(k, self._lattice_matrix)) )
-        ##    print np.dot(self._lattice_matrix.transpose(), rot)
-            # print
-
 
         self.kgrid = {
-                # "kpoints": kpts,
-                # "kweights": kweights,
                 "n": {},
                 "p": {} }
 
@@ -1125,50 +1095,6 @@ class AMSET(object):
         self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=False, c_T_idx=False)
-        # for tp in ["n", "p"]:
-        #     for prop in ["velocity"]:
-        #         self.kgrid[tp][prop] = \
-        #         np.array([ [[0.0, 0.0, 0.0] for i in range(len(kpts))] for j in range(self.cbm_vbm[tp]["included"])])
-        #     self.kgrid[tp]["effective mass"] = \
-        #         [ np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))]) for j in
-        #                                                                         range(self.cbm_vbm[tp]["included"])]
-            # self.kgrid[tp]["effective mass"] = \
-            #     np.array([[[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]] for i in range(len(kpts))] for j in
-            #           range(self.cbm_vbm[tp]["included"])])
-
-
-        # low_v_ik = []
-        # low_v_ik.sort()
-        # analytical_bands = Analytical_bands(coeff_file=coeff_file)
-        # # once_called = False
-        # # bands_data = {tp: [() for ib in range(self.cbm_vbm[tp]["included"])] for tp in ["n", "p"]}
-        # all_ibands = []
-        # for i, tp in enumerate(["p", "n"]):
-        #     for ib in range(self.cbm_vbm[tp]["included"]):
-        #         sgn = (-1) ** i
-        #         all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
-        #
-        # start_time = time.time()
-        #
-        # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
-        # nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
-        # out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
-        # for nw in xrange(nwave):
-        #     for i in xrange(nstv[nw]):
-        #         out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
-        #
-        # print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
-        #
-        #
-        # # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
-        # emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
-        #             self.emin, self.emax, int(self.emax-self.emin)/max(self.dE_global, 0.0001), width=self.dos_bwidth)
-        # integ = 0.0
-        # for idos in range(len(dos)-2):
-        #     integ += (dos[idos+1]+ dos[idos])/2 * (emesh[idos+1] - emesh[idos])
-        # # normalize DOS
-        # dos = [g/integ * self.nelec for g in dos]
-        # self.dos = zip(emesh, dos)
 
         start_time = time.time()
 
@@ -1182,20 +1108,7 @@ class AMSET(object):
             for ib in range(self.cbm_vbm[tp]["included"]):
                 self.kgrid[tp]["cartesian kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)/A_to_nm*2*pi #[1/nm]
                 self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][ib]]
-                # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
-                #     analytical_bands.get_engre(iband=[self.cbm_vbm[tp]["bidx"] + sgn * ib])
-                # bands_data[tp][ib] = (engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
 
-                # if not once_called:
-                #     start_time = time.time()
-                #     nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave,br_dir=br_dir)
-                #     out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
-                #     for nw in xrange(nwave):
-                #         for i in xrange(nstv[nw]):
-                #             out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
-                #     print("time to calculate the outvec2: {} seconds".format(time.time() - start_time))
-                #
-                #     once_called = True
 
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     if not self.poly_bands:
@@ -1208,7 +1121,6 @@ class AMSET(object):
                         effective_mass = hbar ** 2 / (
                         dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                     else:
-                        # energy, de, dde = get_poly_energy(self.kgrid[tp]["kpoints"][ib][ik], self._lattice_matrix,
                         energy, velocity, effective_mass=get_poly_energy(self.kgrid[tp]["cartesian kpoints"][ib][ik],
                                                                               poly_bands=self.poly_bands,
                             type=tp, ib=ib,bandgap=self.dft_gap+self.scissor)
