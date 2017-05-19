@@ -1345,7 +1345,8 @@ class AMSET(object):
         for tp in ["n", "p"]:
             self.kgrid[tp].pop("effective mass", None)
             self.kgrid[tp].pop("kweights", None)
-            self.kgrid[tp]["size"] = len(self.kgrid[tp]["kpoints"][0])
+            self.kgrid[tp]["size"] = [len(self.kgrid[tp]["kpoints"][ib]) \
+                                    for ib in range(len(self.kgrid[tp]["kpoints"]))]
 
             print "energy of {} band:".format(["conduction", "valence"][["n", "p"].index(tp)])
             # self.kgrid["n"]["energy"][0].sort()
