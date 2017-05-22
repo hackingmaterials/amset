@@ -945,13 +945,6 @@ class AMSET(object):
         if kgrid_tp=="coarse":
             nkstep = self.nkibz
 
-        # # k = list(np.linspace(0.25, 0.75-0.5/nstep, nstep))
-        # kx = list(np.linspace(-0.5, 0.5, nkstep))
-        # ky = kz = kx
-        # # ky = list(np.linspace(0.27, 0.67, nkstep))
-        # # kz = list(np.linspace(0.21, 0.71, nkstep))
-        # kpts = np.array([[x, y, z] for x in kx for y in ky for z in kz])
-
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
         self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
 
@@ -965,7 +958,8 @@ class AMSET(object):
         a = [i.tolist() for i in self.remove_duplicate_kpoints(a)]
         print a
 
-        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
+        # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
+        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep))
         kpts = [i[0] for i in kpts_and_weights]
         kpts = self.kpts_to_first_BZ(kpts)
 
@@ -1013,24 +1007,7 @@ class AMSET(object):
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
-            # for ib in range(self.cbm_vbm[tp]["included"]):
-            # for now we only look at
             for ib in range(self.cbm_vbm[tp]["included"]):
-                # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
-                #     analytical_bands.get_engre(iband=[self.cbm_vbm[tp]["bidx"] + sgn * ib])
-                # bands_data[tp][ib] = (engre, latt_points, nwave, nsym, nsymop, symop, br_dir)
-
-                # if not once_called:
-                #     start_time = time.time()
-                #     nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave,br_dir=br_dir)
-                #     out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
-                #     for nw in xrange(nwave):
-                #         for i in xrange(nstv[nw]):
-                #             out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
-                #     print("time to calculate the outvec2: {} seconds".format(time.time() - start_time))
-                #
-                #     once_called = True
-
                 for ik in range(len(kpts)):
                     if not self.poly_bands:
                         energy, de, dde = analytical_bands.get_energy(
@@ -1041,44 +1018,23 @@ class AMSET(object):
                     else:
                         energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi),
                                 poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
-                        # energy,velocity,effective_m=get_poly_energy(kpts[ik], poly_bands=self.poly_bands, type=tp,ib=ib,
-                        #     bandgap=self.dft_gap + self.scissor)
                         energies[tp][ik] = energy
-
-        # print "first energies:"
-        # print energies
-
 
         if self.adaptive_mesh:
 
             all_added_kpoints = []
 
-            # print "enegies of valence and conduction bands"
-            # print energies
+
             # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
-            # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[1*k_B*Tmx, 2*k_B*Tmx], nsteps=15)
-
-
             # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=1*k_B*Tmx,target_Ediff=0.0001)
 
             all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=2*k_B*Tmx,target_Ediff=0.01)
 
-                # temp = kpoints_added[tp]
-                # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
-                # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , offset, 0.0])), axis=0 )
-                # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([offset , 0.0, 0.0])), axis=0 )
-            # print "here 1"
-            # print len(kpoints_added["n"])
-            # print kpoints_added["n"]
-
-
             print "here the number of added k-points"
             print len(all_added_kpoints)
             print all_added_kpoints
-            # print final_kpts_added
 
             print type(kpts)
-            # kpts.tolist()
 
             kpts += all_added_kpoints
             # if len(final_kpts_added) > 0:
