@@ -1023,8 +1023,6 @@ class AMSET(object):
         if self.adaptive_mesh:
 
             all_added_kpoints = []
-
-
             # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
             # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=1*k_B*Tmx,target_Ediff=0.0001)
 
@@ -1033,47 +1031,18 @@ class AMSET(object):
             print "here the number of added k-points"
             print len(all_added_kpoints)
             print all_added_kpoints
-
             print type(kpts)
 
             kpts += all_added_kpoints
-            # if len(final_kpts_added) > 0:
-            #     kpts = np.concatenate((kpts, final_kpts_added), axis=0)
-
-        # kpts = self.remove_duplicate_kpoints(kpts)
-        # print type(kpts)
-        # final_kpts_added = self.remove_duplicate_kpoints(final_kpts_added
 
 
         symmetrically_equivalent_ks = []
         for k in kpts:
             symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
-            # fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
-            # symmetrically_equivalent_ks += fractional_ks
-            # symmetrically_equivalent_ks = np.concatenate((symmetrically_equivalent_ks, fractional_ks), axis=0)
         kpts += symmetrically_equivalent_ks
-        # kpts += self.kpts_to_first_BZ(symmetrically_equivalent_ks)
-        # kpts = np.concatenate((kpts, symmetrically_equivalent_ks))
         kpts = self.remove_duplicate_kpoints(kpts)
 
-        #test, remove this later:
-        # symmetrically_equivalent_ks = []
-        # for k in [[0.5, 0.5, 0.5]]:
-        #     fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
-        #     symmetrically_equivalent_ks += fractional_ks
-        # print "symmetrically equivalent k-points to X"
-        # print symmetrically_equivalent_ks
-        # print "now back to first BZ:"
-        # print self.kpts_to_first_BZ(symmetrically_equivalent_ks)
-
         kweights = [1.0 for i in kpts]
-        # kweights = np.array(kweights)
-
-        # kweights /= sum(kweights)
-
-        # kpath = HighSymmKpath(self._vrun.final_structure)
-        # plt = plot_brillouin_zone_from_kpath(kpath=kpath)
-
 
         self.kgrid = {
                 "n": {},
@@ -1174,21 +1143,6 @@ class AMSET(object):
             self.kgrid[tp]["size"] = [len(self.kgrid[tp]["kpoints"][ib]) \
                                     for ib in range(len(self.kgrid[tp]["kpoints"]))]
 
-            print "energy of {} band:".format(["conduction", "valence"][["n", "p"].index(tp)])
-            # self.kgrid["n"]["energy"][0].sort()
-            maxdata = 20
-            print self.kgrid[tp]["energy"][0][0:min(maxdata,len(self.kgrid[tp]["energy"][0]))]
-            print "..."
-            print self.kgrid[tp]["energy"][0][-min(maxdata,len(self.kgrid[tp]["energy"][0])):-1]
-
-        # print "velocity of conduction band:"
-        # a = [norm (v) for v in self.kgrid["n"]["velocity"][0]]
-        # a.sort()
-        # print a[0:min(maxdata,len(a))]
-        # print "..."
-        # print a[-min(maxdata,len(a)):-1]
-
-
         self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["N_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=True)
 
@@ -1199,9 +1153,7 @@ class AMSET(object):
                 for c in self.dopings:
                     for T in self.temperatures:
                         self.kgrid[tp]["N_POP"][c][T][ib] = np.array([ 1/(np.exp(hbar * W_POP/(k_B * T))-1) for W_POP in self.kgrid[tp]["W_POP"][ib]])
-        # Match the CBM/VBM energy values to those obtained from the coefficients file rather than vasprun.xml
-        # self.cbm_vbm["n"]["energy"] = self.kgrid["n"]["energy"][0][0]
-        # self.cbm_vbm["p"]["energy"] = self.kgrid["p"]["energy"][0][-1]
+
 
         self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
                 "f", "f_th", "relaxation time", "df0dk", "electric force", "thermal force"],
@@ -1250,19 +1202,6 @@ class AMSET(object):
     def sort_vars_based_on_energy(self, args, ascending=True):
         """sort the list of variables specified by "args" (type: [str]) in self.kgrid based on the "energy" values
         in each band for both "n"- and "p"-type bands and in ascending order by default."""
-
-
-        # ikidxs = {"n": [], "p": []}
-        # for tp in ["n", "p"]:
-        #     ikidxs[tp] = [np.argsort(self.kgrid[tp]["energy"][ib]) for ib in range(self.cbm_vbm[tp]["included"])]
-        #
-        # for tp in ["n", "p"]:
-        #     for arg in args:
-        #         # if arg in ["k-points", "kweights"]:
-        #         #     self.kgrid[arg] = np.array([self.kgrid[arg][ik] for ik in ikidxs])
-        #         # else:
-        #         self.kgrid[tp][arg] = np.array([[self.kgrid[tp][arg][ib][ik] for ik in ikidxs[tp][ib]] for ib in range(self.cbm_vbm[tp]["included"])])
-
 
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -1369,11 +1308,6 @@ class AMSET(object):
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         result = []
         counter = 0
-        # if E_radius == 0.0: # because then all the symmetrically equivalent k-points to current k have the same energy
-        #     # print "BASE", ib, ik, E_radius
-        #     symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib, ik)
-        #     result += symmetrically_equivalent_ks
-        #     counter += len(symmetrically_equivalent_ks)
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
         # using a threshold for minimum allowed difference in velocity is to ensure minimum distance in k_nrm when calculating scattering
