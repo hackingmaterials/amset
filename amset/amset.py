@@ -1109,7 +1109,6 @@ class AMSET(object):
                                 nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                         energy = energy * Ry_to_eV + sgn * self.scissor/2
                         velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)# to get v in cm/s
-                        # velocity = de / hbar * A_to_m * m_to_cm * Ry_to_eV# to get v in cm/s
                         effective_mass = hbar ** 2 / (
                         dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                     else:
@@ -1136,82 +1135,8 @@ class AMSET(object):
         print "average of the group velocity (to detect inherent or artificially created anisotropy"
         print np.mean(self.kgrid["n"]["velocity"][0], 0)
 
-        #TODO: add kpoints and make smarter kgrid where energy values below CBM+dE and above VBM-dE (if necessary) are added in a way that Ediff is smaller so POP scattering is done more accurately and convergance obtained more easily and with much less k-points
-        # kpoints_added = {"n": [], "p": []}
-        # adaptive_E = 0.5
-        # for tp in ["n", "p"]:
-        #     #TODO: if this worked, change it so that if self.dopings does not involve either of the types, don't add k-points for it
-        #     ies_sorted = np.argsort(self.kgrid[tp]["energy"][0])
-        #     # print ies_sorted
-        #     # print len(ies_sorted)
-        #     # print len(self.kgrid[tp]["energy"][0])
-        #     for ie in ies_sorted:
-        #         if abs(self.kgrid[tp]["energy"][0][ie]-self.kgrid[tp]["energy"][0][ies_sorted[0]]) < adaptive_E:
-        #             kpoints_added[tp].append(ie)
-        #         else:
-        #             break
-        #     kpoints_added[tp] = np.array([self.kgrid[tp]["kpoints"][0][ik] for ik in kpoints_added[tp]])
-        #
-        # offset = 0.05
-        # nsteps = 10
-        # print "here initial k-points with low energy distance"
-        # print len(kpoints_added["n"])
-        # # print kpoints_added["n"]
-        # for tp in ["n", "p"]:
-        #     final_kpts_added = []
-        #     for ik in range(len(kpoints_added[tp])-2):
-        #         final_kpts_added += self.get_intermediat_kpoints(kpoints_added[tp][ik], kpoints_added[tp][ik+1], nsteps)
-        #
-        #     # temp = kpoints_added[tp]
-        #     # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , 0.0, offset])), axis=0 )
-        #     # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([0.0 , offset, 0.0])), axis=0 )
-        #     # kpoints_added[tp] = np.concatenate( (kpoints_added[tp], temp + np.array([offset , 0.0, 0.0])), axis=0 )
-        # # print "here 1"
-        # # print len(kpoints_added["n"])
-        # # print kpoints_added["n"]
-        #
-        #
-        # print "here length of added k-points"
-        # print len(final_kpts_added)
-        # final_kpts_added = self.remove_duplicate_kpoints(final_kpts_added)
-        # print len(final_kpts_added)
 
-
-        # for i, tp in enumerate(["p", "n"]):
-        #     sgn = (-1) ** i
-        #     added_energy = []
-        #     added_velocity = [[] for j in range(self.cbm_vbm[tp]["included"])]
-        #     added_mass = [[] for j in range(self.cbm_vbm[tp]["included"]) ]
-        #     added_a = []
-        #     for ib in range(self.cbm_vbm[tp]["included"]):
-        #         for ik in range(len(final_kpts_added)):
-        #             # self.kgrid[tp]["kpoints"][ib].append(final_kpts_added[ik])
-        #             energy, de, dde = analytical_bands.get_energy(
-        #                 final_kpts_added[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
-        #                     nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-        #
-        #             added_energy.append(energy * Ry_to_eV + sgn * self.scissor/2)
-        #             added_velocity[ib].append(abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV))  # to get v in units of cm/s
-        #             if added_velocity[ib][-1][0] < 1 or added_velocity[ib][-1][1] < 1 or added_velocity[ib][-1][2] < 1:
-        #                 rm_idx_list.append(len(self.kgrid[tp]["kpoints"][ib]) + ik)
-        #             added_mass[ib].append(hbar ** 2 / (dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV)  # m_tensor: the last part is unit conversion
-        #             added_a.append(1.0)
-        #
-        #         self.kgrid[tp]["kpoints"][ib] = np.concatenate((self.kgrid[tp]["kpoints"][ib], final_kpts_added))
-        #         self.kgrid[tp]["energy"][ib] = np.concatenate((self.kgrid[tp]["energy"][ib], added_energy))
-        #         # print self.kgrid[tp]["velocity"][ib]
-        #         # print added_velocity
-        #         self.kgrid[tp]["a"][ib] = np.concatenate((self.kgrid[tp]["a"][ib], added_a))
-        #         self.kgrid[tp]["c"][ib] += np.array([0.0 for i in range(len(final_kpts_added))])
-        #         self.kgrid[tp]["kweights"][ib] += [0.0 for i in range(len(final_kpts_added))]
-        #
-        #     temp = self.kgrid[tp]["velocity"]
-        #     self.kgrid[tp]["velocity"] = [ [v for v in np.concatenate((temp[ib], added_velocity[ib]),axis=0)] for ib in range(self.cbm_vbm[tp]["included"])]
-        #     temp = self.kgrid[tp]["effective mass"]
-        #     self.kgrid[tp]["effective mass"] = [ m for m in np.concatenate((temp[ib], added_mass[ib])) for ib in range(self.cbm_vbm[tp]["included"]) ]
-
-
-        # Alter self.emin and self.emax; they were initialized based on the real input band structure but that should change if self.poly_bands
+        # emin & emax were initialized based on the real input band structure but that should change if self.poly_bands
         self.emin = min(self.kgrid["p"]["energy"][-1])
         self.emax = max(self.kgrid["n"]["energy"][-1])
 
