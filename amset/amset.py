@@ -4,8 +4,7 @@ import warnings
 
 import time
 
-# from pymatgen.electronic_structure.plotter import plot_brillouin_zone, plot_brillouin_zone_from_kpath
-# from pymatgen.symmetry.bandstructure import HighSymmKpath
+
 import logging
 from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_poly_energy
 from pprint import pprint
@@ -21,7 +20,6 @@ import os
 import json
 from monty.json import MontyEncoder
 from random import random
-from matminer.figrecipes.plotly.make_plots import PlotlyFig
 import cProfile
 from copy import deepcopy
 
@@ -127,10 +125,11 @@ class AMSET(object):
 
      """
 
-    mass = 0.2
-    def __init__(self, path_dir=None,
+    mass = 0.25
+    
+    def __init__(self, calc_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=False, bs_is_isotropic=True,
+                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
                  donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
                  # poly_bands = None):
                  # poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
@@ -138,7 +137,7 @@ class AMSET(object):
 
                 #TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
-        self.nkibz = 45
+        self.nkibz = 58
 
         #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broa  dening
@@ -152,7 +151,7 @@ class AMSET(object):
         self.epsilon_inf = 25.57 # example for PbTe
         self._vrun = {}
         self.Ecut = 10*k_B*max(self.temperatures) # we set the max energy range after which occupation is zero
-        self.path_dir = path_dir or "../test_files/PbTe_nscf_uniform/nscf_line"
+        self.calc_dir = calc_dir or "../test_files/PbTe_nscf_uniform/nscf_line"
         self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
         self.N_dis = N_dis or 0.1 # in 1/cm**2
         # self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE", "DIS"]
@@ -174,7 +173,7 @@ class AMSET(object):
         self.wordy = False
         self.maxiters = 5
         self.soc = False
-        self.read_vrun(path_dir=self.path_dir, filename="vasprun.xml")
+        self.read_vrun(calc_dir=self.calc_dir, filename="vasprun.xml")
         if self.poly_bands:
             self.cbm_vbm["n"]["energy"] = self.dft_gap
             self.cbm_vbm["p"]["energy"] = 0.0
@@ -290,8 +289,8 @@ class AMSET(object):
 
 
 
-    def read_vrun(self, path_dir=".", filename="vasprun.xml"):
-        self._vrun = Vasprun(os.path.join(path_dir, filename))
+    def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
+        self._vrun = Vasprun(os.path.join(calc_dir, filename))
         self.volume = self._vrun.final_structure.volume
         self.density = self._vrun.final_structure.density
         self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
@@ -2551,6 +2550,9 @@ class AMSET(object):
 
 
     def plot(self, path=None, textsize=40, ticksize=35, margin_left = 160, margin_bottom=120):
+        """plots some of the outputs for more detailed analysis, debugging, etc"""
+        from matminer.figrecipes.plotly.make_plots import PlotlyFig
+
         if not path:
             path = os.path.join( os.getcwd(), "plots" )
         fformat = "html"
