@@ -125,67 +125,103 @@ class AMSET(object):
 
      """
 
-    mass = 0.25
-    
-    def __init__(self, calc_dir=None,
 
-                 N_dis=None, scissor=None, elastic_scatterings=None, include_POP=True, bs_is_isotropic=True,
-                 donor_charge=None, acceptor_charge=None, dislocations_charge=None, adaptive_mesh=False,
-                 # poly_bands = None):
-                 # poly_bands=[[ [[0.0, 0.0, 0.0], [0.0, mass] ] ]]):
-                    poly_bands = [[ [[0.0, 0.0, 0.0], [0.0, mass]], [[0.25, 0.25, 0.25], [0.0, mass]], [[0.15, 0.15, 0.15], [0.0, mass]] ]]):
 
-                #TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
+    def __init__(self, calc_dir, material_params, model_params = {}, performance_params = {},
+                 dopings=None, temperatures=None):
+        """
+        required parameters:
+            calc_dir (str): path to the vasprun.xml
+            material_params (dict): parameters related to the material
 
-        self.nkibz = 58
+        """
 
-        #TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
-        # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broa  dening
-        # and that changes the actual values
-        self.gaussian_broadening = False
+        self.calc_dir = calc_dir
 
-        self.dE_global = 0.01 # 0.01/(self.nkibz*50)**0.5 # in eV: the dE below which two energy values are assumed equal
-        self.dopings = [-1e20] # 1/cm**3 list of carrier concentrations
-        self.temperatures = map(float, [300, 600]) # in K, list of temperatures
-        self.epsilon_s = 44.360563 # example for PbTe
-        self.epsilon_inf = 25.57 # example for PbTe
-        self._vrun = {}
-        self.Ecut = 10*k_B*max(self.temperatures) # we set the max energy range after which occupation is zero
-        self.calc_dir = calc_dir or "../test_files/PbTe_nscf_uniform/nscf_line"
-        self.charge = {"n": donor_charge or 1, "p": acceptor_charge or 1, "dislocations": dislocations_charge or 1}
-        self.N_dis = N_dis or 0.1 # in 1/cm**2
-        # self.elastic_scatterings = elastic_scatterings or ["IMP", "ACD", "PIE", "DIS"]
-        self.elastic_scatterings = elastic_scatterings or ["ACD", "IMP", "PIE"]
-        self.inelastic_scatterings = []
-        if include_POP:
-            self.inelastic_scatterings += ["POP"]
-        self.scissor = scissor or 0.0 # total value added to the band gap by adding to the CBM and subtracting from VBM
-        self.bs_is_isotropic = bs_is_isotropic
-        self.gs = 1e-32 # a global small value (generally used for an initial non-zero value)
-        self.gl = 1e32 # a global large value
-        self.dos_bwidth = 0.1 # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
-        self.nkdos = 31
-        self.poly_bands = poly_bands
-        self.adaptive_mesh = adaptive_mesh
+        self.dopings = dopings or [-1e20] # 1/cm**3 list of carrier concentrations
+        self.temperatures = temperatures or map(float, [300, 600]) # in K, list of temperatures
 
-#TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
+        self.set_material_params(material_params)
+        self.set_model_params(model_params)
+        self.set_performance_params(performance_params)
 
-        self.wordy = False
-        self.maxiters = 5
-        self.soc = False
         self.read_vrun(calc_dir=self.calc_dir, filename="vasprun.xml")
         if self.poly_bands:
             self.cbm_vbm["n"]["energy"] = self.dft_gap
             self.cbm_vbm["p"]["energy"] = 0.0
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
 
-        self.W_POP = 10e12 * 2*pi # POP frequency in Hz
-        self.P_PIE = 0.15
-        # self.E_D = {"n": 4.0, "p": 3.93}
-        self.E_D = {"n": 4.0, "p": 4.0}
-        self.C_el = 128.84 #77.3 # [Gpa]:spherically averaged elastic constant for longitudinal modes
-
         self.all_types = [self.get_tp(c) for c in self.dopings]
+
+
+
+    def set_material_params(self, params):
+
+        self.epsilon_s = params["epsilon_s"]
+        self.epsilon_inf = params["epsilon_inf"]
+        self.C_el = params["C_el"]
+        self.W_POP = params["W_POP"] * 1e12 * 2 * pi
+
+        self.P_PIE = params.get("P_PIE", 0.15)  # unitless
+        self.E_D = params.get("E_D", {"n": 4.0, "p": 4.0})
+
+        self.N_dis = params.get("N_dis", 0.1)  # in 1/cm**2
+        self.scissor = params.get("scissor", 0.0)
+
+        donor_charge = params.get("donor_charge", 1.0)
+        acceptor_charge = params.get("acceptor_charge", 1.0)
+        dislocations_charge = params.get("dislocations_charge", 1.0)
+        self.charge = {"n": donor_charge, "p": acceptor_charge, "dislocations": dislocations_charge}
+
+
+
+    def set_model_params(self, params):
+        """function to set instant variables related to the model and the level of the theory;
+        these are set based on params (dict) set by the user or their default values"""
+
+        mass = 0.25
+
+        self.bs_is_isotropic = params.get("bs_is_isotropic", False)
+
+        # what scattering mechanisms to be included
+        self.elastic_scatterings = params.get("elastic_scatterings", ["ACD", "IMP", "PIE"])
+        self.inelastic_scatterings = params.get("inelastic_scatterings", ["POP"])
+
+        self.poly_bands = params.get("poly_bands", None)
+
+        # TODO: for testing, remove this part later:
+        self.poly_bands = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+        # self.poly_bands = [[[[0.0, 0.0, 0.0], [0.0, mass]],
+        #                     [[0.25, 0.25, 0.25], [0.0, mass]],
+        #                     [[0.15, 0.15, 0.15], [0.0, mass]]]]
+        # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
+
+        # TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
+        # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
+        # and that changes the actual values
+        self.gaussian_broadening = False
+        self.soc = params.get("soc", False)
+
+
+
+    def set_performance_params(self, params):
+        self.nkibz = params.get("nkibz", 40)
+        self.dE_global = params.get("dE_global", 0.01)
+        self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
+        self.adaptive_mesh = params.get("adaptive_mesh", False)
+
+        self.dos_bwidth = params.get("dos_bwidth",
+                                     0.1)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
+        self.nkdos = params.get("nkdos", 31)
+
+        self.gs = 1e-32  # a global small value (generally used for an initial non-zero value)
+        self.gl = 1e32  # a global large value
+
+        # TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
+        self.wordy = params.get("wordy", False)
+        self.maxiters = params.get("maxiters", 5)
+
+
 
     def run(self, coeff_file, kgrid_tp="coarse"):
         """
@@ -2643,8 +2679,22 @@ class AMSET(object):
 if __name__ == "__main__":
     coeff_file = 'fort.123'
     logging.basicConfig(level=logging.DEBUG)
+
+    # defaults:
+    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+                    "inelastic_scatterings": ["POP"]}
+    performance_params = {"nkibz": 40, "dE_global": 0.01}
+
     # test
-    AMSET = AMSET()
+    PbTe_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
+                   "E_D": {"n": 4.0, "p": 4.0}}
+
+    # GaAs_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
+    #                "E_D": {"n": 8.6, "p": 8.6}}
+
+
+    AMSET = AMSET(calc_dir="../test_files/PbTe_nscf_uniform/nscf_line", material_params=PbTe_params,
+        model_params = model_params, performance_params= performance_params)
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
