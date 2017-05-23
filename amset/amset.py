@@ -704,14 +704,13 @@ class AMSET(object):
         temp_min = {"n": self.gl, "p": self.gl}
         for i, tp in enumerate(["n", "p"]):
             for ib in range(self.cbm_vbm[tp]["included"]):
-                # for ik in rm_idx_list:
+
                 for ik in rm_idx_list:
                     if (-1)**i * self.kgrid[tp]["energy"][ib][ik] < temp_min[tp]:
+                        temp_min[tp] = (-1)**i * self.kgrid[tp]["energy"][ib][ik]
                         self.cbm_vbm[tp]["eff_mass_xx"]=(-1)**i*self.kgrid[tp]["effective mass"][ib][ik].diagonal()
                         self.cbm_vbm[tp]["energy"] = self.kgrid[tp]["energy"][ib][ik]
-                    # for prop in ["energy", "a", "c", "kpoints", "kweights"]:
-                    #     print prop
-                    #     self.kgrid[tp][prop][ib].pop(ik)
+
 
                 for prop in rearranged_props:
                     self.kgrid[tp][prop] = np.delete(self.kgrid[tp][prop], rm_idx_list, axis=1)
@@ -2021,6 +2020,7 @@ class AMSET(object):
         typ = self.get_tp(c)
         fermi = self.cbm_vbm[typ]["energy"]
         # fermi = self.egrid[typ]["energy"][0]
+
         j = ["n", "p"].index(typ)
         funcs = [lambda E, fermi0, T: f0(E,fermi0,T), lambda E, fermi0, T: 1-f0(E,fermi0,T)]
         calc_doping = (-1)**(j+1) /self.volume / (A_to_m*m_to_cm)**3 \
@@ -2469,22 +2469,22 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"],
+                    "inelastic_scatterings": ["POP"]}
                     # TODO: for testing, remove this part later:
                     # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
-                  "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
-                        [[0.25, 0.25, 0.25], [0.0, mass]],
-                        [[0.15, 0.15, 0.15], [0.0, mass]]]]}
+                  # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
+                  #       [[0.25, 0.25, 0.25], [0.0, mass]],
+                  #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 58, "dE_global": 0.01}
+    performance_params = {"nkibz": 25, "dE_global": 0.01}
 
     # test
     PbTe_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
                    "E_D": {"n": 4.0, "p": 4.0}}
-    PbTe_path = "../test_files/PbTe_nscf_uniform/"
-    coeff_file = os.path.join(PbTe_path, "fort.123")
+    PbTe_path = "../test_files/PbTe_nscf_uniform/nscf_line"
+    coeff_file = os.path.join(PbTe_path, "..", "fort.123")
 
     # GaAs_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
     #                "E_D": {"n": 8.6, "p": 8.6}}
