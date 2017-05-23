@@ -179,8 +179,6 @@ class AMSET(object):
         """function to set instant variables related to the model and the level of the theory;
         these are set based on params (dict) set by the user or their default values"""
 
-        mass = 0.25
-
         self.bs_is_isotropic = params.get("bs_is_isotropic", False)
 
         # what scattering mechanisms to be included
@@ -189,12 +187,6 @@ class AMSET(object):
 
         self.poly_bands = params.get("poly_bands", None)
 
-        # TODO: for testing, remove this part later:
-        self.poly_bands = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
-        # self.poly_bands = [[[[0.0, 0.0, 0.0], [0.0, mass]],
-        #                     [[0.25, 0.25, 0.25], [0.0, mass]],
-        #                     [[0.15, 0.15, 0.15], [0.0, mass]]]]
-        # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
         # TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -427,11 +419,6 @@ class AMSET(object):
 
     def seeb_int_denom(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
-        # fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T))
-        #
-        # # To avoid returning a denominator that is zero:
-        # return {t:max(self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T), 1e-30)
-        #         for t in ["n", "p"]}
         return {t:self.gs + self.integrate_over_E(prop_list=["f0x1-f0"],tp=t,c=c,T=T,xDOS=True) for t in ["n", "p"]}
 
 
@@ -1382,7 +1369,7 @@ class AMSET(object):
             # warnings.warn("same k and k' vectors as input of the elastic scattering equation")
             # raise ValueError("same k and k' vectors as input of the elastic scattering equation."
             #                  "Check get_X_ib_ik_within_E_radius for possible error")
-            return 0
+            return 0.0
 
         if sname.upper() in ["IMP"]: # ionized impurity scattering
             unit_conversion = 0.001 / e**2
@@ -1398,12 +1385,6 @@ class AMSET(object):
             unit_conversion = 1e9 / e
             return unit_conversion * e**2 * k_B * T * self.P_PIE**2 \
                    /(norm_diff_k ** 2 * 4.0 * pi**2 * hbar * epsilon_0 * self.epsilon_s)
-
-        # isotropic PIE
-        #     return (e ** 2 * k_B * T * self.P_PIE ** 2) / (
-        #         6 * pi * hbar ** 2 * self.epsilon_s * epsilon_0 * v) * (
-        #                    3 - 6 * par_c ** 2 + 4 * par_c ** 4) * 100 / e
-
 
         elif sname.upper() in ["DIS"]:
             return self.gs
@@ -1422,8 +1403,6 @@ class AMSET(object):
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
             for i in range(interpolation_nsteps):
-                # TODO:The DOS used is too simplistic and wrong (e.g., calc_doping might hit a limit), try 2*[2pim_hk_BT/hbar**2]**1.5
-                # integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
                 integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS)*func(E + i * dE, fermi, T)*self.Efrequency[tp][ie]
         return integral
         # return integral/sum(self.Efrequency[tp][:-1])
@@ -2438,9 +2417,18 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
     # defaults:
+    mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]}
-    performance_params = {"nkibz": 40, "dE_global": 0.01}
+                    "inelastic_scatterings": ["POP"],
+                    # TODO: for testing, remove this part later:
+                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                  "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
+                        [[0.25, 0.25, 0.25], [0.0, mass]],
+                        [[0.15, 0.15, 0.15], [0.0, mass]]]]}
+    # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
+
+
+    performance_params = {"nkibz": 58, "dE_global": 0.01}
 
     # test
     PbTe_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
