@@ -192,11 +192,11 @@ class AMSET(object):
         }
 
         with open("material_params.json", "w") as fp:
-            json.dump(material_params, fp)
+            json.dump(material_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
         with open("model_params.json", "w") as fp:
-            json.dump(model_params, fp)
+            json.dump(model_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
         with open("performance_params.json", "w") as fp:
-            json.dump(performance_params, fp)
+            json.dump(performance_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
 
 
 
