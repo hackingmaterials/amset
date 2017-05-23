@@ -1310,80 +1310,36 @@ class AMSET(object):
         counter = 0
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
-        # using a threshold for minimum allowed difference in velocity is to ensure minimum distance in k_nrm when calculating scattering
-        # min_vdiff = 3*hbar*e*1e11*1e-4/m_e
 
         for ib_prm in range(self.cbm_vbm[tp]["included"]):
             if ib==ib_prm and E_radius==0.0:
                 ik_prm = ik
             else:
                 ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() - 1
-                # ik_prm = max(0, ik-100) # different bands, we start comparing energies ahead as energies aren't equal
             while (ik_prm<nk-1) and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm+1]-(E+E_radius)) < tolerance:
                 ik_prm += 1
                 result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]),ib_prm,ik_prm))
-                # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
-                # result += symmetrically_equivalent_ks
-                # counter += len(symmetrically_equivalent_ks) + 1
                 counter += 1
-
-                # if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
-                #     counter -= 1
 
             if ib==ib_prm and E_radius==0.0:
                 ik_prm = ik
             else:
                 ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() + 1
-                # ik_prm = min(nk-1, ik+100)
             while (ik_prm>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prm][ik_prm-1]) < tolerance:
-            # while (ik_prm > 0) and E + E_radius == self.kgrid[tp]["energy"][ib_prm][ik_prm - 1]:
                 ik_prm -= 1
-                # if E_radius > 0.0:
-                #     print "BEFORE", ib, ik, E_radius
-                # X = self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm - 1])
-                # result.append((X, ib_prm, ik_prm - 1))
                 result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
-                # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
-                # result += symmetrically_equivalent_ks
-
-                # counter += len(symmetrically_equivalent_ks) + 1
                 counter += 1
 
-                # if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
-                #     counter -= 1
 
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
-
         ik_prm = ik
         while counter < forced_min_npoints and ik_prm < nk - 1:
-            # if E_radius >  0.0:
-            #     print "EXTRA 1", ib, ik, E_radius
             ik_prm += 1
             k_prm = self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]
 
-
             result.append((self.cos_angle(k, k_prm), ib, ik_prm))
-
-            # also add all values with the same energy at ik_prm
             result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
-
-            # for X_ik_ib in self.kgrid[tp]["X_E_ik"][ib][ik_prm]:
-            #     print "added"
-            #     X, ib_new, ik_new = X_ik_ib
-            #     k_new = self.kgrid[tp]["cartesian kpoints"][ib_new][ik_new]
-            #     result.append(self.cos_angle(k_prm, k_new), ib_new, ik_new)
-            #     counter += 1
-
-            # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
-            # result += symmetrically_equivalent_ks
-            # result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm + 1]), ib, ik_prm + 1))
-
-            # counter += 1 + len(symmetrically_equivalent_ks)
             counter += 1
-
-            # if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
-            #     counter -= 1
-            #     self.nforced_scat[tp] -= 1
 
             self.nforced_scat[tp] += 1
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik_prm]-self.kgrid[tp]["energy"][ib][ik])
@@ -1391,26 +1347,12 @@ class AMSET(object):
 
         ik_prm = ik
         while counter < forced_min_npoints and ik_prm > 0:
-            # if E_radius > 0.0:
-            #     print "EXTRA 2", ib, ik, E_radius
-            # k_prm = self.kgrid[tp]["cartesian kpoints"][ib][ik_prm - 1]
             ik_prm -= 1
             result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib, ik_prm))
 
             # also add all values with the same energy at ik_prm
             result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
-
-
-            # symmetrically_equivalent_ks = self.unique_X_ib_ik_symmetrically_equivalent(tp, ib_prm, ik_prm)
-            # result += symmetrically_equivalent_ks
-            # result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm - 1]), ib, ik_prm - 1))
-
-            # counter += 1 + len(symmetrically_equivalent_ks)
             counter += 1
-
-            # if abs(sum(self.kgrid["n"]["velocity"][ib][ik]) - sum(self.kgrid["n"]["velocity"][ib][ik_prm])) < min_vdiff:
-            #     counter -= 1
-            #     self.nforced_scat[tp] -= 1
             self.nforced_scat[tp] += 1
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik]-self.kgrid[tp]["energy"][ib][ik_prm])
 
