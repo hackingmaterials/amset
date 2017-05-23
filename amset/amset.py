@@ -163,7 +163,7 @@ class AMSET(object):
             "epsilon_s": self.epsilon_s,
             "epsilon_inf": self.epsilon_inf,
             "C_el": self.C_el,
-            "W_POP": self.W_POP,
+            "W_POP": self.W_POP / (1e12 * 2 * pi),
             "P_PIE": self.P_PIE,
             "E_D": self.E_D,
             "N_dis": self.N_dis,
