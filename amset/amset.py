@@ -2500,5 +2500,5 @@ if __name__ == "__main__":
     AMSET.write_input_files()
     # AMSET.plot()
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=200, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
