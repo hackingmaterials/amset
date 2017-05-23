@@ -155,6 +155,51 @@ class AMSET(object):
 
 
 
+    def write_input_files(self):
+        """writes all 3 types of inputs in json files for example to
+        conveniently track what inputs had been used later or read
+        inputs from files (see from_files method)"""
+        material_params = {
+            "epsilon_s": self.epsilon_s,
+            "epsilon_inf": self.epsilon_inf,
+            "C_el": self.C_el,
+            "W_POP": self.W_POP,
+            "P_PIE": self.P_PIE,
+            "E_D": self.E_D,
+            "N_dis": self.N_dis,
+            "scissor": self.scissor,
+            "donor_charge": self.charge["n"],
+            "acceptor_charge": self.charge["p"],
+            "dislocations_charge": self.charge["dislocations"]
+        }
+
+        model_params = {
+            "bs_is_isotropic": self.bs_is_isotropic,
+            "elastic_scatterings": self.elastic_scatterings,
+            "inelastic_scatterings": self.inelastic_scatterings,
+            "poly_bands": self.poly_bands
+        }
+
+        performance_params = {
+            "nkibz": self.nkibz,
+            "dE_global": self.dE_global,
+            "Ecut": self.Ecut,
+            "adaptive_mesh": self.adaptive_mesh,
+            "dos_bwidth": self.dos_bwidth,
+            "nkdos": self.nkdos,
+            "wordy": self.wordy,
+            "maxiters": self.maxiters
+        }
+
+        with open("material_params.json", "w") as fp:
+            json.dump(material_params, fp)
+        with open("model_params.json", "w") as fp:
+            json.dump(model_params, fp)
+        with open("performance_params.json", "w") as fp:
+            json.dump(performance_params, fp)
+
+
+
     def set_material_params(self, params):
 
         self.epsilon_s = params["epsilon_s"]
@@ -2321,6 +2366,7 @@ class AMSET(object):
                 self.egrid["conductivity"][c][T][actual_type] += self.egrid["conductivity"][c][T][other_type]
 
 
+
     def plot(self, path=None, textsize=40, ticksize=35, margin_left = 160, margin_bottom=120):
         """plots some of the outputs for more detailed analysis, debugging, etc"""
         from matminer.figrecipes.plotly.make_plots import PlotlyFig
@@ -2412,8 +2458,12 @@ class AMSET(object):
                 plt.xy_plot(x_col=x_col, y_col=y_col)
                 # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
+
+
+
+
+
 if __name__ == "__main__":
-    coeff_file = 'fort.123'
     logging.basicConfig(level=logging.DEBUG)
 
     # defaults:
@@ -2433,17 +2483,22 @@ if __name__ == "__main__":
     # test
     PbTe_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
                    "E_D": {"n": 4.0, "p": 4.0}}
+    PbTe_path = "../test_files/PbTe_nscf_uniform/"
+    coeff_file = os.path.join(PbTe_path, "fort.123")
 
     # GaAs_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
     #                "E_D": {"n": 8.6, "p": 8.6}}
+    # GaAs_path = "../test_files/GaAs_nscf_uniform/"
+    # coeff_file = os.path.join(GaAs_path, "fort.123_GaAs_k23")
 
 
-    AMSET = AMSET(calc_dir="../test_files/PbTe_nscf_uniform/nscf_line", material_params=PbTe_params,
+    AMSET = AMSET(calc_dir=PbTe_path, material_params=PbTe_params,
         model_params = model_params, performance_params= performance_params)
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.plot()
+    AMSET.write_input_files()
+    # AMSET.plot()
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=200, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
