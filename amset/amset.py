@@ -569,10 +569,6 @@ class AMSET(object):
                 if dos_tp.lower()=="simple":
                     self.egrid[tp]["DOS"].append(counter/len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
-                    # print sum_e/counter
-                    # print self.get_Eidx_in_dos(sum_e/counter)
-                    # print len(self.dos)
-                    # print self.dos[self.get_Eidx_in_dos(sum_e/counter)]
                     self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_e/counter)][1])
                 i = j + 1
 
@@ -2483,7 +2479,7 @@ if __name__ == "__main__":
     # test
     PbTe_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
                    "E_D": {"n": 4.0, "p": 4.0}}
-    PbTe_path = "../test_files/PbTe_nscf_uniform/nscf_line"
+    PbTe_path = "../test_files/PbTe/nscf_line"
     coeff_file = os.path.join(PbTe_path, "..", "fort.123")
 
     # GaAs_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
