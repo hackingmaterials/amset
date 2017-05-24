@@ -271,7 +271,8 @@ class AMSET(object):
         :return:
         """
         self.init_kgrid(coeff_file=coeff_file, kgrid_tp=kgrid_tp)
-        print self.cbm_vbm
+        logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
+
 
         if True:
             self.init_egrid(dos_tp="standard")
@@ -397,11 +398,12 @@ class AMSET(object):
 
         self.dft_gap = cbm["energy"] - vbm["energy"]
         print "DFT gap from vasprun.xml : {} eV".format(self.dft_gap)
+
         if self.soc:
-            self.nelec = cbm_vbm["p"]["bidx"]
+            self.nelec = cbm_vbm["p"]["bidx"] + 1
             self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands
         else:
-            self.nelec = cbm_vbm["p"]["bidx"]*2
+            self.nelec = (cbm_vbm["p"]["bidx"]+1)*2
             self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands*2
 
         print("total number of electrons nelec: {}".format(self.nelec))
@@ -420,12 +422,15 @@ class AMSET(object):
                                       sgn*cbm_vbm[tp]["energy"])<self.Ecut:
                 cbm_vbm[tp]["included"] += 1
 
-# TODO: change this later if the band indecies are fixed in Analytical_band class
+# TODO: change this later if the band indecies are corrected in Analytical_band class
         cbm_vbm["p"]["bidx"] += 1
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
 
         self.cbm_vbm = cbm_vbm
 
+        # TODO: for now, I only include 1 band for each as I get some errors if I inlude more bands
+        for tp in ["n", "p"]:
+            self.cbm_vbm[tp]["included"] = 1
 
     def get_tp(self, c):
         """returns "n" for n-tp or negative carrier concentration or "p" (p-tp)."""
@@ -1000,6 +1005,7 @@ class AMSET(object):
 
 
         if not self.poly_bands:
+            logging.debug("start interpolating bands from {}".format(coeff_file))
             analytical_bands = Analytical_bands(coeff_file=coeff_file)
             all_ibands = []
             for i, tp in enumerate(["p", "n"]):
@@ -2465,7 +2471,7 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]}
+                    "inelastic_scatterings": []}
                     # TODO: for testing, remove this part later:
                     # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
@@ -2474,18 +2480,18 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 25, "dE_global": 0.01}
+    performance_params = {"nkibz": 35, "dE_global": 0.01}
 
     # test
-    material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
-                   "E_D": {"n": 4.0, "p": 4.0}}
-    cube_path = "../test_files/PbTe/nscf_line"
-    coeff_file = os.path.join(cube_path, "..", "fort.123")
-
-    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-    #                "E_D": {"n": 8.6, "p": 8.6}}
-    # cube_path = "../test_files/GaAs/"
-    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
+    #                "E_D": {"n": 4.0, "p": 4.0}}
+    # cube_path = "../test_files/PbTe/nscf_line"
+    # coeff_file = os.path.join(cube_path, "..", "fort.123")
+    #
+    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
+                   "E_D": {"n": 8.6, "p": 8.6}}
+    cube_path = "../test_files/GaAs/"
+    coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
@@ -2494,7 +2500,7 @@ if __name__ == "__main__":
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
     AMSET.write_input_files()
-    # AMSET.plot()
+    AMSET.plot()
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
