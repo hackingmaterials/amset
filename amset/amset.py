@@ -1192,8 +1192,8 @@ class AMSET(object):
                 "f", "f_th", "relaxation time", "df0dk", "electric force", "thermal force"],
                         val_type="vector", initval=self.gs, is_nparray=True, c_T_idx=True)
         self.initialize_var("kgrid", ["f0", "f_plus", "f_minus","g_plus", "g_minus"], "vector", self.gs, is_nparray=True, c_T_idx=True)
-        # self.initialize_var("kgrid", ["lambda_i_plus", "lambda_i_minus", "lambda_o_plus", "lambda_o_minus"]
-        #                     , "vector", self.gs, is_nparray=True, c_T_idx=False)
+        self.initialize_var("kgrid", ["lambda_i_plus", "lambda_i_minus"]
+                            , "vector", self.gs, is_nparray=True, c_T_idx=False)
 
 
         if not self.poly_bands:
@@ -1722,36 +1722,42 @@ class AMSET(object):
                             N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
                             # N_POP = self.kgrid[tp]["N_POP"][c][T][ib][ik]
                             for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
+                                #TODO: see how does dividing by len_eqE affect results, set to 1 to test
                                 len_eqE = len(self.kgrid[tp][X_Epm][ib][ik])
                                 # if len_eqE == 0:
                                 #     print "WARNING!!!! element {} of {} is empty!!".format(ik, X_Epm)
                                 for X_ib_ik in self.kgrid[tp][X_Epm][ib][ik]:
                                     X, ib_pm, ik_pm = X_ib_ik
+                                    g_pm = self.kgrid[tp]["g" + g_suffix][c][T][ib_pm][ik_pm]
 
-                                    # v_pm = sum(self.kgrid[tp]["velocity"][ib_pm][ik_pm])/3
-                                    v_pm = self.kgrid[tp]["norm(v)"][ib_pm][ik_pm]
+                                    # if not once_called:
+                                    if True:
+                                        # v_pm = sum(self.kgrid[tp]["velocity"][ib_pm][ik_pm])/3
+                                        v_pm = self.kgrid[tp]["norm(v)"][ib_pm][ik_pm]
 
-                                    k_pm  = m_e*v_pm/(hbar*e*1e11)
+                                        k_pm  = m_e*v_pm/(hbar*e*1e11)
 
-                                    abs_kdiff = abs(k_pm - k)
-                                    if abs_kdiff < 1e-4:
-                                        continue
+                                        abs_kdiff = abs(k_pm - k)
+                                        if abs_kdiff < 1e-4:
+                                            continue
 
-                                    a_pm = self.kgrid[tp]["a"][ib_pm][ik_pm]
-                                    c_pm = self.kgrid[tp]["c"][ib_pm][ik_pm]
-                                    # g_pm = sum(self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm])/3
-                                    g_pm = self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm]
+                                        a_pm = self.kgrid[tp]["a"][ib_pm][ik_pm]
+                                        c_pm = self.kgrid[tp]["c"][ib_pm][ik_pm]
+                                        # g_pm = sum(self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm])/3
 
-                                    f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
 
-                                    A_pm = a*a_pm + c_*c_pm*(k_pm**2+k**2)/(2*k_pm*k)
+                                        f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
 
-                                    beta_pm = (e**2*self.kgrid[tp]["W_POP"][ib_pm][ik_pm]*k_pm)/(4*pi*hbar*k*v_pm)*\
-                                        (1/(self.epsilon_inf*epsilon_0)-1/(self.epsilon_s*epsilon_0))*6.2415093e20
+                                        A_pm = a*a_pm + c_*c_pm*(k_pm**2+k**2)/(2*k_pm*k)
+
+                                        beta_pm = (e**2*self.kgrid[tp]["W_POP"][ib_pm][ik_pm]*k_pm)/(4*pi*hbar*k*v_pm)*\
+                                            (1/(self.epsilon_inf*epsilon_0)-1/(self.epsilon_s*epsilon_0))*6.2415093e20
 
                                     if not once_called:
                                         lamb_opm=beta_pm*(A_pm**2*log((k_pm+k)/abs_kdiff+1e-4)-A_pm*c_*c_pm-a*a_pm*c_*c_pm)
                                         # because in the scalar form k+ or k- is suppused to be unique, here we take average
+
+
                                         self.kgrid[tp]["S_o" + g_suffix][c][T][ib][ik] +=((N_POP + j+(-1)**j*f_pm)*lamb_opm)/len_eqE
                                         # S_o +=((N_POP + j+(-1)**j*f_pm)*lamb_opm)/len_eqE
                                         # if S_o[0] < 1:
@@ -1764,7 +1770,32 @@ class AMSET(object):
                                     lamb_ipm=beta_pm*(A_pm**2*log((k_pm+k)/abs_kdiff+1e-4)*(k_pm**2+k**2)/(2*k*k_pm)-
                                                       A_pm**2-c_**2*c_pm**2/3)
 
+                                        # lamb_ipm = beta_pm * (
+                                        #     A_pm ** 2 * log((k_pm + k) / abs_kdiff + 1e-4) * (k_pm ** 2 + k ** 2) / (
+                                        #     2 * k * k_pm) - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
+                                    #     if X_Epm == "X_Eplus_ik":
+                                    #         self.kgrid[tp]["lambda_i_plus"][ib_pm][ik_pm] = lamb_ipm
+                                    #     elif X_Epm == "X_Eminus_ik":
+                                    #         self.kgrid[tp]["lambda_i_minus"][ib_pm][ik_pm] = lamb_ipm
+                                    #
+                                    #     S_i += ((N_POP + (1-j) + (-1)**(1-j)*f) * lamb_ipm * g_pm)/len_eqE
+                                    #
+                                    # else:
+                                    #     if X_Epm == "X_Eplus_ik":
+                                    #         S_i += (N_POP + 1 - f)*self.kgrid[tp]["lambda_i_plus"][ib_pm][ik_pm] * g_pm
+                                    #     elif X_Epm == "X_Eminus_ik":
+                                    #         S_i += (N_POP + f)*self.kgrid[tp]["lambda_i_minus"][ib_pm][ik_pm] * g_pm
+
+
+
+
+                                    if X_Epm == "X_Eplus_ik":
+                                        self.kgrid[tp]["lambda_i_plus"][ib_pm][ik_pm] = lamb_ipm
+                                    elif X_Epm == "X_Eminus_ik":
+                                        self.kgrid[tp]["lambda_i_minus"][ib_pm][ik_pm] = lamb_ipm
+
                                     S_i += ((N_POP + (1-j) + (-1)**(1-j)*f) * lamb_ipm * g_pm)/len_eqE
+
 
                             # self.kgrid[tp]["S_o" + g_suffix][c][T][ib][ik] = S_o
                             self.kgrid[tp]["S_i" + g_suffix][c][T][ib][ik] = S_i
@@ -2471,16 +2502,16 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": []}
+                    "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
-                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]],
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 35, "dE_global": 0.01}
+    performance_params = {"nkibz": 25, "dE_global": 0.01}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
