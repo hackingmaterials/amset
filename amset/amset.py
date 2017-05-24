@@ -2477,18 +2477,18 @@ if __name__ == "__main__":
     performance_params = {"nkibz": 25, "dE_global": 0.01}
 
     # test
-    PbTe_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
+    material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
                    "E_D": {"n": 4.0, "p": 4.0}}
-    PbTe_path = "../test_files/PbTe/nscf_line"
-    coeff_file = os.path.join(PbTe_path, "..", "fort.123")
+    cube_path = "../test_files/PbTe/nscf_line"
+    coeff_file = os.path.join(cube_path, "..", "fort.123")
 
-    # GaAs_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
+    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
     #                "E_D": {"n": 8.6, "p": 8.6}}
-    # GaAs_path = "../test_files/GaAs/"
-    # coeff_file = os.path.join(GaAs_path, "fort.123_GaAs_k23")
+    # cube_path = "../test_files/GaAs/"
+    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
 
 
-    AMSET = AMSET(calc_dir=PbTe_path, material_params=PbTe_params,
+    AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
         model_params = model_params, performance_params= performance_params)
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
