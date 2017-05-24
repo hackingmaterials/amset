@@ -2484,7 +2484,7 @@ if __name__ == "__main__":
 
     # GaAs_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
     #                "E_D": {"n": 8.6, "p": 8.6}}
-    # GaAs_path = "../test_files/GaAs_nscf_uniform/"
+    # GaAs_path = "../test_files/GaAs/"
     # coeff_file = os.path.join(GaAs_path, "fort.123_GaAs_k23")
 
 
