@@ -1852,7 +1852,7 @@ class AMSET(object):
             # if knrm < 1/(0.1*self._vrun.lattice.c*A_to_nm):
 
             # replaced hbar*knrm with m_e*norm(v)/(1e11*e) which is momentum
-            # return m_e * m_e*norm(v) * self.E_D[tp] ** 2 * k_B * T / (2 * pi * hbar ** 4 * self.C_el) \
+            # return m_e * m_e*v * self.E_D[tp] ** 2 * k_B * T / (3 * pi * hbar ** 4 * self.C_el) \
             #        * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) / (1e11*e) # 1/1e11*e is to convert kg.cm/s to hbar.k units (i.e. ev.s/nm)
 
         elif sname.upper() == "IMP": # double-checked the units and equation on 5/12/2017
@@ -2507,7 +2507,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 60, "dE_global": 0.01}
+    performance_params = {"nkibz": 30, "dE_global": 0.01}
 
     # test
     material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
