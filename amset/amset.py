@@ -244,7 +244,7 @@ class AMSET(object):
     def set_performance_params(self, params):
         self.nkibz = params.get("nkibz", 40)
         self.dE_global = params.get("dE_global", 0.01)
-        self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
+        self.Ecut = params.get("Ecut", 5 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -532,19 +532,21 @@ class AMSET(object):
         self.Efrequency = {"n": [], "p": []}
 
         # reshape energies of all bands to one vector:
-        E_idx = []
+        E_idx = {"n": [], "p": []}
         for tp in ["n", "p"]:
             for ib, en_vec in enumerate(self.kgrid[tp]["energy"]):
                 self.egrid[tp]["all_en_flat"] += list(en_vec)
                 # also store the flatten energy (i.e. no band index) as a tuple of band and k-indexes
-                E_idx += [(ib, iek) for iek in range(len(en_vec))]
+                E_idx[tp] += [(ib, iek) for iek in range(len(en_vec))]
 
             # get the indexes of sorted flattened energy
             ieidxs = np.argsort(self.egrid[tp]["all_en_flat"])
             self.egrid[tp]["all_en_flat"] = [self.egrid[tp]["all_en_flat"][ie] for ie in ieidxs]
 
             # sort the tuples of band and energy based on their energy
-            E_idx = [E_idx[ie] for ie in ieidxs]
+            E_idx[tp] = [E_idx[tp][ie] for ie in ieidxs]
+
+
 
 
         # setting up energy grid and DOS:
@@ -555,14 +557,14 @@ class AMSET(object):
             while i<len(self.egrid[tp]["all_en_flat"])-1:
                 sum_e = self.egrid[tp]["all_en_flat"][i]
                 counter = 1.0
-                current_ib_ie_idx = [E_idx[i]]
+                current_ib_ie_idx = [E_idx[tp][i]]
                 j = i
                 while j<len(self.egrid[tp]["all_en_flat"])-1 and \
                         abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][j+1]) < self.dE_global:
                 # while i < len(self.egrid[tp]["all_en_flat"]) - 1 and \
                 #          self.egrid[tp]["all_en_flat"][i] == self.egrid[tp]["all_en_flat"][i + 1] :
                     counter += 1
-                    current_ib_ie_idx.append(E_idx[j+1])
+                    current_ib_ie_idx.append(E_idx[tp][j+1])
                     sum_e += self.egrid[tp]["all_en_flat"][j+1]
                     if j+1 == len(self.egrid[tp]["all_en_flat"])-1:
                         last_is_counted = True
@@ -579,7 +581,7 @@ class AMSET(object):
 
             if not last_is_counted:
                 self.egrid[tp]["energy"].append(self.egrid[tp]["all_en_flat"][-1])
-                self.kgrid_to_egrid_idx[tp].append([E_idx[-1]])
+                self.kgrid_to_egrid_idx[tp].append([E_idx[tp][-1]])
                 if dos_tp.lower() == "simple":
                     self.egrid[tp]["DOS"].append(self.nelec / len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
@@ -591,10 +593,9 @@ class AMSET(object):
                 #TODO: what is the best value to pick for width here?I guess the lower is more precisely at each energy?
                 # dum, self.egrid[tp]["DOS"] = get_dos(self.egrid[tp]["energy"], energy_counter,width = 0.05)
 
-        print "here self.kgrid_to_egrid_idx"
-        # print self.kgrid_to_egrid_idx["n"]
-        print len(self.kgrid_to_egrid_idx["n"])
 
+        logging.debug("here self.kgrid_to_egrid_idx: {}".format(self.kgrid_to_egrid_idx["n"]))
+        logging.debug(self.kgrid["n"]["energy"])
 
 
         for tp in ["n", "p"]:
@@ -981,14 +982,14 @@ class AMSET(object):
         self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
 
 
-        test_k = [0.5, 0.5, 0.5]
-        print "equivalent ks"
-        # a = self.remove_duplicate_kpoints([np.dot(test_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))])
-        a = self.get_sym_eq_ks_in_first_BZ(test_k)
-        # a = self.remove_duplicate_kpoints(a)
-        # a = [np.dot(test_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
-        a = [i.tolist() for i in self.remove_duplicate_kpoints(a)]
-        print a
+        # test_k = [0.5, 0.5, 0.5]
+        # print "equivalent ks"
+        # # a = self.remove_duplicate_kpoints([np.dot(test_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))])
+        # a = self.get_sym_eq_ks_in_first_BZ(test_k)
+        # # a = self.remove_duplicate_kpoints(a)
+        # # a = [np.dot(test_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
+        # a = [i.tolist() for i in self.remove_duplicate_kpoints(a)]
+        # print a # would print [[-0.5, 0.0, 0.0], [0.0, -0.5, 0.0], [0.0, 0.0, -0.5], [0.5, 0.5, 0.5]]
 
         # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
         kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep))
@@ -1503,7 +1504,7 @@ class AMSET(object):
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
-        # weighted = False
+        # weighted = FalseE
 
         wpower = 1
         if xvel:
@@ -2507,18 +2508,18 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 30, "dE_global": 0.01}
+    performance_params = {"nkibz": 80, "dE_global": 0.01}
 
     # test
-    material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
-                   "E_D": {"n": 4.0, "p": 4.0}}
-    cube_path = "../test_files/PbTe/nscf_line"
-    coeff_file = os.path.join(cube_path, "..", "fort.123")
+    # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
+    #                "E_D": {"n": 4.0, "p": 4.0}}
+    # cube_path = "../test_files/PbTe/nscf_line"
+    # coeff_file = os.path.join(cube_path, "..", "fort.123")
     #
-    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-    #                "E_D": {"n": 8.6, "p": 8.6}}
-    # cube_path = "../test_files/GaAs/"
-    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
+    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
+                   "E_D": {"n": 8.6, "p": 8.6}}
+    cube_path = "../test_files/GaAs/"
+    coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
 
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
