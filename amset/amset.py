@@ -1075,6 +1075,8 @@ class AMSET(object):
         kpts += symmetrically_equivalent_ks
         kpts = self.remove_duplicate_kpoints(kpts)
 
+        logging.debug("number of kpoints after symmetrically equivalent kpoints are added: {}".format(len(kpts)))
+
         kweights = [1.0 for i in kpts]
 
         self.kgrid = {
@@ -1827,14 +1829,14 @@ class AMSET(object):
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
 
         # knrm = norm(self.kgrid[tp]["kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
-        knrm = m_e*v/(hbar*e*1e11)
+        knrm = m_e*v/(hbar*e*1e11) # in nm given that v is in cm/s and hbar in eV.s
 
         par_c = self.kgrid[tp]["c"][ib][ik]
 
         if sname.upper() == "ACD":
             # The following two lines are from Rode's chapter (page 38)
             return (k_B*T*self.E_D[tp]**2*knrm**2)/(3*pi*hbar**2*self.C_el*1e9* v)\
-            *(3-8*par_c**2+6*par_c**4)*e*1e20
+            *(3-8*par_c**2+6*par_c**4)*e*1e20    /10
 
 
 
@@ -2415,7 +2417,13 @@ class AMSET(object):
 
             plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp]["energy"][0])
 
+            plt = PlotlyFig(plot_mode='offline', y_title="norm(velocity) (cm/s)", x_title="norm(k)",
+                            plot_title="velocity in kgrid",
+                            filename=os.path.join(path, "{}_{}.{}".format("v_kgrid", tp, fformat)),
+                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
+                            margin_bottom=margin_bottom)
 
+            plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp]["norm(v)"][0])
 
             # prop_list = ["relaxation time", "_all_elastic", "ACD", "IMP", "PIE", "df0dk"]
             prop_list = ["relaxation time", "_all_elastic", "df0dk"] + self.elastic_scatterings
@@ -2490,7 +2498,7 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"],
+                    "inelastic_scatterings": [],
                     # TODO: for testing, remove this part later:
                     "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
@@ -2499,18 +2507,18 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 65, "dE_global": 0.01}
+    performance_params = {"nkibz": 60, "dE_global": 0.01}
 
     # test
-    # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
-    #                "E_D": {"n": 4.0, "p": 4.0}}
-    # cube_path = "../test_files/PbTe/nscf_line"
-    # coeff_file = os.path.join(cube_path, "..", "fort.123")
+    material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
+                   "E_D": {"n": 4.0, "p": 4.0}}
+    cube_path = "../test_files/PbTe/nscf_line"
+    coeff_file = os.path.join(cube_path, "..", "fort.123")
     #
-    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-                   "E_D": {"n": 8.6, "p": 8.6}}
-    cube_path = "../test_files/GaAs/"
-    coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
+    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
+    #                "E_D": {"n": 8.6, "p": 8.6}}
+    # cube_path = "../test_files/GaAs/"
+    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
