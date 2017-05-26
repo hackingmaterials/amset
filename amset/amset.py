@@ -244,7 +244,7 @@ class AMSET(object):
     def set_performance_params(self, params):
         self.nkibz = params.get("nkibz", 40)
         self.dE_global = params.get("dE_global", 0.01)
-        self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
+        self.Ecut = params.get("Ecut", 5 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -430,8 +430,8 @@ class AMSET(object):
         logging.debug("original cbm_vbm:\n {}".format(self.cbm_vbm))
 
         # TODO: for now, I only include 1 band for each as I get some errors if I inlude more bands
-        for tp in ["n", "p"]:
-            self.cbm_vbm[tp]["included"] = 1
+        # for tp in ["n", "p"]:
+        #     self.cbm_vbm[tp]["included"] = 1
 
     def get_tp(self, c):
         """returns "n" for n-tp or negative carrier concentration or "p" (p-tp)."""
@@ -1012,10 +1012,11 @@ class AMSET(object):
             all_ibands = []
             for i, tp in enumerate(["p", "n"]):
                 for ib in range(self.cbm_vbm[tp]["included"]):
-                    sgn = (-1) ** i
+                    sgn = (-1) ** (i+1)
                     all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
 
             start_time = time.time()
+            logging.debug("all_ibands: {}".format(all_ibands))
 
             engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
             nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
@@ -1025,7 +1026,6 @@ class AMSET(object):
                     out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
 
             print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
-
 
 
         else:
@@ -1038,6 +1038,7 @@ class AMSET(object):
                         self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0],cartesian=True))
 
 
+        # calculate only the CBM and VBM energy values
         # here we assume that the cbm and vbm k-points read from vasprun.xml are correct:
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
@@ -1065,7 +1066,8 @@ class AMSET(object):
         rm_list = {"n": [], "p": []}
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
-            for ib in range(self.cbm_vbm[tp]["included"]):
+            # for ib in range(self.cbm_vbm[tp]["included"]):
+            for ib in [0]: # we only include the first band now
                 for ik in range(len(kpts)):
                     if not self.poly_bands:
                         energy, de, dde = analytical_bands.get_energy(
@@ -1143,9 +1145,10 @@ class AMSET(object):
         self.initialize_var("kgrid", ["cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
 
-        # logging.debug("here the initial n-kpoints:\n {}".format(self.kgrid["n"]["kpoints"]))
+        logging.debug("here the initial n-kpoints:\n {}".format(self.kgrid["n"]["kpoints"]))
         # logging.debug("here the initial p-kpoints:\n {}".format(self.kgrid["p"]["kpoints"]))
         # initialize energy, velocity, etc in self.kgrid
+
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -1166,6 +1169,8 @@ class AMSET(object):
                         energy, velocity, effective_mass=get_poly_energy(self.kgrid[tp]["cartesian kpoints"][ib][ik],
                                                                               poly_bands=self.poly_bands,
                             type=tp, ib=ib,bandgap=self.dft_gap+self.scissor)
+
+                    # velocity /= 2
 
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
@@ -1198,6 +1203,8 @@ class AMSET(object):
         rearranged_props = ["velocity","effective mass","energy", "a", "c", "kpoints","cartesian kpoints","kweights",
                              "norm(v)", "norm(k)"]
 
+
+        # remove the k-points with off-energy values (>Ecut away from CBM/VBM) that are not removed already
         self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
 
 
@@ -1696,11 +1703,17 @@ class AMSET(object):
         #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
         #        * 1.0/self.kgrid[tp]["velocity"][ib_prm][ik_prm]
 
-        return (1 - X) * (m_e * self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / (
+        # previous match (commented on 5/26/2017)
+        # return (1 - X) * (m_e * self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / (
+        #     hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
+        #        * 1.0 / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
+
+        # in the numerator we use velocity as k_nrm is defined in each direction as they are treated independently (see s_el_eq_isotropic for more info)
+        return (1 - X) * (m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
             hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
                * 1.0 / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
-
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
@@ -1879,7 +1892,7 @@ class AMSET(object):
         # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
         # v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
         # v = norm(self.kgrid[tp]["velocity"][ib][ik])
-        v = self.kgrid[tp]["norm(v)"][ib][ik]
+        v = self.kgrid[tp]["norm(v)"][ib][ik] / 3**0.5 # because of isotropic assumption, we treat the BS as 1D
         # v = self.kgrid[tp]["velocity"][ib][ik] # because it's isotropic, it doesn't matter which one we choose
         # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
@@ -1891,8 +1904,8 @@ class AMSET(object):
 
         if sname.upper() == "ACD":
             # The following two lines are from Rode's chapter (page 38)
-            return (k_B*T*self.E_D[tp]**2*knrm**2)/(3*pi*hbar**2*self.C_el*1e9* v)\
-            *(3-8*par_c**2+6*par_c**4)*e*1e20    /10
+            return (k_B*T*self.E_D[tp]**2*knrm**2)/(3*pi*hbar**2*self.C_el*1e9*v)\
+            *(3-8*par_c**2+6*par_c**4)*e*1e20
 
 
 
@@ -2563,7 +2576,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 70, "dE_global": 0.01}
+    performance_params = {"nkibz": 60, "dE_global": 0.01}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2574,7 +2587,8 @@ if __name__ == "__main__":
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
                    "E_D": {"n": 8.6, "p": 8.6}}
     cube_path = "../test_files/GaAs/"
-    coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
