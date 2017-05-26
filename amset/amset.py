@@ -1784,7 +1784,7 @@ class AMSET(object):
                             # S_o = np.array([self.gs, self.gs, self.gs])
 
                             # v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
-                            v = self.kgrid[tp]["norm(v)"][ib][ik]
+                            v = self.kgrid[tp]["norm(v)"][ib][ik] / 3**0.5 # 3**0.5 is to treat each direction as 1D BS
 
                             k = m_e * v / (hbar * e * 1e11)
                             a = self.kgrid[tp]["a"][ib][ik]
@@ -1801,7 +1801,7 @@ class AMSET(object):
                                     X, ib_pm, ik_pm = X_ib_ik
                                     g_pm = self.kgrid[tp]["g" + g_suffix][c][T][ib_pm][ik_pm]
 
-                                    v_pm= self.kgrid[tp]["norm(v)"][ib_pm][ik_pm]
+                                    v_pm= self.kgrid[tp]["norm(v)"][ib_pm][ik_pm]/ 3**0.5 # 3**0.5 is to treat each direction as 1D BS
 
                                     k_pm  = m_e*v_pm/(hbar*e*1e11)
 
@@ -2526,8 +2526,9 @@ class AMSET(object):
                     y_col = [self.egrid[tp]["energy"][i+1]-\
                                         self.egrid[tp]["energy"][i] for i in range(len(self.egrid[tp]["energy"])-1)]
                 else:
-                    y_col = [norm(p) for p in self.egrid[tp][prop_name]] # velocity is actually a vector so we take norm
-                    plt.xy_plot(x_col=self.egrid[tp]["energy"][:len(y_col)], y_col=y_col)
+                    y_col = [sum(p)/3 for p in self.egrid[tp][prop_name]] # velocity is actually a vector so we take norm
+                    plt.xy_plot(x_col=self.egrid[tp]["energy"][:len(y_col)], y_col=y_col, error_type="data",
+                                error_array=[np.std(p) for p in self.egrid[tp][prop_name]], error_direction="y")
                     # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
             # plot versus norm(k) in self.kgrid
