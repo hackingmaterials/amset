@@ -244,7 +244,7 @@ class AMSET(object):
     def set_performance_params(self, params):
         self.nkibz = params.get("nkibz", 40)
         self.dE_global = params.get("dE_global", 0.01)
-        self.Ecut = params.get("Ecut", 5 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
+        self.Ecut = params.get("Ecut", 20 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -704,6 +704,14 @@ class AMSET(object):
         # temp_min = {"n": self.gl, "p": self.gl}
         for i, tp in enumerate(["n", "p"]):
             for ib in range(self.cbm_vbm[tp]["included"]):
+                rm_idx_list_ib = list(set(rm_idx_list[tp][ib]))
+                rm_idx_list_ib.sort(reverse=True)
+                rm_idx_list[tp][ib] = rm_idx_list_ib
+                logging.debug("# of kpoints indexes with low velocity: {}".format(len(rm_idx_list_ib)))
+            for prop in rearranged_props:
+                self.kgrid[tp][prop] = np.array([np.delete(self.kgrid[tp][prop][ib], rm_idx_list[tp][ib], axis=0)\
+                                    for ib in range(self.cbm_vbm[tp]["included"])])
+            # for ib in range(self.cbm_vbm[tp]["included"]):
 
                 # for ik in rm_idx_list:
                 #     if (-1)**i * self.kgrid[tp]["energy"][ib][ik] < temp_min[tp]:
@@ -711,12 +719,9 @@ class AMSET(object):
                 #         self.cbm_vbm[tp]["eff_mass_xx"]=(-1)**i*self.kgrid[tp]["effective mass"][ib][ik].diagonal()
                 #         self.cbm_vbm[tp]["energy"] = self.kgrid[tp]["energy"][ib][ik]
 
-                rm_idx_list_ib = list(set(rm_idx_list[tp][ib]))
-                rm_idx_list_ib.sort(reverse=True)
-                logging.debug("# of kpoints indexes with low velocity: {}".format(len(rm_idx_list_ib)))
 
-                for prop in rearranged_props:
-                    self.kgrid[tp][prop] = np.delete(self.kgrid[tp][prop], rm_idx_list_ib, axis=1)
+                # for prop in rearranged_props:
+                #     self.kgrid[tp][prop][ib] = np.delete(self.kgrid[tp][prop][ib], rm_idx_list_ib, axis=1)
 
 
 
@@ -1038,13 +1043,13 @@ class AMSET(object):
                         self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0],cartesian=True))
 
 
-        # calculate only the CBM and VBM energy values
+        # calculate only the CBM and VBM energy values (ib == 0)
         # here we assume that the cbm and vbm k-points read from vasprun.xml are correct:
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             if not self.poly_bands:
                 energy, de, dde = analytical_bands.get_energy(
-                    self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"] + ib],
+                    self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"] + 0],
                     nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                 energy *= Ry_to_eV + sgn * self.scissor / 2
                 effective_m = hbar ** 2 / (
@@ -1053,7 +1058,7 @@ class AMSET(object):
             else:
                 energy, velocity, effective_m = get_poly_energy(
                     np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix / A_to_nm * 2 * pi),
-                    poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+                    poly_bands=self.poly_bands, type=tp, ib=0, bandgap=self.dft_gap + self.scissor)
 
             self.cbm_vbm[tp]["energy"] = energy
             self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
@@ -1067,7 +1072,7 @@ class AMSET(object):
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
-            for ib in [0]: # we only include the first band now
+            for ib in [0]: # we only include the first band now (same for energies) to decide on ibz k-points
                 for ik in range(len(kpts)):
                     if not self.poly_bands:
                         energy, de, dde = analytical_bands.get_energy(
@@ -1094,8 +1099,10 @@ class AMSET(object):
                             abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                         rm_list[tp].append(ik)
 
+        # logging.debug("energies before removing k-points with off-energy:\n {}".format(energies))
         kpts = np.delete(kpts, list(set(rm_list["n"]+rm_list["p"])), axis=0)
         kpts = list(kpts)
+        logging.debug("initial # of kpts after off-energy points are removed: {}".format(len(kpts)))
         for tp in ["n", "p"]:
             energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
 
@@ -1145,7 +1152,7 @@ class AMSET(object):
         self.initialize_var("kgrid", ["cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
 
-        logging.debug("here the initial n-kpoints:\n {}".format(self.kgrid["n"]["kpoints"]))
+        # logging.debug("here the initial n-kpoints:\n {}".format(self.kgrid["n"]["kpoints"]))
         # logging.debug("here the initial p-kpoints:\n {}".format(self.kgrid["p"]["kpoints"]))
         # initialize energy, velocity, etc in self.kgrid
 
@@ -1210,6 +1217,7 @@ class AMSET(object):
 
         # emin & emax were initialized based on the real input band structure but that should change if self.poly_bands
         self.emin = min(self.kgrid["p"]["energy"][-1])
+        # logging.debug('here test self.kgrid["n"]["energy"]\n {}'.format(self.kgrid["n"]["energy"]))
         self.emax = max(self.kgrid["n"]["energy"][-1])
 
         print "emin and emax"
@@ -2577,7 +2585,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 60, "dE_global": 0.01}
+    performance_params = {"nkibz": 40, "dE_global": 0.01}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
