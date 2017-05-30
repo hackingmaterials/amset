@@ -244,7 +244,7 @@ class AMSET(object):
     def set_performance_params(self, params):
         self.nkibz = params.get("nkibz", 40)
         self.dE_global = params.get("dE_global", 0.01)
-        self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
+        self.Ecut = params.get("Ecut", 5 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -1906,8 +1906,11 @@ class AMSET(object):
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
 
         # knrm = norm(self.kgrid[tp]["kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
-        knrm = m_e*v/(hbar*e*1e11) # in nm given that v is in cm/s and hbar in eV.s
 
+
+        # knrm = m_e*v/(hbar*e*1e11) # in nm given that v is in cm/s and hbar in eV.s; this resulted in very high ACD and IMP scattering rates, actually only PIE would match with aMoBT results as it doesn't have k_nrm in its formula
+        #TODO: make sure that ACD scattering as well as others match in SPB between bs_is_isotropic and when knrm is the following and not above (i.e. not m*v/hbar*e)
+        knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
         par_c = self.kgrid[tp]["c"][ib][ik]
 
         if sname.upper() == "ACD":
@@ -2585,7 +2588,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 40, "dE_global": 0.01}
+    performance_params = {"nkibz": 70, "dE_global": 0.01}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
