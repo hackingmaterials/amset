@@ -595,8 +595,8 @@ class AMSET(object):
                 # dum, self.egrid[tp]["DOS"] = get_dos(self.egrid[tp]["energy"], energy_counter,width = 0.05)
 
 
-        logging.debug("here self.kgrid_to_egrid_idx: {}".format(self.kgrid_to_egrid_idx["n"]))
-        logging.debug(self.kgrid["n"]["energy"])
+        # logging.debug("here self.kgrid_to_egrid_idx: {}".format(self.kgrid_to_egrid_idx["n"]))
+        # logging.debug(self.kgrid["n"]["energy"])
 
 
         for tp in ["n", "p"]:
@@ -629,10 +629,10 @@ class AMSET(object):
 
         # self.egrid["fermi"]= {
         #     -1e+20: {
-        #         300.0: 0.741270585451,
-        #         600.0: 0.619743485311
+        #         300.0: 1.2166,
+        #         600.0: 1.1791
         #     } }
-        #
+
 
 
         # self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
@@ -1293,14 +1293,19 @@ class AMSET(object):
 
         integ = 0.0
         for idos in range(len(dos) - 2):
-            if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
-                break
+            # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
+            #     break
             integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
         # normalize DOS
-        dos = [g / integ * self.nelec for g in dos]
-        logging.debug("integral of dos: {}".format(integ))
+        logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
+        # dos = [g / integ * self.nelec for g in dos]
+        dos = [g / integ * self.dos_normalization_factor for g in dos]
+
+        logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
 
         self.dos = zip(emesh, dos)
+        logging.debug("dos after normalization: \n {}".format(self.dos))
+
         self.dos = [list(a) for a in self.dos]
 
 
@@ -2193,7 +2198,7 @@ class AMSET(object):
             # TODO: The DOS needs to be revised, if a more accurate DOS is implemented
             # integral = self.integrate_over_E(func=func, tp=tp, fermi=self.egrid["fermi"][c][T], T=T)
             integral = self.integrate_over_E(prop_list=["f0x1-f0"], tp=tp, c=c, T=T, xDOS=True)
-            integral *= self.nelec
+            # integral *= self.nelec
             beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
         return beta
 
@@ -2588,7 +2593,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 70, "dE_global": 0.01}
+    performance_params = {"nkibz": 90, "dE_global": 0.01}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
