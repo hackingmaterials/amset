@@ -410,11 +410,11 @@ class AMSET(object):
 
         bs = bs.as_dict()
         if bs["is_spin_polarized"]:
-            self.emin = min(bs["bands"]["1"][0] , bs["bands"]["-1"][0])
-            self.emax = max(bs["bands"]["1"][-1] , bs["bands"]["-1"][-1])
+            self.dos_emin = min(bs["bands"]["1"][0] , bs["bands"]["-1"][0])
+            self.dos_emax = max(bs["bands"]["1"][-1] , bs["bands"]["-1"][-1])
         else:
-            self.emin = min(bs["bands"]["1"][0])
-            self.emax = max(bs["bands"]["1"][-1])
+            self.dos_emin = min(bs["bands"]["1"][0])
+            self.dos_emax = max(bs["bands"]["1"][-1])
 
         for i, tp in enumerate(["n", "p"]):
             sgn = (-1)**i
@@ -654,9 +654,9 @@ class AMSET(object):
     def get_Eidx_in_dos(self, E, Estep=None):
         if not Estep:
             Estep = max(self.dE_global, 0.0001)
-        return int(round((E - self.emin) / Estep))
+        return int(round((E - self.dos_emin) / Estep))
 
-        # return min(int(round((E - self.emin) / Estep)) , len(self.dos)-1)
+        # return min(int(round((E - self.dos_emin) / Estep)) , len(self.dos)-1)
 
 
 
@@ -1060,8 +1060,14 @@ class AMSET(object):
                     np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix / A_to_nm * 2 * pi),
                     poly_bands=self.poly_bands, type=tp, ib=0, bandgap=self.dft_gap + self.scissor)
 
+            self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
+            logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
             self.cbm_vbm[tp]["energy"] = energy
             self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
+
+        self.dos_emax += self.offset_from_vrun
+        self.dos_emin += self.offset_from_vrun
+
         logging.debug("cbm_vbm after looking at energies:\n {}".format(self.cbm_vbm))
 
 
@@ -1210,19 +1216,22 @@ class AMSET(object):
         rearranged_props = ["velocity","effective mass","energy", "a", "c", "kpoints","cartesian kpoints","kweights",
                              "norm(v)", "norm(k)"]
 
+        if self.poly_bands:
+            self.dos_emin = min(self.kgrid["p"]["energy"][-1])
+            self.dos_emax = max(self.kgrid["n"]["energy"][-1])
 
         # remove the k-points with off-energy values (>Ecut away from CBM/VBM) that are not removed already
         self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
 
 
-        # emin & emax were initialized based on the real input band structure but that should change if self.poly_bands
-        self.emin = min(self.kgrid["p"]["energy"][-1])
-        # logging.debug('here test self.kgrid["n"]["energy"]\n {}'.format(self.kgrid["n"]["energy"]))
-        self.emax = max(self.kgrid["n"]["energy"][-1])
+        # # emin & emax were initialized based on the real input band structure but that should change if self.poly_bands
+        # self.dos_emin = min(self.kgrid["p"]["energy"][-1])
+        # # logging.debug('here test self.kgrid["n"]["energy"]\n {}'.format(self.kgrid["n"]["energy"]))
+        # self.dos_emax = max(self.kgrid["n"]["energy"][-1])
 
         print "emin and emax"
-        print self.emin
-        print self.emax
+        print self.dos_emin
+        print self.dos_emax
 
 
         print "here the final number of k-points"
@@ -1272,17 +1281,15 @@ class AMSET(object):
         if not self.poly_bands:
             # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
             emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
-                        self.emin, self.emax, int(round((self.emax-self.emin)/max(self.dE_global, 0.0001)))+1, width=self.dos_bwidth)
+                        self.dos_emin, self.dos_emax, int(round((self.dos_emax-self.dos_emin)/max(self.dE_global, 0.0001)))+1, width=self.dos_bwidth)
         else:
-            print "here self.poly_bands"
-            print self.poly_bands
-
+            logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
 
             # now construct the DOS
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix,
                                                  [self.nkdos, self.nkdos, self.nkdos],
-                                                 self.emin, self.emax,
-                                                 int(round((self.emax - self.emin) / max(self.dE_global, 0.0001)))+1,
+                                                 self.dos_emin, self.dos_emax,
+                                                 int(round((self.dos_emax - self.dos_emin) / max(self.dE_global, 0.0001)))+1,
                                                  poly_bands=self.poly_bands,
                                                  bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
                                                      "energy"] + self.scissor, width=self.dos_bwidth, SPB_DOS=True)
