@@ -1289,7 +1289,7 @@ class AMSET(object):
             # total_nelec = len(self.poly_bands) * 2 # basically 2x number of included occupied bands (valence bands)
             # total_nelec = self.nelec
             self.dos_normalization_factor = len(
-                self.poly_bands)  # it is *2 elec/band but /2 because DOS is repeated in valence/conduction
+                self.poly_bands)*2*2  # it is *2 elec/band & *2 because DOS is repeated in valence/conduction
 
         integ = 0.0
         for idos in range(len(dos) - 2):
