@@ -1012,11 +1012,11 @@ class AMSET(object):
         # a = [i.tolist() for i in self.remove_duplicate_kpoints(a)]
         # print a # would print [[-0.5, 0.0, 0.0], [0.0, -0.5, 0.0], [0.0, 0.0, -0.5], [0.5, 0.5, 0.5]]
 
-        # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.01, 0.01, 0.01))
-        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep))
+        # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
+        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.00, 0.00))
+        # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep))
         kpts = [i[0] for i in kpts_and_weights]
         kpts = self.kpts_to_first_BZ(kpts)
-
 
         # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
         kpts.append(self.cbm_vbm["n"]["kpoint"])
@@ -1288,6 +1288,8 @@ class AMSET(object):
         self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
                 "f", "f_th", "relaxation time", "df0dk", "electric force", "thermal force"],
                         val_type="vector", initval=self.gs, is_nparray=True, c_T_idx=True)
+
+
         self.initialize_var("kgrid", ["f0", "f_plus", "f_minus","g_plus", "g_minus"], "vector", self.gs, is_nparray=True, c_T_idx=True)
         # self.initialize_var("kgrid", ["lambda_i_plus", "lambda_i_minus"]
         #                     , "vector", self.gs, is_nparray=True, c_T_idx=False)
@@ -1326,7 +1328,7 @@ class AMSET(object):
         # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
 
         self.dos = zip(emesh, dos)
-        logging.debug("dos after normalization: \n {}".format(self.dos))
+        # logging.debug("dos after normalization: \n {}".format(self.dos))
 
         self.dos = [list(a) for a in self.dos]
 
@@ -2034,6 +2036,9 @@ class AMSET(object):
                                     print self.kgrid[tp]["X_E_ik"][ib][ik]
                                     print
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
+
+                        # logging.debug("relaxation time at c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["relaxation time"][c][T][ib]))
+                        # logging.debug("_all_elastic c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["_all_elastic"][c][T][ib]))
                         self.kgrid[tp]["relaxation time"][c][T][ib] = 1/self.kgrid[tp]["_all_elastic"][c][T][ib]
 
 
@@ -2631,7 +2636,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 110, "dE_global": 0.01}
+    performance_params = {"nkibz": 150, "dE_global": 0.01}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
