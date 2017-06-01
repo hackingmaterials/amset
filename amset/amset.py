@@ -341,7 +341,7 @@ class AMSET(object):
                     del (self.kgrid[tp][rm])
                 except:
                     pass
-            for erm in ["all_en_flat", "f0x1-f0", "f_th", "g_th", "S_i_th", "S_o_th"]:
+            for erm in ["all_en_flat", "f_th", "g_th", "S_i_th", "S_o_th"]:
                 try:
                     del (self.egrid[tp][erm])
                 except:
@@ -366,6 +366,7 @@ class AMSET(object):
     def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
         self._vrun = Vasprun(os.path.join(calc_dir, filename))
         self.volume = self._vrun.final_structure.volume
+        logging.debug("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
         print self._lattice_matrix
@@ -641,10 +642,24 @@ class AMSET(object):
 
         for prop in ["f", "f_th"]:
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
+
         self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi, T: f0(E, fermi, T)
                                                                         * (1 - f0(E, fermi, T)), for_all_E=True)
-        self.calculate_property(prop_name="df0dE", prop_func=df0dE, for_all_E=True)
         self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
+
+        # self.egrid["beta"] =  {
+        #             -1e+20: {
+        #                 300: {
+        #                     "n": 0.36166217210814655,
+        #                     "p": 7.366123307507122e-16
+        #                 },
+        #                 600: {
+        #                     "n": 0.2643208622509363,
+        #                     "p": 6.141492700626864e-05
+        #                 }
+        #             }
+        #         }
+
         self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
         self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
         self.calculate_property(prop_name="Seebeck_integral_denominator", prop_func=self.seeb_int_denom)
@@ -1304,11 +1319,11 @@ class AMSET(object):
             #     break
             integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
         # normalize DOS
-        logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
+        # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
         # dos = [g / integ * self.nelec for g in dos]
         dos = [g / integ * self.dos_normalization_factor for g in dos]
 
-        logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
+        # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
 
         self.dos = zip(emesh, dos)
         logging.debug("dos after normalization: \n {}".format(self.dos))
@@ -1540,7 +1555,7 @@ class AMSET(object):
 
 
 
-    def integrate_over_BZ(self,prop_list, tp, c, T, xvel=False, weighted=True):
+    def integrate_over_BZ(self,prop_list, tp, c, T, xDOS=False, xvel=False, weighted=True):
 
         weighted = False
 
@@ -1561,8 +1576,8 @@ class AMSET(object):
             dE = abs(self.egrid[tp]["energy"][ie + 1] - self.egrid[tp]["energy"][ie])
             sum_over_k = np.array([self.gs, self.gs, self.gs])
             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                # k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
-                k_nrm = m_e * self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
+                k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
+                # k_nrm = m_e * self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
                 product = k_nrm**2/self.kgrid[tp]["norm(v)"][ib][ik]
                 if xvel:
                     product *= self.kgrid[tp]["velocity"][ib][ik]
@@ -1572,6 +1587,8 @@ class AMSET(object):
                     else:
                         product *= self.kgrid[tp][p][c][T][ib][ik]
                 sum_over_k += product
+            if xDOS:
+                sum_over_k *= self.egrid[tp]["DOS"][ie]
             if weighted:
                 sum_over_k *= self.Efrequency[tp][ie]**(wpower)
             integral += sum_over_k*dE
@@ -1600,11 +1617,11 @@ class AMSET(object):
         integral = self.gs
         # for ie in range(len(self.egrid[tp]["energy"]) - 1):
         for ie in range(imax_occ):
-            if weighted:
-                f0 = self.egrid[tp]["f0"][c][T][ie]
-                dfdE = self.egrid[tp]["df0dE"][c][T][ie]
-                df0 = (self.egrid[tp]["f0"][c][T][ie + 1] - f0) / interpolation_nsteps
-                ddfdE = self.egrid[tp]["df0dE"][c][T][ie+1] - dfdE
+            # if weighted:
+            #     f0 = self.egrid[tp]["f0"][c][T][ie]
+            #     dfdE = self.egrid[tp]["df0dE"][c][T][ie]
+            #     df0 = (self.egrid[tp]["f0"][c][T][ie + 1] - f0) / interpolation_nsteps
+            #     ddfdE = self.egrid[tp]["df0dE"][c][T][ie+1] - dfdE
             E = self.egrid[tp]["energy"][ie]
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if xDOS:
@@ -1953,6 +1970,7 @@ class AMSET(object):
             B_II = (4*knrm**2/beta**2)/(1+4*knrm**2/beta**2)+8*(beta**2+2*knrm**2)/(beta**2+4*knrm**2)*par_c**2+\
                    (3*beta**4+6*beta**2*knrm**2-8*knrm**4)/((beta**2+4*knrm**2)*knrm**2)*par_c**4
             D_II = 1+2*beta**2*par_c**2/knrm**2+3*beta**4*par_c**4/(4*knrm**4)
+
             return abs( (e**4*abs(self.egrid["N_II"][c][T]))/(8*pi*v*self.epsilon_s**2*epsilon_0**2*hbar**2*
                         knrm**2)*(D_II*log(1+4*knrm**2/beta**2)-B_II)*3.89564386e27 )
 
@@ -2204,9 +2222,13 @@ class AMSET(object):
         for tp in ["n", "p"]:
             # TODO: The DOS needs to be revised, if a more accurate DOS is implemented
             # integral = self.integrate_over_E(func=func, tp=tp, fermi=self.egrid["fermi"][c][T], T=T)
-            integral = self.integrate_over_E(prop_list=["f0x1-f0"], tp=tp, c=c, T=T, xDOS=True)
+
+            # because this integral has no denominator to cancel the effect of weights, we do non-weighted integral
+            integral = self.integrate_over_E(prop_list=["f0x1-f0"], tp=tp, c=c, T=T, xDOS=True, weighted=False)
+
             # integral *= self.nelec
-            beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
+            # beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
+            beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral/self.volume * 1e12/e)**0.5
         return beta
 
 
@@ -2372,7 +2394,7 @@ class AMSET(object):
                         if integrate_over_kgrid:
                             self.egrid["mobility"][mu_el][c][T][tp] = (-1) * default_small_E / hbar * (4 * pi) / hbar * \
                                  self.integrate_over_BZ(prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c,
-                                        T=T, xvel=True, weighted=True) * 1e-7 * 1e-3 * self.volume
+                                        T=T, xDOS=False, xvel=True, weighted=True) * 1e-7 * 1e-3 * self.volume
 
                         else:
                             self.egrid["mobility"][mu_el][c][T][tp] = (-1) * default_small_E / hbar * \
@@ -2380,7 +2402,7 @@ class AMSET(object):
 
 
                     if integrate_over_kgrid:
-                        denom = 4*pi/hbar * self.integrate_over_BZ(["f0"], tp,c,T, xvel=False, weighted=True) * 1e-7*1e-3 *self.volume
+                        denom = 4*pi/hbar * self.integrate_over_BZ(["f0"], tp,c,T, xDOS=False, xvel=False, weighted=True) * 1e-7*1e-3 *self.volume
                         # common_denominator = self.integrate_over_E(["f0"], tp,c,T, xvel=False, xDOS=False, weighted=False)
                         if tp=="n":
                             print "{}-type common denominator at {} K".format(tp, T)
@@ -2402,7 +2424,7 @@ class AMSET(object):
 
 
                     if integrate_over_kgrid:
-                        self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T, xvel=True, weighted=True)
+                        self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T, xDos=False, xvel=True, weighted=True)
                         print "overll numerator"
                         print self.egrid["mobility"]["overall"][c][T][tp]
                     else:
