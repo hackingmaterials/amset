@@ -1578,12 +1578,16 @@ class AMSET(object):
             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                 k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
                 # k_nrm = m_e * self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
-                product = k_nrm**2/self.kgrid[tp]["norm(v)"][ib][ik]
+
+                # 4*pi, hbar and norm(v) are coming from the conversion of dk to dE
+                product = k_nrm**2/self.kgrid[tp]["norm(v)"][ib][ik] *4*pi/hbar
                 if xvel:
                     product *= self.kgrid[tp]["velocity"][ib][ik]
                 for j, p in enumerate(prop_list):
                     if p[0] == "/":
                         product /= self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik]
+                    elif p[0] == "1": # this assumes that the property is 1-f0 for example
+                        product *= 1 - self.kgrid[tp][p.split("-")[-1]][c][T][ib][ik]
                     else:
                         product *= self.kgrid[tp][p][c][T][ib][ik]
                 sum_over_k += product
@@ -2224,11 +2228,16 @@ class AMSET(object):
             # integral = self.integrate_over_E(func=func, tp=tp, fermi=self.egrid["fermi"][c][T], T=T)
 
             # because this integral has no denominator to cancel the effect of weights, we do non-weighted integral
-            integral = self.integrate_over_E(prop_list=["f0x1-f0"], tp=tp, c=c, T=T, xDOS=True, weighted=False)
+            # integrate in egrid with /volume and proper unit conversion
+            # we assume here that DOS is normalized already
+            integral = self.integrate_over_E(prop_list=["f0x1-f0"], tp=tp, c=c, T=T, xDOS=True, weighted=True)
+            # integral = sum(self.integrate_over_BZ(["f0", "1-f0"], tp, c, T, xDOS=True, xvel=False, weighted=False))/3
 
-            # integral *= self.nelec
             # beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
+
             beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral/self.volume * 1e12/e)**0.5
+            # beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 100/e)**0.5
+
         return beta
 
 
@@ -2392,7 +2401,7 @@ class AMSET(object):
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
                         if integrate_over_kgrid:
-                            self.egrid["mobility"][mu_el][c][T][tp] = (-1) * default_small_E / hbar * (4 * pi) / hbar * \
+                            self.egrid["mobility"][mu_el][c][T][tp] = (-1) * default_small_E / hbar  * \
                                  self.integrate_over_BZ(prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c,
                                         T=T, xDOS=False, xvel=True, weighted=True) * 1e-7 * 1e-3 * self.volume
 
@@ -2402,7 +2411,7 @@ class AMSET(object):
 
 
                     if integrate_over_kgrid:
-                        denom = 4*pi/hbar * self.integrate_over_BZ(["f0"], tp,c,T, xDOS=False, xvel=False, weighted=True) * 1e-7*1e-3 *self.volume
+                        denom = self.integrate_over_BZ(["f0"], tp,c,T, xDOS=False, xvel=False, weighted=True) * 1e-7*1e-3 *self.volume
                         # common_denominator = self.integrate_over_E(["f0"], tp,c,T, xvel=False, xDOS=False, weighted=False)
                         if tp=="n":
                             print "{}-type common denominator at {} K".format(tp, T)
@@ -2622,7 +2631,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 90, "dE_global": 0.01}
+    performance_params = {"nkibz": 110, "dE_global": 0.01}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
