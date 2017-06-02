@@ -1013,7 +1013,7 @@ class AMSET(object):
         # print a # would print [[-0.5, 0.0, 0.0], [0.0, -0.5, 0.0], [0.0, 0.0, -0.5], [0.5, 0.5, 0.5]]
 
         # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
-        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.00, 0.00))
+        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.03, 0.06))
         # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep))
         kpts = [i[0] for i in kpts_and_weights]
         kpts = self.kpts_to_first_BZ(kpts)
@@ -1234,6 +1234,11 @@ class AMSET(object):
         if self.poly_bands:
             self.dos_emin = min(self.kgrid["p"]["energy"][-1])
             self.dos_emax = max(self.kgrid["n"]["energy"][-1])
+
+        #TODO: the following is temporary, for some reason if # of kpts in different bands are NOT the same,
+        # I get an error that _all_elastic is a list! so 1/self.kgrid[tp]["_all_elastic"][c][T][ib] cause error int/list!
+        for tp in ["n", "p"]:
+            rm_idx_list[tp] = [rm_idx_list[tp][0] for ib in range(self.cbm_vbm[tp]["included"])]
 
         # remove the k-points with off-energy values (>Ecut away from CBM/VBM) that are not removed already
         self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
@@ -2532,6 +2537,8 @@ class AMSET(object):
                    plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
                             textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left, margin_bottom=margin_bottom)
 
+            logging.debug("shape pf _all_elastic")
+
             # plt.histogram(x=self.egrid[tp]["energy"], bin_size=binsize, x_start=min(data) - binsize / 2)
             plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=self.Efrequency[tp])
 
@@ -2636,7 +2643,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 150, "dE_global": 0.01}
+    performance_params = {"nkibz": 48, "dE_global": 0.01}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
