@@ -138,8 +138,11 @@ class AMSET(object):
 
         self.calc_dir = calc_dir
 
-        self.dopings = dopings or [-1e20] # 1/cm**3 list of carrier concentrations
-        self.temperatures = temperatures or map(float, [300, 600]) # in K, list of temperatures
+        # self.dopings = dopings or [-1e20] # 1/cm**3 list of carrier concentrations
+        # self.temperatures = temperatures or map(float, [300, 600]) # in K, list of temperatures
+
+        self.dopings = dopings
+        self.temperatures = map(float, temperatures)
 
         self.set_material_params(material_params)
         self.set_model_params(model_params)
@@ -244,7 +247,7 @@ class AMSET(object):
     def set_performance_params(self, params):
         self.nkibz = params.get("nkibz", 40)
         self.dE_global = params.get("dE_global", 0.01)
-        self.Ecut = params.get("Ecut", 5 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
+        self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -331,6 +334,10 @@ class AMSET(object):
         self.solve_BTE_iteratively()
 
         self.calculate_transport_properties()
+
+        # logging.debug('self.kgrid_to_egrid_idx["n"]: \n {}'.format(self.kgrid_to_egrid_idx["n"]))
+        # logging.debug('self.kgrid["velocity"]["n"][0]: \n {}'.format(self.kgrid["n"]["velocity"][0]))
+        # logging.debug('self.egrid["velocity"]["n"]: \n {}'.format(self.egrid["n"]["velocity"]))
 
         kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
                         "f_th", "g_th", "S_i_th", "S_o_th"]
@@ -431,8 +438,8 @@ class AMSET(object):
         logging.debug("original cbm_vbm:\n {}".format(self.cbm_vbm))
 
         # TODO: for now, I only include 1 band for each as I get some errors if I inlude more bands
-        # for tp in ["n", "p"]:
-        #     self.cbm_vbm[tp]["included"] = 1
+        for tp in ["n", "p"]:
+            self.cbm_vbm[tp]["included"] = 1
 
     def get_tp(self, c):
         """returns "n" for n-tp or negative carrier concentration or "p" (p-tp)."""
@@ -549,8 +556,6 @@ class AMSET(object):
             E_idx[tp] = [E_idx[tp][ie] for ie in ieidxs]
 
 
-
-
         # setting up energy grid and DOS:
         for tp in ["n", "p"]:
             energy_counter = []
@@ -605,6 +610,10 @@ class AMSET(object):
 
         print "here total number of ks from self.Efrequency for n-type"
         print sum(self.Efrequency["n"])
+
+        min_nE = 2
+        if len(self.Efrequency["n"]) < min_nE or len(self.Efrequency["p"]) < min_nE:
+            raise ValueError("The final egrid have fewer than {} energy values, AMSET stops now".format(min_nE))
 
         # initialize some fileds/properties
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
@@ -912,17 +921,16 @@ class AMSET(object):
     def get_perturbed_ks(k):
         all_perturbed_ks = []
         # for p in [0.01, 0.03, 0.05]:
-        for p in [0.03, 0.05, 0.08]:
+        for p in [0.05, 0.1]:
                 all_perturbed_ks.append([ k_i+p*np.sign(random()-0.5) for k_i in k] )
         return all_perturbed_ks
 
 
 
-    def get_ks_with_intermediate_energy(self, kpts, energies, max_Ediff = None, target_Ediff = 0.01):
+    def get_ks_with_intermediate_energy(self, kpts, energies, max_Ediff = None, target_Ediff = None):
         final_kpts_added = []
-        Tmx = max(self.temperatures)
-        if not max_Ediff:
-            max_Ediff = 10*k_B*Tmx
+        max_Ediff = max_Ediff or min(self.Ecut, 10*k_B*max(self.temperatures))
+        target_Ediff = target_Ediff or self.dE_global
         for tp in ["n", "p"]:
             if tp not in self.all_types:
                 continue
@@ -931,11 +939,12 @@ class AMSET(object):
                 ies_sorted.reverse()
             for idx, ie in enumerate(ies_sorted[:-1]):
                 Ediff = abs(energies[tp][ie] - energies[tp][ies_sorted[0]])
-                final_kpts_added += self.get_perturbed_ks(kpts[ies_sorted[idx]])
                 if Ediff > max_Ediff:
                     break
-                final_kpts_added += self.get_intermediate_kpoints_list(list(kpts[ies_sorted[idx]]),
-                                                   list(kpts[ies_sorted[idx+1]]), max(int(Ediff/target_Ediff) , 1))
+                final_kpts_added += self.get_perturbed_ks(kpts[ies_sorted[idx]])
+
+                # final_kpts_added += self.get_intermediate_kpoints_list(list(kpts[ies_sorted[idx]]),
+                #                                    list(kpts[ies_sorted[idx+1]]), max(int(Ediff/target_Ediff) , 1))
         return  self.kpts_to_first_BZ(final_kpts_added)
 
 
@@ -1013,10 +1022,21 @@ class AMSET(object):
         # print a # would print [[-0.5, 0.0, 0.0], [0.0, -0.5, 0.0], [0.0, 0.0, -0.5], [0.5, 0.5, 0.5]]
 
         # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
-        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.03, 0.06))
-        # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep))
+        # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.00, 0.00))
+
+        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
         kpts = [i[0] for i in kpts_and_weights]
         kpts = self.kpts_to_first_BZ(kpts)
+
+
+        # the following end up with 2 kpoints withing 10 kB * 300 ONLY!!!
+        # kpts = []
+        # nsteps = 17
+        # step = 0.5/nsteps
+        # for ikx in range(nsteps+1):
+        #     for iky in range(nsteps+1):
+        #         for ikz in range(nsteps+1):
+        #             kpts.append([0.0 + ikx*step, 0.0 + iky*step, 0.0 + ikz*step])
 
         # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
         kpts.append(self.cbm_vbm["n"]["kpoint"])
@@ -1125,15 +1145,15 @@ class AMSET(object):
         kpts = list(kpts)
         logging.debug("initial # of kpts after off-energy points are removed: {}".format(len(kpts)))
         for tp in ["n", "p"]:
-            energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
+            energies[tp] = np.delete(energies[tp], list(set(rm_list["n"]+rm_list["p"])), axis=0)
 
         if self.adaptive_mesh:
 
             all_added_kpoints = []
-            # all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
-            # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=1*k_B*Tmx,target_Ediff=0.0001)
+            all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
 
-            all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies,max_Ediff=2*k_B*Tmx,target_Ediff=0.01)
+            # it seems it works mostly at higher energy values!
+            # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies)
 
             print "here the number of added k-points"
             print len(all_added_kpoints)
@@ -1148,6 +1168,10 @@ class AMSET(object):
             symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
         kpts += symmetrically_equivalent_ks
         kpts = self.remove_duplicate_kpoints(kpts)
+
+        if len(kpts) < 3:
+            raise ValueError("The k-point mesh is too loose (number of kpoints = {}) "
+                             "after filtering the initial k-mesh".format(len(kpts)))
 
         logging.debug("number of kpoints after symmetrically equivalent kpoints are added: {}".format(len(kpts)))
 
@@ -1673,7 +1697,6 @@ class AMSET(object):
             # return integral / (sum([freq**wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))/(-sum(self.egrid[tp]["df0dE"][c][T]))
 
             return integral / (sum([freq**wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))
-            # return integral / (sum([freq**wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))
 
             # return integral / (sum([(-self.egrid[tp]["df0dE"][c][T][ie]) * self.Efrequency[tp][ie]**wpower for ie in
             #                    range(len(self.Efrequency[tp][:-1]))]))
@@ -2537,20 +2560,22 @@ class AMSET(object):
                    plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
                             textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left, margin_bottom=margin_bottom)
 
-            logging.debug("shape pf _all_elastic")
-
-            # plt.histogram(x=self.egrid[tp]["energy"], bin_size=binsize, x_start=min(data) - binsize / 2)
             plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=self.Efrequency[tp])
 
-            # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
-
-            plt = PlotlyFig(plot_mode='offline', y_title="energy (eV)", x_title="norm(k)",
-                            plot_title="energy in kgrid", filename=os.path.join(path, "{}_{}.{}".format("bs_kgrid", tp, fformat)),
+            for prop in ["energy", "df0dk"]:
+                plt = PlotlyFig(plot_mode='offline', y_title=prop, x_title="norm(k)",
+                            plot_title="{} in kgrid".format(prop), filename=os.path.join(path, "{}_{}.{}".format("{}_kgrid".format(prop), tp, fformat)),
                             textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
                             margin_bottom=margin_bottom)
+                if prop in ["energy"]:
+                    plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp][prop][0])
+                if prop in ["df0dk"]:
+                    for c in self.dopings:
+                        for T in [300.0]:
+                            plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0],
+                                        y_col=[sum(p/3) for p in self.kgrid[tp][prop][c][T][0]])
 
-            plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp]["energy"][0])
 
             plt = PlotlyFig(plot_mode='offline', y_title="norm(velocity) (cm/s)", x_title="norm(k)",
                             plot_title="velocity in kgrid",
@@ -2560,7 +2585,6 @@ class AMSET(object):
 
             plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp]["norm(v)"][0])
 
-            # prop_list = ["relaxation time", "_all_elastic", "ACD", "IMP", "PIE", "df0dk"]
             prop_list = ["relaxation time", "_all_elastic", "df0dk"] + self.elastic_scatterings
             if "POP" in self.inelastic_scatterings:
                 prop_list += ["g", "g_POP", "S_i", "S_o"]
@@ -2643,7 +2667,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 48, "dE_global": 0.01}
+    performance_params = {"nkibz": 60, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2652,14 +2676,15 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     #
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-                   "E_D": {"n": 8.6, "p": 8.6}}
+                   "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052}
     cube_path = "../test_files/GaAs/"
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
-        model_params = model_params, performance_params= performance_params)
+        model_params = model_params, performance_params= performance_params,
+                  dopings= [-2.7e13], temperatures=[100, 300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
