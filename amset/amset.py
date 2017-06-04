@@ -1069,11 +1069,10 @@ class AMSET(object):
 
 
         else:
-            # first modify the self.poly_bands to include all symmetrically equivalent k-points
-            # poly_band_short = [i for i in self.poly_bands]
+            # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
+            # these points will be used later to generate energy based on the minimum norm(k-k_i)
             for ib in range(len(self.poly_bands)):
                 for j in range(len(self.poly_bands[ib])):
-                    # poly_band_short[ib][j][0] = [self.poly_bands[ib][j][0]]
                     self.poly_bands[ib][j][0] = self.remove_duplicate_kpoints(
                         self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0],cartesian=True))
 
@@ -2445,25 +2444,16 @@ class AMSET(object):
 
                     if integrate_over_kgrid:
                         denom = self.integrate_over_BZ(["f0"], tp,c,T, xDOS=False, xvel=False, weighted=True) * 1e-7*1e-3 *self.volume
-                        # common_denominator = self.integrate_over_E(["f0"], tp,c,T, xvel=False, xDOS=False, weighted=False)
                         if tp=="n":
                             print "{}-type common denominator at {} K".format(tp, T)
                             print denom
-                            # print "fermi at {} K".format(T)
-                        #     print self.egrid["fermi"][c][T]
-
-                        # common_denominator = self.egrid["fermi"][c][T]
                     else:
                         denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=True)
-                        if tp == "n":
-                            print "denom"
-                            print denom
 
                     for mu_inel in self.inelastic_scatterings:
                             # calculate mobility["POP"] based on g_POP
                             self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(prop_list=["g_"+mu_inel],
                                                                 tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=True)
-
 
                     if integrate_over_kgrid:
                         self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T, xDos=False, xvel=True, weighted=True)
@@ -2475,9 +2465,6 @@ class AMSET(object):
 
                     self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"],
                             tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True) * e * 1e24 # to bring J to A/cm2 units
-
-                    # mobility denominators in egrid
-                    # denom = self.egrid["fermi"][c][T]
 
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
                         self.egrid["mobility"][transport][c][T][tp]/=default_small_E * denom
