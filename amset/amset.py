@@ -252,7 +252,7 @@ class AMSET(object):
 
         self.dos_bwidth = params.get("dos_bwidth",
                                      0.1)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
-        self.nkdos = params.get("nkdos", 31)
+        self.nkdos = params.get("nkdos", 35)
 
         self.gs = 1e-32  # a global small value (generally used for an initial non-zero value)
         self.gl = 1e32  # a global large value
@@ -1085,7 +1085,7 @@ class AMSET(object):
                 energy, de, dde = analytical_bands.get_energy(
                     self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"] + 0],
                     nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                energy *= Ry_to_eV + sgn * self.scissor / 2
+                energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
                 effective_m = hbar ** 2 / (
                         dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
 
@@ -1102,7 +1102,7 @@ class AMSET(object):
         self.dos_emax += self.offset_from_vrun
         self.dos_emin += self.offset_from_vrun
 
-        logging.debug("cbm_vbm after looking at energies:\n {}".format(self.cbm_vbm))
+        logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
 
 
         # calculate the  in initial ibz k-points and look at the first band to decide on additional/adaptive ks
@@ -1118,7 +1118,7 @@ class AMSET(object):
                         energy, de, dde = analytical_bands.get_energy(
                             kpts[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
                                 nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                        energy = energy * Ry_to_eV + sgn * self.scissor / 2
+                        energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
                         velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
                         # effective_m = hbar ** 2 / (
                         # dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
@@ -1212,7 +1212,7 @@ class AMSET(object):
                         energy, de, dde = analytical_bands.get_energy(
                             self.kgrid[tp]["kpoints"][ib][ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
                                 nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                        energy = energy * Ry_to_eV + sgn * self.scissor/2
+                        energy = energy * Ry_to_eV - sgn * self.scissor/2.0
                         velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)# to get v in cm/s
                         effective_mass = hbar ** 2 / (
                         dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
@@ -2184,7 +2184,8 @@ class AMSET(object):
 
         # initialize parameters
         relative_error = self.gl
-        iter = 0
+        iter = 0.0
+        tune_alpha = 1.0
         temp_doping = {"n": 0.0, "p": 0.0}
         typ = self.get_tp(c)
         fermi = self.cbm_vbm[typ]["energy"]
@@ -2197,7 +2198,13 @@ class AMSET(object):
 
         while (relative_error > tolerance) and (iter<max_iter):
             iter += 1 # to avoid an infinite loop
-            fermi += alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
+            if iter / max_iter > 0.5: # to avoid oscillation we re-adjust alpha at each iteration
+                tune_alpha = 1 - iter / max_iter
+            fermi += alpha * tune_alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
+            # print(fermi)
+            # print calc_doping
+            # print temp_doping
+            # print
 
             ## DOS re-normalization: NOT NECESSARY; this changes DOS at each T and makes AMSET slow;
             ## initial normalization based on zero-T should suffice
@@ -2653,7 +2660,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 155, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 70, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2662,7 +2669,7 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     #
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-                   "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052}
+                   "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
     cube_path = "../test_files/GaAs/"
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
@@ -2670,7 +2677,7 @@ if __name__ == "__main__":
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
         model_params = model_params, performance_params= performance_params,
-                  dopings= [-2.7e13], temperatures=[100, 300])
+                  dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
