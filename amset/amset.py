@@ -1301,8 +1301,8 @@ class AMSET(object):
             self.kgrid[tp]["size"] = [len(self.kgrid[tp]["kpoints"][ib]) \
                                     for ib in range(len(self.kgrid[tp]["kpoints"]))]
 
-        self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
-        self.initialize_var("kgrid", ["N_POP"], "scalar", 0.0, is_nparray=False, c_T_idx=True)
+        self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, is_nparray=True, c_T_idx=False)
+        self.initialize_var("kgrid", ["N_POP"], "scalar", 0.0, is_nparray=True, c_T_idx=True)
 
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -2366,8 +2366,6 @@ class AMSET(object):
                         else:
                             self.s_inel_eq_isotropic(g_suffix=g_suffix, once_called=True)
 
-                        # print "here S_o"
-                        # print self.kgrid["n"]["S_o"][-1e19][300.0]
                     else:
                         self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
             for c in self.dopings:
@@ -2533,9 +2531,10 @@ class AMSET(object):
 
 
 
-    def plot(self, path=None, textsize=40, ticksize=35, margin_left = 160, margin_bottom=120):
+    def plot(self, plotT=300, path=None, textsize=40, ticksize=35, margin_left = 160, margin_bottom=120):
         """plots some of the outputs for more detailed analysis, debugging, etc"""
         from matminer.figrecipes.plotly.make_plots import PlotlyFig
+        plotT = float(plotT)
 
         if not path:
             path = os.path.join( os.getcwd(), "plots" )
@@ -2559,7 +2558,7 @@ class AMSET(object):
                     plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp][prop][0])
                 if prop in ["df0dk"]:
                     for c in self.dopings:
-                        for T in [300.0]:
+                        for T in [plotT]:
                             plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0],
                                         y_col=[sum(p/3) for p in self.kgrid[tp][prop][c][T][0]])
 
@@ -2577,7 +2576,7 @@ class AMSET(object):
                 prop_list += ["g", "g_POP", "S_i", "S_o"]
             for c in self.dopings:
                 # for T in self.temperatures:
-                for T in [300.0]:
+                for T in [plotT]:
                     for prop_name in prop_list:
                         plt = PlotlyFig(plot_title="c={} 1/cm3, T={} K".format(c, T), x_title="Energy (eV)",
                                 y_title=prop_name, hovermode='closest',
@@ -2645,7 +2644,7 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": []}
+                    "inelastic_scatterings": ["POP"]}
                     # TODO: for testing, remove this part later:
                     # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
@@ -2654,7 +2653,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 60, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 155, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2676,7 +2675,7 @@ if __name__ == "__main__":
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
     AMSET.write_input_files()
-    AMSET.plot()
+    AMSET.plot(plotT=100)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
