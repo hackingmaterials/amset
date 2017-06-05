@@ -377,7 +377,7 @@ class AMSET(object):
     def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
         self._vrun = Vasprun(os.path.join(calc_dir, filename))
         self.volume = self._vrun.final_structure.volume
-        logging.debug("unitcell volume = {} A**3".format(self.volume))
+        logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
         print self._lattice_matrix
@@ -439,11 +439,11 @@ class AMSET(object):
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
 
         self.cbm_vbm = cbm_vbm
-        logging.debug("original cbm_vbm:\n {}".format(self.cbm_vbm))
+        logging.info("original cbm_vbm:\n {}".format(self.cbm_vbm))
 
         # TODO: for now, I only include 1 band for each as I get some errors if I inlude more bands
-        for tp in ["n", "p"]:
-            self.cbm_vbm[tp]["included"] = 1
+        # for tp in ["n", "p"]:
+        #     self.cbm_vbm[tp]["included"] = 1
 
     def get_tp(self, c):
         """returns "n" for n-tp or negative carrier concentration or "p" (p-tp)."""
