@@ -247,7 +247,8 @@ class AMSET(object):
     def set_performance_params(self, params):
         self.nkibz = params.get("nkibz", 40)
         self.dE_global = params.get("dE_global", 0.01)
-        self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures)) # max eV range after which occupation is zero
+        # max eV range after which occupation is zero, we set this at least to 10*kB*300
+        self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -1856,7 +1857,9 @@ class AMSET(object):
                             # v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
                             v = self.kgrid[tp]["norm(v)"][ib][ik] / 3**0.5 # 3**0.5 is to treat each direction as 1D BS
 
-                            k = m_e * v / (hbar * e * 1e11)
+                            # k = m_e * v / (hbar * e * 1e11)
+                            k = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+
                             a = self.kgrid[tp]["a"][ib][ik]
                             c_ = self.kgrid[tp]["c"][ib][ik]
                             f = self.kgrid[tp]["f0"][c][T][ib][ik]
@@ -1873,7 +1876,8 @@ class AMSET(object):
 
                                     v_pm= self.kgrid[tp]["norm(v)"][ib_pm][ik_pm]/ 3**0.5 # 3**0.5 is to treat each direction as 1D BS
 
-                                    k_pm  = m_e*v_pm/(hbar*e*1e11)
+                                    # k_pm  = m_e*v_pm/(hbar*e*1e11)
+                                    k_pm = norm(self.kgrid[tp]["cartesian kpoints"][ib_pm][ik_pm])
 
                                     abs_kdiff = abs(k_pm - k)
                                     if abs_kdiff < 1e-4:
@@ -2186,7 +2190,7 @@ class AMSET(object):
         relative_error = self.gl
         iter = 0.0
         tune_alpha = 1.0
-        temp_doping = {"n": 0.0, "p": 0.0}
+        temp_doping = {"n": -0.01, "p": +0.01}
         typ = self.get_tp(c)
         fermi = self.cbm_vbm[typ]["energy"]
         # fermi = self.egrid[typ]["energy"][0]
@@ -2201,10 +2205,10 @@ class AMSET(object):
             if iter / max_iter > 0.5: # to avoid oscillation we re-adjust alpha at each iteration
                 tune_alpha = 1 - iter / max_iter
             fermi += alpha * tune_alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
-            # print(fermi)
-            # print calc_doping
-            # print temp_doping
-            # print
+            print(fermi)
+            print calc_doping
+            print temp_doping
+            print
 
             ## DOS re-normalization: NOT NECESSARY; this changes DOS at each T and makes AMSET slow;
             ## initial normalization based on zero-T should suffice
@@ -2369,7 +2373,7 @@ class AMSET(object):
                 for g_suffix in ["", "_th"]:
                     if self.bs_is_isotropic:
                         if iter==0:
-                            self.s_inel_eq_isotropic(g_suffix=g_suffix)
+                            self.s_inel_eq_isotropic(g_suffix=g_suffix, once_called=False)
                         else:
                             self.s_inel_eq_isotropic(g_suffix=g_suffix, once_called=True)
 
@@ -2660,7 +2664,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 70, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 60, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2677,7 +2681,9 @@ if __name__ == "__main__":
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
         model_params = model_params, performance_params= performance_params,
-                  dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
+                  # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
+                  dopings= [-2.7e13], temperatures=[100])
+                  #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
