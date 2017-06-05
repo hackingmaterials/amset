@@ -1395,7 +1395,7 @@ class AMSET(object):
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
                                                     E_radius=0.0, forced_min_npoints=2, tolerance=self.dE_global)
-                print "here nforced k-points ratio for elastic scattering"
+                print "here nforced k-points ratio for {}-type elastic scattering".format(tp)
                 print self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib]))
                 if self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
                     print "here this ib x k length:"
@@ -1424,7 +1424,7 @@ class AMSET(object):
                             E_radius= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2, tolerance=self.dE_global)
 
 
-                    print "here nforced k-points ratio for POP scattering"
+                    print "here nforced k-points ratio for {}-type POP scattering".format(tp)
                     # one of the 2s is for plus and minus and the other one is the selected forced_min_npoints
                     print self.nforced_scat[tp] / (2 * 2 * len(self.kgrid[tp]["kpoints"][ib]))
                     print self.nforced_scat[tp]
@@ -1865,7 +1865,8 @@ class AMSET(object):
 
                             a = self.kgrid[tp]["a"][ib][ik]
                             c_ = self.kgrid[tp]["c"][ib][ik]
-                            f = self.kgrid[tp]["f0"][c][T][ib][ik]
+                            # f = self.kgrid[tp]["f0"][c][T][ib][ik]
+                            f = self.kgrid[tp]["f"][c][T][ib][ik]
                             N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
                             # N_POP = self.kgrid[tp]["N_POP"][c][T][ib][ik]
                             for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
@@ -1891,7 +1892,8 @@ class AMSET(object):
                                     # g_pm = sum(self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm])/3
 
 
-                                    f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
+                                    # f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
+                                    f_pm = self.kgrid[tp]["f"][c][T][ib_pm][ik_pm]
 
                                     A_pm = a*a_pm + c_*c_pm*(k_pm**2+k**2)/(2*k_pm*k)
 
@@ -2396,12 +2398,18 @@ class AMSET(object):
                             #     print "CONVERGED!"
                             # self.kgrid[tp]["g"][c][T][ib] = temp
 
+                            self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
+                                                                 self.kgrid[tp]["electric force"][c][T][ib]) / (
+                                                                self.kgrid[tp]["S_o"][c][T][ib] + self.gs)
+
                             self.kgrid[tp]["g"][c][T] = (self.kgrid[tp]["S_i"][c][T] + self.kgrid[tp]["electric force"][c][
                                 T]) / (self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
-                            self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
-                                self.kgrid[tp]["electric force"][c][T][ib]) / (self.kgrid[tp]["S_o"][c][T][ib]+ self.gs)
+
                             self.kgrid[tp]["g_th"][c][T][ib]=(self.kgrid[tp]["S_i_th"][c][T][ib]+self.kgrid[tp]["thermal force"][c][
                                 T][ib]) / (self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
+
+                            self.kgrid[tp]["f"][c][T] = self.kgrid[tp]["f0"][c][T] + self.kgrid[tp]["g"][c][T]
+                            self.kgrid[tp]["f_th"][c][T] = self.kgrid[tp]["f0"][c][T] + self.kgrid[tp]["g_th"][c][T]
 
                             for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                                 if  norm(self.kgrid[tp]["g_POP"][c][T][ib][ik]) > 1 and iter > 0:
@@ -2437,8 +2445,7 @@ class AMSET(object):
             for T in self.temperatures:
                 for tp in ["n", "p"]:
                     # norm is only for one vector but g has the ibxikx3 dimensions
-                    self.kgrid[tp]["f"][c][T] = self.kgrid[tp]["f0"][c][T] + self.kgrid[tp]["g"][c][T]
-                    # self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+norm(self.egrid[tp]["g_th"][c][T])
+                    # self.kgrid[tp]["f"][c][T] = self.kgrid[tp]["f0"][c][T] + self.kgrid[tp]["g"][c][T]
 
                     # this ONLY makes a difference if f and f_th are used in the denominator; but f0 is currently used!
                     # self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + norm(self.egrid[tp]["g"][c][T])
@@ -2470,7 +2477,7 @@ class AMSET(object):
                                                                 tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=True)
 
                     if integrate_over_kgrid:
-                        self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T, xDos=False, xvel=True, weighted=True)
+                        self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T, xDOS=False, xvel=True, weighted=True)
                         print "overll numerator"
                         print self.egrid["mobility"]["overall"][c][T][tp]
                     else:
@@ -2669,7 +2676,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 80, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 120, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2687,7 +2694,8 @@ if __name__ == "__main__":
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
-                  dopings= [-2.7e13], temperatures=[100, 300])
+                  # dopings= [-2.7e13], temperatures=[100, 300])
+                  dopings= [-4e15], temperatures=[100, 300])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
