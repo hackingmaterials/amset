@@ -340,7 +340,10 @@ class AMSET(object):
         # logging.debug('self.kgrid["velocity"]["n"][0]: \n {}'.format(self.kgrid["n"]["velocity"][0]))
         # logging.debug('self.egrid["velocity"]["n"]: \n {}'.format(self.egrid["n"]["velocity"]))
 
-        kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
+        # kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
+        #                 "f_th", "g_th", "S_i_th", "S_o_th"]
+
+        kremove_list = ["effective mass", "kweights", "a", "c""",
                         "f_th", "g_th", "S_i_th", "S_o_th"]
 
         for tp in ["n", "p"]:
@@ -2294,14 +2297,14 @@ class AMSET(object):
         # self.egrid trimming
         if trimmed:
             nmax = min([max_ndata+1, min([len(egrid["n"]["energy"]), len(egrid["p"]["energy"])]) ])
-            print nmax
-            remove_list = []
+            # print nmax
+            # remove_list = []
             for tp in ["n", "p"]:
-                for rm in remove_list:
-                    try:
-                        del (egrid[tp][rm])
-                    except:
-                        pass
+                # for rm in remove_list:
+                #     try:
+                #         del (egrid[tp][rm])
+                #     except:
+                #         pass
 
                 for key in egrid[tp]:
                     if key in ["size"]:
@@ -2328,13 +2331,15 @@ class AMSET(object):
             if trimmed:
                 nmax = min([max_ndata+1, min([len(kgrid["n"]["kpoints"][0]), len(kgrid["p"]["kpoints"][0])])])
                 # remove_list = ["W_POP", "effective mass", "cartesian kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
-                remove_list = ["W_POP", "effective mass"]
+                # remove_list = ["W_POP", "effective mass"]
+
+                # remove_list = ["effective mass"]
                 for tp in ["n", "p"]:
-                    for rm in remove_list:
-                        try:
-                            del (kgrid[tp][rm])
-                        except:
-                            pass
+                #     for rm in remove_list:
+                #         try:
+                #             del (kgrid[tp][rm])
+                #         except:
+                #             pass
 
                     for key in kgrid[tp]:
                         if key in ["size"]:
@@ -2664,7 +2669,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 60, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 80, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2682,7 +2687,7 @@ if __name__ == "__main__":
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
-                  dopings= [-2.7e13], temperatures=[100])
+                  dopings= [-2.7e13], temperatures=[100, 300])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
