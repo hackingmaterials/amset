@@ -2202,7 +2202,7 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha = 0.02, max_iter = 1000):
+    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha = 0.02, max_iter = 5000):
         """
         To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
         :param c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
@@ -2233,6 +2233,7 @@ class AMSET(object):
 
         while (relative_error > tolerance) and (iter<max_iter):
             iter += 1 # to avoid an infinite loop
+            # tune_alpha = 1 - iter/max_iter
             if iter / max_iter > 0.5: # to avoid oscillation we re-adjust alpha at each iteration
                 tune_alpha = 1 - iter / max_iter
             fermi += alpha * tune_alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
@@ -2702,7 +2703,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 200, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 55, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2721,13 +2722,14 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  dopings= [-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+                  # dopings= [-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800, 900])
+                  dopings= [-2e15], temperatures=[1200])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
     AMSET.write_input_files()
-    AMSET.plot(plotT=100)
+    AMSET.plot(plotT=300)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
