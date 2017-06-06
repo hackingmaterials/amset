@@ -1037,26 +1037,46 @@ class AMSET(object):
         logging.info("self.nkibz = {}".format(self.nkibz))
 
         #TODO: the following is NOT a permanent solution to speed up generation/loading of k-mesh, speed up get_ir_reciprocal_mesh later
-        ibzkpt_filename = "all_ibzkpt.json"
+        # ibzkpt_filename = "all_ibzkpt.json"
+        # try:
+        #     with open(ibzkpt_filename, 'r') as fp:
+        #         all_kpts = json.load(fp, cls=MontyDecoder)
+        # except:
+        #     logging.info('reading {} failed!'.format(ibzkpt_filename))
+        #     all_kpts = {}
+        # try:
+        #     kpts = all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)]
+        #     logging.info('reading {}x{}x{} k-mesh from "{}"'.format(nkstep, nkstep, nkstep, ibzkpt_filename))
+        # except:
+        #     logging.info("generating {}x{}x{} IBZ k-mesh".format(nkstep, nkstep, nkstep))
+        #     kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
+        #     kpts = [i[0] for i in kpts_and_weights]
+        #     kpts = self.kpts_to_first_BZ(kpts)
+        #
+        # all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)] = kpts
+        # os.system("cp {} {}_backup.json".format(ibzkpt_filename, ibzkpt_filename.split(".")[0]))
+        # with open(ibzkpt_filename, 'w') as fp:
+        #     json.dump(all_kpts, fp, cls=MontyEncoder)
+
+
+        all_kpts = {}
+        ibzkpt_filename = "{}_ibzkpt.json".format(nkstep)
         try:
             with open(ibzkpt_filename, 'r') as fp:
                 all_kpts = json.load(fp, cls=MontyDecoder)
-        except:
-            logging.info('reading {} failed!'.format(ibzkpt_filename))
-            all_kpts = {}
-        try:
             kpts = all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)]
             logging.info('reading {}x{}x{} k-mesh from "{}"'.format(nkstep, nkstep, nkstep, ibzkpt_filename))
         except:
+            logging.info('reading {} failed!'.format(ibzkpt_filename))
             logging.info("generating {}x{}x{} IBZ k-mesh".format(nkstep, nkstep, nkstep))
             kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
             kpts = [i[0] for i in kpts_and_weights]
             kpts = self.kpts_to_first_BZ(kpts)
+            all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)] = kpts
+            with open(ibzkpt_filename, 'w') as fp:
+                json.dump(all_kpts, fp, cls=MontyEncoder)
 
-        all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)] = kpts
-        with open(ibzkpt_filename, 'w') as fp:
-            # json.dump(all_kpts, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
-            json.dump(all_kpts, fp, cls=MontyEncoder)
+
 
         # the following end up with 2 kpoints withing 10 kB * 300 ONLY!!!
         # kpts = []
@@ -2692,18 +2712,18 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
     # defaults:
-    mass = 0.25
+    mass = 0.044
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]}
+                    "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
-                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
-                  #       [[0.25, 0.25, 0.25], [0.0, mass]],
+                  #       [[0.25, 0.25, 0.25], [0.0, mass]]]]}
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 55, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 100, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2722,8 +2742,7 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  # dopings= [-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800, 900])
-                  dopings= [-2e15], temperatures=[1200])
+                  dopings= [-2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
