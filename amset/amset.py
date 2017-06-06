@@ -428,11 +428,17 @@ class AMSET(object):
             self.dos_emin = min(bs["bands"]["1"][0])
             self.dos_emax = max(bs["bands"]["1"][-1])
 
-        for i, tp in enumerate(["n", "p"]):
-            sgn = (-1)**i
-            while abs(min(sgn*bs["bands"]["1"][cbm_vbm[tp]["bidx"]+sgn*cbm_vbm[tp]["included"]])-
-                                      sgn*cbm_vbm[tp]["energy"])<self.Ecut:
-                cbm_vbm[tp]["included"] += 1
+        if not self.poly_bands:
+            for i, tp in enumerate(["n", "p"]):
+                sgn = (-1)**i
+                while abs(min(sgn*bs["bands"]["1"][cbm_vbm[tp]["bidx"]+sgn*cbm_vbm[tp]["included"]])-
+                                          sgn*cbm_vbm[tp]["energy"])<self.Ecut:
+                    cbm_vbm[tp]["included"] += 1
+
+            # TODO: for now, I only include 1 band for each as I get some errors if I inlude more bands
+            # cbm_vbm[tp]["included"] = 1
+        else:
+            cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands)
 
 # TODO: change this later if the band indecies are corrected in Analytical_band class
         cbm_vbm["p"]["bidx"] += 1
@@ -441,12 +447,8 @@ class AMSET(object):
         self.cbm_vbm = cbm_vbm
         logging.info("original cbm_vbm:\n {}".format(self.cbm_vbm))
 
-        # TODO: for now, I only include 1 band for each as I get some errors if I inlude more bands
-        # for tp in ["n", "p"]:
-        #     self.cbm_vbm[tp]["included"] = 1
 
-        if self.poly_bands:
-            self.cbm_vbm["n"]["included"] = self.cbm_vbm["p"]["included"] = len(self.poly_bands)
+
 
     def get_tp(self, c):
         """returns "n" for n-tp or negative carrier concentration or "p" (p-tp)."""
@@ -1031,6 +1033,8 @@ class AMSET(object):
         # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
         # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.00, 0.00))
 
+        logging.info("self.nkibz = {}".format(self.nkibz))
+        logging.info("generating k-mesh in IBZ with {}x{}x{} input".format(nkstep, nkstep, nkstep))
         kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
         kpts = [i[0] for i in kpts_and_weights]
         kpts = self.kpts_to_first_BZ(kpts)
@@ -2203,6 +2207,7 @@ class AMSET(object):
         fermi = self.cbm_vbm[typ]["energy"]
         # fermi = self.egrid[typ]["energy"][0]
 
+        print("temperature: {} K".format(T))
         j = ["n", "p"].index(typ)
         funcs = [lambda E, fermi0, T: f0(E,fermi0,T), lambda E, fermi0, T: 1-f0(E,fermi0,T)]
         calc_doping = (-1)**(j+1) /self.volume / (A_to_m*m_to_cm)**3 \
@@ -2670,16 +2675,16 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"],
+                    "inelastic_scatterings": ["POP"]}
                     # TODO: for testing, remove this part later:
-                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]],
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 60, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 40, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2698,7 +2703,7 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  dopings= [-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200])
+                  dopings= [-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
