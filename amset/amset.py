@@ -18,7 +18,7 @@ from scipy.constants.codata import value as _cd
 from math import pi
 import os
 import json
-from monty.json import MontyEncoder
+from monty.json import MontyEncoder, MontyDecoder
 from random import random
 import cProfile
 from copy import deepcopy
@@ -1033,12 +1033,30 @@ class AMSET(object):
         # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
         # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.00, 0.00))
 
-        logging.info("self.nkibz = {}".format(self.nkibz))
-        logging.info("generating k-mesh in IBZ with {}x{}x{} input".format(nkstep, nkstep, nkstep))
-        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
-        kpts = [i[0] for i in kpts_and_weights]
-        kpts = self.kpts_to_first_BZ(kpts)
 
+        logging.info("self.nkibz = {}".format(self.nkibz))
+
+        #TODO: the following is NOT a permanent solution to speed up generation/loading of k-mesh, speed up get_ir_reciprocal_mesh later
+        ibzkpt_filename = "all_ibzkpt.json"
+        try:
+            with open(ibzkpt_filename, 'r') as fp:
+                all_kpts = json.load(fp, cls=MontyDecoder)
+        except:
+            logging.info('reading {} failed!'.format(ibzkpt_filename))
+            all_kpts = {}
+        try:
+            kpts = all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)]
+            logging.info('reading {}x{}x{} k-mesh from "{}"'.format(nkstep, nkstep, nkstep, ibzkpt_filename))
+        except:
+            logging.info("generating {}x{}x{} IBZ k-mesh".format(nkstep, nkstep, nkstep))
+            kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
+            kpts = [i[0] for i in kpts_and_weights]
+            kpts = self.kpts_to_first_BZ(kpts)
+
+        all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)] = kpts
+        with open(ibzkpt_filename, 'w') as fp:
+            # json.dump(all_kpts, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
+            json.dump(all_kpts, fp, cls=MontyEncoder)
 
         # the following end up with 2 kpoints withing 10 kB * 300 ONLY!!!
         # kpts = []
@@ -2684,7 +2702,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 40, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 200, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2703,7 +2721,7 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  dopings= [-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100])
+                  dopings= [-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
