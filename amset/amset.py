@@ -445,6 +445,9 @@ class AMSET(object):
         # for tp in ["n", "p"]:
         #     self.cbm_vbm[tp]["included"] = 1
 
+        if self.poly_bands:
+            self.cbm_vbm["n"]["included"] = self.cbm_vbm["p"]["included"] = len(self.poly_bands)
+
     def get_tp(self, c):
         """returns "n" for n-tp or negative carrier concentration or "p" (p-tp)."""
         if c < 0:
@@ -2667,16 +2670,16 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]}
+                    "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
-                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]],
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 135, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 60, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
