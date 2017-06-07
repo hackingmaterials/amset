@@ -1060,7 +1060,10 @@ class AMSET(object):
 
 
         all_kpts = {}
-        ibzkpt_filename = "{}_ibzkpt.json".format(nkstep)
+        try:
+            ibzkpt_filename = os.path.join(os.environ["AMSET_ROOT"], "{}_ibzkpt.json".format(nkstep))
+        except:
+            ibzkpt_filename = "{}_ibzkpt.json".format(nkstep)
         try:
             with open(ibzkpt_filename, 'r') as fp:
                 all_kpts = json.load(fp, cls=MontyDecoder)
@@ -1191,6 +1194,10 @@ class AMSET(object):
         # logging.debug("energies before removing k-points with off-energy:\n {}".format(energies))
         kpts = np.delete(kpts, list(set(rm_list["n"]+rm_list["p"])), axis=0)
         kpts = list(kpts)
+
+        print "number of ibz k-points AFTER ENERGY-FILTERING"
+        print len(kpts)
+
         logging.debug("initial # of kpts after off-energy points are removed: {}".format(len(kpts)))
         for tp in ["n", "p"]:
             energies[tp] = np.delete(energies[tp], list(set(rm_list["n"]+rm_list["p"])), axis=0)
@@ -1892,7 +1899,7 @@ class AMSET(object):
         return integ
 
 
-    def s_inel_eq_isotropic(self, g_suffix, once_called=False):
+    def s_inel_eq_isotropic(self, once_called=False):
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
@@ -1900,20 +1907,22 @@ class AMSET(object):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             # S_i = np.array([self.gs, self.gs, self.gs])
                             S_i = self.gs
+                            S_i_th = self.gs
                             # S_o = np.array([self.gs, self.gs, self.gs])
 
                             # v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
                             v = self.kgrid[tp]["norm(v)"][ib][ik] / 3**0.5 # 3**0.5 is to treat each direction as 1D BS
 
                             # k = m_e * v / (hbar * e * 1e11)
-                            k = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+                            k = self.kgrid[tp]["norm(k)"][ib][ik]
 
                             a = self.kgrid[tp]["a"][ib][ik]
                             c_ = self.kgrid[tp]["c"][ib][ik]
                             # f = self.kgrid[tp]["f0"][c][T][ib][ik]
                             f = self.kgrid[tp]["f"][c][T][ib][ik]
-                            N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
-                            # N_POP = self.kgrid[tp]["N_POP"][c][T][ib][ik]
+                            f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
+                            # N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
+                            N_POP = self.kgrid[tp]["N_POP"][c][T][ib][ik]
                             for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
                                 #TODO: see how does dividing by len_eqE affect results, set to 1 to test
                                 len_eqE = len(self.kgrid[tp][X_Epm][ib][ik])
@@ -1921,12 +1930,13 @@ class AMSET(object):
                                 #     print "WARNING!!!! element {} of {} is empty!!".format(ik, X_Epm)
                                 for X_ib_ik in self.kgrid[tp][X_Epm][ib][ik]:
                                     X, ib_pm, ik_pm = X_ib_ik
-                                    g_pm = self.kgrid[tp]["g" + g_suffix][c][T][ib_pm][ik_pm]
+                                    g_pm = self.kgrid[tp]["g"][c][T][ib_pm][ik_pm]
+                                    g_pm_th = self.kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
 
                                     v_pm= self.kgrid[tp]["norm(v)"][ib_pm][ik_pm]/ 3**0.5 # 3**0.5 is to treat each direction as 1D BS
 
                                     # k_pm  = m_e*v_pm/(hbar*e*1e11)
-                                    k_pm = norm(self.kgrid[tp]["cartesian kpoints"][ib_pm][ik_pm])
+                                    k_pm = self.kgrid[tp]["norm(k)"][ib_pm][ik_pm]
 
                                     abs_kdiff = abs(k_pm - k)
                                     if abs_kdiff < 1e-4:
@@ -1939,6 +1949,7 @@ class AMSET(object):
 
                                     # f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
                                     f_pm = self.kgrid[tp]["f"][c][T][ib_pm][ik_pm]
+                                    f_pm_th = self.kgrid[tp]["f_th"][c][T][ib_pm][ik_pm]
 
                                     A_pm = a*a_pm + c_*c_pm*(k_pm**2+k**2)/(2*k_pm*k)
 
@@ -1949,13 +1960,15 @@ class AMSET(object):
                                         lamb_opm=beta_pm*(A_pm**2*log((k_pm+k)/abs_kdiff+1e-4)-A_pm*c_*c_pm-a*a_pm*c_*c_pm)
                                         # because in the scalar form k+ or k- is suppused to be unique, here we take average
 
-                                        self.kgrid[tp]["S_o" + g_suffix][c][T][ib][ik] +=((N_POP + j+(-1)**j*f_pm)*lamb_opm)/len_eqE
+                                        self.kgrid[tp]["S_o"][c][T][ib][ik] +=((N_POP + j+(-1)**j*f_pm)*lamb_opm)/len_eqE
+                                        self.kgrid[tp]["S_o_th"][c][T][ib][ik] +=((N_POP + j+(-1)**j*f_pm_th)*lamb_opm)/len_eqE
 
 
                                     lamb_ipm = beta_pm * (
                                             A_pm ** 2 * log((k_pm + k) / abs_kdiff + 1e-4) * (k_pm ** 2 + k ** 2) / (
                                             2 * k * k_pm) - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
                                     S_i += ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm) / len_eqE
+                                    S_i_th += ((N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th) / len_eqE
 
 
                                         # The rest is failed attempt to save time in calculating S_i. It does NOT work because beta_pm also changes at each k_pm so we can't have fixed lambda_i_plus for example at each ib_om and ik_pm
@@ -1981,7 +1994,8 @@ class AMSET(object):
 
 
                             # self.kgrid[tp]["S_o" + g_suffix][c][T][ib][ik] = S_o
-                            self.kgrid[tp]["S_i" + g_suffix][c][T][ib][ik] = S_i
+                            self.kgrid[tp]["S_i"][c][T][ib][ik] = S_i
+                            self.kgrid[tp]["S_i_th"][c][T][ib][ik] = S_i_th
 
 
 
@@ -2257,10 +2271,10 @@ class AMSET(object):
             if iter / max_iter > 0.5: # to avoid oscillation we re-adjust alpha at each iteration
                 tune_alpha = 1 - iter / max_iter
             fermi += alpha * tune_alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
-            print(fermi)
-            print calc_doping
-            print temp_doping
-            print
+            # print(fermi)
+            # print(calc_doping)
+            # print(temp_doping)
+            # print
 
             ## DOS re-normalization: NOT NECESSARY; this changes DOS at each T and makes AMSET slow;
             ## initial normalization based on zero-T should suffice
@@ -2424,14 +2438,14 @@ class AMSET(object):
         for iter in range(self.maxiters):
             print("Performing iteration # {}".format(iter))
             if "POP" in self.inelastic_scatterings:
-                for g_suffix in ["", "_th"]:
-                    if self.bs_is_isotropic:
-                        if iter==0:
-                            self.s_inel_eq_isotropic(g_suffix=g_suffix, once_called=False)
-                        else:
-                            self.s_inel_eq_isotropic(g_suffix=g_suffix, once_called=True)
-
+                if self.bs_is_isotropic:
+                    if iter==0:
+                        self.s_inel_eq_isotropic(once_called=False)
                     else:
+                        self.s_inel_eq_isotropic(once_called=True)
+
+                else:
+                    for g_suffix in ["", "_th"]:
                         self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
             for c in self.dopings:
                 for T in self.temperatures:
@@ -2714,16 +2728,16 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.044
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"],
+                    "inelastic_scatterings": ["POP"]}
                     # TODO: for testing, remove this part later:
-                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]]]]}
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 70, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2742,13 +2756,13 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  dopings= [-2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200])
+                  dopings= [-1e20], temperatures=[600])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
     AMSET.write_input_files()
-    AMSET.plot(plotT=300)
+    AMSET.plot(plotT=600)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
