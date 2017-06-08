@@ -78,7 +78,9 @@ def df0dE(E, fermi, T):
 def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
     fermi = fermi - initial_energy
     integral = 0.
-    emesh = np.linspace(0.0, 30*k_B*T, 1000000.0) # We choose 20kBT instead of infinity as the fermi distribution will be 0
+    #TODO: 1000000 works better (converges!) but for faster testing purposes we use larger steps
+    # emesh = np.linspace(0.0, 30*k_B*T, 1000000.0) # We choose 20kBT instead of infinity as the fermi distribution will be 0
+    emesh = np.linspace(0.0, 30*k_B*T, 100000.0) # We choose 20kBT instead of infinity as the fermi distribution will be 0
     dE = (emesh[-1]-emesh[0])/(1000000.0-1.0)
     for E in emesh:
         integral += dE * (E/(k_B*T))**order / (1. + np.exp((E-fermi)/(k_B*T)))
@@ -436,7 +438,7 @@ class AMSET(object):
                     cbm_vbm[tp]["included"] += 1
 
             # TODO: for now, I only include 1 band for each as I get some errors if I inlude more bands
-            # cbm_vbm[tp]["included"] = 1
+                cbm_vbm[tp]["included"] = 1
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands)
 
@@ -1119,7 +1121,6 @@ class AMSET(object):
 
             print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
 
-
         else:
             # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
             # these points will be used later to generate energy based on the minimum norm(k-k_i)
@@ -1151,11 +1152,12 @@ class AMSET(object):
             self.cbm_vbm[tp]["energy"] = energy
             self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
 
-        self.dos_emax += self.offset_from_vrun
-        self.dos_emin += self.offset_from_vrun
+        # if not self.poly_bands:
+        #     self.dos_emax += self.offset_from_vrun
+        #     self.dos_emin += self.offset_from_vrun
 
         logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
-
+        self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm["n"]["eff_mass_xx"])) for tp in ["n", "p"]}
 
         # calculate the  in initial ibz k-points and look at the first band to decide on additional/adaptive ks
         # temp_min = {"n": self.gl, "p": self.gl}
@@ -1368,7 +1370,6 @@ class AMSET(object):
                     for T in self.temperatures:
                         self.kgrid[tp]["N_POP"][c][T][ib] = np.array([ 1/(np.exp(hbar * W_POP/(k_B * T))-1) for W_POP in self.kgrid[tp]["W_POP"][ib]])
 
-
         self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
                 "f", "f_th", "relaxation time", "df0dk", "electric force", "thermal force"],
                         val_type="vector", initval=self.gs, is_nparray=True, c_T_idx=True)
@@ -1392,10 +1393,13 @@ class AMSET(object):
                                                  self.dos_emin, self.dos_emax,
                                                  int(round((self.dos_emax - self.dos_emin) / max(self.dE_global, 0.0001)))+1,
                                                  poly_bands=self.poly_bands,
+                                                 # bandgap=self.dft_gap + self.scissor,
                                                  bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
-                                                     "energy"] + self.scissor, width=self.dos_bwidth, SPB_DOS=True)
+                                                     "energy"] + self.scissor,
+                                                 width=self.dos_bwidth, SPB_DOS=True)
             # total_nelec = len(self.poly_bands) * 2 # basically 2x number of included occupied bands (valence bands)
             # total_nelec = self.nelec
+
             self.dos_normalization_factor = len(
                 self.poly_bands)*2*2  # it is *2 elec/band & *2 because DOS is repeated in valence/conduction
 
@@ -1412,7 +1416,7 @@ class AMSET(object):
         # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
 
         self.dos = zip(emesh, dos)
-        # logging.debug("dos after normalization: \n {}".format(self.dos))
+        logging.debug("dos after normalization: \n {}".format(self.dos))
 
         self.dos = [list(a) for a in self.dos]
 
@@ -1663,7 +1667,7 @@ class AMSET(object):
             sum_over_k = np.array([self.gs, self.gs, self.gs])
             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                 k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
-                # k_nrm = m_e * self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
+                # k_nrm = m_e* self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
 
                 # 4*pi, hbar and norm(v) are coming from the conversion of dk to dE
                 product = k_nrm**2/self.kgrid[tp]["norm(v)"][ib][ik] *4*pi/hbar
@@ -1693,7 +1697,7 @@ class AMSET(object):
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
-        # weighted = FalseE
+        weighted = False
 
         wpower = 1
         if xvel:
@@ -1799,8 +1803,8 @@ class AMSET(object):
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
 
         # The following (if passed on to s_el_eq) result in many cases k and k_prm being equal which we don't want.
-        # k = m_e * self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
-        # k_prm = m_e * self.kgrid[tp]["normv"][ib_prm][ik_prm] / (hbar * e * 1e11)
+        # k = m_e * self._avg_eff_mass[tp] * self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
+        # k_prm = m_e * self._avg_eff_mass[tp] * self.kgrid[tp]["normv"][ib_prm][ik_prm] / (hbar * e * 1e11)
 
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
@@ -1836,7 +1840,7 @@ class AMSET(object):
         #        * 1.0 / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
 
         # in the numerator we use velocity as k_nrm is defined in each direction as they are treated independently (see s_el_eq_isotropic for more info)
-        return (1 - X) * (m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
+        return (1 - X) * (m_e * self._avg_eff_mass[tp] * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
             hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
                * 1.0 / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
@@ -1913,7 +1917,7 @@ class AMSET(object):
                             # v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
                             v = self.kgrid[tp]["norm(v)"][ib][ik] / 3**0.5 # 3**0.5 is to treat each direction as 1D BS
 
-                            # k = m_e * v / (hbar * e * 1e11)
+                            # k = m_e * self._avg_eff_mass[tp] * v / (hbar * e * 1e11)
                             k = self.kgrid[tp]["norm(k)"][ib][ik]
 
                             a = self.kgrid[tp]["a"][ib][ik]
@@ -1932,12 +1936,9 @@ class AMSET(object):
                                     X, ib_pm, ik_pm = X_ib_ik
                                     g_pm = self.kgrid[tp]["g"][c][T][ib_pm][ik_pm]
                                     g_pm_th = self.kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
-
                                     v_pm= self.kgrid[tp]["norm(v)"][ib_pm][ik_pm]/ 3**0.5 # 3**0.5 is to treat each direction as 1D BS
-
-                                    # k_pm  = m_e*v_pm/(hbar*e*1e11)
+                                    # k_pm  = m_e*self._avg_eff_mass[tp]*v_pm/(hbar*e*1e11)
                                     k_pm = self.kgrid[tp]["norm(k)"][ib_pm][ik_pm]
-
                                     abs_kdiff = abs(k_pm - k)
                                     if abs_kdiff < 1e-4:
                                         continue
@@ -1945,12 +1946,9 @@ class AMSET(object):
                                     a_pm = self.kgrid[tp]["a"][ib_pm][ik_pm]
                                     c_pm = self.kgrid[tp]["c"][ib_pm][ik_pm]
                                     # g_pm = sum(self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm])/3
-
-
                                     # f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
                                     f_pm = self.kgrid[tp]["f"][c][T][ib_pm][ik_pm]
                                     f_pm_th = self.kgrid[tp]["f_th"][c][T][ib_pm][ik_pm]
-
                                     A_pm = a*a_pm + c_*c_pm*(k_pm**2+k**2)/(2*k_pm*k)
 
                                     beta_pm = (e**2*self.kgrid[tp]["W_POP"][ib_pm][ik_pm]*k_pm)/(4*pi*hbar*k*v_pm)*\
@@ -2037,10 +2035,9 @@ class AMSET(object):
 
         # knrm = norm(self.kgrid[tp]["kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
 
-
-        # knrm = m_e*v/(hbar*e*1e11) # in nm given that v is in cm/s and hbar in eV.s; this resulted in very high ACD and IMP scattering rates, actually only PIE would match with aMoBT results as it doesn't have k_nrm in its formula
+        knrm = m_e * self._avg_eff_mass[tp] * v/(hbar*e*1e11) # in nm given that v is in cm/s and hbar in eV.s; this resulted in very high ACD and IMP scattering rates, actually only PIE would match with aMoBT results as it doesn't have k_nrm in its formula
         #TODO: make sure that ACD scattering as well as others match in SPB between bs_is_isotropic and when knrm is the following and not above (i.e. not m*v/hbar*e)
-        knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+        # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
         par_c = self.kgrid[tp]["c"][ib][ik]
 
         if sname.upper() == "ACD":
@@ -2633,18 +2630,19 @@ class AMSET(object):
             plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=self.Efrequency[tp])
 
 
-            for prop in ["energy", "df0dk"]:
-                plt = PlotlyFig(plot_mode='offline', y_title=prop, x_title="norm(k)",
-                            plot_title="{} in kgrid".format(prop), filename=os.path.join(path, "{}_{}.{}".format("{}_kgrid".format(prop), tp, fformat)),
-                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
-                            margin_bottom=margin_bottom)
-                if prop in ["energy"]:
-                    plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp][prop][0])
-                if prop in ["df0dk"]:
-                    for c in self.dopings:
-                        for T in [plotT]:
-                            plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0],
-                                        y_col=[sum(p/3) for p in self.kgrid[tp][prop][c][T][0]])
+            # for prop in ["energy", "df0dk"]:
+            #     plt = PlotlyFig(plot_mode='offline', y_title=prop, x_title="norm(k)",
+            #                 plot_title="{} in kgrid".format(prop), filename=os.path.join(path, "{}_{}.{}".format("{}_kgrid".format(prop), tp, fformat)),
+            #                 textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
+            #                 margin_bottom=margin_bottom)
+            #     if prop in ["energy"]:
+            #         plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp][prop][0])
+            #     if prop in ["df0dk"]:
+            #         for c in self.dopings:
+            #             for T in [plotT]:
+            #                 plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0],
+            #                             y_col=[sum(p/3) for p in self.kgrid[tp][prop][c][T][0]])
+
 
 
             plt = PlotlyFig(plot_mode='offline', y_title="norm(velocity) (cm/s)", x_title="norm(k)",
@@ -2705,7 +2703,7 @@ class AMSET(object):
                     # x_col = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][0]]
                     x_col = self.kgrid[tp]["norm(k)"][0]
 
-                plt = PlotlyFig(plot_title=None, x_title="k [1/nm] (extracted from momentum, mv)",
+                plt = PlotlyFig(plot_title=None, x_title="k [1/nm]",
                                 y_title="{} at the 1st band".format(prop_name), hovermode='closest',
                             filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
                         plot_mode='offline', username=None, api_key=None, textsize=textsize, ticksize=ticksize, fontfamily=None,
@@ -2726,14 +2724,14 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
     # defaults:
-    mass = 0.044
+    mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]}
+                    "inelastic_scatterings": [],
                     # TODO: for testing, remove this part later:
                     # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
-                  # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
-                  #       [[0.25, 0.25, 0.25], [0.0, mass]]]]}
-                  #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
+                  "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
+                        [[0.25, 0.25, 0.25], [0.0, mass]],
+                        [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
@@ -2746,7 +2744,7 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     #
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-                   "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
+                   "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.0} #0.5818
     cube_path = "../test_files/GaAs/"
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
@@ -2756,13 +2754,14 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  dopings= [-1e20], temperatures=[600])
+                  # dopings=[-2e15], temperatures=[300, 400, 500, 600, 700, 800])
+                  dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
     AMSET.write_input_files()
-    AMSET.plot(plotT=600)
+    AMSET.plot(plotT=300)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
