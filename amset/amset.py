@@ -187,7 +187,7 @@ class AMSET(object):
 
         performance_params = {
             "nkibz": self.nkibz,
-            "dE_global": self.dE_global,
+            "dE_min": self.dE_min,
             "Ecut": self.Ecut,
             "adaptive_mesh": self.adaptive_mesh,
             "dos_bwidth": self.dos_bwidth,
@@ -248,7 +248,8 @@ class AMSET(object):
 
     def set_performance_params(self, params):
         self.nkibz = params.get("nkibz", 40)
-        self.dE_global = params.get("dE_global", 0.01)
+        self.dE_min = params.get("dE_min", 0.01)
+        self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
         self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
         self.adaptive_mesh = params.get("adaptive_mesh", False)
@@ -577,8 +578,8 @@ class AMSET(object):
                 counter = 1.0
                 current_ib_ie_idx = [E_idx[tp][i]]
                 j = i
-                while j<len(self.egrid[tp]["all_en_flat"])-1 and \
-                        abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][j+1]) < self.dE_global:
+                while j<len(self.egrid[tp]["all_en_flat"])-1 and (counter <= self.nE_min or \
+                        abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][j+1]) < self.dE_min):
                 # while i < len(self.egrid[tp]["all_en_flat"]) - 1 and \
                 #          self.egrid[tp]["all_en_flat"][i] == self.egrid[tp]["all_en_flat"][i + 1] :
                     counter += 1
@@ -688,7 +689,7 @@ class AMSET(object):
 
     def get_Eidx_in_dos(self, E, Estep=None):
         if not Estep:
-            Estep = max(self.dE_global, 0.0001)
+            Estep = max(self.dE_min, 0.0001)
         return int(round((E - self.dos_emin) / Estep))
 
         # return min(int(round((E - self.dos_emin) / Estep)) , len(self.dos)-1)
@@ -941,7 +942,7 @@ class AMSET(object):
     def get_ks_with_intermediate_energy(self, kpts, energies, max_Ediff = None, target_Ediff = None):
         final_kpts_added = []
         max_Ediff = max_Ediff or min(self.Ecut, 10*k_B*max(self.temperatures))
-        target_Ediff = target_Ediff or self.dE_global
+        target_Ediff = target_Ediff or self.dE_min
         for tp in ["n", "p"]:
             if tp not in self.all_types:
                 continue
@@ -1383,7 +1384,7 @@ class AMSET(object):
         if not self.poly_bands:
             # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
             emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
-                        self.dos_emin, self.dos_emax, int(round((self.dos_emax-self.dos_emin)/max(self.dE_global, 0.0001)))+1, width=self.dos_bwidth)
+                        self.dos_emin, self.dos_emax, int(round((self.dos_emax-self.dos_emin)/max(self.dE_min, 0.0001)))+1, width=self.dos_bwidth)
         else:
             logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
 
@@ -1391,7 +1392,7 @@ class AMSET(object):
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix,
                                                  [self.nkdos, self.nkdos, self.nkdos],
                                                  self.dos_emin, self.dos_emax,
-                                                 int(round((self.dos_emax - self.dos_emin) / max(self.dE_global, 0.0001)))+1,
+                                                 int(round((self.dos_emax - self.dos_emin) / max(self.dE_min, 0.0001)))+1,
                                                  poly_bands=self.poly_bands,
                                                  # bandgap=self.dft_gap + self.scissor,
                                                  bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
@@ -1450,7 +1451,7 @@ class AMSET(object):
                 self.ediff_scat = {"n": [], "p": []}
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
-                                                    E_radius=0.0, forced_min_npoints=2, tolerance=self.dE_global)
+                                                    E_radius=0.0, forced_min_npoints=2, tolerance=self.dE_min)
                 print "here nforced k-points ratio for {}-type elastic scattering".format(tp)
                 print self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib]))
                 if self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
@@ -1475,9 +1476,9 @@ class AMSET(object):
                     self.ediff_scat = {"n": [], "p": []}
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
-                            E_radius= + hbar * self.kgrid[tp]["W_POP"][ib][ik], forced_min_npoints=2, tolerance=self.dE_global)
+                            E_radius= + hbar * self.kgrid[tp]["W_POP"][ib][ik], forced_min_npoints=2, tolerance=self.dE_min)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
-                            E_radius= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2, tolerance=self.dE_global)
+                            E_radius= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2, tolerance=self.dE_min)
 
 
                     print "here nforced k-points ratio for {}-type POP scattering".format(tp)
@@ -2735,7 +2736,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 120, "dE_min": 0.0001, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2763,5 +2764,5 @@ if __name__ == "__main__":
     AMSET.write_input_files()
     AMSET.plot(plotT=300)
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=None, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
