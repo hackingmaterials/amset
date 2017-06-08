@@ -2160,11 +2160,14 @@ class AMSET(object):
                 if not self.gaussian_broadening:
                     for ie, en in enumerate(self.egrid[tp]["energy"]):
                         for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                            self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
+                            if self.bs_is_isotropic and prop_type=="vector":
+                                self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik])/sq3
+                            else:
+                                self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
                         self.egrid[tp][prop_name][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
 
-                        if self.bs_is_isotropic and prop_type=="vector":
-                            self.egrid[tp][prop_name][ie]=np.array([norm(self.egrid[tp][prop_name][ie])/sq3 for i in range(3)])
+                        # if self.bs_is_isotropic and prop_type=="vector":
+                        #     self.egrid[tp][prop_name][ie]=np.array([norm(self.egrid[tp][prop_name][ie])/sq3 for i in range(3)])
 
 
                 else:
@@ -2179,6 +2182,8 @@ class AMSET(object):
 
                         if self.bs_is_isotropic and prop_type=="vector":
                             self.egrid[tp][prop_name][ie]=np.array([norm(self.egrid[tp][prop_name][ie])/sq3 for i in range(3)])
+
+
         else:
             self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=True)
 
@@ -2191,13 +2196,18 @@ class AMSET(object):
                             for ie, en in enumerate(self.egrid[tp]["energy"]):
                                 # print self.kgrid_to_egrid_idx[tp][ie]
                                 for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                                    self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
+                                    if self.bs_is_isotropic and prop_type == "vector":
+                                        self.egrid[tp][prop_name][c][T][ie] += norm(self.kgrid[tp][prop_name][c][T][ib][ik])/sq3
+                                    else:
+                                        self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
                                 self.egrid[tp][prop_name][c][T][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
 
-                                if self.bs_is_isotropic and prop_type == "vector":
-                                    self.egrid[tp][prop_name][c][T][ie] = np.array(
-                                        [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
+                                # if self.bs_is_isotropic and prop_type == "vector":
+                                #     self.egrid[tp][prop_name][c][T][ie] = np.array(
+                                #         [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
 
+                            if prop_name in ["df0dk"]: # df0dk is always negative
+                                self.egrid[tp][prop_name][c][T] *= -1
                 else:
                     for c in self.dopings:
                         for T in self.temperatures:
@@ -2215,7 +2225,8 @@ class AMSET(object):
                                     self.egrid[tp][prop_name][c][T][ie] = np.array(
                                         [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
 
-
+                            if prop_name in ["df0dk"]: # df0dk is always negative
+                                self.egrid[tp][c][T][prop_name] *= -1
 
     def find_fermi_SPB(self, c, T , tolerance=0.001, tolerance_loose=0.03, alpha = 0.4, max_iter = 1000):
 
@@ -2742,7 +2753,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 200, "dE_min": 0.0001, "adaptive_mesh": False}
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
