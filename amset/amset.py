@@ -2171,17 +2171,18 @@ class AMSET(object):
 
 
                 else:
-                    for ie, en in enumerate(self.egrid[tp]["energy"]):
-                        N = 0.0  # total number of instances with the same energy
-                        for ib in range(self.cbm_vbm[tp]["included"]):
-                            for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                                self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik] * \
-                                    GB(self.kgrid[tp]["energy"][ib][ik]-self.egrid[tp]["energy"][ie], 0.005)
-
-                        self.egrid[tp][prop_name][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
-
-                        if self.bs_is_isotropic and prop_type=="vector":
-                            self.egrid[tp][prop_name][ie]=np.array([norm(self.egrid[tp][prop_name][ie])/sq3 for i in range(3)])
+                    raise ValueError("Guassian Broadening is NOT well tested and abandanded at the begining due to inaccurate results")
+                    # for ie, en in enumerate(self.egrid[tp]["energy"]):
+                    #     N = 0.0  # total number of instances with the same energy
+                    #     for ib in range(self.cbm_vbm[tp]["included"]):
+                    #         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                    #             self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik] * \
+                    #                 GB(self.kgrid[tp]["energy"][ib][ik]-self.egrid[tp]["energy"][ie], 0.005)
+                    #
+                    #     self.egrid[tp][prop_name][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
+                    #
+                    #     if self.bs_is_isotropic and prop_type=="vector":
+                    #         self.egrid[tp][prop_name][ie]=np.array([norm(self.egrid[tp][prop_name][ie])/sq3 for i in range(3)])
 
 
         else:
@@ -2209,16 +2210,17 @@ class AMSET(object):
                             if prop_name in ["df0dk"]: # df0dk is always negative
                                 self.egrid[tp][prop_name][c][T] *= -1
                 else:
-                    for c in self.dopings:
-                        for T in self.temperatures:
-                            for ie, en in enumerate(self.egrid[tp]["energy"]):
-                                N = 0.0 # total number of instances with the same energy
-                                for ib in range(self.cbm_vbm[tp]["included"]):
-                                    for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                                        self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik] * \
-                                               GB(self.kgrid[tp]["energy"][ib][ik] -
-                                                                            self.egrid[tp]["energy"][ie], 0.005)
-                                self.egrid[tp][prop_name][c][T][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
+                    raise ValueError("Guassian Broadening is NOT well tested and abandanded at the begining due to inaccurate results")
+                    # for c in self.dopings:
+                    #     for T in self.temperatures:
+                    #         for ie, en in enumerate(self.egrid[tp]["energy"]):
+                    #             N = 0.0 # total number of instances with the same energy
+                    #             for ib in range(self.cbm_vbm[tp]["included"]):
+                    #                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                    #                     self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik] * \
+                    #                            GB(self.kgrid[tp]["energy"][ib][ik] -
+                    #                                                         self.egrid[tp]["energy"][ie], 0.005)
+                    #             self.egrid[tp][prop_name][c][T][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
 
 
                                 if self.bs_is_isotropic and prop_type == "vector":
