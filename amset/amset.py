@@ -1416,7 +1416,7 @@ class AMSET(object):
         # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
 
         self.dos = zip(emesh, dos)
-        logging.debug("dos after normalization: \n {}".format(self.dos))
+        # logging.debug("dos after normalization: \n {}".format(self.dos))
 
         self.dos = [list(a) for a in self.dos]
 
@@ -2726,16 +2726,16 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": [],
+                    "inelastic_scatterings": []}
                     # TODO: for testing, remove this part later:
                     # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
-                  "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
-                        [[0.25, 0.25, 0.25], [0.0, mass]],
-                        [[0.15, 0.15, 0.15], [0.0, mass]]]]}
+                  # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
+                  #       [[0.25, 0.25, 0.25], [0.0, mass]],
+                  #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 70, "dE_global": 0.01, "adaptive_mesh": False}
+    performance_params = {"nkibz": 100, "dE_global": 0.01, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2763,5 +2763,5 @@ if __name__ == "__main__":
     AMSET.write_input_files()
     AMSET.plot(plotT=300)
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
