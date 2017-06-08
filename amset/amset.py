@@ -1290,8 +1290,8 @@ class AMSET(object):
                     # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
                     # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
                     # TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
-                    if self.kgrid[tp]["velocity"][ib][ik][0] < 1 or self.kgrid[tp]["velocity"][ib][ik][1] < 1 \
-                            or self.kgrid[tp]["velocity"][ib][ik][2] < 1 or \
+                    if self.kgrid[tp]["velocity"][ib][ik][0] < 100 or self.kgrid[tp]["velocity"][ib][ik][1] < 100 \
+                            or self.kgrid[tp]["velocity"][ib][ik][2] < 100 or \
                             abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                         rm_idx_list[tp][ib].append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
@@ -1929,6 +1929,11 @@ class AMSET(object):
                             # N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
                             N_POP = self.kgrid[tp]["N_POP"][c][T][ib][ik]
                             for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
+                                # bypass k-points that cannot have k- associated with them (even though indexes may be available due to enforced scattering)
+                                if X_Epm == "X_Eminus_ik" and self.kgrid[tp]["energy"][ib][ik] - hbar *\
+                                        self.kgrid[tp]["W_POP"] < self.cbm_vbm[tp]["energy"]:
+                                    continue
+
                                 #TODO: see how does dividing by len_eqE affect results, set to 1 to test
                                 len_eqE = len(self.kgrid[tp][X_Epm][ib][ik])
                                 # if len_eqE == 0:
@@ -2631,18 +2636,18 @@ class AMSET(object):
             plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=self.Efrequency[tp])
 
 
-            # for prop in ["energy", "df0dk"]:
-            #     plt = PlotlyFig(plot_mode='offline', y_title=prop, x_title="norm(k)",
-            #                 plot_title="{} in kgrid".format(prop), filename=os.path.join(path, "{}_{}.{}".format("{}_kgrid".format(prop), tp, fformat)),
-            #                 textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
-            #                 margin_bottom=margin_bottom)
-            #     if prop in ["energy"]:
-            #         plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp][prop][0])
-            #     if prop in ["df0dk"]:
-            #         for c in self.dopings:
-            #             for T in [plotT]:
-            #                 plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0],
-            #                             y_col=[sum(p/3) for p in self.kgrid[tp][prop][c][T][0]])
+            for prop in ["energy", "df0dk"]:
+                plt = PlotlyFig(plot_mode='offline', y_title=prop, x_title="norm(k)",
+                            plot_title="{} in kgrid".format(prop), filename=os.path.join(path, "{}_{}.{}".format("{}_kgrid".format(prop), tp, fformat)),
+                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
+                            margin_bottom=margin_bottom)
+                if prop in ["energy"]:
+                    plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp][prop][0])
+                if prop in ["df0dk"]:
+                    for c in self.dopings:
+                        for T in [plotT]:
+                            plt.xy_plot(x_col=self.kgrid[tp]["energy"][0],
+                                        y_col=[sum(p/3) for p in self.kgrid[tp][prop][c][T][0]])
 
 
 
@@ -2736,7 +2741,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 120, "dE_min": 0.0001, "adaptive_mesh": False}
+    performance_params = {"nkibz": 200, "dE_min": 0.0001, "adaptive_mesh": False}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
