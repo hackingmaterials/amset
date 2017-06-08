@@ -35,6 +35,7 @@ k_B = _cd("Boltzmann constant in eV/K")
 epsilon_0 = 8.854187817e-12     # Absolute value of dielectric constant in vacuum [C**2/m**2N]
 default_small_E = 1 # eV/cm the value of this parameter does not matter
 dTdz = 10.0 # K/cm
+sq3 = 3**0.5
 
 # The following are example constants taken from aMoBT calculation on PbTe that was done before
 # None for now
@@ -1916,7 +1917,7 @@ class AMSET(object):
                             # S_o = np.array([self.gs, self.gs, self.gs])
 
                             # v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
-                            v = self.kgrid[tp]["norm(v)"][ib][ik] / 3**0.5 # 3**0.5 is to treat each direction as 1D BS
+                            v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3 # 3**0.5 is to treat each direction as 1D BS
 
                             # k = m_e * self._avg_eff_mass[tp] * v / (hbar * e * 1e11)
                             k = self.kgrid[tp]["norm(k)"][ib][ik]
@@ -1942,7 +1943,7 @@ class AMSET(object):
                                     X, ib_pm, ik_pm = X_ib_ik
                                     g_pm = self.kgrid[tp]["g"][c][T][ib_pm][ik_pm]
                                     g_pm_th = self.kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
-                                    v_pm= self.kgrid[tp]["norm(v)"][ib_pm][ik_pm]/ 3**0.5 # 3**0.5 is to treat each direction as 1D BS
+                                    v_pm= self.kgrid[tp]["norm(v)"][ib_pm][ik_pm]/ sq3 # 3**0.5 is to treat each direction as 1D BS
                                     # k_pm  = m_e*self._avg_eff_mass[tp]*v_pm/(hbar*e*1e11)
                                     k_pm = self.kgrid[tp]["norm(k)"][ib_pm][ik_pm]
                                     abs_kdiff = abs(k_pm - k)
@@ -2163,7 +2164,7 @@ class AMSET(object):
                         self.egrid[tp][prop_name][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
 
                         if self.bs_is_isotropic and prop_type=="vector":
-                            self.egrid[tp][prop_name][ie]=np.array([sum(self.egrid[tp][prop_name][ie])/3.0 for i in range(3)])
+                            self.egrid[tp][prop_name][ie]=np.array([norm(self.egrid[tp][prop_name][ie])/sq3 for i in range(3)])
 
 
                 else:
@@ -2177,7 +2178,7 @@ class AMSET(object):
                         self.egrid[tp][prop_name][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
 
                         if self.bs_is_isotropic and prop_type=="vector":
-                            self.egrid[tp][prop_name][ie]=np.array([sum(self.egrid[tp][prop_name][ie])/3.0 for i in range(3)])
+                            self.egrid[tp][prop_name][ie]=np.array([norm(self.egrid[tp][prop_name][ie])/sq3 for i in range(3)])
         else:
             self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=True)
 
@@ -2195,7 +2196,7 @@ class AMSET(object):
 
                                 if self.bs_is_isotropic and prop_type == "vector":
                                     self.egrid[tp][prop_name][c][T][ie] = np.array(
-                                        [sum(self.egrid[tp][prop_name][c][T][ie])/3.0 for i in range(3)])
+                                        [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
 
                 else:
                     for c in self.dopings:
@@ -2212,7 +2213,7 @@ class AMSET(object):
 
                                 if self.bs_is_isotropic and prop_type == "vector":
                                     self.egrid[tp][prop_name][c][T][ie] = np.array(
-                                        [sum(self.egrid[tp][prop_name][c][T][ie])/3.0 for i in range(3)])
+                                        [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
 
 
 
@@ -2646,7 +2647,7 @@ class AMSET(object):
                 if prop in ["df0dk"]:
                     for c in self.dopings:
                         for T in [plotT]:
-                            plt.xy_plot(x_col=self.kgrid[tp]["energy"][0],
+                            plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0],
                                         y_col=[sum(p/3) for p in self.kgrid[tp][prop][c][T][0]])
 
 
