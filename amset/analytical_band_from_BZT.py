@@ -135,7 +135,7 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br
         ddene = np.sum(ddspwre * engre.reshape(nwave, 1, 1) * 2, axis=0)
         return sign * ene, dene, ddene
     else:
-        return sign * en
+        return sign * ene
 
 
 
@@ -372,10 +372,10 @@ class Analytical_bands(object):
     def get_extreme(self, kpt,iband,only_energy=False,cbm=True):
         engre,latt_points,nwave, nsym, nsymop, symop, br_dir = self.get_engre(iband)
         if only_energy == False:
-            energy, denergy, ddenergy = self.get_energy(kpt,engre,nwave, nsym, nstv, vec, vec2, br_dir,cbm=cbm)
+            energy, denergy, ddenergy = get_energy(kpt,engre,nwave, nsym, nstv, vec, vec2, br_dir,cbm=cbm)
             return Energy(energy,"Ry").to("eV"), denergy, ddenergy
         else:
-            energy = self.get_energy(kpt,engre,nwave, nsym, nstv, vec, cbm=cbm)
+            energy = get_energy(kpt,engre,nwave, nsym, nstv, vec, cbm=cbm)
             return Energy(energy,"Ry").to("eV") # This is in eV automatically
 
         
@@ -407,7 +407,7 @@ class Analytical_bands(object):
         dos = np.zeros(e_range)
         for kpt,w in zip(ir_kpts,weights):
             for b in range(len(engre)):
-                energy = self.get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
+                energy = get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
                 g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                 dos += w * g
         return e_mesh,dos
