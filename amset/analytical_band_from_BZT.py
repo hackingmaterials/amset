@@ -103,6 +103,40 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
     #                 [0.0, 0.0, dde] ])
     # return energy, de, dde
 
+def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br_dir=None, cbm=True):
+    ' Compute energy for a k-point from star functions '
+
+    sign = -1 if cbm == False else 1
+    arg = 2 * np.pi * vec.dot(xkpt)
+    tempc = np.cos(arg)
+    spwre = np.sum(tempc, axis=1) - (nsym - nstv)  # [:,np.newaxis]
+    spwre /= nstv  # [:,np.newaxis]
+
+    if br_dir is not None:
+        dene = np.zeros(3)
+        ddene = np.zeros((3, 3))
+        dspwre = np.zeros((nwave, 3))
+        ddspwre = np.zeros((nwave, 3, 3))
+        temps = np.sin(arg)
+        dspwre = np.sum(vec2 * temps[:, :, np.newaxis], axis=1)
+        dspwre /= nstv[:, np.newaxis]
+
+        # maybe possible a further speed up here
+        # for nw in xrange(nwave):
+        # for i in xrange(nstv[nw]):
+        # ddspwre[nw] += outer(vec2[nw,i],vec2[nw,i])*(-tempc[nw,i])
+        # ddspwre[nw] /= nstv[nw]
+        out_tempc = out_vec2 * (-tempc[:, :, np.newaxis, np.newaxis])
+        ddspwre = np.sum(out_tempc, axis=1) / nstv[:, np.newaxis, np.newaxis]
+
+    ene = spwre.dot(engre)
+    if br_dir is not None:
+        dene = np.sum(dspwre.T * engre, axis=1)
+        ddene = np.sum(ddspwre * engre.reshape(nwave, 1, 1) * 2, axis=0)
+        return sign * ene, dene, ddene
+    else:
+        return sign * en
+
 
 
 def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.1, SPB_DOS=False, all_values=False):
@@ -264,7 +298,7 @@ class Analytical_bands(object):
             return nstv, vec
 
 
-
+    # TODO: I copied this function outside of the class so that I can take advantage of Parallel function, remove it from here later! (it doesn't seem like it's using anything from the class anyway!)
     def get_energy(self, xkpt,engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br_dir=None,cbm=True):
         ' Compute energy for a k-point from star functions '
 
