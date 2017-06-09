@@ -1287,16 +1287,27 @@ class AMSET(object):
                 self.kgrid[tp]["cartesian kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)/A_to_nm*2*pi #[1/nm]
                 self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][ib]]
 
+                if self.parallel:
+                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
+                         engre[i * self.cbm_vbm["p"]["included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2,
+                         br_dir) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
 
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     if not self.poly_bands:
-                        energy, de, dde = get_energy(
-                            self.kgrid[tp]["kpoints"][ib][ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
-                                nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                        energy = energy * Ry_to_eV - sgn * self.scissor/2.0
-                        velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)# to get v in cm/s
-                        effective_mass = hbar ** 2 / (
-                        dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                        if not self.parallel:
+                            energy, de, dde = get_energy(
+                                self.kgrid[tp]["kpoints"][ib][ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
+                                    nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+                            energy = energy * Ry_to_eV - sgn * self.scissor/2.0
+                            velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)# to get v in cm/s
+                            effective_mass = hbar ** 2 / (
+                            dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                        else:
+                            energy = results[ik][0] * Ry_to_eV - sgn * self.scissor / 2.0
+                            velocity = abs(results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
+                            effective_mass = hbar ** 2 / (
+                                results[ik][2] * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+
                     else:
                         energy, velocity, effective_mass=get_poly_energy(self.kgrid[tp]["cartesian kpoints"][ib][ik],
                                                                               poly_bands=self.poly_bands,
