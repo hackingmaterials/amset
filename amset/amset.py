@@ -1139,7 +1139,7 @@ class AMSET(object):
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             if not self.poly_bands:
-                energy, de, dde = analytical_bands.get_energy(
+                energy, de, dde = get_energy(
                     self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"] + 0],
                     nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                 energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
@@ -1175,7 +1175,7 @@ class AMSET(object):
                 if not self.parallel or self.poly_bands: # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts)):
                         if not self.poly_bands:
-                            energy, de, dde = analytical_bands.get_energy(
+                            energy, de, dde = get_energy(
                                 kpts[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
                                     nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                             energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
@@ -1290,7 +1290,7 @@ class AMSET(object):
 
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     if not self.poly_bands:
-                        energy, de, dde = analytical_bands.get_energy(
+                        energy, de, dde = get_energy(
                             self.kgrid[tp]["kpoints"][ib][ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
                                 nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                         energy = energy * Ry_to_eV - sgn * self.scissor/2.0
