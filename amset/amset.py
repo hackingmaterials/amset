@@ -1,5 +1,4 @@
 # coding: utf-8
-
 import warnings
 
 import time
@@ -12,6 +11,7 @@ from pprint import pprint
 import numpy as np
 from math import log
 # import sys
+
 from pymatgen.io.vasp import Vasprun, Spin, Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from scipy.constants.codata import value as _cd
@@ -22,6 +22,9 @@ from monty.json import MontyEncoder, MontyDecoder
 from random import random
 import cProfile
 from copy import deepcopy
+import multiprocessing
+from joblib import Parallel, delayed
+from analytical_band_from_BZT import get_energy
 
 # global constants
 hbar = _cd('Planck constant in eV s')/(2*pi)
@@ -158,8 +161,7 @@ class AMSET(object):
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
 
         self.all_types = [self.get_tp(c) for c in self.dopings]
-
-
+        self.num_cores = multiprocessing.cpu_count()
 
     def write_input_files(self):
         """writes all 3 types of inputs in json files for example to
@@ -265,7 +267,7 @@ class AMSET(object):
         # TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.wordy = params.get("wordy", False)
         self.maxiters = params.get("maxiters", 5)
-
+        self.parallel = params.get("parallel", True)
 
 
     def run(self, coeff_file, kgrid_tp="coarse"):
@@ -1165,24 +1167,45 @@ class AMSET(object):
         # temp_min = {"n": self.gl, "p": self.gl}
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
         rm_list = {"n": [], "p": []}
+        nval_included = self.cbm_vbm["p"]["included"]
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
             for ib in [0]: # we only include the first band now (same for energies) to decide on ibz k-points
-                for ik in range(len(kpts)):
-                    if not self.poly_bands:
-                        energy, de, dde = analytical_bands.get_energy(
-                            kpts[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
-                                nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                        energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-                        velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                        # effective_m = hbar ** 2 / (
-                        # dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
-                        energies[tp][ik] = energy
-                    else:
-                        energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi),
-                                poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
-                        energies[tp][ik] = energy
+                if not self.parallel or self.poly_bands: # The PB generator is fast enough no need for parallelization
+                    for ik in range(len(kpts)):
+                        if not self.poly_bands:
+                            energy, de, dde = analytical_bands.get_energy(
+                                kpts[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
+                                    nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+                            energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
+                            velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
+                            # effective_m = hbar ** 2 / (
+                            # dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+                            energies[tp][ik] = energy
+                        else:
+                            energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi),
+                                    poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+                            energies[tp][ik] = energy
+
+                            if velocity[0] < 1 or velocity[1] < 1 or velocity[2] < 1 or \
+                                            abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
+                                rm_list[tp].append(ik)
+
+                        if velocity[0] < 1 or velocity[1] < 1 or velocity[2] < 1 or \
+                                        abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
+                            rm_list[tp].append(ik)
+                else:
+                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[ik],
+                            engre[i*self.cbm_vbm["p"]["included"]+ib],
+                            nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts)))
+                    for ik, res in enumerate(results):
+                        energies[tp][ik] = res[0]* Ry_to_eV - sgn * self.scissor / 2.0
+                        velocity = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
+                        if velocity[0] < 1 or velocity[1] < 1 or velocity[2] < 1 or \
+                                        abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
+                            rm_list[tp].append(ik)
+
 
 
                     # TODO: this may be a better place to get rid of k-points that have off-energy values to avoid calculating their energy early on
@@ -1191,9 +1214,7 @@ class AMSET(object):
                     #     self.cbm_vbm[tp]["eff_mass_xx"] = effective_m
                     #     self.cbm_vbm[tp]["energy"] = energy
 
-                    if velocity[0] < 1 or velocity[1] < 1 or velocity[2] < 1 or \
-                            abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
-                        rm_list[tp].append(ik)
+
 
         # logging.debug("energies before removing k-points with off-energy:\n {}".format(energies))
         kpts = np.delete(kpts, list(set(rm_list["n"]+rm_list["p"])), axis=0)
@@ -2672,13 +2693,11 @@ class AMSET(object):
                                         y_col=[sum(p/3) for p in self.kgrid[tp][prop][c][T][0]])
 
 
-
             plt = PlotlyFig(plot_mode='offline', y_title="norm(velocity) (cm/s)", x_title="norm(k)",
                             plot_title="velocity in kgrid",
                             filename=os.path.join(path, "{}_{}.{}".format("v_kgrid", tp, fformat)),
                             textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
                             margin_bottom=margin_bottom)
-
             plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp]["norm(v)"][0])
 
             prop_list = ["relaxation time", "_all_elastic", "df0dk"] + self.elastic_scatterings
@@ -2687,6 +2706,13 @@ class AMSET(object):
             for c in self.dopings:
                 # for T in self.temperatures:
                 for T in [plotT]:
+                    plt = PlotlyFig(plot_mode='offline', y_title="ACD scattering rate (1/s)", x_title="energy (eV)",
+                                    plot_title="ACD in kgrid",
+                                    filename=os.path.join(path, "{}_{}.{}".format("ACD_kgrid", tp, fformat)),
+                                    textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
+                                    margin_bottom=margin_bottom)
+                    plt.xy_plot(x_col=self.kgrid[tp]["energy"][0], y_col=[norm(p) for p in self.kgrid[tp]["ACD"][c][T][0]])
+
                     for prop_name in prop_list:
                         plt = PlotlyFig(plot_title="c={} 1/cm3, T={} K".format(c, T), x_title="Energy (eV)",
                                 y_title=prop_name, hovermode='closest',
@@ -2754,16 +2780,16 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": [],
+                    "inelastic_scatterings": []}
                     # TODO: for testing, remove this part later:
-                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]],
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "adaptive_mesh": False}
+    performance_params = {"nkibz": 75, "dE_min": 0.01, "adaptive_mesh": False, "parallel": True}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
