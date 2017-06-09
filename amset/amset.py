@@ -1418,7 +1418,14 @@ class AMSET(object):
         # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
 
         self.dos = zip(emesh, dos)
-        # logging.debug("dos after normalization: \n {}".format(self.dos))
+
+        self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
+        self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
+
+        print("vbm and cbm DOS idx")
+        print self.vbm_dos_idx
+        print self.cbm_dos_idx
+        logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx:self.cbm_dos_idx]))
 
         self.dos = [list(a) for a in self.dos]
 
@@ -2035,16 +2042,18 @@ class AMSET(object):
         # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
         # v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
         # v = norm(self.kgrid[tp]["velocity"][ib][ik])
-        v = self.kgrid[tp]["norm(v)"][ib][ik] / 3**0.5 # because of isotropic assumption, we treat the BS as 1D
+        v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3 # because of isotropic assumption, we treat the BS as 1D
         # v = self.kgrid[tp]["velocity"][ib][ik] # because it's isotropic, it doesn't matter which one we choose
         # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
 
         # knrm = norm(self.kgrid[tp]["kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
 
-        knrm = m_e * self._avg_eff_mass[tp] * v/(hbar*e*1e11) # in nm given that v is in cm/s and hbar in eV.s; this resulted in very high ACD and IMP scattering rates, actually only PIE would match with aMoBT results as it doesn't have k_nrm in its formula
+        if self.poly_bands: # the first one should be v and NOT v * sq3 so that the two match in SPB
+            knrm = m_e * self._avg_eff_mass[tp] * (v ) / (hbar*e*1e11) # in nm given that v is in cm/s and hbar in eV.s; this resulted in very high ACD and IMP scattering rates, actually only PIE would match with aMoBT results as it doesn't have k_nrm in its formula
         #TODO: make sure that ACD scattering as well as others match in SPB between bs_is_isotropic and when knrm is the following and not above (i.e. not m*v/hbar*e)
-        # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+        else:
+            knrm = self.kgrid[tp]["norm(k)"][ib][ik]
         par_c = self.kgrid[tp]["c"][ib][ik]
 
         if sname.upper() == "ACD":
@@ -2221,14 +2230,14 @@ class AMSET(object):
                     #                            GB(self.kgrid[tp]["energy"][ib][ik] -
                     #                                                         self.egrid[tp]["energy"][ie], 0.005)
                     #             self.egrid[tp][prop_name][c][T][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
-
-
-                                if self.bs_is_isotropic and prop_type == "vector":
-                                    self.egrid[tp][prop_name][c][T][ie] = np.array(
-                                        [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
-
-                            if prop_name in ["df0dk"]: # df0dk is always negative
-                                self.egrid[tp][c][T][prop_name] *= -1
+                    #
+                    #
+                    #             if self.bs_is_isotropic and prop_type == "vector":
+                    #                 self.egrid[tp][prop_name][c][T][ie] = np.array(
+                    #                     [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
+                    #
+                    #         if prop_name in ["df0dk"]: # df0dk is always negative
+                    #             self.egrid[tp][c][T][prop_name] *= -1
 
     def find_fermi_SPB(self, c, T , tolerance=0.001, tolerance_loose=0.03, alpha = 0.4, max_iter = 1000):
 
@@ -2301,14 +2310,13 @@ class AMSET(object):
             # for idos in range(len(self.dos)):
             #     self.dos[idos] *= self.nelec/integ
 
+            # interpolation_steps = 50
 
 
             for j, tp in enumerate(["n", "p"]):
                 integral = 0.0
 
-
-                for ie in range((1-j)*self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])+j*0,
-                                (1-j)*len(self.dos)-1 + j*self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])-1):
+                for ie in range((1-j)*self.cbm_dos_idx+j*0, (1-j)*len(self.dos)-1 + j*self.vbm_dos_idx-1):
                     integral += (self.dos[ie+1][1] + self.dos[ie][1])/2*funcs[j](self.dos[ie][0],fermi,T)*\
                                 (self.dos[ie+1][0] - self.dos[ie][0])
                 temp_doping[tp] = (-1) ** (j + 1) * abs(integral/(self.volume * (A_to_m*m_to_cm)**3) )
@@ -2746,9 +2754,9 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": []}
+                    "inelastic_scatterings": [],
                     # TODO: for testing, remove this part later:
-                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]],
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
