@@ -257,8 +257,7 @@ class AMSET(object):
         self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
-        self.dos_bwidth = params.get("dos_bwidth",
-                                     0.1)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
+        self.dos_bwidth = params.get("dos_bwidth",0.05)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
         self.nkdos = params.get("nkdos", 35)
 
         self.gs = 1e-32  # a global small value (generally used for an initial non-zero value)
@@ -425,6 +424,7 @@ class AMSET(object):
             self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands*2
 
         print("total number of electrons nelec: {}".format(self.nelec))
+        print("DOS normalization factor based on vasprun.xml: {}".format(self.dos_normalization_factor))
 
         bs = bs.as_dict()
         if bs["is_spin_polarized"]:
@@ -1438,6 +1438,7 @@ class AMSET(object):
                 self.poly_bands)*2*2  # it is *2 elec/band & *2 because DOS is repeated in valence/conduction
 
         integ = 0.0
+        # self.dos_normalization_factor = 1
         for idos in range(len(dos) - 2):
             # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
             #     break
@@ -1971,7 +1972,7 @@ class AMSET(object):
                             for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
                                 # bypass k-points that cannot have k- associated with them (even though indexes may be available due to enforced scattering)
                                 if X_Epm == "X_Eminus_ik" and self.kgrid[tp]["energy"][ib][ik] - hbar *\
-                                        self.kgrid[tp]["W_POP"] < self.cbm_vbm[tp]["energy"]:
+                                        self.kgrid[tp]["W_POP"][ib][ik] < self.cbm_vbm[tp]["energy"]:
                                     continue
 
                                 #TODO: see how does dividing by len_eqE affect results, set to 1 to test
@@ -2791,7 +2792,7 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": []}
+                    "inelastic_scatterings": ["POP"]}
                     # TODO: for testing, remove this part later:
                     # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
@@ -2800,7 +2801,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 75, "dE_min": 0.01, "adaptive_mesh": False, "parallel": True}
+    performance_params = {"nkibz": 40, "dE_min": 0.01, "adaptive_mesh": False, "parallel": True}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
