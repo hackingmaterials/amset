@@ -1945,6 +1945,11 @@ class AMSET(object):
         return integ
 
 
+
+    def calculate_Sio(self, ib, ik):
+
+
+
     def s_inel_eq_isotropic(self, once_called=False):
         for tp in ["n", "p"]:
             for c in self.dopings:
@@ -2015,30 +2020,6 @@ class AMSET(object):
                                     S_i += ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm) / len_eqE
                                     S_i_th += ((N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th) / len_eqE
 
-
-                                        # The rest is failed attempt to save time in calculating S_i. It does NOT work because beta_pm also changes at each k_pm so we can't have fixed lambda_i_plus for example at each ib_om and ik_pm
-
-                                        # lamb_ipm = beta_pm * (
-                                        #     A_pm ** 2 * log((k_pm + k) / abs_kdiff + 1e-4) * (k_pm ** 2 + k ** 2) / (
-                                        #     2 * k * k_pm) - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
-                                        # S_i += ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm) / len_eqE
-
-                                    #     if X_Epm == "X_Eplus_ik":
-                                    #         self.kgrid[tp]["lambda_i_plus"][ib_pm][ik_pm] = lamb_ipm
-                                    #     elif X_Epm == "X_Eminus_ik":
-                                    #         self.kgrid[tp]["lambda_i_minus"][ib_pm][ik_pm] = lamb_ipm
-                                    #
-                                    #
-                                    #
-                                    # else:
-                                    #     if X_Epm == "X_Eplus_ik":
-                                    #         S_i += (N_POP + 1 - f)*self.kgrid[tp]["lambda_i_plus"][ib_pm][ik_pm] * g_pm
-                                    #     elif X_Epm == "X_Eminus_ik":
-                                    #         S_i += (N_POP + f)*self.kgrid[tp]["lambda_i_minus"][ib_pm][ik_pm] * g_pm
-
-
-
-                            # self.kgrid[tp]["S_o" + g_suffix][c][T][ib][ik] = S_o
                             self.kgrid[tp]["S_i"][c][T][ib][ik] = S_i
                             self.kgrid[tp]["S_i_th"][c][T][ib][ik] = S_i_th
 
