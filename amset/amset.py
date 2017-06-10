@@ -1946,58 +1946,58 @@ class AMSET(object):
 
 
 
-    def calculate_Sio(self, tp, c, T, ib, ik, once_called):
+    def calculate_Sio(self, tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
         # S_i = np.array([self.gs, self.gs, self.gs])
-        S_i = self.gs
-        S_i_th = self.gs
-        S_o = self.gs
-        S_o_th = self.gs
+        S_i = 1e-32
+        S_i_th = 1e-32
+        S_o = 1e-32
+        S_o_th = 1e-32
         # S_o = np.array([self.gs, self.gs, self.gs])
 
         # v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
-        v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # 3**0.5 is to treat each direction as 1D BS
+        v = kgrid[tp]["norm(v)"][ib][ik] / sq3  # 3**0.5 is to treat each direction as 1D BS
 
         # k = m_e * self._avg_eff_mass[tp] * v / (hbar * e * 1e11)
-        k = self.kgrid[tp]["norm(k)"][ib][ik]
+        k = kgrid[tp]["norm(k)"][ib][ik]
 
-        a = self.kgrid[tp]["a"][ib][ik]
-        c_ = self.kgrid[tp]["c"][ib][ik]
+        a = kgrid[tp]["a"][ib][ik]
+        c_ = kgrid[tp]["c"][ib][ik]
         # f = self.kgrid[tp]["f0"][c][T][ib][ik]
-        f = self.kgrid[tp]["f"][c][T][ib][ik]
-        f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
+        f = kgrid[tp]["f"][c][T][ib][ik]
+        f_th = kgrid[tp]["f_th"][c][T][ib][ik]
         # N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
-        N_POP = self.kgrid[tp]["N_POP"][c][T][ib][ik]
+        N_POP = kgrid[tp]["N_POP"][c][T][ib][ik]
         for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
             # bypass k-points that cannot have k- associated with them (even though indexes may be available due to enforced scattering)
-            if X_Epm == "X_Eminus_ik" and self.kgrid[tp]["energy"][ib][ik] - hbar * \
-                    self.kgrid[tp]["W_POP"][ib][ik] < self.cbm_vbm[tp]["energy"]:
+            if j==1 and kgrid[tp]["energy"][ib][ik] - hbar * \
+                    kgrid[tp]["W_POP"][ib][ik] < cbm_vbm[tp]["energy"]:
                 continue
 
             # TODO: see how does dividing by len_eqE affect results, set to 1 to test
-            len_eqE = len(self.kgrid[tp][X_Epm][ib][ik])
+            len_eqE = len(kgrid[tp][X_Epm][ib][ik])
             # if len_eqE == 0:
             #     print "WARNING!!!! element {} of {} is empty!!".format(ik, X_Epm)
-            for X_ib_ik in self.kgrid[tp][X_Epm][ib][ik]:
+            for X_ib_ik in kgrid[tp][X_Epm][ib][ik]:
                 X, ib_pm, ik_pm = X_ib_ik
-                g_pm = self.kgrid[tp]["g"][c][T][ib_pm][ik_pm]
-                g_pm_th = self.kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
-                v_pm = self.kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
+                g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
+                g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
+                v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
                 # k_pm  = m_e*self._avg_eff_mass[tp]*v_pm/(hbar*e*1e11)
-                k_pm = self.kgrid[tp]["norm(k)"][ib_pm][ik_pm]
+                k_pm = kgrid[tp]["norm(k)"][ib_pm][ik_pm]
                 abs_kdiff = abs(k_pm - k)
                 if abs_kdiff < 1e-4:
                     continue
 
-                a_pm = self.kgrid[tp]["a"][ib_pm][ik_pm]
-                c_pm = self.kgrid[tp]["c"][ib_pm][ik_pm]
+                a_pm = kgrid[tp]["a"][ib_pm][ik_pm]
+                c_pm = kgrid[tp]["c"][ib_pm][ik_pm]
                 # g_pm = sum(self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm])/3
                 # f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
-                f_pm = self.kgrid[tp]["f"][c][T][ib_pm][ik_pm]
-                f_pm_th = self.kgrid[tp]["f_th"][c][T][ib_pm][ik_pm]
+                f_pm = kgrid[tp]["f"][c][T][ib_pm][ik_pm]
+                f_pm_th = kgrid[tp]["f_th"][c][T][ib_pm][ik_pm]
                 A_pm = a * a_pm + c_ * c_pm * (k_pm ** 2 + k ** 2) / (2 * k_pm * k)
 
-                beta_pm = (e ** 2 * self.kgrid[tp]["W_POP"][ib_pm][ik_pm] * k_pm) / (4 * pi * hbar * k * v_pm) * \
-                          (1 / (self.epsilon_inf * epsilon_0) - 1 / (self.epsilon_s * epsilon_0)) * 6.2415093e20
+                beta_pm = (e ** 2 * kgrid[tp]["W_POP"][ib_pm][ik_pm] * k_pm) / (4 * pi * hbar * k * v_pm) * \
+                          (1 / (epsilon_inf * epsilon_0) - 1 / (epsilon_s * epsilon_0)) * 6.2415093e20
 
                 if not once_called:
                     lamb_opm = beta_pm * (
@@ -2017,10 +2017,17 @@ class AMSET(object):
 
 
     def s_inel_eq_isotropic(self, once_called=False):
+        kgrid = self.kgrid
+        cbm_vbm = self.cbm_vbm
+        epsilon_s = self.epsilon_s
+        epsilon_inf = self.epsilon_inf
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
+                        results = Parallel(n_jobs=self.num_cores)(delayed(self.calculate_Sio)\
+                            (tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf
+                             ) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             S_i, S_i_th, S_o, S_o_th = self.calculate_Sio(tp, c, T, ib, ik, once_called)
                             self.kgrid[tp]["S_i"][c][T][ib][ik] = S_i
