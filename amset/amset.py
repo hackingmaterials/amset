@@ -78,7 +78,20 @@ def df0dE(E, fermi, T):
         return -1 / (k_B * T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
 
 
-
+def cos_angle(v1, v2):
+    """
+    Args:
+        v1, v2 (np.array): vectors
+    return:
+        the cosine of the angle between twp numpy vectors: v1 and v2"""
+    norm_v1, norm_v2 = norm(v1), norm(v2)
+    if norm_v1 == 0 or norm_v2 == 0:
+        return 1.0  # In case of the two points are the origin, we assume 0 degree; i.e. no scattering: 1-X==0
+    else:
+        return np.dot(v1, v2) / (norm_v1 * norm_v2)
+        
+        
+        
 def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
     fermi = fermi - initial_energy
     integral = 0.
@@ -129,6 +142,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     v = kgrid[tp]["norm(v)"][ib][ik] / sq3  # 3**0.5 is to treat each direction as 1D BS
 
     # k = m_e * self._avg_eff_mass[tp] * v / (hbar * e * 1e11)
+    # k = m_e * abs(sum(cbm_vbm[tp]["eff_mass_xx"]) / 3) * v / (hbar * e * 1e11)
     k = kgrid[tp]["norm(k)"][ib][ik]
 
     a = kgrid[tp]["a"][ib][ik]
@@ -140,9 +154,9 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     N_POP = kgrid[tp]["N_POP"][c][T][ib][ik]
     for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
         # bypass k-points that cannot have k- associated with them (even though indexes may be available due to enforced scattering)
-        if j==1 and kgrid[tp]["energy"][ib][ik] - hbar * \
-                kgrid[tp]["W_POP"][ib][ik] < cbm_vbm[tp]["energy"]:
-            continue
+        # if j==1 and kgrid[tp]["energy"][ib][ik] - hbar * \
+        #         kgrid[tp]["W_POP"][ib][ik] < cbm_vbm[tp]["energy"]:
+        #     continue
 
         # TODO: see how does dividing by len_eqE affect results, set to 1 to test
         len_eqE = len(kgrid[tp][X_Epm][ib][ik])
@@ -153,7 +167,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
             g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
             v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
-            # k_pm  = m_e*self._avg_eff_mass[tp]*v_pm/(hbar*e*1e11)
+            # k_pm  = m_e*abs(sum(cbm_vbm[tp]["eff_mass_xx"])/3)*v_pm/(hbar*e*1e11)
             k_pm = kgrid[tp]["norm(k)"][ib_pm][ik_pm]
             abs_kdiff = abs(k_pm - k)
             if abs_kdiff < 1e-4:
@@ -189,7 +203,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
 
 class AMSET(object):
     """ This class is used to run AMSET on a pymatgen Vasprun object. AMSET is an ab initio model for calculating
-    the mobility and Seebeck coefficient using Boltzmann transport equation. The band structure is extracted from
+    the mobility and Seebeck coefficient using Bolƒtzmann transport equation. The band structure is extracted from
     vasprun.xml to calculate the group velocity and transport properties in presence of various scattering mechanisms.
 
      Currently the following scattering mechanisms with their corresponding three-letter abbreviations implemented are:
@@ -339,8 +353,8 @@ class AMSET(object):
         self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
-        self.dos_bwidth = params.get("dos_bwidth",0.05)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
-        self.nkdos = params.get("nkdos", 35)
+        self.dos_bwidth = params.get("dos_bwidth",0.1)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
+        self.nkdos = params.get("nkdos", 31)
 
         self.gs = 1e-32  # a global small value (generally used for an initial non-zero value)
         self.gl = 1e32  # a global large value
@@ -439,7 +453,8 @@ class AMSET(object):
                     del (self.kgrid[tp][rm])
                 except:
                     pass
-            for erm in ["all_en_flat", "f_th", "g_th", "S_i_th", "S_o_th"]:
+            # for erm in ["all_en_flat", "f_th", "g_th", "S_i_th", "S_o_th"]:
+            for erm in ["f_th", "g_th", "S_i_th", "S_o_th"]:
                 try:
                     del (self.egrid[tp][erm])
                 except:
@@ -658,28 +673,30 @@ class AMSET(object):
             i = 0
             last_is_counted = False
             while i<len(self.egrid[tp]["all_en_flat"])-1:
-                sum_e = self.egrid[tp]["all_en_flat"][i]
-                counter = 1.0
+                sum_E = self.egrid[tp]["all_en_flat"][i]
+                counter = 1.0 # because the ith member is already included in sum_E
                 current_ib_ie_idx = [E_idx[tp][i]]
                 j = i
-                while j<len(self.egrid[tp]["all_en_flat"])-1 and (counter <= self.nE_min or \
-                        abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][j+1]) < self.dE_min):
+                # while j<len(self.egrid[tp]["all_en_flat"])-1 and (counter <= self.nE_min or \
+                #         abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][j+1]) < self.dE_min):
+                while j<len(self.egrid[tp]["all_en_flat"])-1 and \
+                        abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][j+1]) < self.dE_min:
                 # while i < len(self.egrid[tp]["all_en_flat"]) - 1 and \
                 #          self.egrid[tp]["all_en_flat"][i] == self.egrid[tp]["all_en_flat"][i + 1] :
                     counter += 1
                     current_ib_ie_idx.append(E_idx[tp][j+1])
-                    sum_e += self.egrid[tp]["all_en_flat"][j+1]
+                    sum_E += self.egrid[tp]["all_en_flat"][j+1]
                     if j+1 == len(self.egrid[tp]["all_en_flat"])-1:
                         last_is_counted = True
                     j+=1
-                self.egrid[tp]["energy"].append(sum_e/counter)
+                self.egrid[tp]["energy"].append(sum_E/counter)
                 self.kgrid_to_egrid_idx[tp].append(current_ib_ie_idx)
                 energy_counter.append(counter)
 
                 if dos_tp.lower()=="simple":
                     self.egrid[tp]["DOS"].append(counter/len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
-                    self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_e/counter)][1])
+                    self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_E/counter)][1])
                 i = j + 1
 
             if not last_is_counted:
@@ -708,6 +725,10 @@ class AMSET(object):
         print sum(self.Efrequency["n"])
 
         min_nE = 2
+        # print self.kgrid["n"]["energy"][0]
+        # print self.egrid["n"]["all_en_flat"]
+        # print self.egrid["n"]["energy"]
+
         if len(self.Efrequency["n"]) < min_nE or len(self.Efrequency["p"]) < min_nE:
             raise ValueError("The final egrid have fewer than {} energy values, AMSET stops now".format(min_nE))
 
@@ -721,6 +742,25 @@ class AMSET(object):
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
+
+
+        # self.egrid["fermi"] = {
+        #              -2000000000000000.0: {
+        #                  50.0: 1.4993294840664992,
+        #                  100.0: 1.4917274803223273,
+        #                  200.0: 1.4521353690981067,
+        #                  300.0: 1.3758144578023237,
+        #                  400.0: 1.2799625073470393,
+        #                  500.0: 1.1754101057269484,
+        #                  600.0: 1.0658000195985275,
+        #                  700.0: 0.9527756218922258,
+        #                  800.0: 0.837348160980175,
+        #                  900.0: 0.7272422717689677,
+        #                  1000.0: 0.6620678430281232
+        #              }
+        #          }
+
+
         for c in self.dopings:
             for T in self.temperatures:
                 print "Fermi level at {} 1/cm3 and {} K: {}".format(c, T, self.egrid["fermi"][c][T])
@@ -732,12 +772,6 @@ class AMSET(object):
         ##  in case specific fermi levels are to be tested:
 
 
-
-        # self.egrid["fermi"]= {
-        #     -1e+20: {
-        #         300.0: 1.2166,
-        #         600.0: 1.1791
-        #     } }
 
 
 
@@ -791,20 +825,6 @@ class AMSET(object):
         a = self.kgrid[tp]["a"][ib][ik]
         c = self.kgrid[tp]["c"][ib][ik]
         return (a * self.kgrid[tp]["a"][ib_prm][ik_prm]+ X * c * self.kgrid[tp]["c"][ib_prm][ik_prm])**2
-
-
-
-    def cos_angle(self, v1, v2):
-        """
-        Args:
-            v1, v2 (np.array): vectors
-        return:
-            the cosine of the angle between twp numpy vectors: v1 and v2"""
-        norm_v1, norm_v2 = norm(v1), norm(v2)
-        if norm_v1 == 0 or norm_v2 == 0:
-            return 1.0  # In case of the two points are the origin, we assume 0 degree; i.e. no scattering: 1-X==0
-        else:
-            return np.dot(v1, v2) / (norm_v1 * norm_v2)
 
 
 
@@ -1237,9 +1257,9 @@ class AMSET(object):
             self.cbm_vbm[tp]["energy"] = energy
             self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
 
-        # if not self.poly_bands:
-        #     self.dos_emax += self.offset_from_vrun
-        #     self.dos_emin += self.offset_from_vrun
+        if not self.poly_bands:
+            self.dos_emax += self.offset_from_vrun
+            self.dos_emin += self.offset_from_vrun
 
         logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
         self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm["n"]["eff_mass_xx"])) for tp in ["n", "p"]}
@@ -1368,7 +1388,7 @@ class AMSET(object):
                 self.kgrid[tp]["cartesian kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)/A_to_nm*2*pi #[1/nm]
                 self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][ib]]
 
-                if self.parallel:
+                if self.parallel and not self.poly_bands:
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
                          engre[i * self.cbm_vbm["p"]["included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2,
                          br_dir) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
@@ -1565,9 +1585,8 @@ class AMSET(object):
                     self.kgrid[tp][arg][ib] = np.array([self.kgrid[tp][arg][ib][ik] for ik in ikidxs])
 
 
+
     def generate_angles_and_indexes_for_integration(self, avg_Ediff_tolerance=0.02):
-
-
         self.initialize_var("kgrid",["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"],"scalar",[],is_nparray=False, c_T_idx=False)
 
         # elastic scattering
@@ -1640,7 +1659,7 @@ class AMSET(object):
         all_Xs = []
         new_X_ib_ik = []
         for sek in seks:
-            X = self.cos_angle(k, sek)
+            X = cos_angle(k, sek)
             if X in all_Xs:
                 continue
             else:
@@ -1656,7 +1675,10 @@ class AMSET(object):
             Attention! this function assumes self.kgrid is sorted based on the energy in ascending order."""
         E = self.kgrid[tp]["energy"][ib][ik]
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
-        result = []
+        # we count the point itself; it does not result in self-scattering (due to 1-X term); however, it is necessary
+        # to avoid zero scattering as in the integration each term is (X[i+1]-X[i])*(integrand[i]+integrand[i+1)/2
+        result = [(1, ib, ik)]
+
         counter = 0
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
@@ -1668,7 +1690,7 @@ class AMSET(object):
                 ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() - 1
             while (ik_prm<nk-1) and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm+1]-(E+E_radius)) < tolerance:
                 ik_prm += 1
-                result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]),ib_prm,ik_prm))
+                result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]),ib_prm,ik_prm))
                 counter += 1
 
             if ib==ib_prm and E_radius==0.0:
@@ -1677,7 +1699,7 @@ class AMSET(object):
                 ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() + 1
             while (ik_prm>0) and abs(E+E_radius - self.kgrid[tp]["energy"][ib_prm][ik_prm-1]) < tolerance:
                 ik_prm -= 1
-                result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
+                result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
                 counter += 1
 
 
@@ -1687,7 +1709,7 @@ class AMSET(object):
             ik_prm += 1
             k_prm = self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]
 
-            result.append((self.cos_angle(k, k_prm), ib, ik_prm))
+            result.append((cos_angle(k, k_prm), ib, ik_prm))
             result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
             counter += 1
 
@@ -1698,7 +1720,7 @@ class AMSET(object):
         ik_prm = ik
         while counter < forced_min_npoints and ik_prm > 0:
             ik_prm -= 1
-            result.append((self.cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib, ik_prm))
+            result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib, ik_prm))
 
             # also add all values with the same energy at ik_prm
             result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
@@ -1972,6 +1994,8 @@ class AMSET(object):
                * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
                * 1.0 / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
 
+
+
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
         returns the evaluated number (float) of the expression inside the S_o and S_i(g) integrals.
@@ -2127,6 +2151,7 @@ class AMSET(object):
         # knrm = norm(self.kgrid[tp]["kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
 
         if self.poly_bands: # the first one should be v and NOT v * sq3 so that the two match in SPB
+        # if True:
             knrm = m_e * self._avg_eff_mass[tp] * (v ) / (hbar*e*1e11) # in nm given that v is in cm/s and hbar in eV.s; this resulted in very high ACD and IMP scattering rates, actually only PIE would match with aMoBT results as it doesn't have k_nrm in its formula
         #TODO: make sure that ACD scattering as well as others match in SPB between bs_is_isotropic and when knrm is the following and not above (i.e. not m*v/hbar*e)
         else:
@@ -2362,7 +2387,7 @@ class AMSET(object):
         fermi = self.cbm_vbm[typ]["energy"]
         # fermi = self.egrid[typ]["energy"][0]
 
-        print("temperature: {} K".format(T))
+        print("calculating the fermi level at temperature: {} K".format(T))
         j = ["n", "p"].index(typ)
         funcs = [lambda E, fermi0, T: f0(E,fermi0,T), lambda E, fermi0, T: 1-f0(E,fermi0,T)]
         calc_doping = (-1)**(j+1) /self.volume / (A_to_m*m_to_cm)**3 \
@@ -2717,17 +2742,35 @@ class AMSET(object):
 
 
 
-    def plot(self, plotT=300, path=None, textsize=40, ticksize=35, margin_left = 160, margin_bottom=120):
+    def plot(self, plotc=None, plotT=None, path=None, textsize=40, ticksize=35, margin_left = 160, margin_bottom=120,
+             fontfamily="serif"):
         """plots some of the outputs for more detailed analysis, debugging, etc"""
         from matminer.figrecipes.plotly.make_plots import PlotlyFig
-        plotT = float(plotT)
-
+        if not plotc:
+            plotc = self.dopings[0]
+        if not plotT:
+            plotT = 300.0
         if not path:
             path = os.path.join( os.getcwd(), "plots" )
         fformat = "html"
 
         for tp in ["n"]:
-            print('plotting: first set of plots: "relaxation time", "_all_elastic", "ACD", "df0dk"')
+            print('plotting: first set of plots: "log10 of mobility", "relaxation time", "_all_elastic", "ACD", "df0dk"')
+            plt = PlotlyFig(x_title="Temperature (K)", y_title="log10 of mobility (^10 cm2/V.s)", textsize=textsize,
+                        ticksize=ticksize, margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
+            all_plots = []
+            for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
+                all_plots.append({"x_col": self.temperatures,
+                                "y_col": [log(sum(self.egrid["mobility"][mo][plotc][T][tp])/3, 10) for T in self.temperatures],
+                                # "textsize": textsize, "ticksize": ticksize, "margin_left": margin_left,
+                                # "margin_bottom": margin_bottom, "fontfamily": fontfamily
+                                "text": mo, "size": textsize/2, "mode":"lines+markers", "legend": "", "color": ""
+                                  })
+            plt.xy_plot(x_col=[],
+                        y_col=[],
+                        add_xy_plot=all_plots)
+
+
             plt = PlotlyFig(plot_mode='offline', y_title="# of repeated energy in kgrid", x_title="Energy (eV)",
                    plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
                             textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left, margin_bottom=margin_bottom)
@@ -2790,7 +2833,7 @@ class AMSET(object):
                  plot_mode='offline', username=None, api_key=None, textsize=textsize, ticksize=ticksize, fontfamily=None,
                  height=800, width=1000, scale=None, margin_top=100, margin_bottom=margin_bottom, margin_left=margin_left, margin_right=80,
                  pad=0)
-                if "Ediff" in prop_name:
+                if prop_name == "Ediff":
                     y_col = [self.egrid[tp]["energy"][i+1]-\
                                         self.egrid[tp]["energy"][i] for i in range(len(self.egrid[tp]["energy"])-1)]
                 else:
@@ -2801,33 +2844,40 @@ class AMSET(object):
 
             # plot versus norm(k) in self.kgrid
             prop_list = ["energy"]
-            # eff_m = 0.1
             for prop_name in prop_list:
-                # x_col = [norm(k-np.dot(np.array([0.5, 0.5, 0.5]), self._lattice_matrix)/A_to_nm*2*pi) for k in self.kgrid[tp]["cartesian kpoints"][0]]
-                if not self.poly_bands:
-                    # x_col = [norm(v)*m_e*sum(self.cbm_vbm[tp]["eff_mass_xx"])/3/ (hbar*1e11*e) for v in
-                    #          self.kgrid[tp]["velocity"][0]]
-                    x_col = m_e*sum(self.cbm_vbm[tp]["eff_mass_xx"])/3/ (hbar*1e11*e) * self.kgrid[tp]["norm(v)"][0]
-                else:
-                    # x_col = [norm(k)/(2*pi) for k in self.kgrid[tp]["cartesian kpoints"][0]]
-                    # x_col = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][0]]
-                    x_col = self.kgrid[tp]["norm(k)"][0]
+                x_col = self.kgrid[tp]["norm(k)"][0]
 
                 plt = PlotlyFig(plot_title=None, x_title="k [1/nm]",
                                 y_title="{} at the 1st band".format(prop_name), hovermode='closest',
                             filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
                         plot_mode='offline', username=None, api_key=None, textsize=textsize, ticksize=ticksize, fontfamily=None,
                     height=800, width=1000, scale=None, margin_left=margin_left, margin_right=80, margin_bottom=margin_bottom)
-                try:
-                    y_col = [norm(p) for p in self.kgrid[tp][prop_name][0] ]
-                except:
-                    y_col = self.kgrid[tp][prop_name][0]
+                y_col = self.kgrid[tp][prop_name][0]
                 plt.xy_plot(x_col=x_col, y_col=y_col)
-                # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
 
 
+    def to_csv(self, csv_filename='AMSET_results.csv'):
+        """
+        this function writes the calculated transport properties to a csv file for convenience.
+        :param csv_filename (str):
+        :return:
+        """
+        import csv
 
+        with open(csv_filename, 'w') as csvfile:
+            fieldnames = ['type', 'c(cm-3)', 'T(K)', 'overall', 'average'] +\
+                         self.elastic_scatterings + self.inelastic_scatterings
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for tp in ["n", "p"]:
+                for c in self.dopings:
+                    for T in self.temperatures:
+                        row = {'type': tp, 'c(cm-3)': c, 'T(K)': T}
+                        for mo in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings:
+                            row[mo] = sum(self.egrid["mobility"][mo][c][T][tp])/3
+                        writer.writerow(row)
+                writer.writerow({})
 
 
 if __name__ == "__main__":
@@ -2845,7 +2895,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 200, "dE_min": 0.0001, "adaptive_mesh": False, "parallel": True}
+    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2, "parallel": True, "Ecut": 0.4}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2854,7 +2904,7 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     #
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-                   "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
+                   "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.0}
     cube_path = "../test_files/GaAs/"
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
@@ -2864,14 +2914,16 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
+                  # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+                  dopings=[-2e15], temperatures=[200, 300, 400, 500])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
     AMSET.write_input_files()
-    AMSET.plot(plotT=300)
+    AMSET.to_csv()
+    AMSET.plot()
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=None, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
