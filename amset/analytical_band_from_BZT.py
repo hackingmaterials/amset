@@ -379,7 +379,7 @@ class Analytical_bands(object):
             return Energy(energy,"Ry").to("eV") # This is in eV automatically
 
         
-    def get_dos_from_scratch(self,st,mesh,e_min,e_max,e_points,width=0.2):
+    def get_dos_from_scratch(self,st,mesh,e_min,e_max,e_points,width=0.2, scissor=0.0):
         '''
         Args:
         st:       pmg object of crystal structure to calculate symmetries
@@ -405,9 +405,14 @@ class Analytical_bands(object):
         weights = [w/w_sum for w in weights]
         #print len(ir_kpts)
         dos = np.zeros(e_range)
+        # for b in range(len(engre)):
+        #     energy = get_energy([0.0, 0.0, 0.0], engre[b], nwave, nsym, nstv, vec) * Ry_to_eV
+        #     print energy
         for kpt,w in zip(ir_kpts,weights):
             for b in range(len(engre)):
                 energy = get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
+                if b >= 3:
+                    energy += scissor
                 g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                 dos += w * g
         return e_mesh,dos, len(engre)
