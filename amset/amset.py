@@ -104,6 +104,18 @@ def GB(x, eta):
     # return np.exp(-(x/eta)**2)
 
 
+def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
+    S_i_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
+    S_i_th_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
+    S_o_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
+    S_o_th_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
+
+    for ik in range(len(kgrid[tp]["kpoints"][ib])):
+        S_i_list[ik], S_i_th_list[ik], S_o_list[ik], S_o_th_list[ik] = \
+            calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf)
+
+    return [S_i_list, S_i_th_list, S_o_list, S_o_th_list]
+
 
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
     # S_i = np.array([self.gs, self.gs, self.gs])
@@ -337,7 +349,7 @@ class AMSET(object):
         self.wordy = params.get("wordy", False)
         self.maxiters = params.get("maxiters", 5)
         self.parallel = params.get("parallel", True)
-
+        logging.info("parallel: {}".format(self.parallel))
 
     def run(self, coeff_file, kgrid_tp="coarse"):
         """
@@ -488,13 +500,12 @@ class AMSET(object):
 
         if self.soc:
             self.nelec = cbm_vbm["p"]["bidx"] + 1
-            self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands
+            # self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands
         else:
             self.nelec = (cbm_vbm["p"]["bidx"]+1)*2
-            self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands*2
+            # self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands*2
 
         print("total number of electrons nelec: {}".format(self.nelec))
-        print("DOS normalization factor based on vasprun.xml: {}".format(self.dos_normalization_factor))
 
         bs = bs.as_dict()
         if bs["is_spin_polarized"]:
@@ -1487,8 +1498,9 @@ class AMSET(object):
 
         if not self.poly_bands:
             # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
-            emesh, dos=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
+            emesh, dos, dos_nbands=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
                         self.dos_emin, self.dos_emax, int(round((self.dos_emax-self.dos_emin)/max(self.dE_min, 0.0001)))+1, width=self.dos_bwidth)
+            self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
         else:
             logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
 
@@ -1507,6 +1519,8 @@ class AMSET(object):
 
             self.dos_normalization_factor = len(
                 self.poly_bands)*2*2  # it is *2 elec/band & *2 because DOS is repeated in valence/conduction
+
+        print("DOS normalization factor based on vasprun.xml: {}".format(self.dos_normalization_factor))
 
         integ = 0.0
         # self.dos_normalization_factor = 1
@@ -1529,7 +1543,7 @@ class AMSET(object):
         print("vbm and cbm DOS idx")
         print self.vbm_dos_idx
         print self.cbm_dos_idx
-        logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx:self.cbm_dos_idx]))
+        # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx:self.cbm_dos_idx]))
 
         self.dos = [list(a) for a in self.dos]
 
@@ -2019,11 +2033,36 @@ class AMSET(object):
 
     def s_inel_eq_isotropic(self, once_called=False):
 
+        # c_and_T = []
+        # for c in self.dopings:
+        #     for T in self.temperatures:
+        #         c_and_T.append((c, T))
+        #
+        # # This function needs MAJOR re-structuring, it is written in this dumb way just to quickly test if parallelization actually works!
+        # for tp in ["n", "p"]:
+        #     if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 1000:
+        #         for ib in range(len(self.kgrid[tp]["energy"])):
+        #             results = Parallel(n_jobs=self.num_cores)(delayed(calculate_Sio_list) \
+        #                 (tp, c, T, ib, once_called, self.kgrid, self.cbm_vbm, self.epsilon_s, self.epsilon_inf
+        #                                                    ) for c,T in c_and_T)
+        #             # print results
+        #             counter = 0
+        #             for c, T in c_and_T:
+        #                 self.kgrid[tp]["S_i"][c][T][ib] = results[counter][0]
+        #                 self.kgrid[tp]["S_i_th"][c][T][ib] = results[counter][1]
+        #                 if not once_called:
+        #                     self.kgrid[tp]["S_o"][c][T][ib] = results[counter][2]
+        #                     self.kgrid[tp]["S_o_th"][c][T][ib] = results[counter][3]
+        #                 counter += 1
+
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
-                        if self.parallel:
+                        # only when very large # of k-points are present, make sense to parallelize as this function
+                        # has become fast after better energy window selection
+                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 20000:
+                        # if False:
                             results = Parallel(n_jobs=self.num_cores)(delayed(calculate_Sio)\
                                 (tp, c, T, ib, ik, once_called, self.kgrid, self.cbm_vbm, self.epsilon_s, self.epsilon_inf
                                  ) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
@@ -2806,7 +2845,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.01, "adaptive_mesh": False, "parallel": True}
+    performance_params = {"nkibz": 200, "dE_min": 0.0001, "adaptive_mesh": False, "parallel": True}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2834,5 +2873,5 @@ if __name__ == "__main__":
     AMSET.write_input_files()
     AMSET.plot(plotT=300)
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=None, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=200, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
