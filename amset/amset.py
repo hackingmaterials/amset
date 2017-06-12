@@ -1253,8 +1253,7 @@ class AMSET(object):
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
             for ib in [0]: # we only include the first band now (same for energies) to decide on ibz k-points
-                # if not self.parallel or self.poly_bands: # The PB generator is fast enough no need for parallelization
-                if False:
+                if not self.parallel or self.poly_bands: # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts)):
                         if not self.poly_bands:
                             energy, de, dde = get_energy(
@@ -1413,7 +1412,7 @@ class AMSET(object):
                     self.kgrid[tp]["a"][ib][ik] = 1.0
 
 
-        logging.debug("k-indexes to be removed: \n {}".format(rm_idx_list))
+        # logging.debug("k-indexes to be removed: \n {}".format(rm_idx_list))
 
         # for i, tp in enumerate(["p", "n"]):
         #     for ib in range(self.cbm_vbm[tp]["included"]):
@@ -2845,7 +2844,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 200, "dE_min": 0.0001, "adaptive_mesh": False, "parallel": True}
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "adaptive_mesh": False, "parallel": True}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2864,8 +2863,8 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  # dopings=[-2e15], temperatures=[300, 400, 500, 600, 700, 800])
-                  dopings=[-1e20], temperatures=[300, 600])
+                  dopings=[-2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000])
+                  # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
