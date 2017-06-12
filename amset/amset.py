@@ -1498,7 +1498,8 @@ class AMSET(object):
         if not self.poly_bands:
             # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
             emesh, dos, dos_nbands=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
-                        self.dos_emin, self.dos_emax, int(round((self.dos_emax-self.dos_emin)/max(self.dE_min, 0.0001)))+1, width=self.dos_bwidth)
+                        self.dos_emin, self.dos_emax, int(round((self.dos_emax-self.dos_emin)/max(self.dE_min, 0.0001)))+1,
+                                                                width=self.dos_bwidth, scissor=self.scissor)
             self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
         else:
             logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
@@ -2844,7 +2845,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "adaptive_mesh": False, "parallel": True}
+    performance_params = {"nkibz": 200, "dE_min": 0.0001, "adaptive_mesh": False, "parallel": True}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2853,7 +2854,7 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     #
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-                   "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.0} #0.5818
+                   "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
     cube_path = "../test_files/GaAs/"
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
@@ -2863,7 +2864,7 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  dopings=[-2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000])
+                  dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
@@ -2872,5 +2873,5 @@ if __name__ == "__main__":
     AMSET.write_input_files()
     AMSET.plot(plotT=300)
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=200, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
