@@ -402,7 +402,7 @@ class Analytical_bands(object):
         ir_kpts = [k[0] for k in ir_kpts]
         weights = [k[1] for k in ir_kpts]
         w_sum = float(sum(weights))
-        #weights = [w/w_sum for w in weights]
+        weights = [w/w_sum for w in weights]
         #print len(ir_kpts)
         dos = np.zeros(e_range)
         for kpt,w in zip(ir_kpts,weights):
@@ -410,7 +410,7 @@ class Analytical_bands(object):
                 energy = get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
                 g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                 dos += w * g
-        return e_mesh,dos
+        return e_mesh,dos, len(engre)
 
 
     def get_dos_standard(self,energies,weights,e_min,e_max,e_points,width=0.2):
@@ -472,7 +472,7 @@ if __name__ == "__main__":
     # setup
     en, den, dden = [], [], []
     for kpt in kpts:
-        energy, de, dde = analytical_bands.get_energy(kpt,engre[0], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
+        energy, de, dde = get_energy(kpt,engre[0], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
         en.append(energy*Ry_to_eV)
         den.append(de)
         dden.append(dde*2*pi)
@@ -498,8 +498,8 @@ if __name__ == "__main__":
     #dos caclulated on a 15x15x15 mesh of kpoints, 
     #in an energy range [-13,25] eV with 1000 points
     #from get_dos_from_scratch
-    kmesh = [31,31,31]
-    emesh,dos = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000)
+    kmesh = [35,35,35]
+    emesh,dos = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05)
     plot(emesh, dos)
 
     # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.1]]]]
