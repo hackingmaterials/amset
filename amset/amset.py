@@ -258,6 +258,8 @@ class AMSET(object):
 
         self.all_types = [self.get_tp(c) for c in self.dopings]
         self.num_cores = multiprocessing.cpu_count()
+        if self.parallel:
+            logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
 
     def write_input_files(self):
         """writes all 3 types of inputs in json files for example to
@@ -2895,7 +2897,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2, "parallel": True, "Ecut": 0.4}
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2, "parallel": True, "Ecut": 0.30}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2914,8 +2916,8 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
-                  dopings=[-2e15], temperatures=[200, 300, 400, 500])
+                  dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
+                  # dopings=[-2e15], temperatures=[200, 300, 400, 500])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
