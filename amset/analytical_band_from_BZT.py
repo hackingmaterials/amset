@@ -412,7 +412,9 @@ class Analytical_bands(object):
             for b in range(len(engre)):
                 energy = get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
                 if b >= 3:
-                    energy += scissor
+                    energy += scissor/2
+                else:
+                    energy -= scissor/2
                 g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                 dos += w * g
         return e_mesh,dos, len(engre)
