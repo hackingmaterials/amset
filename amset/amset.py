@@ -1293,11 +1293,11 @@ class AMSET(object):
                                     poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
                             energies[tp][ik] = energy
 
-                            if velocity[0] < 1 or velocity[1] < 1 or velocity[2] < 1 or \
-                                            abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
-                                rm_list[tp].append(ik)
+                            # if velocity[0] < 1 or velocity[1] < 1 or velocity[2] < 1 or \
+                            #                 abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
+                            #     rm_list[tp].append(ik)
 
-                        if velocity[0] < 1 or velocity[1] < 1 or velocity[2] < 1 or \
+                        if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
                                         abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                             rm_list[tp].append(ik)
                 else:
@@ -1307,7 +1307,7 @@ class AMSET(object):
                     for ik, res in enumerate(results):
                         energies[tp][ik] = res[0]* Ry_to_eV - sgn * self.scissor / 2.0
                         velocity = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                        if velocity[0] < 1 or velocity[1] < 1 or velocity[2] < 1 or \
+                        if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
                                         abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                             rm_list[tp].append(ik)
 
@@ -1324,16 +1324,13 @@ class AMSET(object):
         # logging.debug("energies before removing k-points with off-energy:\n {}".format(energies))
         kpts = np.delete(kpts, list(set(rm_list["n"]+rm_list["p"])), axis=0)
         kpts = list(kpts)
-
-        print "number of ibz k-points AFTER ENERGY-FILTERING"
-        print len(kpts)
-
-        logging.debug("initial # of kpts after off-energy points are removed: {}".format(len(kpts)))
         for tp in ["n", "p"]:
             energies[tp] = np.delete(energies[tp], list(set(rm_list["n"]+rm_list["p"])), axis=0)
 
-        if self.adaptive_mesh:
+        logging.info("number of ibz k-points AFTER ENERGY-FILTERING: {}".format(len(kpts)))
 
+
+        if self.adaptive_mesh:
             all_added_kpoints = []
             all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
 
@@ -1358,7 +1355,7 @@ class AMSET(object):
             raise ValueError("The k-point mesh is too loose (number of kpoints = {}) "
                              "after filtering the initial k-mesh".format(len(kpts)))
 
-        logging.debug("number of kpoints after symmetrically equivalent kpoints are added: {}".format(len(kpts)))
+        logging.info("number of kpoints after symmetrically equivalent kpoints are added: {}".format(len(kpts)))
 
         kweights = [1.0 for i in kpts]
 
@@ -1382,14 +1379,14 @@ class AMSET(object):
         self.initialize_var("kgrid", ["cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
 
-        # logging.debug("here the initial n-kpoints:\n {}".format(self.kgrid["n"]["kpoints"]))
-        # logging.debug("here the initial p-kpoints:\n {}".format(self.kgrid["p"]["kpoints"]))
-        # initialize energy, velocity, etc in self.kgrid
+
+        logging.debug("The DFT gap right before calculating final energy values: {}".format(self.dft_gap))
 
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
-                self.kgrid[tp]["cartesian kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)/A_to_nm*2*pi #[1/nm]
+                self.kgrid[tp]["cartesian kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),
+                                                               self._lattice_matrix)/A_to_nm*2*pi #[1/nm]
                 self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][ib]]
 
                 if self.parallel and not self.poly_bands:
@@ -1418,7 +1415,6 @@ class AMSET(object):
                                                                               poly_bands=self.poly_bands,
                             type=tp, ib=ib,bandgap=self.dft_gap+self.scissor)
 
-                    # velocity /= 2
 
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
@@ -1444,9 +1440,7 @@ class AMSET(object):
         #             if (-1)**(i+1) * (self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
         #                 rm_idx_list[tp][ib].append(ik)
 
-        print "average of the group velocity (to detect inherent or artificially created anisotropy"
-        print np.mean(self.kgrid["n"]["velocity"][0], 0)
-
+        logging.info("average of the group velocity in kgrid".format(np.mean(self.kgrid["n"]["velocity"][0], 0)))
 
         rearranged_props = ["velocity","effective mass","energy", "a", "c", "kpoints","cartesian kpoints","kweights",
                              "norm(v)", "norm(k)"]
@@ -1457,6 +1451,9 @@ class AMSET(object):
 
         #TODO: the following is temporary, for some reason if # of kpts in different bands are NOT the same,
         # I get an error that _all_elastic is a list! so 1/self.kgrid[tp]["_all_elastic"][c][T][ib] cause error int/list!
+        # that's why I am removing indexes from the first band at all bands! this is temperary
+        # suggested solution: make the band index a key in the dictionary of kgrid rather than list index so we
+        # can treat each band independently without their dimensions required to match!
         for tp in ["n", "p"]:
             rm_idx_list[tp] = [rm_idx_list[tp][0] for ib in range(self.cbm_vbm[tp]["included"])]
 
@@ -1469,26 +1466,20 @@ class AMSET(object):
         # # logging.debug('here test self.kgrid["n"]["energy"]\n {}'.format(self.kgrid["n"]["energy"]))
         # self.dos_emax = max(self.kgrid["n"]["energy"][-1])
 
-        print "emin and emax"
-        print self.dos_emin
-        print self.dos_emax
+        logging.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin, self.dos_emax))
 
+        for tp in ["n", "p"]:
+            for ib in range(len(self.kgrid[tp]["energy"])):
+                logging.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
 
-        print "here the final number of k-points"
-        print len(self.kgrid["n"]["kpoints"][0])
 
         if len(self.kgrid["n"]["kpoints"][0]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
 
-        print("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
-        # print self.kgrid["n"]["energy"]
+        logging.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order
         self.sort_vars_based_on_energy(args=rearranged_props, ascending=True)
-
-        for tp in ["n", "p"]:
-            for ib in range(len(self.kgrid[tp]["energy"])):
-                print "length of final {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib]))
 
 
         # to save memory avoiding storage of variables that we don't need down the line
@@ -1544,17 +1535,15 @@ class AMSET(object):
             self.dos_normalization_factor = len(
                 self.poly_bands)*2*2  # it is *2 elec/band & *2 because DOS is repeated in valence/conduction
 
-        print("DOS normalization factor based on vasprun.xml: {}".format(self.dos_normalization_factor))
+        print("DOS normalization factor: {}".format(self.dos_normalization_factor))
 
         integ = 0.0
-        # self.dos_normalization_factor = 1
         for idos in range(len(dos) - 2):
             # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
             #     break
             integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
         # normalize DOS
         # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
-        # dos = [g / integ * self.nelec for g in dos]
         dos = [g / integ * self.dos_normalization_factor for g in dos]
 
         # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
