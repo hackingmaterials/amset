@@ -38,7 +38,7 @@ def outer(v1, v2):
 def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
     """
 
-    :param kpt:
+    :param kpt (list): coordinates of a given k-point
     :param rotations: symmetry rotation operations
     :param translations: symmetry translational operations
     :param poly_bands [[lists]]: each member of the first list represents a band: in each band a list of lists of lists
@@ -57,6 +57,7 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
     :return:
     """
     # determine the sign of energy from type; e.g. p-type energies are negative with VBM=0.0
+    kpt = np.array(kpt)
     sgn = (-1)**(["p", "n"].index(type)+1)
     # kpt = np.dot(np.array(kpt),lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
     band_shapes = poly_bands[ib]
