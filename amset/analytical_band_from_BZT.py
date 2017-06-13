@@ -506,8 +506,8 @@ if __name__ == "__main__":
     #in an energy range [-13,25] eV with 1000 points
     #from get_dos_from_scratch
     kmesh = [35,35,35]
-    emesh,dos = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05)
-    plot(emesh, dos)
+    emesh,dos, nbands = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05)
+    # plot(emesh, dos)
 
     # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.1]]]]
 
@@ -520,8 +520,8 @@ if __name__ == "__main__":
     # adding an extra valley at offest of 1 eV
     # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.25]]] , [[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [2, 0.25]]]]
 
-    emesh, dos = get_dos_from_poly_bands(st,lattice_matrix,[6,6,6],-13,20,1000,poly_bands=poly_bands, bandgap=0.8, width=0.05, SPB_DOS=True, all_values=True)
-    # plot(emesh,dos)
+    emesh, dos = get_dos_from_poly_bands(st,lattice_matrix,[6,6,6],-13,20,1000,poly_bands=poly_bands, bandgap=1.54, width=0.05, SPB_DOS=True, all_values=True)
+    plot(emesh,dos)
     show()
 
     # this part is not working well:
