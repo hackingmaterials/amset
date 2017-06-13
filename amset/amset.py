@@ -10,7 +10,6 @@ from pprint import pprint
 
 import numpy as np
 from math import log
-# import sys
 
 from pymatgen.io.vasp import Vasprun, Spin, Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
@@ -40,16 +39,14 @@ default_small_E = 1 # eV/cm the value of this parameter does not matter
 dTdz = 10.0 # K/cm
 sq3 = 3**0.5
 
-# The following are example constants taken from aMoBT calculation on PbTe that was done before
-# None for now
 
-__author__ = "Alireza Faghaninia, Francesco Ricci, Anubhav Jain"
+__author__ = "Alireza Faghaninia, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
 __version__ = "0.1"
 __maintainer__ = "Alireza Faghaninia"
 __email__ = "alireza.faghaninia@gmail.com"
 __status__ = "Development"
-__date__ = "January 2017"
+__date__ = "June 2017"
 
 
 
@@ -78,6 +75,7 @@ def df0dE(E, fermi, T):
         return -1 / (k_B * T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
 
 
+
 def cos_angle(v1, v2):
     """
     Args:
@@ -95,10 +93,11 @@ def cos_angle(v1, v2):
 def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
     fermi = fermi - initial_energy
     integral = 0.
+    nsteps = 100000.0
     #TODO: 1000000 works better (converges!) but for faster testing purposes we use larger steps
-    # emesh = np.linspace(0.0, 30*k_B*T, 1000000.0) # We choose 20kBT instead of infinity as the fermi distribution will be 0
-    emesh = np.linspace(0.0, 30*k_B*T, 100000.0) # We choose 20kBT instead of infinity as the fermi distribution will be 0
-    dE = (emesh[-1]-emesh[0])/(1000000.0-1.0)
+    # emesh = np.linspace(0.0, 30*k_B*T, nsteps) # We choose 20kBT instead of infinity as the fermi distribution will be 0
+    emesh = np.linspace(0.0, 30*k_B*T, nsteps) # We choose 20kBT instead of infinity as the fermi distribution will be 0
+    dE = (emesh[-1]-emesh[0])/(nsteps-1.0)
     for E in emesh:
         integral += dE * (E/(k_B*T))**order / (1. + np.exp((E-fermi)/(k_B*T)))
 
@@ -202,20 +201,25 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
 
 
 class AMSET(object):
-    """ This class is used to run AMSET on a pymatgen Vasprun object. AMSET is an ab initio model for calculating
-    the mobility and Seebeck coefficient using Bolƒtzmann transport equation. The band structure is extracted from
-    vasprun.xml to calculate the group velocity and transport properties in presence of various scattering mechanisms.
+    """ This class is used to run AMSET on a pymatgen from a VASP run (i.e. vasprun.xml). AMSET is an ab initio model
+    for calculating the mobility and Seebeck coefficient using Bolƒtzmann transport equation (BTE). The band structure
+    in the Brilluin zone (BZ) is extracted from vasprun.xml to calculate the group velocity and transport properties
+    in presence of various scattering mechanisms.
 
      Currently the following scattering mechanisms with their corresponding three-letter abbreviations implemented are:
      ionized impurity scattering (IMP), acoustic phonon deformation potential (ACD), piezoelectric (PIE), and charged
      dislocation scattering (DIS). Also, longitudinal polar optical phonon (POP) in implemented as an inelastic
-     scattering mechanism that can alter the electronic distribution (the reason BTE has to be solved explicitly).
+     scattering mechanism that can alter the electronic distribution (the reason BTE has to be solved explicitly; for
+     more information, see references [R, A]).
 
      AMSET is designed in a modular way so that users can add more scattering mechanisms as followed:
      ??? (instruction to add a scattering mechanism) ???
 
-     you can control the level of theory via various inputs. For example, constant relaxation time approximation (cRTA),
-     constant mean free path (cMFP) can be used by setting these variables to True
+     you can control the level of theory via various inputs. For example, by assuming that the band structure is
+     isotropic at the surrounding point of each k-point (i.e. bs_is_isotropic == True), once can significantly reduce
+     the computational effort needed for accurate numerical integration of the scatterings. Furthermore,  ...
+     (this part is not implemented yet: constant relaxation time approximation (cRTA),
+     constant mean free path (cMFP) can be used by setting these variables to True )
 
 
      References:
@@ -243,8 +247,8 @@ class AMSET(object):
         # self.dopings = dopings or [-1e20] # 1/cm**3 list of carrier concentrations
         # self.temperatures = temperatures or map(float, [300, 600]) # in K, list of temperatures
 
-        self.dopings = dopings
-        self.temperatures = map(float, temperatures)
+        self.dopings = dopings or [-1e19, -1e20] #TODO: change the default to [-1e16,...,-1e21,1e21, ...,1e16] later
+        self.temperatures = temperatures or map(float, [300, 600]) #TODO: change the default to [50,100,...,1300] later
 
         self.set_material_params(material_params)
         self.set_model_params(model_params)
@@ -763,9 +767,7 @@ class AMSET(object):
         #          }
 
 
-        for c in self.dopings:
-            for T in self.temperatures:
-                print "Fermi level at {} 1/cm3 and {} K: {}".format(c, T, self.egrid["fermi"][c][T])
+
 
         # Since the SPB generated band structure may have several valleys, it's better to use the Fermi calculated from the actual band structure
         # self.calculate_property(prop_name="fermi_SPB", prop_func=self.find_fermi_SPB)
@@ -2447,6 +2449,8 @@ class AMSET(object):
             raise ValueError("The calculated concentration {} is more than {}% away from {}; "
                              "possible cause may low band gap, high temperature, small nsteps, etc; AMSET stops now!"
                              .format(calc_doping, tolerance_loose*100, c))
+
+        logging.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, iter, fermi))
         return fermi
 
 
@@ -2897,7 +2901,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2, "parallel": True, "Ecut": 0.30}
+    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2, "parallel": True, "Ecut": 0.30}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2916,8 +2920,9 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
-                  # dopings=[-2e15], temperatures=[200, 300, 400, 500])
+                  # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
+                  # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700])
+                  dopings=[-2e15], temperatures=[200, 300, 400, 500])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
