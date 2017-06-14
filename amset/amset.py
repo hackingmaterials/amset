@@ -180,7 +180,10 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             f_pm_th = kgrid[tp]["f_th"][c][T][ib_pm][ik_pm]
             A_pm = a * a_pm + c_ * c_pm * (k_pm ** 2 + k ** 2) / (2 * k_pm * k)
 
-            beta_pm = (e ** 2 * kgrid[tp]["W_POP"][ib_pm][ik_pm] * k_pm) / (4 * pi * hbar * k * v_pm) * \
+            # beta_pm = (e ** 2 * kgrid[tp]["W_POP"][ib_pm][ik_pm] * k_pm) / (4 * pi * hbar * k * v_pm) * \
+            #           (1 / (epsilon_inf * epsilon_0) - 1 / (epsilon_s * epsilon_0)) * 6.2415093e20
+
+            beta_pm = (e ** 2 * kgrid[tp]["W_POP"][ib_pm][ik_pm]) / (4 * pi * hbar * v_pm) * \
                       (1 / (epsilon_inf * epsilon_0) - 1 / (epsilon_s * epsilon_0)) * 6.2415093e20
 
             if not once_called:
@@ -192,8 +195,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
                 S_o_th += ((N_POP + j + (-1) ** j * f_pm_th) * lamb_opm) / len_eqE
 
             lamb_ipm = beta_pm * (
-                A_pm ** 2 * log((k_pm + k) / abs_kdiff + 1e-4) * (k_pm ** 2 + k ** 2) / (
-                    2 * k * k_pm) - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
+                (k_pm ** 2 + k ** 2) / (2 * k * k_pm) *\
+            A_pm ** 2 * log((k_pm + k) / abs_kdiff + 1e-4)  - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
             S_i += ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm) / len_eqE
             S_i_th += ((N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th) / len_eqE
 
@@ -2581,7 +2584,9 @@ class AMSET(object):
 
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.maxiters):
+            g_old = self.kgrid[tp]["g"][c][T][0]
             print("Performing iteration # {}".format(iter))
+
             if "POP" in self.inelastic_scatterings:
                 if self.bs_is_isotropic:
                     if iter==0:
@@ -2633,6 +2638,10 @@ class AMSET(object):
 
                                     # print self.kgrid[tp]["X_Eplus_ik"][ib][ik]
                                     # print self.kgrid[tp]["X_Eminus_ik"][ib][ik]
+
+            avg_g_diff = np.mean([abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
+            print("Average difference in perturbation term: {}".format(avg_g_diff))
+
 
         for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
@@ -2904,17 +2913,17 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"],
+                    "inelastic_scatterings": ["POP"]}
                     # TODO: for testing, remove this part later:
-                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]],
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "Ecut": 0.30, "maxiters": 5}
+    performance_params = {"nkibz": 200, "dE_min": 0.0001, "nE_min": 2,
+                          "parallel": True, "Ecut": 0.30, "maxiters": 12}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2934,8 +2943,8 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
-                  # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300])
+                  dopings=[-2e15], temperatures=[300, 400, 500, 600])
+                  # dopings=[-2e15], temperatures=[300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [300])
