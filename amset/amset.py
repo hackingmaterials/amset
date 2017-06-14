@@ -1528,7 +1528,7 @@ class AMSET(object):
             # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
             emesh, dos, dos_nbands=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
                         self.dos_emin, self.dos_emax, int(round((self.dos_emax-self.dos_emin)/max(self.dE_min, 0.0001)))+1,
-                                                                width=self.dos_bwidth, scissor=self.scissor)
+                                                                width=self.dos_bwidth, scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
             self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
         else:
             logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
@@ -2896,17 +2896,17 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"],
+                    "inelastic_scatterings": ["POP"]}
                     # TODO: for testing, remove this part later:
-                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]],
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 120, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "Ecut": 0.30, "maxiters": 10}
+    performance_params = {"nkibz": 75, "dE_min": 0.0001, "nE_min": 2,
+                          "parallel": True, "Ecut": 0.30, "maxiters": 5}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
