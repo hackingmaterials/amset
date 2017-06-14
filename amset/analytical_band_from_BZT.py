@@ -5,7 +5,9 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from scipy.constants.codata import value as _cd
 from math import pi
 import numpy as np
+import warnings
 from pylab import plot,show, scatter
+
 
 # global constants
 hbar = _cd('Planck constant in eV s')/(2*pi)
@@ -336,7 +338,7 @@ class Analytical_bands(object):
 
 
 
-    def get_engre(self,iband=None):
+    def get_engre(self,iband=None, return_bmin=False):
         filename = self.coeff_file
         with open(filename) as f:
             egap, nwave, nsym, nsymop=f.readline().split()
@@ -365,8 +367,10 @@ class Analytical_bands(object):
                     iband2.pop(iband2.index(i))
                     if len(iband2) == 0:
                         break
-
-        return engre, latt_points, nwave, nsym, nsymop, symop, br_dir
+        if return_bmin:
+            return engre, latt_points, nwave, nsym, nsymop, symop, br_dir, bmin
+        else:
+            return engre, latt_points, nwave, nsym, nsymop, symop, br_dir
 
 
 
@@ -380,7 +384,7 @@ class Analytical_bands(object):
             return Energy(energy,"Ry").to("eV") # This is in eV automatically
 
         
-    def get_dos_from_scratch(self,st,mesh,e_min,e_max,e_points,width=0.2, scissor=0.0):
+    def get_dos_from_scratch(self,st,mesh,e_min,e_max,e_points,width=0.2, scissor=0.0, vbmidx = None):
         '''
         Args:
         st:       pmg object of crystal structure to calculate symmetries
@@ -394,10 +398,22 @@ class Analytical_bands(object):
         dos:      density of states for each energy in e_mesh
         '''
 
+
         height = 1.0 / (width * np.sqrt(2 * np.pi))
         e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
         e_range = len(e_mesh)
-        engre, latt_points, nwave, nsym, nsymop, symop, br_dir = self.get_engre(iband="A")
+        cbm_new_idx = None
+
+        if vbmidx:
+            engre, latt_points, nwave, nsym, nsymop, symop, br_dir, bmin = self.get_engre(iband="A", return_bmin=True)
+            cbm_new_idx = vbmidx - bmin + 1
+        else:
+            engre, latt_points, nwave, nsym, nsymop, symop, br_dir = self.get_engre(iband="A")
+            warnings.warn("The index of VBM / CBM is unknown; scissor is set to 0.0")
+            scissor = 0.0
+
+        print "cbm_new_index: {}".format(cbm_new_idx)
+
         nstv, vec = self.get_star_functions(latt_points,nsym,symop,nwave)
         ir_kpts = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
         ir_kpts = [k[0] for k in ir_kpts]
@@ -412,7 +428,7 @@ class Analytical_bands(object):
         for kpt,w in zip(ir_kpts,weights):
             for b in range(len(engre)):
                 energy = get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
-                if b >= 3:
+                if b >= cbm_new_idx:
                     energy += scissor/2
                 else:
                     energy -= scissor/2
