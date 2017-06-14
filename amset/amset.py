@@ -153,9 +153,9 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     N_POP = kgrid[tp]["N_POP"][c][T][ib][ik]
     for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
         # bypass k-points that cannot have k- associated with them (even though indexes may be available due to enforced scattering)
-        # if j==1 and kgrid[tp]["energy"][ib][ik] - hbar * \
-        #         kgrid[tp]["W_POP"][ib][ik] < cbm_vbm[tp]["energy"]:
-        #     continue
+        if X_Epm=="X_Eminus_ik" and kgrid[tp]["energy"][ib][ik] - hbar * \
+                kgrid[tp]["W_POP"][ib][ik] < cbm_vbm[tp]["energy"]:
+            continue
 
         # TODO: see how does dividing by len_eqE affect results, set to 1 to test
         len_eqE = len(kgrid[tp][X_Epm][ib][ik])
@@ -440,6 +440,10 @@ class AMSET(object):
         # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
         # if "POP" in self.inelastic_scatterings:
         self.solve_BTE_iteratively()
+
+        for key in ["plus", "minus"]:
+            with open("X_E{}_ik".format(key), "w") as fp:
+                json.dump(self.kgrid["n"]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
 
         self.calculate_transport_properties()
 
@@ -1542,7 +1546,7 @@ class AMSET(object):
                                                  # bandgap=self.dft_gap + self.scissor,
                                                  bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
                                                      "energy"], # we include here the actual or after-scissor gap here
-                                                 width=self.dos_bwidth, SPB_DOS=True)
+                                                 width=self.dos_bwidth, SPB_DOS=False)
             # total_nelec = len(self.poly_bands) * 2 # basically 2x number of included occupied bands (valence bands)
             # total_nelec = self.nelec
 
@@ -1571,7 +1575,7 @@ class AMSET(object):
         print self.vbm_dos_idx
         print self.cbm_dos_idx
         # logging.debug("full dos after normalization: \n {}".format(self.dos))
-        logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx:self.cbm_dos_idx]))
+        # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx:self.cbm_dos_idx]))
 
         self.dos = [list(a) for a in self.dos]
 
@@ -1712,29 +1716,33 @@ class AMSET(object):
 
 
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
-        ik_prm = ik
-        while counter < forced_min_npoints and ik_prm < nk - 1:
+        ib_prm = ib
+        if E_radius == 0.0:
+            ik_prm = ik
+        else:
+            ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() - 1
+        while ik_prm < nk - 1 and counter < forced_min_npoints:
             ik_prm += 1
-            k_prm = self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]
-
-            result.append((cos_angle(k, k_prm), ib, ik_prm))
-            result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
-            counter += 1
-
-            self.nforced_scat[tp] += 1
-            self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik_prm]-self.kgrid[tp]["energy"][ib][ik])
-
-
-        ik_prm = ik
-        while counter < forced_min_npoints and ik_prm > 0:
-            ik_prm -= 1
-            result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib, ik_prm))
-
+            result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib_prm, ik_prm))
             # also add all values with the same energy at ik_prm
-            result += self.kgrid[tp]["X_E_ik"][ib][ik_prm]
+            result += self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]
             counter += 1
             self.nforced_scat[tp] += 1
-            self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik]-self.kgrid[tp]["energy"][ib][ik_prm])
+            self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib_prm][ik_prm]-self.kgrid[tp]["energy"][ib][ik])
+
+        # in case we reached the end (ik_prm == nk - 1), we choose from the lower energy k-points
+        if E_radius == 0.0:
+            ik_prm = ik
+        else:
+            ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() + 1
+        while ik_prm > 0 and counter < forced_min_npoints:
+            ik_prm -= 1
+            result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib_prm, ik_prm))
+            # also add all values with the same energy at ik_prm
+            result += self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]
+            counter += 1
+            self.nforced_scat[tp] += 1
+            self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik]-self.kgrid[tp]["energy"][ib_prm][ik_prm])
 
         result.sort(key=lambda x: x[0])
         return result
@@ -2896,16 +2904,16 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]}
+                    "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
-                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]],
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 75, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "Ecut": 0.30, "maxiters": 5}
 
     # test
@@ -2927,8 +2935,9 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
+                  dopings=[-2e15], temperatures=[300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
-                  dopings=[-1e20], temperatures=[300, 600])
+                  # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
@@ -2937,5 +2946,5 @@ if __name__ == "__main__":
     AMSET.to_csv()
     AMSET.plot()
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=None, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
