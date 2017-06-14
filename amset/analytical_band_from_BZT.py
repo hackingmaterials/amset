@@ -38,7 +38,7 @@ def outer(v1, v2):
 def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
     """
 
-    :param kpt (list): coordinates of a given k-point
+    :param kpt (list): coordinates of a given k-point in the actual cartesian coordinates and NOT fractional coordinates
     :param rotations: symmetry rotation operations
     :param translations: symmetry translational operations
     :param poly_bands [[lists]]: each member of the first list represents a band: in each band a list of lists of lists
