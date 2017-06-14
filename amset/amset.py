@@ -2894,7 +2894,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
     # defaults:
-    mass = 0.044
+    mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
@@ -2905,7 +2905,8 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2, "parallel": True, "Ecut": 0.30}
+    performance_params = {"nkibz": 120, "dE_min": 0.0001, "nE_min": 2,
+                          "parallel": True, "Ecut": 0.30, "maxiters": 10}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2925,10 +2926,10 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
-                  dopings=[-2e15], temperatures=[300, 400, 500, 600])
+                  # dopings=[-2e15], temperatures=[300, 400, 500, 600])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
-                  # dopings=[-1e20], temperatures=[300, 600])
-                  #   dopings = [-1e20], temperatures = [100])
+                  dopings=[-1e20], temperatures=[300, 600])
+                  #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
