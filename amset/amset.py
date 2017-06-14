@@ -488,7 +488,7 @@ class AMSET(object):
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
-        print self._lattice_matrix
+
 
         # kpoints and actual_kpoints are the same fractional k-points in pymatgen, just in different formats.
         # print self._vrun.kpoints
@@ -1319,6 +1319,20 @@ class AMSET(object):
                     #     self.cbm_vbm[tp]["eff_mass_xx"] = effective_m
                     #     self.cbm_vbm[tp]["energy"] = energy
 
+        # this step is crucial in DOS normalization when poly_bands to cover the whole energy range in BZ
+        if self.poly_bands:
+            all_bands_energies = {"n": [], "p": []}
+            for tp in ["p", "n"]:
+                all_bands_energies[tp] = energies[tp]
+                for ib in range(1, len(self.poly_bands)):
+                    for ik in range(len(kpts)):
+                        energy, velocity, effective_m = get_poly_energy(
+                            np.dot(kpts[ik], self._lattice_matrix / A_to_nm * 2 * pi),
+                            poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+                        all_bands_energies[tp].append(energy)
+            self.dos_emin = min(all_bands_energies["p"])
+            self.dos_emax = max(all_bands_energies["n"])
+
 
 
         # logging.debug("energies before removing k-points with off-energy:\n {}".format(energies))
@@ -1445,9 +1459,9 @@ class AMSET(object):
         rearranged_props = ["velocity","effective mass","energy", "a", "c", "kpoints","cartesian kpoints","kweights",
                              "norm(v)", "norm(k)"]
 
-        if self.poly_bands:
-            self.dos_emin = min(self.kgrid["p"]["energy"][-1])
-            self.dos_emax = max(self.kgrid["n"]["energy"][-1])
+        # if self.poly_bands:
+        #     self.dos_emin = min(self.kgrid["p"]["energy"][-1])
+        #     self.dos_emax = max(self.kgrid["n"]["energy"][-1])
 
         #TODO: the following is temporary, for some reason if # of kpts in different bands are NOT the same,
         # I get an error that _all_elastic is a list! so 1/self.kgrid[tp]["_all_elastic"][c][T][ib] cause error int/list!
@@ -1527,7 +1541,7 @@ class AMSET(object):
                                                  poly_bands=self.poly_bands,
                                                  # bandgap=self.dft_gap + self.scissor,
                                                  bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
-                                                     "energy"] + self.scissor,
+                                                     "energy"], # we include here the actual or after-scissor gap here
                                                  width=self.dos_bwidth, SPB_DOS=True)
             # total_nelec = len(self.poly_bands) * 2 # basically 2x number of included occupied bands (valence bands)
             # total_nelec = self.nelec
@@ -1556,7 +1570,8 @@ class AMSET(object):
         print("vbm and cbm DOS idx")
         print self.vbm_dos_idx
         print self.cbm_dos_idx
-        # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx:self.cbm_dos_idx]))
+        # logging.debug("full dos after normalization: \n {}".format(self.dos))
+        logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx:self.cbm_dos_idx]))
 
         self.dos = [list(a) for a in self.dos]
 
@@ -2143,8 +2158,8 @@ class AMSET(object):
 
         # knrm = norm(self.kgrid[tp]["kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
 
-        if self.poly_bands: # the first one should be v and NOT v * sq3 so that the two match in SPB
-        # if True:
+        # if self.poly_bands: # the first one should be v and NOT v * sq3 so that the two match in SPB
+        if False:
             knrm = m_e * self._avg_eff_mass[tp] * (v ) / (hbar*e*1e11) # in nm given that v is in cm/s and hbar in eV.s; this resulted in very high ACD and IMP scattering rates, actually only PIE would match with aMoBT results as it doesn't have k_nrm in its formula
         #TODO: make sure that ACD scattering as well as others match in SPB between bs_is_isotropic and when knrm is the following and not above (i.e. not m*v/hbar*e)
         else:
@@ -2439,7 +2454,7 @@ class AMSET(object):
                              "possible cause may low band gap, high temperature, small nsteps, etc; AMSET stops now!"
                              .format(calc_doping, tolerance_loose*100, c))
 
-        logging.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, iter, fermi))
+        logging.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(iter), fermi))
         return fermi
 
 
@@ -2879,18 +2894,18 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
     # defaults:
-    mass = 0.25
+    mass = 0.044
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]}
+                    "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
-                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]],
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2, "parallel": True, "Ecut": 0.30}
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2, "parallel": True, "Ecut": 0.30}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2899,7 +2914,7 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     #
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-                   "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.583}
+                   "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
     cube_path = "../test_files/GaAs/"
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
@@ -2910,8 +2925,8 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
-                  # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700])
-                  dopings=[-2e15], temperatures=[200, 300, 400, 500])
+                  dopings=[-2e15], temperatures=[300, 400, 500, 600])
+                  # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [100])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
