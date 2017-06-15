@@ -244,6 +244,11 @@ class AMSET(object):
      constant mean free path (cMFP) can be used by setting these variables to True )
 
 
+    * a small comment on the structure of this code: the calculations are done and stroed in two main dictionary type
+    variable called kgrid and egrid. kgrid contains all calculations that are done in k-space meaning that for each
+    k-point and each band that is included there is a number/vector/property stored. On the other hand, the egrid
+    is everything in energy scale hence we have number/vector/property stored at each energy point.
+
      References:
          [R]: D. L. Rode, Low-Field Electron Transport, Elsevier, 1975, vol. 10., DOI: 10.1016/S0080-8784(08)60331-2
          [A]: A. Faghaninia, C. S. Lo and J. W. Ager, Phys. Rev. B, "Ab initio electronic transport model with explicit
@@ -860,6 +865,7 @@ class AMSET(object):
                             self[grid][tp][name] = {c: {T: init_content for T in self.temperatures} for c in self.dopings}
 
 
+
     @staticmethod
     def remove_duplicate_kpoints(kpts, dk = 0.0001):
         """kpts (list of list): list of coordinates of electrons
@@ -901,12 +907,8 @@ class AMSET(object):
         #             (abs(kpts[i][2]-kpts[i+1][2]) < dk or abs(kpts[i][2]) == abs(kpts[i+1][2]) == 0.5):
         #             rm_list.append(i+1)
 
-
-
-
         kpts = np.delete(kpts, rm_list, axis=0)
         kpts = list(kpts)
-
 
         # even if this works (i.e. the shape of kpts is figured out, etc), it's not good as does not consider 0.0001 and 0.0002 equal
         # kpts = np.vstack({tuple(row) for row in kpts})
@@ -987,7 +989,6 @@ class AMSET(object):
 
 
     def get_adaptive_kpoints(self, kpts, energies, adaptive_Erange, nsteps):
-        #TODO: make this function which is meant to be called several times more efficient to sort energies ONLY ONCE outside of the function
         kpoints_added = {"n": [], "p": []}
         for tp in ["n", "p"]:
             if tp not in self.all_types:
@@ -1031,6 +1032,7 @@ class AMSET(object):
         return kpts
 
 
+
     def get_sym_eq_ks_in_first_BZ(self, k, cartesian=False):
         fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
         if cartesian:
@@ -1049,15 +1051,6 @@ class AMSET(object):
         self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
 
 
-        # test_k = [0.5, 0.5, 0.5]
-        # print "equivalent ks"
-        # # a = self.remove_duplicate_kpoints([np.dot(test_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))])
-        # a = self.get_sym_eq_ks_in_first_BZ(test_k)
-        # # a = self.remove_duplicate_kpoints(a)
-        # # a = [np.dot(test_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
-        # a = [i.tolist() for i in self.remove_duplicate_kpoints(a)]
-        # print a # would print [[-0.5, 0.0, 0.0], [0.0, -0.5, 0.0], [0.0, 0.0, -0.5], [0.5, 0.5, 0.5]]
-
         # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
         # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.00, 0.00))
 
@@ -1065,27 +1058,6 @@ class AMSET(object):
         logging.info("self.nkibz = {}".format(self.nkibz))
 
         #TODO: the following is NOT a permanent solution to speed up generation/loading of k-mesh, speed up get_ir_reciprocal_mesh later
-        # ibzkpt_filename = "all_ibzkpt.json"
-        # try:
-        #     with open(ibzkpt_filename, 'r') as fp:
-        #         all_kpts = json.load(fp, cls=MontyDecoder)
-        # except:
-        #     logging.info('reading {} failed!'.format(ibzkpt_filename))
-        #     all_kpts = {}
-        # try:
-        #     kpts = all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)]
-        #     logging.info('reading {}x{}x{} k-mesh from "{}"'.format(nkstep, nkstep, nkstep, ibzkpt_filename))
-        # except:
-        #     logging.info("generating {}x{}x{} IBZ k-mesh".format(nkstep, nkstep, nkstep))
-        #     kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
-        #     kpts = [i[0] for i in kpts_and_weights]
-        #     kpts = self.kpts_to_first_BZ(kpts)
-        #
-        # all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)] = kpts
-        # os.system("cp {} {}_backup.json".format(ibzkpt_filename, ibzkpt_filename.split(".")[0]))
-        # with open(ibzkpt_filename, 'w') as fp:
-        #     json.dump(all_kpts, fp, cls=MontyEncoder)
-
 
         all_kpts = {}
         try:
@@ -1107,24 +1079,11 @@ class AMSET(object):
             with open(ibzkpt_filename, 'w') as fp:
                 json.dump(all_kpts, fp, cls=MontyEncoder)
 
-
-
-        # the following end up with 2 kpoints withing 10 kB * 300 ONLY!!!
-        # kpts = []
-        # nsteps = 17
-        # step = 0.5/nsteps
-        # for ikx in range(nsteps+1):
-        #     for iky in range(nsteps+1):
-        #         for ikz in range(nsteps+1):
-        #             kpts.append([0.0 + ikx*step, 0.0 + iky*step, 0.0 + ikz*step])
-
         # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
         kpts.append(self.cbm_vbm["n"]["kpoint"])
         kpts.append(self.cbm_vbm["p"]["kpoint"])
 
-        print "number of original ibz k-points"
-        print len(kpts)
-
+        logging.info("number of original ibz k-points: {}".format(len(kpts)))
 
         if not self.poly_bands:
             logging.debug("start interpolating bands from {}".format(coeff_file))
@@ -1156,8 +1115,8 @@ class AMSET(object):
                         self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0],cartesian=True))
 
 
-        # calculate only the CBM and VBM energy values (ib == 0)
-        # here we assume that the cbm and vbm k-points read from vasprun.xml are correct:
+        # calculate only the CBM and VBM energy values
+        # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             if not self.poly_bands:
@@ -1185,11 +1144,11 @@ class AMSET(object):
         logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
         self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm["n"]["eff_mass_xx"])) for tp in ["n", "p"]}
 
-        # calculate the  in initial ibz k-points and look at the first band to decide on additional/adaptive ks
-        # temp_min = {"n": self.gl, "p": self.gl}
+        # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
         rm_list = {"n": [], "p": []}
-        nval_included = self.cbm_vbm["p"]["included"]
+
+        #TODO-JF: please cleanup this part and put in a function, see other parts where energy is calculated to see if you can define a more general function to calculate E, v and m* to reduce the number of lines of codes copied eveywhere!
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
@@ -1228,14 +1187,6 @@ class AMSET(object):
                                         abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                             rm_list[tp].append(ik)
 
-
-
-                    # TODO: this may be a better place to get rid of k-points that have off-energy values to avoid calculating their energy early on
-                    # if (-1) ** (i + 1) * energy < temp_min[tp]:
-                    #     temp_min[tp] = (-1) ** (i + 1) * energy
-                    #     self.cbm_vbm[tp]["eff_mass_xx"] = effective_m
-                    #     self.cbm_vbm[tp]["energy"] = energy
-
         # this step is crucial in DOS normalization when poly_bands to cover the whole energy range in BZ
         if self.poly_bands:
             all_bands_energies = {"n": [], "p": []}
@@ -1261,6 +1212,7 @@ class AMSET(object):
         logging.info("number of ibz k-points AFTER ENERGY-FILTERING: {}".format(len(kpts)))
 
 
+        #TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
         if self.adaptive_mesh:
             all_added_kpoints = []
             all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,adaptive_Erange=[0*k_B*Tmx, 1*k_B*Tmx], nsteps=30)
@@ -1272,7 +1224,6 @@ class AMSET(object):
             print len(all_added_kpoints)
             print all_added_kpoints
             print type(kpts)
-
             kpts += all_added_kpoints
 
 
@@ -1288,12 +1239,13 @@ class AMSET(object):
 
         logging.info("number of kpoints after symmetrically equivalent kpoints are added: {}".format(len(kpts)))
 
+        #TODO: remove anything with "weight" later if ended up not using weights at all!
         kweights = [1.0 for i in kpts]
 
+        # actual initiation of the kgrid
         self.kgrid = {
                 "n": {},
                 "p": {} }
-
 
         for tp in ["n", "p"]:
             self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
@@ -2843,7 +2795,7 @@ class AMSET(object):
                         for mo in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings:
                             row[mo] = sum(self.egrid["mobility"][mo][c][T][tp])/3
                         writer.writerow(row)
-                writer.writerow({})
+                writer.writerow({}) # to more clear separation of n-type and p-type resutls
 
 
 if __name__ == "__main__":
