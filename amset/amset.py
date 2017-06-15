@@ -40,6 +40,7 @@ dTdz = 10.0 # K/cm
 sq3 = 3**0.5
 
 
+# TODO-JF: add your name as the second author
 __author__ = "Alireza Faghaninia, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
 __version__ = "0.1"
@@ -131,13 +132,15 @@ def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, eps
     return [S_i_list, S_i_th_list, S_o_list, S_o_th_list]
 
 
+
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
-    print "calculating S_i and S_o for ib: {} and ik: {}".format(ib, ik)
+    # print "calculating S_i and S_o for ib: {} and ik: {}".format(ib, ik)
+
     # S_i = np.array([self.gs, self.gs, self.gs])
-    S_i = np.array([1e-32, 1e-32, 1e-32])
-    S_i_th = np.array([1e-32, 1e-32, 1e-32])
-    S_o = np.array([1e-32, 1e-32, 1e-32])
-    S_o_th = np.array([1e-32, 1e-32, 1e-32])
+    S_i = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
+    S_i_th = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
+    S_o = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
+    S_o_th = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
     # S_o = np.array([self.gs, self.gs, self.gs])
 
     # v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
@@ -160,7 +163,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
                 kgrid[tp]["W_POP"][ib][ik] < cbm_vbm[tp]["energy"]:
             continue
 
-        # TODO: see how does dividing by len_eqE affect results, set to 1 to test: #20170614: in GaAs, they are all equal anyway (at least among the ones checked)
+        # TODO: see how does dividing by counted affects results, set to 1 to test: #20170614: in GaAs, they are all equal anyway (at least among the ones checked)
         counted = len(kgrid[tp][X_Epm][ib][ik])
         # if len_eqE == 0:
         #     print "WARNING!!!! element {} of {} is empty!!".format(ik, X_Epm)
@@ -173,7 +176,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             k_pm = kgrid[tp]["norm(k)"][ib_pm][ik_pm]
             abs_kdiff = abs(k_pm - k)
             if abs_kdiff < 1e-4:
-                # print "HERE HERE HERE HERE"
+            #     # print "HERE HERE HERE HERE"
                 counted -= 1
                 continue
 
@@ -193,26 +196,30 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
 
             if not once_called:
                 lamb_opm = beta_pm * (
-                A_pm ** 2 * log((k_pm + k) / abs_kdiff + 1e-4) - A_pm * c_ * c_pm - a * a_pm * c_ * c_pm)
+                A_pm ** 2 * log((k_pm + k) / (abs_kdiff + 1e-4)) - A_pm * c_ * c_pm - a * a_pm * c_ * c_pm)
                 # because in the scalar form k+ or k- is suppused to be unique, here we take average
 
-                S_o += (N_POP + j + (-1) ** j * f_pm) * lamb_opm
-                print "ib_pm: {} ik_pm: {}, S_o-{}: {}".format(ib_pm, ik_pm, X_Epm, ((N_POP + j + (-1) ** j * f_pm) * lamb_opm))
-                S_o_th += (N_POP + j + (-1) ** j * f_pm_th) * lamb_opm
+                S_o[j] += (N_POP + j + (-1) ** j * f_pm) * lamb_opm
+                # print "ib_pm: {} ik_pm: {}, S_o-{}: {}".format(ib_pm, ik_pm, X_Epm, ((N_POP + j + (-1) ** j * f_pm) * lamb_opm))
+                S_o_th[j] += (N_POP + j + (-1) ** j * f_pm_th) * lamb_opm
 
             lamb_ipm = beta_pm * (
                 (k_pm ** 2 + k ** 2) / (2 * k * k_pm) *\
-            A_pm ** 2 * log((k_pm + k) / abs_kdiff + 1e-4)  - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
-            S_i += (N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm
-            print "ib_pm: {} ik_pm: {}, S_i-{}: {}".format(ib_pm, ik_pm, X_Epm, ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm))
-            S_i_th += (N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th
+            A_pm ** 2 * log((k_pm + k) / (abs_kdiff + 1e-4))  - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
+            S_i[j] += (N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm
 
-        S_i /= counted
-        S_i_th /= counted
-        S_o /= counted
-        S_o_th /= counted
+            # print "ib_pm: {} ik_pm: {}, S_i-{}: {}".format(ib_pm, ik_pm, X_Epm, ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm))
 
-    return [S_i, S_i_th, S_o, S_o_th]
+            S_i_th[j] += (N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th
+
+        if counted > 0:
+            S_i[j] /= counted
+            S_i_th[j] /= counted
+            S_o[j] /= counted
+            S_o_th[j] /= counted
+
+
+    return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
 
 
 class AMSET(object):
@@ -245,6 +252,7 @@ class AMSET(object):
           DOI: 10.1093/acprof:oso/9780199677214.001.0001
 
      """
+    #TODO-JF: if you ended up using Ashcroft for any part of AMSET, please add it above
 
 
 
@@ -258,10 +266,6 @@ class AMSET(object):
         """
 
         self.calc_dir = calc_dir
-
-        # self.dopings = dopings or [-1e20] # 1/cm**3 list of carrier concentrations
-        # self.temperatures = temperatures or map(float, [300, 600]) # in K, list of temperatures
-
         self.dopings = dopings or [-1e19, -1e20] #TODO: change the default to [-1e16,...,-1e21,1e21, ...,1e16] later
         self.temperatures = temperatures or map(float, [300, 600]) #TODO: change the default to [50,100,...,1300] later
 
@@ -386,6 +390,8 @@ class AMSET(object):
         self.parallel = params.get("parallel", True)
         logging.info("parallel: {}".format(self.parallel))
 
+
+
     def run(self, coeff_file, kgrid_tp="coarse"):
         """
         Function to run AMSET and generate the main outputs kgrid and egrid
@@ -453,7 +459,6 @@ class AMSET(object):
         self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
 
         # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
-        # if "POP" in self.inelastic_scatterings:
         self.solve_BTE_iteratively()
 
         for key in ["plus", "minus"]:
@@ -469,17 +474,19 @@ class AMSET(object):
         # kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
         #                 "f_th", "g_th", "S_i_th", "S_o_th"]
 
-        kremove_list = ["effective mass", "kweights", "a", "c""",
+        kgrid_rm_list = ["effective mass", "kweights", "a", "c""",
                         "f_th", "g_th", "S_i_th", "S_o_th"]
+        egrid_rm_list = ["f_th", "g_th", "S_i_th", "S_o_th"]
 
+        # TODO-JF: wrap up the following removing to a function
         for tp in ["n", "p"]:
-            for rm in kremove_list:
+            for rm in kgrid_rm_list:
                 try:
                     del (self.kgrid[tp][rm])
                 except:
                     pass
             # for erm in ["all_en_flat", "f_th", "g_th", "S_i_th", "S_o_th"]:
-            for erm in ["f_th", "g_th", "S_i_th", "S_o_th"]:
+            for erm in egrid_rm_list:
                 try:
                     del (self.egrid[tp][erm])
                 except:
@@ -507,22 +514,15 @@ class AMSET(object):
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
-
-
-        # kpoints and actual_kpoints are the same fractional k-points in pymatgen, just in different formats.
-        # print self._vrun.kpoints
-        # print self._vrun.actual_kpoints
-        # print self._vrun.lattice_rec.get_cartesian_coords(self._vrun.actual_kpoints) #This gives the same result as np.dot(k, self._lattice_matrix*2*pi) I checked with [0.5, 0.5, 0.5]
-
-
         bs = self._vrun.get_band_structure()
 
-        # Remember that python band index starts from 0 so bidx==9 refers to the 10th band (e.g. in VASP)
+        # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
         cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
                    "p": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]}}
         cbm = bs.get_cbm()
         vbm = bs.get_vbm()
 
+        #TODO-JF: convert all prints to logging under two options logging.info and logging.debug depending on what's being printed; there might be other relevant levels of logging that I am not aware of
         print "total number of bands"
         print self._vrun.get_band_structure().nb_bands
         # print bs.nb_bands
@@ -576,7 +576,6 @@ class AMSET(object):
 
 
 
-
     def get_tp(self, c):
         """returns "n" for n-tp or negative carrier concentration or "p" (p-tp)."""
         if c < 0:
@@ -585,23 +584,6 @@ class AMSET(object):
             return "p"
         else:
             raise ValueError("The carrier concentration cannot be zero! AMSET stops now!")
-
-
-
-    #TODO: very inefficient code, see if you can change the way f is implemented
-    # def get_E_idx(self, E, tp):
-    #     """tp (str): "n" or "p" type"""
-    #     min_Ediff = 1e30
-    #     for ie, en in enumerate(self.egrid[tp]["energy"]):
-    #         if abs(E-en)< min_Ediff:
-    #             min_Ediff = abs(E-en)
-    #             ie_select = ie
-    #     return ie_select
-    #
-    #
-    # def f(self, E, fermi, T, tp, c, alpha):
-    #     """returns the perturbed Fermi-Dirac in presence of a small driving force"""
-    #     return 1 / (1 + np.exp((E - fermi) / (k_B * T))) + self.egrid[tp]["g"][c][T][self.get_E_idx(E, tp)][alpha]
 
 
 
@@ -750,9 +732,6 @@ class AMSET(object):
         print sum(self.Efrequency["n"])
 
         min_nE = 2
-        # print self.kgrid["n"]["energy"][0]
-        # print self.egrid["n"]["all_en_flat"]
-        # print self.egrid["n"]["energy"]
 
         if len(self.Efrequency["n"]) < min_nE or len(self.Efrequency["p"]) < min_nE:
             raise ValueError("The final egrid have fewer than {} energy values, AMSET stops now".format(min_nE))
@@ -768,34 +747,10 @@ class AMSET(object):
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
 
-
-        # self.egrid["fermi"] = {
-        #              -2000000000000000.0: {
-        #                  50.0: 1.4993294840664992,
-        #                  100.0: 1.4917274803223273,
-        #                  200.0: 1.4521353690981067,
-        #                  300.0: 1.3758144578023237,
-        #                  400.0: 1.2799625073470393,
-        #                  500.0: 1.1754101057269484,
-        #                  600.0: 1.0658000195985275,
-        #                  700.0: 0.9527756218922258,
-        #                  800.0: 0.837348160980175,
-        #                  900.0: 0.7272422717689677,
-        #                  1000.0: 0.6620678430281232
-        #              }
-        #          }
-
-
-
-
         # Since the SPB generated band structure may have several valleys, it's better to use the Fermi calculated from the actual band structure
         # self.calculate_property(prop_name="fermi_SPB", prop_func=self.find_fermi_SPB)
 
-        #
         ##  in case specific fermi levels are to be tested:
-
-
-
 
 
         # self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
@@ -808,20 +763,6 @@ class AMSET(object):
         self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi, T: f0(E, fermi, T)
                                                                         * (1 - f0(E, fermi, T)), for_all_E=True)
         self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
-
-        # self.egrid["beta"] =  {
-        #             -1e+20: {
-        #                 300: {
-        #                     "n": 0.36166217210814655,
-        #                     "p": 7.366123307507122e-16
-        #                 },
-        #                 600: {
-        #                     "n": 0.2643208622509363,
-        #                     "p": 6.141492700626864e-05
-        #                 }
-        #             }
-        #         }
-
         self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
         self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
         self.calculate_property(prop_name="Seebeck_integral_denominator", prop_func=self.seeb_int_denom)
@@ -859,12 +800,6 @@ class AMSET(object):
         :param rearranged_props ([str]): list of properties for which some indexes need to be removed
         :return:
         """
-
-
-
-
-        # omit the points with v~0 and try to find the parabolic band equivalent effective mass at the CBM and the VBM
-        # temp_min = {"n": self.gl, "p": self.gl}
         for i, tp in enumerate(["n", "p"]):
             for ib in range(self.cbm_vbm[tp]["included"]):
                 rm_idx_list_ib = list(set(rm_idx_list[tp][ib]))
@@ -874,17 +809,6 @@ class AMSET(object):
             for prop in rearranged_props:
                 self.kgrid[tp][prop] = np.array([np.delete(self.kgrid[tp][prop][ib], rm_idx_list[tp][ib], axis=0)\
                                     for ib in range(self.cbm_vbm[tp]["included"])])
-            # for ib in range(self.cbm_vbm[tp]["included"]):
-
-                # for ik in rm_idx_list:
-                #     if (-1)**i * self.kgrid[tp]["energy"][ib][ik] < temp_min[tp]:
-                #         temp_min[tp] = (-1)**i * self.kgrid[tp]["energy"][ib][ik]
-                #         self.cbm_vbm[tp]["eff_mass_xx"]=(-1)**i*self.kgrid[tp]["effective mass"][ib][ik].diagonal()
-                #         self.cbm_vbm[tp]["energy"] = self.kgrid[tp]["energy"][ib][ik]
-
-
-                # for prop in rearranged_props:
-                #     self.kgrid[tp][prop][ib] = np.delete(self.kgrid[tp][prop][ib], rm_idx_list_ib, axis=1)
 
 
 
@@ -952,8 +876,6 @@ class AMSET(object):
         ktuple.sort(key=lambda x: x[0])
         kpts = [tup[1] for tup in ktuple]
 
-        # kpts.sort(key=lambda x: norm(x))
-
         i = 0
         while i < len(kpts)-1:
             j = i
@@ -965,10 +887,7 @@ class AMSET(object):
                 if (abs(kpts[i][0]-kpts[j+1][0])<dk or abs(kpts[i][0])==abs(kpts[j+1][0])==0.5) and \
                     (abs(kpts[i][1]-kpts[j+1][1]) < dk or abs(kpts[i][1]) == abs(kpts[j+1][1]) == 0.5) and \
                     (abs(kpts[i][2]-kpts[j+1][2]) < dk or abs(kpts[i][2]) == abs(kpts[j+1][2]) == 0.5):
-                #
-                # if abs(kpts[i][0] - kpts[j + 1][0]) < dk and \
-                #     abs(kpts[i][1] - kpts[j + 1][1]) < dk and \
-                #     abs(kpts[i][2] - kpts[j + 1][2]) < dk:
+
                     rm_list.append(j+1)
                 j += 1
             i+=1
@@ -993,23 +912,6 @@ class AMSET(object):
         # kpts = np.vstack({tuple(row) for row in kpts})
 
 
-
-        # TODO: failed attempt to speed up duplication removal process by sorting the k-points in one direction first
-        # kpts.sort(key=lambda x: x[0])
-        # old_idx = 0
-        # for i in range(len(kpts)-2):
-        #     # look for duplicate k-points in a sublist of kpts where kx values are almost equal
-        #     # if abs(abs(kpts[i][0]) - 0.5) < 0.0001 and abs(abs(kpts[i][1]) - 0.5) < 0.0001 and abs(abs(kpts[i][2]) - 0.5) < 0.0001:
-        #     #     rm_list.append(i)
-        #     #     continue
-        #     if abs(kpts[i][0]-kpts[i + 1][0]) > 0.0001:
-        #         for j in range(old_idx, i):
-        #             for jj in range(j+1, i+1):
-        #                 if abs(kpts[j][1]-kpts[jj][1])<0.0001 and abs(kpts[j][2]-kpts[jj][2])<0.0001:
-        #                     rm_list.append(jj)
-        #         old_idx = i+1
-
-
         # CORRECT BUT TIME CONSUMING WAY OF REMOVING DUPLICATES
         # for i in range(len(kpts)-2):
         #     # if abs(abs(kpts[i][0]) - 0.5) < 0.0001 and abs(abs(kpts[i][1]) - 0.5) < 0.0001 and abs(abs(kpts[i][2]) - 0.5) < 0.0001:
@@ -1030,9 +932,6 @@ class AMSET(object):
         print "number of duplicates removed:"
         print len(rm_list)
 
-
-        # print kpts
-
         return kpts
 
 
@@ -1041,7 +940,6 @@ class AMSET(object):
         """return a list nsteps number of k-points between k1 & k2 excluding k1 & k2 themselves. k1 & k2 are nparray"""
         dkii = (k2 - k1) / float(nsteps + 1)
         return [k1 + i * dkii for i in range(1, nsteps + 1)]
-
 
 
 
@@ -1087,6 +985,7 @@ class AMSET(object):
         return  self.kpts_to_first_BZ(final_kpts_added)
 
 
+
     def get_adaptive_kpoints(self, kpts, energies, adaptive_Erange, nsteps):
         #TODO: make this function which is meant to be called several times more efficient to sort energies ONLY ONCE outside of the function
         kpoints_added = {"n": [], "p": []}
@@ -1104,7 +1003,6 @@ class AMSET(object):
                 Ediff = abs(energies[tp][ie] - energies[tp][ies_sorted[0]])
                 if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
                     kpoints_added[tp].append(kpts[ie])
-
 
         print "here initial k-points with low energy distance"
         print len(kpoints_added["n"])
@@ -2842,7 +2740,7 @@ class AMSET(object):
                    plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
                             textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left, margin_bottom=margin_bottom)
 
-            plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.kgrid[tp]["energy"][0]], y_col=self.Efrequency[tp])
+            plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]], y_col=self.Efrequency[tp])
 
 
             for prop in ["energy", "df0dk"]:
@@ -2889,7 +2787,7 @@ class AMSET(object):
                             margin_right=80,
                             pad=0)
                         prop = [sum(p)/3 for p in self.egrid[tp][prop_name][c][T]] # scat. rates are not vectors all 3 numbers represent single isotropic scattering rate
-                        plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.kgrid[tp]["energy"][0]], y_col=prop)
+                        plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]], y_col=prop)
 
             print('plotting: second set of plots: "velocity", "Ediff"')
 
@@ -2963,7 +2861,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 200, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 220, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "Ecut": 0.5, "maxiters": 5}
 
     # test
