@@ -999,9 +999,6 @@ class AMSET(object):
             ies_sorted = list(np.argsort(energies[tp]))
             if tp=="p":
                 ies_sorted.reverse()
-            # print ies_sorted
-            # print len(ies_sorted)
-            # print len(self.kgrid[tp]["energy"][0])
             for ie in ies_sorted:
                 Ediff = abs(energies[tp][ie] - energies[tp][ies_sorted[0]])
                 if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
@@ -1051,14 +1048,10 @@ class AMSET(object):
 
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
         self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
-
-
-
-
-
         logging.info("self.nkibz = {}".format(self.nkibz))
 
         #TODO: the following is NOT a permanent solution to speed up generation/loading of k-mesh, speed up get_ir_reciprocal_mesh later
+        #TODO-JF (mid-term): you can take on this project to speed up get_ir_reciprocal_mesh or a similar function, right now it scales very poorly with larger mesh
 
         all_kpts = {}
         try:
@@ -1073,9 +1066,9 @@ class AMSET(object):
         except:
             logging.info('reading {} failed!'.format(ibzkpt_filename))
             logging.info("generating {}x{}x{} IBZ k-mesh".format(nkstep, nkstep, nkstep))
-            # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
+            kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
             # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
-            kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.03, 0.06))
+            # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.03, 0.06))
             kpts = [i[0] for i in kpts_and_weights]
             kpts = self.kpts_to_first_BZ(kpts)
             all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)] = kpts
@@ -1088,6 +1081,8 @@ class AMSET(object):
 
         logging.info("number of original ibz k-points: {}".format(len(kpts)))
 
+
+        #TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
         if not self.poly_bands:
             logging.debug("start interpolating bands from {}".format(coeff_file))
             analytical_bands = Analytical_bands(coeff_file=coeff_file)
@@ -1120,6 +1115,8 @@ class AMSET(object):
 
         # calculate only the CBM and VBM energy values
         # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
+        #TODO-JF: please cleanup this part and put in a function, see other parts where energy is calculated to see if you can define a more general function to calculate E, v and m* to reduce the number of lines of codes copied eveywhere!
+
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             if not self.poly_bands:
@@ -1151,7 +1148,7 @@ class AMSET(object):
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
         rm_list = {"n": [], "p": []}
 
-        #TODO-JF: please cleanup this part and put in a function, see other parts where energy is calculated to see if you can define a more general function to calculate E, v and m* to reduce the number of lines of codes copied eveywhere!
+        #TODO-JF: a more generate energy-calculator function can also be used here to significantly reduce duplicate codes
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
@@ -1164,17 +1161,12 @@ class AMSET(object):
                                     nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                             energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
                             velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                            # effective_m = hbar ** 2 / (
-                            # dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
                             energies[tp][ik] = energy
                         else:
                             energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi),
                                     poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
                             energies[tp][ik] = energy
 
-                            # if velocity[0] < 1 or velocity[1] < 1 or velocity[2] < 1 or \
-                            #                 abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
-                            #     rm_list[tp].append(ik)
 
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
                                         abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
@@ -1320,15 +1312,6 @@ class AMSET(object):
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
                     self.kgrid[tp]["a"][ib][ik] = 1.0
 
-
-        # logging.debug("k-indexes to be removed: \n {}".format(rm_idx_list))
-
-        # for i, tp in enumerate(["p", "n"]):
-        #     for ib in range(self.cbm_vbm[tp]["included"]):
-        #         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-        #             if (-1)**(i+1) * (self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
-        #                 rm_idx_list[tp][ib].append(ik)
-
         logging.info("average of the group velocity in kgrid".format(np.mean(self.kgrid["n"]["velocity"][0], 0)))
 
         rearranged_props = ["velocity","effective mass","energy", "a", "c", "kpoints","cartesian kpoints","kweights",
@@ -1343,6 +1326,7 @@ class AMSET(object):
         # that's why I am removing indexes from the first band at all bands! this is temperary
         # suggested solution: make the band index a key in the dictionary of kgrid rather than list index so we
         # can treat each band independently without their dimensions required to match!
+        #TODO-AF: set the band index as a key in dictionary to enable independent modification of bands information
         for tp in ["n", "p"]:
             rm_idx_list[tp] = [rm_idx_list[tp][0] for ib in range(self.cbm_vbm[tp]["included"])]
 
