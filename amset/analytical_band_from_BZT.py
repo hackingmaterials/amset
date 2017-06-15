@@ -164,7 +164,6 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
         ir_kpts = [k[0] for k in ir_kpts_n_weights]
         weights = [k[1] for k in ir_kpts_n_weights]
 
-
         # ir_kpts_base = [k for k in ir_kpts]
         # counter = 1
         # for x in range(1,1):
@@ -211,11 +210,11 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
                             all_ks += [k_dist]*len(energy_list)
                             for energy in energy_list:
                                 g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
-                                dos += w * g
+                                dos += w/w_sum * g
                         else:
                             energy, v, m_eff = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap, all_values=all_values)
                             g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
-                            dos += w * g
+                            dos += w/w_sum * g
 
             if all_values:
                 scatter(all_ks, all_energies)
@@ -412,8 +411,6 @@ class Analytical_bands(object):
             warnings.warn("The index of VBM / CBM is unknown; scissor is set to 0.0")
             scissor = 0.0
 
-        print "cbm_new_index: {}".format(cbm_new_idx)
-
         nstv, vec = self.get_star_functions(latt_points,nsym,symop,nwave)
         ir_kpts = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
         ir_kpts = [k[0] for k in ir_kpts]
@@ -519,10 +516,8 @@ if __name__ == "__main__":
     lattice_matrix = run.lattice_rec.matrix / (2 * pi)
     st = run.structures[0]
 
-    #dos caclulated on a 15x15x15 mesh of kpoints, 
-    #in an energy range [-13,25] eV with 1000 points
-    #from get_dos_from_scratch
-    kmesh = [35,35,35]
+
+    kmesh = [31,31,31]
     emesh,dos, nbands = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05)
     # plot(emesh, dos)
 
@@ -537,7 +532,8 @@ if __name__ == "__main__":
     # adding an extra valley at offest of 1 eV
     # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.25]]] , [[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [2, 0.25]]]]
 
-    emesh, dos = get_dos_from_poly_bands(st,lattice_matrix,[6,6,6],-13,20,1000,poly_bands=poly_bands, bandgap=1.54, width=0.05, SPB_DOS=True, all_values=True)
+    emesh, dos = get_dos_from_poly_bands(st,lattice_matrix,[6,6,6],-30,30,100000,poly_bands=poly_bands, bandgap=1.54,
+                                         width=0.1, SPB_DOS=False, all_values=False)
     plot(emesh,dos)
     show()
 
