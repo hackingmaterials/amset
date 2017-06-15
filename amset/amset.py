@@ -130,6 +130,7 @@ def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, eps
 
 
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
+    print "calculating S_i and S_o for ib: {} and ik: {}".format(ib, ik)
     # S_i = np.array([self.gs, self.gs, self.gs])
     S_i = np.array([1e-32, 1e-32, 1e-32])
     S_i_th = np.array([1e-32, 1e-32, 1e-32])
@@ -192,12 +193,14 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
                 # because in the scalar form k+ or k- is suppused to be unique, here we take average
 
                 S_o += ((N_POP + j + (-1) ** j * f_pm) * lamb_opm) / len_eqE
+                print "ib_pm: {} ik_pm: {}, S_o-{}: {}".format(ib_pm, ik_pm, X_Epm, ((N_POP + j + (-1) ** j * f_pm) * lamb_opm))
                 S_o_th += ((N_POP + j + (-1) ** j * f_pm_th) * lamb_opm) / len_eqE
 
             lamb_ipm = beta_pm * (
                 (k_pm ** 2 + k ** 2) / (2 * k * k_pm) *\
             A_pm ** 2 * log((k_pm + k) / abs_kdiff + 1e-4)  - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
             S_i += ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm) / len_eqE
+            print "ib_pm: {} ik_pm: {}, S_i-{}: {}".format(ib_pm, ik_pm, X_Epm, ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm))
             S_i_th += ((N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th) / len_eqE
 
     return [S_i, S_i_th, S_o, S_o_th]
@@ -1612,9 +1615,11 @@ class AMSET(object):
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp,ib,ik,
                                                     E_radius=0.0, forced_min_npoints=2, tolerance=self.dE_min)
-                print "here nforced k-points ratio for {}-type elastic scattering".format(tp)
-                print self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib]))
-                if self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
+                enforced_ratio = self.nforced_scat[tp]/sum([len(points) for points in self.kgrid[tp]["X_E_ik"][ib]])
+                logging.info("enforced scattering ratio for {}-type elastic scattering at band {}:\n {}".format(tp,ib,enforced_ratio))
+                # print self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib]))
+                # if self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
+                if enforced_ratio > 0.1:
                     print "here this ib x k length:"
                     print (len(self.kgrid[tp]["energy"]) * len(self.kgrid[tp]["kpoints"][ib]))
                     # TODO: this should be an exception but for now I turned to warning for testing.
@@ -1640,16 +1645,23 @@ class AMSET(object):
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_within_E_radius(tp, ib, ik,
                             E_radius= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2, tolerance=self.dE_min)
 
+                    enforced_ratio = self.nforced_scat[tp] / (
+                            sum([len(points) for points in self.kgrid[tp]["X_Eplus_ik"][ib]]) + \
+                            sum([len(points) for points in self.kgrid[tp]["X_Eminus_ik"][ib]]))
+                    logging.info(
+                        "enforced scattering ratio for {}-type inelastic scattering at band {}:\n {}".format(tp, ib,
+                                                                                                    enforced_ratio))
 
-                    print "here nforced k-points ratio for {}-type POP scattering".format(tp)
-                    # one of the 2s is for plus and minus and the other one is the selected forced_min_npoints
-                    print self.nforced_scat[tp] / (2 * 2 * len(self.kgrid[tp]["kpoints"][ib]))
-                    print self.nforced_scat[tp]
-                    print (2 * 2 * len(self.kgrid[tp]["kpoints"][ib]))
+                    # print "here nforced k-points ratio for {}-type POP scattering".format(tp)
+                    # # one of the 2s is for plus and minus and the other one is the selected forced_min_npoints
+                    # print self.nforced_scat[tp] / (2 * 2 * len(self.kgrid[tp]["kpoints"][ib]))
+                    # print self.nforced_scat[tp]
+                    # print (2 * 2 * len(self.kgrid[tp]["kpoints"][ib]))
 
-                    if self.nforced_scat[tp] / (2*2*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
-                        print "here this ib x k length:"
-                        print (len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib]))
+                    # if self.nforced_scat[tp] / (2*2*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
+                    if enforced_ratio > 0.1:
+                        # print "here this ib x k length:"
+                        # print (len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib]))
                         # TODO: this should be an exception but for now I turned to warning for testing.
                         warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering in {} bands;"
                           " you can try this k-point grid but without POP as an inelastic scattering.".format(
@@ -1726,11 +1738,19 @@ class AMSET(object):
             ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() - 1
         while ik_prm < nk - 1 and counter < forced_min_npoints:
             ik_prm += 1
-            result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib_prm, ik_prm))
-            # also add all values with the same energy at ik_prm
-            result += self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]
-            counter += 1
-            self.nforced_scat[tp] += 1
+            # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
+            for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
+                X, ib_pmpm, ik_pmpm = X_ib_ik
+                result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
+                counter += 1
+                self.nforced_scat[tp] += 1
+
+            # The following wouldn't work as the angles that are extracted from X_E_ik are between k_pm and new points and NOT between k and the new points
+            # result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib_prm, ik_prm))
+            # # also add all values with the same energy at ik_prm
+            # result += self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]
+            # counter += 1
+            # self.nforced_scat[tp] += 1
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib_prm][ik_prm]-self.kgrid[tp]["energy"][ib][ik])
 
         # in case we reached the end (ik_prm == nk - 1), we choose from the lower energy k-points
@@ -1740,11 +1760,18 @@ class AMSET(object):
             ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() + 1
         while ik_prm > 0 and counter < forced_min_npoints:
             ik_prm -= 1
-            result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib_prm, ik_prm))
-            # also add all values with the same energy at ik_prm
-            result += self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]
-            counter += 1
-            self.nforced_scat[tp] += 1
+
+            for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
+                X, ib_pmpm, ik_pmpm = X_ib_ik
+                result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
+                counter += 1
+                self.nforced_scat[tp] += 1
+
+            # result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib_prm, ik_prm))
+            # # also add all values with the same energy at ik_prm
+            # result += self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]
+            # counter += 1
+            # self.nforced_scat[tp] += 1
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik]-self.kgrid[tp]["energy"][ib_prm][ik_prm])
 
         result.sort(key=lambda x: x[0])
@@ -2584,7 +2611,6 @@ class AMSET(object):
 
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.maxiters):
-            g_old = self.kgrid[tp]["g"][c][T][0]
             print("Performing iteration # {}".format(iter))
 
             if "POP" in self.inelastic_scatterings:
@@ -2600,6 +2626,7 @@ class AMSET(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
+                        g_old = self.kgrid[tp]["g"][c][T][0]
                         for ib in range(self.cbm_vbm[tp]["included"]):
                             # with convergence test:
                             # temp=(self.kgrid[tp]["S_i"][c][T][ib]+self.kgrid[tp]["electric force"][c][T][ib])/(
@@ -2639,8 +2666,8 @@ class AMSET(object):
                                     # print self.kgrid[tp]["X_Eplus_ik"][ib][ik]
                                     # print self.kgrid[tp]["X_Eminus_ik"][ib][ik]
 
-            avg_g_diff = np.mean([abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
-            print("Average difference in perturbation term: {}".format(avg_g_diff))
+                        avg_g_diff = np.mean([abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
+                        print("Average difference in {}-type g term at c={} and T={}: {}".format(tp, c, T, avg_g_diff))
 
 
         for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
@@ -2714,6 +2741,10 @@ class AMSET(object):
 
                     # fermi_SPB = self.egrid["fermi_SPB"][c][T]
                     energy = self.cbm_vbm["n"]["energy"]
+
+                    if self.bs_is_isotropic:
+                        for mu in ["overall", "average"] + self.inelastic_scatterings + self.elastic_scatterings:
+                            self.egrid["mobility"][mu][c][T][tp] /= 3.0
 
                     # ACD mobility based on single parabolic band extracted from Thermoelectric Nanomaterials,
                     # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
@@ -2923,7 +2954,7 @@ if __name__ == "__main__":
 
 
     performance_params = {"nkibz": 200, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "Ecut": 0.30, "maxiters": 12}
+                          "parallel": True, "Ecut": 0.5, "maxiters": 5}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2943,9 +2974,9 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
-                  dopings=[-2e15], temperatures=[300, 400, 500, 600])
+                  # dopings=[-2e15], temperatures=[300, 400, 500, 600])
                   # dopings=[-2e15], temperatures=[300])
-                  # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+                  dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
