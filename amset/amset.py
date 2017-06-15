@@ -107,6 +107,7 @@ def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
     return integral
 
 
+
 def GB(x, eta):
     """Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function goes to the dirac-delta of x."""
 
@@ -114,6 +115,7 @@ def GB(x, eta):
 
     ## although both expressions conserve the final transport properties, the one below doesn't conserve the scat. rates
     # return np.exp(-(x/eta)**2)
+
 
 
 def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
@@ -158,8 +160,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
                 kgrid[tp]["W_POP"][ib][ik] < cbm_vbm[tp]["energy"]:
             continue
 
-        # TODO: see how does dividing by len_eqE affect results, set to 1 to test
-        len_eqE = len(kgrid[tp][X_Epm][ib][ik])
+        # TODO: see how does dividing by len_eqE affect results, set to 1 to test: #20170614: in GaAs, they are all equal anyway (at least among the ones checked)
+        counted = len(kgrid[tp][X_Epm][ib][ik])
         # if len_eqE == 0:
         #     print "WARNING!!!! element {} of {} is empty!!".format(ik, X_Epm)
         for X_ib_ik in kgrid[tp][X_Epm][ib][ik]:
@@ -171,6 +173,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             k_pm = kgrid[tp]["norm(k)"][ib_pm][ik_pm]
             abs_kdiff = abs(k_pm - k)
             if abs_kdiff < 1e-4:
+                # print "HERE HERE HERE HERE"
+                counted -= 1
                 continue
 
             a_pm = kgrid[tp]["a"][ib_pm][ik_pm]
@@ -192,16 +196,21 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
                 A_pm ** 2 * log((k_pm + k) / abs_kdiff + 1e-4) - A_pm * c_ * c_pm - a * a_pm * c_ * c_pm)
                 # because in the scalar form k+ or k- is suppused to be unique, here we take average
 
-                S_o += ((N_POP + j + (-1) ** j * f_pm) * lamb_opm) / len_eqE
+                S_o += (N_POP + j + (-1) ** j * f_pm) * lamb_opm
                 print "ib_pm: {} ik_pm: {}, S_o-{}: {}".format(ib_pm, ik_pm, X_Epm, ((N_POP + j + (-1) ** j * f_pm) * lamb_opm))
-                S_o_th += ((N_POP + j + (-1) ** j * f_pm_th) * lamb_opm) / len_eqE
+                S_o_th += (N_POP + j + (-1) ** j * f_pm_th) * lamb_opm
 
             lamb_ipm = beta_pm * (
                 (k_pm ** 2 + k ** 2) / (2 * k * k_pm) *\
             A_pm ** 2 * log((k_pm + k) / abs_kdiff + 1e-4)  - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
-            S_i += ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm) / len_eqE
+            S_i += (N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm
             print "ib_pm: {} ik_pm: {}, S_i-{}: {}".format(ib_pm, ik_pm, X_Epm, ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm))
-            S_i_th += ((N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th) / len_eqE
+            S_i_th += (N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th
+
+        S_i /= counted
+        S_i_th /= counted
+        S_o /= counted
+        S_o_th /= counted
 
     return [S_i, S_i_th, S_o, S_o_th]
 
@@ -2976,8 +2985,8 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  # dopings=[-2e15], temperatures=[300])
-                  dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+                  dopings=[-2e15], temperatures=[300])
+                  # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
