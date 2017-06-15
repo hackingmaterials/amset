@@ -359,7 +359,9 @@ class AMSET(object):
         these are set based on params (dict) set by the user or their default values"""
 
         self.bs_is_isotropic = params.get("bs_is_isotropic", False)
-
+        # TODO: remove this if later when anisotropic band structure is supported
+        if not self.bs_is_isotropic:
+            raise IOError("Anisotropic option or bs_is_isotropic==False is NOT supported yet, please check back later")
         # what scattering mechanisms to be included
         self.elastic_scatterings = params.get("elastic_scatterings", ["ACD", "IMP", "PIE"])
         self.inelastic_scatterings = params.get("inelastic_scatterings", ["POP"])
