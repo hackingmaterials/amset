@@ -1053,8 +1053,7 @@ class AMSET(object):
         self.rotations, self.translations = sg._get_symmetry() # this returns unique symmetry operations
 
 
-        # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
-        # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.00, 0.00))
+
 
 
         logging.info("self.nkibz = {}".format(self.nkibz))
@@ -1074,7 +1073,9 @@ class AMSET(object):
         except:
             logging.info('reading {} failed!'.format(ibzkpt_filename))
             logging.info("generating {}x{}x{} IBZ k-mesh".format(nkstep, nkstep, nkstep))
-            kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
+            # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
+            # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
+            kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.03, 0.06))
             kpts = [i[0] for i in kpts_and_weights]
             kpts = self.kpts_to_first_BZ(kpts)
             all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)] = kpts
@@ -1270,8 +1271,10 @@ class AMSET(object):
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
-                self.kgrid[tp]["cartesian kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),
-                                                               self._lattice_matrix)/A_to_nm*2*pi #[1/nm]
+                #TODO-JF: define a function outside of this class called get_cartesian or something that would take
+                # a fractional k-point and a lattice matrix and would return the Cartesian coordinates in 1/nm like the
+                # next line and then change these "np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)/A_to_nm*2*pi" throughput AMSET to get_cartesian(frac_kpt, rec_lattice_matrix)
+                self.kgrid[tp]["cartesian kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)/A_to_nm*2*pi #[1/nm]
                 self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][ib]]
 
                 if self.parallel and not self.poly_bands:
@@ -1279,6 +1282,7 @@ class AMSET(object):
                          engre[i * self.cbm_vbm["p"]["included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2,
                          br_dir) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
 
+                # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     if not self.poly_bands:
                         if not self.parallel:
@@ -2815,7 +2819,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 220, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "Ecut": 0.5, "maxiters": 5}
 
     # test
