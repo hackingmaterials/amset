@@ -1334,11 +1334,6 @@ class AMSET(object):
         self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
 
 
-        # # emin & emax were initialized based on the real input band structure but that should change if self.poly_bands
-        # self.dos_emin = min(self.kgrid["p"]["energy"][-1])
-        # # logging.debug('here test self.kgrid["n"]["energy"]\n {}'.format(self.kgrid["n"]["energy"]))
-        # self.dos_emax = max(self.kgrid["n"]["energy"][-1])
-
         logging.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin, self.dos_emax))
 
         for tp in ["n", "p"]:
@@ -1383,28 +1378,21 @@ class AMSET(object):
         #                     , "vector", self.gs, is_nparray=True, c_T_idx=False)
 
 
+        # calculation of the density of states (DOS)
         if not self.poly_bands:
-            # caluclate and normalize the global density of states (DOS) so the integrated DOS == total number of electrons
-            emesh, dos, dos_nbands=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,[self.nkdos,self.nkdos,self.nkdos],
-                        self.dos_emin, self.dos_emax, int(round((self.dos_emax-self.dos_emin)/max(self.dE_min, 0.0001)))+1,
-                                                                width=self.dos_bwidth, scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
+            emesh, dos, dos_nbands=analytical_bands.get_dos_from_scratch(self._vrun.final_structure,
+                        [self.nkdos,self.nkdos,self.nkdos], self.dos_emin, self.dos_emax,
+                        int(round((self.dos_emax-self.dos_emin)/max(self.dE_min, 0.0001)))+1,
+                        width=self.dos_bwidth, scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
             self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
         else:
             logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
-
-            # now construct the DOS
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix,
-                                                 [self.nkdos, self.nkdos, self.nkdos],
-                                                 self.dos_emin, self.dos_emax,
-                                                 int(round((self.dos_emax - self.dos_emin) / max(self.dE_min, 0.0001)))+1,
-                                                 poly_bands=self.poly_bands,
-                                                 # bandgap=self.dft_gap + self.scissor,
-                                                 bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
-                                                     "energy"], # we include here the actual or after-scissor gap here
-                                                 width=self.dos_bwidth, SPB_DOS=False)
-            # total_nelec = len(self.poly_bands) * 2 # basically 2x number of included occupied bands (valence bands)
-            # total_nelec = self.nelec
-
+                        [self.nkdos, self.nkdos, self.nkdos], self.dos_emin, self.dos_emax,
+                        int(round((self.dos_emax - self.dos_emin) / max(self.dE_min, 0.0001)))+1,
+                        poly_bands=self.poly_bands, bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
+                        "energy"], # we include here the actual or after-scissor gap here
+                        width=self.dos_bwidth, SPB_DOS=False)
             self.dos_normalization_factor = len(
                 self.poly_bands)*2*2  # it is *2 elec/band & *2 because DOS is repeated in valence/conduction
 
@@ -1418,7 +1406,6 @@ class AMSET(object):
         # normalize DOS
         # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
         dos = [g / integ * self.dos_normalization_factor for g in dos]
-
         # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
 
         self.dos = zip(emesh, dos)
@@ -1426,7 +1413,7 @@ class AMSET(object):
         self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
         self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
 
-        print("vbm and cbm DOS idx")
+        print("vbm and cbm DOS index")
         print self.vbm_dos_idx
         print self.cbm_dos_idx
         # logging.debug("full dos after normalization: \n {}".format(self.dos))
@@ -1439,16 +1426,12 @@ class AMSET(object):
     def sort_vars_based_on_energy(self, args, ascending=True):
         """sort the list of variables specified by "args" (type: [str]) in self.kgrid based on the "energy" values
         in each band for both "n"- and "p"-type bands and in ascending order by default."""
-
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
                 ikidxs = np.argsort(self.kgrid[tp]["energy"][ib])
                 if not ascending:
                     ikidxs.reverse()
                 for arg in args:
-                    # if arg in ["k-points", "kweights"]:
-                    #     self.kgrid[arg] = np.array([self.kgrid[arg][ik] for ik in ikidxs])
-                    # else:
                     self.kgrid[tp][arg][ib] = np.array([self.kgrid[tp][arg][ib][ik] for ik in ikidxs])
 
 
@@ -1469,8 +1452,6 @@ class AMSET(object):
                 # print self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib]))
                 # if self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
                 if enforced_ratio > 0.1:
-                    print "here this ib x k length:"
-                    print (len(self.kgrid[tp]["energy"]) * len(self.kgrid[tp]["kpoints"][ib]))
                     # TODO: this should be an exception but for now I turned to warning for testing.
                     warnings.warn("the k-grid is too coarse for an acceptable simulation of elastic scattering in {} bands;"
                                   .format(["conduction", "valence"][["n", "p"].index(tp)]))
@@ -1501,16 +1482,8 @@ class AMSET(object):
                         "enforced scattering ratio for {}-type inelastic scattering at band {}:\n {}".format(tp, ib,
                                                                                                     enforced_ratio))
 
-                    # print "here nforced k-points ratio for {}-type POP scattering".format(tp)
-                    # # one of the 2s is for plus and minus and the other one is the selected forced_min_npoints
-                    # print self.nforced_scat[tp] / (2 * 2 * len(self.kgrid[tp]["kpoints"][ib]))
-                    # print self.nforced_scat[tp]
-                    # print (2 * 2 * len(self.kgrid[tp]["kpoints"][ib]))
-
-                    # if self.nforced_scat[tp] / (2*2*len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
                     if enforced_ratio > 0.1:
-                        # print "here this ib x k length:"
-                        # print (len(self.kgrid[tp]["energy"])*len(self.kgrid[tp]["kpoints"][ib]))
+
                         # TODO: this should be an exception but for now I turned to warning for testing.
                         warnings.warn("the k-grid is too coarse for an acceptable simulation of POP scattering in {} bands;"
                           " you can try this k-point grid but without POP as an inelastic scattering.".format(
@@ -2803,7 +2776,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 220, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "Ecut": 0.5, "maxiters": 5}
 
     # test
@@ -2825,8 +2798,8 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300])
-                  # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+                  # dopings=[-2e15], temperatures=[300])
+                  dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
