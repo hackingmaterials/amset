@@ -2833,7 +2833,7 @@ class AMSET(object):
                    plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
                             textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left, margin_bottom=margin_bottom)
 
-            plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=self.Efrequency[tp])
+            plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.kgrid[tp]["energy"][0]], y_col=self.Efrequency[tp])
 
 
             for prop in ["energy", "df0dk"]:
@@ -2868,7 +2868,8 @@ class AMSET(object):
                                     filename=os.path.join(path, "{}_{}.{}".format("ACD_kgrid", tp, fformat)),
                                     textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
                                     margin_bottom=margin_bottom)
-                    plt.xy_plot(x_col=self.kgrid[tp]["energy"][0], y_col=[norm(p) for p in self.kgrid[tp]["ACD"][c][T][0]])
+                    plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.kgrid[tp]["energy"][0]]
+                                , y_col=[sum(p)/3 for p in self.kgrid[tp]["ACD"][c][T][0]])
 
                     for prop_name in prop_list:
                         plt = PlotlyFig(plot_title="c={} 1/cm3, T={} K".format(c, T), x_title="Energy (eV)",
@@ -2879,7 +2880,7 @@ class AMSET(object):
                             margin_right=80,
                             pad=0)
                         prop = [sum(p)/3 for p in self.egrid[tp][prop_name][c][T]] # scat. rates are not vectors all 3 numbers represent single isotropic scattering rate
-                        plt.xy_plot(x_col=self.egrid[tp]["energy"], y_col=prop)
+                        plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.kgrid[tp]["energy"][0]], y_col=prop)
 
             print('plotting: second set of plots: "velocity", "Ediff"')
 
