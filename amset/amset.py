@@ -1745,8 +1745,6 @@ class AMSET(object):
                     # integral += multi * self.Efrequency[tp][ie]**wpower * (-(dfdE + ddfdE))
                     # integral += multi * self.Efrequency[tp][ie]**wpower *dfdE
                     # integral += multi * self.Efrequency[tp][ie]**wpower * self.egrid[tp]["f0"][c][T][ie]
-                    # integral += multi * self.Efrequency[tp][ie]**wpower
-                    # integral += multi * self.Efrequency[tp][ie]**wpower
                     integral += multi * self.Efrequency[tp][ie]**wpower
                 else:
                     integral += multi
@@ -1780,16 +1778,6 @@ class AMSET(object):
             if DeltaX == 0.0:
                 continue
 
-
-
-            # dum = np.array([0.0, 0.0, 0.0])
-            # for j in range(2):
-            #     # extract the indecies
-            #     X, ib_prm, ik_prm = X_E_index[ib][ik][i + j]
-            #     dum += integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
-
-            # dum /= 2.0  # the average of points i and i+1 to integrate via the trapezoidal rule
-
             dum = current_integrand/2
 
             X, ib_prm, ik_prm = X_E_index[ib][ik][i+1]
@@ -1797,7 +1785,6 @@ class AMSET(object):
 
             dum += current_integrand/2
             sum += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
-        # return sum/len(X_E_index[ib][ik])
         return sum
 
 
@@ -1811,11 +1798,6 @@ class AMSET(object):
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
-
-        # print "compare"
-        # print self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
-        # print norm(1/self.kgrid[tp]["velocity"][ib_prm][ik_prm])
-        # print
 
         # TODO: if only use norm(k_prm), I get ACD mobility that is almost exactly inversely proportional to temperature
         # return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
@@ -1909,29 +1891,6 @@ class AMSET(object):
 
 
     def s_inel_eq_isotropic(self, once_called=False):
-
-        # c_and_T = []
-        # for c in self.dopings:
-        #     for T in self.temperatures:
-        #         c_and_T.append((c, T))
-        #
-        # # This function needs MAJOR re-structuring, it is written in this dumb way just to quickly test if parallelization actually works!
-        # for tp in ["n", "p"]:
-        #     if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 1000:
-        #         for ib in range(len(self.kgrid[tp]["energy"])):
-        #             results = Parallel(n_jobs=self.num_cores)(delayed(calculate_Sio_list) \
-        #                 (tp, c, T, ib, once_called, self.kgrid, self.cbm_vbm, self.epsilon_s, self.epsilon_inf
-        #                                                    ) for c,T in c_and_T)
-        #             # print results
-        #             counter = 0
-        #             for c, T in c_and_T:
-        #                 self.kgrid[tp]["S_i"][c][T][ib] = results[counter][0]
-        #                 self.kgrid[tp]["S_i_th"][c][T][ib] = results[counter][1]
-        #                 if not once_called:
-        #                     self.kgrid[tp]["S_o"][c][T][ib] = results[counter][2]
-        #                     self.kgrid[tp]["S_o_th"][c][T][ib] = results[counter][3]
-        #                 counter += 1
-
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
@@ -1953,15 +1912,6 @@ class AMSET(object):
                             if not once_called:
                                 self.kgrid[tp]["S_o"][c][T][ib][ik] = res[2]
                                 self.kgrid[tp]["S_o_th"][c][T][ib][ik] = res[3]
-
-                        # for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                        #     S_i, S_i_th, S_o, S_o_th = calculate_Sio(tp, c, T, ib, ik, once_called,
-                        #             self.kgrid, self.cbm_vbm, self.epsilon_s, self.epsilon_inf)
-                        #     self.kgrid[tp]["S_i"][c][T][ib][ik] = S_i
-                        #     self.kgrid[tp]["S_i_th"][c][T][ib][ik] = S_i_th
-                        #     if not once_called:
-                        #         self.kgrid[tp]["S_o"][c][T][ib][ik] = S_o
-                        #         self.kgrid[tp]["S_o_th"][c][T][ib][ik] = S_o_th
 
 
 
@@ -1987,11 +1937,11 @@ class AMSET(object):
 
     def s_el_eq_isotropic(self, sname, tp, c, T, ib, ik):
         """returns elastic scattering rate (a numpy vector) at certain point (e.g. k-point, T, etc)
-        with the assumption that the band structure is isotropic.
+        with the assumption that the band structure is isotropic (i.e. self.bs_is_isotropic==True).
         This assumption significantly simplifies the model and the integrated rates at each
         k/energy directly extracted from the literature can be used here."""
 
-        #TODO: decide on knrm and whether it needs a reference (i.e. CBM/VBM). No ref. result in large rates in PbTe.
+        #TODO: decide on knrm and whether it needs a reference k-point (i.e. CBM/VBM) where the reference point is not Gamma. No ref. result in large rates in PbTe.
         # I justify subtracting the CBM/VBM actual k-points as follows:
         # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
         # v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
@@ -2015,8 +1965,6 @@ class AMSET(object):
             # The following two lines are from Rode's chapter (page 38)
             return (k_B*T*self.E_D[tp]**2*knrm**2)/(3*pi*hbar**2*self.C_el*1e9*v)\
             *(3-8*par_c**2+6*par_c**4)*e*1e20
-
-
 
             # return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) *norm(1.0/v)/ (3 * pi * hbar ** 2 * self.C_el * 1e9) \
             #     * (3 - 8 * self.kgrid[tp]["c"][ib][ik] ** 2 + 6 * self.kgrid[tp]["c"][ib][ik] ** 4) * e * 1e20
@@ -2248,24 +2196,9 @@ class AMSET(object):
 
         while (relative_error > tolerance) and (iter<max_iter):
             iter += 1 # to avoid an infinite loop
-            # tune_alpha = 1 - iter/max_iter
             if iter / max_iter > 0.5: # to avoid oscillation we re-adjust alpha at each iteration
                 tune_alpha = 1 - iter / max_iter
             fermi += alpha * tune_alpha * (calc_doping - c)/abs(c + calc_doping) * fermi
-            # print(fermi)
-            # print(calc_doping)
-            # print(temp_doping)
-            # print
-
-            ## DOS re-normalization: NOT NECESSARY; this changes DOS at each T and makes AMSET slow;
-            ## initial normalization based on zero-T should suffice
-            # integ = 0.0
-            # for idos in range(len(self.dos)-1):
-            #     integ+= (self.dos[idos+1][0] - self.dos[idos][0])*self.dos[idos][1]*f0(self.dos[idos][0], fermi, T)
-            # for idos in range(len(self.dos)):
-            #     self.dos[idos] *= self.nelec/integ
-
-            # interpolation_steps = 50
 
 
             for j, tp in enumerate(["n", "p"]):
@@ -2276,10 +2209,6 @@ class AMSET(object):
                                 (self.dos[ie+1][0] - self.dos[ie][0])
                 temp_doping[tp] = (-1) ** (j + 1) * abs(integral/(self.volume * (A_to_m*m_to_cm)**3) )
 
-            # calculate the overall concentration at the current fermi
-            # for j, tp in enumerate(["n", "p"]):
-            #     integral = self.integrate_over_DOSxE_dE(func=funcs[j], tp=tp, fermi=fermi, T=T)
-            #     temp_doping[tp] = (-1)**(j+1) * abs(integral/self.volume / (A_to_m*m_to_cm)**3)
             calc_doping = temp_doping["n"] + temp_doping["p"]
             if abs(calc_doping) < 1e-2:
                 calc_doping = np.sign(calc_doping)*0.01 # just so that calc_doping doesn't get stuck to zero!
@@ -2315,7 +2244,7 @@ class AMSET(object):
         """
         beta = {}
         for tp in ["n", "p"]:
-            # TODO: The DOS needs to be revised, if a more accurate DOS is implemented
+            # TODO: the integration may need to be revised. Careful testing of IMP scattering against expt is necessary
             # integral = self.integrate_over_E(func=func, tp=tp, fermi=self.egrid["fermi"][c][T], T=T)
 
             # because this integral has no denominator to cancel the effect of weights, we do non-weighted integral
@@ -2339,18 +2268,10 @@ class AMSET(object):
             max_ndata = int(self.gl)
 
         egrid = deepcopy(self.egrid)
-        # self.egrid trimming
         if trimmed:
             nmax = min([max_ndata+1, min([len(egrid["n"]["energy"]), len(egrid["p"]["energy"])]) ])
-            # print nmax
-            # remove_list = []
-            for tp in ["n", "p"]:
-                # for rm in remove_list:
-                #     try:
-                #         del (egrid[tp][rm])
-                #     except:
-                #         pass
 
+            for tp in ["n", "p"]:
                 for key in egrid[tp]:
                     if key in ["size"]:
                         continue
@@ -2375,17 +2296,7 @@ class AMSET(object):
             print "time to copy kgrid = {} seconds".format(time.time() - start_time)
             if trimmed:
                 nmax = min([max_ndata+1, min([len(kgrid["n"]["kpoints"][0]), len(kgrid["p"]["kpoints"][0])])])
-                # remove_list = ["W_POP", "effective mass", "cartesian kpoints", "X_E_ik", "X_Eplus_ik", "X_Eminus_ik"]
-                # remove_list = ["W_POP", "effective mass"]
-
-                # remove_list = ["effective mass"]
                 for tp in ["n", "p"]:
-                #     for rm in remove_list:
-                #         try:
-                #             del (kgrid[tp][rm])
-                #         except:
-                #             pass
-
                     for key in kgrid[tp]:
                         if key in ["size"]:
                             continue
@@ -2402,15 +2313,11 @@ class AMSET(object):
                                 print "cutting data for {} numbers in kgrid was NOT successful!".format(key)
                                 pass
 
-
-
             with open("kgrid.json", 'w') as fp:
                 json.dump(kgrid, fp,sort_keys = True, indent = 4, ensure_ascii=False, cls=MontyEncoder)
 
 
-
     def solve_BTE_iteratively(self):
-
         # calculating S_o scattering rate which is not a function of g
         if "POP" in self.inelastic_scatterings and not self.bs_is_isotropic:
             for g_suffix in ["", "_th"]:
@@ -2440,14 +2347,14 @@ class AMSET(object):
                                                                  self.kgrid[tp]["electric force"][c][T][ib]) / (
                                                                 self.kgrid[tp]["S_o"][c][T][ib] + self.gs)
 
-                            self.kgrid[tp]["g"][c][T] = (self.kgrid[tp]["S_i"][c][T] + self.kgrid[tp]["electric force"][c][
-                                T]) / (self.kgrid[tp]["S_o"][c][T] + self.kgrid[tp]["_all_elastic"][c][T])
+                            self.kgrid[tp]["g"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] + self.kgrid[tp]["electric force"][c][
+                                T][ib]) / (self.kgrid[tp]["S_o"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
 
                             self.kgrid[tp]["g_th"][c][T][ib]=(self.kgrid[tp]["S_i_th"][c][T][ib]+self.kgrid[tp]["thermal force"][c][
                                 T][ib]) / (self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
 
-                            self.kgrid[tp]["f"][c][T] = self.kgrid[tp]["f0"][c][T] + self.kgrid[tp]["g"][c][T]
-                            self.kgrid[tp]["f_th"][c][T] = self.kgrid[tp]["f0"][c][T] + self.kgrid[tp]["g_th"][c][T]
+                            self.kgrid[tp]["f"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g"][c][T][ib]
+                            self.kgrid[tp]["f_th"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g_th"][c][T][ib]
 
                             for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                                 if  norm(self.kgrid[tp]["g_POP"][c][T][ib][ik]) > 1 and iter > 0:
@@ -2475,12 +2382,6 @@ class AMSET(object):
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
-                    # norm is only for one vector but g has the ibxikx3 dimensions
-                    # self.kgrid[tp]["f"][c][T] = self.kgrid[tp]["f0"][c][T] + self.kgrid[tp]["g"][c][T]
-
-                    # this ONLY makes a difference if f and f_th are used in the denominator; but f0 is currently used!
-                    # self.egrid[tp]["f"][c][T] = self.egrid[tp]["f0"][c][T] + norm(self.egrid[tp]["g"][c][T])
-                    # self.egrid[tp]["f_th"][c][T]=self.egrid[tp]["f0"][c][T]+norm(self.egrid[tp]["g_th"][c][T])
 
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
@@ -2526,8 +2427,6 @@ class AMSET(object):
 
                     # other semi-empirical mobility values:
                     fermi = self.egrid["fermi"][c][T]
-
-
                     # fermi_SPB = self.egrid["fermi_SPB"][c][T]
                     energy = self.cbm_vbm["n"]["energy"]
 
@@ -2553,9 +2452,8 @@ class AMSET(object):
                     self.egrid["mobility"]["average"][c][T][tp] = 1 / self.egrid["mobility"]["average"][c][T][tp]
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
-                    #TODO: uncomment the following two I just commented them for a test.
-                    # if mu_overrall_norm == 0.0 or faulty_overall_mobility:
-                    #     self.egrid["mobility"]["overall"][c][T][tp] = self.egrid["mobility"]["average"][c][T][tp]
+                    if mu_overrall_norm == 0.0 or faulty_overall_mobility:
+                        self.egrid["mobility"]["overall"][c][T][tp] = self.egrid["mobility"]["average"][c][T][tp]
 
                     self.egrid["relaxation time constant"][c][T][tp] =  self.egrid["mobility"]["overall"][c][T][tp] \
                         * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
@@ -2589,6 +2487,10 @@ class AMSET(object):
 
 
 
+    # TODO-JF: this function needs a MAJOR revision and it does not interfere with the main code so it might be a good
+    # place to start; I would first figure out how to directly save a Plotly plot to a file (it doesn't matter what the
+    # format is (i.e. png, jpeg, etc) and then based on that decide where to do plot. I encourage keeping everything in
+    # plotly as the plots look nice and the interactive mode on browser is a very nice tool for display and debugging
     def plot(self, plotc=None, plotT=None, path=None, textsize=40, ticksize=35, margin_left = 160, margin_bottom=120,
              fontfamily="serif"):
         """plots some of the outputs for more detailed analysis, debugging, etc"""
@@ -2612,8 +2514,6 @@ class AMSET(object):
             for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
                 all_plots.append({"x_col": self.temperatures,
                                 "y_col": [log(sum(self.egrid["mobility"][mo][plotc][T][tp])/3, 10) for T in self.temperatures],
-                                # "textsize": textsize, "ticksize": ticksize, "margin_left": margin_left,
-                                # "margin_bottom": margin_bottom, "fontfamily": fontfamily
                                 "text": mo, "size": textsize/2, "mode":"lines+markers", "legend": "", "color": ""
                                   })
             plt.xy_plot(x_col=[],
