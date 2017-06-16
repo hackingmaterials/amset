@@ -1645,7 +1645,8 @@ class AMSET(object):
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
             for i in range(interpolation_nsteps):
-                integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS)*func(E + i * dE, fermi, T)*self.Efrequency[tp][ie]
+                # integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS)*func(E + i * dE, fermi, T)*self.Efrequency[tp][ie]
+                integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
         return integral
         # return integral/sum(self.Efrequency[tp][:-1])
 
@@ -2422,8 +2423,8 @@ class AMSET(object):
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
                         self.egrid["mobility"][transport][c][T][tp]/=default_small_E * denom
 
-                    self.egrid["J_th"][c][T][tp] /= self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
-                                                                    T=T, xDOS=True, xvel=False, weighted=True)
+                    self.egrid["J_th"][c][T][tp] /= 3*self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
+                                                                    T=T, xDOS=False, xvel=False, weighted=True)
 
                     # other semi-empirical mobility values:
                     fermi = self.egrid["fermi"][c][T]
@@ -2470,7 +2471,7 @@ class AMSET(object):
                         self.egrid["seebeck"][c][T][tp] += 1e6 \
                                         * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
 
-                    print "3 seebeck terms at c={} and T={}:".format(c, T)
+                    print "3 {}-seebeck terms at c={} and T={}:".format(tp, c, T)
                     print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
                         / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B
                     print + self.egrid["fermi"][c][T]/(k_B*T) * 1e6 * k_B
