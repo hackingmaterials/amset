@@ -531,9 +531,7 @@ class AMSET(object):
         cbm = bs.get_cbm()
         vbm = bs.get_vbm()
 
-        #TODO-JF: convert all prints to logging under two options logging.info and logging.debug depending on what's being printed; there might be other relevant levels of logging that I am not aware of
-        print "total number of bands"
-        print self._vrun.get_band_structure().nb_bands
+        logging.info("total number of bands: {}".format(self._vrun.get_band_structure().nb_bands))
         # print bs.nb_bands
 
         cbm_vbm["n"]["energy"] = cbm["energy"]
@@ -545,7 +543,7 @@ class AMSET(object):
         cbm_vbm["p"]["kpoint"] = bs.kpoints[vbm["kpoint_index"][0]].frac_coords
 
         self.dft_gap = cbm["energy"] - vbm["energy"]
-        print "DFT gap from vasprun.xml : {} eV".format(self.dft_gap)
+        logging.debug("DFT gap from vasprun.xml : {} eV".format(self.dft_gap))
 
         if self.soc:
             self.nelec = cbm_vbm["p"]["bidx"] + 1
@@ -554,7 +552,7 @@ class AMSET(object):
             self.nelec = (cbm_vbm["p"]["bidx"]+1)*2
             # self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands*2
 
-        print("total number of electrons nelec: {}".format(self.nelec))
+        logging.debug("total number of electrons nelec: {}".format(self.nelec))
 
         bs = bs.as_dict()
         if bs["is_spin_polarized"]:
@@ -571,7 +569,7 @@ class AMSET(object):
                                           sgn*cbm_vbm[tp]["energy"])<self.Ecut:
                     cbm_vbm[tp]["included"] += 1
 
-            # TODO: for now, I only include 1 band for each as I get some errors if I inlude more bands
+            # TODO: for now, I only include 1 band for each as I get some errors if I include more bands
                 cbm_vbm[tp]["included"] = 1
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands)
