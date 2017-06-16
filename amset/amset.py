@@ -1323,7 +1323,7 @@ class AMSET(object):
         # that's why I am removing indexes from the first band at all bands! this is temperary
         # suggested solution: make the band index a key in the dictionary of kgrid rather than list index so we
         # can treat each band independently without their dimensions required to match!
-        #TODO-AF: set the band index as a key in dictionary to enable independent modification of bands information
+        #TODO-AF or TODO-JF (mid-term): set the band index as a key in dictionary throughout AMSET to enable independent modification of bands information
         for tp in ["n", "p"]:
             rm_idx_list[tp] = [rm_idx_list[tp][0] for ib in range(self.cbm_vbm[tp]["included"])]
 
@@ -1400,6 +1400,7 @@ class AMSET(object):
             # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
             #     break
             integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
+
         # normalize DOS
         # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
         dos = [g / integ * self.dos_normalization_factor for g in dos]
@@ -1515,6 +1516,8 @@ class AMSET(object):
         return new_X_ib_ik
 
 
+
+    #TODO-JF: this function needs a MAJOR clean-up, lots of duplicate or very similar codes
     def get_X_ib_ik_within_E_radius(self, tp, ib, ik, E_radius, forced_min_npoints=0, tolerance=0.01):
         """Returns the sorted (based on angle, X) list of angle and band and k-point indexes of all the points
             that are withing the E_radius of E
@@ -1564,12 +1567,6 @@ class AMSET(object):
                 counter += 1
                 self.nforced_scat[tp] += 1
 
-            # The following wouldn't work as the angles that are extracted from X_E_ik are between k_pm and new points and NOT between k and the new points
-            # result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib_prm, ik_prm))
-            # # also add all values with the same energy at ik_prm
-            # result += self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]
-            # counter += 1
-            # self.nforced_scat[tp] += 1
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib_prm][ik_prm]-self.kgrid[tp]["energy"][ib][ik])
 
         # in case we reached the end (ik_prm == nk - 1), we choose from the lower energy k-points
@@ -1586,11 +1583,6 @@ class AMSET(object):
                 counter += 1
                 self.nforced_scat[tp] += 1
 
-            # result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib][ik_prm]), ib_prm, ik_prm))
-            # # also add all values with the same energy at ik_prm
-            # result += self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]
-            # counter += 1
-            # self.nforced_scat[tp] += 1
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik]-self.kgrid[tp]["energy"][ib_prm][ik_prm])
 
         result.sort(key=lambda x: x[0])
@@ -1681,7 +1673,6 @@ class AMSET(object):
             sum_over_k = np.array([self.gs, self.gs, self.gs])
             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                 k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
-                # k_nrm = m_e* self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
 
                 # 4*pi, hbar and norm(v) are coming from the conversion of dk to dE
                 product = k_nrm**2/self.kgrid[tp]["norm(v)"][ib][ik] *4*pi/hbar
@@ -1711,6 +1702,7 @@ class AMSET(object):
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
+        # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
         weighted = False
 
         wpower = 1
@@ -1725,11 +1717,7 @@ class AMSET(object):
         integral = self.gs
         # for ie in range(len(self.egrid[tp]["energy"]) - 1):
         for ie in range(imax_occ):
-            # if weighted:
-            #     f0 = self.egrid[tp]["f0"][c][T][ie]
-            #     dfdE = self.egrid[tp]["df0dE"][c][T][ie]
-            #     df0 = (self.egrid[tp]["f0"][c][T][ie + 1] - f0) / interpolation_nsteps
-            #     ddfdE = self.egrid[tp]["df0dE"][c][T][ie+1] - dfdE
+
             E = self.egrid[tp]["energy"][ie]
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if xDOS:
@@ -2598,7 +2586,7 @@ class AMSET(object):
                             self.egrid["conductivity"][c][T][other_type])
                     # since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
                     # self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
-                    
+
 
 
     def plot(self, plotc=None, plotT=None, path=None, textsize=40, ticksize=35, margin_left = 160, margin_bottom=120,
