@@ -289,6 +289,107 @@ class AMSET(object):
         if self.parallel:
             logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
 
+
+
+    def run(self, coeff_file, kgrid_tp="coarse"):
+        """
+        Function to run AMSET and generate the main outputs kgrid and egrid
+
+        :param center_kpt:
+        :param coeff_file:
+        :param cbm_bidx:
+        :param grid_tp:
+        :return:
+        """
+        self.init_kgrid(coeff_file=coeff_file, kgrid_tp=kgrid_tp)
+        logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
+
+
+        self.init_egrid(dos_tp="standard")
+
+
+        self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
+        if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
+            warnings.warn("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
+            # raise ValueError("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
+
+        # initialize g in the egrid
+        self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
+        self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
+
+        print "average of the group velocity in e-grid!"
+        print np.mean(self.egrid["n"]["velocity"], 0)
+
+        # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
+        if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
+            self.generate_angles_and_indexes_for_integration()
+
+        # calculate all elastic scattering rates in kgrid and then map it to egrid:
+        for sname in self.elastic_scatterings:
+            self.s_elastic(sname=sname)
+            self.map_to_egrid(prop_name=sname)
+
+        self.map_to_egrid(prop_name="_all_elastic")
+        self.map_to_egrid(prop_name="relaxation time")
+
+        for c in self.dopings:
+            for T in self.temperatures:
+                fermi = self.egrid["fermi"][c][T]
+                for tp in ["n", "p"]:
+                    for ib in range(len(self.kgrid[tp]["energy"])):
+                        for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                            E = self.kgrid[tp]["energy"][ib][ik]
+                            v = self.kgrid[tp]["velocity"][ib][ik]
+
+                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
+                            self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E, fermi, T) * v  # in cm
+                            self.kgrid[tp]["electric force"][c][T][ib][ik] = -1 * \
+                                                                             self.kgrid[tp]["df0dk"][c][T][ib][
+                                                                                 ik] * default_small_E / hbar  # in 1/s
+                            # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
+                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0(E, fermi, T) * (1 - f0(E, fermi, T)) * ( \
+                                E / (k_B * T) - self.egrid["Seebeck_integral_numerator"][c][T][tp] /
+                                self.egrid["Seebeck_integral_denominator"][c][T][tp]) * dTdz / T
+
+        self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
+        self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
+
+        # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
+        self.solve_BTE_iteratively()
+
+        for key in ["plus", "minus"]:
+            with open("X_E{}_ik".format(key), "w") as fp:
+                json.dump(self.kgrid["n"]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
+
+        self.calculate_transport_properties()
+
+        # logging.debug('self.kgrid_to_egrid_idx["n"]: \n {}'.format(self.kgrid_to_egrid_idx["n"]))
+        # logging.debug('self.kgrid["velocity"]["n"][0]: \n {}'.format(self.kgrid["n"]["velocity"][0]))
+        # logging.debug('self.egrid["velocity"]["n"]: \n {}'.format(self.egrid["n"]["velocity"]))
+
+        # kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
+        #                 "f_th", "g_th", "S_i_th", "S_o_th"]
+
+        kgrid_rm_list = ["effective mass", "kweights", "a", "c""",
+                        "f_th", "g_th", "S_i_th", "S_o_th"]
+        egrid_rm_list = ["f_th", "g_th", "S_i_th", "S_o_th"]
+
+        # TODO-JF: wrap up the following removing to a function
+        for tp in ["n", "p"]:
+            for rm in kgrid_rm_list:
+                try:
+                    del (self.kgrid[tp][rm])
+                except:
+                    pass
+            # for erm in ["all_en_flat", "f_th", "g_th", "S_i_th", "S_o_th"]:
+            for erm in egrid_rm_list:
+                try:
+                    del (self.egrid[tp][erm])
+                except:
+                    pass
+
+
+
     def write_input_files(self):
         """writes all 3 types of inputs in json files for example to
         conveniently track what inputs had been used later or read
@@ -397,112 +498,6 @@ class AMSET(object):
         self.parallel = params.get("parallel", True)
         logging.info("parallel: {}".format(self.parallel))
 
-
-
-    def run(self, coeff_file, kgrid_tp="coarse"):
-        """
-        Function to run AMSET and generate the main outputs kgrid and egrid
-
-        :param center_kpt:
-        :param coeff_file:
-        :param cbm_bidx:
-        :param grid_tp:
-        :return:
-        """
-        self.init_kgrid(coeff_file=coeff_file, kgrid_tp=kgrid_tp)
-        logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
-
-
-        if True:
-            self.init_egrid(dos_tp="standard")
-        else:
-            pass
-
-        self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
-        if abs(self.bandgap - (
-                self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
-            warnings.warn("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
-            # raise ValueError("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
-
-        # initialize g in the egrid
-        self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
-        self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
-
-        print "average of the group velocity in e-grid!"
-        print np.mean(self.egrid["n"]["velocity"], 0)
-
-        # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
-        if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
-            self.generate_angles_and_indexes_for_integration()
-
-        # calculate all elastic scattering rates in kgrid and then map it to egrid:
-        for sname in self.elastic_scatterings:
-            self.s_elastic(sname=sname)
-            self.map_to_egrid(prop_name=sname)
-
-        self.map_to_egrid(prop_name="_all_elastic")
-        self.map_to_egrid(prop_name="relaxation time")
-
-        for c in self.dopings:
-            for T in self.temperatures:
-                fermi = self.egrid["fermi"][c][T]
-                for tp in ["n", "p"]:
-                    for ib in range(len(self.kgrid[tp]["energy"])):
-                        for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            E = self.kgrid[tp]["energy"][ib][ik]
-                            v = self.kgrid[tp]["velocity"][ib][ik]
-
-                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
-                            self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E, fermi, T) * v  # in cm
-                            self.kgrid[tp]["electric force"][c][T][ib][ik] = -1 * \
-                                                                             self.kgrid[tp]["df0dk"][c][T][ib][
-                                                                                 ik] * default_small_E / hbar  # in 1/s
-                            # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
-                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0(E, fermi, T) * (1 - f0(E, fermi, T)) * ( \
-                                E / (k_B * T) - self.egrid["Seebeck_integral_numerator"][c][T][tp] /
-                                self.egrid["Seebeck_integral_denominator"][c][T][tp]) * dTdz / T
-
-        self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
-        self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
-
-        # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
-        self.solve_BTE_iteratively()
-
-        for key in ["plus", "minus"]:
-            with open("X_E{}_ik".format(key), "w") as fp:
-                json.dump(self.kgrid["n"]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
-
-        self.calculate_transport_properties()
-
-        # logging.debug('self.kgrid_to_egrid_idx["n"]: \n {}'.format(self.kgrid_to_egrid_idx["n"]))
-        # logging.debug('self.kgrid["velocity"]["n"][0]: \n {}'.format(self.kgrid["n"]["velocity"][0]))
-        # logging.debug('self.egrid["velocity"]["n"]: \n {}'.format(self.egrid["n"]["velocity"]))
-
-        # kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
-        #                 "f_th", "g_th", "S_i_th", "S_o_th"]
-
-        kgrid_rm_list = ["effective mass", "kweights", "a", "c""",
-                        "f_th", "g_th", "S_i_th", "S_o_th"]
-        egrid_rm_list = ["f_th", "g_th", "S_i_th", "S_o_th"]
-
-        # TODO-JF: wrap up the following removing to a function
-        for tp in ["n", "p"]:
-            for rm in kgrid_rm_list:
-                try:
-                    del (self.kgrid[tp][rm])
-                except:
-                    pass
-            # for erm in ["all_en_flat", "f_th", "g_th", "S_i_th", "S_o_th"]:
-            for erm in egrid_rm_list:
-                try:
-                    del (self.egrid[tp][erm])
-                except:
-                    pass
-
-        pprint(self.egrid["mobility"])
-        if self.wordy:
-            pprint(self.egrid)
-            pprint(self.kgrid)
 
 
     def __getitem__(self, key):
@@ -2632,11 +2627,14 @@ class AMSET(object):
             plotT = 300.0
         if not path:
             path = os.path.join( os.getcwd(), "plots" )
+            if not os.path.exists(path):
+                os.makedirs(name=path)
         fformat = "html"
 
         for tp in ["n"]:
             print('plotting: first set of plots: "log10 of mobility", "relaxation time", "_all_elastic", "ACD", "df0dk"')
             plt = PlotlyFig(x_title="Temperature (K)", y_title="log10 of mobility (^10 cm2/V.s)", textsize=textsize,
+                            filename=os.path.join(path, "{}_{}.{}".format("log10_of_mobility", tp, fformat)),
                         ticksize=ticksize, margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
             all_plots = []
             for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
