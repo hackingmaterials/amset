@@ -466,8 +466,8 @@ class AMSET(object):
 
         self.bs_is_isotropic = params.get("bs_is_isotropic", False)
         # TODO: remove this if later when anisotropic band structure is supported
-        if not self.bs_is_isotropic:
-            raise IOError("Anisotropic option or bs_is_isotropic==False is NOT supported yet, please check back later")
+        # if not self.bs_is_isotropic:
+        #     raise IOError("Anisotropic option or bs_is_isotropic==False is NOT supported yet, please check back later")
         # what scattering mechanisms to be included
         self.elastic_scatterings = params.get("elastic_scatterings", ["ACD", "IMP", "PIE"])
         self.inelastic_scatterings = params.get("inelastic_scatterings", ["POP"])
@@ -597,7 +597,7 @@ class AMSET(object):
     def seeb_int_num(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
         fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T)) * E / (k_B * T)
-        return {t:self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T, normalie_energy=True) for t in ["n", "p"]}
+        return {t:self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T, normalize_energy=True) for t in ["n", "p"]}
 
 
 
@@ -1639,14 +1639,14 @@ class AMSET(object):
 
 
 
-    def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None, normalie_energy=False):
+    def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None, normalize_energy=False):
         if not interpolation_nsteps:
             interpolation_nsteps = max(5, int(500.0/len(self.egrid[tp]["energy"])) )
         integral = 0.0
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             E = self.egrid[tp]["energy"][ie]
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
-            if normalie_energy:
+            if normalize_energy:
                 E -= self.cbm_vbm[tp]["energy"]
                 fermi -= self.cbm_vbm[tp]["energy"]
             dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
@@ -2662,7 +2662,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 220, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "Ecut": 0.5, "BTE_iters": 5}
 
     # test
