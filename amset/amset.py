@@ -388,6 +388,8 @@ class AMSET(object):
                 except:
                     pass
 
+        pprint(self.egrid["mobility"])
+        pprint(self.egrid["seebeck"])
 
 
     def write_input_files(self):
@@ -2502,7 +2504,7 @@ class AMSET(object):
         integrate_over_kgrid = False
         for c in self.dopings:
             for T in self.temperatures:
-                for tp in ["n", "p"]:
+                for j, tp in enumerate(["p", "n"]):
                     # norm is only for one vector but g has the ibxikx3 dimensions
                     # self.kgrid[tp]["f"][c][T] = self.kgrid[tp]["f0"][c][T] + self.kgrid[tp]["g"][c][T]
 
@@ -2606,14 +2608,23 @@ class AMSET(object):
                     # print + self.egrid["fermi"][c][T]/(k_B*T) * 1e6 * k_B
                     # print + self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
 
-                actual_type = self.get_tp(c)
-                other_type = self.get_tp(-c)
-                self.egrid["seebeck"][c][T][actual_type] = (
-                    self.egrid["conductivity"][c][T][actual_type] * self.egrid["seebeck"][c][T][actual_type] -
-                    self.egrid["conductivity"][c][T][other_type] * self.egrid["seebeck"][c][T][other_type]) \
-                    / (self.egrid["conductivity"][c][T][actual_type] + self.egrid["conductivity"][c][T][other_type])
-                # since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
-                self.egrid["conductivity"][c][T][actual_type] += self.egrid["conductivity"][c][T][other_type]
+
+                    other_type = ["p", "n"][1-j]
+                    self.egrid["seebeck"][c][T][tp] = (self.egrid["conductivity"][c][T][tp] * \
+                            self.egrid["seebeck"][c][T][tp] - self.egrid["conductivity"][c][T][other_type] * \
+                            self.egrid["seebeck"][c][T][other_type]) / (self.egrid["conductivity"][c][T][tp] +
+                            self.egrid["conductivity"][c][T][other_type])
+                    # since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
+                    # self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
+
+                # actual_type = self.get_tp(c)
+                # other_type = self.get_tp(-c)
+                # self.egrid["seebeck"][c][T][actual_type] = (
+                #     self.egrid["conductivity"][c][T][actual_type] * self.egrid["seebeck"][c][T][actual_type] -
+                #     self.egrid["conductivity"][c][T][other_type] * self.egrid["seebeck"][c][T][other_type]) \
+                #     / (self.egrid["conductivity"][c][T][actual_type] + self.egrid["conductivity"][c][T][other_type])
+                # # since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
+                # self.egrid["conductivity"][c][T][actual_type] += self.egrid["conductivity"][c][T][other_type]
 
 
 
@@ -2746,15 +2757,16 @@ class AMSET(object):
 
         with open(csv_filename, 'w') as csvfile:
             fieldnames = ['type', 'c(cm-3)', 'T(K)', 'overall', 'average'] +\
-                         self.elastic_scatterings + self.inelastic_scatterings
+                         self.elastic_scatterings + self.inelastic_scatterings + ['seebeck']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for tp in ["n", "p"]:
                 for c in self.dopings:
                     for T in self.temperatures:
                         row = {'type': tp, 'c(cm-3)': c, 'T(K)': T}
-                        for mo in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings:
-                            row[mo] = sum(self.egrid["mobility"][mo][c][T][tp])/3
+                        for p in ['overall', 'average']+ self.elastic_scatterings + self.inelastic_scatterings:
+                            row[p] = sum(self.egrid["mobility"][p][c][T][tp])/3
+                        row["seebeck"] = sum(self.egrid["seebeck"][c][T][tp])/3
                         writer.writerow(row)
                 writer.writerow({}) # to more clear separation of n-type and p-type resutls
 
@@ -2774,7 +2786,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 220, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "Ecut": 0.5, "maxiters": 5}
 
     # test
@@ -2796,8 +2808,8 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  # dopings=[-2e15], temperatures=[300])
-                  dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+                  dopings=[-2e15], temperatures=[300])
+                  # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
