@@ -2589,7 +2589,8 @@ class AMSET(object):
                                         self.egrid[tp]["energy"][i] for i in range(len(self.egrid[tp]["energy"])-1)]
                 else:
                     y_col = [sum(p)/3 for p in self.egrid[tp][prop_name]] # velocity is actually a vector so we take norm
-                    plt.xy_plot(x_col=self.egrid[tp]["energy"][:len(y_col)], y_col=y_col, error_type="data",
+                    plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"][:len(y_col)]],
+                                y_col=y_col, error_type="data",
                                 error_array=[np.std(p) for p in self.egrid[tp][prop_name]], error_direction="y")
                     # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
 
