@@ -346,6 +346,9 @@ class AMSET(object):
                             self.kgrid[tp]["electric force"][c][T][ib][ik] = -1 * \
                                                                              self.kgrid[tp]["df0dk"][c][T][ib][
                                                                                  ik] * default_small_E / hbar  # in 1/s
+
+                            E -= self.cbm_vbm[tp]["energy"]
+                            fermi -= self.cbm_vbm[tp]["energy"]
                             # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
                             self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0(E, fermi, T) * (1 - f0(E, fermi, T)) * ( \
                                 E / (k_B * T) - self.egrid["Seebeck_integral_numerator"][c][T][tp] /
@@ -594,7 +597,7 @@ class AMSET(object):
     def seeb_int_num(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
         fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T)) * E / (k_B * T)
-        return {t:self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T) for t in ["n", "p"]}
+        return {t:self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T, normalie_energy=True) for t in ["n", "p"]}
 
 
 
@@ -1636,13 +1639,16 @@ class AMSET(object):
 
 
 
-    def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None):
+    def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None, normalie_energy=False):
         if not interpolation_nsteps:
             interpolation_nsteps = max(5, int(500.0/len(self.egrid[tp]["energy"])) )
         integral = 0.0
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             E = self.egrid[tp]["energy"][ie]
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
+            if normalie_energy:
+                E -= self.cbm_vbm[tp]["energy"]
+                fermi -= self.cbm_vbm[tp]["energy"]
             dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
             for i in range(interpolation_nsteps):
                 # integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS)*func(E + i * dE, fermi, T)*self.Efrequency[tp][ie]
@@ -1955,7 +1961,7 @@ class AMSET(object):
         # knrm = norm(self.kgrid[tp]["kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
 
         # if self.poly_bands: # the first one should be v and NOT v * sq3 so that the two match in SPB
-        if False:
+        if False: # I'm 90% sure that there is not need for the first type of knrm and that's why I added if False for now
             knrm = m_e * self._avg_eff_mass[tp] * (v ) / (hbar*e*1e11) # in nm given that v is in cm/s and hbar in eV.s; this resulted in very high ACD and IMP scattering rates, actually only PIE would match with aMoBT results as it doesn't have k_nrm in its formula
         #TODO: make sure that ACD scattering as well as others match in SPB between bs_is_isotropic and when knrm is the following and not above (i.e. not m*v/hbar*e)
         else:
@@ -2417,14 +2423,20 @@ class AMSET(object):
                         self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_E(prop_list=["g"],
                             tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=True)
 
-                    self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"],
-                            tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True) * e * 1e24 # to bring J to A/cm2 units
+                    self.egrid["J_th"][c][T][tp] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
+                            xDOS=False, xvel=True, weighted=True) / denom) * e * c # in units of A/cm2
+
 
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
                         self.egrid["mobility"][transport][c][T][tp]/=default_small_E * denom
 
-                    self.egrid["J_th"][c][T][tp] /= 3*self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
-                                                                    T=T, xDOS=False, xvel=False, weighted=True)
+
+                    # The following did NOT work as J_th only has one integral (see aMoBT but that one is over k)
+                    # and with that one the units don't work out and if you use two integral, J_th will be of 1e6 order!
+                    # self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
+                    #         xDOS=False, xvel=True, weighted=True) * e * 1e24  # to bring J to A/cm2 units
+                    # self.egrid["J_th"][c][T][tp] /= 3*self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
+                    #         T=T, xDOS=False, xvel=False, weighted=True)
 
                     # other semi-empirical mobility values:
                     fermi = self.egrid["fermi"][c][T]
@@ -2462,19 +2474,19 @@ class AMSET(object):
                     # calculating other overall transport properties:
                     self.egrid["conductivity"][c][T][tp] = self.egrid["mobility"]["overall"][c][T][tp]* e * abs(c)
                     self.egrid["seebeck"][c][T][tp] = -1e6*k_B*( self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] - self.egrid["fermi"][c][T]/(k_B*T) )
+                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] - (self.egrid["fermi"][c][T]-self.cbm_vbm[tp]["energy"])/(k_B*T) )
                     self.egrid["TE_power_factor"][c][T][tp] = self.egrid["seebeck"][c][T][tp]**2 \
                         * self.egrid["conductivity"][c][T][tp] / 1e6 # in uW/cm2K
                     if "POP" in self.inelastic_scatterings:     # when POP is not available J_th is unreliable
                         self.egrid["seebeck"][c][T][tp] += 0.0
                         # TODO: for now, we ignore the following until we figure out the units see why values are high!
-                        self.egrid["seebeck"][c][T][tp] += 1e6 \
-                                        * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
+                        # self.egrid["seebeck"][c][T][tp] += 1e6 \
+                        #                 * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
 
                     print "3 {}-seebeck terms at c={} and T={}:".format(tp, c, T)
                     print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
                         / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B
-                    print + self.egrid["fermi"][c][T]/(k_B*T) * 1e6 * k_B
+                    print + (self.egrid["fermi"][c][T]-self.cbm_vbm[tp]["energy"]) * 1e6 * k_B
                     print + self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
 
 
@@ -2650,7 +2662,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 220, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "Ecut": 0.5, "BTE_iters": 5}
 
     # test
