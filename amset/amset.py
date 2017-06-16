@@ -371,8 +371,8 @@ class AMSET(object):
         #                 "f_th", "g_th", "S_i_th", "S_o_th"]
 
         kgrid_rm_list = ["effective mass", "kweights", "a", "c""",
-                        "f_th", "g_th", "S_i_th", "S_o_th"]
-        egrid_rm_list = ["f_th", "g_th", "S_i_th", "S_o_th"]
+                        "f_th", "S_i_th", "S_o_th"]
+        egrid_rm_list = ["f_th", "S_i_th", "S_o_th"]
 
         # TODO-JF: wrap up the following removing to a function
         for tp in ["n", "p"]:
@@ -2467,14 +2467,14 @@ class AMSET(object):
                     if "POP" in self.inelastic_scatterings:     # when POP is not available J_th is unreliable
                         self.egrid["seebeck"][c][T][tp] += 0.0
                         # TODO: for now, we ignore the following until we figure out the units see why values are high!
-                        # self.egrid["seebeck"][c][T][tp] += 1e6 \
-                        #                 * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
+                        self.egrid["seebeck"][c][T][tp] += 1e6 \
+                                        * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
 
-                    # print "3 seebeck terms at c={} and T={}:".format(c, T)
-                    # print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                    #     / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B
-                    # print + self.egrid["fermi"][c][T]/(k_B*T) * 1e6 * k_B
-                    # print + self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
+                    print "3 seebeck terms at c={} and T={}:".format(c, T)
+                    print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
+                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B
+                    print + self.egrid["fermi"][c][T]/(k_B*T) * 1e6 * k_B
+                    print + self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
 
 
                     other_type = ["p", "n"][1-j]
@@ -2551,7 +2551,7 @@ class AMSET(object):
 
             prop_list = ["relaxation time", "_all_elastic", "df0dk"] + self.elastic_scatterings
             if "POP" in self.inelastic_scatterings:
-                prop_list += ["g", "g_POP", "S_i", "S_o"]
+                prop_list += ["g", "g_POP", "g_th", "S_i", "S_o"]
             for c in self.dopings:
                 # for T in self.temperatures:
                 for T in [plotT]:
@@ -2632,6 +2632,7 @@ class AMSET(object):
                 writer.writerow({}) # to more clear separation of n-type and p-type resutls
 
 
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
@@ -2647,7 +2648,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "Ecut": 0.5, "BTE_iters": 5}
 
     # test
