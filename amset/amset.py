@@ -425,7 +425,7 @@ class AMSET(object):
             "dos_bwidth": self.dos_bwidth,
             "nkdos": self.nkdos,
             "wordy": self.wordy,
-            "maxiters": self.maxiters
+            "BTE_iters": self.BTE_iters
         }
 
         with open("material_params.json", "w") as fp:
@@ -496,7 +496,7 @@ class AMSET(object):
 
         # TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.wordy = params.get("wordy", False)
-        self.maxiters = params.get("maxiters", 5)
+        self.BTE_iters = params.get("BTE_iters", 5)
         self.parallel = params.get("parallel", True)
         logging.info("parallel: {}".format(self.parallel))
 
@@ -2429,7 +2429,7 @@ class AMSET(object):
                 self.s_inelastic(sname="S_o"+ g_suffix, g_suffix=g_suffix)
 
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
-        for iter in range(self.maxiters):
+        for iter in range(self.BTE_iters):
             print("Performing iteration # {}".format(iter))
 
             if "POP" in self.inelastic_scatterings:
@@ -2447,13 +2447,6 @@ class AMSET(object):
                     for tp in ["n", "p"]:
                         g_old = self.kgrid[tp]["g"][c][T][0]
                         for ib in range(self.cbm_vbm[tp]["included"]):
-                            # with convergence test:
-                            # temp=(self.kgrid[tp]["S_i"][c][T][ib]+self.kgrid[tp]["electric force"][c][T][ib])/(
-                            #     self.kgrid[tp]["S_o"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
-                            # if sum([norm(self.kgrid[tp]["g"][c][T][ib][i] - temp[i]) for i in range(len(temp))]) \
-                            #     / sum([norm(gi) for gi in self.kgrid[tp]["g"][c][T][ib]]) < 0.01:
-                            #     print "CONVERGED!"
-                            # self.kgrid[tp]["g"][c][T][ib] = temp
 
                             self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
                                                                  self.kgrid[tp]["electric force"][c][T][ib]) / (
@@ -2473,18 +2466,6 @@ class AMSET(object):
                             # because only when there are no S_o/S_i scattering events, g_POP>>1 while it should be zero
                                     self.kgrid[tp]["g_POP"][c][T][ib][ik] = [self.gs, self.gs, self.gs]
 
-                                    # print("g_POP > 1 !!!!!")
-                                    # print self.kgrid[tp]["g_POP"][c][T][ib][ik]
-                                    # print ib
-                                    # print ik
-                                    # print self.kgrid[tp]["S_i"][c][T][ib][ik]
-                                    # print self.kgrid[tp]["electric force"][c][T][ib][ik]
-                                    # print self.kgrid[tp]["S_o"][c][T][ib][ik]
-                                    # print self.kgrid[tp]["velocity"][ib][ik]
-
-                                    # print self.kgrid[tp]["X_Eplus_ik"][ib][ik]
-                                    # print self.kgrid[tp]["X_Eminus_ik"][ib][ik]
-
                         avg_g_diff = np.mean([abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
                         print("Average difference in {}-type g term at c={} and T={}: {}".format(tp, c, T, avg_g_diff))
 
@@ -2498,6 +2479,7 @@ class AMSET(object):
                     for ie in range(len(self.egrid[tp]["g_POP"][c][T])):
                         if norm(self.egrid[tp]["g_POP"][c][T][ie]) > 1:
                             self.egrid[tp]["g_POP"][c][T][ie] = [1e-5, 1e-5, 1e-5]
+
 
 
     def calculate_transport_properties(self):
@@ -2616,16 +2598,7 @@ class AMSET(object):
                             self.egrid["conductivity"][c][T][other_type])
                     # since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
                     # self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
-
-                # actual_type = self.get_tp(c)
-                # other_type = self.get_tp(-c)
-                # self.egrid["seebeck"][c][T][actual_type] = (
-                #     self.egrid["conductivity"][c][T][actual_type] * self.egrid["seebeck"][c][T][actual_type] -
-                #     self.egrid["conductivity"][c][T][other_type] * self.egrid["seebeck"][c][T][other_type]) \
-                #     / (self.egrid["conductivity"][c][T][actual_type] + self.egrid["conductivity"][c][T][other_type])
-                # # since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
-                # self.egrid["conductivity"][c][T][actual_type] += self.egrid["conductivity"][c][T][other_type]
-
+                    
 
 
     def plot(self, plotc=None, plotT=None, path=None, textsize=40, ticksize=35, margin_left = 160, margin_bottom=120,
@@ -2787,7 +2760,7 @@ if __name__ == "__main__":
 
 
     performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "Ecut": 0.5, "maxiters": 5}
+                          "parallel": True, "Ecut": 0.5, "BTE_iters": 5}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
