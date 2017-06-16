@@ -291,6 +291,24 @@ class AMSET(object):
 
 
 
+    def remove_from_grids(self, kgrid_rm_list, egrid_rm_list):
+        """deletes dictionaries storing properties about k points and E points that are no longer
+        needed from fgrid and egrid"""
+        for tp in ["n", "p"]:
+            for rm in kgrid_rm_list:
+                try:
+                    del (self.kgrid[tp][rm])
+                except:
+                    pass
+            # for erm in ["all_en_flat", "f_th", "g_th", "S_i_th", "S_o_th"]:
+            for erm in egrid_rm_list:
+                try:
+                    del (self.egrid[tp][erm])
+                except:
+                    pass
+
+
+
     def run(self, coeff_file, kgrid_tp="coarse"):
         """
         Function to run AMSET and generate the main outputs kgrid and egrid
@@ -370,23 +388,10 @@ class AMSET(object):
         # kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
         #                 "f_th", "g_th", "S_i_th", "S_o_th"]
 
-        kgrid_rm_list = ["effective mass", "kweights", "a", "c""",
+        kgrid_rm_list = ["effective mass", "kweights", "a", "c",
                         "f_th", "S_i_th", "S_o_th"]
         egrid_rm_list = ["f_th", "S_i_th", "S_o_th"]
-
-        # TODO-JF: wrap up the following removing to a function
-        for tp in ["n", "p"]:
-            for rm in kgrid_rm_list:
-                try:
-                    del (self.kgrid[tp][rm])
-                except:
-                    pass
-            # for erm in ["all_en_flat", "f_th", "g_th", "S_i_th", "S_o_th"]:
-            for erm in egrid_rm_list:
-                try:
-                    del (self.egrid[tp][erm])
-                except:
-                    pass
+        self.remove_from_grids(kgrid_rm_list, egrid_rm_list)
 
         pprint(self.egrid["mobility"])
         pprint(self.egrid["seebeck"])
