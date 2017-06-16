@@ -40,8 +40,8 @@ dTdz = 10.0 # K/cm
 sq3 = 3**0.5
 
 
-# TODO-JF: add your name as the second author
-__author__ = "Alireza Faghaninia, Anubhav Jain"
+
+__author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
 __version__ = "0.1"
 __maintainer__ = "Alireza Faghaninia"
