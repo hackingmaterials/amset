@@ -334,8 +334,8 @@ class AMSET(object):
         for c in self.dopings:
             for T in self.temperatures:
                 fermi = self.egrid["fermi"][c][T]
-                fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
                 for tp in ["n", "p"]:
+                    fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             E = self.kgrid[tp]["energy"][ib][ik]
@@ -1556,7 +1556,7 @@ class AMSET(object):
 
 
         # TODO: I added the X_prev_forced to make sure that the enforced points are introducing good variety of points and not just symmetrically equivalent ones with the same angles!
-        X_prev_forced = -1000
+        # X_prev_forced = -1000
 
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
         ib_prm = ib
@@ -1570,9 +1570,10 @@ class AMSET(object):
             for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
                 X, ib_pmpm, ik_pmpm = X_ib_ik
                 result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
-                if abs(X-X_prev_forced) > 0.001:
-                    counter += 1
-                    X_prev_forced = X
+                # if abs(X-X_prev_forced) > 0.001:
+                #     counter += 1
+                #     X_prev_forced = X
+                counter += 1
                 self.nforced_scat[tp] += 1
 
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib_prm][ik_prm]-self.kgrid[tp]["energy"][ib][ik])
@@ -1588,9 +1589,9 @@ class AMSET(object):
             for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
                 X, ib_pmpm, ik_pmpm = X_ib_ik
                 result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
-                if abs(X-X_prev_forced) > 0.001:
-                    counter += 1
-                    X_prev_forced = X
+                # if abs(X-X_prev_forced) > 0.001:
+                #     counter += 1
+                #     X_prev_forced = X
                 counter += 1
                 self.nforced_scat[tp] += 1
 
