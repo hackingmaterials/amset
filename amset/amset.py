@@ -480,7 +480,7 @@ class AMSET(object):
         # and that changes the actual values
         self.gaussian_broadening = False
         self.soc = params.get("soc", False)
-
+        logging.info("bs_is_isotropic: {}".format(self.bs_is_isotropic))
 
 
     def set_performance_params(self, params):
@@ -1555,6 +1555,9 @@ class AMSET(object):
                 counter += 1
 
 
+        # TODO: I added the X_prev_forced to make sure that the enforced points are introducing good variety of points and not just symmetrically equivalent ones with the same angles!
+        X_prev_forced = -1000
+
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
         ib_prm = ib
         if E_radius == 0.0:
@@ -1567,7 +1570,9 @@ class AMSET(object):
             for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
                 X, ib_pmpm, ik_pmpm = X_ib_ik
                 result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
-                counter += 1
+                if abs(X-X_prev_forced) > 0.001:
+                    counter += 1
+                    X_prev_forced = X
                 self.nforced_scat[tp] += 1
 
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib_prm][ik_prm]-self.kgrid[tp]["energy"][ib][ik])
@@ -1583,6 +1588,9 @@ class AMSET(object):
             for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
                 X, ib_pmpm, ik_pmpm = X_ib_ik
                 result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
+                if abs(X-X_prev_forced) > 0.001:
+                    counter += 1
+                    X_prev_forced = X
                 counter += 1
                 self.nforced_scat[tp] += 1
 
@@ -2126,7 +2134,7 @@ class AMSET(object):
                                 #     self.egrid[tp][prop_name][c][T][ie] = np.array(
                                 #         [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
 
-                            if prop_name in ["df0dk"]: # df0dk is always negative
+                            if prop_name in ["df0dk"]: # df0dk is always negative but we used abs() for velocity (i.e. dfEdk; also df0dk = df0dE x dfEdk and df0dE is always positive)
                                 self.egrid[tp][prop_name][c][T] *= -1
                 else:
                     raise ValueError("Guassian Broadening is NOT well tested and abandanded at the begining due to inaccurate results")
@@ -2526,7 +2534,8 @@ class AMSET(object):
             all_plots = []
             for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
                 all_plots.append({"x_col": self.temperatures,
-                                "y_col": [log(sum(self.egrid["mobility"][mo][plotc][T][tp])/3, 10) for T in self.temperatures],
+        # I temporarity (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
+                                "y_col": [log(abs(sum(self.egrid["mobility"][mo][plotc][T][tp])/3), 10) for T in self.temperatures],
                                 "text": mo, "size": textsize/2, "mode":"lines+markers", "legend": "", "color": ""
                                   })
             plt.xy_plot(x_col=[],
@@ -2662,8 +2671,8 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "Ecut": 0.5, "BTE_iters": 5}
+    performance_params = {"nkibz": 200, "dE_min": 0.0001, "nE_min": 2,
+                          "parallel": True, "BTE_iters": 5}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
