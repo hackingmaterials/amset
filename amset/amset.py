@@ -132,7 +132,6 @@ def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, eps
     return [S_i_list, S_i_th_list, S_o_list, S_o_th_list]
 
 
-
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
     # print "calculating S_i and S_o for ib: {} and ik: {}".format(ib, ik)
 
@@ -335,6 +334,7 @@ class AMSET(object):
         for c in self.dopings:
             for T in self.temperatures:
                 fermi = self.egrid["fermi"][c][T]
+                fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
                 for tp in ["n", "p"]:
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
@@ -347,11 +347,11 @@ class AMSET(object):
                                                                              self.kgrid[tp]["df0dk"][c][T][ib][
                                                                                  ik] * default_small_E / hbar  # in 1/s
 
-                            E -= self.cbm_vbm[tp]["energy"]
-                            fermi -= self.cbm_vbm[tp]["energy"]
+                            E_norm = E - self.cbm_vbm[tp]["energy"]
+
                             # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
-                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0(E, fermi, T) * (1 - f0(E, fermi, T)) * ( \
-                                E / (k_B * T) - self.egrid["Seebeck_integral_numerator"][c][T][tp] /
+                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0(E_norm, fermi_norm, T) * (1 - f0(E_norm, fermi_norm, T)) * ( \
+                                E_norm / (k_B * T) - self.egrid["Seebeck_integral_numerator"][c][T][tp] /
                                 self.egrid["Seebeck_integral_denominator"][c][T][tp]) * dTdz / T
 
         self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
@@ -2672,7 +2672,7 @@ if __name__ == "__main__":
 
 
     performance_params = {"nkibz": 200, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "BTE_iters": 5}
+                          "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
