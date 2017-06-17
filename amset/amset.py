@@ -2675,7 +2675,6 @@ if __name__ == "__main__":
     performance_params = {"nkibz": 200, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
 
-    # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
     #                "E_D": {"n": 4.0, "p": 4.0}}
     # cube_path = "../test_files/PbTe/nscf_line"
