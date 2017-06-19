@@ -1041,6 +1041,36 @@ class AMSET(object):
 
 
 
+    def calc_energy(self, xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, tp, sgn, ib):
+        """
+            :param xkpt (?): ?
+            :param engre (?): ?
+            :param nwave (?): ?
+            :param nsym (?): ?
+            :param nstv (?): ?
+            :param vec (?): ?
+            :param vec2 (?): ?
+            :param out_vec2 (?): ?
+            :param br_dir (?): ?
+            :param tp (str): "p" or "n"
+            :param sgn (int): -1 or 1
+            :param ib (int): band index...?
+        """
+        if not self.poly_bands:
+            energy, de, dde = get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+            energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
+            velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
+            effective_m = hbar ** 2 / (
+                dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+
+        else:
+            energy, velocity, effective_m = get_poly_energy(
+                np.dot(xkpt, self._lattice_matrix / A_to_nm * 2 * pi),
+                poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+        return energy, velocity, effective_m
+
+
+
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         Tmx = max(self.temperatures)
         if kgrid_tp=="coarse":
@@ -1119,18 +1149,20 @@ class AMSET(object):
 
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
-            if not self.poly_bands:
-                energy, de, dde = get_energy(
-                    self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"] + 0],
-                    nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-                effective_m = hbar ** 2 / (
-                        dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
-
-            else:
-                energy, velocity, effective_m = get_poly_energy(
-                    np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix / A_to_nm * 2 * pi),
-                    poly_bands=self.poly_bands, type=tp, ib=0, bandgap=self.dft_gap + self.scissor)
+            # if not self.poly_bands:
+            #     energy, de, dde = get_energy(
+            #         self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"] + 0],
+            #         nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+            #     energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
+            #     effective_m = hbar ** 2 / (
+            #             dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+            #
+            # else:
+            #     energy, velocity, effective_m = get_poly_energy(
+            #         np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix / A_to_nm * 2 * pi),
+            #         poly_bands=self.poly_bands, type=tp, ib=0, bandgap=self.dft_gap + self.scissor)
+            self.calc_energy(self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"]], nwave, nsym, nstv,
+                                                               vec, vec2, out_vec2, br_dir, tp, sgn, 0)
 
             self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
             logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
@@ -1155,17 +1187,20 @@ class AMSET(object):
             for ib in [0]: # we only include the first band now (same for energies) to decide on ibz k-points
                 if not self.parallel or self.poly_bands: # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts)):
-                        if not self.poly_bands:
-                            energy, de, dde = get_energy(
-                                kpts[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
-                                    nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                            energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-                            velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                            energies[tp][ik] = energy
-                        else:
-                            energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi),
-                                    poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
-                            energies[tp][ik] = energy
+                        # if not self.poly_bands:
+                        #     energy, de, dde = get_energy(
+                        #         kpts[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
+                        #             nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+                        #     energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
+                        #     velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
+                        # else:
+                        #     energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi),
+                        #             poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+                        energy, velocity, effective_m = self.calc_energy(kpts[ik],
+                                                                         engre[i*self.cbm_vbm["p"]["included"]+ib],
+                                                                         nwave, nsym, nstv, vec, vec2, out_vec2, br_dir,
+                                                                         tp, sgn, ib)
+                        energies[tp][ik] = energy
 
 
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
