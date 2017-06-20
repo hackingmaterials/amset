@@ -282,6 +282,8 @@ class AMSET(object):
         if self.poly_bands:
             self.cbm_vbm["n"]["energy"] = self.dft_gap
             self.cbm_vbm["p"]["energy"] = 0.0
+            # @albalu why are the conduction and valence band k points being set to the same value?
+            # @albalu what is the format of self.poly_bands?
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
 
         self.all_types = [self.get_tp(c) for c in self.dopings]
@@ -565,6 +567,7 @@ class AMSET(object):
         if not self.poly_bands:
             for i, tp in enumerate(["n", "p"]):
                 sgn = (-1)**i
+                # @albalu what is this next line doing (even though it doesn't appear to be in use)?
                 while abs(min(sgn*bs["bands"]["1"][cbm_vbm[tp]["bidx"]+sgn*cbm_vbm[tp]["included"]])-
                                           sgn*cbm_vbm[tp]["energy"])<self.Ecut:
                     cbm_vbm[tp]["included"] += 1
@@ -1040,7 +1043,8 @@ class AMSET(object):
             return self.kpts_to_first_BZ(fractional_ks)
 
 
-
+    # @albalu I created this function but do not understand what most of the arguments are. It may make sense to contain
+    # them all in a single labeled tuple so the code is more readable?
     def calc_energy(self, xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, tp, sgn, ib):
         """
             :param xkpt (?): ?
@@ -1096,6 +1100,7 @@ class AMSET(object):
         except:
             logging.info('reading {} failed!'.format(ibzkpt_filename))
             logging.info("generating {}x{}x{} IBZ k-mesh".format(nkstep, nkstep, nkstep))
+            # @albalu why is there an option to shift the k points and what are the weights?
             kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
             # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
             # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.03, 0.06))
@@ -1109,6 +1114,7 @@ class AMSET(object):
         kpts.append(self.cbm_vbm["n"]["kpoint"])
         kpts.append(self.cbm_vbm["p"]["kpoint"])
 
+        # @albalu why are there far fewer than nkstep^3 k points (printed out 8114 < 70^3)?
         logging.info("number of original ibz k-points: {}".format(len(kpts)))
 
 
@@ -1116,15 +1122,20 @@ class AMSET(object):
         if not self.poly_bands:
             logging.debug("start interpolating bands from {}".format(coeff_file))
             analytical_bands = Analytical_bands(coeff_file=coeff_file)
+            # @albalu Is this a list of the band indexes used in the calculation? Why is there an "i" in the name?
             all_ibands = []
             for i, tp in enumerate(["p", "n"]):
+                # @albalu what does the "included" value mean? Isn't there only one conduction band min and one valence band max?
+                # @albalu what does ib stand for?
                 for ib in range(self.cbm_vbm[tp]["included"]):
                     sgn = (-1) ** (i+1)
+                    # @albalu what is self.cbm_vbm[tp]["bidx"]? I looked at self._vrun where this is set but I'm still confused
                     all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
 
             start_time = time.time()
             logging.debug("all_ibands: {}".format(all_ibands))
 
+            # @albalu what are all of these variables (in the next 5 lines)?
             engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
             nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
             out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
@@ -1161,19 +1172,21 @@ class AMSET(object):
             #     energy, velocity, effective_m = get_poly_energy(
             #         np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix / A_to_nm * 2 * pi),
             #         poly_bands=self.poly_bands, type=tp, ib=0, bandgap=self.dft_gap + self.scissor)
-            self.calc_energy(self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"]], nwave, nsym, nstv,
-                                                               vec, vec2, out_vec2, br_dir, tp, sgn, 0)
+            energy, velocity, effective_m = self.calc_energy(self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"]], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, tp, sgn, 0)
 
+            # @albalu why is there already an energy value calculated from vasp that this code overrides?
             self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
             logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
             self.cbm_vbm[tp]["energy"] = energy
             self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
 
         if not self.poly_bands:
+            # @albalu what does "dos" stand for?
             self.dos_emax += self.offset_from_vrun
             self.dos_emin += self.offset_from_vrun
 
         logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
+        # @albalu why is "n" used to get the avg_eff_mass for "n" and "p"?
         self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm["n"]["eff_mass_xx"])) for tp in ["n", "p"]}
 
         # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
