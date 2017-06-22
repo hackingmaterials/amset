@@ -841,7 +841,8 @@ class AMSET(object):
         elif val_type.lower() in ["vector"]:
             initial_val = [initval, initval, initval]
         elif val_type.lower() in ["tensor", "matrix"]:
-            initial_val = [ [initval, initval, initval], [initval, initval, initval], [initval, initval, initval] ]
+            #initial_val = [ [initval, initval, initval], [initval, initval, initval], [initval, initval, initval] ]
+            initial_val = [[initval for i in range(3)] for i in range(3)]
 
         for name in names:
             for tp in ["n", "p"]:
@@ -1087,6 +1088,7 @@ class AMSET(object):
         #TODO: the following is NOT a permanent solution to speed up generation/loading of k-mesh, speed up get_ir_reciprocal_mesh later
         #TODO-JF (mid-term): you can take on this project to speed up get_ir_reciprocal_mesh or a similar function, right now it scales very poorly with larger mesh
 
+        # create a mesh of k-points
         all_kpts = {}
         try:
             ibzkpt_filename = os.path.join(os.environ["AMSET_ROOT"], "{}_ibzkpt.json".format(nkstep))
@@ -1119,16 +1121,17 @@ class AMSET(object):
 
 
         #TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
+        # if using analytical bands: create the object, determine list of band indices, and get energy info
         if not self.poly_bands:
             logging.debug("start interpolating bands from {}".format(coeff_file))
             analytical_bands = Analytical_bands(coeff_file=coeff_file)
             # @albalu Is this a list of the band indexes used in the calculation? Why is there an "i" in the name?
             all_ibands = []
             for i, tp in enumerate(["p", "n"]):
+                sgn = (-1) ** (i + 1)
                 # @albalu what does the "included" value mean? Isn't there only one conduction band min and one valence band max?
                 # @albalu what does ib stand for?
                 for ib in range(self.cbm_vbm[tp]["included"]):
-                    sgn = (-1) ** (i+1)
                     # @albalu what is self.cbm_vbm[tp]["bidx"]? I looked at self._vrun where this is set but I'm still confused
                     all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
 
@@ -1145,6 +1148,7 @@ class AMSET(object):
 
             print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
 
+        # if using poly bands, remove duplicate k points (@albaluf I'm not really sure what this is doing)
         else:
             # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
             # these points will be used later to generate energy based on the minimum norm(k-k_i)
@@ -1154,7 +1158,7 @@ class AMSET(object):
                         self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0],cartesian=True))
 
 
-        # calculate only the CBM and VBM energy values
+        # calculate only the CBM and VBM energy values - @albalu why is this separate from the other energy value calculations?
         # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
         #TODO-JF: please cleanup this part and put in a function, see other parts where energy is calculated to see if you can define a more general function to calculate E, v and m* to reduce the number of lines of codes copied eveywhere!
 
@@ -1172,6 +1176,8 @@ class AMSET(object):
             #     energy, velocity, effective_m = get_poly_energy(
             #         np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix / A_to_nm * 2 * pi),
             #         poly_bands=self.poly_bands, type=tp, ib=0, bandgap=self.dft_gap + self.scissor)
+
+            # @albalu how will this work for poly bands (it looks like engre etc. were only calculated for the analytical bands case)
             energy, velocity, effective_m = self.calc_energy(self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"]], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, tp, sgn, 0)
 
             # @albalu why is there already an energy value calculated from vasp that this code overrides?
@@ -1194,6 +1200,7 @@ class AMSET(object):
         rm_list = {"n": [], "p": []}
 
         #TODO-JF: a more generate energy-calculator function can also be used here to significantly reduce duplicate codes
+        # calculate energies and choose which ones to remove
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
@@ -1216,6 +1223,7 @@ class AMSET(object):
                         energies[tp][ik] = energy
 
 
+                        # @albalu why do we exclude values of k that have a small component of velocity?
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
                                         abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                             rm_list[tp].append(ik)
@@ -1247,6 +1255,7 @@ class AMSET(object):
 
 
         # logging.debug("energies before removing k-points with off-energy:\n {}".format(energies))
+        # remove energies that are out of range
         kpts = np.delete(kpts, list(set(rm_list["n"]+rm_list["p"])), axis=0)
         kpts = list(kpts)
         for tp in ["n", "p"]:
@@ -1291,8 +1300,12 @@ class AMSET(object):
                 "p": {} }
 
         for tp in ["n", "p"]:
-            self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
-            self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
+            # @albalu [k for k in kpts] is always the same as kpts, right?
+            num_bands = self.cbm_vbm[tp]["included"]
+            self.kgrid[tp]["kpoints"] = [kpts for ib in range(num_bands)]
+            self.kgrid[tp]["kweights"] = [kweights for ib in range(num_bands)]
+            #self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
+            #self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
 
         self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False, c_T_idx=False)
@@ -2691,6 +2704,12 @@ if __name__ == "__main__":
 
     # defaults:
     mass = 0.25
+    # Model params available:
+    #   bs_is_isotropic:
+    #   elastic_scatterings:
+    #   inelastic_scatterings:
+    #   poly_bands: if specified, uses polynomial interpolation for band structure; otherwise default is None and the
+    #               model uses Analytical_Bands with the specified coefficient file
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"]}
                     # TODO: for testing, remove this part later:
@@ -2728,6 +2747,7 @@ if __name__ == "__main__":
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
+    # @albalu what exactly does coeff_file store?
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
     AMSET.write_input_files()
