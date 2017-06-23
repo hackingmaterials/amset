@@ -222,6 +222,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
 
 
+
 class AMSET(object):
     """ This class is used to run AMSET on a pymatgen from a VASP run (i.e. vasprun.xml). AMSET is an ab initio model
     for calculating the mobility and Seebeck coefficient using Bolƒtzmann transport equation (BTE). The band structure
@@ -524,7 +525,10 @@ class AMSET(object):
         self.volume = self._vrun.final_structure.volume
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
+        # @albalu why is this not called the reciprocal lattice?
         self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
+        # @albalu is there a convention to name variables that are other objects with a "_" in the front?
+        self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
         bs = self._vrun.get_band_structure()
 
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
@@ -1038,10 +1042,11 @@ class AMSET(object):
 
     def get_sym_eq_ks_in_first_BZ(self, k, cartesian=False):
         fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
+        fractional_ks = self.kpts_to_first_BZ(fractional_ks)
         if cartesian:
-            return [np.dot(k, self._lattice_matrix/A_to_nm*2*pi) for k in self.kpts_to_first_BZ(fractional_ks)]
+            return [self._rec_lattice.get_cartesian_coords(k_frac) / A_to_nm for k_frac in fractional_ks]
         else:
-            return self.kpts_to_first_BZ(fractional_ks)
+            return fractional_ks
 
 
     # @albalu I created this function but do not understand what most of the arguments are. It may make sense to contain
@@ -1070,7 +1075,7 @@ class AMSET(object):
 
         else:
             energy, velocity, effective_m = get_poly_energy(
-                np.dot(xkpt, self._lattice_matrix / A_to_nm * 2 * pi),
+                self._rec_lattice.get_cartesian_coords(xkpt) / A_to_nm,
                 poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
         return energy, velocity, effective_m
 
@@ -1148,7 +1153,7 @@ class AMSET(object):
 
             print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
 
-        # if using poly bands, remove duplicate k points (@albaluf I'm not really sure what this is doing)
+        # if using poly bands, remove duplicate k points (@albalu I'm not really sure what this is doing)
         else:
             # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
             # these points will be used later to generate energy based on the minimum norm(k-k_i)
@@ -1160,22 +1165,9 @@ class AMSET(object):
 
         # calculate only the CBM and VBM energy values - @albalu why is this separate from the other energy value calculations?
         # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
-        #TODO-JF: please cleanup this part and put in a function, see other parts where energy is calculated to see if you can define a more general function to calculate E, v and m* to reduce the number of lines of codes copied eveywhere!
 
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
-            # if not self.poly_bands:
-            #     energy, de, dde = get_energy(
-            #         self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"] + 0],
-            #         nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-            #     energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-            #     effective_m = hbar ** 2 / (
-            #             dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
-            #
-            # else:
-            #     energy, velocity, effective_m = get_poly_energy(
-            #         np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix / A_to_nm * 2 * pi),
-            #         poly_bands=self.poly_bands, type=tp, ib=0, bandgap=self.dft_gap + self.scissor)
 
             # @albalu how will this work for poly bands (it looks like engre etc. were only calculated for the analytical bands case)
             energy, velocity, effective_m = self.calc_energy(self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"]], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, tp, sgn, 0)
@@ -1187,7 +1179,6 @@ class AMSET(object):
             self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
 
         if not self.poly_bands:
-            # @albalu what does "dos" stand for?
             self.dos_emax += self.offset_from_vrun
             self.dos_emin += self.offset_from_vrun
 
@@ -1199,7 +1190,6 @@ class AMSET(object):
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
         rm_list = {"n": [], "p": []}
 
-        #TODO-JF: a more generate energy-calculator function can also be used here to significantly reduce duplicate codes
         # calculate energies and choose which ones to remove
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
@@ -1207,21 +1197,11 @@ class AMSET(object):
             for ib in [0]: # we only include the first band now (same for energies) to decide on ibz k-points
                 if not self.parallel or self.poly_bands: # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts)):
-                        # if not self.poly_bands:
-                        #     energy, de, dde = get_energy(
-                        #         kpts[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
-                        #             nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                        #     energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-                        #     velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                        # else:
-                        #     energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi),
-                        #             poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
                         energy, velocity, effective_m = self.calc_energy(kpts[ik],
                                                                          engre[i*self.cbm_vbm["p"]["included"]+ib],
                                                                          nwave, nsym, nstv, vec, vec2, out_vec2, br_dir,
                                                                          tp, sgn, ib)
                         energies[tp][ik] = energy
-
 
                         # @albalu why do we exclude values of k that have a small component of velocity?
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
@@ -1246,7 +1226,7 @@ class AMSET(object):
                 for ib in range(1, len(self.poly_bands)):
                     for ik in range(len(kpts)):
                         energy, velocity, effective_m = get_poly_energy(
-                            np.dot(kpts[ik], self._lattice_matrix / A_to_nm * 2 * pi),
+                            self._rec_lattice.get_cartesian_coords(kpts[ik]) / A_to_nm,
                             poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
                         all_bands_energies[tp].append(energy)
             self.dos_emin = min(all_bands_energies["p"])
@@ -1256,10 +1236,11 @@ class AMSET(object):
 
         # logging.debug("energies before removing k-points with off-energy:\n {}".format(energies))
         # remove energies that are out of range
-        kpts = np.delete(kpts, list(set(rm_list["n"]+rm_list["p"])), axis=0)
+        rm_list_all = list(set(rm_list["n"]+rm_list["p"]))
+        kpts = np.delete(kpts, rm_list_all, axis=0)
         kpts = list(kpts)
         for tp in ["n", "p"]:
-            energies[tp] = np.delete(energies[tp], list(set(rm_list["n"]+rm_list["p"])), axis=0)
+            energies[tp] = np.delete(energies[tp], rm_list_all, axis=0)
 
         logging.info("number of ibz k-points AFTER ENERGY-FILTERING: {}".format(len(kpts)))
 
@@ -1278,7 +1259,7 @@ class AMSET(object):
             print type(kpts)
             kpts += all_added_kpoints
 
-
+        # add in symmetrically equivalent k points
         symmetrically_equivalent_ks = []
         for k in kpts:
             symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
@@ -1315,6 +1296,7 @@ class AMSET(object):
 
         rm_idx_list={"n":[[] for i in range(self.cbm_vbm["n"]["included"])],
                      "p": [[]for i in range(self.cbm_vbm["p"]["included"])]}
+        # @albalu why are these variables initialized separately from the ones above?
         self.initialize_var("kgrid", ["cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
 
@@ -1324,10 +1306,7 @@ class AMSET(object):
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
-                #TODO-JF: define a function outside of this class called get_cartesian or something that would take
-                # a fractional k-point and a lattice matrix and would return the Cartesian coordinates in 1/nm like the
-                # next line and then change these "np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)/A_to_nm*2*pi" throughput AMSET to get_cartesian(frac_kpt, rec_lattice_matrix)
-                self.kgrid[tp]["cartesian kpoints"][ib]=np.dot(np.array(self.kgrid[tp]["kpoints"][ib]),self._lattice_matrix)/A_to_nm*2*pi #[1/nm]
+                self.kgrid[tp]["cartesian kpoints"][ib] = self._rec_lattice.get_cartesian_coords(self.kgrid[tp]["kpoints"][ib]) / A_to_nm #[1/nm], these are PHYSICS convention k vectors (with a factor of 2 pi included)
                 self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][ib]]
 
                 if self.parallel and not self.poly_bands:
@@ -1565,7 +1544,7 @@ class AMSET(object):
         fractional_ks = [np.dot(frac_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
 
         k = self.kgrid[tp]["kpoints"][ib][ik]
-        seks = [np.dot(frac_k, self._lattice_matrix)*1/A_to_nm*2*pi for frac_k in fractional_ks]
+        seks = [self._rec_lattice.get_cartesian_coords(frac_k) / A_to_nm for frac_k in fractional_ks]
 
         all_Xs = []
         new_X_ib_ik = []
