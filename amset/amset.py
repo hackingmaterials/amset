@@ -1571,7 +1571,7 @@ class AMSET(object):
         # we count the point itself; it does not result in self-scattering (due to 1-X term); however, it is necessary
         # to avoid zero scattering as in the integration each term is (X[i+1]-X[i])*(integrand[i]+integrand[i+1)/2
         result = [(1, ib, ik)]
-        # test commit
+        
         #counter = 0
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
