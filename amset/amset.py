@@ -1614,7 +1614,7 @@ class AMSET(object):
         # norm_diff_k = norm(k_prm) # slope kind of matches with bs_is_isotropic at least for PIE but it's 5X larger
         # norm_diff_k = (norm(k_prm)**2 + norm(k)**2)**0.5 # doesn't work, the ratios are not a fixed number
 
-        if norm_diff_k == 0:
+        if norm_diff_k == 0.0:
             print "WARNING!!! same k and k' vectors as input of the elastic scattering equation"
 
             # warnings.warn("same k and k' vectors as input of the elastic scattering equation")
@@ -1782,7 +1782,7 @@ class AMSET(object):
         summation = np.array([0.0, 0.0, 0.0])
         if len(X_E_index[ib][ik]) == 0:
             raise ValueError("enforcing scattering points did NOT work, {}[{}][{}] is empty".format(X_E_index,ib,ik))
-            # return sum
+            # return summation
         X, ib_prm, ik_prm = X_E_index[ib][ik][0]
         current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
         for i in range(len(X_E_index[ib][ik]) - 1):
@@ -1797,9 +1797,9 @@ class AMSET(object):
             current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
 
             # This condition is to exclude self-scattering from the integration
-            if sum(current_integrand) == 0.0:
+            if np.sum(current_integrand) == 0.0:
                 dum *= 2
-            elif sum(dum) == 0.0:
+            elif np.sum(dum) == 0.0:
                 dum = current_integrand
             else:
                 dum += current_integrand/2.0
@@ -1846,12 +1846,14 @@ class AMSET(object):
         #        * 1.0 / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
 
         # in the numerator we use velocity as k_nrm is defined in each direction as they are treated independently (see s_el_eq_isotropic for more info)
-        return (1 - X) * (m_e * self._avg_eff_mass[tp] * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
-            hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-               * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
-               * 1.0 / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
+        # previous match (commented on 6/26/2017)
+        # return (1 - X) * (m_e * self._avg_eff_mass[tp] * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
+        #     hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
+        #        * 1.0 / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]/sq3)
 
-
+        return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+                * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
@@ -1943,17 +1945,17 @@ class AMSET(object):
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            sum = np.array([0.0, 0.0, 0.0])
+                            summation = np.array([0.0, 0.0, 0.0])
                             for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
-                                sum += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name], self.inel_integrand_X,
+                                summation += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name], self.inel_integrand_X,
                                         ib=ib, ik=ik, c=c, T=T, sname=sname+X_E_index_name, g_suffix=g_suffix)
-                            # self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * e**2*self.kgrid[tp]["W_POP"][ib][ik]/(4*pi*hbar) \
-                            self.kgrid[tp][sname][c][T][ib][ik] = sum*e**2*self.kgrid[tp]["W_POP"][ib][ik] \
+                            # self.kgrid[tp][sname][c][T][ib][ik] = abs(summation) * e**2*self.kgrid[tp]["W_POP"][ib][ik]/(4*pi*hbar) \
+                            self.kgrid[tp][sname][c][T][ib][ik] = summation*e**2*self.kgrid[tp]["W_POP"][ib][ik] \
                                 /(4 * pi * hbar) * (1/self.epsilon_inf-1/self.epsilon_s)/epsilon_0 * 100/e
                             # if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1:
                             #     self.kgrid[tp][sname][c][T][ib][ik] = [1, 1, 1]
                             # if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
-                            #     print tp, c, T, ik, ib, sum, self.kgrid[tp][sname][c][T][ib][ik]
+                            #     print tp, c, T, ik, ib, summation, self.kgrid[tp][sname][c][T][ib][ik]
 
 
 
@@ -2051,10 +2053,10 @@ class AMSET(object):
                             if self.bs_is_isotropic:
                                 self.kgrid[tp][sname][c][T][ib][ik] = self.s_el_eq_isotropic(sname, tp, c, T, ib, ik)
                             else:
-                                sum = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
+                                summation = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
                                                             integrand=self.el_integrand_X,
                                                           ib=ib, ik=ik, c=c, T=T, sname = sname, g_suffix="")
-                                self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * 2e-7 * pi/hbar
+                                self.kgrid[tp][sname][c][T][ib][ik] = abs(summation) * 2e-7 * pi/hbar
                                 if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 100 and sname not in ["DIS"]:
                                     print "WARNING!!! here scattering {} < 1".format(sname)
                                     # if self.kgrid[tp]["df0dk"][c][T][ib][ik][0] > 1e-32:
@@ -2065,7 +2067,7 @@ class AMSET(object):
 
                                 if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e20:
                                     print "WARNING!!! TOO LARGE of scattering rate for {}:".format(sname)
-                                    print sum
+                                    print summation
                                     print self.kgrid[tp]["X_E_ik"][ib][ik]
                                     print
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
@@ -2444,7 +2446,7 @@ class AMSET(object):
 
 
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
-                        self.egrid["mobility"][transport][c][T][tp]/=default_small_E * denom
+                        self.egrid["mobility"][transport][c][T][tp]/= 3 * default_small_E * denom
 
 
                     # The following did NOT work as J_th only has one integral (see aMoBT but that one is over k)
@@ -2459,9 +2461,8 @@ class AMSET(object):
                     # fermi_SPB = self.egrid["fermi_SPB"][c][T]
                     energy = self.cbm_vbm["n"]["energy"]
 
-                    if self.bs_is_isotropic:
-                        for mu in ["overall", "average"] + self.inelastic_scatterings + self.elastic_scatterings:
-                            self.egrid["mobility"][mu][c][T][tp] /= 3.0
+                    # for mu in ["overall", "average"] + self.inelastic_scatterings + self.elastic_scatterings:
+                    #     self.egrid["mobility"][mu][c][T][tp] /= 3.0
 
                     # ACD mobility based on single parabolic band extracted from Thermoelectric Nanomaterials,
                     # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
@@ -2679,7 +2680,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 200, "dE_min": 0.01, "nE_min": 2,
+    performance_params = {"nkibz": 200, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
 
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
