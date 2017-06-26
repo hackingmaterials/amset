@@ -1572,11 +1572,12 @@ class AMSET(object):
         # to avoid zero scattering as in the integration each term is (X[i+1]-X[i])*(integrand[i]+integrand[i+1)/2
         result = [(1, ib, ik)]
 
-        counter = 0
+        #counter = 0
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
 
         for ib_prm in range(self.cbm_vbm[tp]["included"]):
+            # this seems unnecessary unless it saves a lot of time because the two options give the same answer when the conditions are true
             if ib==ib_prm and E_change==0.0:
                 ik_closest_E = ik
             else:
@@ -1584,14 +1585,16 @@ class AMSET(object):
 
             ik_prm = ik_closest_E
             while (ik_prm < nk) and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm] - E_prm) < tolerance:
-                result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]),ib_prm,ik_prm))
-                counter += 1
+                X_ib_ik = (cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]),ib_prm,ik_prm)
+                if X_ib_ik not in result:
+                    result.append(X_ib_ik)
                 ik_prm += 1
 
-            ik_prm = ik_closest_E
-            while (ik_prm >= 0) and abs(E_prm - self.kgrid[tp]["energy"][ib_prm][ik_prm]) < tolerance:
-                result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
-                counter += 1
+            ik_prm = ik_closest_E - 1
+            while (ik_prm >= 0) and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm] - E_prm) < tolerance:
+                X_ib_ik = (cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm)
+                if X_ib_ik not in result:
+                    result.append(X_ib_ik)
                 ik_prm -= 1
 
 
@@ -1601,13 +1604,13 @@ class AMSET(object):
             ik_prm = ik
         else:
             ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin() - 1
-        while ik_prm < nk - 1 and counter < forced_min_npoints:
+        while ik_prm < nk - 1 and len(result) - 1 < forced_min_npoints:
             ik_prm += 1
             # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
             for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
                 X, ib_pmpm, ik_pmpm = X_ib_ik
                 result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
-                counter += 1
+                #counter += 1
                 self.nforced_scat[tp] += 1
 
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib_prm][ik_prm]-self.kgrid[tp]["energy"][ib][ik])
@@ -1617,13 +1620,13 @@ class AMSET(object):
             ik_prm = ik
         else:
             ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin() + 1
-        while ik_prm > 0 and counter < forced_min_npoints:
+        while ik_prm > 0 and len(result) - 1 < forced_min_npoints:
             ik_prm -= 1
 
             for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
                 X, ib_pmpm, ik_pmpm = X_ib_ik
                 result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
-                counter += 1
+                #counter += 1
                 self.nforced_scat[tp] += 1
 
             self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik]-self.kgrid[tp]["energy"][ib_prm][ik_prm])
