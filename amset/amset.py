@@ -360,9 +360,10 @@ class AMSET(object):
         # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
         self.solve_BTE_iteratively()
 
-        for key in ["plus", "minus"]:
-            with open("X_E{}_ik".format(key), "w") as fp:
-                json.dump(self.kgrid["n"]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
+        if "POP" in self.inelastic_scatterings:
+            for key in ["plus", "minus"]:
+                with open("X_E{}_ik".format(key), "w") as fp:
+                    json.dump(self.kgrid["n"]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
 
         self.calculate_transport_properties()
 
@@ -1623,6 +1624,7 @@ class AMSET(object):
 
         if norm_diff_k == 0:
             print "WARNING!!! same k and k' vectors as input of the elastic scattering equation"
+
             # warnings.warn("same k and k' vectors as input of the elastic scattering equation")
             # raise ValueError("same k and k' vectors as input of the elastic scattering equation."
             #                  "Check get_X_ib_ik_within_E_radius for possible error")
@@ -1792,17 +1794,23 @@ class AMSET(object):
         X, ib_prm, ik_prm = X_E_index[ib][ik][0]
         current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
         for i in range(len(X_E_index[ib][ik]) - 1):
-            DeltaX = X_E_index[ib][ik][i + 1][0] - \
-                     X_E_index[ib][ik][i][0]
+            DeltaX = X_E_index[ib][ik][i + 1][0] - X_E_index[ib][ik][i][0]
             if DeltaX == 0.0:
                 continue
 
+            # X, ib_prm_new, ik_prm_new = X_E_index[ib][ik][i+1]
+            X, ib_prm, ik_prm = X_E_index[ib][ik][i+1]
+
             dum = current_integrand/2
 
-            X, ib_prm, ik_prm = X_E_index[ib][ik][i+1]
             current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
+            # ib_prm = ib_prm_new
+            # ik_prm = ik_prm_new
 
-            dum += current_integrand/2
+            if norm(current_integrand) == 0.0:
+                dum *= 2
+            else:
+                dum += current_integrand/2
             sum += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
         return sum
 
@@ -2666,9 +2674,9 @@ if __name__ == "__main__":
     # defaults:
     mass = 0.25
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]}
+                    "inelastic_scatterings": [],
                     # TODO: for testing, remove this part later:
-                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]],
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
@@ -2694,9 +2702,9 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
+                  # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  # dopings=[-2e15], temperatures=[300])
+                  dopings=[-2e15], temperatures=[300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [300])
