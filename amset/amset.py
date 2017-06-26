@@ -603,6 +603,9 @@ class AMSET(object):
 
     def seeb_int_denom(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
+        # fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T))
+        # return {t:self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T, normalize_energy=True) for t in ["n", "p"]}
+
         return {t:self.gs + self.integrate_over_E(prop_list=["f0x1-f0"],tp=t,c=c,T=T,xDOS=True) for t in ["n", "p"]}
 
 
@@ -2356,7 +2359,7 @@ class AMSET(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
-                        g_old = self.kgrid[tp]["g"][c][T][0]
+                        g_old = [g_i for g_i in self.kgrid[tp]["g"][c][T][0]]
                         for ib in range(self.cbm_vbm[tp]["included"]):
 
                             self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
@@ -2433,7 +2436,7 @@ class AMSET(object):
                             tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=True)
 
                     self.egrid["J_th"][c][T][tp] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
-                            xDOS=False, xvel=True, weighted=True) / denom) * e * c # in units of A/cm2
+                            xDOS=False, xvel=True, weighted=True) / denom) * e * abs(c) # in units of A/cm2
 
 
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
@@ -2495,7 +2498,7 @@ class AMSET(object):
                     print "3 {}-seebeck terms at c={} and T={}:".format(tp, c, T)
                     print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
                         / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B
-                    print + (self.egrid["fermi"][c][T]-self.cbm_vbm[tp]["energy"]) * 1e6 * k_B
+                    print + (self.egrid["fermi"][c][T]-self.cbm_vbm[tp]["energy"]) * 1e6 * k_B /(k_B*T)
                     print + self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
 
 
@@ -2672,7 +2675,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 200, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
 
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2691,9 +2694,9 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
+                  dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300])
+                  # dopings=[-2e15], temperatures=[300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [300])
