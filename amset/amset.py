@@ -1574,9 +1574,6 @@ class AMSET(object):
             for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
                 X, ib_pmpm, ik_pmpm = X_ib_ik
                 result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
-                # if abs(X-X_prev_forced) > 0.001:
-                #     counter += 1
-                #     X_prev_forced = X
                 counter += 1
                 self.nforced_scat[tp] += 1
 
@@ -1593,9 +1590,6 @@ class AMSET(object):
             for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
                 X, ib_pmpm, ik_pmpm = X_ib_ik
                 result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
-                # if abs(X-X_prev_forced) > 0.001:
-                #     counter += 1
-                #     X_prev_forced = X
                 counter += 1
                 self.nforced_scat[tp] += 1
 
