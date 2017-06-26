@@ -344,11 +344,9 @@ class AMSET(object):
                             self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
                             self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E, fermi, T) * v  # in cm
                             self.kgrid[tp]["electric force"][c][T][ib][ik] = -1 * \
-                                                                             self.kgrid[tp]["df0dk"][c][T][ib][
-                                                                                 ik] * default_small_E / hbar  # in 1/s
+                                        self.kgrid[tp]["df0dk"][c][T][ib][ik] * default_small_E / hbar  # in 1/s
 
                             E_norm = E - self.cbm_vbm[tp]["energy"]
-
                             # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
                             self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0(E_norm, fermi_norm, T) * (1 - f0(E_norm, fermi_norm, T)) * ( \
                                 E_norm / (k_B * T) - self.egrid["Seebeck_integral_numerator"][c][T][tp] /
@@ -2139,7 +2137,8 @@ class AMSET(object):
                                 #     self.egrid[tp][prop_name][c][T][ie] = np.array(
                                 #         [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
 
-                            if prop_name in ["df0dk"]: # df0dk is always negative but we used abs() for velocity (i.e. dfEdk; also df0dk = df0dE x dfEdk and df0dE is always positive)
+                            # df0dk must be negative but we used norm for df0dk when isotropic
+                            if prop_name in ["df0dk"] and self.bs_is_isotropic:
                                 self.egrid[tp][prop_name][c][T] *= -1
                 else:
                     raise ValueError("Guassian Broadening is NOT well tested and abandanded at the begining due to inaccurate results")
@@ -2666,8 +2665,8 @@ if __name__ == "__main__":
 
     # defaults:
     mass = 0.25
-    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": [],
+    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+                    "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
                     "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
