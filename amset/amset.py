@@ -1779,7 +1779,7 @@ class AMSET(object):
 
     def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None, g_suffix=""):
         """integrate numerically with a simple trapezoidal algorithm."""
-        sum = np.array([0.0, 0.0, 0.0])
+        summation = np.array([0.0, 0.0, 0.0])
         if len(X_E_index[ib][ik]) == 0:
             raise ValueError("enforcing scattering points did NOT work, {}[{}][{}] is empty".format(X_E_index,ib,ik))
             # return sum
@@ -1792,16 +1792,20 @@ class AMSET(object):
 
             X, ib_prm, ik_prm = X_E_index[ib][ik][i+1]
 
-            dum = current_integrand/2
+            dum = current_integrand/2.0
 
             current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
 
-            if current_integrand is not None:
-                dum += current_integrand / 2
+            # This condition is to exclude self-scattering from the integration
+            if sum(current_integrand) == 0.0:
+                dum *= 2
+            elif sum(dum) == 0.0:
+                dum = current_integrand
             else:
-                dum *= 2  # in case one of the 2 points is self-scattering with undefined
-            sum += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
-        return sum
+                dum += current_integrand/2.0
+
+            summation += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
+        return summation
 
 
 
@@ -1815,7 +1819,7 @@ class AMSET(object):
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
         if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
-            return None # self-scattering is not defined
+            return np.array([0.0, 0.0, 0.0]) # self-scattering is not defined;regardless, the returned integrand must be a vector
 
         # TODO: if only use norm(k_prm), I get ACD mobility that is almost exactly inversely proportional to temperature
         # return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
@@ -2665,8 +2669,8 @@ if __name__ == "__main__":
 
     # defaults:
     mass = 0.25
-    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"],
+    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+                    "inelastic_scatterings": [],
                     # TODO: for testing, remove this part later:
                     "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
@@ -2675,7 +2679,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 200, "dE_min": 0.01, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
 
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
