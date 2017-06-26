@@ -1792,19 +1792,16 @@ class AMSET(object):
             if DeltaX == 0.0:
                 continue
 
-            # X, ib_prm_new, ik_prm_new = X_E_index[ib][ik][i+1]
             X, ib_prm, ik_prm = X_E_index[ib][ik][i+1]
 
             dum = current_integrand/2
 
             current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
-            # ib_prm = ib_prm_new
-            # ik_prm = ik_prm_new
 
-            if norm(current_integrand) == 0.0:
-                dum *= 2
+            if current_integrand is not None:
+                dum += current_integrand / 2
             else:
-                dum += current_integrand/2
+                dum *= 2  # in case one of the 2 points is self-scattering with undefined
             sum += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
         return sum
 
@@ -1819,6 +1816,8 @@ class AMSET(object):
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
+        if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
+            return None # self-scattering is not defined
 
         # TODO: if only use norm(k_prm), I get ACD mobility that is almost exactly inversely proportional to temperature
         # return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
@@ -2667,7 +2666,7 @@ if __name__ == "__main__":
 
     # defaults:
     mass = 0.25
-    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": [],
                     # TODO: for testing, remove this part later:
                     "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
