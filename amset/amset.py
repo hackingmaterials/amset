@@ -282,6 +282,8 @@ class AMSET(object):
         if self.parallel:
             logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
 
+
+
     def remove_from_grids(self, kgrid_rm_list, egrid_rm_list):
         """deletes dictionaries storing properties about k points and E points that are no longer
         needed from fgrid and egrid"""
@@ -297,6 +299,8 @@ class AMSET(object):
                     del (self.egrid[tp][erm])
                 except:
                     pass
+
+
 
     def run(self, coeff_file, kgrid_tp="coarse"):
         """
@@ -392,6 +396,8 @@ class AMSET(object):
         pprint(self.egrid["mobility"])
         pprint(self.egrid["seebeck"])
 
+
+
     def write_input_files(self):
         """writes all 3 types of inputs in json files for example to
         conveniently track what inputs had been used later or read
@@ -435,6 +441,8 @@ class AMSET(object):
         with open("performance_params.json", "w") as fp:
             json.dump(performance_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
 
+
+
     def set_material_params(self, params):
 
         self.epsilon_s = params["epsilon_s"]
@@ -452,6 +460,8 @@ class AMSET(object):
         acceptor_charge = params.get("acceptor_charge", 1.0)
         dislocations_charge = params.get("dislocations_charge", 1.0)
         self.charge = {"n": donor_charge, "p": acceptor_charge, "dislocations": dislocations_charge}
+
+
 
     def set_model_params(self, params):
         """function to set instant variables related to the model and the level of the theory;
@@ -474,6 +484,8 @@ class AMSET(object):
         self.soc = params.get("soc", False)
         logging.info("bs_is_isotropic: {}".format(self.bs_is_isotropic))
 
+
+
     def set_performance_params(self, params):
         self.nkibz = params.get("nkibz", 40)
         self.dE_min = params.get("dE_min", 0.01)
@@ -495,6 +507,8 @@ class AMSET(object):
         self.parallel = params.get("parallel", True)
         logging.info("parallel: {}".format(self.parallel))
 
+
+
     def __getitem__(self, key):
         if key == "kgrid":
             return self.kgrid
@@ -503,8 +517,10 @@ class AMSET(object):
         else:
             raise KeyError
 
+
+
     def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
-        self._vrun = Vasprun(os.path.join(calc_dir, filename))
+        self._vrun = Vasprun(os.path.join(calc_dir, filename), parse_projected_eigen=True)
         self.volume = self._vrun.final_structure.volume
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
@@ -513,6 +529,10 @@ class AMSET(object):
         # @albalu is there a convention to name variables that are other objects with a "_" in the front?
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
         bs = self._vrun.get_band_structure()
+        projected = self._vrun.projected_eigenvalues
+        print len(projected[Spin.up][0][10])  # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
+        print sum(projected[Spin.up][0][10])
+        # The only thing left to do is to use scipy.interpolate.griddata to interpolate s,p,d contributions at a given list of k-points
 
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
         cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
@@ -571,6 +591,8 @@ class AMSET(object):
         self.cbm_vbm = cbm_vbm
         logging.info("original cbm_vbm:\n {}".format(self.cbm_vbm))
 
+
+
     def get_tp(self, c):
         """returns "n" for n-tp or negative carrier concentration or "p" (p-tp)."""
         if c < 0:
@@ -594,6 +616,8 @@ class AMSET(object):
 
         return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in
                 ["n", "p"]}
+
+
 
     def calculate_property(self, prop_name, prop_func, for_all_E=False):
         """
@@ -619,6 +643,8 @@ class AMSET(object):
                 else:
                     self.egrid[prop_name][c][T] = prop_func(c, T)
 
+
+
     def calculate_N_II(self, c, T):
         """
         self.N_dis is a given observed 2D concentration of charged dislocations in 1/cm**2
@@ -630,6 +656,8 @@ class AMSET(object):
                abs(self.egrid["calc_doping"][c][T]["p"]) * self.charge["p"] ** 2 + \
                self.N_dis / self.volume ** (1 / 3) * 1e8 * self.charge["dislocations"] ** 2
         return N_II
+
+
 
     def init_egrid(self, dos_tp="simple"):
         """
@@ -760,12 +788,16 @@ class AMSET(object):
         self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
         self.calculate_property(prop_name="Seebeck_integral_denominator", prop_func=self.seeb_int_denom)
 
+
+
     def get_Eidx_in_dos(self, E, Estep=None):
         if not Estep:
             Estep = max(self.dE_min, 0.0001)
         return int(round((E - self.dos_emin) / Estep))
 
         # return min(int(round((E - self.dos_emin) / Estep)) , len(self.dos)-1)
+
+
 
     def G(self, tp, ib, ik, ib_prm, ik_prm, X):
         """
@@ -778,6 +810,8 @@ class AMSET(object):
         a = self.kgrid[tp]["a"][ib][ik]
         c = self.kgrid[tp]["c"][ib][ik]
         return (a * self.kgrid[tp]["a"][ib_prm][ik_prm] + X * c * self.kgrid[tp]["c"][ib_prm][ik_prm]) ** 2
+
+
 
     def remove_indexes(self, rm_idx_list, rearranged_props):
         """
@@ -796,6 +830,8 @@ class AMSET(object):
             for prop in rearranged_props:
                 self.kgrid[tp][prop] = np.array([np.delete(self.kgrid[tp][prop][ib], rm_idx_list[tp][ib], axis=0) \
                                                  for ib in range(self.cbm_vbm[tp]["included"])])
+
+
 
     def initialize_var(self, grid, names, val_type="scalar", initval=0.0, is_nparray=True, c_T_idx=False):
         """
@@ -846,6 +882,7 @@ class AMSET(object):
                         else:
                             self[grid][tp][name] = {c: {T: init_content for T in self.temperatures} for c in
                                                     self.dopings}
+
 
     @staticmethod
     def remove_duplicate_kpoints(kpts, dk=0.0001):
@@ -915,10 +952,14 @@ class AMSET(object):
 
         return kpts
 
+
+
     def get_intermediate_kpoints(self, k1, k2, nsteps):
         """return a list nsteps number of k-points between k1 & k2 excluding k1 & k2 themselves. k1 & k2 are nparray"""
         dkii = (k2 - k1) / float(nsteps + 1)
         return [k1 + i * dkii for i in range(1, nsteps + 1)]
+
+
 
     def get_intermediate_kpoints_list(self, k1, k2, nsteps):
         """return a list nsteps number of k-points between k1 & k2 excluding k1 & k2 themselves. k1 & k2 are lists"""
@@ -929,6 +970,8 @@ class AMSET(object):
         # return [k1 + i * dkii for i in range(1, nsteps + 1)]
         return [[k1[i] + n * dk[i] for i in range(len(k1))] for n in range(1, nsteps + 1)]
 
+
+
     @staticmethod
     def get_perturbed_ks(k):
         all_perturbed_ks = []
@@ -936,6 +979,8 @@ class AMSET(object):
         for p in [0.05, 0.1]:
             all_perturbed_ks.append([k_i + p * np.sign(random() - 0.5) for k_i in k])
         return all_perturbed_ks
+
+
 
     def get_ks_with_intermediate_energy(self, kpts, energies, max_Ediff=None, target_Ediff=None):
         final_kpts_added = []
@@ -956,6 +1001,8 @@ class AMSET(object):
                 # final_kpts_added += self.get_intermediate_kpoints_list(list(kpts[ies_sorted[idx]]),
                 #                                    list(kpts[ies_sorted[idx+1]]), max(int(Ediff/target_Ediff) , 1))
         return self.kpts_to_first_BZ(final_kpts_added)
+
+
 
     def get_adaptive_kpoints(self, kpts, energies, adaptive_Erange, nsteps):
         kpoints_added = {"n": [], "p": []}
@@ -985,6 +1032,8 @@ class AMSET(object):
 
         return self.kpts_to_first_BZ(final_kpts_added)
 
+
+
     def kpts_to_first_BZ(self, kpts):
         for i, k in enumerate(kpts):
             for alpha in range(3):
@@ -995,6 +1044,8 @@ class AMSET(object):
             kpts[i] = k
         return kpts
 
+
+
     def get_sym_eq_ks_in_first_BZ(self, k, cartesian=False):
         fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
         fractional_ks = self.kpts_to_first_BZ(fractional_ks)
@@ -1002,6 +1053,8 @@ class AMSET(object):
             return [self._rec_lattice.get_cartesian_coords(k_frac) / A_to_nm for k_frac in fractional_ks]
         else:
             return fractional_ks
+
+
 
     # @albalu I created this function but do not understand what most of the arguments are. It may make sense to contain
     # them all in a single labeled tuple so the code is more readable?
@@ -1026,6 +1079,8 @@ class AMSET(object):
             dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
         return energy, velocity, effective_m
 
+
+
     def calc_poly_energy(self, xkpt, tp, ib):
         '''
         :param tp: "p" or "n"
@@ -1036,6 +1091,8 @@ class AMSET(object):
             self._rec_lattice.get_cartesian_coords(xkpt) / A_to_nm,
             poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
         return energy, velocity, effective_m
+
+
 
     # ultimately it might be most clean for this function to largely be two different functions (one for poly bands and one for analytical),
     # and then the parts they share can be separate functions called by both
@@ -1438,6 +1495,8 @@ class AMSET(object):
 
         self.dos = [list(a) for a in self.dos]
 
+
+
     def sort_vars_based_on_energy(self, args, ascending=True):
         """sort the list of variables specified by "args" (type: [str]) in self.kgrid based on the "energy" values
         in each band for both "n"- and "p"-type bands and in ascending order by default."""
@@ -1448,6 +1507,8 @@ class AMSET(object):
                     ikidxs.reverse()
                 for arg in args:
                     self.kgrid[tp][arg][ib] = np.array([self.kgrid[tp][arg][ib][ik] for ik in ikidxs])
+
+
 
     def generate_angles_and_indexes_for_integration(self, avg_Ediff_tolerance=0.02):
         self.initialize_var("kgrid", ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"], "scalar", [], is_nparray=False,
@@ -1522,6 +1583,8 @@ class AMSET(object):
                             "{}-type average energy difference of the enforced scattered k-points is more than"
                             " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
 
+
+
     def unique_X_ib_ik_symmetrically_equivalent(self, tp, ib, ik):
         frac_k = self.kgrid[tp]["kpoints"][ib][ik]
         fractional_ks = [np.dot(frac_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
@@ -1540,6 +1603,8 @@ class AMSET(object):
                 all_Xs.append(X)
         all_Xs.sort()
         return new_X_ib_ik
+
+
 
     # TODO-JF: this function needs a MAJOR clean-up, lots of duplicate or very similar codes
     def get_X_ib_ik_near_new_E(self, tp, ib, ik, E_change, forced_min_npoints=0, tolerance=0.01):
@@ -1620,6 +1685,8 @@ class AMSET(object):
         result.sort(key=lambda x: x[0])
         return result
 
+
+
     def s_el_eq(self, sname, tp, c, T, k, k_prm):
         """
         return the scattering rate at wave vector k at a certain concentration and temperature
@@ -1665,6 +1732,8 @@ class AMSET(object):
         else:
             raise ValueError("The elastic scattering name {} is not supported!".format(sname))
 
+
+
     def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None, normalize_energy=False):
         if not interpolation_nsteps:
             interpolation_nsteps = max(5, int(500.0 / len(self.egrid[tp]["energy"])))
@@ -1681,6 +1750,8 @@ class AMSET(object):
                 integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
         return integral
         # return integral/sum(self.Efrequency[tp][:-1])
+
+
 
     def integrate_over_BZ(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=True):
 
@@ -1728,6 +1799,8 @@ class AMSET(object):
         else:
             return integral
             # return integral / sum([self.egrid[tp]["f0"][c][T][ie][0]*self.Efrequency[tp][ie] for ie in range(len(self.Efrequency[tp][:-1]))])
+
+
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
@@ -1791,6 +1864,8 @@ class AMSET(object):
         else:
             return integral
 
+
+
     def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None, g_suffix=""):
         """integrate numerically with a simple trapezoidal algorithm."""
         summation = np.array([0.0, 0.0, 0.0])
@@ -1820,6 +1895,8 @@ class AMSET(object):
 
             summation += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
         return summation
+
+
 
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
 
@@ -1868,6 +1945,8 @@ class AMSET(object):
         return (1 - X) * norm(k_prm) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
 
+
+
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
         returns the evaluated number (float) of the expression inside the S_o and S_i(g) integrals.
@@ -1884,11 +1963,16 @@ class AMSET(object):
         :return:
         """
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
-        f = self.kgrid[tp]["f0"][c][T][ib][ik]
+        f = self.kgrid[tp]["f"][c][T][ib][ik]
+        f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
-        # v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
-        f_prm = self.kgrid[tp]["f0"][c][T][ib_prm][ik_prm]
+        k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
+        v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
+        f_prm = self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
+        if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
+            return np.array(
+            [0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
         fermi = self.egrid["fermi"][c][T]
 
         # test
@@ -1950,6 +2034,8 @@ class AMSET(object):
                             if not once_called:
                                 self.kgrid[tp]["S_o"][c][T][ib][ik] = res[2]
                                 self.kgrid[tp]["S_o_th"][c][T][ib][ik] = res[3]
+
+
 
     def s_inelastic(self, sname=None, g_suffix=""):
         for tp in ["n", "p"]:
@@ -2046,6 +2132,8 @@ class AMSET(object):
 
         else:
             raise ValueError('The elastic scattering name "{}" is NOT supported.'.format(sname))
+
+
 
     def s_elastic(self, sname):
         """
@@ -2186,6 +2274,8 @@ class AMSET(object):
                     #         if prop_name in ["df0dk"]: # df0dk is always negative
                     #             self.egrid[tp][c][T][prop_name] *= -1
 
+
+
     def find_fermi_SPB(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.4, max_iter=1000):
 
         sgn = np.sign(c)
@@ -2207,6 +2297,8 @@ class AMSET(object):
                     return -(fermi - initial_energy)
         if relative_error > tolerance:
             raise ValueError("could NOT find a corresponding SPB fermi level after {} itenrations".format(max_iter))
+
+
 
     def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=5000):
         """
@@ -2273,6 +2365,8 @@ class AMSET(object):
         logging.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(iter), fermi))
         return fermi
 
+
+
     def inverse_screening_length(self, c, T):
         """
         calculates the inverse screening length (beta) in 1/nm units
@@ -2299,6 +2393,8 @@ class AMSET(object):
             # beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 100/e)**0.5
 
         return beta
+
+
 
     def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0):
 
@@ -2354,6 +2450,8 @@ class AMSET(object):
             with open("kgrid.json", 'w') as fp:
                 json.dump(kgrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
 
+
+
     def solve_BTE_iteratively(self):
         # calculating S_o scattering rate which is not a function of g
         if "POP" in self.inelastic_scatterings and not self.bs_is_isotropic:
@@ -2377,7 +2475,7 @@ class AMSET(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
-                        g_old = [g_i for g_i in self.kgrid[tp]["g"][c][T][0]]
+                        g_old = np.array(self.kgrid[tp]["g"][c][T][0])
                         for ib in range(self.cbm_vbm[tp]["included"]):
 
                             self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
@@ -2417,6 +2515,8 @@ class AMSET(object):
                     for ie in range(len(self.egrid[tp]["g_POP"][c][T])):
                         if norm(self.egrid[tp]["g_POP"][c][T][ie]) > 1:
                             self.egrid[tp]["g_POP"][c][T][ie] = [1e-5, 1e-5, 1e-5]
+
+
 
     def calculate_transport_properties(self):
         integrate_over_kgrid = False
@@ -2545,6 +2645,8 @@ class AMSET(object):
                                                       self.egrid["conductivity"][c][T][other_type])
                     # since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
                     # self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
+
+
 
     # TODO-JF: this function needs a MAJOR revision and it does not interfere with the main code so it might be a good
     # place to start; I would first figure out how to directly save a Plotly plot to a file (it doesn't matter what the
@@ -2680,6 +2782,8 @@ class AMSET(object):
                 y_col = self.kgrid[tp][prop_name][0]
                 plt.xy_plot(x_col=x_col, y_col=y_col)
 
+
+
     def to_csv(self, csv_filename='AMSET_results.csv'):
         """
         this function writes the calculated transport properties to a csv file for convenience.
@@ -2716,17 +2820,17 @@ if __name__ == "__main__":
     #   poly_bands: if specified, uses polynomial interpolation for band structure; otherwise default is None and the
     #               model uses Analytical_Bands with the specified coefficient file
 
-    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": [],
+    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+                    "inelastic_scatterings": ["POP"]}
                     # TODO: for testing, remove this part later:
-                    "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    # "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 200, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
 
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2746,7 +2850,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-1e18], temperatures=[300])
+                  dopings=[-2e15], temperatures=[300])
     # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
@@ -2756,7 +2860,7 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    # AMSET.plot()
+    AMSET.plot()
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=20, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
