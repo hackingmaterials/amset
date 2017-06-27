@@ -1051,7 +1051,8 @@ class AMSET(object):
 
     # @albalu I created this function but do not understand what most of the arguments are. It may make sense to contain
     # them all in a single labeled tuple so the code is more readable?
-    def calc_energy(self, xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, tp, sgn, ib):
+    # engre through sgn: use for analytical bands energy; tp and ib: use for poly bands energy
+    def calc_analytical_energy(self, xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, sgn):
         """
             :param xkpt (?): ?
             :param engre (?): ?
@@ -1062,25 +1063,31 @@ class AMSET(object):
             :param vec2 (?): ?
             :param out_vec2 (?): ?
             :param br_dir (?): ?
-            :param tp (str): "p" or "n"
             :param sgn (int): -1 or 1
-            :param ib (int): band index...?
         """
-        if not self.poly_bands:
-            energy, de, dde = get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-            energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-            velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
-            effective_m = hbar ** 2 / (
-                dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+        energy, de, dde = get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+        energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
+        velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
+        effective_m = hbar ** 2 / (
+            dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+        return energy, velocity, effective_m
 
-        else:
-            energy, velocity, effective_m = get_poly_energy(
-                self._rec_lattice.get_cartesian_coords(xkpt) / A_to_nm,
-                poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+
+    def calc_poly_energy(self, xkpt, tp, ib):
+        '''
+        :param tp: "p" or "n"
+        :param ib: band index...?
+        :return:
+        '''
+        energy, velocity, effective_m = get_poly_energy(
+            self._rec_lattice.get_cartesian_coords(xkpt) / A_to_nm,
+            poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
         return energy, velocity, effective_m
 
 
 
+    # ultimately it might be most clean for this function to largely be two different functions (one for poly bands and one for analytical),
+    # and then the parts they share can be separate functions called by both
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         Tmx = max(self.temperatures)
         if kgrid_tp=="coarse":
@@ -1134,8 +1141,6 @@ class AMSET(object):
             all_ibands = []
             for i, tp in enumerate(["p", "n"]):
                 sgn = (-1) ** (i + 1)
-                # @albalu what does the "included" value mean? Isn't there only one conduction band min and one valence band max?
-                # @albalu what does ib stand for?
                 for ib in range(self.cbm_vbm[tp]["included"]):
                     # @albalu what is self.cbm_vbm[tp]["bidx"]? I looked at self._vrun where this is set but I'm still confused
                     all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
@@ -1169,8 +1174,10 @@ class AMSET(object):
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
 
-            # @albalu how will this work for poly bands (it looks like engre etc. were only calculated for the analytical bands case)
-            energy, velocity, effective_m = self.calc_energy(self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"]], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, tp, sgn, 0)
+            if not self.poly_bands:
+                energy, velocity, effective_m = self.calc_analytical_energy(self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"]], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, sgn)
+            else:
+                energy, velocity, effective_m = self.calc_poly_energy(self.cbm_vbm[tp]["kpoint"], tp, 0)
 
             # @albalu why is there already an energy value calculated from vasp that this code overrides?
             self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
@@ -1197,10 +1204,13 @@ class AMSET(object):
             for ib in [0]: # we only include the first band now (same for energies) to decide on ibz k-points
                 if not self.parallel or self.poly_bands: # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts)):
-                        energy, velocity, effective_m = self.calc_energy(kpts[ik],
+                        if not self.poly_bands:
+                            energy, velocity, effective_m = self.calc_analytical_energy(kpts[ik],
                                                                          engre[i*self.cbm_vbm["p"]["included"]+ib],
                                                                          nwave, nsym, nstv, vec, vec2, out_vec2, br_dir,
-                                                                         tp, sgn, ib)
+                                                                         sgn)
+                        else:
+                            energy, velocity, effective_m = self.calc_poly_energy(kpts[ik], tp, ib)
                         energies[tp][ik] = energy
 
                         # @albalu why do we exclude values of k that have a small component of velocity?
@@ -2693,7 +2703,7 @@ if __name__ == "__main__":
     #   poly_bands: if specified, uses polynomial interpolation for band structure; otherwise default is None and the
     #               model uses Analytical_Bands with the specified coefficient file
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]}
+                    "inelastic_scatterings": ["POP"], "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                     # TODO: for testing, remove this part later:
                     # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
@@ -2702,8 +2712,8 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "Ecut": 0.5, "BTE_iters": 5}
+    performance_params = {"nkibz": 55, "dE_min": 0.0001, "nE_min": 2,
+                          "parallel": False, "BTE_iters": 5}
 
     # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2724,7 +2734,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300])
+                  dopings=[-1e18], temperatures=[300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [300])
