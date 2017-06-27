@@ -11,7 +11,7 @@ from pprint import pprint
 import numpy as np
 from math import log
 
-from pymatgen.io.vasp import Vasprun, Spin, Structure
+from pymatgen.io.vasp import Vasprun, Spin, Structure, Orbital
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from scipy.constants.codata import value as _cd
 from math import pi
@@ -515,12 +515,16 @@ class AMSET(object):
 
 
     def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
-        self._vrun = Vasprun(os.path.join(calc_dir, filename))
+        self._vrun = Vasprun(os.path.join(calc_dir, filename), parse_projected_eigen=True)
         self.volume = self._vrun.final_structure.volume
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
         bs = self._vrun.get_band_structure()
+        projected = self._vrun.projected_eigenvalues
+        print len(projected[Spin.up][0][10]) # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
+        print sum(projected[Spin.up][0][10])
+        # The only thing left to do is to use scipy.interpolate.griddata to interpolate s,p,d contributions at a given list of k-points
 
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
         cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
@@ -1874,7 +1878,7 @@ class AMSET(object):
         f = self.kgrid[tp]["f"][c][T][ib][ik]
         f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
-        # v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
+        v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
         f_prm = self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
 
         if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
@@ -1895,10 +1899,12 @@ class AMSET(object):
         norm_diff = norm(k-k_prm)
         # print norm(k_prm)**2
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
-        # integ = norm(k_prm)**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/(v[alpha]*norm_diff**2)
+        # integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)\
+        #         /(self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2)
+
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/v_prm # simply /v_prm is wrong and creates artificial anisotropy
-        # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
-        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X) / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
+        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
+        # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X) / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
         if "S_i" in sname:
             integ *= abs(X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
@@ -2684,7 +2690,7 @@ if __name__ == "__main__":
 
     # defaults:
     mass = 0.25
-    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
                     "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
@@ -2695,7 +2701,7 @@ if __name__ == "__main__":
 
 
     performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": False, "BTE_iters": 5, "Ecut": 0.5}
+                          "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
 
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
     #                "E_D": {"n": 4.0, "p": 4.0}}
