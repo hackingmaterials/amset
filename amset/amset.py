@@ -1871,11 +1871,14 @@ class AMSET(object):
         :return:
         """
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
-        f = self.kgrid[tp]["f0"][c][T][ib][ik]
+        f = self.kgrid[tp]["f"][c][T][ib][ik]
+        f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
         # v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
-        f_prm = self.kgrid[tp]["f0"][c][T][ib_prm][ik_prm]
+        f_prm = self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
 
+        if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
+            return np.array([0.0, 0.0, 0.0]) # self-scattering is not defined;regardless, the returned integrand must be a vector
 
         fermi = self.egrid["fermi"][c][T]
 
@@ -1883,7 +1886,11 @@ class AMSET(object):
         # f = self.f(self.kgrid[tp]["energy"][ib][ik], fermi, T, tp, c, alpha)
         # f_prm = self.f(self.kgrid[tp]["energy"][ib_prm][ik_prm], fermi, T, tp, c, alpha)
 
-        N_POP = 1 / ( np.exp(hbar*self.kgrid[tp]["W_POP"][ib][ik]/(k_B*T)) - 1 )
+        N_POP = self.kgrid[tp]["N_POP"][c][T][ib][ik]
+
+        # N_POP = 1 / ( np.exp(hbar*self.kgrid[tp]["W_POP"][ib][ik]/(k_B*T)) - 1 )
+
+
         # norm_diff = max(norm(k-k_prm), 1e-10)
         norm_diff = norm(k-k_prm)
         # print norm(k_prm)**2
@@ -1891,19 +1898,21 @@ class AMSET(object):
         # integ = norm(k_prm)**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/(v[alpha]*norm_diff**2)
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/v_prm # simply /v_prm is wrong and creates artificial anisotropy
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
-        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
+        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X) / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
         if "S_i" in sname:
             integ *= abs(X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
             if "minus" in sname:
-                integ *= (1-f)*N_POP + f*(1+N_POP)
+                if self.kgrid[tp]["energy"][ib][ik]- hbar* self.kgrid[tp]["W_POP"][ib][ik] > self.cbm_vbm[tp]["energy"]:
+                    integ *= (1-f)*N_POP + f*(1+N_POP)
             elif "plus" in sname:
                 integ *= (1-f)*(1+N_POP) + f*N_POP
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         elif "S_o" in sname:
             if "minus" in sname:
-                integ *= (1-f_prm)*(1+N_POP) + f_prm*N_POP
+                if self.kgrid[tp]["energy"][ib][ik] -hbar *self.kgrid[tp]["W_POP"][ib][ik] > self.cbm_vbm[tp]["energy"]:
+                    integ *= (1-f_prm)*(1+N_POP) + f_prm*N_POP
             elif "plus" in sname:
                 integ *= (1-f_prm)*N_POP + f_prm*(1+N_POP)
             else:
@@ -2675,7 +2684,7 @@ if __name__ == "__main__":
 
     # defaults:
     mass = 0.25
-    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
                     "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
@@ -2686,7 +2695,7 @@ if __name__ == "__main__":
 
 
     performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
+                          "parallel": False, "BTE_iters": 5, "Ecut": 0.5}
 
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
     #                "E_D": {"n": 4.0, "p": 4.0}}
@@ -2713,8 +2722,7 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    # AMSET.write_input_files()
-    # AMSET.to_csv()
-    # AMSET.plot()
-
-    # AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
+    AMSET.write_input_files()
+    AMSET.to_csv()
+    AMSET.plot()
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
