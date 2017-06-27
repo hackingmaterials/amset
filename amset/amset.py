@@ -2006,7 +2006,6 @@ class AMSET(object):
             #        * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) / (1e11*e) # 1/1e11*e is to convert kg.cm/s to hbar.k units (i.e. ev.s/nm)
 
         elif sname.upper() == "IMP": # double-checked the units and equation on 5/12/2017
-            # knrm = self.kgrid[tp]["norm(k)"][ib][ik] don't use this! it's wrong anyway and shouldn't change knrm just for IMP
             beta = self.egrid["beta"][c][T][tp]
             B_II = (4*knrm**2/beta**2)/(1+4*knrm**2/beta**2)+8*(beta**2+2*knrm**2)/(beta**2+4*knrm**2)*par_c**2+\
                    (3*beta**4+6*beta**2*knrm**2-8*knrm**4)/((beta**2+4*knrm**2)*knrm**2)*par_c**4
@@ -2289,6 +2288,14 @@ class AMSET(object):
 
     def to_json(self, kgrid=True, trimmed=False, max_ndata = None, nstart=0):
 
+        kgrid_filename = "kgrid"
+        egrid_filename = "egrid"
+
+        if self.bs_is_isotropic:
+            kgrid_filename += "_iso_bs"
+            egrid_filename += "_iso_bs"
+
+
         if not max_ndata:
             max_ndata = int(self.gl)
 
@@ -2311,7 +2318,7 @@ class AMSET(object):
                             print "cutting data for {} numbers in egrid was NOT successful!".format(key)
                             pass
 
-        with open("egrid.json", 'w') as fp:
+        with open("{}.json".format(egrid_filename), 'w') as fp:
             json.dump(egrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
 
         # self.kgrid trimming
@@ -2338,7 +2345,7 @@ class AMSET(object):
                                 print "cutting data for {} numbers in kgrid was NOT successful!".format(key)
                                 pass
 
-            with open("kgrid.json", 'w') as fp:
+            with open("{}.json".format(kgrid_filename), 'w') as fp:
                 json.dump(kgrid, fp,sort_keys = True, indent = 4, ensure_ascii=False, cls=MontyEncoder)
 
 
@@ -2365,9 +2372,8 @@ class AMSET(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
-                        g_old = [g_i for g_i in self.kgrid[tp]["g"][c][T][0]]
+                        g_old = np.array(self.kgrid[tp]["g"][c][T][0][:]) # np.array is to make a copy
                         for ib in range(self.cbm_vbm[tp]["included"]):
-
                             self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
                                                                  self.kgrid[tp]["electric force"][c][T][ib]) / (
                                                                 self.kgrid[tp]["S_o"][c][T][ib] + self.gs)
@@ -2385,8 +2391,7 @@ class AMSET(object):
                                 if  norm(self.kgrid[tp]["g_POP"][c][T][ib][ik]) > 1 and iter > 0:
                             # because only when there are no S_o/S_i scattering events, g_POP>>1 while it should be zero
                                     self.kgrid[tp]["g_POP"][c][T][ib][ik] = [self.gs, self.gs, self.gs]
-
-                        avg_g_diff = np.mean([abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
+                        avg_g_diff = np.mean([abs(sum(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik])/3) for ik in range(len(g_old))])
                         print("Average difference in {}-type g term at c={} and T={}: {}".format(tp, c, T, avg_g_diff))
 
 
@@ -2670,8 +2675,8 @@ if __name__ == "__main__":
 
     # defaults:
     mass = 0.25
-    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": [],
+    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+                    "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
                     "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
@@ -2680,7 +2685,7 @@ if __name__ == "__main__":
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 200, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
 
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2708,9 +2713,8 @@ if __name__ == "__main__":
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
 
-    AMSET.write_input_files()
-    AMSET.to_csv()
-    AMSET.plot()
+    # AMSET.write_input_files()
+    # AMSET.to_csv()
+    # AMSET.plot()
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
-    # AMSET.to_json(kgrid=True, trimmed=True)
+    # AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
