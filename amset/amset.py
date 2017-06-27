@@ -1040,13 +1040,52 @@ class AMSET(object):
 
     def get_sym_eq_ks_in_first_BZ(self, k, cartesian=False):
         fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
+        fractional_ks = self.kpts_to_first_BZ(fractional_ks)
         if cartesian:
-            return [np.dot(k, self._lattice_matrix/A_to_nm*2*pi) for k in self.kpts_to_first_BZ(fractional_ks)]
+            return [self._rec_lattice.get_cartesian_coords(k_frac) / A_to_nm for k_frac in fractional_ks]
         else:
-            return self.kpts_to_first_BZ(fractional_ks)
+            return fractional_ks
+
+
+    # @albalu I created this function but do not understand what most of the arguments are. It may make sense to contain
+    # them all in a single labeled tuple so the code is more readable?
+    # engre through sgn: use for analytical bands energy; tp and ib: use for poly bands energy
+    def calc_analytical_energy(self, xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, sgn):
+        """
+            :param xkpt (?): ?
+            :param engre (?): ?
+            :param nwave (?): ?
+            :param nsym (?): ?
+            :param nstv (?): ?
+            :param vec (?): ?
+            :param vec2 (?): ?
+            :param out_vec2 (?): ?
+            :param br_dir (?): ?
+            :param sgn (int): -1 or 1
+        """
+        energy, de, dde = get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+        energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
+        velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
+        effective_m = hbar ** 2 / (
+            dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+        return energy, velocity, effective_m
+
+
+    def calc_poly_energy(self, xkpt, tp, ib):
+        '''
+        :param tp: "p" or "n"
+        :param ib: band index...?
+        :return:
+        '''
+        energy, velocity, effective_m = get_poly_energy(
+            self._rec_lattice.get_cartesian_coords(xkpt) / A_to_nm,
+            poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+        return energy, velocity, effective_m
 
 
 
+    # ultimately it might be most clean for this function to largely be two different functions (one for poly bands and one for analytical),
+    # and then the parts they share can be separate functions called by both
     def init_kgrid(self,coeff_file, kgrid_tp="coarse"):
         Tmx = max(self.temperatures)
         if kgrid_tp=="coarse":
@@ -1094,6 +1133,7 @@ class AMSET(object):
             analytical_bands = Analytical_bands(coeff_file=coeff_file)
             all_ibands = []
             for i, tp in enumerate(["p", "n"]):
+                sgn = (-1) ** (i + 1)
                 for ib in range(self.cbm_vbm[tp]["included"]):
                     sgn = (-1) ** (i+1)
                     all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
@@ -1133,10 +1173,10 @@ class AMSET(object):
                 effective_m = hbar ** 2 / (
                         dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
 
+            if not self.poly_bands:
+                energy, velocity, effective_m = self.calc_analytical_energy(self.cbm_vbm[tp]["kpoint"], engre[i * self.cbm_vbm["p"]["included"]], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, sgn)
             else:
-                energy, velocity, effective_m = get_poly_energy(
-                    np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix / A_to_nm * 2 * pi),
-                    poly_bands=self.poly_bands, type=tp, ib=0, bandgap=self.dft_gap + self.scissor)
+                energy, velocity, effective_m = self.calc_poly_energy(self.cbm_vbm[tp]["kpoint"], tp, 0)
 
             self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
             logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
@@ -1162,17 +1202,13 @@ class AMSET(object):
                 if not self.parallel or self.poly_bands: # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts)):
                         if not self.poly_bands:
-                            energy, de, dde = get_energy(
-                                kpts[ik], engre[i*self.cbm_vbm["p"]["included"]+ib],
-                                    nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                            energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-                            velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                            energies[tp][ik] = energy
+                            energy, velocity, effective_m = self.calc_analytical_energy(kpts[ik],
+                                                                         engre[i*self.cbm_vbm["p"]["included"]+ib],
+                                                                         nwave, nsym, nstv, vec, vec2, out_vec2, br_dir,
+                                                                         sgn)
                         else:
-                            energy,velocity,effective_m=get_poly_energy(np.dot(kpts[ik],self._lattice_matrix/A_to_nm*2*pi),
-                                    poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
-                            energies[tp][ik] = energy
-
+                            energy, velocity, effective_m = self.calc_poly_energy(kpts[ik], tp, ib)
+                        energies[tp][ik] = energy
 
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
                                         abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
@@ -2721,7 +2757,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300])
+                  dopings=[-1e18], temperatures=[300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
                   # dopings=[-1e20], temperatures=[300, 600])
                   #   dopings = [-1e20], temperatures = [300])
