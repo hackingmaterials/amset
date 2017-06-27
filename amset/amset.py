@@ -132,7 +132,6 @@ def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, eps
     return [S_i_list, S_i_th_list, S_o_list, S_o_th_list]
 
 
-
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
     # print "calculating S_i and S_o for ib: {} and ik: {}".format(ib, ik)
 
@@ -357,6 +356,7 @@ class AMSET(object):
             for T in self.temperatures:
                 fermi = self.egrid["fermi"][c][T]
                 for tp in ["n", "p"]:
+                    fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             E = self.kgrid[tp]["energy"][ib][ik]
@@ -365,11 +365,12 @@ class AMSET(object):
                             self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
                             self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E, fermi, T) * v  # in cm
                             self.kgrid[tp]["electric force"][c][T][ib][ik] = -1 * \
-                                                                             self.kgrid[tp]["df0dk"][c][T][ib][
-                                                                                 ik] * default_small_E / hbar  # in 1/s
+                                        self.kgrid[tp]["df0dk"][c][T][ib][ik] * default_small_E / hbar  # in 1/s
+
+                            E_norm = E - self.cbm_vbm[tp]["energy"]
                             # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
-                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0(E, fermi, T) * (1 - f0(E, fermi, T)) * ( \
-                                E / (k_B * T) - self.egrid["Seebeck_integral_numerator"][c][T][tp] /
+                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0(E_norm, fermi_norm, T) * (1 - f0(E_norm, fermi_norm, T)) * ( \
+                                E_norm / (k_B * T) - self.egrid["Seebeck_integral_numerator"][c][T][tp] /
                                 self.egrid["Seebeck_integral_denominator"][c][T][tp]) * dTdz / T
 
         self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
@@ -378,9 +379,10 @@ class AMSET(object):
         # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
         self.solve_BTE_iteratively()
 
-        for key in ["plus", "minus"]:
-            with open("X_E{}_ik".format(key), "w") as fp:
-                json.dump(self.kgrid["n"]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
+        if "POP" in self.inelastic_scatterings:
+            for key in ["plus", "minus"]:
+                with open("X_E{}_ik".format(key), "w") as fp:
+                    json.dump(self.kgrid["n"]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
 
         self.calculate_transport_properties()
 
@@ -471,8 +473,8 @@ class AMSET(object):
 
         self.bs_is_isotropic = params.get("bs_is_isotropic", False)
         # TODO: remove this if later when anisotropic band structure is supported
-        if not self.bs_is_isotropic:
-            raise IOError("Anisotropic option or bs_is_isotropic==False is NOT supported yet, please check back later")
+        # if not self.bs_is_isotropic:
+        #     raise IOError("Anisotropic option or bs_is_isotropic==False is NOT supported yet, please check back later")
         # what scattering mechanisms to be included
         self.elastic_scatterings = params.get("elastic_scatterings", ["ACD", "IMP", "PIE"])
         self.inelastic_scatterings = params.get("inelastic_scatterings", ["POP"])
@@ -485,7 +487,7 @@ class AMSET(object):
         # and that changes the actual values
         self.gaussian_broadening = False
         self.soc = params.get("soc", False)
-
+        logging.info("bs_is_isotropic: {}".format(self.bs_is_isotropic))
 
 
     def set_performance_params(self, params):
@@ -604,12 +606,15 @@ class AMSET(object):
     def seeb_int_num(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
         fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T)) * E / (k_B * T)
-        return {t:self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T) for t in ["n", "p"]}
+        return {t:self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T, normalize_energy=True) for t in ["n", "p"]}
 
 
 
     def seeb_int_denom(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
+        # fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T))
+        # return {t:self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T, normalize_energy=True) for t in ["n", "p"]}
+
         return {t:self.gs + self.integrate_over_E(prop_list=["f0x1-f0"],tp=t,c=c,T=T,xDOS=True) for t in ["n", "p"]}
 
 
@@ -1606,6 +1611,9 @@ class AMSET(object):
         # TODO: I added the X_prev_forced to make sure that the enforced points are introducing good variety of points and not just symmetrically equivalent ones with the same angles!
         # X_prev_forced = -1000
 
+        # TODO: I added the X_prev_forced to make sure that the enforced points are introducing good variety of points and not just symmetrically equivalent ones with the same angles!
+        # X_prev_forced = -1000
+
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
         ib_prm = ib
         if E_radius == 0.0:
@@ -1662,8 +1670,9 @@ class AMSET(object):
         # norm_diff_k = norm(k_prm) # slope kind of matches with bs_is_isotropic at least for PIE but it's 5X larger
         # norm_diff_k = (norm(k_prm)**2 + norm(k)**2)**0.5 # doesn't work, the ratios are not a fixed number
 
-        if norm_diff_k == 0:
+        if norm_diff_k == 0.0:
             print "WARNING!!! same k and k' vectors as input of the elastic scattering equation"
+
             # warnings.warn("same k and k' vectors as input of the elastic scattering equation")
             # raise ValueError("same k and k' vectors as input of the elastic scattering equation."
             #                  "Check get_X_ib_ik_within_E_radius for possible error")
@@ -1692,13 +1701,16 @@ class AMSET(object):
 
 
 
-    def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None):
+    def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None, normalize_energy=False):
         if not interpolation_nsteps:
             interpolation_nsteps = max(5, int(500.0/len(self.egrid[tp]["energy"])) )
         integral = 0.0
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             E = self.egrid[tp]["energy"][ie]
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
+            if normalize_energy:
+                E -= self.cbm_vbm[tp]["energy"]
+                fermi -= self.cbm_vbm[tp]["energy"]
             dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
             for i in range(interpolation_nsteps):
                 # integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS)*func(E + i * dE, fermi, T)*self.Efrequency[tp][ie]
@@ -1823,26 +1835,33 @@ class AMSET(object):
 
     def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None, g_suffix=""):
         """integrate numerically with a simple trapezoidal algorithm."""
-        sum = np.array([0.0, 0.0, 0.0])
+        summation = np.array([0.0, 0.0, 0.0])
         if len(X_E_index[ib][ik]) == 0:
             raise ValueError("enforcing scattering points did NOT work, {}[{}][{}] is empty".format(X_E_index,ib,ik))
-            # return sum
+            # return summation
         X, ib_prm, ik_prm = X_E_index[ib][ik][0]
         current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
         for i in range(len(X_E_index[ib][ik]) - 1):
-            DeltaX = X_E_index[ib][ik][i + 1][0] - \
-                     X_E_index[ib][ik][i][0]
+            DeltaX = X_E_index[ib][ik][i + 1][0] - X_E_index[ib][ik][i][0]
             if DeltaX == 0.0:
                 continue
 
-            dum = current_integrand/2
-
             X, ib_prm, ik_prm = X_E_index[ib][ik][i+1]
+
+            dum = current_integrand/2.0
+
             current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
 
-            dum += current_integrand/2
-            sum += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
-        return sum
+            # This condition is to exclude self-scattering from the integration
+            if np.sum(current_integrand) == 0.0:
+                dum *= 2
+            elif np.sum(dum) == 0.0:
+                dum = current_integrand
+            else:
+                dum += current_integrand/2.0
+
+            summation += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
+        return summation
 
 
 
@@ -1855,6 +1874,8 @@ class AMSET(object):
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
+        if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
+            return np.array([0.0, 0.0, 0.0]) # self-scattering is not defined;regardless, the returned integrand must be a vector
 
         # TODO: if only use norm(k_prm), I get ACD mobility that is almost exactly inversely proportional to temperature
         # return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
@@ -1881,12 +1902,14 @@ class AMSET(object):
         #        * 1.0 / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
 
         # in the numerator we use velocity as k_nrm is defined in each direction as they are treated independently (see s_el_eq_isotropic for more info)
-        return (1 - X) * (m_e * self._avg_eff_mass[tp] * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
-            hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-               * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
-               * 1.0 / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
+        # previous match (commented on 6/26/2017)
+        # return (1 - X) * (m_e * self._avg_eff_mass[tp] * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
+        #     hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
+        #        * 1.0 / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]/sq3)
 
-
+        return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+                * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
@@ -1978,17 +2001,17 @@ class AMSET(object):
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            sum = np.array([0.0, 0.0, 0.0])
+                            summation = np.array([0.0, 0.0, 0.0])
                             for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
-                                sum += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name], self.inel_integrand_X,
+                                summation += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name], self.inel_integrand_X,
                                         ib=ib, ik=ik, c=c, T=T, sname=sname+X_E_index_name, g_suffix=g_suffix)
-                            # self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * e**2*self.kgrid[tp]["W_POP"][ib][ik]/(4*pi*hbar) \
-                            self.kgrid[tp][sname][c][T][ib][ik] = sum*e**2*self.kgrid[tp]["W_POP"][ib][ik] \
+                            # self.kgrid[tp][sname][c][T][ib][ik] = abs(summation) * e**2*self.kgrid[tp]["W_POP"][ib][ik]/(4*pi*hbar) \
+                            self.kgrid[tp][sname][c][T][ib][ik] = summation*e**2*self.kgrid[tp]["W_POP"][ib][ik] \
                                 /(4 * pi * hbar) * (1/self.epsilon_inf-1/self.epsilon_s)/epsilon_0 * 100/e
                             # if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1:
                             #     self.kgrid[tp][sname][c][T][ib][ik] = [1, 1, 1]
                             # if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
-                            #     print tp, c, T, ik, ib, sum, self.kgrid[tp][sname][c][T][ib][ik]
+                            #     print tp, c, T, ik, ib, summation, self.kgrid[tp][sname][c][T][ib][ik]
 
 
 
@@ -2011,7 +2034,7 @@ class AMSET(object):
         # knrm = norm(self.kgrid[tp]["kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
 
         # if self.poly_bands: # the first one should be v and NOT v * sq3 so that the two match in SPB
-        if False:
+        if False: # I'm 90% sure that there is not need for the first type of knrm and that's why I added if False for now
             knrm = m_e * self._avg_eff_mass[tp] * (v ) / (hbar*e*1e11) # in nm given that v is in cm/s and hbar in eV.s; this resulted in very high ACD and IMP scattering rates, actually only PIE would match with aMoBT results as it doesn't have k_nrm in its formula
         #TODO: make sure that ACD scattering as well as others match in SPB between bs_is_isotropic and when knrm is the following and not above (i.e. not m*v/hbar*e)
         else:
@@ -2086,10 +2109,10 @@ class AMSET(object):
                             if self.bs_is_isotropic:
                                 self.kgrid[tp][sname][c][T][ib][ik] = self.s_el_eq_isotropic(sname, tp, c, T, ib, ik)
                             else:
-                                sum = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
+                                summation = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
                                                             integrand=self.el_integrand_X,
                                                           ib=ib, ik=ik, c=c, T=T, sname = sname, g_suffix="")
-                                self.kgrid[tp][sname][c][T][ib][ik] = abs(sum) * 2e-7 * pi/hbar
+                                self.kgrid[tp][sname][c][T][ib][ik] = abs(summation) * 2e-7 * pi/hbar
                                 if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 100 and sname not in ["DIS"]:
                                     print "WARNING!!! here scattering {} < 1".format(sname)
                                     # if self.kgrid[tp]["df0dk"][c][T][ib][ik][0] > 1e-32:
@@ -2100,7 +2123,7 @@ class AMSET(object):
 
                                 if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e20:
                                     print "WARNING!!! TOO LARGE of scattering rate for {}:".format(sname)
-                                    print sum
+                                    print summation
                                     print self.kgrid[tp]["X_E_ik"][ib][ik]
                                     print
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
@@ -2176,7 +2199,8 @@ class AMSET(object):
                                 #     self.egrid[tp][prop_name][c][T][ie] = np.array(
                                 #         [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
 
-                            if prop_name in ["df0dk"]: # df0dk is always negative
+                            # df0dk must be negative but we used norm for df0dk when isotropic
+                            if prop_name in ["df0dk"] and self.bs_is_isotropic:
                                 self.egrid[tp][prop_name][c][T] *= -1
                 else:
                     raise ValueError("Guassian Broadening is NOT well tested and abandanded at the begining due to inaccurate results")
@@ -2397,7 +2421,7 @@ class AMSET(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
-                        g_old = self.kgrid[tp]["g"][c][T][0]
+                        g_old = [g_i for g_i in self.kgrid[tp]["g"][c][T][0]]
                         for ib in range(self.cbm_vbm[tp]["included"]):
 
                             self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
@@ -2473,23 +2497,28 @@ class AMSET(object):
                         self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_E(prop_list=["g"],
                             tp=tp,c=c,T=T,xDOS=False,xvel=True, weighted=True)
 
-                    self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"],
-                            tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True) * e * 1e24 # to bring J to A/cm2 units
+                    self.egrid["J_th"][c][T][tp] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
+                            xDOS=False, xvel=True, weighted=True) / denom) * e * abs(c) # in units of A/cm2
+
 
                     for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
-                        self.egrid["mobility"][transport][c][T][tp]/=default_small_E * denom
+                        self.egrid["mobility"][transport][c][T][tp]/= 3 * default_small_E * denom
 
-                    self.egrid["J_th"][c][T][tp] /= 3*self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
-                                                                    T=T, xDOS=False, xvel=False, weighted=True)
+
+                    # The following did NOT work as J_th only has one integral (see aMoBT but that one is over k)
+                    # and with that one the units don't work out and if you use two integral, J_th will be of 1e6 order!
+                    # self.egrid["J_th"][c][T][tp] = self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
+                    #         xDOS=False, xvel=True, weighted=True) * e * 1e24  # to bring J to A/cm2 units
+                    # self.egrid["J_th"][c][T][tp] /= 3*self.volume*self.integrate_over_E(prop_list=["f0"], tp=tp, c=c,
+                    #         T=T, xDOS=False, xvel=False, weighted=True)
 
                     # other semi-empirical mobility values:
                     fermi = self.egrid["fermi"][c][T]
                     # fermi_SPB = self.egrid["fermi_SPB"][c][T]
                     energy = self.cbm_vbm["n"]["energy"]
 
-                    if self.bs_is_isotropic:
-                        for mu in ["overall", "average"] + self.inelastic_scatterings + self.elastic_scatterings:
-                            self.egrid["mobility"][mu][c][T][tp] /= 3.0
+                    # for mu in ["overall", "average"] + self.inelastic_scatterings + self.elastic_scatterings:
+                    #     self.egrid["mobility"][mu][c][T][tp] /= 3.0
 
                     # ACD mobility based on single parabolic band extracted from Thermoelectric Nanomaterials,
                     # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
@@ -2518,19 +2547,19 @@ class AMSET(object):
                     # calculating other overall transport properties:
                     self.egrid["conductivity"][c][T][tp] = self.egrid["mobility"]["overall"][c][T][tp]* e * abs(c)
                     self.egrid["seebeck"][c][T][tp] = -1e6*k_B*( self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] - self.egrid["fermi"][c][T]/(k_B*T) )
+                        / self.egrid["Seebeck_integral_denominator"][c][T][tp] - (self.egrid["fermi"][c][T]-self.cbm_vbm[tp]["energy"])/(k_B*T) )
                     self.egrid["TE_power_factor"][c][T][tp] = self.egrid["seebeck"][c][T][tp]**2 \
                         * self.egrid["conductivity"][c][T][tp] / 1e6 # in uW/cm2K
                     if "POP" in self.inelastic_scatterings:     # when POP is not available J_th is unreliable
                         self.egrid["seebeck"][c][T][tp] += 0.0
                         # TODO: for now, we ignore the following until we figure out the units see why values are high!
-                        self.egrid["seebeck"][c][T][tp] += 1e6 \
-                                        * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
+                        # self.egrid["seebeck"][c][T][tp] += 1e6 \
+                        #                 * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
 
                     print "3 {}-seebeck terms at c={} and T={}:".format(tp, c, T)
                     print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
                         / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B
-                    print + self.egrid["fermi"][c][T]/(k_B*T) * 1e6 * k_B
+                    print + (self.egrid["fermi"][c][T]-self.cbm_vbm[tp]["energy"]) * 1e6 * k_B /(k_B*T)
                     print + self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz*1e6
 
 
@@ -2570,7 +2599,8 @@ class AMSET(object):
             all_plots = []
             for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
                 all_plots.append({"x_col": self.temperatures,
-                                "y_col": [log(sum(self.egrid["mobility"][mo][plotc][T][tp])/3, 10) for T in self.temperatures],
+        # I temporarity (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
+                                "y_col": [log(abs(sum(self.egrid["mobility"][mo][plotc][T][tp])/3), 10) for T in self.temperatures],
                                 "text": mo, "size": textsize/2, "mode":"lines+markers", "legend": "", "color": ""
                                   })
             plt.xy_plot(x_col=[],
@@ -2702,20 +2732,20 @@ if __name__ == "__main__":
     #   inelastic_scatterings:
     #   poly_bands: if specified, uses polynomial interpolation for band structure; otherwise default is None and the
     #               model uses Analytical_Bands with the specified coefficient file
-    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"], "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+
+    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+                    "inelastic_scatterings": [],
                     # TODO: for testing, remove this part later:
-                    # "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    "poly_bands":[[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
                   # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
                   #       [[0.25, 0.25, 0.25], [0.0, mass]],
                   #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 55, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": False, "BTE_iters": 5}
+    performance_params = {"nkibz": 200, "dE_min": 0.0001, "nE_min": 2,
+                          "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
 
-    # test
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
     #                "E_D": {"n": 4.0, "p": 4.0}}
     # cube_path = "../test_files/PbTe/nscf_line"
@@ -2732,7 +2762,7 @@ if __name__ == "__main__":
         model_params = model_params, performance_params= performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
                   # dopings= [-2.7e13], temperatures=[100, 300])
-                  # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800])
+                  # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
                   dopings=[-1e18], temperatures=[300])
                   # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
