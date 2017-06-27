@@ -2011,6 +2011,7 @@ class AMSET(object):
             raise ValueError("The inelastic scattering name: {} is NOT supported".format(sname))
         return integ
 
+
     def s_inel_eq_isotropic(self, once_called=False):
         for tp in ["n", "p"]:
             for c in self.dopings:
@@ -2060,6 +2061,8 @@ class AMSET(object):
                             #     self.kgrid[tp][sname][c][T][ib][ik] = [1, 1, 1]
                             # if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
                             #     print tp, c, T, ik, ib, summation, self.kgrid[tp][sname][c][T][ib][ik]
+
+
 
     def s_el_eq_isotropic(self, sname, tp, c, T, ib, ik):
         """returns elastic scattering rate (a numpy vector) at certain point (e.g. k-point, T, etc)
@@ -2185,6 +2188,8 @@ class AMSET(object):
                         # logging.debug("relaxation time at c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["relaxation time"][c][T][ib]))
                         # logging.debug("_all_elastic c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["_all_elastic"][c][T][ib]))
                         self.kgrid[tp]["relaxation time"][c][T][ib] = 1 / self.kgrid[tp]["_all_elastic"][c][T][ib]
+
+
 
     def map_to_egrid(self, prop_name, c_and_T_idx=True, prop_type="vector"):
         """
@@ -2823,7 +2828,7 @@ if __name__ == "__main__":
     #   poly_bands: if specified, uses polynomial interpolation for band structure; otherwise default is None and the
     #               model uses Analytical_Bands with the specified coefficient file
 
-    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
                     "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
