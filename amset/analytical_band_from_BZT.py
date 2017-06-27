@@ -22,6 +22,11 @@ e = _cd('elementary charge')
 # TODO: adding doc to explain each functions their inputs and outputs once Analytical_bands class is optimized.
 
 
+__author__ = "Francesco Ricci and Alireza Faghaninia"
+__copyright__ = "Copyright 2017, HackingMaterials"
+__maintainer__ = "Francesco Ricci"
+
+
 
 def norm(v):
     """method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as numpy.linalg.norm is slower for this case"""
@@ -185,8 +190,6 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
                     offset = valley[-1][0] # each valley has a list of k-points (valley[0]) and [offset, m*] (valley[1]) info
                     m_eff = valley[-1][1]
                     degeneracy = len(valley[0])
-                    print "offset"
-                    print offset
                     for ie, energy in enumerate(e_mesh):
                         dos_temp = volume/(2*pi**2)*(2*m_e*m_eff/hbar**2)**1.5 * 1e-30/e**1.5
                         if energy < 0-offset:
