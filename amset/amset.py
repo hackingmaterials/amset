@@ -275,7 +275,8 @@ class AMSET(object):
             self.cbm_vbm["n"]["energy"] = self.dft_gap
             self.cbm_vbm["p"]["energy"] = 0.0
             # @albalu why are the conduction and valence band k points being set to the same value?
-            # @albalu what is the format of self.poly_bands?
+                # because the way poly band generates a band structure is by mirroring conduction and valence bands
+            # @albalu what is the format of self.poly_bands? it's a nested list, this can be improved actually
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
 
         self.all_types = [self.get_tp(c) for c in self.dopings]
@@ -525,10 +526,12 @@ class AMSET(object):
         self.volume = self._vrun.final_structure.volume
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
-        # @albalu why is this not called the reciprocal lattice?
-        self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
+        # @albalu why is this not called the reciprocal lattice? your _rec_lattice is better
+        # self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
         # @albalu is there a convention to name variables that are other objects with a "_" in the front?
+            # yes, these are the ones that users are absolutely not supposed to change
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
+
         bs = self._vrun.get_band_structure()
         projected = self._vrun.projected_eigenvalues
         print len(projected[Spin.up][0][10])  # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
@@ -1478,7 +1481,7 @@ class AMSET(object):
             self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
         else:
             logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
-            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix,
+            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
                                                  [self.nkdos, self.nkdos, self.nkdos], self.dos_emin, self.dos_emax,
                                                  int(round(
                                                      (self.dos_emax - self.dos_emin) / max(self.dE_min, 0.0001))) + 1,
@@ -2091,7 +2094,6 @@ class AMSET(object):
 
         # TODO: decide on knrm and whether it needs a reference k-point (i.e. CBM/VBM) where the reference point is not Gamma. No ref. result in large rates in PbTe.
         # I justify subtracting the CBM/VBM actual k-points as follows:
-        # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
         # v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
         # v = norm(self.kgrid[tp]["velocity"][ib][ik])
         v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
@@ -2099,7 +2101,6 @@ class AMSET(object):
         # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
 
-        # knrm = norm(self.kgrid[tp]["kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
 
         # if self.poly_bands: # the first one should be v and NOT v * sq3 so that the two match in SPB
         if False:  # I'm 90% sure that there is not need for the first type of knrm and that's why I added if False for now
@@ -2303,7 +2304,7 @@ class AMSET(object):
 
 
 
-    def find_fermi_SPB(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.4, max_iter=1000):
+    def find_fermi_SPB(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=1000):
 
         tp = self.get_tp(c)
         sgn = np.sign(c)
@@ -2328,7 +2329,7 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.05, max_iter=5000):
+    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=5000):
         """
         To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
         :param c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
@@ -2351,20 +2352,21 @@ class AMSET(object):
         # fermi = self.egrid[typ]["energy"][0]
 
         print("calculating the fermi level at temperature: {} K".format(T))
-        j = ["n", "p"].index(typ)
+        typj = ["n", "p"].index(typ)
         funcs = [lambda E, fermi0, T: f0(E, fermi0, T), lambda E, fermi0, T: 1 - f0(E, fermi0, T)]
-        calc_doping = (-1) ** (j + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
-                      * abs(self.integrate_over_DOSxE_dE(func=funcs[j], tp=typ, fermi=fermi, T=T))
+        calc_doping = (-1) ** (typj + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
+                      * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ, fermi=fermi, T=T))
 
         while (relative_error > tolerance) and (iter < max_iter):
             # print iter
             # print calc_doping
             # print fermi
+            # print (-1) ** (typj)
             # print
             iter += 1  # to avoid an infinite loop
             if iter / max_iter > 0.5:  # to avoid oscillation we re-adjust alpha at each iteration
                 tune_alpha = 1 - iter / max_iter
-            fermi += (-1) ** (j) * alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
+            fermi += (-1) ** (typj) * alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
 
             for j, tp in enumerate(["n", "p"]):
                 integral = 0.0
@@ -2865,9 +2867,9 @@ if __name__ == "__main__":
     #               model uses Analytical_Bands with the specified coefficient file
 
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]}
+                    "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
-                    # "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
@@ -2894,7 +2896,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[1e19], temperatures=[300])
+                  dopings=[-2e15], temperatures=[300])
     # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
