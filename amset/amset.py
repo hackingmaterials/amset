@@ -521,6 +521,23 @@ class AMSET(object):
 
 
 
+    def get_dft_orbitals(self, bidx):
+        projected = self._vrun.projected_eigenvalues
+        print len(projected[Spin.up][0][10])  # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
+        print sum(projected[Spin.up][0][10])
+
+        s_orbital = [0.0 for k in self.DFT_cartesian_kpts]
+        p_orbital = [0.0 for k in self.DFT_cartesian_kpts]
+        for ik in range(len(self.DFT_cartesian_kpts)):
+            s_orbital[ik] = sum(projected[Spin.up][ik][bidx])[0]
+            if self.lorbit == 10:
+                p_orbital[ik] = sum(projected[Spin.up][ik][bidx])[1]
+            elif self.lorbit == 11:
+                p_orbital[ik] = sum(sum(projected[Spin.up][ik][bidx])[1:4])
+        return s_orbital, p_orbital
+
+
+
     def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
         self._vrun = Vasprun(os.path.join(calc_dir, filename), parse_projected_eigen=True)
         self.volume = self._vrun.final_structure.volume
@@ -533,9 +550,17 @@ class AMSET(object):
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
 
         bs = self._vrun.get_band_structure()
-        projected = self._vrun.projected_eigenvalues
-        print len(projected[Spin.up][0][10])  # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
-        print sum(projected[Spin.up][0][10])
+        self.lorbit = 11 if len(sum(self._vrun.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
+
+        self.DFT_cartesian_kpts = np.array(
+                [self._rec_lattice.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
+
+        s_orbital, p_orbital = self.get_dft_orbitals(bidx=13)
+        print s_orbital[:10]
+        print p_orbital[:10]
+
+
+
         # The only thing left to do is to use scipy.interpolate.griddata to interpolate s,p,d contributions at a given list of k-points
 
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
@@ -579,11 +604,12 @@ class AMSET(object):
             for i, tp in enumerate(["n", "p"]):
                 sgn = (-1) ** i
                 # @albalu what is this next line doing (even though it doesn't appear to be in use)?
+                    # this part determines how many bands are have energy values close enough to CBM/VBM to be included
                 while abs(min(sgn * bs["bands"]["1"][cbm_vbm[tp]["bidx"] + sgn * cbm_vbm[tp]["included"]]) -
                                           sgn * cbm_vbm[tp]["energy"]) < self.Ecut:
                     cbm_vbm[tp]["included"] += 1
 
-                    # TODO: for now, I only include 1 band for each as I get some errors if I include more bands
+                    # TODO: for now, I only include 1 band for quicker testing
                 cbm_vbm[tp]["included"] = 1
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands)
