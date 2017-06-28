@@ -1740,7 +1740,7 @@ class AMSET(object):
         integral = 0.0
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             E = self.egrid[tp]["energy"][ie]
-            dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
+            dE = (self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if normalize_energy:
                 E -= self.cbm_vbm[tp]["energy"]
                 fermi -= self.cbm_vbm[tp]["energy"]
@@ -1821,7 +1821,7 @@ class AMSET(object):
         for ie in range(imax_occ):
 
             E = self.egrid[tp]["energy"][ie]
-            dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
+            dE = (self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if xDOS:
                 dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
             if xvel:
@@ -1965,7 +1965,6 @@ class AMSET(object):
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         f = self.kgrid[tp]["f"][c][T][ib][ik]
         f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
-        # k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
         v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
@@ -2828,7 +2827,7 @@ if __name__ == "__main__":
     #   poly_bands: if specified, uses polynomial interpolation for band structure; otherwise default is None and the
     #               model uses Analytical_Bands with the specified coefficient file
 
-    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
                     "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
@@ -2847,7 +2846,7 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     #
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-                       "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
+                       "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": "scissor": 0.5818}
     cube_path = "../test_files/GaAs/"
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
