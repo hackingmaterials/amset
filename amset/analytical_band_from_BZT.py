@@ -66,13 +66,11 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
     # determine the sign of energy from type; e.g. p-type energies are negative with VBM=0.0
     kpt = np.array(kpt)
     sgn = (-1)**(["p", "n"].index(type)+1)
-    # kpt = np.dot(np.array(kpt),lattice_matrix)*1/A_to_nm*2*pi #[1/nm]
     band_shapes = poly_bands[ib]
     min_kdistance = 1e32
     energy_list = []
     for ks, c in band_shapes: #ks are all symmetrically equivalent k-points to the extremum k that are in the first BZ
         for k in ks:
-        # distance = min([norm(kpt-np.dot(np.array(k),lattice_matrix)*1/A_to_nm*2*pi) for k in ks])
         # distance = min([norm(kpt-k) for k in ks])
         #     distance = norm(kpt-k)/(2*pi)
             distance = norm(kpt-k)
@@ -178,7 +176,7 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
         #             ir_kpts += [k+[x, y, z] for k in ir_kpts_base]
         # weights *= counter
 
-        ir_kpts = [np.dot(lattice_matrix, k)*2*pi/A_to_nm for k in ir_kpts]
+        ir_kpts = [lattice_matrix.get_cartesian_coords(k)/A_to_nm for k in ir_kpts]
 
         w_sum = float(sum(weights))
         dos = np.zeros(e_range)
@@ -516,7 +514,7 @@ if __name__ == "__main__":
     print v
 
     run = Vasprun('vasprun.xml')
-    lattice_matrix = run.lattice_rec.matrix / (2 * pi)
+    lattice_matrix = run.final_structure.lattice.reciprocal_lattice
     st = run.structures[0]
 
 
