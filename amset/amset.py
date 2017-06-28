@@ -264,7 +264,8 @@ class AMSET(object):
         self.dopings = dopings or [-1e19, -1e20]  # TODO: change the default to [-1e16,...,-1e21,1e21, ...,1e16] later
         self.temperatures = temperatures or map(float,
                                                 [300, 600])  # TODO: change the default to [50,100,...,1300] later
-
+        self.debug_tp = self.get_tp(self.dopings[0])
+        logging.debug("""debug_tp: "{}" """.format(self.debug_tp))
         self.set_material_params(material_params)
         self.set_model_params(model_params)
         self.set_performance_params(performance_params)
@@ -274,7 +275,8 @@ class AMSET(object):
             self.cbm_vbm["n"]["energy"] = self.dft_gap
             self.cbm_vbm["p"]["energy"] = 0.0
             # @albalu why are the conduction and valence band k points being set to the same value?
-            # @albalu what is the format of self.poly_bands?
+                # because the way poly band generates a band structure is by mirroring conduction and valence bands
+            # @albalu what is the format of self.poly_bands? it's a nested list, this can be improved actually
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
 
         self.all_types = [self.get_tp(c) for c in self.dopings]
@@ -327,7 +329,7 @@ class AMSET(object):
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
 
         print "average of the group velocity in e-grid!"
-        print np.mean(self.egrid["n"]["velocity"], 0)
+        print np.mean(self.egrid[self.debug_tp]["velocity"], 0)
 
         # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
         if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
@@ -377,13 +379,13 @@ class AMSET(object):
         if "POP" in self.inelastic_scatterings:
             for key in ["plus", "minus"]:
                 with open("X_E{}_ik".format(key), "w") as fp:
-                    json.dump(self.kgrid["n"]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
+                    json.dump(self.kgrid[self.debug_tp]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
 
         self.calculate_transport_properties()
 
-        # logging.debug('self.kgrid_to_egrid_idx["n"]: \n {}'.format(self.kgrid_to_egrid_idx["n"]))
-        # logging.debug('self.kgrid["velocity"]["n"][0]: \n {}'.format(self.kgrid["n"]["velocity"][0]))
-        # logging.debug('self.egrid["velocity"]["n"]: \n {}'.format(self.egrid["n"]["velocity"]))
+        # logging.debug('self.kgrid_to_egrid_idx[self.debug_tp]: \n {}'.format(self.kgrid_to_egrid_idx[self.debug_tp]))
+        # logging.debug('self.kgrid["velocity"][self.debug_tp][0]: \n {}'.format(self.kgrid[self.debug_tp]["velocity"][0]))
+        # logging.debug('self.egrid["velocity"][self.debug_tp]: \n {}'.format(self.egrid[self.debug_tp]["velocity"]))
 
         # kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
         #                 "f_th", "g_th", "S_i_th", "S_o_th"]
@@ -519,19 +521,46 @@ class AMSET(object):
 
 
 
+    def get_dft_orbitals(self, bidx):
+        projected = self._vrun.projected_eigenvalues
+        print len(projected[Spin.up][0][10])  # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
+        print sum(projected[Spin.up][0][10])
+
+        s_orbital = [0.0 for k in self.DFT_cartesian_kpts]
+        p_orbital = [0.0 for k in self.DFT_cartesian_kpts]
+        for ik in range(len(self.DFT_cartesian_kpts)):
+            s_orbital[ik] = sum(projected[Spin.up][ik][bidx])[0]
+            if self.lorbit == 10:
+                p_orbital[ik] = sum(projected[Spin.up][ik][bidx])[1]
+            elif self.lorbit == 11:
+                p_orbital[ik] = sum(sum(projected[Spin.up][ik][bidx])[1:4])
+        return s_orbital, p_orbital
+
+
+
     def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
         self._vrun = Vasprun(os.path.join(calc_dir, filename), parse_projected_eigen=True)
         self.volume = self._vrun.final_structure.volume
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
-        # @albalu why is this not called the reciprocal lattice?
-        self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
+        # @albalu why is this not called the reciprocal lattice? your _rec_lattice is better
+        # self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
         # @albalu is there a convention to name variables that are other objects with a "_" in the front?
+            # yes, these are the ones that users are absolutely not supposed to change
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
+
         bs = self._vrun.get_band_structure()
-        projected = self._vrun.projected_eigenvalues
-        print len(projected[Spin.up][0][10])  # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
-        print sum(projected[Spin.up][0][10])
+        self.lorbit = 11 if len(sum(self._vrun.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
+
+        self.DFT_cartesian_kpts = np.array(
+                [self._rec_lattice.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
+
+        s_orbital, p_orbital = self.get_dft_orbitals(bidx=13)
+        print s_orbital[:10]
+        print p_orbital[:10]
+
+
+
         # The only thing left to do is to use scipy.interpolate.griddata to interpolate s,p,d contributions at a given list of k-points
 
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
@@ -575,11 +604,12 @@ class AMSET(object):
             for i, tp in enumerate(["n", "p"]):
                 sgn = (-1) ** i
                 # @albalu what is this next line doing (even though it doesn't appear to be in use)?
+                    # this part determines how many bands are have energy values close enough to CBM/VBM to be included
                 while abs(min(sgn * bs["bands"]["1"][cbm_vbm[tp]["bidx"] + sgn * cbm_vbm[tp]["included"]]) -
                                           sgn * cbm_vbm[tp]["energy"]) < self.Ecut:
                     cbm_vbm[tp]["included"] += 1
 
-                    # TODO: for now, I only include 1 band for each as I get some errors if I include more bands
+                    # TODO: for now, I only include 1 band for quicker testing
                 cbm_vbm[tp]["included"] = 1
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands)
@@ -741,15 +771,15 @@ class AMSET(object):
             # TODO: what is the best value to pick for width here?I guess the lower is more precisely at each energy?
             # dum, self.egrid[tp]["DOS"] = get_dos(self.egrid[tp]["energy"], energy_counter,width = 0.05)
 
-        # logging.debug("here self.kgrid_to_egrid_idx: {}".format(self.kgrid_to_egrid_idx["n"]))
-        # logging.debug(self.kgrid["n"]["energy"])
+        # logging.debug("here self.kgrid_to_egrid_idx: {}".format(self.kgrid_to_egrid_idx[self.debug_tp]))
+        # logging.debug(self.kgrid[self.debug_tp]["energy"])
 
 
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
 
-        print "here total number of ks from self.Efrequency for n-type"
-        print sum(self.Efrequency["n"])
+        logging.debug("here total number of ks from self.Efrequency for {}-type".format(self.debug_tp))
+        logging.debug(sum(self.Efrequency[self.debug_tp]))
 
         min_nE = 2
 
@@ -766,6 +796,13 @@ class AMSET(object):
 
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
+
+        # self.egrid["fermi"]= {
+        #              2000000000000000.0: {
+        #                  300: -0.3762626769609572
+        #              }
+        #          }
+
 
         # Since the SPB generated band structure may have several valleys, it's better to use the Fermi calculated from the actual band structure
         # self.calculate_property(prop_name="fermi_SPB", prop_func=self.find_fermi_SPB)
@@ -1018,9 +1055,9 @@ class AMSET(object):
                 if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
                     kpoints_added[tp].append(kpts[ie])
 
-        print "here initial k-points with low energy distance"
-        print len(kpoints_added["n"])
-        # print kpoints_added["n"]
+        print "here initial k-points for {}-type with low energy distance".format(self.debug_tp)
+        print len(kpoints_added[self.debug_tp])
+        # print kpoints_added[self.debug_tp]
         final_kpts_added = []
         for tp in ["n", "p"]:
             # final_kpts_added = []
@@ -1199,8 +1236,7 @@ class AMSET(object):
             self.dos_emin += self.offset_from_vrun
 
         logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
-        # @albalu why is "n" used to get the avg_eff_mass for "n" and "p"?
-        self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm["n"]["eff_mass_xx"])) for tp in ["n", "p"]}
+        self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm[tp]["eff_mass_xx"])) for tp in ["n", "p"]}
 
         # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
@@ -1225,6 +1261,7 @@ class AMSET(object):
                         energies[tp][ik] = energy
 
                         # @albalu why do we exclude values of k that have a small component of velocity?
+                        # @Jason: because scattering equations have v in the denominator: get too large for such points
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
                                         abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                             rm_list[tp].append(ik)
@@ -1258,44 +1295,57 @@ class AMSET(object):
 
         # logging.debug("energies before removing k-points with off-energy:\n {}".format(energies))
         # remove energies that are out of range
-        rm_list_all = list(set(rm_list["n"] + rm_list["p"]))
-        kpts = np.delete(kpts, rm_list_all, axis=0)
-        kpts = list(kpts)
-        for tp in ["n", "p"]:
-            energies[tp] = np.delete(energies[tp], rm_list_all, axis=0)
 
-        logging.info("number of ibz k-points AFTER ENERGY-FILTERING: {}".format(len(kpts)))
+        # rm_list_all = list(set(rm_list["n"] + rm_list["p"]))
+        # kpts = np.delete(kpts, rm_list_all, axis=0)
+        # kpts = list(kpts)
+        # for tp in ["n", "p"]:
+        #     energies[tp] = np.delete(energies[tp], rm_list_all, axis=0)
+
+        kpts = {"n": kpts, "p": kpts}
+        for tp in ["n", "p"]:
+            rm_list[tp] = list(set(rm_list[tp]))
+            kpts[tp] = list(np.delete(kpts[tp], rm_list[tp], axis=0))
+            energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
+
+
+            logging.info("number of ibz k-points AFTER ENERGY-FILTERING: {}".format(len(kpts[tp])))
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
         if self.adaptive_mesh:
-            all_added_kpoints = []
-            all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,
-                                                           adaptive_Erange=[0 * k_B * Tmx, 1 * k_B * Tmx], nsteps=30)
-
-            # it seems it works mostly at higher energy values!
-            # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies)
-
-            print "here the number of added k-points"
-            print len(all_added_kpoints)
-            print all_added_kpoints
-            print type(kpts)
-            kpts += all_added_kpoints
+            raise IOError("adaptive mesh has not yet been implemented, please check back later!")
+        #
+        # if self.adaptive_mesh:
+        #     all_added_kpoints = []
+        #     all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,
+        #                                                    adaptive_Erange=[0 * k_B * Tmx, 1 * k_B * Tmx], nsteps=30)
+        #
+        #     # it seems it works mostly at higher energy values!
+        #     # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies)
+        #
+        #     print "here the number of added k-points"
+        #     print len(all_added_kpoints)
+        #     print all_added_kpoints
+        #     print type(kpts)
+        #     kpts += all_added_kpoints
 
         # add in symmetrically equivalent k points
-        symmetrically_equivalent_ks = []
-        for k in kpts:
-            symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
-        kpts += symmetrically_equivalent_ks
-        kpts = self.remove_duplicate_kpoints(kpts)
+        for tp in ["n", "p"]:
+            symmetrically_equivalent_ks = []
+            for k in kpts[tp]:
+                symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
+            kpts[tp] += symmetrically_equivalent_ks
+            kpts[tp] = self.remove_duplicate_kpoints(kpts[tp])
 
-        if len(kpts) < 3:
-            raise ValueError("The k-point mesh is too loose (number of kpoints = {}) "
-                             "after filtering the initial k-mesh".format(len(kpts)))
+            if len(kpts[tp]) < 3:
+                raise ValueError("The k-point mesh for {}-type is too loose (number of kpoints = {}) "
+                                "after filtering the initial k-mesh".format(tp, len(kpts)))
 
-        logging.info("number of kpoints after symmetrically equivalent kpoints are added: {}".format(len(kpts)))
+            logging.info("number of {}-type k-points after symmetrically equivalent kpoints are added: {}".format(
+                        tp, len(kpts[tp])))
 
         # TODO: remove anything with "weight" later if ended up not using weights at all!
-        kweights = [1.0 for i in kpts]
+        kweights = {tp: [1.0 for i in kpts[tp]] for tp in ["n", "p"]}
 
         # actual initiation of the kgrid
         self.kgrid = {
@@ -1303,10 +1353,11 @@ class AMSET(object):
             "p": {}}
 
         for tp in ["n", "p"]:
-            # @albalu [k for k in kpts] is always the same as kpts, right?
+            # @albalu [k for k in kpts] is always the same as kpts, right? yes but it is always a "list" regardless
+            # of the type kpts (e.g. even if kpts was "numpy.array", the new list is "list"
             num_bands = self.cbm_vbm[tp]["included"]
-            self.kgrid[tp]["kpoints"] = [kpts for ib in range(num_bands)]
-            self.kgrid[tp]["kweights"] = [kweights for ib in range(num_bands)]
+            self.kgrid[tp]["kpoints"] = [kpts[tp] for ib in range(num_bands)]
+            self.kgrid[tp]["kweights"] = [kweights[tp] for ib in range(num_bands)]
             # self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
             # self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
 
@@ -1379,15 +1430,13 @@ class AMSET(object):
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
                     self.kgrid[tp]["a"][ib][ik] = 1.0
 
-        logging.info("average of the group velocity in kgrid".format(np.mean(self.kgrid["n"]["velocity"][0], 0)))
+        logging.info("average of the {}-type group velocity in kgrid".format(
+                        np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
 
         rearranged_props = ["velocity", "effective mass", "energy", "a", "c", "kpoints", "cartesian kpoints",
                             "kweights",
                             "norm(v)", "norm(k)"]
 
-        # if self.poly_bands:
-        #     self.dos_emin = min(self.kgrid["p"]["energy"][-1])
-        #     self.dos_emax = max(self.kgrid["n"]["energy"][-1])
 
         # TODO: the following is temporary, for some reason if # of kpts in different bands are NOT the same,
         # I get an error that _all_elastic is a list! so 1/self.kgrid[tp]["_all_elastic"][c][T][ib] cause error int/list!
@@ -1407,7 +1456,7 @@ class AMSET(object):
             for ib in range(len(self.kgrid[tp]["energy"])):
                 logging.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
 
-        if len(self.kgrid["n"]["kpoints"][0]) < 5:
+        if len(self.kgrid["n"]["kpoints"][0]) < 5 or len(self.kgrid["p"]["kpoints"][0]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
 
         logging.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
@@ -1458,7 +1507,7 @@ class AMSET(object):
             self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
         else:
             logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
-            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._lattice_matrix,
+            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
                                                  [self.nkdos, self.nkdos, self.nkdos], self.dos_emin, self.dos_emax,
                                                  int(round(
                                                      (self.dos_emax - self.dos_emin) / max(self.dE_min, 0.0001))) + 1,
@@ -1716,7 +1765,7 @@ class AMSET(object):
         integral = 0.0
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             E = self.egrid[tp]["energy"][ie]
-            dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
+            dE = (self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if normalize_energy:
                 E -= self.cbm_vbm[tp]["energy"]
                 fermi -= self.cbm_vbm[tp]["energy"]
@@ -1797,7 +1846,7 @@ class AMSET(object):
         for ie in range(imax_occ):
 
             E = self.egrid[tp]["energy"][ie]
-            dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
+            dE = (self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if xDOS:
                 dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
             if xvel:
@@ -1942,7 +1991,6 @@ class AMSET(object):
         f = self.kgrid[tp]["f"][c][T][ib][ik]
         f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
-        k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
         v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
         f_prm = self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
@@ -1960,22 +2008,25 @@ class AMSET(object):
         norm_diff = norm(k - k_prm)
         # print norm(k_prm)**2
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
-        # integ = norm(k_prm)**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/(v[alpha]*norm_diff**2)
+        integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
+                (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2)
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/v_prm # simply /v_prm is wrong and creates artificial anisotropy
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
-        integ = self.G(tp, ib, ik, ib_prm, ik_prm, X) / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
+        # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X) / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
         if "S_i" in sname:
             integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
             if "minus" in sname:
-                integ *= (1 - f) * N_POP + f * (1 + N_POP)
+                if self.kgrid[tp]["energy"][ib][ik] -hbar*self.kgrid[tp]["W_POP"][ib][ik] >= self.cbm_vbm[tp]["energy"]:
+                    integ *= (1 - f) * N_POP + f * (1 + N_POP)
             elif "plus" in sname:
                 integ *= (1 - f) * (1 + N_POP) + f * N_POP
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         elif "S_o" in sname:
             if "minus" in sname:
-                integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
+                if self.kgrid[tp]["energy"][ib][ik]-hbar *self.kgrid[tp]["W_POP"][ib][ik] >= self.cbm_vbm[tp]["energy"]:
+                    integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
             elif "plus" in sname:
                 integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
             else:
@@ -1983,6 +2034,7 @@ class AMSET(object):
         else:
             raise ValueError("The inelastic scattering name: {} is NOT supported".format(sname))
         return integ
+
 
     def s_inel_eq_isotropic(self, once_called=False):
         for tp in ["n", "p"]:
@@ -2034,6 +2086,8 @@ class AMSET(object):
                             # if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
                             #     print tp, c, T, ik, ib, summation, self.kgrid[tp][sname][c][T][ib][ik]
 
+
+
     def s_el_eq_isotropic(self, sname, tp, c, T, ib, ik):
         """returns elastic scattering rate (a numpy vector) at certain point (e.g. k-point, T, etc)
         with the assumption that the band structure is isotropic (i.e. self.bs_is_isotropic==True).
@@ -2042,7 +2096,6 @@ class AMSET(object):
 
         # TODO: decide on knrm and whether it needs a reference k-point (i.e. CBM/VBM) where the reference point is not Gamma. No ref. result in large rates in PbTe.
         # I justify subtracting the CBM/VBM actual k-points as follows:
-        # knrm = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
         # v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
         # v = norm(self.kgrid[tp]["velocity"][ib][ik])
         v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
@@ -2050,7 +2103,6 @@ class AMSET(object):
         # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
         # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
 
-        # knrm = norm(self.kgrid[tp]["kpoints"][ib][ik]-np.dot(self.cbm_vbm[tp]["kpoint"], self._lattice_matrix)*2*pi*1/A_to_nm)
 
         # if self.poly_bands: # the first one should be v and NOT v * sq3 so that the two match in SPB
         if False:  # I'm 90% sure that there is not need for the first type of knrm and that's why I added if False for now
@@ -2159,6 +2211,8 @@ class AMSET(object):
                         # logging.debug("_all_elastic c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["_all_elastic"][c][T][ib]))
                         self.kgrid[tp]["relaxation time"][c][T][ib] = 1 / self.kgrid[tp]["_all_elastic"][c][T][ib]
 
+
+
     def map_to_egrid(self, prop_name, c_and_T_idx=True, prop_type="vector"):
         """
         maps a propery from kgrid to egrid conserving the nomenclature. The mapped property should have the
@@ -2252,12 +2306,13 @@ class AMSET(object):
 
 
 
-    def find_fermi_SPB(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.4, max_iter=1000):
+    def find_fermi_SPB(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=1000):
 
+        tp = self.get_tp(c)
         sgn = np.sign(c)
-        m_eff = np.prod(self.cbm_vbm["n"]["eff_mass_xx"]) ** (1.0 / 3.0)
+        m_eff = np.prod(self.cbm_vbm[tp]["eff_mass_xx"]) ** (1.0 / 3.0)
         c *= sgn
-        initial_energy = self.cbm_vbm["n"]["energy"]
+        initial_energy = self.cbm_vbm[tp]["energy"]
         fermi = initial_energy + 0.02
         iter = 0
         for iter in range(max_iter):
@@ -2299,16 +2354,21 @@ class AMSET(object):
         # fermi = self.egrid[typ]["energy"][0]
 
         print("calculating the fermi level at temperature: {} K".format(T))
-        j = ["n", "p"].index(typ)
+        typj = ["n", "p"].index(typ)
         funcs = [lambda E, fermi0, T: f0(E, fermi0, T), lambda E, fermi0, T: 1 - f0(E, fermi0, T)]
-        calc_doping = (-1) ** (j + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
-                      * abs(self.integrate_over_DOSxE_dE(func=funcs[j], tp=typ, fermi=fermi, T=T))
+        calc_doping = (-1) ** (typj + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
+                      * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ, fermi=fermi, T=T))
 
         while (relative_error > tolerance) and (iter < max_iter):
+            # print iter
+            # print calc_doping
+            # print fermi
+            # print (-1) ** (typj)
+            # print
             iter += 1  # to avoid an infinite loop
             if iter / max_iter > 0.5:  # to avoid oscillation we re-adjust alpha at each iteration
                 tune_alpha = 1 - iter / max_iter
-            fermi += alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
+            fermi += (-1) ** (typj) * alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
 
             for j, tp in enumerate(["n", "p"]):
                 integral = 0.0
@@ -2388,10 +2448,16 @@ class AMSET(object):
                     try:
                         for c in self.dopings:
                             for T in self.temperatures:
-                                egrid[tp][key][c][T] = self.egrid[tp][key][c][T][nstart:nstart + nmax]
+                                if tp == "n":
+                                    egrid[tp][key][c][T] = self.egrid[tp][key][c][T][nstart:nstart + nmax]
+                                else:
+                                    egrid[tp][key][c][T] = self.egrid[tp][key][c][T][-(nstart+nmax):-max(nstart,1)][::-1]
                     except:
                         try:
-                            egrid[tp][key] = self.egrid[tp][key][nstart:nstart + nmax]
+                            if tp == "n":
+                                egrid[tp][key] = self.egrid[tp][key][nstart:nstart + nmax]
+                            else:
+                                egrid[tp][key] = self.egrid[tp][key][-(nstart+nmax):-max(nstart,1)][::-1]
                         except:
                             print "cutting data for {} numbers in egrid was NOT successful!".format(key)
                             pass
@@ -2413,12 +2479,20 @@ class AMSET(object):
                         try:
                             for c in self.dopings:
                                 for T in self.temperatures:
-                                    kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][nstart:nstart + nmax]
+                                    if tp == "n":
+                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][nstart:nstart + nmax]
                                                             for b in range(self.cbm_vbm[tp]["included"])]
+                                    else:
+                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                                                for b in range(self.cbm_vbm[tp]["included"])]
                         except:
                             try:
-                                kgrid[tp][key] = [self.kgrid[tp][key][b][nstart:nstart + nmax]
+                                if tp == "n":
+                                    kgrid[tp][key] = [self.kgrid[tp][key][b][nstart:nstart + nmax]
                                                   for b in range(self.cbm_vbm[tp]["included"])]
+                                else:
+                                    kgrid[tp][key] = [self.kgrid[tp][key][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                                      for b in range(self.cbm_vbm[tp]["included"])]
                             except:
                                 print "cutting data for {} numbers in kgrid was NOT successful!".format(key)
                                 pass
@@ -2518,9 +2592,6 @@ class AMSET(object):
                     if integrate_over_kgrid:
                         denom = self.integrate_over_BZ(["f0"], tp, c, T, xDOS=False, xvel=False,
                                                        weighted=True) * 1e-7 * 1e-3 * self.volume
-                        if tp == "n":
-                            print "{}-type common denominator at {} K".format(tp, T)
-                            print denom
                     else:
                         denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
                                                       weighted=True)
@@ -2560,7 +2631,7 @@ class AMSET(object):
                     # other semi-empirical mobility values:
                     fermi = self.egrid["fermi"][c][T]
                     # fermi_SPB = self.egrid["fermi_SPB"][c][T]
-                    energy = self.cbm_vbm["n"]["energy"]
+                    energy = self.cbm_vbm[self.get_tp(c)]["energy"]
 
                     # for mu in ["overall", "average"] + self.inelastic_scatterings + self.elastic_scatterings:
                     #     self.egrid["mobility"][mu][c][T][tp] /= 3.0
@@ -2642,7 +2713,8 @@ class AMSET(object):
                 os.makedirs(name=path)
         fformat = "html"
 
-        for tp in ["n"]:
+
+        for tp in [self.debug_tp]:
             print(
             'plotting: first set of plots: "log10 of mobility", "relaxation time", "_all_elastic", "ACD", "df0dk"')
             plt = PlotlyFig(x_title="Temperature (K)", y_title="log10 of mobility (^10 cm2/V.s)", textsize=textsize,
@@ -2797,18 +2869,18 @@ if __name__ == "__main__":
     #               model uses Analytical_Bands with the specified coefficient file
 
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]
+                    "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
-                    , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
-                    }
+                    "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
+
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
+                          "parallel": True, "BTE_iters": 5}
 
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
     #                "E_D": {"n": 4.0, "p": 4.0}}
