@@ -768,6 +768,13 @@ class AMSET(object):
         # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
         self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
 
+        # self.egrid["fermi"]= {
+        #              2000000000000000.0: {
+        #                  300: -0.3762626769609572
+        #              }
+        #          }
+
+
         # Since the SPB generated band structure may have several valleys, it's better to use the Fermi calculated from the actual band structure
         # self.calculate_property(prop_name="fermi_SPB", prop_func=self.find_fermi_SPB)
 
@@ -1225,6 +1232,7 @@ class AMSET(object):
                         energies[tp][ik] = energy
 
                         # @albalu why do we exclude values of k that have a small component of velocity?
+                        # @Jason: because scattering equations have v in the denominator: get too large for such points
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
                                         abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                             rm_list[tp].append(ik)
@@ -1258,44 +1266,57 @@ class AMSET(object):
 
         # logging.debug("energies before removing k-points with off-energy:\n {}".format(energies))
         # remove energies that are out of range
-        rm_list_all = list(set(rm_list["n"] + rm_list["p"]))
-        kpts = np.delete(kpts, rm_list_all, axis=0)
-        kpts = list(kpts)
-        for tp in ["n", "p"]:
-            energies[tp] = np.delete(energies[tp], rm_list_all, axis=0)
 
-        logging.info("number of ibz k-points AFTER ENERGY-FILTERING: {}".format(len(kpts)))
+        # rm_list_all = list(set(rm_list["n"] + rm_list["p"]))
+        # kpts = np.delete(kpts, rm_list_all, axis=0)
+        # kpts = list(kpts)
+        # for tp in ["n", "p"]:
+        #     energies[tp] = np.delete(energies[tp], rm_list_all, axis=0)
+
+        kpts = {"n": kpts, "p": kpts}
+        for tp in ["n", "p"]:
+            rm_list[tp] = list(set(rm_list[tp]))
+            kpts[tp] = list(np.delete(kpts[tp], rm_list[tp], axis=0))
+            energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
+
+
+            logging.info("number of ibz k-points AFTER ENERGY-FILTERING: {}".format(len(kpts[tp])))
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
         if self.adaptive_mesh:
-            all_added_kpoints = []
-            all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,
-                                                           adaptive_Erange=[0 * k_B * Tmx, 1 * k_B * Tmx], nsteps=30)
-
-            # it seems it works mostly at higher energy values!
-            # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies)
-
-            print "here the number of added k-points"
-            print len(all_added_kpoints)
-            print all_added_kpoints
-            print type(kpts)
-            kpts += all_added_kpoints
+            raise IOError("adaptive mesh has not yet been implemented, please check back later!")
+        #
+        # if self.adaptive_mesh:
+        #     all_added_kpoints = []
+        #     all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,
+        #                                                    adaptive_Erange=[0 * k_B * Tmx, 1 * k_B * Tmx], nsteps=30)
+        #
+        #     # it seems it works mostly at higher energy values!
+        #     # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies)
+        #
+        #     print "here the number of added k-points"
+        #     print len(all_added_kpoints)
+        #     print all_added_kpoints
+        #     print type(kpts)
+        #     kpts += all_added_kpoints
 
         # add in symmetrically equivalent k points
-        symmetrically_equivalent_ks = []
-        for k in kpts:
-            symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
-        kpts += symmetrically_equivalent_ks
-        kpts = self.remove_duplicate_kpoints(kpts)
+        for tp in ["n", "p"]:
+            symmetrically_equivalent_ks = []
+            for k in kpts[tp]:
+                symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
+            kpts[tp] += symmetrically_equivalent_ks
+            kpts[tp] = self.remove_duplicate_kpoints(kpts[tp])
 
-        if len(kpts) < 3:
-            raise ValueError("The k-point mesh is too loose (number of kpoints = {}) "
-                             "after filtering the initial k-mesh".format(len(kpts)))
+            if len(kpts[tp]) < 3:
+                raise ValueError("The k-point mesh for {}-type is too loose (number of kpoints = {}) "
+                                "after filtering the initial k-mesh".format(tp, len(kpts)))
 
-        logging.info("number of kpoints after symmetrically equivalent kpoints are added: {}".format(len(kpts)))
+            logging.info("number of {}-type k-points after symmetrically equivalent kpoints are added: {}".format(
+                        tp, len(kpts[tp])))
 
         # TODO: remove anything with "weight" later if ended up not using weights at all!
-        kweights = [1.0 for i in kpts]
+        kweights = {tp: [1.0 for i in kpts[tp]] for tp in ["n", "p"]}
 
         # actual initiation of the kgrid
         self.kgrid = {
@@ -1303,10 +1324,11 @@ class AMSET(object):
             "p": {}}
 
         for tp in ["n", "p"]:
-            # @albalu [k for k in kpts] is always the same as kpts, right?
+            # @albalu [k for k in kpts] is always the same as kpts, right? yes but it is always a "list" regardless
+            # of the type kpts (e.g. even if kpts was "numpy.array", the new list is "list"
             num_bands = self.cbm_vbm[tp]["included"]
-            self.kgrid[tp]["kpoints"] = [kpts for ib in range(num_bands)]
-            self.kgrid[tp]["kweights"] = [kweights for ib in range(num_bands)]
+            self.kgrid[tp]["kpoints"] = [kpts[tp] for ib in range(num_bands)]
+            self.kgrid[tp]["kweights"] = [kweights[tp] for ib in range(num_bands)]
             # self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
             # self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
 
@@ -2306,7 +2328,7 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=5000):
+    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.05, max_iter=5000):
         """
         To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
         :param c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
@@ -2422,10 +2444,16 @@ class AMSET(object):
                     try:
                         for c in self.dopings:
                             for T in self.temperatures:
-                                egrid[tp][key][c][T] = self.egrid[tp][key][c][T][nstart:nstart + nmax]
+                                if tp == "n":
+                                    egrid[tp][key][c][T] = self.egrid[tp][key][c][T][nstart:nstart + nmax]
+                                else:
+                                    egrid[tp][key][c][T] = self.egrid[tp][key][c][T][-(nstart+nmax):-max(nstart,1)][::-1]
                     except:
                         try:
-                            egrid[tp][key] = self.egrid[tp][key][nstart:nstart + nmax]
+                            if tp == "n":
+                                egrid[tp][key] = self.egrid[tp][key][nstart:nstart + nmax]
+                            else:
+                                egrid[tp][key] = self.egrid[tp][key][-(nstart+nmax):-max(nstart,1)][::-1]
                         except:
                             print "cutting data for {} numbers in egrid was NOT successful!".format(key)
                             pass
@@ -2447,12 +2475,20 @@ class AMSET(object):
                         try:
                             for c in self.dopings:
                                 for T in self.temperatures:
-                                    kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][nstart:nstart + nmax]
+                                    if tp == "n":
+                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][nstart:nstart + nmax]
                                                             for b in range(self.cbm_vbm[tp]["included"])]
+                                    else:
+                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                                                for b in range(self.cbm_vbm[tp]["included"])]
                         except:
                             try:
-                                kgrid[tp][key] = [self.kgrid[tp][key][b][nstart:nstart + nmax]
+                                if tp == "n":
+                                    kgrid[tp][key] = [self.kgrid[tp][key][b][nstart:nstart + nmax]
                                                   for b in range(self.cbm_vbm[tp]["included"])]
+                                else:
+                                    kgrid[tp][key] = [self.kgrid[tp][key][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                                      for b in range(self.cbm_vbm[tp]["included"])]
                             except:
                                 print "cutting data for {} numbers in kgrid was NOT successful!".format(key)
                                 pass
@@ -2858,7 +2894,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[2e15], temperatures=[300])
+                  dopings=[1e19], temperatures=[300])
     # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
