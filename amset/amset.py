@@ -1605,86 +1605,62 @@ class AMSET(object):
         return new_X_ib_ik
 
 
-
-    # TODO-JF: this function needs a MAJOR clean-up, lots of duplicate or very similar codes
     def get_X_ib_ik_near_new_E(self, tp, ib, ik, E_change, forced_min_npoints=0, tolerance=0.01):
         """Returns the sorted (based on angle, X) list of angle and band and k-point indexes of all the points
-            that are withing the E_radius of E
+            that are within tolerance of E + E_change
             Attention! this function assumes self.kgrid is sorted based on the energy in ascending order."""
         E = self.kgrid[tp]["energy"][ib][ik]
+        E_prm = E + E_change  # E_prm is E prime, the new energy
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
-        E_radius = E_change
         # we count the point itself; it does not result in self-scattering (due to 1-X term); however, it is necessary
         # to avoid zero scattering as in the integration each term is (X[i+1]-X[i])*(integrand[i]+integrand[i+1)/2
         result = [(1, ib, ik)]
 
-        counter = 0
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
         for ib_prm in range(self.cbm_vbm[tp]["included"]):
-            if ib == ib_prm and E_radius == 0.0:
-                ik_prm = ik
-            else:
-                ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() - 1
-            while (ik_prm < nk - 1) and abs(
-                            self.kgrid[tp]["energy"][ib_prm][ik_prm + 1] - (E + E_radius)) < tolerance:
-                ik_prm += 1
-                result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
-                counter += 1
+            # this code is commented out because it is unnecessary unless it saves a lot of time
+            # if ib==ib_prm and E_change==0.0:
+            #    ik_closest_E = ik
+            # else:
+            ik_closest_E = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
 
-            if ib == ib_prm and E_radius == 0.0:
-                ik_prm = ik
-            else:
-                ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() + 1
-            while (ik_prm > 0) and abs(E + E_radius - self.kgrid[tp]["energy"][ib_prm][ik_prm - 1]) < tolerance:
-                ik_prm -= 1
-                result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
-                counter += 1
-
-        # TODO: I added the X_prev_forced to make sure that the enforced points are introducing good variety of points and not just symmetrically equivalent ones with the same angles!
-        # X_prev_forced = -1000
-
-        # TODO: I added the X_prev_forced to make sure that the enforced points are introducing good variety of points and not just symmetrically equivalent ones with the same angles!
-        # X_prev_forced = -1000
+            for step, start in [(1, 0), (-1, -1)]:
+                ik_prm = ik_closest_E + start  # go up from ik_closest_E, down from ik_closest_E - 1
+                while (ik_prm >= 0) and (ik_prm < nk) and (
+                    abs(self.kgrid[tp]["energy"][ib_prm][ik_prm] - E_prm) < tolerance):
+                    X_ib_ik = (cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm)
+                    if (X_ib_ik[1], X_ib_ik[2]) not in [(entry[1], entry[2]) for entry in result]:
+                        result.append(X_ib_ik)
+                    ik_prm += step
 
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
         ib_prm = ib
-        if E_radius == 0.0:
-            ik_prm = ik
-        else:
-            ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() - 1
-        while ik_prm < nk - 1 and counter < forced_min_npoints:
-            ik_prm += 1
-            # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
-            for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
-                X, ib_pmpm, ik_pmpm = X_ib_ik
-                result.append(
-                    (cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
-                counter += 1
-                self.nforced_scat[tp] += 1
+        # if E_change == 0.0:
+        #    ik_prm = ik
+        # else:
+        ik_closest_E = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
 
-            self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib_prm][ik_prm] - self.kgrid[tp]["energy"][ib][ik])
+        for step, start in [(1, 0), (-1, -1)]:
+            # step -1 is in case we reached the end (ik_prm == nk - 1); then we choose from the lower energy k-points
+            ik_prm = ik_closest_E + start  # go up from ik_closest_E, down from ik_closest_E - 1
+            while ik_prm >= 0 and ik_prm < nk and len(result) - 1 < forced_min_npoints:
+                # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
+                # @albalu isn't this the function that is used to generate self.kgrid[tp]["X_E_ik"]? How will there already be something in self.kgrid[tp]["X_E_ik"] at this point?
+                for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
+                    X, ib_pmpm, ik_pmpm = X_ib_ik
+                    X_ib_ik_new = (
+                    cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm)
+                    if (X_ib_ik_new[1], X_ib_ik_new[2]) not in [(entry[1], entry[2]) for entry in result]:
+                        result.append(X_ib_ik_new)
+                    self.nforced_scat[tp] += 1
 
-        # in case we reached the end (ik_prm == nk - 1), we choose from the lower energy k-points
-        if E_radius == 0.0:
-            ik_prm = ik
-        else:
-            ik_prm = np.abs(self.kgrid[tp]["energy"][ib_prm] - (E + E_radius)).argmin() + 1
-        while ik_prm > 0 and counter < forced_min_npoints:
-            ik_prm -= 1
-
-            for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
-                X, ib_pmpm, ik_pmpm = X_ib_ik
-                result.append(
-                    (cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm))
-                counter += 1
-                self.nforced_scat[tp] += 1
-
-            self.ediff_scat[tp].append(self.kgrid[tp]["energy"][ib][ik] - self.kgrid[tp]["energy"][ib_prm][ik_prm])
+                self.ediff_scat[tp].append(
+                    self.kgrid[tp]["energy"][ib][ik] - self.kgrid[tp]["energy"][ib_prm][ik_prm])
+                ik_prm += step
 
         result.sort(key=lambda x: x[0])
         return result
-
 
 
     def s_el_eq(self, sname, tp, c, T, k, k_prm):
@@ -2821,16 +2797,17 @@ if __name__ == "__main__":
     #               model uses Analytical_Bands with the specified coefficient file
 
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]}
+                    "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    # "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+                    }
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5, "Ecut": 0.5}
 
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2850,7 +2827,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300])
+                  dopings=[-1e18], temperatures=[300])
     # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
@@ -2860,7 +2837,7 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    AMSET.plot()
+    #AMSET.plot()
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=20, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
