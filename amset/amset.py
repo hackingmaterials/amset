@@ -264,7 +264,8 @@ class AMSET(object):
         self.dopings = dopings or [-1e19, -1e20]  # TODO: change the default to [-1e16,...,-1e21,1e21, ...,1e16] later
         self.temperatures = temperatures or map(float,
                                                 [300, 600])  # TODO: change the default to [50,100,...,1300] later
-
+        self.debug_tp = self.get_tp(self.dopings[0])
+        logging.debug("""debug_tp: "{}" """.format(self.debug_tp))
         self.set_material_params(material_params)
         self.set_model_params(model_params)
         self.set_performance_params(performance_params)
@@ -327,7 +328,7 @@ class AMSET(object):
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
 
         print "average of the group velocity in e-grid!"
-        print np.mean(self.egrid["n"]["velocity"], 0)
+        print np.mean(self.egrid[self.debug_tp]["velocity"], 0)
 
         # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
         if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
@@ -377,13 +378,13 @@ class AMSET(object):
         if "POP" in self.inelastic_scatterings:
             for key in ["plus", "minus"]:
                 with open("X_E{}_ik".format(key), "w") as fp:
-                    json.dump(self.kgrid["n"]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
+                    json.dump(self.kgrid[self.debug_tp]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
 
         self.calculate_transport_properties()
 
-        # logging.debug('self.kgrid_to_egrid_idx["n"]: \n {}'.format(self.kgrid_to_egrid_idx["n"]))
-        # logging.debug('self.kgrid["velocity"]["n"][0]: \n {}'.format(self.kgrid["n"]["velocity"][0]))
-        # logging.debug('self.egrid["velocity"]["n"]: \n {}'.format(self.egrid["n"]["velocity"]))
+        # logging.debug('self.kgrid_to_egrid_idx[self.debug_tp]: \n {}'.format(self.kgrid_to_egrid_idx[self.debug_tp]))
+        # logging.debug('self.kgrid["velocity"][self.debug_tp][0]: \n {}'.format(self.kgrid[self.debug_tp]["velocity"][0]))
+        # logging.debug('self.egrid["velocity"][self.debug_tp]: \n {}'.format(self.egrid[self.debug_tp]["velocity"]))
 
         # kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
         #                 "f_th", "g_th", "S_i_th", "S_o_th"]
@@ -741,15 +742,15 @@ class AMSET(object):
             # TODO: what is the best value to pick for width here?I guess the lower is more precisely at each energy?
             # dum, self.egrid[tp]["DOS"] = get_dos(self.egrid[tp]["energy"], energy_counter,width = 0.05)
 
-        # logging.debug("here self.kgrid_to_egrid_idx: {}".format(self.kgrid_to_egrid_idx["n"]))
-        # logging.debug(self.kgrid["n"]["energy"])
+        # logging.debug("here self.kgrid_to_egrid_idx: {}".format(self.kgrid_to_egrid_idx[self.debug_tp]))
+        # logging.debug(self.kgrid[self.debug_tp]["energy"])
 
 
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
 
-        print "here total number of ks from self.Efrequency for n-type"
-        print sum(self.Efrequency["n"])
+        logging.debug("here total number of ks from self.Efrequency for {}-type".format(self.debug_tp))
+        logging.debug(sum(self.Efrequency[self.debug_tp]))
 
         min_nE = 2
 
@@ -1018,9 +1019,9 @@ class AMSET(object):
                 if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
                     kpoints_added[tp].append(kpts[ie])
 
-        print "here initial k-points with low energy distance"
-        print len(kpoints_added["n"])
-        # print kpoints_added["n"]
+        print "here initial k-points for {}-type with low energy distance".format(self.debug_tp)
+        print len(kpoints_added[self.debug_tp])
+        # print kpoints_added[self.debug_tp]
         final_kpts_added = []
         for tp in ["n", "p"]:
             # final_kpts_added = []
@@ -1199,8 +1200,7 @@ class AMSET(object):
             self.dos_emin += self.offset_from_vrun
 
         logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
-        # @albalu why is "n" used to get the avg_eff_mass for "n" and "p"?
-        self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm["n"]["eff_mass_xx"])) for tp in ["n", "p"]}
+        self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm[tp]["eff_mass_xx"])) for tp in ["n", "p"]}
 
         # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
@@ -1379,15 +1379,13 @@ class AMSET(object):
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
                     self.kgrid[tp]["a"][ib][ik] = 1.0
 
-        logging.info("average of the group velocity in kgrid".format(np.mean(self.kgrid["n"]["velocity"][0], 0)))
+        logging.info("average of the {}-type group velocity in kgrid".format(
+                        np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
 
         rearranged_props = ["velocity", "effective mass", "energy", "a", "c", "kpoints", "cartesian kpoints",
                             "kweights",
                             "norm(v)", "norm(k)"]
 
-        # if self.poly_bands:
-        #     self.dos_emin = min(self.kgrid["p"]["energy"][-1])
-        #     self.dos_emax = max(self.kgrid["n"]["energy"][-1])
 
         # TODO: the following is temporary, for some reason if # of kpts in different bands are NOT the same,
         # I get an error that _all_elastic is a list! so 1/self.kgrid[tp]["_all_elastic"][c][T][ib] cause error int/list!
@@ -1407,7 +1405,7 @@ class AMSET(object):
             for ib in range(len(self.kgrid[tp]["energy"])):
                 logging.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
 
-        if len(self.kgrid["n"]["kpoints"][0]) < 5:
+        if len(self.kgrid["n"]["kpoints"][0]) < 5 or len(self.kgrid["p"]["kpoints"][0]) < 5:
             raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
 
         logging.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
@@ -2285,10 +2283,11 @@ class AMSET(object):
 
     def find_fermi_SPB(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.4, max_iter=1000):
 
+        tp = self.get_tp(c)
         sgn = np.sign(c)
-        m_eff = np.prod(self.cbm_vbm["n"]["eff_mass_xx"]) ** (1.0 / 3.0)
+        m_eff = np.prod(self.cbm_vbm[tp]["eff_mass_xx"]) ** (1.0 / 3.0)
         c *= sgn
-        initial_energy = self.cbm_vbm["n"]["energy"]
+        initial_energy = self.cbm_vbm[tp]["energy"]
         fermi = initial_energy + 0.02
         iter = 0
         for iter in range(max_iter):
@@ -2336,10 +2335,14 @@ class AMSET(object):
                       * abs(self.integrate_over_DOSxE_dE(func=funcs[j], tp=typ, fermi=fermi, T=T))
 
         while (relative_error > tolerance) and (iter < max_iter):
+            # print iter
+            # print calc_doping
+            # print fermi
+            # print
             iter += 1  # to avoid an infinite loop
             if iter / max_iter > 0.5:  # to avoid oscillation we re-adjust alpha at each iteration
                 tune_alpha = 1 - iter / max_iter
-            fermi += alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
+            fermi += (-1) ** (j) * alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
 
             for j, tp in enumerate(["n", "p"]):
                 integral = 0.0
@@ -2549,9 +2552,6 @@ class AMSET(object):
                     if integrate_over_kgrid:
                         denom = self.integrate_over_BZ(["f0"], tp, c, T, xDOS=False, xvel=False,
                                                        weighted=True) * 1e-7 * 1e-3 * self.volume
-                        if tp == "n":
-                            print "{}-type common denominator at {} K".format(tp, T)
-                            print denom
                     else:
                         denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
                                                       weighted=True)
@@ -2591,7 +2591,7 @@ class AMSET(object):
                     # other semi-empirical mobility values:
                     fermi = self.egrid["fermi"][c][T]
                     # fermi_SPB = self.egrid["fermi_SPB"][c][T]
-                    energy = self.cbm_vbm["n"]["energy"]
+                    energy = self.cbm_vbm[self.get_tp(c)]["energy"]
 
                     # for mu in ["overall", "average"] + self.inelastic_scatterings + self.elastic_scatterings:
                     #     self.egrid["mobility"][mu][c][T][tp] /= 3.0
@@ -2673,7 +2673,8 @@ class AMSET(object):
                 os.makedirs(name=path)
         fformat = "html"
 
-        for tp in ["n"]:
+
+        for tp in [self.debug_tp]:
             print(
             'plotting: first set of plots: "log10 of mobility", "relaxation time", "_all_elastic", "ACD", "df0dk"')
             plt = PlotlyFig(x_title="Temperature (K)", y_title="log10 of mobility (^10 cm2/V.s)", textsize=textsize,
@@ -2828,9 +2829,9 @@ if __name__ == "__main__":
     #               model uses Analytical_Bands with the specified coefficient file
 
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"],
+                    "inelastic_scatterings": ["POP"]}
                     # TODO: for testing, remove this part later:
-                    "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    # "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
@@ -2857,7 +2858,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300])
+                  dopings=[2e15], temperatures=[300])
     # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
