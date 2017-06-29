@@ -526,8 +526,7 @@ class AMSET(object):
 
     def get_dft_orbitals(self, bidx):
         projected = self._vrun.projected_eigenvalues
-        print len(projected[Spin.up][0][10])  # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
-        print sum(projected[Spin.up][0][10])
+        # print len(projected[Spin.up][0][10])  # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
 
         s_orbital = [0.0 for k in self.DFT_cartesian_kpts]
         p_orbital = [0.0 for k in self.DFT_cartesian_kpts]
@@ -1380,7 +1379,7 @@ class AMSET(object):
                 self.kgrid[tp]["old cartesian kpoints"][ib] = self._rec_lattice.get_cartesian_coords(
                     self.kgrid[tp]["kpoints"][ib]) / A_to_nm
                 # [1/nm], these are PHYSICS convention k vectors (with a factor of 2 pi included)
-                self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][ib]]
+                self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["old cartesian kpoints"][ib]]
 
                 if self.parallel and not self.poly_bands:
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
@@ -1390,14 +1389,14 @@ class AMSET(object):
                 s_orbital, p_orbital = self.get_dft_orbitals(bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib)
                 orbitals = {"s": s_orbital, "p": p_orbital}
                 fit_orbs = {orb: griddata(points=np.array(self.DFT_cartesian_kpts), values=np.array(orbitals[orb]),
-                    xi=np.array(self.kgrid[tp]["cartesian kpoints"][ib]), method='nearest') for orb in orbitals.keys()}
+                    xi=np.array(self.kgrid[tp]["old cartesian kpoints"][ib]), method='nearest') for orb in orbitals.keys()}
 
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                    print "test cartesian subtraction"
-                    print self.kgrid[tp]["old cartesian kpoints"][ib][ik]
+                    # print "test cartesian subtraction"
+                    # print self.kgrid[tp]["old cartesian kpoints"][ib][ik]
                     self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - self.cbm_vbm[tp]["cartesian k"]
-                    print self.kgrid[tp]["cartesian kpoints"][ib][ik]
+                    # print self.kgrid[tp]["cartesian kpoints"][ib][ik]
                     if not self.poly_bands:
                         if not self.parallel:
                             energy, de, dde = get_energy(
@@ -1445,7 +1444,7 @@ class AMSET(object):
                         np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
 
         rearranged_props = ["velocity", "effective mass", "energy", "a", "c", "kpoints", "cartesian kpoints",
-                            "kweights",
+                            "old cartesian kpoints", "kweights",
                             "norm(v)", "norm(k)"]
 
 
