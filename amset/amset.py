@@ -1366,17 +1366,20 @@ class AMSET(object):
         rm_idx_list = {"n": [[] for i in range(self.cbm_vbm["n"]["included"])],
                        "p": [[] for i in range(self.cbm_vbm["p"]["included"])]}
         # @albalu why are these variables initialized separately from the ones above?
-        self.initialize_var("kgrid", ["cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["old cartesian kpoints", "cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
 
         logging.debug("The DFT gap right before calculating final energy values: {}".format(self.dft_gap))
 
+
         for i, tp in enumerate(["p", "n"]):
+            self.cbm_vbm[tp]["cartesian k"] = self._rec_lattice.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
+
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
-                self.kgrid[tp]["cartesian kpoints"][ib] = self._rec_lattice.get_cartesian_coords(
-                    self.kgrid[tp]["kpoints"][
-                        ib]) / A_to_nm  # [1/nm], these are PHYSICS convention k vectors (with a factor of 2 pi included)
+                self.kgrid[tp]["old cartesian kpoints"][ib] = self._rec_lattice.get_cartesian_coords(
+                    self.kgrid[tp]["kpoints"][ib]) / A_to_nm
+                # [1/nm], these are PHYSICS convention k vectors (with a factor of 2 pi included)
                 self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][ib]]
 
                 if self.parallel and not self.poly_bands:
@@ -1391,6 +1394,10 @@ class AMSET(object):
 
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                    print "test cartesian subtraction"
+                    print self.kgrid[tp]["old cartesian kpoints"][ib][ik]
+                    self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - self.cbm_vbm[tp]["cartesian k"]
+                    print self.kgrid[tp]["cartesian kpoints"][ib][ik]
                     if not self.poly_bands:
                         if not self.parallel:
                             energy, de, dde = get_energy(
@@ -1408,7 +1415,7 @@ class AMSET(object):
                                     2] * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
 
                     else:
-                        energy, velocity, effective_mass = get_poly_energy(self.kgrid[tp]["cartesian kpoints"][ib][ik],
+                        energy, velocity, effective_mass = get_poly_energy(self.kgrid[tp]["old cartesian kpoints"][ib][ik],
                                                                            poly_bands=self.poly_bands,
                                                                            type=tp, ib=ib,
                                                                            bandgap=self.dft_gap + self.scissor)
@@ -1427,8 +1434,12 @@ class AMSET(object):
                         rm_idx_list[tp][ib].append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
-                    self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
-                    self.kgrid[tp]["c"][ib][ik] = (1 - self.kgrid[tp]["a"][ib][ik]**2)**0.5
+                    if self.poly_bands:
+                        self.kgrid[tp]["a"][ib][ik] = 1.0 # parabolic band s-orbital only
+                        self.kgrid[tp]["c"][ib][ik] = 0.0
+                    else:
+                        self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
+                        self.kgrid[tp]["c"][ib][ik] = (1 - self.kgrid[tp]["a"][ib][ik]**2)**0.5
 
         logging.info("average of the {}-type group velocity in kgrid".format(
                         np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
@@ -2871,7 +2882,7 @@ if __name__ == "__main__":
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
-                    "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    "poly_bands": [[[[0.0, 0.3, 0.0], [0.0, mass]]]]}
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
@@ -2911,5 +2922,5 @@ if __name__ == "__main__":
     AMSET.to_csv()
     AMSET.plot()
 
-    # AMSET.to_json(kgrid=True, trimmed=True, max_ndata=20, nstart=0)
-    AMSET.to_json(kgrid=True, trimmed=True)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=20, nstart=0)
+    # AMSET.to_json(kgrid=True, trimmed=True)
