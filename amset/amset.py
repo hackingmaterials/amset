@@ -1079,6 +1079,12 @@ class AMSET(object):
 
 
     def get_sym_eq_ks_in_first_BZ(self, k, cartesian=False):
+        """
+
+        :param k (numpy.array): kpoint fractional coordinates
+        :param cartesian (bool): if True, the output would be in cartesian (but still reciprocal) coordinates
+        :return:
+        """
         fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
         fractional_ks = self.kpts_to_first_BZ(fractional_ks)
         if cartesian:
@@ -1356,7 +1362,7 @@ class AMSET(object):
             # self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
             # self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
 
-        self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)", "norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=False, c_T_idx=False)
 
@@ -1371,15 +1377,20 @@ class AMSET(object):
         logging.debug("The DFT gap right before calculating final energy values: {}".format(self.dft_gap))
 
 
+
         for i, tp in enumerate(["p", "n"]):
             self.cbm_vbm[tp]["cartesian k"] = self._rec_lattice.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
+            self.cbm_vbm[tp]["all cartesian k"] = self._rec_lattice.get_cartesian_coords(
+                        self.get_sym_eq_ks_in_first_BZ(self.cbm_vbm[tp]["kpoint"])) / A_to_nm
+            self.cbm_vbm[tp]["all cartesian k"] = self.remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
 
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
                 self.kgrid[tp]["old cartesian kpoints"][ib] = self._rec_lattice.get_cartesian_coords(
                     self.kgrid[tp]["kpoints"][ib]) / A_to_nm
+                # self.kgrid[tp]["cartesian kpoints"][ib] = self.kgrid[tp]["old cartesian kpoints"][ib]
                 # [1/nm], these are PHYSICS convention k vectors (with a factor of 2 pi included)
-                self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["old cartesian kpoints"][ib]]
+                # self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["old cartesian kpoints"][ib]]
 
                 if self.parallel and not self.poly_bands:
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
@@ -1393,10 +1404,16 @@ class AMSET(object):
 
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                    # print "test cartesian subtraction"
-                    # print self.kgrid[tp]["old cartesian kpoints"][ib][ik]
-                    self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - self.cbm_vbm[tp]["cartesian k"]
-                    # print self.kgrid[tp]["cartesian kpoints"][ib][ik]
+
+                    min_dist_ik = np.array([norm(ki - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) for ki in\
+                                           self.cbm_vbm[tp]["all cartesian k"]]).argmin()
+                    self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - \
+                                                                  self.cbm_vbm[tp]["all cartesian k"][min_dist_ik]
+                    #
+                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - self.cbm_vbm[tp]["cartesian k"]
+
+                    self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+
                     if not self.poly_bands:
                         if not self.parallel:
                             energy, de, dde = get_energy(
@@ -2881,7 +2898,7 @@ if __name__ == "__main__":
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"],
                     # TODO: for testing, remove this part later:
-                    "poly_bands": [[[[0.0, 0.3, 0.0], [0.0, mass]]]]}
+                    "poly_bands": [[[[0.0, 0.23, 0.0], [0.0, mass]]]]}
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
