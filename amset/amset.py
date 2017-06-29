@@ -4,6 +4,9 @@ import warnings
 import time
 
 import logging
+
+from scipy.interpolate import griddata
+
 from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_poly_energy
 from pprint import pprint
 
@@ -390,7 +393,7 @@ class AMSET(object):
         # kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
         #                 "f_th", "g_th", "S_i_th", "S_o_th"]
 
-        kgrid_rm_list = ["effective mass", "kweights", "a", "c",
+        kgrid_rm_list = ["effective mass", "kweights",
                          "f_th", "S_i_th", "S_o_th"]
         egrid_rm_list = ["f_th", "S_i_th", "S_o_th"]
         self.remove_from_grids(kgrid_rm_list, egrid_rm_list)
@@ -555,13 +558,6 @@ class AMSET(object):
         self.DFT_cartesian_kpts = np.array(
                 [self._rec_lattice.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
 
-        s_orbital, p_orbital = self.get_dft_orbitals(bidx=13)
-        print s_orbital[:10]
-        print p_orbital[:10]
-
-
-
-        # The only thing left to do is to use scipy.interpolate.griddata to interpolate s,p,d contributions at a given list of k-points
 
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
         cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
@@ -1385,11 +1381,13 @@ class AMSET(object):
 
                 if self.parallel and not self.poly_bands:
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
-                                                                                  engre[i * self.cbm_vbm["p"][
-                                                                                      "included"] + ib], nwave, nsym,
-                                                                                  nstv, vec, vec2, out_vec2,
-                                                                                  br_dir) for ik in
-                                                              range(len(self.kgrid[tp]["kpoints"][ib])))
+                             engre[i * self.cbm_vbm["p"]["included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2,
+                             br_dir) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
+
+                s_orbital, p_orbital = self.get_dft_orbitals(bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib)
+                orbitals = {"s": s_orbital, "p": p_orbital}
+                fit_orbs = {orb: griddata(points=np.array(self.DFT_cartesian_kpts), values=np.array(orbitals[orb]),
+                    xi=np.array(self.kgrid[tp]["cartesian kpoints"][ib]), method='nearest') for orb in orbitals.keys()}
 
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
@@ -1428,7 +1426,9 @@ class AMSET(object):
                                     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                         rm_idx_list[tp][ib].append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
-                    self.kgrid[tp]["a"][ib][ik] = 1.0
+
+                    self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
+                    self.kgrid[tp]["c"][ib][ik] = (1 - self.kgrid[tp]["a"][ib][ik]**2)**0.5
 
         logging.info("average of the {}-type group velocity in kgrid".format(
                         np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
@@ -2899,7 +2899,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-1e18], temperatures=[300])
+                  dopings=[-2e15], temperatures=[300])
     # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
@@ -2909,7 +2909,7 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    #AMSET.plot()
+    AMSET.plot()
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=20, nstart=0)
-    # AMSET.to_json(kgrid=True, trimmed=True)
+    # AMSET.to_json(kgrid=True, trimmed=True, max_ndata=20, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True)
