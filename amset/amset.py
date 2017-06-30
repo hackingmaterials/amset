@@ -696,25 +696,27 @@ class AMSET(object):
             # "energy": {"n": [], "p": []},
             # "DOS": {"n": [], "p": []},
             # "all_en_flat": {"n": [], "p": []},
-            "n": {"energy": [], "DOS": [], "all_en_flat": []},
-            "p": {"energy": [], "DOS": [], "all_en_flat": []},
+            "n": {"energy": [], "DOS": [], "all_en_flat": [], "all_ks_flat": []},
+            "p": {"energy": [], "DOS": [], "all_en_flat": [], "all_ks_flat": []},
             "mobility": {}
         }
         self.kgrid_to_egrid_idx = {"n": [],
                                    "p": []}  # list of band and k index that are mapped to each memeber of egrid
         self.Efrequency = {"n": [], "p": []}
-
+        self.sym_freq = {"n": [], "p":[]}
         # reshape energies of all bands to one vector:
         E_idx = {"n": [], "p": []}
         for tp in ["n", "p"]:
             for ib, en_vec in enumerate(self.kgrid[tp]["energy"]):
                 self.egrid[tp]["all_en_flat"] += list(en_vec)
+                self.egrid[tp]["all_ks_flat"] += list(self.kgrid[tp]["kpoints"][ib])
                 # also store the flatten energy (i.e. no band index) as a tuple of band and k-indexes
                 E_idx[tp] += [(ib, iek) for iek in range(len(en_vec))]
 
             # get the indexes of sorted flattened energy
             ieidxs = np.argsort(self.egrid[tp]["all_en_flat"])
             self.egrid[tp]["all_en_flat"] = [self.egrid[tp]["all_en_flat"][ie] for ie in ieidxs]
+            self.egrid[tp]["all_ks_flat"] = [self.egrid[tp]["all_ks_flat"][ie] for ie in ieidxs]
 
             # sort the tuples of band and energy based on their energy
             E_idx[tp] = [E_idx[tp][ie] for ie in ieidxs]
@@ -726,6 +728,7 @@ class AMSET(object):
             last_is_counted = False
             while i < len(self.egrid[tp]["all_en_flat"]) - 1:
                 sum_E = self.egrid[tp]["all_en_flat"][i]
+                sum_ksym = len(self.remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i])))
                 counter = 1.0  # because the ith member is already included in sum_E
                 current_ib_ie_idx = [E_idx[tp][i]]
                 j = i
@@ -739,11 +742,14 @@ class AMSET(object):
                     counter += 1
                     current_ib_ie_idx.append(E_idx[tp][j + 1])
                     sum_E += self.egrid[tp]["all_en_flat"][j + 1]
+                    sum_ksym += len(self.remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i+1])))
+
                     if j + 1 == len(self.egrid[tp]["all_en_flat"]) - 1:
                         last_is_counted = True
                     j += 1
                 self.egrid[tp]["energy"].append(sum_E / counter)
                 self.kgrid_to_egrid_idx[tp].append(current_ib_ie_idx)
+                self.sym_freq[tp].append(sum_ksym / counter)
                 energy_counter.append(counter)
 
                 if dos_tp.lower() == "simple":
@@ -772,6 +778,7 @@ class AMSET(object):
 
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
+
 
         logging.debug("here total number of ks from self.Efrequency for {}-type".format(self.debug_tp))
         logging.debug(sum(self.Efrequency[self.debug_tp]))
@@ -978,9 +985,9 @@ class AMSET(object):
         # kpts = list(kpts)
 
 
-        print "total time to remove duplicate k-points = {} seconds".format(time.time() - start_time)
-        print "number of duplicates removed:"
-        print len(rm_list)
+        # print "total time to remove duplicate k-points = {} seconds".format(time.time() - start_time)
+        # print "number of duplicates removed:"
+        # print len(rm_list)
 
         return kpts
 
@@ -1875,7 +1882,7 @@ class AMSET(object):
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
-        weighted = False
+        # weighted = False
 
         wpower = 1
         if xvel:
@@ -1917,17 +1924,18 @@ class AMSET(object):
                     # integral += multi * self.Efrequency[tp][ie]**wpower * (-(dfdE + ddfdE))
                     # integral += multi * self.Efrequency[tp][ie]**wpower *dfdE
                     # integral += multi * self.Efrequency[tp][ie]**wpower * self.egrid[tp]["f0"][c][T][ie]
-                    integral += multi * self.Efrequency[tp][ie] ** wpower
+                    # integral += multi * self.Efrequency[tp][ie] ** wpower
+                    integral += multi * self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie])
                 else:
                     integral += multi
         if weighted:
-            # return integral
+            return integral
             # return integral/(sum(self.Efrequency[tp][:-1]))
             # return integral / sum([freq ** wpower for freq in self.Efrequency[tp][:-1]]) / sum(self.egrid[tp]["df0dE"][c][T][:-1])
             # return integral / sum([freq**wpower for freq in self.Efrequency[tp][0:imax_occ]])
             # return integral / (sum([freq**wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))/(-sum(self.egrid[tp]["df0dE"][c][T]))
 
-            return integral / (sum([freq ** wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))
+            # return integral / (sum([freq ** wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))
 
             # return integral / (sum([(-self.egrid[tp]["df0dE"][c][T][ie]) * self.Efrequency[tp][ie]**wpower for ie in
             #                    range(len(self.Efrequency[tp][:-1]))]))
@@ -2639,7 +2647,7 @@ class AMSET(object):
                                                        weighted=True) * 1e-7 * 1e-3 * self.volume
                     else:
                         denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
-                                                      weighted=True)
+                                                      weighted=False)
 
                     for mu_inel in self.inelastic_scatterings:
                         # calculate mobility["POP"] based on g_POP
@@ -2785,6 +2793,15 @@ class AMSET(object):
 
             plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]],
                         y_col=self.Efrequency[tp])
+
+            plt = PlotlyFig(plot_mode='offline', y_title="# of symmetrically equivalent kpoints", x_title="Energy (eV)",
+                            plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram_symk", tp, fformat)),
+                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
+                            margin_bottom=margin_bottom)
+
+            plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]],
+                        y_col=self.sym_freq[tp])
+
 
             for prop in ["energy", "df0dk"]:
                 plt = PlotlyFig(plot_mode='offline', y_title=prop, x_title="norm(k)",
