@@ -1465,10 +1465,6 @@ class AMSET(object):
                     if self.kgrid[tp]["velocity"][ib][ik][0] < 100 or self.kgrid[tp]["velocity"][ib][ik][1] < 100 \
                             or self.kgrid[tp]["velocity"][ib][ik][2] < 100 or \
                                     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
-                        print "here"
-                        print abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"])
-                        print self.kgrid[tp]["velocity"][ib][ik]
-                        print
                         rm_idx_list[tp][ib].append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
