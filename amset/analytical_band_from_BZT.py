@@ -86,7 +86,8 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
     # coefficients[0] is the constant
     # coefficient[1] is the effective mass
     eff_m = coefficients[1]
-    energy = bandgap*["p", "n"].index(type) # if p-type we do not add any value to the calculated energy for the band gap
+    # energy = bandgap*["p", "n"].index(type) # if p-type we do not add any value to the calculated energy for the band gap
+    energy = sgn * bandgap/2.0
     energy += sgn*(coefficients[0] + hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18) # last part is unit conv. to eV
     # print hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18
     v = hbar*min_kdistance/(m_e*eff_m) *1e11*e # last part is unit conversion to cm/s
