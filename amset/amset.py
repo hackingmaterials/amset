@@ -1875,7 +1875,7 @@ class AMSET(object):
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
-        # weighted = False
+        weighted = False
 
         wpower = 1
         if xvel:
