@@ -728,7 +728,7 @@ class AMSET(object):
             last_is_counted = False
             while i < len(self.egrid[tp]["all_en_flat"]) - 1:
                 sum_E = self.egrid[tp]["all_en_flat"][i]
-                sum_ksym = len(self.remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i])))
+                sum_nksym = len(self.remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i])))
                 counter = 1.0  # because the ith member is already included in sum_E
                 current_ib_ie_idx = [E_idx[tp][i]]
                 j = i
@@ -742,14 +742,14 @@ class AMSET(object):
                     counter += 1
                     current_ib_ie_idx.append(E_idx[tp][j + 1])
                     sum_E += self.egrid[tp]["all_en_flat"][j + 1]
-                    sum_ksym += len(self.remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i+1])))
+                    sum_nksym += len(self.remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i+1])))
 
                     if j + 1 == len(self.egrid[tp]["all_en_flat"]) - 1:
                         last_is_counted = True
                     j += 1
                 self.egrid[tp]["energy"].append(sum_E / counter)
                 self.kgrid_to_egrid_idx[tp].append(current_ib_ie_idx)
-                self.sym_freq[tp].append(sum_ksym / counter)
+                self.sym_freq[tp].append(sum_nksym / counter)
                 energy_counter.append(counter)
 
                 if dos_tp.lower() == "simple":
@@ -2384,7 +2384,7 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=5000):
+    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.05, max_iter=5000):
         """
         To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
         :param c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
@@ -2403,25 +2403,28 @@ class AMSET(object):
         tune_alpha = 1.0
         temp_doping = {"n": -0.01, "p": +0.01}
         typ = self.get_tp(c)
-        fermi = self.cbm_vbm[typ]["energy"]
+        typj = ["n", "p"].index(typ)
+        fermi = self.cbm_vbm[typ]["energy"] + 0.01 * (-1)**typj # addition is to ensure Fermi is not exactly 0.0
         # fermi = self.egrid[typ]["energy"][0]
 
         print("calculating the fermi level at temperature: {} K".format(T))
-        typj = ["n", "p"].index(typ)
         funcs = [lambda E, fermi0, T: f0(E, fermi0, T), lambda E, fermi0, T: 1 - f0(E, fermi0, T)]
         calc_doping = (-1) ** (typj + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
                       * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ, fermi=fermi, T=T))
 
         while (relative_error > tolerance) and (iter < max_iter):
-            # print iter
-            # print calc_doping
-            # print fermi
-            # print (-1) ** (typj)
-            # print
+            print iter
+            print calc_doping
+            print fermi
+            print (-1) ** (typj)
+            print
             iter += 1  # to avoid an infinite loop
             if iter / max_iter > 0.5:  # to avoid oscillation we re-adjust alpha at each iteration
                 tune_alpha = 1 - iter / max_iter
-            fermi += (-1) ** (typj) * alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
+            # fermi += (-1) ** (typj) * alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
+            fermi += alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * abs(fermi)
+            if abs(fermi) < 1e-5: # switch sign when getting really close to 0 as otherwise will never converge
+                fermi = fermi * -1
 
             for j, tp in enumerate(["n", "p"]):
                 integral = 0.0
@@ -2964,7 +2967,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300])
+                  dopings=[2e15], temperatures=[300])
                   #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
