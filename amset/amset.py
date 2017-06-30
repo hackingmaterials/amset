@@ -1149,7 +1149,8 @@ class AMSET(object):
         # create a mesh of k-points
         all_kpts = {}
         try:
-            ibzkpt_filename = os.path.join(os.environ["AMSET_ROOT"], "{}_ibzkpt.json".format(nkstep))
+            ibzkpt_filename = os.path.join(os.environ["AMSET_ROOT"], "{}_ibzkpt_{}.json".format(nkstep,
+                                                        self._vrun.final_structure.formula.replace(" ", "")))
         except:
             ibzkpt_filename = "{}_ibzkpt.json".format(nkstep)
         try:
@@ -1255,8 +1256,7 @@ class AMSET(object):
                                                                                         engre[i * self.cbm_vbm["p"][
                                                                                             "included"] + ib],
                                                                                         nwave, nsym, nstv, vec, vec2,
-                                                                                        out_vec2, br_dir,
-                                                                                        sgn)
+                                                                                        out_vec2, br_dir, sgn)
                         else:
                             energy, velocity, effective_m = self.calc_poly_energy(kpts[ik], tp, ib)
                         energies[tp][ik] = energy
@@ -1279,6 +1279,7 @@ class AMSET(object):
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
                                         abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                             rm_list[tp].append(ik)
+            rm_list[tp] = list(set(rm_list[tp]))
 
         # this step is crucial in DOS normalization when poly_bands to cover the whole energy range in BZ
         if self.poly_bands:
@@ -1303,14 +1304,26 @@ class AMSET(object):
         # for tp in ["n", "p"]:
         #     energies[tp] = np.delete(energies[tp], rm_list_all, axis=0)
 
-        kpts = {"n": kpts, "p": kpts}
+        kpts_copy = np.array(kpts)
+        kpts = {"n": np.array(kpts_copy), "p": np.array(kpts_copy)}
+        # print "n-rm_list"
+        # print rm_list["n"]
+        # print "p-rm_list"
+        # print rm_list["p"]
+
+        print "all types"
+        print self.all_types
         for tp in ["n", "p"]:
-            rm_list[tp] = list(set(rm_list[tp]))
-            kpts[tp] = list(np.delete(kpts[tp], rm_list[tp], axis=0))
-            energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
+            if tp in self.all_types:
+                kpts[tp] = list(np.delete(kpts[tp], rm_list[tp], axis=0))
+                energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
+            else: # in this case it doesn't matter if the k-mesh is loose
+                kpts[tp] = list(np.delete(kpts[tp], rm_list["n"]+rm_list["p"], axis=0))
+                energies[tp] = np.delete(energies[tp], rm_list["n"]+rm_list["p"], axis=0)
+            if len(kpts[tp]) > 10000:
+                warnings.warn("Too desne of a {}-type k-mesh (nk={}!); AMSET will be slow!".format(tp, len(kpts[tp])))
 
-
-            logging.info("number of ibz k-points AFTER ENERGY-FILTERING: {}".format(len(kpts[tp])))
+            logging.info("number of {}-type ibz k-points AFTER ENERGY-FILTERING: {}".format(tp, len(kpts[tp])))
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
         if self.adaptive_mesh:
@@ -1345,8 +1358,14 @@ class AMSET(object):
             logging.info("number of {}-type k-points after symmetrically equivalent kpoints are added: {}".format(
                         tp, len(kpts[tp])))
 
+
         # TODO: remove anything with "weight" later if ended up not using weights at all!
         kweights = {tp: [1.0 for i in kpts[tp]] for tp in ["n", "p"]}
+
+
+
+
+
 
         # actual initiation of the kgrid
         self.kgrid = {
@@ -1380,17 +1399,15 @@ class AMSET(object):
 
         for i, tp in enumerate(["p", "n"]):
             self.cbm_vbm[tp]["cartesian k"] = self._rec_lattice.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
-            self.cbm_vbm[tp]["all cartesian k"] = self._rec_lattice.get_cartesian_coords(
-                        self.get_sym_eq_ks_in_first_BZ(self.cbm_vbm[tp]["kpoint"])) / A_to_nm
+            self.cbm_vbm[tp]["all cartesian k"] = self.get_sym_eq_ks_in_first_BZ(self.cbm_vbm[tp]["kpoint"], cartesian=True)
             self.cbm_vbm[tp]["all cartesian k"] = self.remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
 
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
                 self.kgrid[tp]["old cartesian kpoints"][ib] = self._rec_lattice.get_cartesian_coords(
                     self.kgrid[tp]["kpoints"][ib]) / A_to_nm
-                # self.kgrid[tp]["cartesian kpoints"][ib] = self.kgrid[tp]["old cartesian kpoints"][ib]
+                self.kgrid[tp]["cartesian kpoints"][ib] = self.kgrid[tp]["old cartesian kpoints"][ib]
                 # [1/nm], these are PHYSICS convention k vectors (with a factor of 2 pi included)
-                # self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["old cartesian kpoints"][ib]]
 
                 if self.parallel and not self.poly_bands:
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
@@ -1409,8 +1426,7 @@ class AMSET(object):
                                            self.cbm_vbm[tp]["all cartesian k"]]).argmin()
                     self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - \
                                                                   self.cbm_vbm[tp]["all cartesian k"][min_dist_ik]
-                    #
-                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - self.cbm_vbm[tp]["cartesian k"]
+
 
                     self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
 
@@ -1457,8 +1473,8 @@ class AMSET(object):
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
                         self.kgrid[tp]["c"][ib][ik] = (1 - self.kgrid[tp]["a"][ib][ik]**2)**0.5
 
-        logging.info("average of the {}-type group velocity in kgrid".format(
-                        np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
+            logging.info("average of the {}-type group velocity in kgrid:\n {}".format(
+                        tp, np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
 
         rearranged_props = ["velocity", "effective mass", "energy", "a", "c", "kpoints", "cartesian kpoints",
                             "old cartesian kpoints", "kweights",
@@ -2896,9 +2912,10 @@ if __name__ == "__main__":
     #               model uses Analytical_Bands with the specified coefficient file
 
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"],
+                    "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    "poly_bands": [[[[0.0, 0.23, 0.0], [0.0, mass]]]]}
+                    # , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+                    }
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
@@ -2909,15 +2926,17 @@ if __name__ == "__main__":
     performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5}
 
+    ### for PbTe
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
     #                "E_D": {"n": 4.0, "p": 4.0}}
     # cube_path = "../test_files/PbTe/nscf_line"
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
-    #
+
+    ### For GaAs
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
                        "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
     cube_path = "../test_files/GaAs/"
-    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    ### coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
@@ -2927,7 +2946,7 @@ if __name__ == "__main__":
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
                   dopings=[-2e15], temperatures=[300])
-    # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+                  #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
