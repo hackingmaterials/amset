@@ -1406,7 +1406,9 @@ class AMSET(object):
             for ib in range(self.cbm_vbm[tp]["included"]):
                 self.kgrid[tp]["old cartesian kpoints"][ib] = self._rec_lattice.get_cartesian_coords(
                     self.kgrid[tp]["kpoints"][ib]) / A_to_nm
-                self.kgrid[tp]["cartesian kpoints"][ib] = self.kgrid[tp]["old cartesian kpoints"][ib]
+
+                # REMEMBER TO MAKE A COPY HERE OTHERWISE THEY CHANGE TOGETHER
+                self.kgrid[tp]["cartesian kpoints"][ib] = np.array(self.kgrid[tp]["old cartesian kpoints"][ib])
                 # [1/nm], these are PHYSICS convention k vectors (with a factor of 2 pi included)
 
                 if self.parallel and not self.poly_bands:
@@ -1463,6 +1465,10 @@ class AMSET(object):
                     if self.kgrid[tp]["velocity"][ib][ik][0] < 100 or self.kgrid[tp]["velocity"][ib][ik][1] < 100 \
                             or self.kgrid[tp]["velocity"][ib][ik][2] < 100 or \
                                     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
+                        print "here"
+                        print abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"])
+                        print self.kgrid[tp]["velocity"][ib][ik]
+                        print
                         rm_idx_list[tp][ib].append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
@@ -1499,8 +1505,8 @@ class AMSET(object):
             for ib in range(len(self.kgrid[tp]["energy"])):
                 logging.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
 
-        if len(self.kgrid["n"]["kpoints"][0]) < 5 or len(self.kgrid["p"]["kpoints"][0]) < 5:
-            raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
+            if len(self.kgrid[tp]["kpoints"][0]) < 5:
+                raise ValueError("VERY BAD {}-type k-mesh; please change the k-mesh and try again!".format(tp))
 
         logging.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
 
@@ -1873,7 +1879,7 @@ class AMSET(object):
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
-        weighted = False
+        # weighted = False
 
         wpower = 1
         if xvel:
@@ -2914,7 +2920,7 @@ if __name__ == "__main__":
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    # , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+                    , "poly_bands": [[[[0.0, 0.3, 0.0], [0.0, mass]]]]
                     }
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
