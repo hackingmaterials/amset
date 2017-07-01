@@ -1904,16 +1904,28 @@ class AMSET(object):
             if xvel:
                 dv = (self.egrid[tp]["velocity"][ie + 1] - self.egrid[tp]["velocity"][ie]) / interpolation_nsteps
             for j, p in enumerate(prop_list):
-                try:
-                    diff[j] = (self.egrid[tp][p][c][T][ie + 1] - self.egrid[tp][p][c][T][ie]) / interpolation_nsteps
-                except:
+                # try:
+                #     diff[j] = (self.egrid[tp][p][c][T][ie + 1] - self.egrid[tp][p][c][T][ie]) / interpolation_nsteps
+                # except:
+                #     diff[j] = (self.egrid[tp][p.split("/")[-1]][c][T][ie + 1] -
+                #                self.egrid[tp][p.split("/")[-1]][c][T][ie]) / interpolation_nsteps
+
+                if "/" in p:
                     diff[j] = (self.egrid[tp][p.split("/")[-1]][c][T][ie + 1] -
                                self.egrid[tp][p.split("/")[-1]][c][T][ie]) / interpolation_nsteps
+                elif "1 -" in p:
+                    diff[j] = (1 - self.egrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ie + 1] - (1- \
+                               self.egrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ie])) / interpolation_nsteps
+                else:
+                    diff[j] = (self.egrid[tp][p][c][T][ie + 1] - self.egrid[tp][p][c][T][ie]) / interpolation_nsteps
+
             for i in range(interpolation_nsteps):
                 multi = dE
                 for j, p in enumerate(prop_list):
                     if p[0] == "/":
                         multi /= self.egrid[tp][p.split("/")[-1]][c][T][ie] + diff[j] * i
+                    elif "1 -" in p:
+                        multi *= 1 - self.egrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ie] + diff[j] * i
                     else:
                         multi *= self.egrid[tp][p][c][T][ie] + diff[j] * i
                 if xDOS:
@@ -2413,11 +2425,11 @@ class AMSET(object):
                       * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ, fermi=fermi, T=T))
 
         while (relative_error > tolerance) and (iter < max_iter):
-            print iter
-            print calc_doping
-            print fermi
-            print (-1) ** (typj)
-            print
+            # print iter
+            # print calc_doping
+            # print fermi
+            # print (-1) ** (typj)
+            # print
             iter += 1  # to avoid an infinite loop
             if iter / max_iter > 0.5:  # to avoid oscillation we re-adjust alpha at each iteration
                 tune_alpha = 1 - iter / max_iter
@@ -2649,8 +2661,12 @@ class AMSET(object):
                         denom = self.integrate_over_BZ(["f0"], tp, c, T, xDOS=False, xvel=False,
                                                        weighted=True) * 1e-7 * 1e-3 * self.volume
                     else:
-                        denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
+                        if c < 0:
+                            denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
                                                       weighted=False)
+                        else:
+                            denom = self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
+                                                          weighted=False)
 
                     for mu_inel in self.inelastic_scatterings:
                         # calculate mobility["POP"] based on g_POP
@@ -2936,7 +2952,7 @@ if __name__ == "__main__":
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    , "poly_bands": [[[[0.0, 0.3, 0.0], [0.0, mass]]]]
+                    , "poly_bands": [[[[0.5, 0.5, 0.5], [0.0, mass]]]]
                     }
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
@@ -2967,7 +2983,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[2e15], temperatures=[300])
+                  dopings=[-2e15], temperatures=[300])
                   #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
