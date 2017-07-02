@@ -191,10 +191,12 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
                     degeneracy = len(valley[0])
                     for ie, energy in enumerate(e_mesh):
                         dos_temp = volume/(2*pi**2)*(2*m_e*m_eff/hbar**2)**1.5 * 1e-30/e**1.5
-                        if energy < 0-offset:
-                            dos_temp *= (-energy-offset)**0.5
-                        elif energy >=bandgap+offset:
-                            dos_temp *= (energy-bandgap-offset)**0.5
+                        if energy <= -bandgap/2.0-offset:
+                            # dos_temp *= (-energy-offset)**0.5
+                            dos_temp *= (-energy+bandgap/2.0+offset)**0.5
+                        elif energy >=bandgap/2.0+offset:
+                            # dos_temp *= (energy-bandgap-offset)**0.5
+                            dos_temp *= (energy-bandgap/2.0-offset)**0.5
                         else:
                             dos_temp = 0
                         dos[ie] += dos_temp * degeneracy
