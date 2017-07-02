@@ -735,8 +735,7 @@ class AMSET(object):
                 # while j<len(self.egrid[tp]["all_en_flat"])-1 and (counter <= self.nE_min or \
                 #         abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][j+1]) < self.dE_min):
                 while j < len(self.egrid[tp]["all_en_flat"]) - 1 and \
-                                abs(self.egrid[tp]["all_en_flat"][i] - self.egrid[tp]["all_en_flat"][
-                                            j + 1]) < self.dE_min:
+                        abs(self.egrid[tp]["all_en_flat"][i] - self.egrid[tp]["all_en_flat"][j + 1]) < self.dE_min:
                     # while i < len(self.egrid[tp]["all_en_flat"]) - 1 and \
                     #          self.egrid[tp]["all_en_flat"][i] == self.egrid[tp]["all_en_flat"][i + 1] :
                     counter += 1
@@ -832,7 +831,9 @@ class AMSET(object):
     def get_Eidx_in_dos(self, E, Estep=None):
         if not Estep:
             Estep = max(self.dE_min, 0.0001)
-        return int(round((E - self.dos_emin) / Estep))
+        # there might not be anything wrong with the following but for now I thought using argmin() is safer
+        # return int(round((E - self.dos_emin) / Estep))
+        return abs(self.dos_emesh - E).argmin()
 
         # return min(int(round((E - self.dos_emin) / Estep)) , len(self.dos)-1)
 
@@ -1553,7 +1554,7 @@ class AMSET(object):
                                                                            self.dos_emin, self.dos_emax,
                                                                            int(round(
                                                                                (self.dos_emax - self.dos_emin) / max(
-                                                                                   self.dE_min, 0.0001))) + 1,
+                                                                                   self.dE_min, 0.0001))),
                                                                            width=self.dos_bwidth, scissor=self.scissor,
                                                                            vbmidx=self.cbm_vbm["p"]["bidx"])
             self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
@@ -1562,7 +1563,7 @@ class AMSET(object):
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
                                                  [self.nkdos, self.nkdos, self.nkdos], self.dos_emin, self.dos_emax,
                                                  int(round(
-                                                     (self.dos_emax - self.dos_emin) / max(self.dE_min, 0.0001))) + 1,
+                                                     (self.dos_emax - self.dos_emin) / max(self.dE_min, 0.0001))),
                                                  poly_bands=self.poly_bands,
                                                  bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
                                                      "energy"],  # we include here the actual or after-scissor gap here
@@ -1584,7 +1585,7 @@ class AMSET(object):
         # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
 
         self.dos = zip(emesh, dos)
-
+        self.dos_emesh = np.array(emesh)
         self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
         self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
 
@@ -1592,7 +1593,7 @@ class AMSET(object):
         print self.vbm_dos_idx
         print self.cbm_dos_idx
         # logging.debug("full dos after normalization: \n {}".format(self.dos))
-        # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx:self.cbm_dos_idx]))
+        # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
 
         self.dos = [list(a) for a in self.dos]
 
@@ -1644,31 +1645,23 @@ class AMSET(object):
         # inelastic scattering
         if "POP" in self.inelastic_scatterings:
             for tp in ["n", "p"]:
+                sgn = (-1) ** (["n", "p"].index(tp))
                 for ib in range(len(self.kgrid[tp]["energy"])):
                     self.nforced_scat = {"n": 0.0, "p": 0.0}
                     self.ediff_scat = {"n": [], "p": []}
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                                                                           E_change=+ hbar *
-                                                                                                    self.kgrid[tp][
-                                                                                                        "W_POP"][ib][
-                                                                                                        ik],
-                                                                                           forced_min_npoints=2,
-                                                                                           tolerance=self.dE_min)
+                                E_change=sgn * hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
+                                        tolerance=self.dE_min)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                                                                            E_change=- hbar *
-                                                                                                     self.kgrid[tp][
-                                                                                                         "W_POP"][ib][
-                                                                                                         ik],
-                                                                                            forced_min_npoints=2,
-                                                                                            tolerance=self.dE_min)
+                                E_change=sgn * hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
+                                        tolerance=self.dE_min)
 
                     enforced_ratio = self.nforced_scat[tp] / (
                         sum([len(points) for points in self.kgrid[tp]["X_Eplus_ik"][ib]]) + \
                         sum([len(points) for points in self.kgrid[tp]["X_Eminus_ik"][ib]]))
                     logging.info(
-                        "enforced scattering ratio for {}-type inelastic scattering at band {}:\n {}".format(tp, ib,
-                                                                                                             enforced_ratio))
+                        "enforced scattering ratio: {}-type inelastic at band {}:\n{}".format(tp, ib, enforced_ratio))
 
                     if enforced_ratio > 0.1:
                         # TODO: this should be an exception but for now I turned to warning for testing.
@@ -2396,7 +2389,7 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.05, max_iter=5000):
+    def find_fermi(self, c, T, tolerance=0.0001, tolerance_loose=0.003, alpha=0.05, max_iter=5000):
         """
         To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
         :param c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
@@ -2519,13 +2512,15 @@ class AMSET(object):
                                 if tp == "n":
                                     egrid[tp][key][c][T] = self.egrid[tp][key][c][T][nstart:nstart + nmax]
                                 else:
-                                    egrid[tp][key][c][T] = self.egrid[tp][key][c][T][-(nstart+nmax):-max(nstart,1)][::-1]
+                                    egrid[tp][key][c][T] = self.egrid[tp][key][c][T][::-1][nstart:nstart + nmax]
+                                    # egrid[tp][key][c][T] = self.egrid[tp][key][c][T][-(nstart+nmax):-max(nstart,1)][::-1]
                     except:
                         try:
                             if tp == "n":
                                 egrid[tp][key] = self.egrid[tp][key][nstart:nstart + nmax]
                             else:
-                                egrid[tp][key] = self.egrid[tp][key][-(nstart+nmax):-max(nstart,1)][::-1]
+                                egrid[tp][key] = self.egrid[tp][key][::-1][nstart:nstart + nmax]
+                                # egrid[tp][key] = self.egrid[tp][key][-(nstart+nmax):-max(nstart,1)][::-1]
                         except:
                             print "cutting data for {} numbers in egrid was NOT successful!".format(key)
                             pass
@@ -2551,16 +2546,20 @@ class AMSET(object):
                                         kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][nstart:nstart + nmax]
                                                             for b in range(self.cbm_vbm[tp]["included"])]
                                     else:
-                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][::-1][nstart:nstart + nmax]
                                                                 for b in range(self.cbm_vbm[tp]["included"])]
+                                        # kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                        #                         for b in range(self.cbm_vbm[tp]["included"])]
                         except:
                             try:
                                 if tp == "n":
                                     kgrid[tp][key] = [self.kgrid[tp][key][b][nstart:nstart + nmax]
                                                   for b in range(self.cbm_vbm[tp]["included"])]
                                 else:
-                                    kgrid[tp][key] = [self.kgrid[tp][key][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                    kgrid[tp][key] = [self.kgrid[tp][key][b][::-1][nstart:nstart + nmax]
                                                       for b in range(self.cbm_vbm[tp]["included"])]
+                                    # kgrid[tp][key] = [self.kgrid[tp][key][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                    #                   for b in range(self.cbm_vbm[tp]["included"])]
                             except:
                                 print "cutting data for {} numbers in kgrid was NOT successful!".format(key)
                                 pass
@@ -2805,21 +2804,21 @@ class AMSET(object):
                         y_col=[],
                         add_xy_plot=all_plots)
 
-            plt = PlotlyFig(plot_mode='offline', y_title="# of repeated energy in kgrid", x_title="Energy (eV)",
-                            plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
-                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
-                            margin_bottom=margin_bottom)
-
-            plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]],
-                        y_col=self.Efrequency[tp])
-
-            plt = PlotlyFig(plot_mode='offline', y_title="# of symmetrically equivalent kpoints", x_title="Energy (eV)",
-                            plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram_symk", tp, fformat)),
-                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
-                            margin_bottom=margin_bottom)
-
-            plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]],
-                        y_col=self.sym_freq[tp])
+            # plt = PlotlyFig(plot_mode='offline', y_title="# of repeated energy in kgrid", x_title="Energy (eV)",
+            #                 plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
+            #                 textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
+            #                 margin_bottom=margin_bottom)
+            #
+            # plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]],
+            #             y_col=self.Efrequency[tp])
+            #
+            # plt = PlotlyFig(plot_mode='offline', y_title="# of symmetrically equivalent kpoints", x_title="Energy (eV)",
+            #                 plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram_symk", tp, fformat)),
+            #                 textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
+            #                 margin_bottom=margin_bottom)
+            #
+            # plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]],
+            #             y_col=self.sym_freq[tp])
 
 
             for prop in ["energy", "df0dk"]:
@@ -2876,7 +2875,8 @@ class AMSET(object):
             print('plotting: second set of plots: "velocity", "Ediff"')
 
             # plot versus energy in self.egrid
-            prop_list = ["velocity", "Ediff"]
+            # prop_list = ["velocity", "Ediff"]
+            prop_list = ["velocity"]
             for prop_name in prop_list:
                 plt = PlotlyFig(plot_title=None, x_title="Energy (eV)", y_title=prop_name, hovermode='closest',
                                 filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
@@ -2952,7 +2952,7 @@ if __name__ == "__main__":
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    , "poly_bands": [[[[0.5, 0.5, 0.5], [0.0, mass]]]]
+                    , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
                     }
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
@@ -2983,7 +2983,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300])
+                  dopings=[2e15], temperatures=[300])
                   #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
