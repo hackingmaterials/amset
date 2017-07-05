@@ -148,12 +148,19 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     # f = self.kgrid[tp]["f0"][c][T][ib][ik]
     f = kgrid[tp]["f"][c][T][ib][ik]
     f_th = kgrid[tp]["f_th"][c][T][ib][ik]
-    # N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
+
+
+
+
     N_POP = kgrid[tp]["N_POP"][c][T][ib][ik]
     for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
         # bypass k-points that cannot have k- associated with them (even though indexes may be available due to enforced scattering)
-        if X_Epm == "X_Eminus_ik" and kgrid[tp]["energy"][ib][ik] - hbar * \
+        if tp == "n" and X_Epm == "X_Eminus_ik" and kgrid[tp]["energy"][ib][ik] - hbar * \
                 kgrid[tp]["W_POP"][ib][ik] < cbm_vbm[tp]["energy"]:
+            continue
+
+        if tp == "p" and X_Epm == "X_Eplus_ik" and kgrid[tp]["energy"][ib][ik] + hbar * \
+                kgrid[tp]["W_POP"][ib][ik] > cbm_vbm[tp]["energy"]:
             continue
 
         # TODO: see how does dividing by counted affects results, set to 1 to test: #20170614: in GaAs, they are all equal anyway (at least among the ones checked)
@@ -169,16 +176,20 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             k_pm = kgrid[tp]["norm(k)"][ib_pm][ik_pm]
             abs_kdiff = abs(k_pm - k)
             if abs_kdiff < 1e-4:
-                #     # print "HERE HERE HERE HERE"
                 counted -= 1
                 continue
 
             a_pm = kgrid[tp]["a"][ib_pm][ik_pm]
             c_pm = kgrid[tp]["c"][ib_pm][ik_pm]
-            # g_pm = sum(self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm])/3
-            # f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
-            f_pm = kgrid[tp]["f"][c][T][ib_pm][ik_pm]
-            f_pm_th = kgrid[tp]["f_th"][c][T][ib_pm][ik_pm]
+
+            if tp == "n":
+                f_pm = kgrid[tp]["f"][c][T][ib_pm][ik_pm]
+                f_pm_th = kgrid[tp]["f_th"][c][T][ib_pm][ik_pm]
+            else:
+                f_pm = 1 - kgrid[tp]["f"][c][T][ib_pm][ik_pm]
+                f_pm_th = 1 - kgrid[tp]["f_th"][c][T][ib_pm][ik_pm]
+
+
             A_pm = a * a_pm + c_ * c_pm * (k_pm ** 2 + k ** 2) / (2 * k_pm * k)
 
             # beta_pm = (e ** 2 * kgrid[tp]["W_POP"][ib_pm][ik_pm] * k_pm) / (4 * pi * hbar * k * v_pm) * \
@@ -1651,10 +1662,12 @@ class AMSET(object):
                     self.ediff_scat = {"n": [], "p": []}
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change=sgn * hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
-                                        tolerance=self.dE_min)
+                                # E_change=sgn * hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
+                                E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
+                                   tolerance=self.dE_min)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change=sgn * hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
+                                # E_change= (sgn*-1)* hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
+                                E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
                                         tolerance=self.dE_min)
 
                     enforced_ratio = self.nforced_scat[tp] / (
