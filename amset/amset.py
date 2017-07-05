@@ -800,7 +800,7 @@ class AMSET(object):
 
         # self.egrid["fermi"]= {
         #              2000000000000000.0: {
-        #                  300: -0.3762626769609572
+        #                  300: -0.575512702461
         #              }
         #          }
 
@@ -1806,7 +1806,7 @@ class AMSET(object):
 
     def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None, normalize_energy=False):
         if not interpolation_nsteps:
-            interpolation_nsteps = max(5, int(500.0 / len(self.egrid[tp]["energy"])))
+            interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
         integral = 0.0
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             E = self.egrid[tp]["energy"][ie]
@@ -1875,23 +1875,23 @@ class AMSET(object):
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
-        # weighted = False
 
         wpower = 1
         if xvel:
             wpower += 1
         imax_occ = len(self.Efrequency[tp][:-1])
+        # imax_occ = len(self.Efrequency[tp])
         # imax_occ = 50
 
         if not interpolation_nsteps:
-            interpolation_nsteps = max(5, int(500.0 / len(self.egrid[tp]["energy"])))
+            interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
         diff = [0.0 for prop in prop_list]
         integral = self.gs
         # for ie in range(len(self.egrid[tp]["energy"]) - 1):
         for ie in range(imax_occ):
 
             E = self.egrid[tp]["energy"][ie]
-            dE = (self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
+            dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if xDOS:
                 dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
             if xvel:
@@ -1911,7 +1911,9 @@ class AMSET(object):
                                self.egrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ie])) / interpolation_nsteps
                 else:
                     diff[j] = (self.egrid[tp][p][c][T][ie + 1] - self.egrid[tp][p][c][T][ie]) / interpolation_nsteps
-
+            if weighted:
+                dweight = (self.Efrequency[tp][ie+1] / float(self.sym_freq[tp][ie+1]) - \
+                          self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie]) ) /interpolation_nsteps
             for i in range(interpolation_nsteps):
                 multi = dE
                 for j, p in enumerate(prop_list):
@@ -1930,7 +1932,7 @@ class AMSET(object):
                     # integral += multi * self.Efrequency[tp][ie]**wpower *dfdE
                     # integral += multi * self.Efrequency[tp][ie]**wpower * self.egrid[tp]["f0"][c][T][ie]
                     # integral += multi * self.Efrequency[tp][ie] ** wpower
-                    integral += multi * self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie])
+                    integral += multi * (self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie]) + dweight * i)
                 else:
                     integral += multi
         if weighted:
@@ -2389,7 +2391,7 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.0001, tolerance_loose=0.003, alpha=0.05, max_iter=5000):
+    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.05, max_iter=5000):
         """
         To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
         :param c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
@@ -2434,8 +2436,10 @@ class AMSET(object):
             for j, tp in enumerate(["n", "p"]):
                 integral = 0.0
 
-                for ie in range((1 - j) * self.cbm_dos_idx + j * 0,
-                                (1 - j) * len(self.dos) - 1 + j * self.vbm_dos_idx - 1):
+                # for ie in range((1 - j) * self.cbm_dos_idx + j * 0,
+                #                 (1 - j) * len(self.dos) - 1 + j * self.vbm_dos_idx - 1):
+                for ie in range((1 - j) * self.cbm_dos_idx,
+                                    (1 - j) * len(self.dos) + j * self.vbm_dos_idx - 1):
                     integral += (self.dos[ie + 1][1] + self.dos[ie][1]) / 2 * funcs[j](self.dos[ie][0], fermi, T) * \
                                 (self.dos[ie + 1][0] - self.dos[ie][0])
                 temp_doping[tp] = (-1) ** (j + 1) * abs(integral / (self.volume * (A_to_m * m_to_cm) ** 3))
