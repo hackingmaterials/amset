@@ -1889,6 +1889,8 @@ class AMSET(object):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
 
+        weighted = False
+
         wpower = 1
         if xvel:
             wpower += 1
@@ -2066,7 +2068,11 @@ class AMSET(object):
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
         v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
-        f_prm = self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
+        if tp == "n":
+            f_prm = self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
+        else:
+            f_prm = 1 - self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
+
         if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
             return np.array(
             [0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
@@ -2086,22 +2092,30 @@ class AMSET(object):
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/v_prm # simply /v_prm is wrong and creates artificial anisotropy
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X) / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
+
+
         if "S_i" in sname:
             integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
             if "minus" in sname:
-                if self.kgrid[tp]["energy"][ib][ik] -hbar*self.kgrid[tp]["W_POP"][ib][ik] >= self.cbm_vbm[tp]["energy"]:
+                if tp == "p" or (tp == "n" and \
+                    self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f) * N_POP + f * (1 + N_POP)
             elif "plus" in sname:
-                integ *= (1 - f) * (1 + N_POP) + f * N_POP
+                if tp == "n" or (tp == "p" and \
+                    self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
+                    integ *= (1 - f) * (1 + N_POP) + f * N_POP
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         elif "S_o" in sname:
             if "minus" in sname:
-                if self.kgrid[tp]["energy"][ib][ik]-hbar *self.kgrid[tp]["W_POP"][ib][ik] >= self.cbm_vbm[tp]["energy"]:
+                if tp == "p" or (tp=="n" and \
+                    self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
             elif "plus" in sname:
-                integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
+                if tp == "n" or (tp == "p" and \
+                    self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
+                    integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         else:
@@ -2653,7 +2667,7 @@ class AMSET(object):
 
 
     def calculate_transport_properties(self):
-        integrate_over_kgrid = False
+        integrate_over_kgrid = True
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
@@ -2677,7 +2691,7 @@ class AMSET(object):
                         denom = self.integrate_over_BZ(["f0"], tp, c, T, xDOS=False, xvel=False,
                                                        weighted=True) * 1e-7 * 1e-3 * self.volume
                     else:
-                        if c < 0:
+                        if tp == "n":
                             denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
                                                       weighted=False)
                         else:
@@ -3000,7 +3014,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[2e15], temperatures=[300])
+                  dopings=[-2e15], temperatures=[300])
                   #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
@@ -3010,7 +3024,7 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    AMSET.plot()
+    # AMSET.plot()
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=20, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
