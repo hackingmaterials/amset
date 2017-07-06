@@ -468,7 +468,7 @@ class Analytical_bands(object):
 
 if __name__ == "__main__":
     # user inputs
-    cbm_bidx = 15
+    cbm_bidx = 4
     # kpts = np.array([[0.5, 0.5, 0.5]])
     kpts = np.array(
         [[-0.1, 0.19999999999999998, 0.1], [0.1, -0.19999999999999998, -0.1], [0.1, -0.1, -0.19999999999999998],
@@ -481,9 +481,11 @@ if __name__ == "__main__":
          [-0.3, -0.09999999999999998, -0.19999999999999998], [0.3, 0.09999999999999998, 0.19999999999999998],
          [0.2, 0.3, 0.1], [-0.2, -0.3, -0.1], [0.3, 0.19999999999999998, 0.09999999999999998],
          [-0.3, -0.19999999999999998, -0.09999999999999998]])
+
+    # kpts = [[ 0.,  0.,  0.], [ 0.42105263,  0.42105263,  0.        ]] # Si kVBM and kCBM respectively
     # coeff_file = '../test_files/PbTe/fort.123'
     coeff_file = "../test_files/GaAs/fort.123_GaAs_1099kp"
-
+    # coeff_file = "../test_files/Si/Si_fort.123"
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
     # read the coefficients file
     engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=[cbm_bidx])
@@ -511,6 +513,8 @@ if __name__ == "__main__":
     m_tensor = hbar ** 2 /(dde*4*pi**2) / m_e / A_to_m ** 2 * e * Ry_to_eV # m_tensor: the last part is unit conversion
     print("effective mass tensor")
     print(m_tensor)
+
+    quit()
 
     print("group velocity:")
     v = de /hbar*A_to_m*m_to_cm * Ry_to_eV # to get v in units of cm/s
