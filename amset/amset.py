@@ -1271,11 +1271,8 @@ class AMSET(object):
                 if not self.parallel or self.poly_bands:  # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts)):
                         if not self.poly_bands:
-                            energy, velocity, effective_m = self.calc_analytical_energy(kpts[ik],
-                                                                                        engre[i * self.cbm_vbm["p"][
-                                                                                            "included"] + ib],
-                                                                                        nwave, nsym, nstv, vec, vec2,
-                                                                                        out_vec2, br_dir, sgn)
+                            energy, velocity, effective_m = self.calc_analytical_energy(kpts[ik],engre[i * self.cbm_vbm[
+                                "p"]["included"] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn)
                         else:
                             energy, velocity, effective_m = self.calc_poly_energy(kpts[ik], tp, ib)
                         energies[tp][ik] = energy
@@ -1286,17 +1283,17 @@ class AMSET(object):
                                         abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                             rm_list[tp].append(ik)
                 else:
-                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[ik],
-                                                                                  engre[i * self.cbm_vbm["p"][
-                                                                                      "included"] + ib],
-                                                                                  nwave, nsym, nstv, vec, vec2,
-                                                                                  out_vec2, br_dir) for ik in
-                                                              range(len(kpts)))
+                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[ik],engre[i * self.cbm_vbm["p"][
+                        "included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts)))
                     for ik, res in enumerate(results):
                         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                         velocity = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
                                         abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
+                            # if tp=="p":
+                            #     print "reason for removing the k-point:"
+                            #     print "energy: {}".format(energies[tp][ik])
+                            #     print "velocity: {}".format(velocity)
                             rm_list[tp].append(ik)
             rm_list[tp] = list(set(rm_list[tp]))
 
@@ -1333,7 +1330,8 @@ class AMSET(object):
         print "all types"
         print self.all_types
         for tp in ["n", "p"]:
-            if tp in self.all_types:
+            # if tp in self.all_types:
+            if True:
                 kpts[tp] = list(np.delete(kpts[tp], rm_list[tp], axis=0))
                 energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
             else: # in this case it doesn't matter if the k-mesh is loose
@@ -2984,8 +2982,9 @@ if __name__ == "__main__":
 
 
 
-    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 40, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5}
+
 
     ### for PbTe
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -3002,7 +3001,7 @@ if __name__ == "__main__":
 
     ### For Si
     material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 139.7,
-                       "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.15, "scissor": 0.5154}
+                       "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.15, "scissor": 0.0} #0.5154}
     cube_path = "../test_files/Si/"
     coeff_file = os.path.join(cube_path, "Si_fort.123")
 
