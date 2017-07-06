@@ -507,7 +507,7 @@ class AMSET(object):
         self.dE_min = params.get("dE_min", 0.01)
         self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
-        self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
+        self.Ecut = params.get("Ecut", 5 * k_B * max(self.temperatures + [300]))
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -2982,7 +2982,7 @@ if __name__ == "__main__":
 
 
 
-    performance_params = {"nkibz": 40, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5}
 
 
@@ -2993,14 +2993,14 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
 
     ### For GaAs
-    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 190.2,
+    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
     #                    "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
     # cube_path = "../test_files/GaAs/"
     # ### coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
     ### For Si
-    material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 139.7,
+    material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
                        "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.15, "scissor": 0.0} #0.5154}
     cube_path = "../test_files/Si/"
     coeff_file = os.path.join(cube_path, "Si_fort.123")
