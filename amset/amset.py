@@ -1867,7 +1867,7 @@ class AMSET(object):
                     if p[0] == "/":
                         product /= self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik]
                     elif p[0] == "1":  # this assumes that the property is 1-f0 for example
-                        product *= 1 - self.kgrid[tp][p.split("-")[-1]][c][T][ib][ik]
+                        product *= 1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik]
                     else:
                         product *= self.kgrid[tp][p][c][T][ib][ik]
                 sum_over_k += product
@@ -1895,8 +1895,6 @@ class AMSET(object):
         if xvel:
             wpower += 1
         imax_occ = len(self.Efrequency[tp][:-1])
-        # imax_occ = len(self.Efrequency[tp])
-        # imax_occ = 50
 
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
@@ -1912,12 +1910,6 @@ class AMSET(object):
             if xvel:
                 dv = (self.egrid[tp]["velocity"][ie + 1] - self.egrid[tp]["velocity"][ie]) / interpolation_nsteps
             for j, p in enumerate(prop_list):
-                # try:
-                #     diff[j] = (self.egrid[tp][p][c][T][ie + 1] - self.egrid[tp][p][c][T][ie]) / interpolation_nsteps
-                # except:
-                #     diff[j] = (self.egrid[tp][p.split("/")[-1]][c][T][ie + 1] -
-                #                self.egrid[tp][p.split("/")[-1]][c][T][ie]) / interpolation_nsteps
-
                 if "/" in p:
                     diff[j] = (self.egrid[tp][p.split("/")[-1]][c][T][ie + 1] -
                                self.egrid[tp][p.split("/")[-1]][c][T][ie]) / interpolation_nsteps
