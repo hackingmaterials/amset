@@ -86,7 +86,8 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
     # coefficients[0] is the constant
     # coefficient[1] is the effective mass
     eff_m = coefficients[1]
-    energy = bandgap*["p", "n"].index(type) # if p-type we do not add any value to the calculated energy for the band gap
+    # energy = bandgap*["p", "n"].index(type) # if p-type we do not add any value to the calculated energy for the band gap
+    energy = sgn * bandgap/2.0
     energy += sgn*(coefficients[0] + hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18) # last part is unit conv. to eV
     # print hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18
     v = hbar*min_kdistance/(m_e*eff_m) *1e11*e # last part is unit conversion to cm/s
@@ -190,10 +191,12 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
                     degeneracy = len(valley[0])
                     for ie, energy in enumerate(e_mesh):
                         dos_temp = volume/(2*pi**2)*(2*m_e*m_eff/hbar**2)**1.5 * 1e-30/e**1.5
-                        if energy < 0-offset:
-                            dos_temp *= (-energy-offset)**0.5
-                        elif energy >=bandgap+offset:
-                            dos_temp *= (energy-bandgap-offset)**0.5
+                        if energy <= -bandgap/2.0-offset:
+                            # dos_temp *= (-energy-offset)**0.5
+                            dos_temp *= (-energy+bandgap/2.0+offset)**0.5
+                        elif energy >=bandgap/2.0+offset:
+                            # dos_temp *= (energy-bandgap-offset)**0.5
+                            dos_temp *= (energy-bandgap/2.0-offset)**0.5
                         else:
                             dos_temp = 0
                         dos[ie] += dos_temp * degeneracy
@@ -465,7 +468,7 @@ class Analytical_bands(object):
 
 if __name__ == "__main__":
     # user inputs
-    cbm_bidx = 15
+    cbm_bidx = 4
     # kpts = np.array([[0.5, 0.5, 0.5]])
     kpts = np.array(
         [[-0.1, 0.19999999999999998, 0.1], [0.1, -0.19999999999999998, -0.1], [0.1, -0.1, -0.19999999999999998],
@@ -478,9 +481,11 @@ if __name__ == "__main__":
          [-0.3, -0.09999999999999998, -0.19999999999999998], [0.3, 0.09999999999999998, 0.19999999999999998],
          [0.2, 0.3, 0.1], [-0.2, -0.3, -0.1], [0.3, 0.19999999999999998, 0.09999999999999998],
          [-0.3, -0.19999999999999998, -0.09999999999999998]])
+
+    # kpts = [[ 0.,  0.,  0.], [ 0.42105263,  0.42105263,  0.        ]] # Si kVBM and kCBM respectively
     # coeff_file = '../test_files/PbTe/fort.123'
     coeff_file = "../test_files/GaAs/fort.123_GaAs_1099kp"
-
+    # coeff_file = "../test_files/Si/Si_fort.123"
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
     # read the coefficients file
     engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=[cbm_bidx])
@@ -508,6 +513,8 @@ if __name__ == "__main__":
     m_tensor = hbar ** 2 /(dde*4*pi**2) / m_e / A_to_m ** 2 * e * Ry_to_eV # m_tensor: the last part is unit conversion
     print("effective mass tensor")
     print(m_tensor)
+
+    quit()
 
     print("group velocity:")
     v = de /hbar*A_to_m*m_to_cm * Ry_to_eV # to get v in units of cm/s
