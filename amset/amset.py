@@ -1856,9 +1856,11 @@ class AMSET(object):
             sum_over_k = np.array([self.gs, self.gs, self.gs])
             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                 k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
+                # k_nrm = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
 
                 # 4*pi, hbar and norm(v) are coming from the conversion of dk to dE
-                product = k_nrm ** 2 / self.kgrid[tp]["norm(v)"][ib][ik] * 4 * pi / hbar
+                # product = k_nrm ** 2 / self.kgrid[tp]["norm(v)"][ib][ik] * 4 * pi / hbar
+                product = 1.0
                 if xvel:
                     product *= self.kgrid[tp]["velocity"][ib][ik]
                 for j, p in enumerate(prop_list):
@@ -1869,6 +1871,7 @@ class AMSET(object):
                     else:
                         product *= self.kgrid[tp][p][c][T][ib][ik]
                 sum_over_k += product
+            sum_over_k /= len(self.kgrid_to_egrid_idx[tp][ie])
             if xDOS:
                 sum_over_k *= self.egrid[tp]["DOS"][ie]
             if weighted:
@@ -1887,7 +1890,7 @@ class AMSET(object):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
 
-        weighted = False
+        # weighted = False
 
         wpower = 1
         if xvel:
@@ -1895,7 +1898,8 @@ class AMSET(object):
         imax_occ = len(self.Efrequency[tp][:-1])
 
         if not interpolation_nsteps:
-            interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
+            # interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
+            interpolation_nsteps = 1
         diff = [0.0 for prop in prop_list]
         integral = self.gs
         # for ie in range(len(self.egrid[tp]["energy"]) - 1):
@@ -2120,7 +2124,7 @@ class AMSET(object):
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         # only when very large # of k-points are present, make sense to parallelize as this function
                         # has become fast after better energy window selection
-                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 20000:
+                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 2000:
                             # if False:
                             results = Parallel(n_jobs=self.num_cores)(delayed(calculate_Sio) \
                                                                           (tp, c, T, ib, ik, once_called, self.kgrid,
@@ -2657,7 +2661,7 @@ class AMSET(object):
 
 
     def calculate_transport_properties(self):
-        integrate_over_kgrid = True
+        integrate_over_kgrid = False
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
@@ -2669,7 +2673,7 @@ class AMSET(object):
                                                                       self.integrate_over_BZ(
                                                                           prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c,
                                                                           T=T, xDOS=False, xvel=True,
-                                                                          weighted=True) * 1e-7 * 1e-3 * self.volume
+                                                                          weighted=True) #* 1e-7 * 1e-3 * self.volume
 
                         else:
                             self.egrid["mobility"][mu_el][c][T][tp] = (-1) * default_small_E / hbar * \
@@ -2678,8 +2682,12 @@ class AMSET(object):
                                                                           T=T, xDOS=False, xvel=True, weighted=True)
 
                     if integrate_over_kgrid:
-                        denom = self.integrate_over_BZ(["f0"], tp, c, T, xDOS=False, xvel=False,
-                                                       weighted=True) * 1e-7 * 1e-3 * self.volume
+                        if tp == "n":
+                            denom = self.integrate_over_BZ(["f0"], tp, c, T, xDOS=False, xvel=False,
+                                                       weighted=True) #* 1e-7 * 1e-3 * self.volume
+                        else:
+                            denom = self.integrate_over_BZ(["1 - f0"], tp, c, T, xDOS=False, xvel=False,
+                                                           weighted=True)
                     else:
                         if tp == "n":
                             denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
@@ -2688,19 +2696,22 @@ class AMSET(object):
                             denom = self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
                                                           weighted=False)
 
-                    for mu_inel in self.inelastic_scatterings:
-                        # calculate mobility["POP"] based on g_POP
-                        self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(prop_list=["g_" + mu_inel],
-                                                                                          tp=tp, c=c, T=T, xDOS=False,
-                                                                                          xvel=True, weighted=True)
 
                     if integrate_over_kgrid:
+                        for mu_inel in self.inelastic_scatterings:
+                            self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_BZ(
+                                prop_list=["g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
                         self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T,
                                                                                              xDOS=False, xvel=True,
                                                                                              weighted=True)
                         print "overll numerator"
                         print self.egrid["mobility"]["overall"][c][T][tp]
                     else:
+                        for mu_inel in self.inelastic_scatterings:
+                            # calculate mobility["POP"] based on g_POP
+                            self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(
+                                prop_list=["g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False,xvel=True, weighted=True)
+
                         self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_E(prop_list=["g"],
                                                                                             tp=tp, c=c, T=T, xDOS=False,
                                                                                             xvel=True, weighted=True)
@@ -2973,16 +2984,16 @@ if __name__ == "__main__":
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    # , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
-                    }
-    # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
+                    , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+    # , "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
-    #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
+    #       [[0.15, 0.15, 0.15], [0.0, mass]]]]
+                    }
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 60, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5}
 
 
@@ -2993,17 +3004,17 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
 
     ### For GaAs
-    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-    #                    "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
-    # cube_path = "../test_files/GaAs/"
-    # ### coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
-    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
+    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
+                       "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
+    cube_path = "../test_files/GaAs/"
+    ### coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
     ### For Si
-    material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
-                       "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.15, "scissor": 0.0} #0.5154}
-    cube_path = "../test_files/Si/"
-    coeff_file = os.path.join(cube_path, "Si_fort.123")
+    # material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
+    #                    "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.15, "scissor": 0.0} #0.5154}
+    # cube_path = "../test_files/Si/"
+    # coeff_file = os.path.join(cube_path, "Si_fort.123")
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
