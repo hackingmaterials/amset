@@ -24,6 +24,8 @@ import multiprocessing
 from joblib import Parallel, delayed
 from analytical_band_from_BZT import get_energy
 
+import plotly
+
 # global constants
 hbar = _cd('Planck constant in eV s') / (2 * pi)
 m_e = _cd('electron mass')  # in kg
@@ -1598,16 +1600,12 @@ class AMSET(object):
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
                                                                                            E_change=+ hbar *
-                                                                                                    self.kgrid[tp][
-                                                                                                        "W_POP"][ib][
-                                                                                                        ik],
+                                                                                           self.kgrid[tp]["W_POP"][ib][ik],
                                                                                            forced_min_npoints=2,
                                                                                            tolerance=self.dE_min)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
                                                                                             E_change=- hbar *
-                                                                                                     self.kgrid[tp][
-                                                                                                         "W_POP"][ib][
-                                                                                                         ik],
+                                                                                            self.kgrid[tp]["W_POP"][ib][ik],
                                                                                             forced_min_npoints=2,
                                                                                             tolerance=self.dE_min)
 
@@ -1676,8 +1674,7 @@ class AMSET(object):
 
             for step, start in [(1, 0), (-1, -1)]:
                 ik_prm = ik_closest_E + start  # go up from ik_closest_E, down from ik_closest_E - 1
-                while (ik_prm >= 0) and (ik_prm < nk) and (
-                    abs(self.kgrid[tp]["energy"][ib_prm][ik_prm] - E_prm) < tolerance):
+                while ik_prm >= 0 and ik_prm < nk and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm] - E_prm) < tolerance:
                     X_ib_ik = (cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm)
                     if (X_ib_ik[1], X_ib_ik[2]) not in [(entry[1], entry[2]) for entry in result]:
                         result.append(X_ib_ik)
@@ -1686,7 +1683,7 @@ class AMSET(object):
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
         ib_prm = ib
         # if E_change == 0.0:
-        #    ik_prm = ik
+        #    ik_closest_E = ik
         # else:
         ik_closest_E = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
 
@@ -2695,140 +2692,90 @@ class AMSET(object):
 
 
 
-    # TODO-JF: this function needs a MAJOR revision and it does not interfere with the main code so it might be a good
-    # place to start; I would first figure out how to directly save a Plotly plot to a file (it doesn't matter what the
-    # format is (i.e. png, jpeg, etc) and then based on that decide where to do plot. I encourage keeping everything in
-    # plotly as the plots look nice and the interactive mode on browser is a very nice tool for display and debugging
-    def plot(self, plotc=None, plotT=None, path=None, textsize=40, ticksize=35, margin_left=160, margin_bottom=120,
-             fontfamily="serif"):
-        """plots some of the outputs for more detailed analysis, debugging, etc"""
-        from matminer.figrecipes.plotly.make_plots import PlotlyFig
-        if not plotc:
-            plotc = self.dopings[0]
-        if not plotT:
-            plotT = 300.0
+    def create_plot(self, fig, filename, interactive, show_interactive):
+        if interactive:
+            plotly.offline.plot(fig, filename=filename, auto_open=show_interactive)
+        else:
+            plotly.plotly.image.save_as(fig, filename=filename)
+
+
+    def plot(self, k_plots=[], E_plots=[], mobility=True, interactive=True, show_interactive=True, textsize=40,
+             ticksize=30, path=None, margin_left=160, margin_bottom=120, fontfamily="serif"):
+        """
+        plots the calculated values
+        :param k_plots: (list of strings) the names of the quantities to be plotted against norm(k)
+            options: 'energy', 'df0dk', 'velocity', or just string 'all' (not in a list) to plot everything
+        :param E_plots: (list of strings) the names of the quantities to be plotted against E
+            options: 'histogram', 'relaxation time', '_all_elastic', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
+            'g_POP', 'g_th', 'S_i', 'S_o', or just string 'all' (not in a list) to plot everything
+        :param mobility: (boolean) if True, create a mobility against temperature plot
+        :param interactive: (boolean) if True, creates html plots that can display numbers when points are hovered over;
+            if false, creates png images of the plots
+        :param show_interactive: (boolean) if interactive is True, this determines whether or not the created html plots
+            are shown
+        :param textsize: (int) size of title and axis label text
+        :param ticksize: (int) size of axis tick label text
+        """
+
         if not path:
             path = os.path.join(os.getcwd(), "plots")
             if not os.path.exists(path):
                 os.makedirs(name=path)
-        fformat = "html"
 
+        if k_plots == 'all':
+            k_plots = ['energy', 'df0dk', 'velocity']
+        if E_plots == 'all':
+            E_plots = ['histogram', 'relaxation time', '_all_elastic', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
+                       'g_POP', 'g_th', 'S_i', 'S_o']
 
-        for tp in [self.debug_tp]:
-            print(
-            'plotting: first set of plots: "log10 of mobility", "relaxation time", "_all_elastic", "ACD", "df0dk"')
-            plt = PlotlyFig(x_title="Temperature (K)", y_title="log10 of mobility (^10 cm2/V.s)", textsize=textsize,
-                            filename=os.path.join(path, "{}_{}.{}".format("log10_of_mobility", tp, fformat)),
-                            ticksize=ticksize, margin_left=margin_left, margin_bottom=margin_bottom,
-                            fontfamily=fontfamily)
-            all_plots = []
-            for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
-                all_plots.append({"x_col": self.temperatures,
-                                  # I temporarity (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
-                                  "y_col": [log(abs(sum(self.egrid["mobility"][mo][plotc][T][tp]) / 3), 10) for T in
-                                            self.temperatures],
-                                  "text": mo, "size": textsize / 2, "mode": "lines+markers", "legend": "", "color": ""
-                                  })
-            plt.xy_plot(x_col=[],
-                        y_col=[],
-                        add_xy_plot=all_plots)
+        if interactive:
+            fformat, plot_mode = ('html', 'offline')
+        else:
+            fformat, plot_mode = ('png', 'static')
 
-            plt = PlotlyFig(plot_mode='offline', y_title="# of repeated energy in kgrid", x_title="Energy (eV)",
-                            plot_title=None, filename=os.path.join(path, "{}_{}.{}".format("E_histogram", tp, fformat)),
-                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
-                            margin_bottom=margin_bottom)
+        tp = self.debug_tp
+        energy_props_to_avg = ['relaxation time', '_all_elastic', 'df0dk', 'ACD', 'IMP', 'PIE', 'g',
+            'g_POP', 'g_th', 'S_i', 'S_o']
+        x_data = {'k': self.kgrid[tp]["norm(k)"][0],
+                  'E': [E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]]}
+        x_axis_label = {'k': 'norm(k)', 'E': 'energy (eV)'}
 
-            plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]],
-                        y_col=self.Efrequency[tp])
+        from matminer.figrecipes.plotly.make_plots import PlotlyFig
 
-            for prop in ["energy", "df0dk"]:
-                plt = PlotlyFig(plot_mode='offline', y_title=prop, x_title="norm(k)",
-                                plot_title="{} in kgrid".format(prop),
-                                filename=os.path.join(path, "{}_{}.{}".format("{}_kgrid".format(prop), tp, fformat)),
-                                textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
-                                margin_bottom=margin_bottom)
-                if prop in ["energy"]:
-                    plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp][prop][0])
-                if prop in ["df0dk"]:
-                    for c in self.dopings:
-                        for T in [plotT]:
-                            plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0],
-                                        y_col=[sum(p / 3) for p in self.kgrid[tp][prop][c][T][0]])
+        for c in self.dopings:
+            for T in self.temperatures:
 
-            plt = PlotlyFig(plot_mode='offline', y_title="norm(velocity) (cm/s)", x_title="norm(k)",
-                            plot_title="velocity in kgrid",
-                            filename=os.path.join(path, "{}_{}.{}".format("v_kgrid", tp, fformat)),
-                            textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
-                            margin_bottom=margin_bottom)
-            plt.xy_plot(x_col=self.kgrid[tp]["norm(k)"][0], y_col=self.kgrid[tp]["norm(v)"][0])
+                energy_props = {'histogram': self.Efrequency[tp],
+                                'velocity': [sum(p) / 3 for p in self.egrid[tp]['velocity']]}
+                energy_props.update({prop: [sum(p) / 3 for p in self.egrid[tp][prop][c][T]] for prop in energy_props_to_avg})
+                y_data = {'k': {'energy': self.kgrid[tp]['energy'][0],
+                                'df0dk': [sum(p / 3) for p in self.kgrid[tp]['df0dk'][c][T][0]],
+                                'velocity': self.kgrid[tp]["norm(v)"][0]},
+                          'E': energy_props}
 
-            prop_list = ["relaxation time", "_all_elastic", "df0dk"] + self.elastic_scatterings
-            if "POP" in self.inelastic_scatterings:
-                prop_list += ["g", "g_POP", "g_th", "S_i", "S_o"]
-            for c in self.dopings:
-                # for T in self.temperatures:
-                for T in [plotT]:
-                    plt = PlotlyFig(plot_mode='offline', y_title="ACD scattering rate (1/s)", x_title="energy (eV)",
-                                    plot_title="ACD in kgrid",
-                                    filename=os.path.join(path, "{}_{}.{}".format("ACD_kgrid", tp, fformat)),
-                                    textsize=textsize, ticksize=ticksize, scale=1, margin_left=margin_left,
-                                    margin_bottom=margin_bottom)
-                    plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.kgrid[tp]["energy"][0]]
-                                , y_col=[sum(p) / 3 for p in self.kgrid[tp]["ACD"][c][T][0]])
+                for x_value, y_values in [('k', k_plots), ('E', E_plots)]:
+                    for y_value in y_values:
+                        filename = os.path.join(path, "{}_{}_{}.{}".format(y_value, x_value, tp, fformat))
+                        plt = PlotlyFig(x_title=x_axis_label[x_value], y_title=y_value, plot_title='{}, c={}, T={}'.format(y_value, c, T), textsize=textsize, plot_mode=plot_mode,
+                                        filename=filename,
+                                        show_offline_plot=show_interactive, ticksize=ticksize, margin_left=margin_left,
+                                        margin_bottom=margin_bottom, fontfamily=fontfamily)
+                        plt.xy_plot(x_data[x_value], y_data[x_value][y_value], color='black')
 
-                    for prop_name in prop_list:
-                        plt = PlotlyFig(plot_title="c={} 1/cm3, T={} K".format(c, T), x_title="Energy (eV)",
-                                        y_title=prop_name, hovermode='closest',
-                                        filename=os.path.join(path,
-                                                              "{}_{}_{}_{}.{}".format(prop_name, tp, c, T, fformat)),
-                                        plot_mode='offline', username=None, api_key=None, textsize=textsize,
-                                        ticksize=ticksize, fontfamily=None,
-                                        height=800, width=1000, scale=None, margin_top=100, margin_bottom=margin_bottom,
-                                        margin_left=margin_left,
-                                        margin_right=80,
-                                        pad=0)
-                        prop = [sum(p) / 3 for p in self.egrid[tp][prop_name][c][
-                            T]]  # scat. rates are not vectors all 3 numbers represent single isotropic scattering rate
-                        plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]],
-                                    y_col=prop)
-
-            print('plotting: second set of plots: "velocity", "Ediff"')
-
-            # plot versus energy in self.egrid
-            prop_list = ["velocity", "Ediff"]
-            for prop_name in prop_list:
-                plt = PlotlyFig(plot_title=None, x_title="Energy (eV)", y_title=prop_name, hovermode='closest',
-                                filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
-                                plot_mode='offline', username=None, api_key=None, textsize=textsize, ticksize=ticksize,
-                                fontfamily=None,
-                                height=800, width=1000, scale=None, margin_top=100, margin_bottom=margin_bottom,
-                                margin_left=margin_left, margin_right=80,
-                                pad=0)
-                if prop_name == "Ediff":
-                    y_col = [self.egrid[tp]["energy"][i + 1] - \
-                             self.egrid[tp]["energy"][i] for i in range(len(self.egrid[tp]["energy"]) - 1)]
-                else:
-                    y_col = [sum(p) / 3 for p in
-                             self.egrid[tp][prop_name]]  # velocity is actually a vector so we take norm
-                    plt.xy_plot(x_col=[E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"][:len(y_col)]],
-                                y_col=y_col, error_type="data",
-                                error_array=[np.std(p) for p in self.egrid[tp][prop_name]], error_direction="y")
-                    # xrange=[self.egrid[tp]["energy"][0], self.egrid[tp]["energy"][0]+0.6])
-
-            # plot versus norm(k) in self.kgrid
-            prop_list = ["energy"]
-            for prop_name in prop_list:
-                x_col = self.kgrid[tp]["norm(k)"][0]
-
-                plt = PlotlyFig(plot_title=None, x_title="k [1/nm]",
-                                y_title="{} at the 1st band".format(prop_name), hovermode='closest',
-                                filename=os.path.join(path, "{}_{}.{}".format(prop_name, tp, fformat)),
-                                plot_mode='offline', username=None, api_key=None, textsize=textsize, ticksize=ticksize,
-                                fontfamily=None,
-                                height=800, width=1000, scale=None, margin_left=margin_left, margin_right=80,
-                                margin_bottom=margin_bottom)
-                y_col = self.kgrid[tp][prop_name][0]
-                plt.xy_plot(x_col=x_col, y_col=y_col)
+            if mobility:
+                filename = os.path.join(path, "{}_{}.{}".format("mobility", tp, fformat))
+                plt = PlotlyFig(x_title="Temperature (K)", y_title="Mobility (^10 cm2/V.s)", textsize=textsize,
+                                plot_mode=plot_mode, filename=filename, show_offline_plot=show_interactive,
+                                ticksize=ticksize-5, margin_left=margin_left, margin_bottom=margin_bottom,
+                                fontfamily=fontfamily)
+                all_plots = []
+                for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
+                    all_plots.append({"x_col": self.temperatures,
+                                      "y_col": [abs(sum(self.egrid["mobility"][mo][c][T][tp]) / 3) # I temporarily (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
+                                                for T in self.temperatures],
+                                      "text": mo, "size": textsize / 2, "mode": "lines+markers", "legend": "",
+                                      "color": ""})
+                plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type='log', color='black')
 
 
 
@@ -2869,9 +2816,10 @@ if __name__ == "__main__":
     #               model uses Analytical_Bands with the specified coefficient file
 
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"],
+                    "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]}
+                    , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+                    }
     # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
@@ -2879,7 +2827,7 @@ if __name__ == "__main__":
 
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5}
 
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -2910,6 +2858,7 @@ if __name__ == "__main__":
     AMSET.write_input_files()
     AMSET.to_csv()
     #AMSET.plot()
+    AMSET.plot(k_plots='all', E_plots=['relaxation time', 'df0dk', 'ACD', 'g'])
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=20, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
