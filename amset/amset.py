@@ -1859,8 +1859,8 @@ class AMSET(object):
                 # k_nrm = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
 
                 # 4*pi, hbar and norm(v) are coming from the conversion of dk to dE
-                # product = k_nrm ** 2 / self.kgrid[tp]["norm(v)"][ib][ik] * 4 * pi / hbar
-                product = 1.0
+                product = k_nrm ** 2 / self.kgrid[tp]["norm(v)"][ib][ik] * 4 * pi / hbar
+                # product = 1.0
                 if xvel:
                     product *= self.kgrid[tp]["velocity"][ib][ik]
                 for j, p in enumerate(prop_list):
@@ -1871,7 +1871,7 @@ class AMSET(object):
                     else:
                         product *= self.kgrid[tp][p][c][T][ib][ik]
                 sum_over_k += product
-            sum_over_k /= len(self.kgrid_to_egrid_idx[tp][ie])
+            # sum_over_k /= len(self.kgrid_to_egrid_idx[tp][ie])
             if xDOS:
                 sum_over_k *= self.egrid[tp]["DOS"][ie]
             if weighted:
@@ -1898,8 +1898,8 @@ class AMSET(object):
         imax_occ = len(self.Efrequency[tp][:-1])
 
         if not interpolation_nsteps:
-            # interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
-            interpolation_nsteps = 1
+            interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
+            # interpolation_nsteps = 1
         diff = [0.0 for prop in prop_list]
         integral = self.gs
         # for ie in range(len(self.egrid[tp]["energy"]) - 1):
