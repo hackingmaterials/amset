@@ -2755,7 +2755,7 @@ class AMSET(object):
 
                 for x_value, y_values in [('k', k_plots), ('E', E_plots)]:
                     for y_value in y_values:
-                        filename = os.path.join(path, "{}_{}_{}.{}".format(y_value, x_value, tp, fformat))
+                        filename = os.path.join(path, "{}_{}_{}_{}_{}.{}".format(y_value, x_value, tp, c, T, fformat))
                         plt = PlotlyFig(x_title=x_axis_label[x_value], y_title=y_value, plot_title='{}, c={}, T={}'.format(y_value, c, T), textsize=textsize, plot_mode=plot_mode,
                                         filename=filename,
                                         show_offline_plot=show_interactive, ticksize=ticksize, margin_left=margin_left,
@@ -2763,7 +2763,7 @@ class AMSET(object):
                         plt.xy_plot(x_data[x_value], y_data[x_value][y_value], color='black')
 
             if mobility:
-                filename = os.path.join(path, "{}_{}.{}".format("mobility", tp, fformat))
+                filename = os.path.join(path, "{}_{}_{}_{}.{}".format("mobility", tp, c, T, fformat))
                 plt = PlotlyFig(x_title="Temperature (K)", y_title="Mobility (^10 cm2/V.s)", textsize=textsize,
                                 plot_mode=plot_mode, filename=filename, show_offline_plot=show_interactive,
                                 ticksize=ticksize-5, margin_left=margin_left, margin_bottom=margin_bottom,
