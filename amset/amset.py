@@ -1836,7 +1836,7 @@ class AMSET(object):
 
     def integrate_over_BZ(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=True):
 
-        weighted = False
+        # weighted = False
 
         """
 
@@ -1871,15 +1871,18 @@ class AMSET(object):
                     else:
                         product *= self.kgrid[tp][p][c][T][ib][ik]
                 sum_over_k += product
-            # sum_over_k /= len(self.kgrid_to_egrid_idx[tp][ie])
+            # if not weighted:
+            #     sum_over_k /= len(self.kgrid_to_egrid_idx[tp][ie])
             if xDOS:
                 sum_over_k *= self.egrid[tp]["DOS"][ie]
             if weighted:
-                sum_over_k *= self.Efrequency[tp][ie] ** (wpower)
+            #     sum_over_k *= self.Efrequency[tp][ie] ** (wpower)
+                sum_over_k *=self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie])
             integral += sum_over_k * dE
 
         if weighted:
-            return integral / sum([freq ** (wpower) for freq in self.Efrequency[tp][:-1]])
+            return integral
+            # return integral / sum([freq ** (wpower) for freq in self.Efrequency[tp][:-1]])
         else:
             return integral
             # return integral / sum([self.egrid[tp]["f0"][c][T][ie][0]*self.Efrequency[tp][ie] for ie in range(len(self.Efrequency[tp][:-1]))])
@@ -2124,7 +2127,7 @@ class AMSET(object):
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         # only when very large # of k-points are present, make sense to parallelize as this function
                         # has become fast after better energy window selection
-                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 2000:
+                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 10000:
                             # if False:
                             results = Parallel(n_jobs=self.num_cores)(delayed(calculate_Sio) \
                                                                           (tp, c, T, ib, ik, once_called, self.kgrid,
@@ -2661,7 +2664,7 @@ class AMSET(object):
 
 
     def calculate_transport_properties(self):
-        integrate_over_kgrid = False
+        integrate_over_kgrid = True
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
@@ -2684,10 +2687,10 @@ class AMSET(object):
                     if integrate_over_kgrid:
                         if tp == "n":
                             denom = self.integrate_over_BZ(["f0"], tp, c, T, xDOS=False, xvel=False,
-                                                       weighted=True) #* 1e-7 * 1e-3 * self.volume
+                                                       weighted=False) #* 1e-7 * 1e-3 * self.volume
                         else:
                             denom = self.integrate_over_BZ(["1 - f0"], tp, c, T, xDOS=False, xvel=False,
-                                                           weighted=True)
+                                                           weighted=False)
                     else:
                         if tp == "n":
                             denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
@@ -2696,6 +2699,7 @@ class AMSET(object):
                             denom = self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
                                                           weighted=False)
 
+                    print "denom for {}-type with integrate_over_kgrid: {}: \n {}".format(tp, integrate_over_kgrid, denom)
 
                     if integrate_over_kgrid:
                         for mu_inel in self.inelastic_scatterings:
@@ -3022,8 +3026,8 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-1e18], temperatures=[300])
-                  #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+                  dopings=[-2e15], temperatures=[300])
+                    # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
