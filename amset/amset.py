@@ -276,6 +276,7 @@ class AMSET(object):
 
         self.calc_dir = calc_dir
         self.dopings = dopings or [-1e19, -1e20]  # TODO: change the default to [-1e16,...,-1e21,1e21, ...,1e16] later
+        self.all_types = [self.get_tp(c) for c in self.dopings]
         self.temperatures = temperatures or map(float,
                                                 [300, 600])  # TODO: change the default to [50,100,...,1300] later
         self.debug_tp = self.get_tp(self.dopings[0])
@@ -293,7 +294,6 @@ class AMSET(object):
             # @albalu what is the format of self.poly_bands? it's a nested list, this can be improved actually
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
 
-        self.all_types = [self.get_tp(c) for c in self.dopings]
         self.num_cores = multiprocessing.cpu_count()
         if self.parallel:
             logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
@@ -507,7 +507,7 @@ class AMSET(object):
         self.dE_min = params.get("dE_min", 0.01)
         self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
-        self.Ecut = params.get("Ecut", 5 * k_B * max(self.temperatures + [300]))
+        self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -608,11 +608,12 @@ class AMSET(object):
 
         if not self.poly_bands:
             for i, tp in enumerate(["n", "p"]):
+                Ecut = self.Ecut if tp in self.all_types else min(self.Ecut/2.0, 0.25)
                 sgn = (-1) ** i
                 # @albalu what is this next line doing (even though it doesn't appear to be in use)?
                     # this part determines how many bands are have energy values close enough to CBM/VBM to be included
                 while abs(min(sgn * bs["bands"]["1"][cbm_vbm[tp]["bidx"] + sgn * cbm_vbm[tp]["included"]]) -
-                                          sgn * cbm_vbm[tp]["energy"]) < self.Ecut:
+                                          sgn * cbm_vbm[tp]["energy"]) < Ecut:
                     cbm_vbm[tp]["included"] += 1
 
                     # TODO: for now, I only include 1 band for quicker testing
@@ -1265,6 +1266,7 @@ class AMSET(object):
 
         # calculate energies and choose which ones to remove
         for i, tp in enumerate(["p", "n"]):
+            Ecut = self.Ecut if tp in self.all_types else min(self.Ecut / 2.0, 0.25)
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
             for ib in [0]:  # we only include the first band now (same for energies) to decide on ibz k-points
@@ -1280,7 +1282,7 @@ class AMSET(object):
                         # @albalu why do we exclude values of k that have a small component of velocity?
                         # @Jason: because scattering equations have v in the denominator: get too large for such points
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
-                                        abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
+                                        abs(energy - self.cbm_vbm[tp]["energy"]) > Ecut:
                             rm_list[tp].append(ik)
                 else:
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[ik],engre[i * self.cbm_vbm["p"][
@@ -1289,7 +1291,7 @@ class AMSET(object):
                         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                         velocity = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
-                                        abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
+                                        abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > Ecut:
                             # if tp=="p":
                             #     print "reason for removing the k-point:"
                             #     print "energy: {}".format(energies[tp][ik])
@@ -1893,7 +1895,7 @@ class AMSET(object):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
 
-        # weighted = False
+        weighted = False
 
         wpower = 1
         if xvel:
@@ -2664,7 +2666,7 @@ class AMSET(object):
 
 
     def calculate_transport_properties(self):
-        integrate_over_kgrid = True
+        integrate_over_kgrid = False
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
@@ -2988,7 +2990,7 @@ if __name__ == "__main__":
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+                    # , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
     # , "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]
@@ -2997,7 +2999,7 @@ if __name__ == "__main__":
 
 
 
-    performance_params = {"nkibz": 60, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5}
 
 
