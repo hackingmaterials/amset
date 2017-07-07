@@ -2666,7 +2666,7 @@ class AMSET(object):
 
 
     def calculate_transport_properties(self):
-        integrate_over_kgrid = False
+        integrate_over_kgrid = True
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
