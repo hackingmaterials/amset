@@ -4,6 +4,9 @@ import warnings
 import time
 
 import logging
+
+from scipy.interpolate import griddata
+
 from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_poly_energy
 from pprint import pprint
 
@@ -147,12 +150,19 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     # f = self.kgrid[tp]["f0"][c][T][ib][ik]
     f = kgrid[tp]["f"][c][T][ib][ik]
     f_th = kgrid[tp]["f_th"][c][T][ib][ik]
-    # N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
+
+
+
+
     N_POP = kgrid[tp]["N_POP"][c][T][ib][ik]
     for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
         # bypass k-points that cannot have k- associated with them (even though indexes may be available due to enforced scattering)
-        if X_Epm == "X_Eminus_ik" and kgrid[tp]["energy"][ib][ik] - hbar * \
+        if tp == "n" and X_Epm == "X_Eminus_ik" and kgrid[tp]["energy"][ib][ik] - hbar * \
                 kgrid[tp]["W_POP"][ib][ik] < cbm_vbm[tp]["energy"]:
+            continue
+
+        if tp == "p" and X_Epm == "X_Eplus_ik" and kgrid[tp]["energy"][ib][ik] + hbar * \
+                kgrid[tp]["W_POP"][ib][ik] > cbm_vbm[tp]["energy"]:
             continue
 
         # TODO: see how does dividing by counted affects results, set to 1 to test: #20170614: in GaAs, they are all equal anyway (at least among the ones checked)
@@ -168,16 +178,20 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             k_pm = kgrid[tp]["norm(k)"][ib_pm][ik_pm]
             abs_kdiff = abs(k_pm - k)
             if abs_kdiff < 1e-4:
-                #     # print "HERE HERE HERE HERE"
                 counted -= 1
                 continue
 
             a_pm = kgrid[tp]["a"][ib_pm][ik_pm]
             c_pm = kgrid[tp]["c"][ib_pm][ik_pm]
-            # g_pm = sum(self.kgrid[tp]["g"+g_suffix][c][T][ib_pm][ik_pm])/3
-            # f_pm = self.kgrid[tp]["f0"][c][T][ib_pm][ik_pm]
-            f_pm = kgrid[tp]["f"][c][T][ib_pm][ik_pm]
-            f_pm_th = kgrid[tp]["f_th"][c][T][ib_pm][ik_pm]
+
+            if tp == "n":
+                f_pm = kgrid[tp]["f"][c][T][ib_pm][ik_pm]
+                f_pm_th = kgrid[tp]["f_th"][c][T][ib_pm][ik_pm]
+            else:
+                f_pm = 1 - kgrid[tp]["f"][c][T][ib_pm][ik_pm]
+                f_pm_th = 1 - kgrid[tp]["f_th"][c][T][ib_pm][ik_pm]
+
+
             A_pm = a * a_pm + c_ * c_pm * (k_pm ** 2 + k ** 2) / (2 * k_pm * k)
 
             # beta_pm = (e ** 2 * kgrid[tp]["W_POP"][ib_pm][ik_pm] * k_pm) / (4 * pi * hbar * k * v_pm) * \
@@ -264,6 +278,7 @@ class AMSET(object):
 
         self.calc_dir = calc_dir
         self.dopings = dopings or [-1e19, -1e20]  # TODO: change the default to [-1e16,...,-1e21,1e21, ...,1e16] later
+        self.all_types = [self.get_tp(c) for c in self.dopings]
         self.temperatures = temperatures or map(float,
                                                 [300, 600])  # TODO: change the default to [50,100,...,1300] later
         self.debug_tp = self.get_tp(self.dopings[0])
@@ -281,7 +296,6 @@ class AMSET(object):
             # @albalu what is the format of self.poly_bands? it's a nested list, this can be improved actually
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
 
-        self.all_types = [self.get_tp(c) for c in self.dopings]
         self.num_cores = multiprocessing.cpu_count()
         if self.parallel:
             logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
@@ -392,7 +406,7 @@ class AMSET(object):
         # kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
         #                 "f_th", "g_th", "S_i_th", "S_o_th"]
 
-        kgrid_rm_list = ["effective mass", "kweights", "a", "c",
+        kgrid_rm_list = ["effective mass", "kweights",
                          "f_th", "S_i_th", "S_o_th"]
         egrid_rm_list = ["f_th", "S_i_th", "S_o_th"]
         self.remove_from_grids(kgrid_rm_list, egrid_rm_list)
@@ -525,8 +539,7 @@ class AMSET(object):
 
     def get_dft_orbitals(self, bidx):
         projected = self._vrun.projected_eigenvalues
-        print len(projected[Spin.up][0][10])  # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
-        print sum(projected[Spin.up][0][10])
+        # print len(projected[Spin.up][0][10])  # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
 
         s_orbital = [0.0 for k in self.DFT_cartesian_kpts]
         p_orbital = [0.0 for k in self.DFT_cartesian_kpts]
@@ -557,13 +570,6 @@ class AMSET(object):
         self.DFT_cartesian_kpts = np.array(
                 [self._rec_lattice.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
 
-        s_orbital, p_orbital = self.get_dft_orbitals(bidx=13)
-        print s_orbital[:10]
-        print p_orbital[:10]
-
-
-
-        # The only thing left to do is to use scipy.interpolate.griddata to interpolate s,p,d contributions at a given list of k-points
 
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
         cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
@@ -604,11 +610,12 @@ class AMSET(object):
 
         if not self.poly_bands:
             for i, tp in enumerate(["n", "p"]):
+                Ecut = self.Ecut if tp in self.all_types else min(self.Ecut/2.0, 0.25)
                 sgn = (-1) ** i
                 # @albalu what is this next line doing (even though it doesn't appear to be in use)?
                     # this part determines how many bands are have energy values close enough to CBM/VBM to be included
                 while abs(min(sgn * bs["bands"]["1"][cbm_vbm[tp]["bidx"] + sgn * cbm_vbm[tp]["included"]]) -
-                                          sgn * cbm_vbm[tp]["energy"]) < self.Ecut:
+                                          sgn * cbm_vbm[tp]["energy"]) < Ecut:
                     cbm_vbm[tp]["included"] += 1
 
                     # TODO: for now, I only include 1 band for quicker testing
@@ -703,25 +710,27 @@ class AMSET(object):
             # "energy": {"n": [], "p": []},
             # "DOS": {"n": [], "p": []},
             # "all_en_flat": {"n": [], "p": []},
-            "n": {"energy": [], "DOS": [], "all_en_flat": []},
-            "p": {"energy": [], "DOS": [], "all_en_flat": []},
+            "n": {"energy": [], "DOS": [], "all_en_flat": [], "all_ks_flat": []},
+            "p": {"energy": [], "DOS": [], "all_en_flat": [], "all_ks_flat": []},
             "mobility": {}
         }
         self.kgrid_to_egrid_idx = {"n": [],
                                    "p": []}  # list of band and k index that are mapped to each memeber of egrid
         self.Efrequency = {"n": [], "p": []}
-
+        self.sym_freq = {"n": [], "p":[]}
         # reshape energies of all bands to one vector:
         E_idx = {"n": [], "p": []}
         for tp in ["n", "p"]:
             for ib, en_vec in enumerate(self.kgrid[tp]["energy"]):
                 self.egrid[tp]["all_en_flat"] += list(en_vec)
+                self.egrid[tp]["all_ks_flat"] += list(self.kgrid[tp]["kpoints"][ib])
                 # also store the flatten energy (i.e. no band index) as a tuple of band and k-indexes
                 E_idx[tp] += [(ib, iek) for iek in range(len(en_vec))]
 
             # get the indexes of sorted flattened energy
             ieidxs = np.argsort(self.egrid[tp]["all_en_flat"])
             self.egrid[tp]["all_en_flat"] = [self.egrid[tp]["all_en_flat"][ie] for ie in ieidxs]
+            self.egrid[tp]["all_ks_flat"] = [self.egrid[tp]["all_ks_flat"][ie] for ie in ieidxs]
 
             # sort the tuples of band and energy based on their energy
             E_idx[tp] = [E_idx[tp][ie] for ie in ieidxs]
@@ -733,24 +742,27 @@ class AMSET(object):
             last_is_counted = False
             while i < len(self.egrid[tp]["all_en_flat"]) - 1:
                 sum_E = self.egrid[tp]["all_en_flat"][i]
+                sum_nksym = len(self.remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i])))
                 counter = 1.0  # because the ith member is already included in sum_E
                 current_ib_ie_idx = [E_idx[tp][i]]
                 j = i
                 # while j<len(self.egrid[tp]["all_en_flat"])-1 and (counter <= self.nE_min or \
                 #         abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][j+1]) < self.dE_min):
                 while j < len(self.egrid[tp]["all_en_flat"]) - 1 and \
-                                abs(self.egrid[tp]["all_en_flat"][i] - self.egrid[tp]["all_en_flat"][
-                                            j + 1]) < self.dE_min:
+                        abs(self.egrid[tp]["all_en_flat"][i] - self.egrid[tp]["all_en_flat"][j + 1]) < self.dE_min:
                     # while i < len(self.egrid[tp]["all_en_flat"]) - 1 and \
                     #          self.egrid[tp]["all_en_flat"][i] == self.egrid[tp]["all_en_flat"][i + 1] :
                     counter += 1
                     current_ib_ie_idx.append(E_idx[tp][j + 1])
                     sum_E += self.egrid[tp]["all_en_flat"][j + 1]
+                    sum_nksym += len(self.remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i+1])))
+
                     if j + 1 == len(self.egrid[tp]["all_en_flat"]) - 1:
                         last_is_counted = True
                     j += 1
                 self.egrid[tp]["energy"].append(sum_E / counter)
                 self.kgrid_to_egrid_idx[tp].append(current_ib_ie_idx)
+                self.sym_freq[tp].append(sum_nksym / counter)
                 energy_counter.append(counter)
 
                 if dos_tp.lower() == "simple":
@@ -780,6 +792,7 @@ class AMSET(object):
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
 
+
         logging.debug("here total number of ks from self.Efrequency for {}-type".format(self.debug_tp))
         logging.debug(sum(self.Efrequency[self.debug_tp]))
 
@@ -801,7 +814,7 @@ class AMSET(object):
 
         # self.egrid["fermi"]= {
         #              2000000000000000.0: {
-        #                  300: -0.3762626769609572
+        #                  300: -0.575512702461
         #              }
         #          }
 
@@ -832,7 +845,9 @@ class AMSET(object):
     def get_Eidx_in_dos(self, E, Estep=None):
         if not Estep:
             Estep = max(self.dE_min, 0.0001)
-        return int(round((E - self.dos_emin) / Estep))
+        # there might not be anything wrong with the following but for now I thought using argmin() is safer
+        # return int(round((E - self.dos_emin) / Estep))
+        return abs(self.dos_emesh - E).argmin()
 
         # return min(int(round((E - self.dos_emin) / Estep)) , len(self.dos)-1)
 
@@ -985,9 +1000,9 @@ class AMSET(object):
         # kpts = list(kpts)
 
 
-        print "total time to remove duplicate k-points = {} seconds".format(time.time() - start_time)
-        print "number of duplicates removed:"
-        print len(rm_list)
+        # print "total time to remove duplicate k-points = {} seconds".format(time.time() - start_time)
+        # print "number of duplicates removed:"
+        # print len(rm_list)
 
         return kpts
 
@@ -1086,6 +1101,12 @@ class AMSET(object):
 
 
     def get_sym_eq_ks_in_first_BZ(self, k, cartesian=False):
+        """
+
+        :param k (numpy.array): kpoint fractional coordinates
+        :param cartesian (bool): if True, the output would be in cartesian (but still reciprocal) coordinates
+        :return:
+        """
         fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
         fractional_ks = self.kpts_to_first_BZ(fractional_ks)
         if cartesian:
@@ -1150,7 +1171,8 @@ class AMSET(object):
         # create a mesh of k-points
         all_kpts = {}
         try:
-            ibzkpt_filename = os.path.join(os.environ["AMSET_ROOT"], "{}_ibzkpt.json".format(nkstep))
+            ibzkpt_filename = os.path.join(os.environ["AMSET_ROOT"], "{}_ibzkpt_{}.json".format(nkstep,
+                                                        self._vrun.final_structure.formula.replace(" ", "")))
         except:
             ibzkpt_filename = "{}_ibzkpt.json".format(nkstep)
         try:
@@ -1246,18 +1268,15 @@ class AMSET(object):
 
         # calculate energies and choose which ones to remove
         for i, tp in enumerate(["p", "n"]):
+            Ecut = self.Ecut if tp in self.all_types else min(self.Ecut / 2.0, 0.25)
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
             for ib in [0]:  # we only include the first band now (same for energies) to decide on ibz k-points
                 if not self.parallel or self.poly_bands:  # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts)):
                         if not self.poly_bands:
-                            energy, velocity, effective_m = self.calc_analytical_energy(kpts[ik],
-                                                                                        engre[i * self.cbm_vbm["p"][
-                                                                                            "included"] + ib],
-                                                                                        nwave, nsym, nstv, vec, vec2,
-                                                                                        out_vec2, br_dir,
-                                                                                        sgn)
+                            energy, velocity, effective_m = self.calc_analytical_energy(kpts[ik],engre[i * self.cbm_vbm[
+                                "p"]["included"] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn)
                         else:
                             energy, velocity, effective_m = self.calc_poly_energy(kpts[ik], tp, ib)
                         energies[tp][ik] = energy
@@ -1265,21 +1284,22 @@ class AMSET(object):
                         # @albalu why do we exclude values of k that have a small component of velocity?
                         # @Jason: because scattering equations have v in the denominator: get too large for such points
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
-                                        abs(energy - self.cbm_vbm[tp]["energy"]) > self.Ecut:
+                                        abs(energy - self.cbm_vbm[tp]["energy"]) > Ecut:
                             rm_list[tp].append(ik)
                 else:
-                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[ik],
-                                                                                  engre[i * self.cbm_vbm["p"][
-                                                                                      "included"] + ib],
-                                                                                  nwave, nsym, nstv, vec, vec2,
-                                                                                  out_vec2, br_dir) for ik in
-                                                              range(len(kpts)))
+                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[ik],engre[i * self.cbm_vbm["p"][
+                        "included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts)))
                     for ik, res in enumerate(results):
                         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                         velocity = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
                         if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
-                                        abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
+                                        abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > Ecut:
+                            # if tp=="p":
+                            #     print "reason for removing the k-point:"
+                            #     print "energy: {}".format(energies[tp][ik])
+                            #     print "velocity: {}".format(velocity)
                             rm_list[tp].append(ik)
+            rm_list[tp] = list(set(rm_list[tp]))
 
         # this step is crucial in DOS normalization when poly_bands to cover the whole energy range in BZ
         if self.poly_bands:
@@ -1304,14 +1324,27 @@ class AMSET(object):
         # for tp in ["n", "p"]:
         #     energies[tp] = np.delete(energies[tp], rm_list_all, axis=0)
 
-        kpts = {"n": kpts, "p": kpts}
+        kpts_copy = np.array(kpts)
+        kpts = {"n": np.array(kpts_copy), "p": np.array(kpts_copy)}
+        # print "n-rm_list"
+        # print rm_list["n"]
+        # print "p-rm_list"
+        # print rm_list["p"]
+
+        print "all types"
+        print self.all_types
         for tp in ["n", "p"]:
-            rm_list[tp] = list(set(rm_list[tp]))
-            kpts[tp] = list(np.delete(kpts[tp], rm_list[tp], axis=0))
-            energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
+            # if tp in self.all_types:
+            if True:
+                kpts[tp] = list(np.delete(kpts[tp], rm_list[tp], axis=0))
+                energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
+            else: # in this case it doesn't matter if the k-mesh is loose
+                kpts[tp] = list(np.delete(kpts[tp], rm_list["n"]+rm_list["p"], axis=0))
+                energies[tp] = np.delete(energies[tp], rm_list["n"]+rm_list["p"], axis=0)
+            if len(kpts[tp]) > 10000:
+                warnings.warn("Too desne of a {}-type k-mesh (nk={}!); AMSET will be slow!".format(tp, len(kpts[tp])))
 
-
-            logging.info("number of ibz k-points AFTER ENERGY-FILTERING: {}".format(len(kpts[tp])))
+            logging.info("number of {}-type ibz k-points AFTER ENERGY-FILTERING: {}".format(tp, len(kpts[tp])))
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
         if self.adaptive_mesh:
@@ -1346,8 +1379,14 @@ class AMSET(object):
             logging.info("number of {}-type k-points after symmetrically equivalent kpoints are added: {}".format(
                         tp, len(kpts[tp])))
 
+
         # TODO: remove anything with "weight" later if ended up not using weights at all!
         kweights = {tp: [1.0 for i in kpts[tp]] for tp in ["n", "p"]}
+
+
+
+
+
 
         # actual initiation of the kgrid
         self.kgrid = {
@@ -1363,7 +1402,7 @@ class AMSET(object):
             # self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
             # self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
 
-        self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)", "norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=False, c_T_idx=False)
 
@@ -1372,29 +1411,48 @@ class AMSET(object):
         rm_idx_list = {"n": [[] for i in range(self.cbm_vbm["n"]["included"])],
                        "p": [[] for i in range(self.cbm_vbm["p"]["included"])]}
         # @albalu why are these variables initialized separately from the ones above?
-        self.initialize_var("kgrid", ["cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["old cartesian kpoints", "cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
 
         logging.debug("The DFT gap right before calculating final energy values: {}".format(self.dft_gap))
 
+
+
         for i, tp in enumerate(["p", "n"]):
+            self.cbm_vbm[tp]["cartesian k"] = self._rec_lattice.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
+            self.cbm_vbm[tp]["all cartesian k"] = self.get_sym_eq_ks_in_first_BZ(self.cbm_vbm[tp]["kpoint"], cartesian=True)
+            self.cbm_vbm[tp]["all cartesian k"] = self.remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
+
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
-                self.kgrid[tp]["cartesian kpoints"][ib] = self._rec_lattice.get_cartesian_coords(
-                    self.kgrid[tp]["kpoints"][
-                        ib]) / A_to_nm  # [1/nm], these are PHYSICS convention k vectors (with a factor of 2 pi included)
-                self.kgrid[tp]["norm(k)"][ib] = [norm(k) for k in self.kgrid[tp]["cartesian kpoints"][ib]]
+                self.kgrid[tp]["old cartesian kpoints"][ib] = self._rec_lattice.get_cartesian_coords(
+                    self.kgrid[tp]["kpoints"][ib]) / A_to_nm
+
+                # REMEMBER TO MAKE A COPY HERE OTHERWISE THEY CHANGE TOGETHER
+                self.kgrid[tp]["cartesian kpoints"][ib] = np.array(self.kgrid[tp]["old cartesian kpoints"][ib])
+                # [1/nm], these are PHYSICS convention k vectors (with a factor of 2 pi included)
 
                 if self.parallel and not self.poly_bands:
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
-                                                                                  engre[i * self.cbm_vbm["p"][
-                                                                                      "included"] + ib], nwave, nsym,
-                                                                                  nstv, vec, vec2, out_vec2,
-                                                                                  br_dir) for ik in
-                                                              range(len(self.kgrid[tp]["kpoints"][ib])))
+                             engre[i * self.cbm_vbm["p"]["included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2,
+                             br_dir) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
+
+                s_orbital, p_orbital = self.get_dft_orbitals(bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib)
+                orbitals = {"s": s_orbital, "p": p_orbital}
+                fit_orbs = {orb: griddata(points=np.array(self.DFT_cartesian_kpts), values=np.array(orbitals[orb]),
+                    xi=np.array(self.kgrid[tp]["old cartesian kpoints"][ib]), method='nearest') for orb in orbitals.keys()}
 
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+
+                    min_dist_ik = np.array([norm(ki - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) for ki in\
+                                           self.cbm_vbm[tp]["all cartesian k"]]).argmin()
+                    self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - \
+                                                                  self.cbm_vbm[tp]["all cartesian k"][min_dist_ik]
+
+
+                    self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+
                     if not self.poly_bands:
                         if not self.parallel:
                             energy, de, dde = get_energy(
@@ -1412,7 +1470,7 @@ class AMSET(object):
                                     2] * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
 
                     else:
-                        energy, velocity, effective_mass = get_poly_energy(self.kgrid[tp]["cartesian kpoints"][ib][ik],
+                        energy, velocity, effective_mass = get_poly_energy(self.kgrid[tp]["old cartesian kpoints"][ib][ik],
                                                                            poly_bands=self.poly_bands,
                                                                            type=tp, ib=ib,
                                                                            bandgap=self.dft_gap + self.scissor)
@@ -1430,13 +1488,19 @@ class AMSET(object):
                                     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                         rm_idx_list[tp][ib].append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
-                    self.kgrid[tp]["a"][ib][ik] = 1.0
 
-        logging.info("average of the {}-type group velocity in kgrid".format(
-                        np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
+                    if self.poly_bands:
+                        self.kgrid[tp]["a"][ib][ik] = 1.0 # parabolic band s-orbital only
+                        self.kgrid[tp]["c"][ib][ik] = 0.0
+                    else:
+                        self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
+                        self.kgrid[tp]["c"][ib][ik] = (1 - self.kgrid[tp]["a"][ib][ik]**2)**0.5
+
+            logging.info("average of the {}-type group velocity in kgrid:\n {}".format(
+                        tp, np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
 
         rearranged_props = ["velocity", "effective mass", "energy", "a", "c", "kpoints", "cartesian kpoints",
-                            "kweights",
+                            "old cartesian kpoints", "kweights",
                             "norm(v)", "norm(k)"]
 
 
@@ -1458,8 +1522,8 @@ class AMSET(object):
             for ib in range(len(self.kgrid[tp]["energy"])):
                 logging.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
 
-        if len(self.kgrid["n"]["kpoints"][0]) < 5 or len(self.kgrid["p"]["kpoints"][0]) < 5:
-            raise ValueError("VERY BAD k-mesh; please change the setting for k-mesh and try again!")
+            if len(self.kgrid[tp]["kpoints"][0]) < 5:
+                raise ValueError("VERY BAD {}-type k-mesh; please change the k-mesh and try again!".format(tp))
 
         logging.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
 
@@ -1503,7 +1567,7 @@ class AMSET(object):
                                                                            self.dos_emin, self.dos_emax,
                                                                            int(round(
                                                                                (self.dos_emax - self.dos_emin) / max(
-                                                                                   self.dE_min, 0.0001))) + 1,
+                                                                                   self.dE_min, 0.0001))),
                                                                            width=self.dos_bwidth, scissor=self.scissor,
                                                                            vbmidx=self.cbm_vbm["p"]["bidx"])
             self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
@@ -1512,7 +1576,7 @@ class AMSET(object):
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
                                                  [self.nkdos, self.nkdos, self.nkdos], self.dos_emin, self.dos_emax,
                                                  int(round(
-                                                     (self.dos_emax - self.dos_emin) / max(self.dE_min, 0.0001))) + 1,
+                                                     (self.dos_emax - self.dos_emin) / max(self.dE_min, 0.0001))),
                                                  poly_bands=self.poly_bands,
                                                  bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
                                                      "energy"],  # we include here the actual or after-scissor gap here
@@ -1534,7 +1598,7 @@ class AMSET(object):
         # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
 
         self.dos = zip(emesh, dos)
-
+        self.dos_emesh = np.array(emesh)
         self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
         self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
 
@@ -1542,7 +1606,7 @@ class AMSET(object):
         print self.vbm_dos_idx
         print self.cbm_dos_idx
         # logging.debug("full dos after normalization: \n {}".format(self.dos))
-        # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx:self.cbm_dos_idx]))
+        # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
 
         self.dos = [list(a) for a in self.dos]
 
@@ -1594,27 +1658,26 @@ class AMSET(object):
         # inelastic scattering
         if "POP" in self.inelastic_scatterings:
             for tp in ["n", "p"]:
+                sgn = (-1) ** (["n", "p"].index(tp))
                 for ib in range(len(self.kgrid[tp]["energy"])):
                     self.nforced_scat = {"n": 0.0, "p": 0.0}
                     self.ediff_scat = {"n": [], "p": []}
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                                                                           E_change=+ hbar *
-                                                                                           self.kgrid[tp]["W_POP"][ib][ik],
-                                                                                           forced_min_npoints=2,
-                                                                                           tolerance=self.dE_min)
+
+                                # E_change=sgn * hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
+                                E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
+                                   tolerance=self.dE_min)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                                                                            E_change=- hbar *
-                                                                                            self.kgrid[tp]["W_POP"][ib][ik],
-                                                                                            forced_min_npoints=2,
-                                                                                            tolerance=self.dE_min)
+                                # E_change= (sgn*-1)* hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
+                                E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
+                                        tolerance=self.dE_min)
 
                     enforced_ratio = self.nforced_scat[tp] / (
                         sum([len(points) for points in self.kgrid[tp]["X_Eplus_ik"][ib]]) + \
                         sum([len(points) for points in self.kgrid[tp]["X_Eminus_ik"][ib]]))
                     logging.info(
-                        "enforced scattering ratio for {}-type inelastic scattering at band {}:\n {}".format(tp, ib,
-                                                                                                             enforced_ratio))
+                        "enforced scattering ratio: {}-type inelastic at band {}:\n{}".format(tp, ib, enforced_ratio))
 
                     if enforced_ratio > 0.1:
                         # TODO: this should be an exception but for now I turned to warning for testing.
@@ -1758,7 +1821,7 @@ class AMSET(object):
 
     def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None, normalize_energy=False):
         if not interpolation_nsteps:
-            interpolation_nsteps = max(5, int(500.0 / len(self.egrid[tp]["energy"])))
+            interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
         integral = 0.0
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             E = self.egrid[tp]["energy"][ie]
@@ -1777,7 +1840,7 @@ class AMSET(object):
 
     def integrate_over_BZ(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=True):
 
-        weighted = False
+        # weighted = False
 
         """
 
@@ -1797,27 +1860,33 @@ class AMSET(object):
             sum_over_k = np.array([self.gs, self.gs, self.gs])
             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                 k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
+                # k_nrm = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
 
                 # 4*pi, hbar and norm(v) are coming from the conversion of dk to dE
                 product = k_nrm ** 2 / self.kgrid[tp]["norm(v)"][ib][ik] * 4 * pi / hbar
+                # product = 1.0
                 if xvel:
                     product *= self.kgrid[tp]["velocity"][ib][ik]
                 for j, p in enumerate(prop_list):
                     if p[0] == "/":
                         product /= self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik]
                     elif p[0] == "1":  # this assumes that the property is 1-f0 for example
-                        product *= 1 - self.kgrid[tp][p.split("-")[-1]][c][T][ib][ik]
+                        product *= 1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik]
                     else:
                         product *= self.kgrid[tp][p][c][T][ib][ik]
                 sum_over_k += product
+            # if not weighted:
+            #     sum_over_k /= len(self.kgrid_to_egrid_idx[tp][ie])
             if xDOS:
                 sum_over_k *= self.egrid[tp]["DOS"][ie]
             if weighted:
-                sum_over_k *= self.Efrequency[tp][ie] ** (wpower)
+            #     sum_over_k *= self.Efrequency[tp][ie] ** (wpower)
+                sum_over_k *=self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie])
             integral += sum_over_k * dE
 
         if weighted:
-            return integral / sum([freq ** (wpower) for freq in self.Efrequency[tp][:-1]])
+            return integral
+            # return integral / sum([freq ** (wpower) for freq in self.Efrequency[tp][:-1]])
         else:
             return integral
             # return integral / sum([self.egrid[tp]["f0"][c][T][ie][0]*self.Efrequency[tp][ie] for ie in range(len(self.Efrequency[tp][:-1]))])
@@ -1827,38 +1896,47 @@ class AMSET(object):
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
-        weighted = False
+
+        # weighted = False
 
         wpower = 1
         if xvel:
             wpower += 1
         imax_occ = len(self.Efrequency[tp][:-1])
-        # imax_occ = 50
 
         if not interpolation_nsteps:
-            interpolation_nsteps = max(5, int(500.0 / len(self.egrid[tp]["energy"])))
+            interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
+            # interpolation_nsteps = 1
         diff = [0.0 for prop in prop_list]
         integral = self.gs
         # for ie in range(len(self.egrid[tp]["energy"]) - 1):
         for ie in range(imax_occ):
 
             E = self.egrid[tp]["energy"][ie]
-            dE = (self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
+            dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if xDOS:
                 dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
             if xvel:
                 dv = (self.egrid[tp]["velocity"][ie + 1] - self.egrid[tp]["velocity"][ie]) / interpolation_nsteps
             for j, p in enumerate(prop_list):
-                try:
-                    diff[j] = (self.egrid[tp][p][c][T][ie + 1] - self.egrid[tp][p][c][T][ie]) / interpolation_nsteps
-                except:
+                if "/" in p:
                     diff[j] = (self.egrid[tp][p.split("/")[-1]][c][T][ie + 1] -
                                self.egrid[tp][p.split("/")[-1]][c][T][ie]) / interpolation_nsteps
+                elif "1 -" in p:
+                    diff[j] = (1 - self.egrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ie + 1] - (1- \
+                               self.egrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ie])) / interpolation_nsteps
+                else:
+                    diff[j] = (self.egrid[tp][p][c][T][ie + 1] - self.egrid[tp][p][c][T][ie]) / interpolation_nsteps
+            if weighted:
+                dweight = (self.Efrequency[tp][ie+1] / float(self.sym_freq[tp][ie+1]) - \
+                          self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie]) ) /interpolation_nsteps
             for i in range(interpolation_nsteps):
                 multi = dE
                 for j, p in enumerate(prop_list):
                     if p[0] == "/":
                         multi /= self.egrid[tp][p.split("/")[-1]][c][T][ie] + diff[j] * i
+                    elif "1 -" in p:
+                        multi *= 1 - self.egrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ie] + diff[j] * i
                     else:
                         multi *= self.egrid[tp][p][c][T][ie] + diff[j] * i
                 if xDOS:
@@ -1869,17 +1947,18 @@ class AMSET(object):
                     # integral += multi * self.Efrequency[tp][ie]**wpower * (-(dfdE + ddfdE))
                     # integral += multi * self.Efrequency[tp][ie]**wpower *dfdE
                     # integral += multi * self.Efrequency[tp][ie]**wpower * self.egrid[tp]["f0"][c][T][ie]
-                    integral += multi * self.Efrequency[tp][ie] ** wpower
+                    # integral += multi * self.Efrequency[tp][ie] ** wpower
+                    integral += multi * (self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie]) + dweight * i)
                 else:
                     integral += multi
         if weighted:
-            # return integral
+            return integral
             # return integral/(sum(self.Efrequency[tp][:-1]))
             # return integral / sum([freq ** wpower for freq in self.Efrequency[tp][:-1]]) / sum(self.egrid[tp]["df0dE"][c][T][:-1])
             # return integral / sum([freq**wpower for freq in self.Efrequency[tp][0:imax_occ]])
             # return integral / (sum([freq**wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))/(-sum(self.egrid[tp]["df0dE"][c][T]))
 
-            return integral / (sum([freq ** wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))
+            # return integral / (sum([freq ** wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))
 
             # return integral / (sum([(-self.egrid[tp]["df0dE"][c][T][ie]) * self.Efrequency[tp][ie]**wpower for ie in
             #                    range(len(self.Efrequency[tp][:-1]))]))
@@ -1990,7 +2069,11 @@ class AMSET(object):
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
         v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
-        f_prm = self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
+        if tp == "n":
+            f_prm = self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
+        else:
+            f_prm = 1 - self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
+
         if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
             return np.array(
             [0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
@@ -2010,22 +2093,30 @@ class AMSET(object):
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/v_prm # simply /v_prm is wrong and creates artificial anisotropy
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
         # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X) / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
+
+
         if "S_i" in sname:
             integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
             if "minus" in sname:
-                if self.kgrid[tp]["energy"][ib][ik] -hbar*self.kgrid[tp]["W_POP"][ib][ik] >= self.cbm_vbm[tp]["energy"]:
+                if tp == "p" or (tp == "n" and \
+                    self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f) * N_POP + f * (1 + N_POP)
             elif "plus" in sname:
-                integ *= (1 - f) * (1 + N_POP) + f * N_POP
+                if tp == "n" or (tp == "p" and \
+                    self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
+                    integ *= (1 - f) * (1 + N_POP) + f * N_POP
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         elif "S_o" in sname:
             if "minus" in sname:
-                if self.kgrid[tp]["energy"][ib][ik]-hbar *self.kgrid[tp]["W_POP"][ib][ik] >= self.cbm_vbm[tp]["energy"]:
+                if tp == "p" or (tp=="n" and \
+                    self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
             elif "plus" in sname:
-                integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
+                if tp == "n" or (tp == "p" and \
+                    self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
+                    integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         else:
@@ -2040,7 +2131,7 @@ class AMSET(object):
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         # only when very large # of k-points are present, make sense to parallelize as this function
                         # has become fast after better energy window selection
-                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 20000:
+                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 10000:
                             # if False:
                             results = Parallel(n_jobs=self.num_cores)(delayed(calculate_Sio) \
                                                                           (tp, c, T, ib, ik, once_called, self.kgrid,
@@ -2328,7 +2419,7 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=5000):
+    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.05, max_iter=5000):
         """
         To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
         :param c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
@@ -2347,11 +2438,11 @@ class AMSET(object):
         tune_alpha = 1.0
         temp_doping = {"n": -0.01, "p": +0.01}
         typ = self.get_tp(c)
-        fermi = self.cbm_vbm[typ]["energy"]
+        typj = ["n", "p"].index(typ)
+        fermi = self.cbm_vbm[typ]["energy"] + 0.01 * (-1)**typj # addition is to ensure Fermi is not exactly 0.0
         # fermi = self.egrid[typ]["energy"][0]
 
         print("calculating the fermi level at temperature: {} K".format(T))
-        typj = ["n", "p"].index(typ)
         funcs = [lambda E, fermi0, T: f0(E, fermi0, T), lambda E, fermi0, T: 1 - f0(E, fermi0, T)]
         calc_doping = (-1) ** (typj + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
                       * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ, fermi=fermi, T=T))
@@ -2365,13 +2456,18 @@ class AMSET(object):
             iter += 1  # to avoid an infinite loop
             if iter / max_iter > 0.5:  # to avoid oscillation we re-adjust alpha at each iteration
                 tune_alpha = 1 - iter / max_iter
-            fermi += (-1) ** (typj) * alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
+            # fermi += (-1) ** (typj) * alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
+            fermi += alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * abs(fermi)
+            if abs(fermi) < 1e-5: # switch sign when getting really close to 0 as otherwise will never converge
+                fermi = fermi * -1
 
             for j, tp in enumerate(["n", "p"]):
                 integral = 0.0
 
-                for ie in range((1 - j) * self.cbm_dos_idx + j * 0,
-                                (1 - j) * len(self.dos) - 1 + j * self.vbm_dos_idx - 1):
+                # for ie in range((1 - j) * self.cbm_dos_idx + j * 0,
+                #                 (1 - j) * len(self.dos) - 1 + j * self.vbm_dos_idx - 1):
+                for ie in range((1 - j) * self.cbm_dos_idx,
+                                    (1 - j) * len(self.dos) + j * self.vbm_dos_idx - 1):
                     integral += (self.dos[ie + 1][1] + self.dos[ie][1]) / 2 * funcs[j](self.dos[ie][0], fermi, T) * \
                                 (self.dos[ie + 1][0] - self.dos[ie][0])
                 temp_doping[tp] = (-1) ** (j + 1) * abs(integral / (self.volume * (A_to_m * m_to_cm) ** 3))
@@ -2448,13 +2544,15 @@ class AMSET(object):
                                 if tp == "n":
                                     egrid[tp][key][c][T] = self.egrid[tp][key][c][T][nstart:nstart + nmax]
                                 else:
-                                    egrid[tp][key][c][T] = self.egrid[tp][key][c][T][-(nstart+nmax):-max(nstart,1)][::-1]
+                                    egrid[tp][key][c][T] = self.egrid[tp][key][c][T][::-1][nstart:nstart + nmax]
+                                    # egrid[tp][key][c][T] = self.egrid[tp][key][c][T][-(nstart+nmax):-max(nstart,1)][::-1]
                     except:
                         try:
                             if tp == "n":
                                 egrid[tp][key] = self.egrid[tp][key][nstart:nstart + nmax]
                             else:
-                                egrid[tp][key] = self.egrid[tp][key][-(nstart+nmax):-max(nstart,1)][::-1]
+                                egrid[tp][key] = self.egrid[tp][key][::-1][nstart:nstart + nmax]
+                                # egrid[tp][key] = self.egrid[tp][key][-(nstart+nmax):-max(nstart,1)][::-1]
                         except:
                             print "cutting data for {} numbers in egrid was NOT successful!".format(key)
                             pass
@@ -2480,16 +2578,20 @@ class AMSET(object):
                                         kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][nstart:nstart + nmax]
                                                             for b in range(self.cbm_vbm[tp]["included"])]
                                     else:
-                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][::-1][nstart:nstart + nmax]
                                                                 for b in range(self.cbm_vbm[tp]["included"])]
+                                        # kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                        #                         for b in range(self.cbm_vbm[tp]["included"])]
                         except:
                             try:
                                 if tp == "n":
                                     kgrid[tp][key] = [self.kgrid[tp][key][b][nstart:nstart + nmax]
                                                   for b in range(self.cbm_vbm[tp]["included"])]
                                 else:
-                                    kgrid[tp][key] = [self.kgrid[tp][key][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                    kgrid[tp][key] = [self.kgrid[tp][key][b][::-1][nstart:nstart + nmax]
                                                       for b in range(self.cbm_vbm[tp]["included"])]
+                                    # kgrid[tp][key] = [self.kgrid[tp][key][b][-(nstart+nmax):-max(nstart,1)][::-1]
+                                    #                   for b in range(self.cbm_vbm[tp]["included"])]
                             except:
                                 print "cutting data for {} numbers in kgrid was NOT successful!".format(key)
                                 pass
@@ -2566,7 +2668,7 @@ class AMSET(object):
 
 
     def calculate_transport_properties(self):
-        integrate_over_kgrid = False
+        integrate_over_kgrid = True
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
@@ -2578,7 +2680,7 @@ class AMSET(object):
                                                                       self.integrate_over_BZ(
                                                                           prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c,
                                                                           T=T, xDOS=False, xvel=True,
-                                                                          weighted=True) * 1e-7 * 1e-3 * self.volume
+                                                                          weighted=True) #* 1e-7 * 1e-3 * self.volume
 
                         else:
                             self.egrid["mobility"][mu_el][c][T][tp] = (-1) * default_small_E / hbar * \
@@ -2587,25 +2689,37 @@ class AMSET(object):
                                                                           T=T, xDOS=False, xvel=True, weighted=True)
 
                     if integrate_over_kgrid:
-                        denom = self.integrate_over_BZ(["f0"], tp, c, T, xDOS=False, xvel=False,
-                                                       weighted=True) * 1e-7 * 1e-3 * self.volume
+                        if tp == "n":
+                            denom = self.integrate_over_BZ(["f0"], tp, c, T, xDOS=False, xvel=False,
+                                                       weighted=False) #* 1e-7 * 1e-3 * self.volume
+                        else:
+                            denom = self.integrate_over_BZ(["1 - f0"], tp, c, T, xDOS=False, xvel=False,
+                                                           weighted=False)
                     else:
-                        denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
-                                                      weighted=True)
+                        if tp == "n":
+                            denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
+                                                      weighted=False)
+                        else:
+                            denom = self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
+                                                          weighted=False)
 
-                    for mu_inel in self.inelastic_scatterings:
-                        # calculate mobility["POP"] based on g_POP
-                        self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(prop_list=["g_" + mu_inel],
-                                                                                          tp=tp, c=c, T=T, xDOS=False,
-                                                                                          xvel=True, weighted=True)
+                    print "denom for {}-type with integrate_over_kgrid: {}: \n {}".format(tp, integrate_over_kgrid, denom)
 
                     if integrate_over_kgrid:
+                        for mu_inel in self.inelastic_scatterings:
+                            self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_BZ(
+                                prop_list=["g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
                         self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_BZ(["g"], tp, c, T,
                                                                                              xDOS=False, xvel=True,
                                                                                              weighted=True)
                         print "overll numerator"
                         print self.egrid["mobility"]["overall"][c][T][tp]
                     else:
+                        for mu_inel in self.inelastic_scatterings:
+                            # calculate mobility["POP"] based on g_POP
+                            self.egrid["mobility"][mu_inel][c][T][tp] = self.integrate_over_E(
+                                prop_list=["g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False,xvel=True, weighted=True)
+
                         self.egrid["mobility"]["overall"][c][T][tp] = self.integrate_over_E(prop_list=["g"],
                                                                                             tp=tp, c=c, T=T, xDOS=False,
                                                                                             xvel=True, weighted=True)
@@ -2819,10 +2933,10 @@ if __name__ == "__main__":
                     "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
                     , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
-                    }
-    # "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
+    # , "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
-    #       [[0.15, 0.15, 0.15], [0.0, mass]]]]}
+    #       [[0.15, 0.15, 0.15], [0.0, mass]]]]
+                    }
     # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
 
 
@@ -2830,16 +2944,25 @@ if __name__ == "__main__":
     performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5}
 
+
+    ### for PbTe
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
     #                "E_D": {"n": 4.0, "p": 4.0}}
     # cube_path = "../test_files/PbTe/nscf_line"
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
-    #
+
+    ### For GaAs
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
                        "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
     cube_path = "../test_files/GaAs/"
-    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    ### coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
+
+    ### For Si
+    # material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
+    #                    "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.15, "scissor": 0.0} #0.5154}
+    # cube_path = "../test_files/Si/"
+    # coeff_file = os.path.join(cube_path, "Si_fort.123")
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
@@ -2847,8 +2970,8 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-1e18], temperatures=[300])
-    # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+                  dopings=[-2e15], temperatures=[300])
+                    # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
@@ -2857,7 +2980,6 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    #AMSET.plot()
     AMSET.plot(k_plots='all', E_plots=['relaxation time', 'df0dk', 'ACD', 'g'])
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=20, nstart=0)
