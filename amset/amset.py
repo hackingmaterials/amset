@@ -1895,7 +1895,7 @@ class AMSET(object):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
 
-        weighted = False
+        # weighted = False
 
         wpower = 1
         if xvel:
