@@ -1840,7 +1840,7 @@ class AMSET(object):
 
     def integrate_over_BZ(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=True):
 
-        # weighted = False
+        weighted = False
 
         """
 
@@ -1897,7 +1897,7 @@ class AMSET(object):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
 
-        # weighted = False
+        weighted = False
 
         wpower = 1
         if xvel:
@@ -2668,7 +2668,7 @@ class AMSET(object):
 
 
     def calculate_transport_properties(self):
-        integrate_over_kgrid = True
+        integrate_over_kgrid = False
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
@@ -2932,7 +2932,7 @@ if __name__ == "__main__":
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+                    # , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
     # , "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]
@@ -2941,7 +2941,7 @@ if __name__ == "__main__":
 
 
 
-    performance_params = {"nkibz": 70, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5}
 
 
