@@ -509,7 +509,8 @@ class AMSET(object):
         self.dE_min = params.get("dE_min", 0.01)
         self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
-        self.Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
+        Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
+        self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/5.0 for tp in ["n", "p"]}
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -610,7 +611,8 @@ class AMSET(object):
 
         if not self.poly_bands:
             for i, tp in enumerate(["n", "p"]):
-                Ecut = self.Ecut if tp in self.all_types else min(self.Ecut/2.0, 0.25)
+                # Ecut = self.Ecut if tp in self.all_types else min(self.Ecut/10.0, 10*k_B*300/3.0)
+                Ecut = self.Ecut[tp]
                 sgn = (-1) ** i
                 # @albalu what is this next line doing (even though it doesn't appear to be in use)?
                     # this part determines how many bands are have energy values close enough to CBM/VBM to be included
@@ -1268,7 +1270,8 @@ class AMSET(object):
 
         # calculate energies and choose which ones to remove
         for i, tp in enumerate(["p", "n"]):
-            Ecut = self.Ecut if tp in self.all_types else min(self.Ecut / 2.0, 0.25)
+            Ecut = self.Ecut[tp]
+
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
             for ib in [0]:  # we only include the first band now (same for energies) to decide on ibz k-points
@@ -1371,6 +1374,7 @@ class AMSET(object):
                 symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
             kpts[tp] += symmetrically_equivalent_ks
             kpts[tp] = self.remove_duplicate_kpoints(kpts[tp])
+
 
             if len(kpts[tp]) < 3:
                 raise ValueError("The k-point mesh for {}-type is too loose (number of kpoints = {}) "
@@ -1897,7 +1901,7 @@ class AMSET(object):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
 
-        weighted = False
+        # weighted = False
 
         wpower = 1
         if xvel:
@@ -2971,7 +2975,7 @@ if __name__ == "__main__":
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
                   dopings=[-2e15], temperatures=[300])
-                    # dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+                    # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
