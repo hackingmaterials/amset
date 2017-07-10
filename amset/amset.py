@@ -1284,7 +1284,7 @@ class AMSET(object):
                 if not self.parallel or self.poly_bands:  # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts[tp])):
                         if not self.poly_bands:
-                            energy, velocity, effective_m = self.calc_analytical_energy(kpts[tp][ik],engre[i * self.cbm_vbm[
+                            energy, velocities[tp][ik], effective_m = self.calc_analytical_energy(kpts[tp][ik],engre[i * self.cbm_vbm[
                                 "p"]["included"] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn)
                         else:
                             energy, velocities[tp][ik], effective_m = self.calc_poly_energy(kpts[tp][ik], tp, ib)
@@ -1329,8 +1329,6 @@ class AMSET(object):
                             Ediff>Ecut/2 and Ediff - Ediff_old < min(self.dE_min*100.0, 0.01):
                         rm_list[tp].append(ik)
                     Ediff_old = Ediff
-                    # if norm(kpts[tp][ik]) > 5:
-                    #     rm_list[tp].append(ik)
                     if Ediff > Ecut:
                         rm_list[tp] += range(ik, len(kpts[tp]))
                         break # because the energies are sorted so after this point all energy points will be off
@@ -1364,18 +1362,19 @@ class AMSET(object):
             # if tp in self.all_types:
             if True:
                 kpts[tp] = list(np.delete(kpts[tp], rm_list[tp], axis=0))
-                energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
+                # energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
             else: # in this case it doesn't matter if the k-mesh is loose
                 kpts[tp] = list(np.delete(kpts[tp], rm_list["n"]+rm_list["p"], axis=0))
-                energies[tp] = np.delete(energies[tp], rm_list["n"]+rm_list["p"], axis=0)
+                # energies[tp] = np.delete(energies[tp], rm_list["n"]+rm_list["p"], axis=0)
             if len(kpts[tp]) > 10000:
                 warnings.warn("Too desne of a {}-type k-mesh (nk={}!); AMSET will be slow!".format(tp, len(kpts[tp])))
 
             logging.info("number of {}-type ibz k-points AFTER ENERGY-FILTERING: {}".format(tp, len(kpts[tp])))
 
         # 2 lines debug printing
-        energies["n"].sort()
-        print "{}-type energies for ibz after filtering: \n {}".format("n", energies["n"])
+        # energies["n"].sort()
+        # print "{}-type energies for ibz after filtering: \n {}".format("n", energies["n"])
+        del energies, velocities, e_sort_idx
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
         if self.adaptive_mesh:
@@ -1521,8 +1520,8 @@ class AMSET(object):
                         rm_idx_list[tp][ib].append(ik)
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
-                    if self.kgrid[tp]["norm(k)"][ib][ik] > 5:
-                        rm_idx_list[tp][ib].append(ik)
+                    # if self.kgrid[tp]["norm(k)"][ib][ik] > 5:
+                    #     rm_idx_list[tp][ib].append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
                     if self.poly_bands:
@@ -2978,7 +2977,7 @@ if __name__ == "__main__":
 
 
     performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "BTE_iters": 5}
+                          "parallel": False, "BTE_iters": 5}
 
 
     ### for PbTe
