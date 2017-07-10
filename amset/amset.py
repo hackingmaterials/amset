@@ -166,6 +166,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             continue
 
         # TODO: see how does dividing by counted affects results, set to 1 to test: #20170614: in GaAs, they are all equal anyway (at least among the ones checked)
+        # TODO: ACTUALLY this is not true!! for each ik I get different S_i values at different k_prm
+
         counted = len(kgrid[tp][X_Epm][ib][ik])
         # if len_eqE == 0:
         #     print "WARNING!!!! element {} of {} is empty!!".format(ik, X_Epm)
@@ -214,7 +216,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
                 A_pm ** 2 * log((k_pm + k) / (abs_kdiff + 1e-4)) - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
             S_i[j] += (N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm
 
-            # print "ib_pm: {} ik_pm: {}, S_i-{}: {}".format(ib_pm, ik_pm, X_Epm, ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm))
+            # print "ik: {} ik_pm: {}, S_i-{}: {}".format(ik, ik_pm, X_Epm, ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm))
 
             S_i_th[j] += (N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th
 
@@ -296,7 +298,7 @@ class AMSET(object):
             # @albalu what is the format of self.poly_bands? it's a nested list, this can be improved actually
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
 
-        self.num_cores = multiprocessing.cpu_count()
+        self.num_cores = max(int(multiprocessing.cpu_count()/4), 8)
         if self.parallel:
             logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
 
@@ -510,7 +512,7 @@ class AMSET(object):
         self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
         Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
-        self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/5.0 for tp in ["n", "p"]}
+        self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/10.0 for tp in ["n", "p"]}
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -1208,6 +1210,7 @@ class AMSET(object):
             logging.debug("start interpolating bands from {}".format(coeff_file))
             analytical_bands = Analytical_bands(coeff_file=coeff_file)
             # @albalu Is this a list of the band indexes used in the calculation? Why is there an "i" in the name?
+            # I try to use the prefix i wherever I refer to index of something
             all_ibands = []
             for i, tp in enumerate(["p", "n"]):
                 sgn = (-1) ** (i + 1)
@@ -1218,7 +1221,7 @@ class AMSET(object):
             start_time = time.time()
             logging.debug("all_ibands: {}".format(all_ibands))
 
-            # @albalu what are all of these variables (in the next 5 lines)?
+            # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
             engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
             nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
             out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
@@ -1266,42 +1269,71 @@ class AMSET(object):
 
         # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
+        velocities = {"n": [[0.0, 0.0, 0.0] for ik in kpts], "p": [[0.0, 0.0, 0.0] for ik in kpts]}
         rm_list = {"n": [], "p": []}
 
-        # calculate energies and choose which ones to remove
+        kpts_copy = np.array(kpts)
+        kpts = {"n": np.array(kpts_copy), "p": np.array(kpts_copy)}
+
+        # calculate energies
         for i, tp in enumerate(["p", "n"]):
-            Ecut = self.Ecut[tp]
 
             sgn = (-1) ** i
             # for ib in range(self.cbm_vbm[tp]["included"]):
             for ib in [0]:  # we only include the first band now (same for energies) to decide on ibz k-points
                 if not self.parallel or self.poly_bands:  # The PB generator is fast enough no need for parallelization
-                    for ik in range(len(kpts)):
+                    for ik in range(len(kpts[tp])):
                         if not self.poly_bands:
-                            energy, velocity, effective_m = self.calc_analytical_energy(kpts[ik],engre[i * self.cbm_vbm[
+                            energy, velocity, effective_m = self.calc_analytical_energy(kpts[tp][ik],engre[i * self.cbm_vbm[
                                 "p"]["included"] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn)
                         else:
-                            energy, velocity, effective_m = self.calc_poly_energy(kpts[ik], tp, ib)
+                            energy, velocities[tp][ik], effective_m = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                         energies[tp][ik] = energy
 
                         # @albalu why do we exclude values of k that have a small component of velocity?
                         # @Jason: because scattering equations have v in the denominator: get too large for such points
-                        if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
-                                        abs(energy - self.cbm_vbm[tp]["energy"]) > Ecut:
-                            rm_list[tp].append(ik)
+                        # if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
+                        #                 abs(energy - self.cbm_vbm[tp]["energy"]) > Ecut:
+                        #     rm_list[tp].append(ik)
                 else:
-                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[ik],engre[i * self.cbm_vbm["p"][
-                        "included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts)))
+                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * self.cbm_vbm["p"][
+                        "included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
                     for ik, res in enumerate(results):
                         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
-                        velocity = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                        if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
-                                        abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > Ecut:
-                            # if tp=="p":
-                            #     print "reason for removing the k-point:"
-                            #     print "energy: {}".format(energies[tp][ik])
-                            #     print "velocity: {}".format(velocity)
-                            rm_list[tp].append(ik)
+                        velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
+                        # if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
+                        #                 abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > Ecut:
+                        #     # if tp=="p":
+                        #     #     print "reason for removing the k-point:"
+                        #     #     print "energy: {}".format(energies[tp][ik])
+                        #     #     print "velocity: {}".format(velocity)
+                        #     rm_list[tp].append(ik)
+            e_sort_idx = np.array(energies[tp]).argsort() if tp =="n" else np.array(energies[tp]).argsort()[::-1]
+            energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
+            velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
+            kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
+
+
+        #TODO: the following for-loop is crucial but undone! it decides which k-points remove for speed and accuracy
+        for tp in ["p", "n"]:
+            Ecut = self.Ecut[tp]
+            Ediff_old = 0.0
+            # print "{}-type all Ediffs".format(tp)
+            for ib in [0]:
+                for ik in range(len(kpts[tp])):
+                    if velocities[tp][ik][0] < 100 or velocities[tp][ik][1] < 100 or velocities[tp][ik][2] < 100:
+                        rm_list[tp].append(ik)
+                    Ediff = abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"])
+                    # the following if implements an adaptive dE_min as higher energy points are less important
+                    if Ediff>Ecut/5.0 and Ediff - Ediff_old < min(self.dE_min*10.0, 0.001) or \
+                            Ediff>Ecut/2 and Ediff - Ediff_old < min(self.dE_min*100.0, 0.01):
+                        rm_list[tp].append(ik)
+                    Ediff_old = Ediff
+                    # if norm(kpts[tp][ik]) > 5:
+                    #     rm_list[tp].append(ik)
+                    if Ediff > Ecut:
+                        rm_list[tp] += range(ik, len(kpts[tp]))
+                        break # because the energies are sorted so after this point all energy points will be off
             rm_list[tp] = list(set(rm_list[tp]))
 
         # this step is crucial in DOS normalization when poly_bands to cover the whole energy range in BZ
@@ -1310,7 +1342,7 @@ class AMSET(object):
             for tp in ["p", "n"]:
                 all_bands_energies[tp] = energies[tp]
                 for ib in range(1, len(self.poly_bands)):
-                    for ik in range(len(kpts)):
+                    for ik in range(len(kpts[tp])):
                         energy, velocity, effective_m = get_poly_energy(
                             self._rec_lattice.get_cartesian_coords(kpts[ik]) / A_to_nm,
                             poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
@@ -1321,21 +1353,13 @@ class AMSET(object):
         # logging.debug("energies before removing k-points with off-energy:\n {}".format(energies))
         # remove energies that are out of range
 
-        # rm_list_all = list(set(rm_list["n"] + rm_list["p"]))
-        # kpts = np.delete(kpts, rm_list_all, axis=0)
-        # kpts = list(kpts)
-        # for tp in ["n", "p"]:
-        #     energies[tp] = np.delete(energies[tp], rm_list_all, axis=0)
 
-        kpts_copy = np.array(kpts)
-        kpts = {"n": np.array(kpts_copy), "p": np.array(kpts_copy)}
+
         # print "n-rm_list"
         # print rm_list["n"]
         # print "p-rm_list"
         # print rm_list["p"]
 
-        print "all types"
-        print self.all_types
         for tp in ["n", "p"]:
             # if tp in self.all_types:
             if True:
@@ -1348,6 +1372,10 @@ class AMSET(object):
                 warnings.warn("Too desne of a {}-type k-mesh (nk={}!); AMSET will be slow!".format(tp, len(kpts[tp])))
 
             logging.info("number of {}-type ibz k-points AFTER ENERGY-FILTERING: {}".format(tp, len(kpts[tp])))
+
+        # 2 lines debug printing
+        energies["n"].sort()
+        print "{}-type energies for ibz after filtering: \n {}".format("n", energies["n"])
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
         if self.adaptive_mesh:
@@ -1490,6 +1518,10 @@ class AMSET(object):
                     if self.kgrid[tp]["velocity"][ib][ik][0] < 100 or self.kgrid[tp]["velocity"][ib][ik][1] < 100 \
                             or self.kgrid[tp]["velocity"][ib][ik][2] < 100 or \
                                     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
+                        rm_idx_list[tp][ib].append(ik)
+
+                    # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
+                    if self.kgrid[tp]["norm(k)"][ib][ik] > 5:
                         rm_idx_list[tp][ib].append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
@@ -2975,7 +3007,7 @@ if __name__ == "__main__":
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
                   dopings=[-2e15], temperatures=[300])
-                    # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600])
+                    # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
@@ -2986,5 +3018,5 @@ if __name__ == "__main__":
     AMSET.to_csv()
     AMSET.plot(k_plots='all', E_plots=['relaxation time', 'df0dk', 'ACD', 'g'])
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=20, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=None, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
