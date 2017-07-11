@@ -1161,6 +1161,8 @@ class AMSET(object):
     # ultimately it might be most clean for this function to largely be two different functions (one for poly bands and one for analytical),
     # and then the parts they share can be separate functions called by both
     def init_kgrid(self, coeff_file, kgrid_tp="coarse"):
+        logging.debug("begin profiling the init_kgrid function")
+        start_time = time.time()
         Tmx = max(self.temperatures)
         if kgrid_tp == "coarse":
             nkstep = self.nkibz
@@ -1203,7 +1205,8 @@ class AMSET(object):
 
         # @albalu why are there far fewer than nkstep^3 k points (printed out 8114 < 70^3)?
         logging.info("number of original ibz k-points: {}".format(len(kpts)))
-
+        logging.debug("time to get the ibz k-mesh: \n {}".format(time.time()-start_time))
+        start_time = time.time()
         # TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
         # if using analytical bands: create the object, determine list of band indices, and get energy info
         if not self.poly_bands:
@@ -1218,7 +1221,6 @@ class AMSET(object):
                     # @albalu what is self.cbm_vbm[tp]["bidx"]? I looked at self._vrun where this is set but I'm still confused
                     all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
 
-            start_time = time.time()
             logging.debug("all_ibands: {}".format(all_ibands))
 
             # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
@@ -1229,7 +1231,6 @@ class AMSET(object):
                 for i in xrange(nstv[nw]):
                     out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
 
-            print("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
 
         # if using poly bands, remove duplicate k points (@albalu I'm not really sure what this is doing)
         else:
@@ -1239,6 +1240,8 @@ class AMSET(object):
                 for j in range(len(self.poly_bands[ib])):
                     self.poly_bands[ib][j][0] = self.remove_duplicate_kpoints(
                         self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0], cartesian=True))
+
+        logging.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
 
         # calculate only the CBM and VBM energy values - @albalu why is this separate from the other energy value calculations?
         # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
@@ -1268,6 +1271,7 @@ class AMSET(object):
         self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm[tp]["eff_mass_xx"])) for tp in ["n", "p"]}
 
         # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
+        start_time = time.time()
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
         velocities = {"n": [[0.0, 0.0, 0.0] for ik in kpts], "p": [[0.0, 0.0, 0.0] for ik in kpts]}
         rm_list = {"n": [], "p": []}
@@ -1313,7 +1317,8 @@ class AMSET(object):
             velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
             kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
-
+        logging.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
+        start_time = time.time()
         #TODO: the following for-loop is crucial but undone! it decides which k-points remove for speed and accuracy
         for tp in ["p", "n"]:
             Ecut = self.Ecut[tp]
@@ -1346,6 +1351,8 @@ class AMSET(object):
 
             rm_list[tp] = list(set(rm_list[tp]))
 
+        logging.debug("time to filter energies from ibz k-mesh: \n {}".format(time.time()-start_time))
+        start_time = time.time()
         # this step is crucial in DOS normalization when poly_bands to cover the whole energy range in BZ
         if self.poly_bands:
             all_bands_energies = {"n": [], "p": []}
@@ -1429,7 +1436,8 @@ class AMSET(object):
 
 
 
-
+        logging.debug("time to add the symmetrically equivalent k-points: \n {}".format(time.time() - start_time))
+        start_time = time.time()
 
         # actual initiation of the kgrid
         self.kgrid = {
@@ -1551,6 +1559,8 @@ class AMSET(object):
                             "old cartesian kpoints", "kweights",
                             "norm(v)", "norm(k)"]
 
+        logging.debug("time to calculate E, v, m_eff at all k-points: \n {}".format(time.time()-start_time))
+        start_time = time.time()
 
         # TODO: the following is temporary, for some reason if # of kpts in different bands are NOT the same,
         # I get an error that _all_elastic is a list! so 1/self.kgrid[tp]["_all_elastic"][c][T][ib] cause error int/list!
@@ -1658,6 +1668,7 @@ class AMSET(object):
 
         self.dos = [list(a) for a in self.dos]
 
+        logging.debug("time to finish the remaining part of init_kgrid: \n {}".format(time.time() - start_time))
 
 
     def sort_vars_based_on_energy(self, args, ascending=True):
@@ -3055,7 +3066,7 @@ if __name__ == "__main__":
 
 
     performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": False, "BTE_iters": 5}
+                          "parallel": True, "BTE_iters": 5}
 
 
     ### for PbTe
@@ -3093,7 +3104,7 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format='')
+    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=None, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
