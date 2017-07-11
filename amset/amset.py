@@ -2906,7 +2906,6 @@ class AMSET(object):
                 plt.xy_plot(x_col=x_data, y_col=y_data, y_axis_type=y_axis_type, color='black')
 
 
-    # different temperatures on the same plot when it changes (always all temps)
     def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'],
              direction=['avg'], show_interactive=True, save_format='png', textsize=40, ticksize=30, path=None,
              margin_left=160, margin_bottom=120, fontfamily="serif"):
@@ -3134,6 +3133,7 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
+    #AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
     AMSET.plot(k_plots='all', E_plots=['frequency', 'velocity'], show_interactive=True, carrier_types=['n'], direction=['x', 'avg'], save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=None, nstart=0)
