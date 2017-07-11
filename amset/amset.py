@@ -1320,18 +1320,30 @@ class AMSET(object):
             Ediff_old = 0.0
             # print "{}-type all Ediffs".format(tp)
             for ib in [0]:
-                for ik in range(len(kpts[tp])):
-                    if velocities[tp][ik][0] < 100 or velocities[tp][ik][1] < 100 or velocities[tp][ik][2] < 100:
-                        rm_list[tp].append(ik)
+                ik = -1
+                # for ik in range(len(kpts[tp])):
+                while ik < len(kpts[tp]):
+                    ik += 1
                     Ediff = abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"])
-                    # the following if implements an adaptive dE_min as higher energy points are less important
-                    if Ediff>Ecut/5.0 and Ediff - Ediff_old < min(self.dE_min*10.0, 0.001) or \
-                            Ediff>Ecut/2 and Ediff - Ediff_old < min(self.dE_min*100.0, 0.01):
-                        rm_list[tp].append(ik)
-                    Ediff_old = Ediff
                     if Ediff > Ecut:
                         rm_list[tp] += range(ik, len(kpts[tp]))
-                        break # because the energies are sorted so after this point all energy points will be off
+                        break  # because the energies are sorted so after this point all energy points will be off
+                    if velocities[tp][ik][0] < 100 or velocities[tp][ik][1] < 100 or velocities[tp][ik][2] < 100:
+                        rm_list[tp].append(ik)
+                    # the following if implements an adaptive dE_min as higher energy points are less important
+                    while ik < len(kpts[tp]) and \
+                            (Ediff > Ecut/5.0 and Ediff - Ediff_old < min(self.dE_min*10.0, 0.001) or
+                            (Ediff > Ecut / 2.0 and Ediff - Ediff_old < min(self.dE_min * 100.0,0.01))):
+                        rm_list[tp].append(ik)
+                        ik += 1
+                        Ediff = abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"])
+
+                    # if Ediff>Ecut/5.0 and Ediff - Ediff_old < min(self.dE_min*10.0, 0.001):
+                            # or \
+                            # Ediff>Ecut/2.0 and Ediff - Ediff_old < min(self.dE_min*100.0, 0.01):
+                        # rm_list[tp].append(ik)
+                    Ediff_old = Ediff
+
             rm_list[tp] = list(set(rm_list[tp]))
 
         # this step is crucial in DOS normalization when poly_bands to cover the whole energy range in BZ
@@ -1520,8 +1532,8 @@ class AMSET(object):
                         rm_idx_list[tp][ib].append(ik)
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
-                    # if self.kgrid[tp]["norm(k)"][ib][ik] > 5:
-                    #     rm_idx_list[tp][ib].append(ik)
+                    if self.kgrid[tp]["norm(k)"][ib][ik] > 5:
+                        rm_idx_list[tp][ib].append(ik)
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
                     if self.poly_bands:
