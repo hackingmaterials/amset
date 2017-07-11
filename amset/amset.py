@@ -1532,8 +1532,9 @@ class AMSET(object):
                         rm_idx_list[tp][ib].append(ik)
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
-                    if self.kgrid[tp]["norm(k)"][ib][ik] > 5:
-                        rm_idx_list[tp][ib].append(ik)
+                    # if self.kgrid[tp]["norm(k)"][ib][ik] > 5:
+                    #     rm_idx_list[tp][ib].append(ik)
+
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
                     if self.poly_bands:
@@ -2855,7 +2856,8 @@ class AMSET(object):
 
 
     # different temperatures on the same plot when it changes (always all temps)
-    def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'], show_interactive=True, save_format='png', textsize=40,
+    def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all',
+             carrier_types=['n', 'p'], show_interactive=True, save_format='png', textsize=40,
              ticksize=30, path=None, margin_left=160, margin_bottom=120, fontfamily="serif"):
         """
         plots the calculated values
@@ -2953,7 +2955,7 @@ class AMSET(object):
                         for T in self.temperatures:
                             all_plots.append({"x_col": x_data[x_value],
                                               "y_col": y_data_temp_dependent[x_value][y_value][T],
-                                              "text": T, "size": textsize / 2, "mode": "lines+markers", "legend": "",
+                                              "text": T, "size": textsize / 2, "mode": "markers", "legend": "",
                                               "color": ""})
                         if show_interactive:
                             filename = os.path.join(path, "{}_{}_{}_{}.{}".format(y_value, x_value, tp, c, 'html'))
@@ -2983,7 +2985,7 @@ class AMSET(object):
                             all_plots.append({"x_col": self.temperatures,
                                               "y_col": [abs(sum(self.egrid["mobility"][mo][c][T][tp]) / 3) # I temporarily (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
                                                         for T in self.temperatures],
-                                              "text": mo, "size": textsize / 2, "mode": "lines+markers", "legend": "",
+                                              "text": mo, "size": textsize / 2, "mode": "markers", "legend": "",
                                               "color": ""})
                         plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type='log', color='black')
                     if save_format is not None:
@@ -2998,7 +3000,7 @@ class AMSET(object):
                                               "y_col": [abs(sum(self.egrid["mobility"][mo][c][T][tp]) / 3)
                                                         # I temporarily (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
                                                         for T in self.temperatures],
-                                              "text": mo, "size": textsize / 2, "mode": "lines+markers", "legend": "",
+                                              "text": mo, "size": textsize / 2, "mode": "markers", "legend": "",
                                               "color": ""})
                         plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type='log', color='black')
 
@@ -3091,7 +3093,7 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    AMSET.plot(k_plots='all', E_plots=['histogram', 'velocity'], show_interactive=True, carrier_types=['n'], save_format='jpeg')
+    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format='')
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=None, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
