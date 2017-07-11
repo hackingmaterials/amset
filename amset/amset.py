@@ -2895,8 +2895,9 @@ class AMSET(object):
 
 
     # different temperatures on the same plot when it changes (always all temps)
-    def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'], direction=['avg'], show_interactive=True, save_format='png', textsize=40,
-             ticksize=30, path=None, margin_left=160, margin_bottom=120, fontfamily="serif"):
+    def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'],
+             direction=['avg'], show_interactive=True, save_format='png', textsize=40, ticksize=30, path=None,
+             margin_left=160, margin_bottom=120, fontfamily="serif"):
         """
         plots the calculated values
         :param k_plots: (list of strings) the names of the quantities to be plotted against norm(k)
