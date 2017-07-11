@@ -2854,8 +2854,20 @@ class AMSET(object):
 
 
 
+    # for plotting
+    def get_scalar_output(self, vec, dir):
+        if dir == 'x':
+            return vec[0]
+        if dir == 'y':
+            return vec[1]
+        if dir == 'z':
+            return vec[2]
+        if dir == 'avg':
+            return sum(vec) / 3
+
+
     # different temperatures on the same plot when it changes (always all temps)
-    def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'], show_interactive=True, save_format='png', textsize=40,
+    def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'], direction=['avg'], show_interactive=True, save_format='png', textsize=40,
              ticksize=30, path=None, margin_left=160, margin_bottom=120, fontfamily="serif"):
         """
         plots the calculated values
@@ -2868,6 +2880,8 @@ class AMSET(object):
         :param concentrations: (list of strings) a list of carrier concentrations, or the string 'all' to plot the
             results of calculations done with all input concentrations
         :param carrier_types: (list of strings) select carrier types to plot data for - ['n'], ['p'], or ['n', 'p']
+        :param direction: (list of strings) options to include in list are 'x', 'y', 'z', 'avg'; determines which
+            components of vector quantities are plotted. RIGHT NOW SCALAR PLOTS ARE REPEATED EACH TIME
         :param show_interactive: (boolean) if True creates and shows interactive html plots
         :param save_format: (str) format for saving plots; options are 'png', 'jpeg', 'svg', 'pdf', None (None does not
             save the plots). NOTE: plotly credentials are needed, see figrecipes documentation
@@ -2894,6 +2908,7 @@ class AMSET(object):
         E_plots = list(E_plots)
         concentrations = list(concentrations)
         carrier_types = list(carrier_types)
+        direction = list(direction)
 
         if not path:
             path = os.path.join(os.getcwd(), "plots")
@@ -2916,91 +2931,94 @@ class AMSET(object):
             x_axis_label = {'k': 'norm(k)', 'E': 'energy (eV)'}
 
             for c in concentrations:
-                y_data_temp_independent = {'k': {'energy': self.kgrid[tp]['energy'][0],
-                                                 'velocity': self.kgrid[tp]["norm(v)"][0]},
-                                           'E': {'histogram': self.Efrequency[tp],
-                                                 'velocity': [sum(p) / 3 for p in self.egrid[tp]['velocity']]}}
+                for dir in direction:
+                    y_data_temp_independent = {'k': {'energy': self.kgrid[tp]['energy'][0],
+                                                     'velocity': self.kgrid[tp]["norm(v)"][0]},
+                                               'E': {'histogram': self.Efrequency[tp],
+                                                     'velocity': [self.get_scalar_output(p, dir) for p in self.egrid[tp]['velocity']]}}
 
-                # temperature independent k and E plots: energy(k), velocity(k), histogram(E), velocity(E)
-                for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
-                    for y_value in y_values:
+                    tp_c_dir = tp + '_' + str(c) + '_' + dir
+
+                    # temperature independent k and E plots: energy(k), velocity(k), histogram(E), velocity(E)
+                    for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
+                        for y_value in y_values:
+                            if show_interactive:
+                                filename = os.path.join(path, "{}_{}_{}.{}".format(y_value, x_value, tp_c_dir, 'html'))
+                                plt = PlotlyFig(x_title=x_axis_label[x_value], y_title=y_value,
+                                                plot_title='{}, c={}'.format(y_value, c), textsize=textsize,
+                                                plot_mode='offline', filename=filename, ticksize=ticksize,
+                                                margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
+                                plt.xy_plot(x_col=x_data[x_value], y_col=y_data_temp_independent[x_value][y_value], color='black')
+                            if save_format is not None:
+                                filename = os.path.join(path, "{}_{}_{}.{}".format(y_value, x_value, tp_c_dir, save_format))
+                                plt = PlotlyFig(x_title=x_axis_label[x_value], y_title=y_value,
+                                                plot_title='{}, c={}'.format(y_value, c), textsize=textsize,
+                                                plot_mode='static', filename=filename, ticksize=ticksize,
+                                                margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
+                                plt.xy_plot(x_col=x_data[x_value], y_col=y_data_temp_independent[x_value][y_value], color='black')
+
+                    # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
+                    # kgrid and egrid data)
+                    y_data_temp_dependent = {'k': {prop: {T: [self.get_scalar_output(p, dir) for p in self.kgrid[tp][prop][c][T][0]]
+                                                          for T in self.temperatures} for prop in temp_dependent_k_props},
+                                             'E': {prop: {T: [self.get_scalar_output(p, dir) for p in self.egrid[tp][prop][c][T]]
+                                                          for T in self.temperatures} for prop in temp_dependent_E_props}}
+
+                    # temperature dependent k and E plots
+                    for x_value, y_values in [('k', temp_dependent_k_props), ('E', temp_dependent_E_props)]:
+                        for y_value in y_values:
+                            all_plots = []
+                            for T in self.temperatures:
+                                all_plots.append({"x_col": x_data[x_value],
+                                                  "y_col": y_data_temp_dependent[x_value][y_value][T],
+                                                  "text": T, "size": textsize / 2, "mode": "lines+markers", "legend": "",
+                                                  "color": ""})
+                            if show_interactive:
+                                filename = os.path.join(path, "{}_{}_{}.{}".format(y_value, x_value, tp_c_dir, 'html'))
+                                plt = PlotlyFig(x_title=x_axis_label[x_value], y_title=y_value,
+                                                plot_title='{}, c={}'.format(y_value, c), textsize=textsize,
+                                                plot_mode='offline', filename=filename, ticksize=ticksize,
+                                                margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
+                                plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, color='black')
+                            if save_format is not None:
+                                filename = os.path.join(path, "{}_{}_{}.{}".format(y_value, x_value, tp_c_dir, save_format))
+                                plt = PlotlyFig(x_title=x_axis_label[x_value], y_title=y_value,
+                                                plot_title='{}, c={}'.format(y_value, c), textsize=textsize,
+                                                plot_mode='static', filename=filename, ticksize=ticksize,
+                                                margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
+                                plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, color='black')
+
+                    # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
+                    if mobility:
                         if show_interactive:
-                            filename = os.path.join(path, "{}_{}_{}_{}.{}".format(y_value, x_value, tp, c, 'html'))
-                            plt = PlotlyFig(x_title=x_axis_label[x_value], y_title=y_value,
-                                            plot_title='{}, c={}'.format(y_value, c), textsize=textsize,
-                                            plot_mode='offline', filename=filename, ticksize=ticksize,
-                                            margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
-                            plt.xy_plot(x_col=x_data[x_value], y_col=y_data_temp_independent[x_value][y_value], color='black')
+                            filename = os.path.join(path, "{}_{}.{}".format("mobility", tp_c_dir, 'html'))
+                            plt = PlotlyFig(x_title="Temperature (K)", y_title="Mobility (cm2/V.s)", textsize=textsize,
+                                            plot_mode='offline', filename=filename,
+                                            ticksize=ticksize-5, margin_left=margin_left, margin_bottom=margin_bottom,
+                                            fontfamily=fontfamily)
+                            all_plots = []
+                            for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
+                                all_plots.append({"x_col": self.temperatures,
+                                                  "y_col": [abs(self.get_scalar_output(self.egrid['mobility'][mo][c][T][tp], dir)) # I temporarily (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
+                                                            for T in self.temperatures],
+                                                  "text": mo, "size": textsize / 2, "mode": "lines+markers", "legend": "",
+                                                  "color": ""})
+                            plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type='log', color='black')
                         if save_format is not None:
-                            filename = os.path.join(path, "{}_{}_{}_{}.{}".format(y_value, x_value, tp, c, save_format))
-                            plt = PlotlyFig(x_title=x_axis_label[x_value], y_title=y_value,
-                                            plot_title='{}, c={}'.format(y_value, c), textsize=textsize,
-                                            plot_mode='static', filename=filename, ticksize=ticksize,
-                                            margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
-                            plt.xy_plot(x_col=x_data[x_value], y_col=y_data_temp_independent[x_value][y_value], color='black')
-
-                # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
-                # kgrid and egrid data)
-                y_data_temp_dependent = {'k': {prop: {T: [sum(p / 3) for p in self.kgrid[tp][prop][c][T][0]]
-                                                      for T in self.temperatures} for prop in temp_dependent_k_props},
-                                         'E': {prop: {T: [sum(p) / 3 for p in self.egrid[tp][prop][c][T]]
-                                                      for T in self.temperatures} for prop in temp_dependent_E_props}}
-
-                # temperature dependent k and E plots
-                for x_value, y_values in [('k', temp_dependent_k_props), ('E', temp_dependent_E_props)]:
-                    for y_value in y_values:
-                        all_plots = []
-                        for T in self.temperatures:
-                            all_plots.append({"x_col": x_data[x_value],
-                                              "y_col": y_data_temp_dependent[x_value][y_value][T],
-                                              "text": T, "size": textsize / 2, "mode": "lines+markers", "legend": "",
-                                              "color": ""})
-                        if show_interactive:
-                            filename = os.path.join(path, "{}_{}_{}_{}.{}".format(y_value, x_value, tp, c, 'html'))
-                            plt = PlotlyFig(x_title=x_axis_label[x_value], y_title=y_value,
-                                            plot_title='{}, c={}'.format(y_value, c), textsize=textsize,
-                                            plot_mode='offline', filename=filename, ticksize=ticksize,
-                                            margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
-                            plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, color='black')
-                        if save_format is not None:
-                            filename = os.path.join(path, "{}_{}_{}_{}.{}".format(y_value, x_value, tp, c, save_format))
-                            plt = PlotlyFig(x_title=x_axis_label[x_value], y_title=y_value,
-                                            plot_title='{}, c={}'.format(y_value, c), textsize=textsize,
-                                            plot_mode='static', filename=filename, ticksize=ticksize,
-                                            margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
-                            plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, color='black')
-
-                # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
-                if mobility:
-                    if show_interactive:
-                        filename = os.path.join(path, "{}_{}_{}_{}.{}".format("mobility", tp, c, T, 'html'))
-                        plt = PlotlyFig(x_title="Temperature (K)", y_title="Mobility (cm2/V.s)", textsize=textsize,
-                                        plot_mode='offline', filename=filename,
-                                        ticksize=ticksize-5, margin_left=margin_left, margin_bottom=margin_bottom,
-                                        fontfamily=fontfamily)
-                        all_plots = []
-                        for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
-                            all_plots.append({"x_col": self.temperatures,
-                                              "y_col": [abs(sum(self.egrid["mobility"][mo][c][T][tp]) / 3) # I temporarily (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
-                                                        for T in self.temperatures],
-                                              "text": mo, "size": textsize / 2, "mode": "lines+markers", "legend": "",
-                                              "color": ""})
-                        plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type='log', color='black')
-                    if save_format is not None:
-                        filename = os.path.join(path, "{}_{}_{}_{}.{}".format("mobility", tp, c, T, save_format))
-                        plt = PlotlyFig(x_title="Temperature (K)", y_title="Mobility (cm2/V.s)", textsize=textsize,
-                                        plot_mode='static', filename=filename,
-                                        ticksize=ticksize - 5, margin_left=margin_left, margin_bottom=margin_bottom,
-                                        fontfamily=fontfamily)
-                        all_plots = []
-                        for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
-                            all_plots.append({"x_col": self.temperatures,
-                                              "y_col": [abs(sum(self.egrid["mobility"][mo][c][T][tp]) / 3)
-                                                        # I temporarily (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
-                                                        for T in self.temperatures],
-                                              "text": mo, "size": textsize / 2, "mode": "lines+markers", "legend": "",
-                                              "color": ""})
-                        plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type='log', color='black')
+                            filename = os.path.join(path, "{}_{}.{}".format("mobility", tp_c_dir, save_format))
+                            plt = PlotlyFig(x_title="Temperature (K)", y_title="Mobility (cm2/V.s)", textsize=textsize,
+                                            plot_mode='static', filename=filename,
+                                            ticksize=ticksize - 5, margin_left=margin_left, margin_bottom=margin_bottom,
+                                            fontfamily=fontfamily)
+                            all_plots = []
+                            for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
+                                all_plots.append({"x_col": self.temperatures,
+                                                  "y_col": [abs(self.get_scalar_output(self.egrid['mobility'][mo][c][T][tp], dir))
+                                                            # I temporarily (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
+                                                            for T in self.temperatures],
+                                                  "text": mo, "size": textsize / 2, "mode": "lines+markers", "legend": "",
+                                                  "color": ""})
+                            plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type='log', color='black')
 
 
 
@@ -3091,7 +3109,7 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    AMSET.plot(k_plots='all', E_plots=['histogram', 'velocity'], show_interactive=True, carrier_types=['n'], save_format='jpeg')
+    AMSET.plot(k_plots='all', E_plots=['histogram', 'velocity'], show_interactive=True, carrier_types=['n'], direction=['x', 'avg'])
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=None, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
