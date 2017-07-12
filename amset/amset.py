@@ -1175,29 +1175,86 @@ class AMSET(object):
         # TODO-JF (mid-term): you can take on this project to speed up get_ir_reciprocal_mesh or a similar function, right now it scales very poorly with larger mesh
 
         # create a mesh of k-points
-        all_kpts = {}
-        try:
-            ibzkpt_filename = os.path.join(os.environ["AMSET_ROOT"], "{}_ibzkpt_{}.json".format(nkstep,
-                                                        self._vrun.final_structure.formula.replace(" ", "")))
-        except:
-            ibzkpt_filename = "{}_ibzkpt.json".format(nkstep)
-        try:
-            with open(ibzkpt_filename, 'r') as fp:
-                all_kpts = json.load(fp, cls=MontyDecoder)
-            kpts = all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)]
-            logging.info('reading {}x{}x{} k-mesh from "{}"'.format(nkstep, nkstep, nkstep, ibzkpt_filename))
-        except:
-            logging.info('reading {} failed!'.format(ibzkpt_filename))
-            logging.info("generating {}x{}x{} IBZ k-mesh".format(nkstep, nkstep, nkstep))
-            # @albalu why is there an option to shift the k points and what are the weights?
-            kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
-            # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
-            # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.03, 0.06))
-            kpts = [i[0] for i in kpts_and_weights]
-            kpts = self.kpts_to_first_BZ(kpts)
-            all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)] = kpts
-            with open(ibzkpt_filename, 'w') as fp:
-                json.dump(all_kpts, fp, cls=MontyEncoder)
+        # all_kpts = {}
+        # try:
+        #     ibzkpt_filename = os.path.join(os.environ["AMSET_ROOT"], "{}_ibzkpt_{}.json".format(nkstep,
+        #                                                 self._vrun.final_structure.formula.replace(" ", "")))
+        # except:
+        #     ibzkpt_filename = "{}_ibzkpt.json".format(nkstep)
+        # try:
+        #     with open(ibzkpt_filename, 'r') as fp:
+        #         all_kpts = json.load(fp, cls=MontyDecoder)
+        #     kpts = all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)]
+        #     logging.info('reading {}x{}x{} k-mesh from "{}"'.format(nkstep, nkstep, nkstep, ibzkpt_filename))
+        # except:
+        #     logging.info('reading {} failed!'.format(ibzkpt_filename))
+        #     logging.info("generating {}x{}x{} IBZ k-mesh".format(nkstep, nkstep, nkstep))
+        #     # @albalu why is there an option to shift the k points and what are the weights?
+        #     kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
+        #     # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
+        #     # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.03, 0.06))
+        #     kpts = [i[0] for i in kpts_and_weights]
+        #     kpts = self.kpts_to_first_BZ(kpts)
+        #     all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)] = kpts
+        #     with open(ibzkpt_filename, 'w') as fp:
+        #         json.dump(all_kpts, fp, cls=MontyEncoder)
+
+        bs_extrema = {"n": [self.cbm_vbm["n"]["kpoint"]],
+                      "p": [self.cbm_vbm["p"]["kpoint"]]}
+        # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(41, 41, 41), is_shift=[0, 0, 0])
+        # kpts = [i[0] for i in kpts_and_weights]
+
+        #adaptive k-mesh
+        kpts = []
+
+        # fine mesh
+        # for step, nsteps in [[0.001, 10],[0.005, 10], [0.01, 21], [0.025, 21]]:
+        # loose mesh
+        # for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 10], [0.025, 10], [0.1, 5]]: # 1
+        #     print "mesh: 1"
+
+        # for step, nsteps in [[0.001, 5], [0.005, 20], [0.01, 15], [0.025, 10], [0.1, 5]]: # 2
+        #     print "mesh: 2"
+
+        # for step, nsteps in [[0.001, 5], [0.005, 5], [0.01, 15], [0.025, 10], [0.1, 5]]: # 3
+        #     print "mesh: 3"
+
+        # for step, nsteps in [[0.001, 5], [0.005, 5], [0.01, 20], [0.025, 10], [0.1, 5]]: # 4
+        #     print "mesh: 4"
+
+        # for step, nsteps in [[0.001, 5], [0.005, 5], [0.01, 15], [0.025, 20]]: # 5
+        #     print "mesh: 5"
+
+        # for step, nsteps in [[0.001, 5], [0.005, 20], [0.01, 20], [0.025, 20]]: # 6
+        #     print "mesh: 6"
+
+        # for step, nsteps in [[0.001, 10], [0.005, 25], [0.01, 20], [0.025, 20]]: # 7
+        #     print "mesh: 7"
+
+        # for step, nsteps in [[0.001, 15], [0.005, 25], [0.01, 20], [0.025, 20]]: # 8
+        #     print "mesh: 8"
+
+        # for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 10], [0.025, 20]]: # 9
+        #     print "mesh: 9"
+
+        for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]]: # 10
+            print "mesh: 10"
+
+
+
+
+            for tp in ["n"]:
+                for k_extremum in bs_extrema[tp]:
+                    for kx in [k_extremum[0] + i*step for i in range(nsteps)]:
+                        for ky in [k_extremum[1] + i * step for i in range(nsteps)]:
+                            for kz in [k_extremum[2] + i * step for i in range(nsteps)]:
+                                kpts.append([kx, ky, kz])
+                                # kpts.append([-kx, ky, kz])
+                                # kpts.append([kx, -ky, kz])
+                                # kpts.append([kx, ky, -kz])
+        kpts = self.kpts_to_first_BZ(kpts)
+        kpts = self.remove_duplicate_kpoints(kpts)
+
 
         # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
         kpts.append(self.cbm_vbm["n"]["kpoint"])
@@ -1335,6 +1392,7 @@ class AMSET(object):
                         break  # because the energies are sorted so after this point all energy points will be off
                     if velocities[tp][ik][0] < 100 or velocities[tp][ik][1] < 100 or velocities[tp][ik][2] < 100:
                         rm_list[tp].append(ik)
+
                     # the following if implements an adaptive dE_min as higher energy points are less important
                     while ik < len(kpts[tp]) and \
                             (Ediff > Ecut/5.0 and Ediff - Ediff_old < min(self.dE_min*10.0, 0.001) or
@@ -2190,7 +2248,7 @@ class AMSET(object):
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         # only when very large # of k-points are present, make sense to parallelize as this function
                         # has become fast after better energy window selection
-                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 10000:
+                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 20000:
                             # if False:
                             results = Parallel(n_jobs=self.num_cores)(delayed(calculate_Sio) \
                                                                           (tp, c, T, ib, ik, once_called, self.kgrid,
@@ -3065,7 +3123,7 @@ if __name__ == "__main__":
 
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
+    performance_params = {"nkibz": 100, "dE_min": 0.00001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5}
 
 
@@ -3094,7 +3152,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300])
+                  dopings=[-2e15], temperatures=[300, 600])
                     # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
@@ -3106,5 +3164,5 @@ if __name__ == "__main__":
     AMSET.to_csv()
     AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=None, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=60, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
