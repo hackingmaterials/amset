@@ -3215,7 +3215,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300, 600])
+                  dopings=[-2e15], temperatures=[300])
                     # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
@@ -3226,7 +3226,7 @@ if __name__ == "__main__":
     AMSET.write_input_files()
     AMSET.to_csv()
     #AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
-    AMSET.plot(k_plots='all', E_plots=['frequency', 'velocity'], show_interactive=True, carrier_types=['n'], direction=['x', 'avg'], save_format=None)
+    AMSET.plot(k_plots=['energy', 'df0dk'], E_plots='all', show_interactive=True, carrier_types=['n'], direction=['x', 'avg'], save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=60, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
