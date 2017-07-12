@@ -281,6 +281,7 @@ class AMSET(object):
         self.calc_dir = calc_dir
         self.dopings = dopings or [-1e19, -1e20]  # TODO: change the default to [-1e16,...,-1e21,1e21, ...,1e16] later
         self.all_types = [self.get_tp(c) for c in self.dopings]
+        self.tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
         self.temperatures = temperatures or map(float,
                                                 [300, 600])  # TODO: change the default to [50,100,...,1300] later
         self.debug_tp = self.get_tp(self.dopings[0])
@@ -1765,8 +1766,8 @@ class AMSET(object):
                 if enforced_ratio > 0.1:
                     # TODO: this should be an exception but for now I turned to warning for testing.
                     warnings.warn(
-                        "the k-grid is too coarse for an acceptable simulation of elastic scattering in {} bands;"
-                        .format(["conduction", "valence"][["n", "p"].index(tp)]))
+                        "the k-grid is too coarse for an acceptable simulation of elastic scattering in {};"
+                        .format(self.tp_title[tp]))
 
                 avg_Ediff = sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 1)
                 if avg_Ediff > avg_Ediff_tolerance:
@@ -1801,9 +1802,9 @@ class AMSET(object):
                     if enforced_ratio > 0.1:
                         # TODO: this should be an exception but for now I turned to warning for testing.
                         warnings.warn(
-                            "the k-grid is too coarse for an acceptable simulation of POP scattering in {} bands;"
+                            "the k-grid is too coarse for an acceptable simulation of POP scattering in {};"
                             " you can try this k-point grid but without POP as an inelastic scattering.".format(
-                                ["conduction", "valence"][["n", "p"].index(tp)]))
+                                self.tp_title[tp]))
 
                     avg_Ediff = sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 1)
                     if avg_Ediff > avg_Ediff_tolerance:
@@ -2046,7 +2047,7 @@ class AMSET(object):
 
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
 
-        # weighted = False
+        weighted = False
 
         wpower = 1
         if xvel:
@@ -2955,7 +2956,6 @@ class AMSET(object):
 
 
 
-
     # for plotting
     def get_scalar_output(self, vec, dir):
         if dir == 'x':
@@ -2968,12 +2968,13 @@ class AMSET(object):
             return sum(vec) / 3
 
 
-    def create_plots(self, x_label, y_label, show_interactive, save_format, c, file_suffix,
+
+    def create_plots(self, x_label, y_label, show_interactive, save_format, c, tp, file_suffix,
                      textsize, ticksize, path, margin_left, margin_bottom, fontfamily, x_data=None, y_data=None,
                      all_plots=None, x_label_short='', y_label_short=None, y_axis_type='linear', plot_title=None):
         from matminer.figrecipes.plotly.make_plots import PlotlyFig
         if not plot_title:
-            plot_title = '{}, c={}'.format(y_label, c)
+            plot_title = '{} for {}, c={}'.format(y_label, self.tp_title[tp], c)
         if not y_label_short:
             y_label_short = y_label
         if show_interactive:
@@ -2996,6 +2997,7 @@ class AMSET(object):
                 plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type=y_axis_type, color='black')
             else:
                 plt.xy_plot(x_col=x_data, y_col=y_data, y_axis_type=y_axis_type, color='black')
+
 
 
     def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'],
@@ -3076,8 +3078,8 @@ class AMSET(object):
                         if not vec[y_value]:
                             plot_title = None
                             if y_value == 'frequency':
-                                plot_title = 'Energy Histogram, c={}'.format(c)
-                            self.create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, c, tp_c,
+                                plot_title = 'Energy Histogram for {}, c={}'.format(self.tp_title[tp], c)
+                            self.create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, c, tp, tp_c,
                                               textsize, ticksize, path, margin_left,
                                               margin_bottom, fontfamily, x_data=x_data[x_value], y_data=y_data_temp_independent[x_value][y_value], x_label_short=x_value, plot_title=plot_title)
 
@@ -3094,7 +3096,7 @@ class AMSET(object):
                         for y_value in y_values:
                             if vec[y_value]:
                                 self.create_plots(x_axis_label[x_value], y_value, show_interactive,
-                                                  save_format, c, tp_c_dir,
+                                                  save_format, c, tp, tp_c_dir,
                                                   textsize, ticksize, path, margin_left,
                                                   margin_bottom, fontfamily, x_data=x_data[x_value],
                                                   y_data=y_data_temp_independent[x_value][y_value], x_label_short=x_value)
@@ -3116,7 +3118,7 @@ class AMSET(object):
                                                   "text": T, "size": textsize / 2, "mode": "markers", "legend": "",
                                                   "color": ""})
                             self.create_plots(x_axis_label[x_value], y_value, show_interactive,
-                                              save_format, c, tp_c_dir,
+                                              save_format, c, tp, tp_c_dir,
                                               textsize, ticksize, path, margin_left,
                                               margin_bottom, fontfamily, all_plots=all_plots, x_label_short=x_value)
 
@@ -3132,7 +3134,7 @@ class AMSET(object):
                                               "text": mo, "size": textsize / 2, "mode": "lines+markers", "legend": "",
                                               "color": ""})
                         self.create_plots("Temperature (K)", "Mobility (cm2/V.s)", show_interactive,
-                                          save_format, c, tp_c_dir,
+                                          save_format, c, tp, tp_c_dir,
                                           textsize, ticksize-5, path, margin_left,
                                           margin_bottom, fontfamily, all_plots=all_plots, y_label_short="mobility", y_axis_type='log')
 
@@ -3226,7 +3228,7 @@ if __name__ == "__main__":
     AMSET.write_input_files()
     AMSET.to_csv()
     #AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
-    AMSET.plot(k_plots=['energy', 'df0dk'], E_plots='all', show_interactive=True, carrier_types=['n'], direction=['x', 'avg'], save_format=None)
+    AMSET.plot(k_plots=['energy', 'df0dk', 'S_i'], E_plots='all', show_interactive=True, carrier_types=['n'], direction=['avg'], save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=60, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
