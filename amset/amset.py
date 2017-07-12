@@ -1957,6 +1957,36 @@ class AMSET(object):
 
 
 
+    # def integrate_over_k(self, fractional_grid, cartesian_grid, N, b1, b2, b3, property=None):
+    #     '''
+    #     :param cartesian_grid: 3d numpy array containing
+    #     :return: result of the integral
+    #     '''
+    #
+    #     # in the interest of not prematurely optimizing, cartesian_grid must be a perfect grid: the only deviation from
+    #     # the cartesian coordinate system can be uniform stretches, as in the distance between adjacent planes of points
+    #     # can be any value, but no points can be missing from the next plane
+    # 
+    #     # in this case the format of cartesian_grid is a 4d grid
+    #     # the last dimension is a vector of the k point cartesian coordinates
+    #     # same for fractional_grid
+    #     # the dv grid is 3d and the indexes correspond to those of cartesian_grid
+    #
+    #     # N is a vector of the number of x, y, and z points
+    #     # b1, b2, b3 are the reciprocal lattice vectors (obviously in cartesian coords)
+    #
+    #     for i in range(N[0]):
+    #         if i > 0:
+    #             dx1 =
+    #         if i < N[0] - 1:
+    #
+    #         for j in range(N[1]):
+    #             for k in range(N[2]):
+    #                 # find volume
+    #                 if isInterior()
+
+
+
     def integrate_over_BZ(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=True):
 
         weighted = False
@@ -2940,10 +2970,12 @@ class AMSET(object):
 
     def create_plots(self, x_label, y_label, show_interactive, save_format, c, file_suffix,
                      textsize, ticksize, path, margin_left, margin_bottom, fontfamily, x_data=None, y_data=None,
-                     all_plots=None, x_label_short='', y_label_short='', y_axis_type='linear', plot_title=None):
+                     all_plots=None, x_label_short='', y_label_short=None, y_axis_type='linear', plot_title=None):
         from matminer.figrecipes.plotly.make_plots import PlotlyFig
         if not plot_title:
             plot_title = '{}, c={}'.format(y_label, c)
+        if not y_label_short:
+            y_label_short = y_label
         if show_interactive:
             filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, 'html'))
             plt = PlotlyFig(x_title=x_label, y_title=y_label,
@@ -3155,7 +3187,7 @@ if __name__ == "__main__":
 
 
     performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "BTE_iters": 5}
+                          "parallel": False, "BTE_iters": 5}
 
 
     ### for PbTe
@@ -3193,8 +3225,8 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    #AMSET.plot(k_plots='all', E_plots=['frequency', 'velocity'], show_interactive=True, carrier_types=['n'], direction=['x', 'avg'], save_format=None)
-    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
+    #AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
+    AMSET.plot(k_plots='all', E_plots=['frequency', 'velocity'], show_interactive=True, carrier_types=['n'], direction=['x', 'avg'], save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=60, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
