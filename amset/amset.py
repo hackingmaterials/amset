@@ -3018,7 +3018,7 @@ class AMSET(object):
                             plot_mode='offline', filename=filename, ticksize=ticksize,
                             margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
             if all_plots:
-                plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type=y_axis_type, color='black')
+                plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type=y_axis_type, color='black', showlegend=True)
             else:
                 plt.xy_plot(x_col=x_data, y_col=y_data, y_axis_type=y_axis_type, color='black')
         if save_format is not None:
@@ -3028,7 +3028,7 @@ class AMSET(object):
                             plot_mode='static', filename=filename, ticksize=ticksize,
                             margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
             if all_plots:
-                plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type=y_axis_type, color='black')
+                plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type=y_axis_type, color='black', showlegend=True)
             else:
                 plt.xy_plot(x_col=x_data, y_col=y_data, y_axis_type=y_axis_type, color='black')
 
@@ -3149,7 +3149,7 @@ class AMSET(object):
                             for T in self.temperatures:
                                 all_plots.append({"x_col": x_data[x_value],
                                                   "y_col": y_data_temp_dependent[x_value][y_value][T],
-                                                  "text": T, "size": textsize / 2, "mode": "markers", "legend": "",
+                                                  "text": T, 'legend': str(T) + ' K', 'size': 6, "mode": "markers",
                                                   "color": ""})
                             self.create_plots(x_axis_label[x_value], y_value, show_interactive,
                                               save_format, c, tp, tp_c_dir,
@@ -3165,7 +3165,7 @@ class AMSET(object):
                                                   abs(self.get_scalar_output(self.egrid['mobility'][mo][c][T][tp], dir))
                                                   # I temporarily (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
                                                   for T in self.temperatures],
-                                              "text": mo, "size": textsize / 2, "mode": "lines+markers", "legend": "",
+                                              "text": mo, 'legend': mo, 'size': 6, "mode": "lines+markers",
                                               "color": ""})
                         self.create_plots("Temperature (K)", "Mobility (cm2/V.s)", show_interactive,
                                           save_format, c, tp, tp_c_dir,
@@ -3273,7 +3273,8 @@ if __name__ == "__main__":
     AMSET.write_input_files()
     AMSET.to_csv()
     #AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
-    AMSET.plot(k_plots=['energy', 'df0dk', 'S_i'], E_plots='all', show_interactive=True, carrier_types=['n'], direction=['avg'], save_format=None)
+    AMSET.plot(k_plots=['energy', 'df0dk', 'S_i'], E_plots=['frequency', 'relaxation time', '_all_elastic', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
+                       'S_i', 'S_o'], show_interactive=True, carrier_types=['n'], direction=['avg'], save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=60, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
