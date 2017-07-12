@@ -1231,14 +1231,14 @@ class AMSET(object):
         # for step, nsteps in [[0.001, 10], [0.005, 25], [0.01, 20], [0.025, 20]]: # 7
         #     print "mesh: 7"
 
-        for step, nsteps in [[0.001, 15], [0.005, 25], [0.01, 20], [0.025, 20]]: # 8
-            print "mesh: 8"
+        # for step, nsteps in [[0.001, 15], [0.005, 25], [0.01, 20], [0.025, 20]]: # 8
+        #     print "mesh: 8"
 
         # for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 10], [0.025, 20]]: # 9
         #     print "mesh: 9"
 
-        # for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]]: # 10
-        #     print "mesh: 10"
+        for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]]: # 10
+            print "mesh: 10"
 
 
 
@@ -3154,7 +3154,7 @@ if __name__ == "__main__":
 
 
 
-    performance_params = {"nkibz": 100, "dE_min": 0.00001, "nE_min": 2,
+    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
                           "parallel": True, "BTE_iters": 5}
 
 
