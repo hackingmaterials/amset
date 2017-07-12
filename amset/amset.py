@@ -1202,11 +1202,35 @@ class AMSET(object):
 
         bs_extrema = {"n": [self.cbm_vbm["n"]["kpoint"]],
                       "p": [self.cbm_vbm["p"]["kpoint"]]}
-        # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(41, 41, 41), is_shift=[0, 0, 0])
+        nkk = 11
+        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk), is_shift=[0, 0, 0])
+        initial_ibzkpt = [i[0] for i in kpts_and_weights]
+        step_signs = [[np.sign(k[0]), np.sign(k[1]), np.sign(k[2])] for k in initial_ibzkpt]
+        step_signs = self.remove_duplicate_kpoints(step_signs)
         # kpts = [i[0] for i in kpts_and_weights]
 
         #adaptive k-mesh
         kpts = []
+
+        # print "test!"
+        # print self.rotations
+        all_ibz = []
+        # tk = 0.5
+        # relevant_kpoints = [[0.0, 0.0, 0.0],  [tk, 0.0, 0.0], [tk, tk, 0.0], [-tk, tk, 0.0]]
+        # for k in relevant_kpoints:
+        #     all_ibz += [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
+        # all_ibz = self.kpts_to_first_BZ(all_ibz)
+        # all_ibz = self.remove_duplicate_kpoints(all_ibz)
+        # print all_ibz
+        # print len(all_ibz)
+
+
+        print "step_signs:", step_signs
+        test_signs = []
+        for i in [-1, 0, 1]:
+            for j in [-1, 0, 1]:
+                for k in [-1, 0, 1]:
+                    test_signs.append([i, j, k])
 
         # fine mesh
         # for step, nsteps in [[0.001, 10],[0.005, 10], [0.01, 21], [0.025, 21]]:
@@ -1241,15 +1265,15 @@ class AMSET(object):
         for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]]: # 10
             print "mesh: 10"
 
-
-
-
             for tp in ["n"]:
                 for k_extremum in bs_extrema[tp]:
-                    for kx in [k_extremum[0] + i*step for i in range(nsteps)]:
-                        for ky in [k_extremum[1] + i * step for i in range(nsteps)]:
-                            for kz in [k_extremum[2] + i * step for i in range(nsteps)]:
-                                kpts.append([kx, ky, kz])
+                    for kx_sign, ky_sign, kz_sign in step_signs:
+                    # for kx_sign, ky_sign, kz_sign in test_signs:
+                    # for kx_sign, ky_sign, kz_sign in [(1.0, 1.0, 1.0)]:
+                        for kx in [k_extremum[0] + i*step*kx_sign for i in range(nsteps)]:
+                            for ky in [k_extremum[1] + i * step*ky_sign for i in range(nsteps)]:
+                                for kz in [k_extremum[2] + i * step*kz_sign for i in range(nsteps)]:
+                                    kpts.append([kx, ky, kz])
                                 # kpts.append([-kx, ky, kz])
                                 # kpts.append([kx, -ky, kz])
                                 # kpts.append([kx, ky, -kz])
