@@ -3031,7 +3031,7 @@ class AMSET(object):
             k_plots = ['energy', 'df0dk', 'velocity']
         if E_plots == 'all':
             E_plots = ['frequency', 'relaxation time', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
-                       'g_POP', 'g_th', 'S_i', 'S_o']
+                       'g_POP', 'S_i', 'S_o']
         if concentrations == 'all':
             concentrations = self.dopings
 
