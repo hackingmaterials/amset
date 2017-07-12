@@ -1231,14 +1231,14 @@ class AMSET(object):
         # for step, nsteps in [[0.001, 10], [0.005, 25], [0.01, 20], [0.025, 20]]: # 7
         #     print "mesh: 7"
 
-        # for step, nsteps in [[0.001, 15], [0.005, 25], [0.01, 20], [0.025, 20]]: # 8
-        #     print "mesh: 8"
+        for step, nsteps in [[0.001, 15], [0.005, 25], [0.01, 20], [0.025, 20]]: # 8
+            print "mesh: 8"
 
         # for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 10], [0.025, 20]]: # 9
         #     print "mesh: 9"
 
-        for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]]: # 10
-            print "mesh: 10"
+        # for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]]: # 10
+        #     print "mesh: 10"
 
 
 
@@ -1394,6 +1394,8 @@ class AMSET(object):
                         rm_list[tp].append(ik)
 
                     # the following if implements an adaptive dE_min as higher energy points are less important
+                    #TODO: note that if k-mesh integration on a regular grid (not tetrahedron) is implemented, the
+                    #TODO:following will make the results wrong as in that case we would assume the removed points are 0
                     while ik < len(kpts[tp]) and \
                             (Ediff > Ecut/5.0 and Ediff - Ediff_old < min(self.dE_min*10.0, 0.001) or
                             (Ediff > Ecut / 2.0 and Ediff - Ediff_old < min(self.dE_min * 100.0,0.01))):
@@ -3079,7 +3081,7 @@ class AMSET(object):
                             for T in self.temperatures:
                                 all_plots.append({"x_col": x_data[x_value],
                                                   "y_col": y_data_temp_dependent[x_value][y_value][T],
-                                                  "text": T, "size": textsize / 2, "mode": "lines+markers", "legend": "",
+                                                  "text": T, "size": textsize / 2, "mode": "markers", "legend": "",
                                                   "color": ""})
                             self.create_plots(x_axis_label[x_value], y_value, show_interactive,
                                               save_format, c, tp_c_dir,
@@ -3143,7 +3145,7 @@ if __name__ == "__main__":
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+                    # , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
     # , "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]
