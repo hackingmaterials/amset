@@ -1226,21 +1226,21 @@ class AMSET(object):
 
 
         print "step_signs:", step_signs
-        test_signs = []
-        for i in [-1, 0, 1]:
-            for j in [-1, 0, 1]:
-                for k in [-1, 0, 1]:
-                    test_signs.append([i, j, k])
+        # test_signs = []
+        # for i in [-1, 0, 1]:
+        #     for j in [-1, 0, 1]:
+        #         for k in [-1, 0, 1]:
+        #             test_signs.append([i, j, k])
 
         # fine mesh
         # for step, nsteps in [[0.001, 10],[0.005, 10], [0.01, 21], [0.025, 21]]:
         # loose mesh
         # for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 10], [0.025, 10], [0.1, 5]]: # 1
         #     print "mesh: 1"
-
+        #
         # for step, nsteps in [[0.001, 5], [0.005, 20], [0.01, 15], [0.025, 10], [0.1, 5]]: # 2
         #     print "mesh: 2"
-
+        #
         # for step, nsteps in [[0.001, 5], [0.005, 5], [0.01, 15], [0.025, 10], [0.1, 5]]: # 3
         #     print "mesh: 3"
 
@@ -1258,10 +1258,10 @@ class AMSET(object):
 
         # for step, nsteps in [[0.001, 15], [0.005, 25], [0.01, 20], [0.025, 20]]: # 8
         #     print "mesh: 8"
-
+        #
         # for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 10], [0.025, 20]]: # 9
         #     print "mesh: 9"
-
+        #
         for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]]: # 10
             print "mesh: 10"
 
@@ -3100,6 +3100,10 @@ class AMSET(object):
         carrier_types = list(carrier_types)
         direction = list(direction)
 
+        mu_list = ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings
+        mu_markers = {mu: i for i, mu in enumerate(mu_list)}
+        temp_markers = {T: i for i,T in enumerate(self.temperatures)}
+
         if not path:
             path = os.path.join(os.getcwd(), "plots")
             if not os.path.exists(path):
@@ -3174,7 +3178,7 @@ class AMSET(object):
                                 all_plots.append({"x_col": x_data[x_value],
                                                   "y_col": y_data_temp_dependent[x_value][y_value][T],
                                                   "text": T, 'legend': str(T) + ' K', 'size': 6, "mode": "markers",
-                                                  "color": ""})
+                                                  "color": "", "marker": temp_markers[T]})
                             self.create_plots(x_axis_label[x_value], y_value, show_interactive,
                                               save_format, c, tp, tp_c_dir,
                                               textsize, ticksize, path, margin_left,
@@ -3183,14 +3187,14 @@ class AMSET(object):
                     # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
                     if mobility:
                         all_plots = []
-                        for mo in ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings:
+                        for mo in mu_list:
                             all_plots.append({"x_col": self.temperatures,
                                               "y_col": [
                                                   abs(self.get_scalar_output(self.egrid['mobility'][mo][c][T][tp], dir))
                                                   # I temporarily (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
                                                   for T in self.temperatures],
                                               "text": mo, 'legend': mo, 'size': 6, "mode": "lines+markers",
-                                              "color": ""})
+                                              "color": "", "marker": mu_markers[mo]})
                         self.create_plots("Temperature (K)", "Mobility (cm2/V.s)", show_interactive,
                                           save_format, c, tp, tp_c_dir,
                                           textsize, ticksize-5, path, margin_left,
@@ -3275,7 +3279,7 @@ if __name__ == "__main__":
                   # dopings= [-2.7e13], temperatures=[100, 300])
                   # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
                   # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300])
+                  dopings=[-2e15], temperatures=[300, 600])
                     # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
@@ -3297,7 +3301,7 @@ if __name__ == "__main__":
     AMSET.write_input_files()
     AMSET.to_csv()
     #AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
-    AMSET.plot(k_plots=['energy', 'df0dk', 'S_i'], E_plots=['frequency', 'relaxation time', '_all_elastic', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
+    AMSET.plot(k_plots=['energy'], E_plots=['frequency', 'relaxation time', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
                        'S_i', 'S_o'], show_interactive=True, carrier_types=['n'], direction=['avg'], save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=60, nstart=0)
