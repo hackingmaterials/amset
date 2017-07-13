@@ -3275,12 +3275,12 @@ if __name__ == "__main__":
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
-                  # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600])
-                  # dopings= [-2.7e13], temperatures=[100, 300])
-                  # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
-                  # dopings=[-2e15], temperatures=[300, 400, 500, 600])
-                  dopings=[-2e15], temperatures=[300, 600])
-                    # dopings=[-2e15], temperatures=[100, 200, 300, 400, 500, 600, 700, 800])
+                  # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600]
+                  dopings=[-2e15], temperatures=[300, 600]
+                  #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+                  # dopings=[1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21], temperatures=[300]
+                  )
+
     # dopings=[-1e20], temperatures=[300, 600])
     #   dopings = [-1e20], temperatures = [300])
     # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
