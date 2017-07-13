@@ -513,7 +513,7 @@ class AMSET(object):
         self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
         Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
-        self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/10.0 for tp in ["n", "p"]}
+        self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/5.0 for tp in ["n", "p"]}
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
