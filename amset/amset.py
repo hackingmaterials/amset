@@ -280,7 +280,7 @@ class AMSET(object):
 
         self.calc_dir = calc_dir
         self.dopings = dopings or [-1e19, -1e20]  # TODO: change the default to [-1e16,...,-1e21,1e21, ...,1e16] later
-        self.all_types = [self.get_tp(c) for c in self.dopings]
+        self.all_types = list(set([self.get_tp(c) for c in self.dopings]))
         self.tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
         self.temperatures = temperatures or map(float,
                                                 [300, 600])  # TODO: change the default to [50,100,...,1300] later
@@ -513,13 +513,14 @@ class AMSET(object):
         self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
         Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
-        self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/5.0 for tp in ["n", "p"]}
+        self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
+
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
                                      0.1)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
-        self.nkdos = params.get("nkdos", 31)
-
+        self.nkdos = params.get("nkdos", 35)
+        self.v_min = 1000
         self.gs = 1e-32  # a global small value (generally used for an initial non-zero value)
         self.gl = 1e32  # a global large value
 
@@ -1378,7 +1379,7 @@ class AMSET(object):
 
                         # @albalu why do we exclude values of k that have a small component of velocity?
                         # @Jason: because scattering equations have v in the denominator: get too large for such points
-                        # if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
+                        # if velocity[0] < self.v_min or velocity[1] < self.v_min or velocity[2] < self.v_min or \
                         #                 abs(energy - self.cbm_vbm[tp]["energy"]) > Ecut:
                         #     rm_list[tp].append(ik)
                 else:
@@ -1387,7 +1388,7 @@ class AMSET(object):
                     for ik, res in enumerate(results):
                         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                         velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                        # if velocity[0] < 100 or velocity[1] < 100 or velocity[2] < 100 or \
+                        # if velocity[0] < self.v_min or velocity[1] < self.v_min or velocity[2] < self.v_min or \
                         #                 abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > Ecut:
                         #     # if tp=="p":
                         #     #     print "reason for removing the k-point:"
@@ -1415,7 +1416,8 @@ class AMSET(object):
                     if Ediff > Ecut:
                         rm_list[tp] += range(ik, len(kpts[tp]))
                         break  # because the energies are sorted so after this point all energy points will be off
-                    if velocities[tp][ik][0] < 100 or velocities[tp][ik][1] < 100 or velocities[tp][ik][2] < 100:
+                    if velocities[tp][ik][0] < self.v_min or velocities[tp][ik][1] < self.v_min or\
+                                    velocities[tp][ik][2] < self.v_min:
                         rm_list[tp].append(ik)
 
                     # the following if implements an adaptive dE_min as higher energy points are less important
@@ -1619,14 +1621,15 @@ class AMSET(object):
                     # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
                     # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
                     # TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
-                    if self.kgrid[tp]["velocity"][ib][ik][0] < 100 or self.kgrid[tp]["velocity"][ib][ik][1] < 100 \
-                            or self.kgrid[tp]["velocity"][ib][ik][2] < 100 or \
+                    if self.kgrid[tp]["velocity"][ib][ik][0] < self.v_min or  \
+                                    self.kgrid[tp]["velocity"][ib][ik][1] < self.v_min \
+                            or self.kgrid[tp]["velocity"][ib][ik][2] < self.v_min or \
                                     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut:
                         rm_idx_list[tp][ib].append(ik)
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
-                    # if self.kgrid[tp]["norm(k)"][ib][ik] > 5:
-                    #     rm_idx_list[tp][ib].append(ik)
+                    if self.kgrid[tp]["norm(k)"][ib][ik] > 5:
+                        rm_idx_list[tp][ib].append(ik)
 
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
@@ -2991,6 +2994,7 @@ class AMSET(object):
                     self.egrid["TE_power_factor"][c][T][tp] = self.egrid["seebeck"][c][T][tp] ** 2 \
                                                               * self.egrid["conductivity"][c][T][tp] / 1e6  # in uW/cm2K
                     if "POP" in self.inelastic_scatterings:  # when POP is not available J_th is unreliable
+                        self.egrid["seebeck"][c][T][tp] = np.array([self.egrid["seebeck"][c][T][tp] for i in range(3)])
                         self.egrid["seebeck"][c][T][tp] += 0.0
                         # TODO: for now, we ignore the following until we figure out the units see why values are high!
                         # self.egrid["seebeck"][c][T][tp] += 1e6 \
@@ -2999,9 +3003,11 @@ class AMSET(object):
                     print "3 {}-seebeck terms at c={} and T={}:".format(tp, c, T)
                     print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
                           / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B
-                    print + (self.egrid["fermi"][c][T] - self.cbm_vbm[tp]["energy"]) * 1e6 * k_B / (k_B * T)
+                    print +(self.egrid["fermi"][c][T] - self.cbm_vbm[tp]["energy"]) * 1e6 * k_B / (k_B * T)
                     print + self.egrid["J_th"][c][T][tp] / self.egrid["conductivity"][c][T][tp] / dTdz * 1e6
 
+
+                    #TODO: not sure about the following part yet specially as sometimes due to position of fermi I get very off other type mobility values! (sometimes very large)
                     other_type = ["p", "n"][1 - j]
                     self.egrid["seebeck"][c][T][tp] = (self.egrid["conductivity"][c][T][tp] * \
                                                        self.egrid["seebeck"][c][T][tp] -
@@ -3009,8 +3015,8 @@ class AMSET(object):
                                                        self.egrid["seebeck"][c][T][other_type]) / (
                                                       self.egrid["conductivity"][c][T][tp] +
                                                       self.egrid["conductivity"][c][T][other_type])
-                    # since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
-                    # self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
+                    ## since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
+                    ## self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
 
 
 
@@ -3202,15 +3208,17 @@ class AMSET(object):
 
 
 
-    def to_csv(self, csv_filename='AMSET_results.csv'):
+    def to_csv(self, path=None, csv_filename='AMSET_results.csv'):
         """
         this function writes the calculated transport properties to a csv file for convenience.
         :param csv_filename (str):
         :return:
         """
         import csv
+        if not path:
+            path = os.getcwd()
 
-        with open(csv_filename, 'w') as csvfile:
+        with open(os.path.join(path, csv_filename), 'w') as csvfile:
             fieldnames = ['type', 'c(cm-3)', 'T(K)', 'overall', 'average'] + \
                          self.elastic_scatterings + self.inelastic_scatterings + ['seebeck']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -3251,7 +3259,7 @@ if __name__ == "__main__":
 
 
     performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": False, "BTE_iters": 5}
+                          "parallel": True, "BTE_iters": 5}
 
 
     ### for PbTe
@@ -3262,23 +3270,26 @@ if __name__ == "__main__":
 
     ### For GaAs
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-                       "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor": 0.5818}
+                       "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
     cube_path = "../test_files/GaAs/"
     ### coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
     ### For Si
     # material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
-    #                    "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.15, "scissor": 0.0} #0.5154}
+    #                    "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.15, "scissor": 0.5154} #0.5154}
     # cube_path = "../test_files/Si/"
     # coeff_file = os.path.join(cube_path, "Si_fort.123")
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
                   # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600]
-                  dopings=[-2e15], temperatures=[300, 600]
+                  # dopings=[-2e15], temperatures=[300, 600]
                   #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+                  #   dopings=[-2.2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000]
                   # dopings=[1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21], temperatures=[300]
+                  dopings = [1e18], temperatures=[300]
+                  # dopings=[3.32e14], temperatures=[50, 100, 200, 300, 400, 500]
                   )
 
     # dopings=[-1e20], temperatures=[300, 600])
@@ -3302,7 +3313,7 @@ if __name__ == "__main__":
     AMSET.to_csv()
     #AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
     AMSET.plot(k_plots=['energy'], E_plots=['frequency', 'relaxation time', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
-                       'S_i', 'S_o'], show_interactive=True, carrier_types=['n'], direction=['avg'], save_format=None)
+                       'S_i', 'S_o'], show_interactive=True, carrier_types=AMSET.all_types, direction=['avg'], save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=60, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
