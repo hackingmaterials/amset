@@ -49,7 +49,7 @@ __version__ = "0.1"
 __maintainer__ = "Alireza Faghaninia"
 __email__ = "alireza.faghaninia@gmail.com"
 __status__ = "Development"
-__date__ = "June 2017"
+__date__ = "July 2017"
 
 
 def norm(v):
@@ -512,7 +512,7 @@ class AMSET(object):
         self.dE_min = params.get("dE_min", 0.01)
         self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
-        c_factor = max(1, 1.5*abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.15)
+        c_factor = max(1, 1.5*abs(max([log(abs(ci)/float(1e20)) for ci in self.dopings]))**0.15)
         Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300])) * c_factor
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
 
@@ -1209,6 +1209,7 @@ class AMSET(object):
         initial_ibzkpt = [i[0] for i in kpts_and_weights]
         step_signs = [[np.sign(k[0]), np.sign(k[1]), np.sign(k[2])] for k in initial_ibzkpt]
         step_signs = self.remove_duplicate_kpoints(step_signs)
+        print step_signs
         # kpts = [i[0] for i in kpts_and_weights]
 
         #adaptive k-mesh
@@ -2343,7 +2344,7 @@ class AMSET(object):
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         # only when very large # of k-points are present, make sense to parallelize as this function
                         # has become fast after better energy window selection
-                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 20000:
+                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 100000:
                             # if False:
                             results = Parallel(n_jobs=self.num_cores)(delayed(calculate_Sio) \
                                                                           (tp, c, T, ib, ik, once_called, self.kgrid,
@@ -3095,8 +3096,10 @@ class AMSET(object):
         if k_plots == 'all':
             k_plots = ['energy', 'df0dk', 'velocity']
         if E_plots == 'all':
-            E_plots = ['frequency', 'relaxation time', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
-                       'g_POP', 'S_i', 'S_o']
+            E_plots = ['frequency', 'relaxation time', 'df0dk', 'velocity'] + self.elastic_scatterings
+            if "POP" in self.inelastic_scatterings:
+                E_plots += ['g', 'g_POP', 'S_i', 'S_o']
+
         if concentrations == 'all':
             concentrations = self.dopings
 
@@ -3247,8 +3250,8 @@ if __name__ == "__main__":
     #   poly_bands: if specified, uses polynomial interpolation for band structure; otherwise default is None and the
     #               model uses Analytical_Bands with the specified coefficient file
 
-    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]
+    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP"],
+                    "inelastic_scatterings": []
                     # TODO: for testing, remove this part later:
                     # , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
     # , "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
@@ -3268,19 +3271,20 @@ if __name__ == "__main__":
     #                "E_D": {"n": 4.0, "p": 4.0}}
     # cube_path = "../test_files/PbTe/nscf_line"
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
-
-    ### For GaAs
-    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-                       "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
-    cube_path = "../test_files/GaAs/"
-    ### coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
-    coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
+    # #coeff_file = os.path.join(cube_path, "fort.123")
+    #
+    ## For GaAs
+    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
+    #                    "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
+    # cube_path = "../test_files/GaAs/"
+    # # # # #coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
     ### For Si
-    # material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
-    #                    "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.15, "scissor": 0.5154} #0.5154}
-    # cube_path = "../test_files/Si/"
-    # coeff_file = os.path.join(cube_path, "Si_fort.123")
+    material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
+                       "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.5154} #0.5154}
+    cube_path = "../test_files/Si/"
+    coeff_file = os.path.join(cube_path, "Si_fort.123")
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
@@ -3289,7 +3293,7 @@ if __name__ == "__main__":
                   #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
                   #   dopings=[-2.2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000]
                   # dopings=[1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21], temperatures=[300]
-                  dopings = [1e18], temperatures=[300]
+                  dopings = [-1e20], temperatures=[300]
                   # dopings=[3.32e14], temperatures=[50, 100, 200, 300, 400, 500]
                   )
 
@@ -3313,8 +3317,7 @@ if __name__ == "__main__":
     AMSET.write_input_files()
     AMSET.to_csv()
     #AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
-    AMSET.plot(k_plots=['energy'], E_plots=['frequency', 'relaxation time', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
-                       'S_i', 'S_o'], show_interactive=True, carrier_types=AMSET.all_types, direction=['avg'], save_format=None)
+    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=AMSET.all_types, direction=['avg'], save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=60, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
