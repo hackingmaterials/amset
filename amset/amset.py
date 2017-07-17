@@ -513,9 +513,11 @@ class AMSET(object):
         self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
         c_factor = max(1, 1.5*abs(max([log(abs(ci)/float(1e20)) for ci in self.dopings]))**0.15)
-        Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300])) * c_factor
+        # Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300])) * c_factor
+        Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
-
+        for tp in ["n", "p"]:
+            logging.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -1213,7 +1215,7 @@ class AMSET(object):
         # kpts = [i[0] for i in kpts_and_weights]
 
         #adaptive k-mesh
-        kpts = []
+        kpts = {tp: [self.cbm_vbm[tp]["kpoint"]] for tp in ["n", "p"]}
 
         # print "test!"
         # print self.rotations
@@ -1265,10 +1267,12 @@ class AMSET(object):
         # for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 10], [0.025, 20]]: # 9
         #     print "mesh: 9"
         #
-        for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]]: # 10
-            print "mesh: 10"
+        # for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]]: # 10
+        #     print "mesh: 10"
 
-            for tp in ["n"]:
+        print "mesh: 11"
+        for tp in ["n", "p"]:
+            for step, nsteps in [[0.002, 3], [0.02, 3], [0.05, 5], [0.25, 3]]:  # 10
                 for k_extremum in bs_extrema[tp]:
                     for kx_sign, ky_sign, kz_sign in step_signs:
                     # for kx_sign, ky_sign, kz_sign in test_signs:
@@ -1276,20 +1280,21 @@ class AMSET(object):
                         for kx in [k_extremum[0] + i*step*kx_sign for i in range(nsteps)]:
                             for ky in [k_extremum[1] + i * step*ky_sign for i in range(nsteps)]:
                                 for kz in [k_extremum[2] + i * step*kz_sign for i in range(nsteps)]:
-                                    kpts.append([kx, ky, kz])
+                                    kpts[tp].append([kx, ky, kz])
                                 # kpts.append([-kx, ky, kz])
                                 # kpts.append([kx, -ky, kz])
                                 # kpts.append([kx, ky, -kz])
-        kpts = self.kpts_to_first_BZ(kpts)
-        kpts = self.remove_duplicate_kpoints(kpts)
+            kpts[tp] = self.kpts_to_first_BZ(kpts[tp])
+            kpts[tp] = self.remove_duplicate_kpoints(kpts[tp])
 
 
         # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
-        kpts.append(self.cbm_vbm["n"]["kpoint"])
-        kpts.append(self.cbm_vbm["p"]["kpoint"])
+        # kpts.append(self.cbm_vbm["n"]["kpoint"])
+        # kpts.append(self.cbm_vbm["p"]["kpoint"])
 
         # @albalu why are there far fewer than nkstep^3 k points (printed out 8114 < 70^3)?
-        logging.info("number of original ibz k-points: {}".format(len(kpts)))
+        for tp in ["n", "p"]:
+            logging.info("number of original {}-type, ibz k-points: {}".format(tp, len(kpts[tp])))
         logging.debug("time to get the ibz k-mesh: \n {}".format(time.time()-start_time))
         start_time = time.time()
         # TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
@@ -1357,12 +1362,12 @@ class AMSET(object):
 
         # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
         start_time = time.time()
-        energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
-        velocities = {"n": [[0.0, 0.0, 0.0] for ik in kpts], "p": [[0.0, 0.0, 0.0] for ik in kpts]}
+        energies = {"n": [0.0 for ik in kpts["n"]], "p": [0.0 for ik in kpts["n"]]}
+        velocities = {"n": [[0.0, 0.0, 0.0] for ik in kpts["n"]], "p": [[0.0, 0.0, 0.0] for ik in kpts["p"]]}
         rm_list = {"n": [], "p": []}
 
-        kpts_copy = np.array(kpts)
-        kpts = {"n": np.array(kpts_copy), "p": np.array(kpts_copy)}
+        # kpts_copy = np.array(kpts)
+        # kpts = {"n": np.array(kpts_copy), "p": np.array(kpts_copy)}
 
         # calculate energies
         for i, tp in enumerate(["p", "n"]):
@@ -3277,12 +3282,12 @@ if __name__ == "__main__":
     # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
     #                    "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
     # cube_path = "../test_files/GaAs/"
-    # # # # #coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    # # #coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
     ### For Si
     material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
-                       "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.5154} #0.5154}
+                       "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.0} #0.5154}
     cube_path = "../test_files/Si/"
     coeff_file = os.path.join(cube_path, "Si_fort.123")
 
@@ -3319,5 +3324,5 @@ if __name__ == "__main__":
     #AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
     AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=AMSET.all_types, direction=['avg'], save_format=None)
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=60, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=120, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
