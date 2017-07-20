@@ -512,7 +512,7 @@ class AMSET(object):
         self.dE_min = params.get("dE_min", 0.01)
         self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
-        c_factor = max(1, 1.5*abs(max([log(abs(ci)/float(1e20)) for ci in self.dopings]))**0.15)
+        c_factor = max(1, 2*abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.15)
         Ecut = params.get("Ecut", c_factor * 15 * k_B * max(self.temperatures + [300]))
         # Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
@@ -3355,14 +3355,14 @@ class AMSET(object):
                          self.elastic_scatterings + self.inelastic_scatterings + ['seebeck']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
-            for tp in ["n", "p"]:
-                for c in self.dopings:
-                    for T in self.temperatures:
-                        row = {'type': tp, 'c(cm-3)': c, 'T(K)': T}
-                        for p in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings:
-                            row[p] = sum(self.egrid["mobility"][p][c][T][tp]) / 3
-                        row["seebeck"] = sum(self.egrid["seebeck"][c][T][tp]) / 3
-                        writer.writerow(row)
+            for c in self.dopings:
+                tp = self.get_tp(c)
+                for T in self.temperatures:
+                    row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
+                    for p in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings:
+                        row[p] = sum(self.egrid["mobility"][p][c][T][tp]) / 3
+                    row["seebeck"] = sum(self.egrid["seebeck"][c][T][tp]) / 3
+                    writer.writerow(row)
                 writer.writerow({})  # to more clear separation of n-type and p-type resutls
 
 
@@ -3391,7 +3391,7 @@ if __name__ == "__main__":
 
 
     performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "BTE_iters": 5, "Ecut": 1}
+                          "parallel": True, "BTE_iters": 5}
 
 
     ### for PbTe
@@ -3421,7 +3421,7 @@ if __name__ == "__main__":
                   #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
                   #   dopings=[-2.2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000]
                   # dopings=[1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21], temperatures=[300]
-                  dopings = [1e18 , 1e19, 1e20, 1e21], temperatures=[300]
+                  dopings = [1e17], temperatures=[300]
                   # dopings=[3.32e14], temperatures=[50, 100, 200, 300, 400, 500]
                   )
 
