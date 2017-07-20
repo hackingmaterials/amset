@@ -513,8 +513,8 @@ class AMSET(object):
         self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
         c_factor = max(1, 1.5*abs(max([log(abs(ci)/float(1e20)) for ci in self.dopings]))**0.15)
-        # Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300])) * c_factor
-        Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
+        Ecut = params.get("Ecut", c_factor * 15 * k_B * max(self.temperatures + [300]))
+        # Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
         for tp in ["n", "p"]:
             logging.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
@@ -573,6 +573,7 @@ class AMSET(object):
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
 
         bs = self._vrun.get_band_structure()
+        self.nbands = bs.nb_bands
         self.lorbit = 11 if len(sum(self._vrun.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
 
         self.DFT_cartesian_kpts = np.array(
@@ -844,6 +845,18 @@ class AMSET(object):
         self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi, T: f0(E, fermi, T)
                                                                                    * (1 - f0(E, fermi, T)),
                                 for_all_E=True)
+
+        for c in self.dopings:
+            for T in self.temperatures:
+                fermi = self.egrid["fermi"][c][T]
+                for tp in ["n", "p"]:
+                    fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
+                    for ib in range(len(self.kgrid[tp]["energy"])):
+                        for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                            E = self.kgrid[tp]["energy"][ib][ik]
+                            v = self.kgrid[tp]["velocity"][ib][ik]
+                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
+
         self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
 
         # self.egrid["beta"]= {
@@ -1765,8 +1778,8 @@ class AMSET(object):
                                                                            width=self.dos_bwidth, scissor=self.scissor,
                                                                            vbmidx=self.cbm_vbm["p"]["bidx"])
             logging.debug("dos_nbands: {} \n".format(dos_nbands))
-            self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
-            # self.dos_normalization_factor = 64*2
+            # self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
+            self.dos_normalization_factor = self.nbands*2 if not self.soc else self.nbands
         else:
             logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
@@ -1781,6 +1794,8 @@ class AMSET(object):
                 self.poly_bands) * 2 * 2  # it is *2 elec/band & *2 because DOS is repeated in valence/conduction
 
         print("DOS normalization factor: {}".format(self.dos_normalization_factor))
+        # print("The actual emsh used for dos normalization: {}".format(emesh))
+        # print("The actual dos: {}".format(dos))
 
         integ = 0.0
         for idos in range(len(dos) - 2):
@@ -2170,6 +2185,10 @@ class AMSET(object):
                 ik_next = normk_sorted_idx[j+1]
                 normk = self.kgrid[tp][normk_tp][ib][ik]
                 dk = (self.kgrid[tp][normk_tp][ib][ik_next] - normk)/interpolation_nsteps
+                if dk == 0.0:
+                    continue
+                # print normk
+                # print dk
                 if xDOS:
                     dS = ((self.kgrid[tp][normk_tp][ib][ik_next]/pi)**2 - \
                          (self.kgrid[tp][normk_tp][ib][ik]/pi)**2)/interpolation_nsteps
@@ -2828,7 +2847,9 @@ class AMSET(object):
             # integrate in egrid with /volume and proper unit conversion
             # we assume here that DOS is normalized already
             # integral = self.integrate_over_E(prop_list=["f0x1-f0"], tp=tp, c=c, T=T, xDOS=True, weighted=False)
-            integral = sum(self.integrate_over_normk(prop_list=["f0","1-f0"], tp=tp, c=c, T=T, xDOS=True))/3
+            integral = self.integrate_over_normk(prop_list=["f0","1-f0"], tp=tp, c=c, T=T, xDOS=True)
+            print "integral over normk: {}".format(integral)
+            integral = sum(integral)/3
 
             # integral = sum(self.integrate_over_BZ(["f0", "1-f0"], tp, c, T, xDOS=False, xvel=False, weighted=False))/3
 
@@ -3370,7 +3391,7 @@ if __name__ == "__main__":
 
 
     performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "BTE_iters": 5}
+                          "parallel": True, "BTE_iters": 5, "Ecut": 1}
 
 
     ### for PbTe
@@ -3384,12 +3405,12 @@ if __name__ == "__main__":
     # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
     #                    "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
     # cube_path = "../test_files/GaAs/"
-    #coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
     ### For Si
     material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
-                       "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.0} #0.5154}
+                       "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.5154}
     cube_path = "../test_files/Si/"
     coeff_file = os.path.join(cube_path, "Si_fort.123")
 
@@ -3400,7 +3421,7 @@ if __name__ == "__main__":
                   #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
                   #   dopings=[-2.2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000]
                   # dopings=[1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21], temperatures=[300]
-                  dopings = [-1e19], temperatures=[300]
+                  dopings = [1e18 , 1e19, 1e20, 1e21], temperatures=[300]
                   # dopings=[3.32e14], temperatures=[50, 100, 200, 300, 400, 500]
                   )
 
