@@ -930,7 +930,7 @@ class AMSET(object):
                 rm_idx_list_ib = list(set(rm_idx_list[tp][ib]))
                 rm_idx_list_ib.sort(reverse=True)
                 rm_idx_list[tp][ib] = rm_idx_list_ib
-                logging.debug("# of kpoints indexes with low velocity: {}".format(len(rm_idx_list_ib)))
+                logging.debug("# of kpoints indexes with low velocity or off-energy: {}".format(len(rm_idx_list_ib)))
             for prop in rearranged_props:
                 self.kgrid[tp][prop] = np.array([np.delete(self.kgrid[tp][prop][ib], rm_idx_list[tp][ib], axis=0) \
                                                  for ib in range(self.cbm_vbm[tp]["included"])])
@@ -3363,7 +3363,6 @@ class AMSET(object):
                         row[p] = sum(self.egrid["mobility"][p][c][T][tp]) / 3
                     row["seebeck"] = sum(self.egrid["seebeck"][c][T][tp]) / 3
                     writer.writerow(row)
-                writer.writerow({})  # to more clear separation of n-type and p-type resutls
 
 
 if __name__ == "__main__":
@@ -3421,7 +3420,7 @@ if __name__ == "__main__":
                   #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
                   #   dopings=[-2.2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000]
                   # dopings=[1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21], temperatures=[300]
-                  dopings = [1e17], temperatures=[300]
+                  dopings = [-1e15, -1e16, -1e17, -1e18, -1e19, -1e20, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20], temperatures=[300]
                   # dopings=[3.32e14], temperatures=[50, 100, 200, 300, 400, 500]
                   )
 
