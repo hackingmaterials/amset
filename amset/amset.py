@@ -1454,6 +1454,10 @@ class AMSET(object):
                         #     rm_list[tp].append(ik)
             e_sort_idx = np.array(energies[tp]).argsort() if tp =="n" else np.array(energies[tp]).argsort()[::-1]
             energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
+
+            self.dos_end = max(energies["n"])
+            self.dos_start = min(energies["p"])
+
             velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
             kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
@@ -1778,8 +1782,8 @@ class AMSET(object):
                                                                            width=self.dos_bwidth, scissor=self.scissor,
                                                                            vbmidx=self.cbm_vbm["p"]["bidx"])
             logging.debug("dos_nbands: {} \n".format(dos_nbands))
-            # self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
-            self.dos_normalization_factor = self.nbands*2 if not self.soc else self.nbands
+            self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
+            # self.dos_normalization_factor = self.nbands*2 if not self.soc else self.nbands
         else:
             logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
@@ -1798,7 +1802,16 @@ class AMSET(object):
         # print("The actual dos: {}".format(dos))
 
         integ = 0.0
-        for idos in range(len(dos) - 2):
+        # for idos in range(len(dos) - 2):
+
+        # here is the dos normalization story: to normalize DOS we first calculate the integral of the following two
+        # energy ranges (basically the min and max of the original energy range) and normalize it based on the DOS
+        # that is generated for a limited number of bands.
+
+        self.dos_start = abs(emesh - self.dos_start).argmin()
+        self.dos_end = abs(emesh - self.dos_end).argmin()
+
+        for idos in range(self.dos_start, self.dos_end):
             # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
             #     break
             integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
@@ -3420,7 +3433,8 @@ if __name__ == "__main__":
                   #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
                   #   dopings=[-2.2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000]
                   # dopings=[1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21], temperatures=[300]
-                  dopings = [-1e15, -1e16, -1e17, -1e18, -1e19, -1e20, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20], temperatures=[300]
+                  # dopings = [-1e15, -1e16, -1e17, -1e18, -1e19, -1e20, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20], temperatures=[300]
+                  dopings = [1e16], temperatures = [300]
                   # dopings=[3.32e14], temperatures=[50, 100, 200, 300, 400, 500]
                   )
 
