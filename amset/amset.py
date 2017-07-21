@@ -1315,11 +1315,11 @@ class AMSET(object):
         # mesh = [[0.001, 5], [0.005, 10], [0.01, 10], [0.025, 20]]: # 9
         #     print "mesh: 9"
         #
-        mesh = [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]] # 10
-        print "mesh: 10"
+        # mesh = [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]] # 10
+        # print "mesh: 10"
 
-        # mesh = [[0.002, 3], [0.02, 3], [0.05, 5], [0.25, 3]]
-        # print "mesh: 11"
+        mesh = [[0.002, 3], [0.02, 3], [0.05, 5], [0.25, 3]]
+        print "mesh: 11"
 
         for tp in ["n", "p"]:
             for step, nsteps in mesh:
@@ -1455,8 +1455,8 @@ class AMSET(object):
             e_sort_idx = np.array(energies[tp]).argsort() if tp =="n" else np.array(energies[tp]).argsort()[::-1]
             energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
 
-            self.dos_end = max(energies["n"])
-            self.dos_start = min(energies["p"])
+            # self.dos_end = max(energies["n"])
+            # self.dos_start = min(energies["p"])
 
             velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
             kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
@@ -1773,7 +1773,7 @@ class AMSET(object):
 
         # calculation of the density of states (DOS)
         if not self.poly_bands:
-            emesh, dos, dos_nbands = analytical_bands.get_dos_from_scratch(self._vrun.final_structure,
+            emesh, dos, dos_nbands, bmin = analytical_bands.get_dos_from_scratch(self._vrun.final_structure,
                                                                            [self.nkdos, self.nkdos, self.nkdos],
                                                                            self.dos_emin, self.dos_emax,
                                                                            int(round(
@@ -1784,6 +1784,11 @@ class AMSET(object):
             logging.debug("dos_nbands: {} \n".format(dos_nbands))
             self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
             # self.dos_normalization_factor = self.nbands*2 if not self.soc else self.nbands
+
+            self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
+                             + self.offset_from_vrun - self.scissor/2.0
+            self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
+                           + self.offset_from_vrun + self.scissor / 2.0
         else:
             logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
@@ -1796,6 +1801,9 @@ class AMSET(object):
                                                  width=self.dos_bwidth, SPB_DOS=False)
             self.dos_normalization_factor = len(
                 self.poly_bands) * 2 * 2  # it is *2 elec/band & *2 because DOS is repeated in valence/conduction
+            self.dos_start = self.dos_emin
+            self.dos_end = self.dos_emax
+
 
         print("DOS normalization factor: {}".format(self.dos_normalization_factor))
         # print("The actual emsh used for dos normalization: {}".format(emesh))
@@ -1811,10 +1819,14 @@ class AMSET(object):
         self.dos_start = abs(emesh - self.dos_start).argmin()
         self.dos_end = abs(emesh - self.dos_end).argmin()
 
+        # self.dos_start = 0
+        # self.dos_end = len(dos) - 1
         for idos in range(self.dos_start, self.dos_end):
             # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
             #     break
             integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
+
+        print "dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ)
 
         # normalize DOS
         # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
@@ -3390,10 +3402,10 @@ if __name__ == "__main__":
     #   poly_bands: if specified, uses polynomial interpolation for band structure; otherwise default is None and the
     #               model uses Analytical_Bands with the specified coefficient file
 
-    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP"],
-                    "inelastic_scatterings": []
+    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+                    "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    # , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+                    , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
     # , "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]
@@ -3417,7 +3429,7 @@ if __name__ == "__main__":
     # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
     #                    "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
     # cube_path = "../test_files/GaAs/"
-    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    #########coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
     ### For Si
@@ -3434,7 +3446,7 @@ if __name__ == "__main__":
                   #   dopings=[-2.2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000]
                   # dopings=[1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21], temperatures=[300]
                   # dopings = [-1e15, -1e16, -1e17, -1e18, -1e19, -1e20, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20], temperatures=[300]
-                  dopings = [1e16], temperatures = [300]
+                  dopings = [1e20], temperatures = [300]
                   # dopings=[3.32e14], temperatures=[50, 100, 200, 300, 400, 500]
                   )
 
