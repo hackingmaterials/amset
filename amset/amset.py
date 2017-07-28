@@ -1315,11 +1315,11 @@ class AMSET(object):
         # mesh = [[0.001, 5], [0.005, 10], [0.01, 10], [0.025, 20]]: # 9
         #     print "mesh: 9"
         #
-        # mesh = [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]] # 10
-        # print "mesh: 10"
+        mesh = [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]] # 10
+        print "mesh: 10"
 
-        mesh = [[0.002, 3], [0.02, 3], [0.05, 5], [0.25, 3]]
-        print "mesh: 11"
+        # mesh = [[0.002, 3], [0.02, 3], [0.05, 5], [0.25, 3]]
+        # print "mesh: 11"
 
         for tp in ["n", "p"]:
             for step, nsteps in mesh:
@@ -1471,7 +1471,7 @@ class AMSET(object):
             for ib in [0]:
                 ik = -1
                 # for ik in range(len(kpts[tp])):
-                while ik < len(kpts[tp]):
+                while ik < len(kpts[tp])-1:
                     ik += 1
                     Ediff = abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"])
                     if Ediff > Ecut:
@@ -1484,7 +1484,7 @@ class AMSET(object):
                     # the following if implements an adaptive dE_min as higher energy points are less important
                     #TODO: note that if k-mesh integration on a regular grid (not tetrahedron) is implemented, the
                     #TODO:following will make the results wrong as in that case we would assume the removed points are 0
-                    while ik < len(kpts[tp]) and \
+                    while ik < len(kpts[tp])-1 and \
                             (Ediff > Ecut/5.0 and Ediff - Ediff_old < min(self.dE_min*10.0, 0.001) or
                             (Ediff > Ecut / 2.0 and Ediff - Ediff_old < min(self.dE_min * 100.0,0.01))):
                         rm_list[tp].append(ik)
@@ -3405,7 +3405,7 @@ if __name__ == "__main__":
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"]
                     # TODO: for testing, remove this part later:
-                    , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+                    # , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
     # , "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
     #       [[0.25, 0.25, 0.25], [0.0, mass]],
     #       [[0.15, 0.15, 0.15], [0.0, mass]]]]
@@ -3426,28 +3426,30 @@ if __name__ == "__main__":
     # #coeff_file = os.path.join(cube_path, "fort.123")
     #
     ## For GaAs
-    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-    #                    "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
-    # cube_path = "../test_files/GaAs/"
-    #########coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
-    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
+    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
+                       "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
+    cube_path = "../test_files/GaAs/"
+    #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
+    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_sym_23x23x23") # bad results! (because the fitting not good)
+    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_11x11x11_ISYM0") # good results
 
     ### For Si
-    material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
-                       "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.5154}
-    cube_path = "../test_files/Si/"
-    coeff_file = os.path.join(cube_path, "Si_fort.123")
+    # material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
+    #                    "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.5154}
+    # cube_path = "../test_files/Si/"
+    # coeff_file = os.path.join(cube_path, "Si_fort.123")
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
-                  # dopings= [-2.7e13], temperatures=[100, 200, 300, 400, 500, 600]
-                  # dopings=[-2e15], temperatures=[300]
+                  # dopings= [-2.7e13], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+                  # dopings=[-1e20], temperatures=[300]
                   #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
                   #   dopings=[-2.2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000]
                   # dopings=[1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21], temperatures=[300]
                   # dopings = [-1e15, -1e16, -1e17, -1e18, -1e19, -1e20, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20], temperatures=[300]
-                  dopings = [1e20], temperatures = [300]
-                  # dopings=[3.32e14], temperatures=[50, 100, 200, 300, 400, 500]
+                  dopings = [-2e15], temperatures = [300]
+                  # dopings=[3.32e14], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
                   )
 
     # dopings=[-1e20], temperatures=[300, 600])
@@ -3469,8 +3471,7 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    #AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=['n'], save_format=None)
-    AMSET.plot(k_plots=['energy', 'IMP'], E_plots='all', show_interactive=True, carrier_types=AMSET.all_types, direction=['avg'], save_format=None)
+    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=AMSET.all_types, save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=120, nstart=0)
     # AMSET.to_json(kgrid=True, trimmed=True)
