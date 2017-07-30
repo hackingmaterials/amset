@@ -342,8 +342,8 @@ class AMSET(object):
         self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
 
-        print "average of the group velocity in e-grid!"
-        print np.mean(self.egrid[self.debug_tp]["velocity"], 0)
+        logging.debug("average of the group velocity in egrid: \n {}".format(
+            np.mean(self.egrid[self.debug_tp]["velocity"], 0)))
 
         # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
         if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
@@ -1875,7 +1875,7 @@ class AMSET(object):
                                                                                                                 enforced_ratio))
                 # print self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib]))
                 # if self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
-                if enforced_ratio > 0.1:
+                if enforced_ratio > 0.9:
                     # TODO: this should be an exception but for now I turned to warning for testing.
                     warnings.warn(
                         "the k-grid is too coarse for an acceptable simulation of elastic scattering in {};"
@@ -1911,7 +1911,7 @@ class AMSET(object):
                     logging.info(
                         "enforced scattering ratio: {}-type inelastic at band {}:\n{}".format(tp, ib, enforced_ratio))
 
-                    if enforced_ratio > 0.1:
+                    if enforced_ratio > 0.9:
                         # TODO: this should be an exception but for now I turned to warning for testing.
                         warnings.warn(
                             "the k-grid is too coarse for an acceptable simulation of POP scattering in {};"
@@ -2868,7 +2868,6 @@ class AMSET(object):
             # we assume here that DOS is normalized already
             # integral = self.integrate_over_E(prop_list=["f0x1-f0"], tp=tp, c=c, T=T, xDOS=True, weighted=False)
             integral = self.integrate_over_normk(prop_list=["f0","1-f0"], tp=tp, c=c, T=T, xDOS=True)
-            print "integral over normk: {}".format(integral)
             integral = sum(integral)/3
 
             # integral = sum(self.integrate_over_BZ(["f0", "1-f0"], tp, c, T, xDOS=False, xvel=False, weighted=False))/3
