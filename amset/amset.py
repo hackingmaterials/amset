@@ -509,7 +509,7 @@ class AMSET(object):
 
     def set_performance_params(self, params):
         self.nkibz = params.get("nkibz", 40)
-        self.dE_min = params.get("dE_min", 0.01)
+        self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 2)
         # max eV range after which occupation is zero, we set this at least to 10*kB*300
         c_factor = max(1, 2*abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.15)
