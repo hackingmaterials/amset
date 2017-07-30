@@ -358,6 +358,9 @@ class Analytical_bands(object):
                     bmin,bmax=np.fromstring(l,sep=' ',dtype=int)
                     if iband == 'A':
                         iband = range(bmin,bmax+1)
+                        # print "bmin: {}".format(bmin)
+                        # print "bmax: {}".format(bmax)
+
                     elif iband == None:
                         print "Bands range: {}-{}".format(bmin,bmax)
                         break
@@ -435,7 +438,10 @@ class Analytical_bands(object):
                     energy -= scissor/2
                 g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                 dos += w * g
-        return e_mesh,dos, len(engre)
+        if vbmidx:
+            return e_mesh, dos, len(engre), bmin
+        else:
+            return e_mesh,dos, len(engre)
 
 
     def get_dos_standard(self,energies,weights,e_min,e_max,e_points,width=0.2):
@@ -468,7 +474,7 @@ class Analytical_bands(object):
 
 if __name__ == "__main__":
     # user inputs
-    cbm_bidx = 4
+    cbm_bidx = 5
     # kpts = np.array([[0.5, 0.5, 0.5]])
     kpts = np.array(
         [[-0.1, 0.19999999999999998, 0.1], [0.1, -0.19999999999999998, -0.1], [0.1, -0.1, -0.19999999999999998],
@@ -482,10 +488,10 @@ if __name__ == "__main__":
          [0.2, 0.3, 0.1], [-0.2, -0.3, -0.1], [0.3, 0.19999999999999998, 0.09999999999999998],
          [-0.3, -0.19999999999999998, -0.09999999999999998]])
 
-    # kpts = [[ 0.,  0.,  0.], [ 0.42105263,  0.42105263,  0.        ]] # Si kVBM and kCBM respectively
+    kpts = [[ 0.,  0.,  0.], [ 0.42105263,  0.42105263,  0.        ]] # Si kVBM and kCBM respectively
     # coeff_file = '../test_files/PbTe/fort.123'
-    coeff_file = "../test_files/GaAs/fort.123_GaAs_1099kp"
-    # coeff_file = "../test_files/Si/Si_fort.123"
+    # coeff_file = "../test_files/GaAs/fort.123_GaAs_1099kp"
+    coeff_file = "../test_files/Si/Si_fort.123"
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
     # read the coefficients file
     engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=[cbm_bidx])
@@ -514,7 +520,6 @@ if __name__ == "__main__":
     print("effective mass tensor")
     print(m_tensor)
 
-    quit()
 
     print("group velocity:")
     v = de /hbar*A_to_m*m_to_cm * Ry_to_eV # to get v in units of cm/s
@@ -526,8 +531,9 @@ if __name__ == "__main__":
 
 
     kmesh = [31,31,31]
+    # emesh,dos, nbands, dos_nbands = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05, vbmidx=cbm_bidx-1)
     emesh,dos, nbands = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05)
-    # plot(emesh, dos)
+    plot(emesh, dos)
 
     # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.1]]]]
 
