@@ -1,35 +1,38 @@
 # coding: utf-8
 import warnings
-
 import time
-
 import logging
-
+import json
+from random import random
 from scipy.interpolate import griddata
-
-from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_poly_energy
+from scipy.constants.codata import value as _cd
 from pprint import pprint
+import os
 
 import numpy as np
 from math import log
 
 from pymatgen.io.vasp import Vasprun, Spin, Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from scipy.constants.codata import value as _cd
 from math import pi
-import os
-import json
-from monty.json import MontyEncoder, MontyDecoder
-from random import random
+from monty.json import MontyEncoder
 import cProfile
 from copy import deepcopy
 import multiprocessing
 from joblib import Parallel, delayed
-from analytical_band_from_BZT import get_energy
+from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_energy, get_poly_energy
 
-import plotly
 
-# global constants
+__author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
+__copyright__ = "Copyright 2017, HackingMaterials"
+__version__ = "0.1"
+__maintainer__ = "Alireza Faghaninia"
+__email__ = "alireza.faghaninia@gmail.com"
+__status__ = "Development"
+__date__ = "July 2017"
+
+
+# some global constants
 hbar = _cd('Planck constant in eV s') / (2 * pi)
 m_e = _cd('electron mass')  # in kg
 Ry_to_eV = 13.605698066
@@ -43,18 +46,11 @@ default_small_E = 1  # eV/cm the value of this parameter does not matter
 dTdz = 10.0  # K/cm
 sq3 = 3 ** 0.5
 
-__author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
-__copyright__ = "Copyright 2017, HackingMaterials"
-__version__ = "0.1"
-__maintainer__ = "Alireza Faghaninia"
-__email__ = "alireza.faghaninia@gmail.com"
-__status__ = "Development"
-__date__ = "July 2017"
-
 
 def norm(v):
     """method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as numpy.linalg.norm is slower for this case"""
     return (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
+
 
 
 def f0(E, fermi, T):
@@ -67,12 +63,14 @@ def f0(E, fermi, T):
         return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
 
 
+
 def df0dE(E, fermi, T):
     """returns the energy derivative of the Fermi-Dirac equilibrium distribution"""
     if E - fermi > 5 or E - fermi < -5:  # This is necessary so at too low numbers python doesn't return NaN
         return 0.0
     else:
         return -1 / (k_B * T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
+
 
 
 def cos_angle(v1, v2):
@@ -86,6 +84,7 @@ def cos_angle(v1, v2):
         return 1.0  # In case of the two points are the origin, we assume 0 degree; i.e. no scattering: 1-X==0
     else:
         return np.dot(v1, v2) / (norm_v1 * norm_v2)
+
 
 
 def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
@@ -106,6 +105,7 @@ def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
     return integral
 
 
+
 def GB(x, eta):
     """Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function goes to the dirac-delta of x."""
 
@@ -113,6 +113,7 @@ def GB(x, eta):
 
     ## although both expressions conserve the final transport properties, the one below doesn't conserve the scat. rates
     # return np.exp(-(x/eta)**2)
+
 
 
 def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
@@ -126,6 +127,7 @@ def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, eps
             calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf)
 
     return [S_i_list, S_i_th_list, S_o_list, S_o_th_list]
+
 
 
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
@@ -150,9 +152,6 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     # f = self.kgrid[tp]["f0"][c][T][ib][ik]
     f = kgrid[tp]["f"][c][T][ib][ik]
     f_th = kgrid[tp]["f_th"][c][T][ib][ik]
-
-
-
 
     N_POP = kgrid[tp]["N_POP"][c][T][ib][ik]
     for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
@@ -227,6 +226,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             S_o_th[j] /= counted
 
     return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
+
 
 
 class AMSET(object):
