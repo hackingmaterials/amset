@@ -142,7 +142,8 @@ def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, eps
 
 
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
-    """calculates and returns the in and out polar optical phonon inelastic scattering rates
+    """calculates and returns the in and out polar optical phonon inelastic scattering rates. This function
+        is defined outside of the AMSET class to enable parallelization.
     Args:
         tp (str): the type of the bands; "n" for the conduction and "p" for the valence bands
         c (float): the carrier concentration
@@ -179,8 +180,9 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
                 kgrid[tp]["W_POP"][ib][ik] > cbm_vbm[tp]["energy"]:
             continue
 
-        # TODO: see how does dividing by counted affects results, set to 1 to test: #20170614: in GaAs, they are all equal anyway (at least among the ones checked)
-        # TODO: ACTUALLY this is not true!! for each ik I get different S_i values at different k_prm
+        # TODO: see how does dividing by counted affects results, set to 1 to test: #20170614: in GaAs,
+        # they are all equal anyway (at least among the ones checked)
+        # ACTUALLY this is not true!! for each ik I get different S_i values at different k_prm
 
         counted = len(kgrid[tp][X_Epm][ib][ik])
         for X_ib_ik in kgrid[tp][X_Epm][ib][ik]:
@@ -213,16 +215,12 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
                     A_pm ** 2 * log((k_pm + k) / (abs_kdiff + 1e-4)) - A_pm * c_ * c_pm - a * a_pm * c_ * c_pm)
                 # because in the scalar form k+ or k- is suppused to be unique, here we take average
                 S_o[j] += (N_POP + j + (-1) ** j * f_pm) * lamb_opm
-                # print "ib_pm: {} ik_pm: {}, S_o-{}: {}".format(ib_pm, ik_pm, X_Epm, ((N_POP + j + (-1) ** j * f_pm) * lamb_opm))
                 S_o_th[j] += (N_POP + j + (-1) ** j * f_pm_th) * lamb_opm
 
             lamb_ipm = beta_pm * (
                 (k_pm ** 2 + k ** 2) / (2 * k * k_pm) * \
                 A_pm ** 2 * log((k_pm + k) / (abs_kdiff + 1e-4)) - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
             S_i[j] += (N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm
-
-            # print "ik: {} ik_pm: {}, S_i-{}: {}".format(ik, ik_pm, X_Epm, ((N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm))
-
             S_i_th[j] += (N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th
 
         if counted > 0:
@@ -247,17 +245,11 @@ class AMSET(object):
      scattering mechanism that can alter the electronic distribution (the reason BTE has to be solved explicitly; for
      more information, see references [R, A]).
 
-     AMSET is designed in a modular way so that users can add more scattering mechanisms as followed:
-     ??? (instruction to add a scattering mechanism) ???
-
      you can control the level of theory via various inputs. For example, by assuming that the band structure is
      isotropic at the surrounding point of each k-point (i.e. bs_is_isotropic == True), once can significantly reduce
-     the computational effort needed for accurate numerical integration of the scatterings. Furthermore,  ...
-     (this part is not implemented yet: constant relaxation time approximation (cRTA),
-     constant mean free path (cMFP) can be used by setting these variables to True )
+     the computational effort needed for accurate numerical integration of the scatterings.
 
-
-    * a small comment on the structure of this code: the calculations are done and stroed in two main dictionary type
+    * a small comment on the structure of this code: the calculations are done and stred in two main dictionary type
     variable called kgrid and egrid. kgrid contains all calculations that are done in k-space meaning that for each
     k-point and each band that is included there is a number/vector/property stored. On the other hand, the egrid
     is everything in energy scale hence we have number/vector/property stored at each energy point.
@@ -271,17 +263,17 @@ class AMSET(object):
 
      """
 
-    # TODO-JF: if you ended up using Ashcroft for any part of AMSET, please add it above
-
-
 
     def __init__(self, calc_dir, material_params, model_params={}, performance_params={},
                  dopings=None, temperatures=None):
         """
-        required parameters:
-            calc_dir (str): path to the vasprun.xml
-            material_params (dict): parameters related to the material
-
+        Args:
+            calc_dir (str): path to the vasprun.xml (a required argument)
+            material_params (dict): parameters related to the material (a required argument)
+            model_params (dict): parameters related to the model used and the level of theory
+            performance_params (dict): parameters related to convergence, speed, etc.
+            dopings ([float]): list of input carrier concentrations; c<0 for electrons and c>0 for holes
+            temperatures ([float]): list of input temperatures
         """
 
         self.calc_dir = calc_dir
