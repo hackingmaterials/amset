@@ -88,12 +88,12 @@ def cos_angle(v1, v2):
 def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
     """
     returns the Fermi integral (e.g. for calculating single parabolic band acoustic phonon mobility
-    :param order (int): the
-    :param fermi:
-    :param T:
-    :param initial_energy:
-    :param wordy:
-    :return:
+    Args:
+        order (int): the order of integral
+        fermi (float): the actual Fermi level of the band structure (not relative to CBM/VBM):
+        T (float): the temperature
+        initial_energy (float): the actual CBM/VBM energy in eV
+        wordy (bool): whether to print out the integrals or not
     """
     fermi = fermi - initial_energy
     integral = 0.
@@ -114,7 +114,11 @@ def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
 
 
 def GB(x, eta):
-    """Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function goes to the dirac-delta of x."""
+    """Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function goes to the dirac-delta of x.
+    Args:
+        x (float): the mean value of the nomral distribution
+        eta (float): the standard deviation of the normal distribution
+        """
 
     return 1 / np.pi * 1 / eta * np.exp(-(x / eta) ** 2)
 
@@ -138,31 +142,35 @@ def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, eps
 
 
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
-    # print "calculating S_i and S_o for ib: {} and ik: {}".format(ib, ik)
-
-    # S_i = np.array([self.gs, self.gs, self.gs])
+    """calculates and returns the in and out polar optical phonon inelastic scattering rates
+    Args:
+        tp (str): the type of the bands; "n" for the conduction and "p" for the valence bands
+        c (float): the carrier concentration
+        T (float): the temperature
+        ib (int): the band index
+        ik (int): the k-point index
+        once_called (bool): whether this function was once called hence S_o and S_o_th calculated once or not
+        kgrid (dict): the main kgrid variable in AMSET (AMSET.kgrid)
+        cbm_vbm (dict): the dict containing information regarding the cbm and vbm (from AMSET.cbm_vbm)
+        epsilon_s (float): static dielectric constant
+        epsilon_inf (float): high-frequency dielectric constant
+        """
     S_i = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
     S_i_th = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
     S_o = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
     S_o_th = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
     # S_o = np.array([self.gs, self.gs, self.gs])
 
-    # v = sum(self.kgrid[tp]["velocity"][ib][ik]) / 3
     v = kgrid[tp]["norm(v)"][ib][ik] / sq3  # 3**0.5 is to treat each direction as 1D BS
-
-    # k = m_e * self._avg_eff_mass[tp] * v / (hbar * e * 1e11)
-    # k = m_e * abs(sum(cbm_vbm[tp]["eff_mass_xx"]) / 3) * v / (hbar * e * 1e11)
     k = kgrid[tp]["norm(k)"][ib][ik]
-
     a = kgrid[tp]["a"][ib][ik]
     c_ = kgrid[tp]["c"][ib][ik]
-    # f = self.kgrid[tp]["f0"][c][T][ib][ik]
     f = kgrid[tp]["f"][c][T][ib][ik]
     f_th = kgrid[tp]["f_th"][c][T][ib][ik]
-
     N_POP = kgrid[tp]["N_POP"][c][T][ib][ik]
+
     for j, X_Epm in enumerate(["X_Eplus_ik", "X_Eminus_ik"]):
-        # bypass k-points that cannot have k- associated with them (even though indexes may be available due to enforced scattering)
+        # bypass k-points that cannot have k_plus or k_minus associated with them
         if tp == "n" and X_Epm == "X_Eminus_ik" and kgrid[tp]["energy"][ib][ik] - hbar * \
                 kgrid[tp]["W_POP"][ib][ik] < cbm_vbm[tp]["energy"]:
             continue
@@ -175,20 +183,16 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
         # TODO: ACTUALLY this is not true!! for each ik I get different S_i values at different k_prm
 
         counted = len(kgrid[tp][X_Epm][ib][ik])
-        # if len_eqE == 0:
-        #     print "WARNING!!!! element {} of {} is empty!!".format(ik, X_Epm)
         for X_ib_ik in kgrid[tp][X_Epm][ib][ik]:
             X, ib_pm, ik_pm = X_ib_ik
             g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
             g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
             v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
-            # k_pm  = m_e*abs(sum(cbm_vbm[tp]["eff_mass_xx"])/3)*v_pm/(hbar*e*1e11)
             k_pm = kgrid[tp]["norm(k)"][ib_pm][ik_pm]
             abs_kdiff = abs(k_pm - k)
             if abs_kdiff < 1e-4:
                 counted -= 1
                 continue
-
             a_pm = kgrid[tp]["a"][ib_pm][ik_pm]
             c_pm = kgrid[tp]["c"][ib_pm][ik_pm]
 
@@ -201,10 +205,6 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
 
 
             A_pm = a * a_pm + c_ * c_pm * (k_pm ** 2 + k ** 2) / (2 * k_pm * k)
-
-            # beta_pm = (e ** 2 * kgrid[tp]["W_POP"][ib_pm][ik_pm] * k_pm) / (4 * pi * hbar * k * v_pm) * \
-            #           (1 / (epsilon_inf * epsilon_0) - 1 / (epsilon_s * epsilon_0)) * 6.2415093e20
-
             beta_pm = (e ** 2 * kgrid[tp]["W_POP"][ib_pm][ik_pm]) / (4 * pi * hbar * v_pm) * \
                       (1 / (epsilon_inf * epsilon_0) - 1 / (epsilon_s * epsilon_0)) * 6.2415093e20
 
@@ -212,7 +212,6 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
                 lamb_opm = beta_pm * (
                     A_pm ** 2 * log((k_pm + k) / (abs_kdiff + 1e-4)) - A_pm * c_ * c_pm - a * a_pm * c_ * c_pm)
                 # because in the scalar form k+ or k- is suppused to be unique, here we take average
-
                 S_o[j] += (N_POP + j + (-1) ** j * f_pm) * lamb_opm
                 # print "ib_pm: {} ik_pm: {}, S_o-{}: {}".format(ib_pm, ik_pm, X_Epm, ((N_POP + j + (-1) ** j * f_pm) * lamb_opm))
                 S_o_th[j] += (N_POP + j + (-1) ** j * f_pm_th) * lamb_opm
