@@ -75,10 +75,8 @@ def df0dE(E, fermi, T):
 
 def cos_angle(v1, v2):
     """
-    Args:
-        v1, v2 (np.array): vectors
-    return:
-        the cosine of the angle between twp numpy vectors: v1 and v2"""
+    returns cosine of the angle between two 3x1 or 1x3 vectors
+    """
     norm_v1, norm_v2 = norm(v1), norm(v2)
     if norm_v1 == 0 or norm_v2 == 0:
         return 1.0  # In case of the two points are the origin, we assume 0 degree; i.e. no scattering: 1-X==0
@@ -88,6 +86,15 @@ def cos_angle(v1, v2):
 
 
 def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
+    """
+    returns the Fermi integral (e.g. for calculating single parabolic band acoustic phonon mobility
+    :param order (int): the
+    :param fermi:
+    :param T:
+    :param initial_energy:
+    :param wordy:
+    :return:
+    """
     fermi = fermi - initial_energy
     integral = 0.
     nsteps = 100000.0
