@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
     AMSET = AMSET(calc_dir=GaAs_path, material_params=GaAs_params,
         model_params = model_params, performance_params= performance_params,
-        dopings= [-2e15], temperatures=[300, 600, 900])
+        dopings= [-2e15], temperatures=[300, 600])
 
     # running AMSET
     AMSET.run(coeff_file=coeff_file)
