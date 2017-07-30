@@ -262,8 +262,6 @@ class AMSET(object):
           DOI: 10.1093/acprof:oso/9780199677214.001.0001
 
      """
-
-
     def __init__(self, calc_dir, material_params, model_params={}, performance_params={},
                  dopings=None, temperatures=None):
         """
@@ -277,11 +275,10 @@ class AMSET(object):
         """
 
         self.calc_dir = calc_dir
-        self.dopings = dopings or [-1e19, -1e20]  # TODO: change the default to [-1e16,...,-1e21,1e21, ...,1e16] later
+        self.dopings = dopings or [-1e16, -1e17, -1e18, -1e19, -1e20, -1e21, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21]
         self.all_types = list(set([self.get_tp(c) for c in self.dopings]))
         self.tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
-        self.temperatures = temperatures or map(float,
-                                                [300, 600])  # TODO: change the default to [50,100,...,1300] later
+        self.temperatures = temperatures or map(float, [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
         self.debug_tp = self.get_tp(self.dopings[0])
         logging.debug("""debug_tp: "{}" """.format(self.debug_tp))
         self.set_material_params(material_params)
