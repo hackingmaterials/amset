@@ -303,7 +303,19 @@ if __name__ == "__main__":
     
     print len(energies),len(energies[0]) #120,21
     
-    emesh,dos2 = analytical_bands.get_dos(energies,weights,-13,20,1000)
+    emesh,dos2 = analytical_bands.get_dos_standard(energies,weights,-13,20,1000)
     plot(emesh,dos2)
+    
+    energies = []
+    multep = []
+    for kpt,w in zip(ir_kpts,weights):
+        for b in range(len(engre)):
+            e = analytical_bands.get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
+            energies.append(e)
+            multep.append(w)
+    
+    emesh,dos2 = analytical_bands.get_dos(energies,multep,-13,20,1000)
+    plot(emesh,dos2)
+    
     show()
 
