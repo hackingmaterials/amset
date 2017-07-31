@@ -1700,7 +1700,7 @@ class AMSET(object):
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
                         self.kgrid[tp]["c"][ib][ik] = (1 - self.kgrid[tp]["a"][ib][ik]**2)**0.5
 
-            logging.info("average of the {}-type group velocity in kgrid:\n {}".format(
+            logging.debug("average of the {}-type group velocity in kgrid:\n {}".format(
                         tp, np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
 
         rearranged_props = ["velocity", "effective mass", "energy", "a", "c", "kpoints", "cartesian kpoints",
@@ -3385,32 +3385,17 @@ class AMSET(object):
 
 
 if __name__ == "__main__":
+    # setting up inputs:
     logging.basicConfig(level=logging.DEBUG)
-
-    # defaults:
     mass = 0.25
-    # Model params available:
-    #   bs_is_isotropic:
-    #   elastic_scatterings:
-    #   inelastic_scatterings:
-    #   poly_bands: if specified, uses polynomial interpolation for band structure; otherwise default is None and the
-    #               model uses Analytical_Bands with the specified coefficient file
+    use_poly_bands = False
 
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"]
-                    # TODO: for testing, remove this part later:
-                    # , "poly_bands": [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
-    # , "poly_bands" : [[[[0.0, 0.0, 0.0], [0.0, mass]],
-    #       [[0.25, 0.25, 0.25], [0.0, mass]],
-    #       [[0.15, 0.15, 0.15], [0.0, mass]]]]
-                    }
-    # TODO: see why poly_bands = [[[[0.0, 0.0, 0.0], [0.0, 0.32]], [[0.5, 0.5, 0.5], [0.0, 0.32]]]] will tbe reduced to [[[[0.0, 0.0, 0.0], [0.0, 0.32]]
+                    "inelastic_scatterings": ["POP"] }
+    if use_poly_bands:
+        model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
 
-
-
-    performance_params = {"nkibz": 100, "dE_min": 0.0001, "nE_min": 2,
-                          "parallel": True, "BTE_iters": 5}
-
+    performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True, "BTE_iters": 5}
 
     ### for PbTe
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -3418,7 +3403,7 @@ if __name__ == "__main__":
     # cube_path = "../test_files/PbTe/nscf_line"
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     # #coeff_file = os.path.join(cube_path, "fort.123")
-    #
+
     ## For GaAs
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
                        "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
@@ -3436,36 +3421,12 @@ if __name__ == "__main__":
 
     AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
-                  # dopings= [-2.7e13], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-                  # dopings=[-1e20], temperatures=[300]
-                  #   dopings=[-2e15], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-                  #   dopings=[-2.2e15], temperatures=[300, 400, 500, 600, 700, 800, 900, 1000]
-                  # dopings=[1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21], temperatures=[300]
-                  # dopings = [-1e15, -1e16, -1e17, -1e18, -1e19, -1e20, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20], temperatures=[300]
                   dopings = [-2e15], temperatures = [300]
-                  # dopings=[3.32e14], temperatures=[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
                   )
-
-    # dopings=[-1e20], temperatures=[300, 600])
-    #   dopings = [-1e20], temperatures = [300])
-    # AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
-    # @albalu what exactly does coeff_file store?
     cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
-
-    # the following code is a test for integrate_over_k:
-    # points = [-0.45, -0.4, -0.35, -0.3, -0.25, -0.2, -0.18, -0.16, -0.14, -0.12, -0.1, -0.08, -0.06, -0.04, -0.03,
-    #           -0.02, -0.01, 0, 0.01, 0.02, 0.03, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14, 0.16, 0.18, 0.2, 0.25, 0.3, 0.35,
-    #           0.4, 0.45]
-    # fractional_grid = np.zeros((len(points), len(points), len(points), 3))
-    # for i, x in enumerate(points):
-    #     for j, y in enumerate(points):
-    #         for k, z in enumerate(points):
-    #             fractional_grid[i,j,k,:] = np.array([x,y,z])
-    # print('Total volume: {}'.format(AMSET.integrate_over_k(fractional_grid)))
 
     AMSET.write_input_files()
     AMSET.to_csv()
     AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=AMSET.all_types, save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=120, nstart=0)
-    # AMSET.to_json(kgrid=True, trimmed=True)
