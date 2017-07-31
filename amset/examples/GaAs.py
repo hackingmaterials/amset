@@ -32,5 +32,6 @@ if __name__ == "__main__":
     # generating files and outputs
     AMSET.write_input_files()
     AMSET.to_csv()
-    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=AMSET.all_types)
+    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
+               carrier_types=AMSET.all_types, save_format=None)
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
