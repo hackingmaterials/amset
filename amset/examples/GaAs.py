@@ -3,11 +3,17 @@ import logging
 import os
 
 if __name__ == "__main__":
+    # user inputs:
+    use_single_parabolic_band = False
+
     logging.basicConfig(level=logging.INFO)
 
     # setting up the inputs:
     model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"]}
+    if use_single_parabolic_band:
+        effective_mass = 0.25
+        model_params["poly_bands"]= [[[[0.0, 0.0, 0.0], [0.0, effective_mass]]]]
 
     performance_params = {"parallel" : True}
     GaAs_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
