@@ -390,10 +390,10 @@ class AMSET(object):
         # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
         self.solve_BTE_iteratively()
 
-        if "POP" in self.inelastic_scatterings:
-            for key in ["plus", "minus"]:
-                with open("X_E{}_ik".format(key), "w") as fp:
-                    json.dump(self.kgrid[self.debug_tp]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
+        # if "POP" in self.inelastic_scatterings:
+        #     for key in ["plus", "minus"]:
+        #         with open("X_E{}_ik".format(key), "w") as fp:
+        #             json.dump(self.kgrid[self.debug_tp]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
 
         self.calculate_transport_properties()
 
@@ -3427,6 +3427,7 @@ if __name__ == "__main__":
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True, carrier_types=AMSET.all_types, save_format=None)
+    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
+               carrier_types=AMSET.all_types, save_format=None)
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=120, nstart=0)
+    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
