@@ -30,7 +30,7 @@ if __name__ == "__main__":
         dopings= [-2e15], temperatures=[300, 600])
 
     # running AMSET
-    AMSET.run(coeff_file=coeff_file, kgrid_tp="fine")
+    AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
 
     # generating files and outputs
     AMSET.write_input_files()
