@@ -444,7 +444,7 @@ class Analytical_bands(object):
                     elif iband == None:
                         print "Bands range: {}-{}".format(bmin,bmax)
                         break
-                    elif len([ib for ib in iband if max(ib) > bmax or min(ib) < bmin] > 0:
+                    elif len([ib for ib in iband if ib > bmax or ib < bmin]) > 0:
                         print "ERROR! one band is not in range : {}-{}".format(bmin,bmax)
                         return
                     iband2 = [nwave+(b-bmin+1) for b in iband]
