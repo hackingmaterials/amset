@@ -443,7 +443,7 @@ class Analytical_bands(object):
 
                     elif iband == None:
                         print "Bands range: {}-{}".format(bmin,bmax)
-                        break
+                        return
                     elif len([ib for ib in iband if ib > bmax or ib < bmin]) > 0:
                         print "ERROR! one band is not in range : {}-{}".format(bmin,bmax)
                         return
