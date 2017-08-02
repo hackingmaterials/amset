@@ -2306,14 +2306,7 @@ class AMSET(object):
         if weighted:
             return integral
             # return integral/(sum(self.Efrequency[tp][:-1]))
-            # return integral / sum([freq ** wpower for freq in self.Efrequency[tp][:-1]]) / sum(self.egrid[tp]["df0dE"][c][T][:-1])
-            # return integral / sum([freq**wpower for freq in self.Efrequency[tp][0:imax_occ]])
-            # return integral / (sum([freq**wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))/(-sum(self.egrid[tp]["df0dE"][c][T]))
-
-            # return integral / (sum([freq ** wpower for ie, freq in enumerate(self.Efrequency[tp][0:imax_occ])]))
-
-            # return integral / (sum([(-self.egrid[tp]["df0dE"][c][T][ie]) * self.Efrequency[tp][ie]**wpower for ie in
-            #                    range(len(self.Efrequency[tp][:-1]))]))
+            
         else:
             return integral
 
@@ -2364,36 +2357,6 @@ class AMSET(object):
             return np.array(
                 [0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
 
-            # TODO: if only use norm(k_prm), I get ACD mobility that is almost exactly inversely proportional to temperature
-            # return (1 - X) * norm(k_prm)** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-            #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
-            #        * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]
-
-            # / self.kgrid[tp]["velocity"][ib_prm][ik_prm] # this is wrong: when converting
-            # from dk (k being norm(k)) to dE, dk = 1/hbar*norm(1/v)*dE rather than simply 1/(hbar*v)*dE
-
-        # This results in VERY LOW scattering rates (in order of 1-10 1/s!) in some k-points
-        # return (1 - X) * (m_e * norm(self.kgrid[tp]["velocity"][ib_prm][ik_prm]) / (hbar * e * 1e11))**2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X)  \
-        #        * self.kgrid[tp]["norm(1/v)"][ib_prm][ik_prm]/3 # not sure where this 3 comes from yet but for iso and aniso to match in SPB, its presence is necessary
-
-        # return (1 - X) * (m_e * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
-        #     hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
-        #        * 1.0/self.kgrid[tp]["velocity"][ib_prm][ik_prm]
-
-        # previous match (commented on 5/26/2017)
-        # return (1 - X) * (m_e * self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / (
-        #     hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
-        #        * 1.0 / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
-
-        # in the numerator we use velocity as k_nrm is defined in each direction as they are treated independently (see s_el_eq_isotropic for more info)
-        # previous match (commented on 6/26/2017)
-        # return (1 - X) * (m_e * self._avg_eff_mass[tp] * self.kgrid[tp]["velocity"][ib_prm][ik_prm] / (
-        #     hbar * e * 1e11)) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) \
-        #        * 1.0 / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]/sq3)
 
         return (1 - X) * norm(k_prm) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
@@ -2442,9 +2405,7 @@ class AMSET(object):
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
                 (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2)
-        # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)/v_prm # simply /v_prm is wrong and creates artificial anisotropy
-        # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X)*norm(1.0/v_prm)
-        # integ = self.G(tp, ib, ik, ib_prm, ik_prm, X) / self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]
+
 
 
         if "S_i" in sname:
@@ -2474,6 +2435,7 @@ class AMSET(object):
         else:
             raise ValueError("The inelastic scattering name: {} is NOT supported".format(sname))
         return integ
+
 
 
     def s_inel_eq_isotropic(self, once_called=False):
@@ -2534,10 +2496,6 @@ class AMSET(object):
         This assumption significantly simplifies the model and the integrated rates at each
         k/energy directly extracted from the literature can be used here."""
 
-        # TODO: decide on knrm and whether it needs a reference k-point (i.e. CBM/VBM) where the reference point is not Gamma. No ref. result in large rates in PbTe.
-        # I justify subtracting the CBM/VBM actual k-points as follows:
-        # v = sum(self.kgrid[tp]["velocity"][ib][ik])/3
-        # v = norm(self.kgrid[tp]["velocity"][ib][ik])
         v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
         # v = self.kgrid[tp]["velocity"][ib][ik] # because it's isotropic, it doesn't matter which one we choose
         # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
@@ -2574,8 +2532,7 @@ class AMSET(object):
             #        * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) / (1e11*e) # 1/1e11*e is to convert kg.cm/s to hbar.k units (i.e. ev.s/nm)
 
         elif sname.upper() == "IMP":  # double-checked the units and equation on 5/12/2017
-            # knrm = self.kgrid[tp]["norm(k)"][ib][ik] don't use this! it's wrong anyway and shouldn't change knrm just for IMP
-            # knrm = m_e * self._avg_eff_mass[tp] * (v) / (hbar * e * 1e11)
+            # The following is a variation of Dingle's theory available in [R]
             beta = self.egrid["beta"][c][T][tp]
             B_II = (4 * knrm ** 2 / beta ** 2) / (1 + 4 * knrm ** 2 / beta ** 2) + 8 * (beta ** 2 + 2 * knrm ** 2) / (
             beta ** 2 + 4 * knrm ** 2) * par_c ** 2 + \
