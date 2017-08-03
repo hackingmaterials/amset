@@ -1860,6 +1860,15 @@ class AMSET(object):
 
 
     def generate_angles_and_indexes_for_integration(self, avg_Ediff_tolerance=0.02):
+        """
+        generates the indexes of k' points that have the same energy (for elastic scattering) as E(k) or
+        have energy equal to E(k) plus or minus of the energy of the optical phonon for inelastic scattering.
+        Also, generated and stored the cosine of the angles between such points and a given input k-point
+
+        Args:
+            avg_Ediff_tolerance (float): in eV the average allowed energy difference between the target E(k') and
+                what it actially is (e.g. to prevent/identify large energy differences if enforced scattering)
+        """
         self.initialize_var("kgrid", ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"], "scalar", [], is_nparray=False,
                             c_T_idx=False)
 
@@ -1870,22 +1879,18 @@ class AMSET(object):
                 self.ediff_scat = {"n": [], "p": []}
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                                                                   E_change=0.0, forced_min_npoints=2,
-                                                                                   tolerance=self.dE_min)
+                            E_change=0.0, forced_min_npoints=2, tolerance=self.dE_min)
                 enforced_ratio = self.nforced_scat[tp] / sum([len(points) for points in self.kgrid[tp]["X_E_ik"][ib]])
-                logging.info("enforced scattering ratio for {}-type elastic scattering at band {}:\n {}".format(tp, ib,
-                                                                                                                enforced_ratio))
-                # print self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib]))
-                # if self.nforced_scat[tp] / (2 * len(self.kgrid[tp]["kpoints"][ib])) > 0.1:
+                logging.info("enforced scattering ratio for {}-type elastic scattering at band {}:\n {}".format(
+                        tp, ib, enforced_ratio))
                 if enforced_ratio > 0.9:
                     # TODO: this should be an exception but for now I turned to warning for testing.
-                    warnings.warn(
-                        "the k-grid is too coarse for an acceptable simulation of elastic scattering in {};"
+                    warnings.warn("the k-grid is too coarse for an acceptable simulation of elastic scattering in {};"
                         .format(self.tp_title[tp]))
 
                 avg_Ediff = sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 1)
                 if avg_Ediff > avg_Ediff_tolerance:
-                    # TODO: change it back to ValueError as it was originally, it was switched to warning for fast debug
+                    #TODO: change it back to ValueError as it was originally, it was switched to warning for fast debug
                     warnings.warn("{}-type average energy difference of the enforced scattered k-points is more than"
                                   " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
 
@@ -1898,15 +1903,11 @@ class AMSET(object):
                     self.ediff_scat = {"n": [], "p": []}
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-
-                                # E_change=sgn * hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
                                 E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
                                    tolerance=self.dE_min)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                # E_change= (sgn*-1)* hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
                                 E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
                                         tolerance=self.dE_min)
-
                     enforced_ratio = self.nforced_scat[tp] / (
                         sum([len(points) for points in self.kgrid[tp]["X_Eplus_ik"][ib]]) + \
                         sum([len(points) for points in self.kgrid[tp]["X_Eminus_ik"][ib]]))
@@ -1953,7 +1954,16 @@ class AMSET(object):
     def get_X_ib_ik_near_new_E(self, tp, ib, ik, E_change, forced_min_npoints=0, tolerance=0.01):
         """Returns the sorted (based on angle, X) list of angle and band and k-point indexes of all the points
             that are within tolerance of E + E_change
-            Attention! this function assumes self.kgrid is sorted based on the energy in ascending order."""
+            Attention!!! this function assumes self.kgrid is sorted based on the energy in ascending order.
+        Args:
+            tp (str): type of the band; options: "n" or "p"
+            ib (int): the band index
+            ik (int): the k-point index
+            E_change (float): the difference between E(k') and E(k)
+            forced_min_npoints (int): the number of k-points that are forcefully included in
+                scattering if not enough points are found
+            tolerance (float): the energy tolerance for finding the k' points that are within E_change energy of E(k)
+            """
         E = self.kgrid[tp]["energy"][ib][ik]
         E_prm = E + E_change  # E_prm is E prime, the new energy
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
@@ -2005,6 +2015,7 @@ class AMSET(object):
 
         result.sort(key=lambda x: x[0])
         return result
+
 
 
     def s_el_eq(self, sname, tp, c, T, k, k_prm):
