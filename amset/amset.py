@@ -2011,24 +2011,19 @@ class AMSET(object):
         """
         return the scattering rate at wave vector k at a certain concentration and temperature
         for a specific elastic scattering mechanisms determined by sname
-        :param sname (string): abbreviation of the name of the elastic scatteirng mechanisms; options: IMP, ADE, PIE, DIS
-        :param c:
-        :param T:
-        :param k:
-        :param k_prm:
-        :return:
+
+        Args:
+        sname (string): abbreviation of the name of the elastic scatteirng mechanisms; options: IMP, ADE, PIE, DIS
+        c (float): carrier concentration
+        T (float): the temperature
+        k (list): list containing fractional coordinates of the k vector
+        k_prm (list): list containing fractional coordinates of the k prime vector
         """
+
         norm_diff_k = norm(k - k_prm)  # the slope for PIE and IMP don't match with bs_is_isotropic
-        # norm_diff_k = norm(k) # slope kind of matches with bs_is_isotropic at least for PIE but it's 5X larger
-        # norm_diff_k = norm(k_prm) # slope kind of matches with bs_is_isotropic at least for PIE but it's 5X larger
-        # norm_diff_k = (norm(k_prm)**2 + norm(k)**2)**0.5 # doesn't work, the ratios are not a fixed number
 
         if norm_diff_k == 0.0:
-            print "WARNING!!! same k and k' vectors as input of the elastic scattering equation"
-
-            # warnings.warn("same k and k' vectors as input of the elastic scattering equation")
-            # raise ValueError("same k and k' vectors as input of the elastic scattering equation."
-            #                  "Check get_X_ib_ik_within_E_radius for possible error")
+            warnings.warn("WARNING!!! same k and k' vectors as input of the elastic scattering equation")
             return 0.0
 
         if sname.upper() in ["IMP"]:  # ionized impurity scattering
@@ -2306,7 +2301,7 @@ class AMSET(object):
         if weighted:
             return integral
             # return integral/(sum(self.Efrequency[tp][:-1]))
-            
+
         else:
             return integral
 
