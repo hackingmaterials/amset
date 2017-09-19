@@ -574,7 +574,6 @@ class AMSET(object):
         self.DFT_cartesian_kpts = np.array(
                 [self._rec_lattice.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
 
-
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
         cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
                    "p": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]}}
@@ -585,11 +584,17 @@ class AMSET(object):
         # print bs.nb_bands
 
         cbm_vbm["n"]["energy"] = cbm["energy"]
-        cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.up][0]
+        try:
+            cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.up][0]
+        except IndexError:
+            cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.down][0] # in case spin down has a lower CBM
         cbm_vbm["n"]["kpoint"] = bs.kpoints[cbm["kpoint_index"][0]].frac_coords
 
         cbm_vbm["p"]["energy"] = vbm["energy"]
-        cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.up][-1]
+        try:
+            cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.up][-1]
+        except IndexError:
+            cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.down][-1]
         cbm_vbm["p"]["kpoint"] = bs.kpoints[vbm["kpoint_index"][0]].frac_coords
 
         self.dft_gap = cbm["energy"] - vbm["energy"]
@@ -1202,6 +1207,28 @@ class AMSET(object):
 
 
 
+    # points_1d now a dictionary with 'x', 'y', and 'z' lists of points
+    # points_1d lists do not need to be sorted
+    def create_grid(self, points_1d):
+        for dir in ['x', 'y', 'z']:
+            points_1d[dir].sort()
+        grid = np.zeros((len(points_1d['x']), len(points_1d['y']),
+                         len(points_1d['z']), 3))
+        for i, x in enumerate(points_1d['x']):
+            for j, y in enumerate(points_1d['y']):
+                for k, z in enumerate(points_1d['z']):
+                    grid[i, j, k, :] = np.array([x, y, z])
+        return grid
+
+    # grid is a 4d numpy array, where last dimension is vectors in a 3d grid specifying fractional position in BZ
+    def array_to_kgrid(self, grid):
+        kgrid = []
+        for i in range(grid.shape[0]):
+            for j in range(grid.shape[1]):
+                for k in range(grid.shape[2]):
+                    kgrid.append(grid[i, j, k])
+        return kgrid
+
     # ultimately it might be most clean for this function to largely be two different functions (one for poly bands and one for analytical),
     # and then the parts they share can be separate functions called by both
     def init_kgrid(self, coeff_file, kgrid_tp="fine"):
@@ -1334,6 +1361,75 @@ class AMSET(object):
             kpts[tp] = self.kpts_to_first_BZ(kpts[tp])
             kpts[tp] = self.remove_duplicate_kpoints(kpts[tp])
 
+
+        ####### from Jason:
+        # this is inside of init_kgrid
+        self.kgrid_array = {}
+
+        points_1d = {dir: [] for dir in ['x', 'y', 'z']}
+        # TODO: figure out which other points need a fine grid around them
+        important_pts = [self.cbm_vbm["n"]["kpoint"]]
+        if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(
+                self.cbm_vbm["n"]["kpoint"])).any():
+            important_pts.append(self.cbm_vbm["p"]["kpoint"])
+
+        for center in important_pts:
+            for dim, dir in enumerate(['x', 'y', 'z']):
+                points_1d[dir].append(center[dim])
+                one_list = True
+                if not one_list:
+                    if kgrid_tp == "fine":
+                        kstep_list = [[0.001, 2], [0.002, 4], [0.01, 9], [0.1, 2]]
+                    elif kgrid_tp == "coarse":
+                        kstep_list = [[0.002, 2], [0.005, 4], [0.01, 4], [0.05, 2]]
+                    else:
+                        raise ValueError('unsupported kgrid_tp: {}'.format(kgrid_tp))
+                    # for step, nsteps in [[0.0015, 3], [0.005, 4], [0.01, 4], [0.05, 2]]:
+                    for step, nsteps in kstep_list:
+                        # for step, nsteps in [[0.01, 2]]:
+                        # print "mesh: 10"
+                        # loop goes from 0 to nsteps-2, so added values go from step to step*(nsteps-1)
+                        for i in range(nsteps - 1):
+                            points_1d[dir].append(
+                                center[dim] - (i + 1) * step)
+                            points_1d[dir].append(
+                                center[dim] + (i + 1) * step)
+
+                else:
+                    # set mesh - these are the two meshes I am using most right now (~36,000 points and ~5,000 points)
+                    if kgrid_tp == "fine":
+                        kstep_list = [0.001, 0.0025, 0.005, 0.007, 0.01, 0.015,
+                                 0.02, 0.025, 0.03, 0.04, 0.05, 0.07, 0.1,
+                                 0.2, 0.3, 0.5]
+                    elif kgrid_tp == "coarse":
+                        kstep_list = [0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.35, 0.45]
+                    else:
+                        raise ValueError('unsupported kgrid_tp: {}'.format(kgrid_tp))
+                    for step in kstep_list:
+                        points_1d[dir].append(center[dim] + step)
+                        points_1d[dir].append(center[dim] - step)
+
+        logging.info('included points in the mesh: {}'.format(points_1d))
+
+        # ensure all points are in "first BZ" (parallelepiped)
+        for dir in ['x', 'y', 'z']:
+            for ik1d in range(len(points_1d[dir])):
+                if points_1d[dir][ik1d] > 0.5:
+                    points_1d[dir][ik1d] -= 1
+                if points_1d[dir][ik1d] < -0.5:
+                    points_1d[dir][ik1d] += 1
+        # remove duplicates
+        for dir in ['x', 'y', 'z']:
+            points_1d[dir] = list(
+                set(np.array(points_1d[dir]).round(decimals=14)))
+        self.kgrid_array['k_points'] = self.create_grid(points_1d)
+        kpts_list = self.array_to_kgrid(self.kgrid_array['k_points'])
+        kpts = {'n': kpts_list,
+                'p': kpts_list}
+
+
+
+        ### end from Jason
 
         # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
         # kpts.append(self.cbm_vbm["n"]["kpoint"])
