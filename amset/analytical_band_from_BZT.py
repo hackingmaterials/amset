@@ -572,6 +572,8 @@ if __name__ == "__main__":
     # coeff_file = '../test_files/PbTe/fort.123'
     # coeff_file = "../test_files/GaAs/fort.123_GaAs_1099kp"
     coeff_file = "../test_files/Si/Si_fort.123"
+    # coeff_file = "/Users/alirezafaghaninia/Documents/boltztrap_examples/SnSe2/boltztrap_vdw_better_geom_dense/boltztrap/fort.123"
+
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
     # read the coefficients file
     engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=[cbm_bidx])
@@ -609,7 +611,6 @@ if __name__ == "__main__":
     lattice_matrix = run.final_structure.lattice.reciprocal_lattice
     st = run.structures[0]
 
-
     kmesh = [31,31,31]
     # emesh,dos, nbands, dos_nbands = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05, vbmidx=cbm_bidx-1)
     emesh,dos, nbands = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05)
@@ -629,7 +630,7 @@ if __name__ == "__main__":
     emesh, dos = get_dos_from_poly_bands(st,lattice_matrix,[6,6,6],-30,30,100000,poly_bands=poly_bands, bandgap=1.54,
                                          width=0.1, SPB_DOS=False, all_values=False)
     plot(emesh,dos)
-    show()
+    # show()
 
     # this part is not working well:
     #
