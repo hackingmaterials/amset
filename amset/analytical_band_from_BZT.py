@@ -26,7 +26,21 @@ __author__ = "Francesco Ricci and Alireza Faghaninia"
 __copyright__ = "Copyright 2017, HackingMaterials"
 __maintainer__ = "Francesco Ricci"
 
+'''
+The fitting algorythm is the Shankland-Koelling-Wood Fourier interpolation scheme,
+implemented (for example) in the BolzTraP software.
 
+Details of the interpolation method are available in:
+(1) R.N. Euwema, D.J. Stukel, T.C. Collins, J.S. DeWitt, D.G. Shankland,
+    Phys. Rev. 178 (1969)  1419–1423.
+(2) D.D. Koelling, J.H. Wood, J. Comput. Phys. 67 (1986) 253–262.
+(3) Madsen, G. K. & Singh, D. J. Computer Physics Communications 175, 67–71 (2006).
+
+
+The coefficient for fitting are indeed calculated in BoltzTraP, not in this code.
+Here, we just build the star functions using those coefficients.
+Then, we also calculate the energy bands for each k-point in input.
+'''
 
 def norm(v):
     """method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as numpy.linalg.norm is slower for this case"""
@@ -111,8 +125,29 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
     # return energy, de, dde
 
 def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br_dir=None, cbm=True):
-    ' Compute energy for a k-point from star functions '
-
+    ''' Compute energy for a k-point from star functions 
+        
+        Input:
+            xkpt: k-point coordinates as array
+            engre: matrix containing the coefficients of fitted band from get_engre() function
+            nwave: number of G vectors
+            nsym: number of symmetries
+            nstv: number of vectors in a star function
+            vec: the star vectors for each G vector and symmetry
+            vec2: dot product of star vectors with cell matrix for each G vector 
+                and symmetry. Needed only to compute the derivatives of energy
+            br_dir: cell matrix. Needed only to compute the derivatives of energy
+            cbm: True if the considered band is a conduction band. False if it is a valence band
+            out_vec2: outer product of vec2 with itself. It is calculated outside to improve performances
+            
+        Output:
+            ene: the electronic energy at the k-point in input
+            dene: 1st derivative of the electronic energy at the k-point in input
+            ddene: 2nd derivative of the electronic energy at the k-point in input
+    '''
+    
+    
+    
     sign = -1 if cbm == False else 1
     arg = 2 * np.pi * vec.dot(xkpt)
     tempc = np.cos(arg)
@@ -274,8 +309,19 @@ class Analytical_bands(object):
 
 
     def stern(self,g,nsym,symop):
-        ' Compute star function for a specific g vector '
+        ''' Compute star function for a specific g vector 
         
+            Input:
+                g: G vector in real space
+                nsym: number of symmetries
+                symop: matrixes of the symmetry operations
+            
+            Output:
+                nst: number of vectors in the star function calculated for the G vector
+                stg: star vectors
+        
+        '''
+
         trial = symop[:nsym].dot(g)
         stg = np.unique(trial.view(np.dtype((np.void, trial.dtype.itemsize*trial.shape[1])))).view(trial.dtype).reshape(-1, trial.shape[1])
         nst = len(stg)
@@ -284,8 +330,22 @@ class Analytical_bands(object):
 
 
 
-    def get_star_functions(self, latt_points, nsym,symop,nwave,br_dir=None):
-        ' Compute star functions for all R vectors and symmetries '
+    def get_star_functions(self, latt_points, nsym, symop, nwave, br_dir=None):
+        ''' Compute star functions for all G vectors and symmetries 
+        
+            Input:
+                latt_points: all the G vectors
+                nsym: number of symmetries
+                symop: matrixes of the symmetry operations
+                nwave: number of G vectors
+                br_dir: cell matrix. Needed only to compute the derivatives of energy
+            
+            Output:
+                nstv: number of vectors in a star function for each G vector
+                vec: the star funcions for each G vector and symmetry
+                vec2: dot product of star vectors with cell matrix for each G vector 
+                        and symmetry. Needed only to compute the derivatives of energy
+        '''
 
         nstv = np.zeros(nwave,dtype='int')
         vec = np.zeros((nwave,nsym,3))
@@ -342,6 +402,26 @@ class Analytical_bands(object):
 
 
     def get_engre(self,iband=None, return_bmin=False):
+        ''' Get coefficients of interpolation from a custom output file from BoltzTraP.
+            Some other info are also read and provided as output.
+            
+            Input:
+                iband: list of indexes of the bands to fit (starting from 1). If nothing is passed
+                        nothing is done, but the indexes of all the available bands in the file is printed.
+                        The same happens if an index of a band not included is given.
+                        if "A" is given, all the coefficients available are extracted
+                return_bmin: True if the index of the first band contained in the file
+                            is returned as output. False if it is not needed
+            Output:
+                engre: matrix containing the coefficients of all the bands to fit
+                latt_points: all the G vectors
+                nwave: number of G vectors
+                nsym: number of symmetries
+                nsymop: max number of symmetries (usually 192, not used)
+                symop: matrixes of the symmetry operations
+                br_dir: cell matrix. Needed only to compute the derivatives of energy
+                bmin: the index of the first band contained in the file
+        '''
         filename = self.coeff_file
         with open(filename) as f:
             egap, nwave, nsym, nsymop=f.readline().split()
@@ -358,11 +438,14 @@ class Analytical_bands(object):
                     bmin,bmax=np.fromstring(l,sep=' ',dtype=int)
                     if iband == 'A':
                         iband = range(bmin,bmax+1)
+                        # print "bmin: {}".format(bmin)
+                        # print "bmax: {}".format(bmax)
+
                     elif iband == None:
                         print "Bands range: {}-{}".format(bmin,bmax)
                         break
                     elif max(iband) > bmax or min(iband) < bmin:
-                        print "ERROR! iband not in range : {}-{}".format(bmin,bmax)
+                        print "ERROR! iband not in range : {}-{}".format(bmin, bmax)
                         return
                     iband2 = [nwave+(b-bmin+1) for b in iband]
                 elif i in iband2:
@@ -435,7 +518,10 @@ class Analytical_bands(object):
                     energy -= scissor/2
                 g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                 dos += w * g
-        return e_mesh,dos, len(engre)
+        if vbmidx:
+            return e_mesh, dos, len(engre), bmin
+        else:
+            return e_mesh,dos, len(engre)
 
 
     def get_dos_standard(self,energies,weights,e_min,e_max,e_points,width=0.2):
@@ -468,7 +554,7 @@ class Analytical_bands(object):
 
 if __name__ == "__main__":
     # user inputs
-    cbm_bidx = 4
+    cbm_bidx = 5
     # kpts = np.array([[0.5, 0.5, 0.5]])
     kpts = np.array(
         [[-0.1, 0.19999999999999998, 0.1], [0.1, -0.19999999999999998, -0.1], [0.1, -0.1, -0.19999999999999998],
@@ -482,10 +568,10 @@ if __name__ == "__main__":
          [0.2, 0.3, 0.1], [-0.2, -0.3, -0.1], [0.3, 0.19999999999999998, 0.09999999999999998],
          [-0.3, -0.19999999999999998, -0.09999999999999998]])
 
-    # kpts = [[ 0.,  0.,  0.], [ 0.42105263,  0.42105263,  0.        ]] # Si kVBM and kCBM respectively
+    kpts = [[ 0.,  0.,  0.], [ 0.42105263,  0.42105263,  0.        ]] # Si kVBM and kCBM respectively
     # coeff_file = '../test_files/PbTe/fort.123'
-    coeff_file = "../test_files/GaAs/fort.123_GaAs_1099kp"
-    # coeff_file = "../test_files/Si/Si_fort.123"
+    # coeff_file = "../test_files/GaAs/fort.123_GaAs_1099kp"
+    coeff_file = "../test_files/Si/Si_fort.123"
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
     # read the coefficients file
     engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=[cbm_bidx])
@@ -514,7 +600,6 @@ if __name__ == "__main__":
     print("effective mass tensor")
     print(m_tensor)
 
-    quit()
 
     print("group velocity:")
     v = de /hbar*A_to_m*m_to_cm * Ry_to_eV # to get v in units of cm/s
@@ -526,8 +611,9 @@ if __name__ == "__main__":
 
 
     kmesh = [31,31,31]
+    # emesh,dos, nbands, dos_nbands = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05, vbmidx=cbm_bidx-1)
     emesh,dos, nbands = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05)
-    # plot(emesh, dos)
+    plot(emesh, dos)
 
     # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.1]]]]
 
