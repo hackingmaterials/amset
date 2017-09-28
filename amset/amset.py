@@ -628,11 +628,17 @@ class AMSET(object):
         # print bs.nb_bands
 
         cbm_vbm["n"]["energy"] = cbm["energy"]
-        cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.up][0]
+        try:
+            cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.up][0]
+        except IndexError:
+            cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.down][0] # in case spin down has a lower CBM
         cbm_vbm["n"]["kpoint"] = bs.kpoints[cbm["kpoint_index"][0]].frac_coords
 
         cbm_vbm["p"]["energy"] = vbm["energy"]
-        cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.up][-1]
+        try:
+            cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.up][-1]
+        except IndexError:
+            cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.down][-1]
         cbm_vbm["p"]["kpoint"] = bs.kpoints[vbm["kpoint_index"][0]].frac_coords
 
         self.dft_gap = cbm["energy"] - vbm["energy"]
@@ -667,7 +673,7 @@ class AMSET(object):
                     cbm_vbm[tp]["included"] += 1
 
                 # TODO: for now, I only include 1 band for quicker testing
-                #cbm_vbm[tp]["included"] = 1
+                # cbm_vbm[tp]["included"] = 1
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands)
 
@@ -881,7 +887,7 @@ class AMSET(object):
 
         ##  in case specific fermi levels are to be tested:
 
-
+        #TODO: comment out these 3 lines and test, these were commented out in master 9/27/2017
         self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
         self.calculate_property(prop_name="f", prop_func=f0, for_all_E=True)
         self.calculate_property(prop_name="f_th", prop_func=f0, for_all_E=True)
@@ -906,34 +912,6 @@ class AMSET(object):
                             self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
 
         self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
-
-        # self.egrid["beta"]= {
-        #             -1e+21: {
-        #                 300: {
-        #                     "n": 1.8402,
-        #                     "p": 3.9650354562155636e-07
-        #                 }
-        #             },
-        #             -1e+20: {
-        #                 300: {
-        #                     "n": 1.1615,
-        #                     "p": 5.082645028590137e-06
-        #                 }
-        #             },
-        #             -1e+19: {
-        #                 300: {
-        #                     "n": 0.6255,
-        #                     "p": 1.8572918728014778e-05
-        #                 }
-        #             },
-        #             -1e+18: {
-        #                 300: {
-        #                     "n": 0.2380,
-        #                     "p": 5.956690579889094e-05
-        #                 }
-        #             }
-        #         }
-
         self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
         self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
         self.calculate_property(prop_name="Seebeck_integral_denominator", prop_func=self.seeb_int_denom)
@@ -3686,8 +3664,8 @@ class AMSET(object):
                             plot_title=plot_title, textsize=textsize,
                             plot_mode='offline', filename=filename, ticksize=ticksize,
                             margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
-            if all_plots:
-                plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type=y_axis_type, color='black', showlegend=True)
+            if all_plots:plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type=y_axis_type, color='black', showlegend=True)
+
             else:
                 plt.xy_plot(x_col=x_data, y_col=y_data, y_axis_type=y_axis_type, color='black')
         if save_format is not None:
