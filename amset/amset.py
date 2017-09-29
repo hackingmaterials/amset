@@ -560,8 +560,8 @@ class AMSET(object):
 
         self.dos_bwidth = params.get("dos_bwidth",
                                      0.05)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
-        self.nkdos = params.get("nkdos", 35)
-        self.v_min = 100
+        self.nkdos = params.get("nkdos", 29)
+        self.v_min = 1000
         self.gs = 1e-32  # a global small value (generally used for an initial non-zero value)
         self.gl = 1e32  # a global large value
 
@@ -673,7 +673,7 @@ class AMSET(object):
                     cbm_vbm[tp]["included"] += 1
 
                 # TODO: for now, I only include 1 band for quicker testing
-                cbm_vbm[tp]["included"] = 1
+                # cbm_vbm[tp]["included"] = 1
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands)
 
@@ -956,7 +956,7 @@ class AMSET(object):
                 rm_idx_list_ib = list(set(rm_idx_list[tp][ib]))
                 rm_idx_list_ib.sort(reverse=True)
                 rm_idx_list[tp][ib] = rm_idx_list_ib
-                logging.debug("# of kpoints indexes with low velocity or off-energy: {}".format(len(rm_idx_list_ib)))
+                logging.debug("# of {}-type kpoints indexes with low velocity or off-energy: {}".format(tp,len(rm_idx_list_ib)))
             for prop in rearranged_props:
                 self.kgrid[tp][prop] = np.array([np.delete(self.kgrid[tp][prop][ib], rm_idx_list[tp][ib], axis=0) \
                                                  for ib in range(self.cbm_vbm[tp]["included"])])
@@ -1386,7 +1386,15 @@ class AMSET(object):
                     #for step in [0.001, 0.0025, 0.005, (0.007), 0.01, 0.015, 0.02, (0.025), 0.03, (0.04), 0.05, (0.07), 0.1, 0.2, 0.3, --0.4, 0.5]:
                     #for step in [0.002, 0.005, 0.01, 0.015, 0.02, 0.03, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5]:
                     # decent fine one
-                    for step in [0.004, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]:
+                    if kgrid_tp == 'fine':
+                        mesh = [0.004, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
+                    elif kgrid_tp == 'coarse':
+                        mesh = [0.001, 0.005, 0.01, 0.05, 0.15, 0.5]
+                    elif kgrid_tp == 'very coarse':
+                        mesh = [0.001, 0.01, 0.1, 0.5]
+                    else:
+                        raise ValueError('Unsupported value for kgrid_tp: {}'.format(kgrid_tp))
+                    for step in mesh:
                     #for step in [0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.35, 0.45]:
                     #for step in [0.01, 0.025, 0.05, 0.1, 0.18, 0.3, 0.5]:
                     #for step in [0.004, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5]:
@@ -3946,11 +3954,11 @@ if __name__ == "__main__":
                   model_params=model_params, performance_params=performance_params,
                   dopings = [-2e15], temperatures = [300], k_integration=True, e_integration=True, fermi_type='e'
                   )   # -3.3e13
-    cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")')
+    cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="very coarse")')
 
     AMSET.write_input_files()
     AMSET.to_csv()
-    # AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
-    #            carrier_types=AMSET.all_types, save_format=None)
+    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
+               carrier_types=AMSET.all_types, save_format=None)
 
     AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
