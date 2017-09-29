@@ -673,7 +673,7 @@ class AMSET(object):
                     cbm_vbm[tp]["included"] += 1
 
                 # TODO: for now, I only include 1 band for quicker testing
-                # cbm_vbm[tp]["included"] = 1
+                cbm_vbm[tp]["included"] = 1
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands)
 
@@ -1235,8 +1235,8 @@ class AMSET(object):
 
     # ultimately it might be most clean for this function to largely be two different functions (one for poly bands and one for analytical),
     # and then the parts they share can be separate functions called by both
-    def init_kgrid(self, coeff_file, kgrid_tp="fine"):
-        logging.debug("begin profiling the init_kgrid function")
+    def init_kgrid(self, coeff_file, kgrid_tp="coarse"):
+        logging.debug("begin profiling init_kgrid: a {} grid".format(kgrid_tp))
         start_time = time.time()
         Tmx = max(self.temperatures)
         if kgrid_tp == "coarse":
@@ -1249,34 +1249,6 @@ class AMSET(object):
         # logging.debug("translation symmetry matrixes: \n {}".format(self.translations))
 
         logging.info("self.nkibz = {}".format(self.nkibz))
-
-        # TODO: the following is NOT a permanent solution to speed up generation/loading of k-mesh, speed up get_ir_reciprocal_mesh later
-        # TODO-JF (mid-term): you can take on this project to speed up get_ir_reciprocal_mesh or a similar function, right now it scales very poorly with larger mesh
-
-        # create a mesh of k-points
-        # all_kpts = {}
-        # try:
-        #     ibzkpt_filename = os.path.join(os.environ["AMSET_ROOT"], "{}_ibzkpt_{}.json".format(nkstep,
-        #                                                 self._vrun.final_structure.formula.replace(" ", "")))
-        # except:
-        #     ibzkpt_filename = "{}_ibzkpt.json".format(nkstep)
-        # try:
-        #     with open(ibzkpt_filename, 'r') as fp:
-        #         all_kpts = json.load(fp, cls=MontyDecoder)
-        #     kpts = all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)]
-        #     logging.info('reading {}x{}x{} k-mesh from "{}"'.format(nkstep, nkstep, nkstep, ibzkpt_filename))
-        # except:
-        #     logging.info('reading {} failed!'.format(ibzkpt_filename))
-        #     logging.info("generating {}x{}x{} IBZ k-mesh".format(nkstep, nkstep, nkstep))
-        #     # @albalu why is there an option to shift the k points and what are the weights?
-        #     kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=[0, 0, 0])
-        #     # TODO: is_shift with 0.03 for y and 0.06 for z might give an error due to _all_elastic having twice length in kgrid compared to S_o, etc. I haven't figured out why
-        #     # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkstep, nkstep, nkstep), is_shift=(0.00, 0.03, 0.06))
-        #     kpts = [i[0] for i in kpts_and_weights]
-        #     kpts = self.kpts_to_first_BZ(kpts)
-        #     all_kpts["{}x{}x{}".format(nkstep, nkstep, nkstep)] = kpts
-        #     with open(ibzkpt_filename, 'w') as fp:
-        #         json.dump(all_kpts, fp, cls=MontyEncoder)
 
         bs_extrema = {"n": [self.cbm_vbm["n"]["kpoint"]],
                       "p": [self.cbm_vbm["p"]["kpoint"]]}
@@ -1389,7 +1361,7 @@ class AMSET(object):
                 one_list = True
                 if not one_list:
                     #for step, nsteps in [[0.0015, 3], [0.005, 4], [0.01, 4], [0.05, 2]]:
-                    for step, nsteps in [[0.002, 2], [0.005, 4], [0.01, 4], [0.05, 2]]:
+                    for step, nsteps in [[0.002, 2], [0.005, 4], [0.01, 4], [0.05, 2],[0.1, 5]]:
                     #for step, nsteps in [[0.01, 2]]:
                         #print "mesh: 10"
                         # loop goes from 0 to nsteps-2, so added values go from step to step*(nsteps-1)
@@ -3076,7 +3048,8 @@ class AMSET(object):
             # integral = self.integrate_over_E(prop_list=["f0x1-f0"], tp=tp, c=c, T=T, xDOS=True, weighted=False)
             integral = self.integrate_over_normk(prop_list=["f0","1-f0"], tp=tp, c=c, T=T, xDOS=True)
             integral = sum(integral)/3
-
+            print('integral_over_norm_k') # for egrid it is 8.68538649689e-06
+            print(integral)
             # integral = sum(self.integrate_over_BZ(["f0", "1-f0"], tp, c, T, xDOS=False, xvel=False, weighted=False))/3
 
             # from aMoBT ( or basically integrate_over_normk )
