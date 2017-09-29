@@ -3,11 +3,13 @@ import warnings
 import time
 import logging
 import json
+from pstats import Stats
 from random import random
 from scipy.interpolate import griddata
 from scipy.constants.codata import value as _cd
 from pprint import pprint
 import os
+from sys import stdout as STDOUT
 
 import numpy as np
 from math import log
@@ -3954,7 +3956,15 @@ if __name__ == "__main__":
                   model_params=model_params, performance_params=performance_params,
                   dopings = [-2e15], temperatures = [300], k_integration=True, e_integration=True, fermi_type='e'
                   )   # -3.3e13
-    cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="very coarse")')
+    # cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="very coarse")')
+    profiler = cProfile.Profile()
+    profiler.runcall(lambda: AMSET.run(coeff_file=coeff_file, kgrid_tp="very coarse"))
+    stats = Stats(profiler, stream=STDOUT)
+    stats.strip_dirs()
+    stats.sort_stats('cumulative')
+    stats.print_stats(10)  # only print the top 10 (10 slowest functions)
+    print()
+    # stats.print_callers(10)
 
     AMSET.write_input_files()
     AMSET.to_csv()
