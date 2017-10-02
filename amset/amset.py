@@ -892,11 +892,9 @@ class AMSET(object):
 
         logging.info("self.nkibz = {}".format(self.nkibz))
         self.kgrid_array = {}
-
-        #points_1d = {dir: [-0.4 + i*0.1 for i in range(9)] for dir in ['x', 'y', 'z']}
-        #points_1d = {dir: [-0.475 + i * 0.05 for i in range(20)] for dir in ['x', 'y', 'z']}
         points_1d = {dir: [] for dir in ['x', 'y', 'z']}
         # TODO: figure out which other points need a fine grid around them
+        # TODO-JF: can we have a separate mesh for n- and p-type from here?
         important_pts = [self.cbm_vbm["n"]["kpoint"]]
         if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(self.cbm_vbm["n"]["kpoint"])).any():
             important_pts.append(self.cbm_vbm["p"]["kpoint"])
@@ -906,32 +904,12 @@ class AMSET(object):
                 points_1d[dir].append(center[dim])
                 one_list = True
                 if not one_list:
-                    #for step, nsteps in [[0.0015, 3], [0.005, 4], [0.01, 4], [0.05, 2]]:
                     for step, nsteps in [[0.002, 2], [0.005, 4], [0.01, 4], [0.05, 2],[0.1, 5]]:
-                    #for step, nsteps in [[0.01, 2]]:
-                        #print "mesh: 10"
-                        # loop goes from 0 to nsteps-2, so added values go from step to step*(nsteps-1)
                         for i in range(nsteps - 1):
                             points_1d[dir].append(center[dim]-(i+1)*step)
                             points_1d[dir].append(center[dim]+(i+1)*step)
 
                 else:
-                    # set mesh
-                    # number of points options are: 175,616, ~100,000, 74,088, 19,683, 15,625, 4,913, 125
-                    #for step in [0.001, 0.002, 0.0035, 0.005, 0.0075, 0.01, 0.0125, 0.015, 0.018, 0.021, 0.025, 0.03, 0.035, 0.0425, 0.05, 0.06, 0.075, 0.1, 0.125, 0.15, 0.18, 0.21, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]:
-                    #for step in [0.001, 0.002, 0.0035, 0.005, 0.0075, 0.01, 0.0125, 0.015, 0.02, 0.025, 0.03, 0.04, 0.05, 0.0625, 0.08, 0.1, 0.12, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]:
-                    #for step in [0.001, 0.002, 0.0035, 0.005, 0.0075, 0.01, 0.015, 0.02, 0.03, 0.04, 0.05, 0.07, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]:
-                    # this one is designed for n-GaAs at c = -3.3e13 at high temperatures like T=600 (not yet tested)
-                    #for step in [0.001, 0.002, 0.0032, 0.005, 0.007, 0.009, 0.0115, 0.014, 0.0165, 0.0195, 0.0225, 0.026, 0.03, 0.035, 0.04, 0.05, 0.07, 0.1, 0.2, 0.3, 0.5]:
-                    # this one is designed for n-GaAs at c = -3.3e13 (not much better than the poly_bands one)
-                    #for step in [0.001, 0.002, 0.0032, 0.005, 0.007, 0.009, 0.0115, 0.014, 0.0165, 0.02, 0.025, 0.03, 0.04, 0.05, 0.07, 0.1, 0.2, 0.3, 0.5]:
-                    # this one is designed for n-GaAs at c = -3.3e13 and is an experiment to see if large points are needed at all (changed results a lot)
-                    #for step in [0.001, 0.002, 0.0032, 0.005, 0.007, 0.009, 0.0115, 0.014, 0.0165, 0.02, 0.025, 0.03, 0.04, 0.05, 0.07, 0.1, 0.5]:
-                    # this one is designed for poly_bands
-                    #for step in [0.001, 0.0025, 0.005, 0.007, 0.01, 0.015, 0.02, 0.025, 0.03, 0.04, 0.05, 0.07, 0.1, 0.2, 0.3, 0.5]:
-                    #for step in [0.001, 0.0025, 0.005, (0.007), 0.01, 0.015, 0.02, (0.025), 0.03, (0.04), 0.05, (0.07), 0.1, 0.2, 0.3, --0.4, 0.5]:
-                    #for step in [0.002, 0.005, 0.01, 0.015, 0.02, 0.03, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5]:
-                    # decent fine one
                     if kgrid_tp == 'fine':
                         mesh = [0.004, 0.01, 0.02, 0.03, 0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
                     elif kgrid_tp == 'coarse':
@@ -941,16 +919,8 @@ class AMSET(object):
                     else:
                         raise ValueError('Unsupported value for kgrid_tp: {}'.format(kgrid_tp))
                     for step in mesh:
-                    #for step in [0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.35, 0.45]:
-                    #for step in [0.01, 0.025, 0.05, 0.1, 0.18, 0.3, 0.5]:
-                    #for step in [0.004, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5]:
-                    # good coarse one
-                    #for step in [0.01, 0.025, 0.05, 0.1, 0.25, 0.5]:
-                    #for step in [0.15, 0.45]:
-                    #for step in [0.003, 0.01, 0.02, 0.04]:
                         points_1d[dir].append(center[dim] + step)
                         points_1d[dir].append(center[dim] - step)
-
         logging.info('included points in the mesh: {}'.format(points_1d))
 
         # ensure all points are in "first BZ" (parallelepiped)
@@ -960,6 +930,7 @@ class AMSET(object):
                     points_1d[dir][ik1d] -= 1
                 if points_1d[dir][ik1d] < -0.5:
                     points_1d[dir][ik1d] += 1
+
         # remove duplicates
         for dir in ['x', 'y', 'z']:
             points_1d[dir] = list(set(np.array(points_1d[dir]).round(decimals=14)))
@@ -976,18 +947,9 @@ class AMSET(object):
                         self.k_hat_grid[i,j,k] = [0, 0, 0]
                     else:
                         self.k_hat_grid[i,j,k] = k_vec / norm(k_vec)
-
         self.dv_grid = self.find_dv(self.kgrid_array['k_points'])
 
-
-
-        # explicitly add the CBM/VBM k-points to calculate the parabolic band effective mass hence the relaxation time
-        # kpts.append(self.cbm_vbm["n"]["kpoint"])
-        # kpts.append(self.cbm_vbm["p"]["kpoint"])
-
         logging.info("number of original ibz k-points: {}".format(len(kpts)))
-        # for tp in ["n", "p"]:
-        #     logging.info("number of original {}-type, ibz k-points: {}".format(tp, len(kpts[tp])))
         logging.debug("time to get the ibz k-mesh: \n {}".format(time.time()-start_time))
         start_time = time.time()
         # TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
@@ -1030,14 +992,15 @@ class AMSET(object):
             sgn = (-1) ** i
 
             if not self.poly_bands:
-                energy, velocity, effective_m = self.calc_analytical_energy(self.cbm_vbm[tp]["kpoint"],
-                                                                            engre[i * self.cbm_vbm["p"]["included"]],
-                                                                            nwave, nsym, nstv, vec, vec2, out_vec2,
-                                                                            br_dir, sgn)
+                energy, velocity, effective_m = self.calc_analytical_energy(
+                        self.cbm_vbm[tp]["kpoint"],engre[i * self.cbm_vbm["p"][
+                        "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
+                        br_dir, sgn)
             else:
-                energy, velocity, effective_m = self.calc_poly_energy(self.cbm_vbm[tp]["kpoint"], tp, 0)
+                energy, velocity, effective_m = self.calc_poly_energy(
+                        self.cbm_vbm[tp]["kpoint"], tp, 0)
 
-            # @albalu why is there already an energy value calculated from vasp that this code overrides?
+            # @albalu why is there already an energy value calculated from vasp that this code overrides? # we are renormalizing the E vlues as the new energy has a different reference energy
             self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
             logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
             self.cbm_vbm[tp]["energy"] = energy
@@ -1054,27 +1017,19 @@ class AMSET(object):
         start_time = time.time()
         energies = {"n": [0.0 for ik in kpts], "p": [0.0 for ik in kpts]}
         velocities = {"n": [[0.0, 0.0, 0.0] for ik in kpts], "p": [[0.0, 0.0, 0.0] for ik in kpts]}
-        # energies = {"n": [0.0 for ik in kpts["n"]], "p": [0.0 for ik in kpts["n"]]}
-        # velocities = {"n": [[0.0, 0.0, 0.0] for ik in kpts["n"]], "p": [[0.0, 0.0, 0.0] for ik in kpts["p"]]}
-        rm_list = {"n": [], "p": []}
 
         # These two lines should be commented out when kpts is already for each carrier type
         kpts_copy = np.array(kpts)
-
         kpts = {"n": np.array(kpts_copy), "p": np.array(kpts_copy)}
 
         self.pos_idx = {'n': [], 'p': []}
-
-
         self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
         self.energy_array = {'n': [], 'p': []}
 
         # calculate energies
         for i, tp in enumerate(["p", "n"]):
-
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
-            # for ib in [0]:  # we only include the first band now (same for energies) to decide on ibz k-points
                 if not self.parallel or self.poly_bands:  # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts[tp])):
                         if not self.poly_bands:
@@ -1217,37 +1172,8 @@ class AMSET(object):
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
         if self.adaptive_mesh:
-            raise IOError("adaptive mesh has not yet been implemented, please check back later!")
-        #
-        # if self.adaptive_mesh:
-        #     all_added_kpoints = []
-        #     all_added_kpoints += self.get_adaptive_kpoints(kpts, energies,
-        #                                                    adaptive_Erange=[0 * k_B * Tmx, 1 * k_B * Tmx], nsteps=30)
-        #
-        #     # it seems it works mostly at higher energy values!
-        #     # all_added_kpoints += self.get_ks_with_intermediate_energy(kpts,energies)
-        #
-        #     print "here the number of added k-points"
-        #     print len(all_added_kpoints)
-        #     print all_added_kpoints
-        #     print type(kpts)
-        #     kpts += all_added_kpoints
-
-        # add in symmetrically equivalent k points
-        # for tp in ["n", "p"]:
-        #     symmetrically_equivalent_ks = []
-        #     for k in kpts[tp]:
-        #         symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
-        #     kpts[tp] += symmetrically_equivalent_ks
-        #     kpts[tp] = remove_duplicate_kpoints(kpts[tp])
-        #
-        #
-        #     if len(kpts[tp]) < 3:
-        #         raise ValueError("The k-point mesh for {}-type is too loose (number of kpoints = {}) "
-        #                         "after filtering the initial k-mesh".format(tp, len(kpts)))
-        #
-        #     logging.info("number of {}-type k-points after symmetrically equivalent kpoints are added: {}".format(
-        #                 tp, len(kpts[tp])))
+            raise NotImplementedError("adaptive mesh has not yet been "
+                                      "implemented, please check back later!")
 
         # TODO: remove anything with "weight" later if ended up not using weights at all!
         kweights = {tp: [1.0 for i in kpts[tp]] for tp in ["n", "p"]}
