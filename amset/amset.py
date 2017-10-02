@@ -24,7 +24,7 @@ from joblib import Parallel, delayed
 from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_energy, get_poly_energy
 
 from tools import norm, grid_norm, f0, df0dE, cos_angle, fermi_integral,\
-        GB, calculate_Sio, calculate_Sio_list
+        GB, calculate_Sio, calculate_Sio_list, remove_from_grid
 
 
 __author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
@@ -110,32 +110,11 @@ class AMSET(object):
         if self.poly_bands:
             self.cbm_vbm["n"]["energy"] = self.dft_gap
             self.cbm_vbm["p"]["energy"] = 0.0
-            # @albalu why are the conduction and valence band k points being set to the same value?
-                # because the way poly band generates a band structure is by mirroring conduction and valence bands
-            # @albalu what is the format of self.poly_bands? it's a nested list, this can be improved actually
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
 
         self.num_cores = max(int(multiprocessing.cpu_count()/4), 8)
         if self.parallel:
             logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
-
-
-
-    def remove_from_grids(self, kgrid_rm_list, egrid_rm_list):
-        """deletes dictionaries storing properties about k points and E points that are no longer
-        needed from fgrid and egrid"""
-        for tp in ["n", "p"]:
-            for rm in kgrid_rm_list:
-                try:
-                    del (self.kgrid[tp][rm])
-                except:
-                    pass
-            # for erm in ["all_en_flat", "f_th", "g_th", "S_i_th", "S_o_th"]:
-            for erm in egrid_rm_list:
-                try:
-                    del (self.egrid[tp][erm])
-                except:
-                    pass
 
 
 
@@ -260,9 +239,7 @@ class AMSET(object):
 
         kgrid_rm_list = ["effective mass", "kweights",
                          "f_th", "S_i_th", "S_o_th"]
-        #egrid_rm_list = ["f_th", "S_i_th", "S_o_th"]
-        egrid_rm_list = []
-        self.remove_from_grids(kgrid_rm_list, egrid_rm_list)
+        self.kgrid = remove_from_grid(kgrid_rm_list)
 
         if self.k_integration:
             pprint(self.mobility)
