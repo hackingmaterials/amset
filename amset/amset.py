@@ -3765,13 +3765,13 @@ if __name__ == "__main__":
     # cube_path = "../test_files/Si/"
     # coeff_file = os.path.join(cube_path, "Si_fort.123")
 
-    AMSET = AMSET(calc_dir=cube_path, material_params=material_params,
+    amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
                   dopings = [-2e15], temperatures = [300], k_integration=True, e_integration=True, fermi_type='e'
                   )   # -3.3e13
-    # cProfile.run('AMSET.run(coeff_file=coeff_file, kgrid_tp="very coarse")')
+    # cProfile.run('amset.run(coeff_file=coeff_file, kgrid_tp="very coarse")')
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: AMSET.run(coeff_file=coeff_file, kgrid_tp="very coarse"))
+    profiler.runcall(lambda: amset.run(coeff_file=coeff_file, kgrid_tp="very coarse"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
@@ -3779,9 +3779,9 @@ if __name__ == "__main__":
     print()
     # stats.print_callers(10)
 
-    AMSET.write_input_files()
-    AMSET.to_csv()
-    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
-               carrier_types=AMSET.all_types, save_format=None)
+    amset.write_input_files()
+    amset.to_csv()
+    amset.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
+               carrier_types=amset.all_types, save_format=None)
 
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
+    amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
