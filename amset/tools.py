@@ -208,3 +208,37 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             S_o_th[j] /= counted
 
     return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
+
+def remove_duplicate_kpoints(kpts, dk=0.0001):
+    """kpts (list of list): list of coordinates of electrons
+     ALWAYS return either a list or ndarray: BE CONSISTENT with the input!!!
+
+     Attention: it is better to call this method only once as calculating the norms takes time.
+     """
+    rm_list = []
+
+    kdist = [norm(k) for k in kpts]
+    ktuple = zip(kdist, kpts)
+    ktuple.sort(key=lambda x: x[0])
+    kpts = [tup[1] for tup in ktuple]
+
+    i = 0
+    while i < len(kpts) - 1:
+        j = i
+        while j < len(kpts) - 1 and ktuple[j + 1][0] - ktuple[i][0] < dk:
+
+            # for i in range(len(kpts)-2):
+            # if kpts[i][0] == kpts[i+1][0] and kpts[i][1] == kpts[i+1][1] and kpts[i][2] == kpts[i+1][2]:
+
+            if (abs(kpts[i][0] - kpts[j + 1][0]) < dk or abs(kpts[i][0]) == abs(kpts[j + 1][0]) == 0.5) and \
+                    (abs(kpts[i][1] - kpts[j + 1][1]) < dk or abs(kpts[i][1]) == abs(kpts[j + 1][1]) == 0.5) and \
+                    (abs(kpts[i][2] - kpts[j + 1][2]) < dk or abs(kpts[i][2]) == abs(kpts[j + 1][2]) == 0.5):
+                rm_list.append(j + 1)
+            j += 1
+        i += 1
+
+
+    kpts = np.delete(kpts, rm_list, axis=0)
+    kpts = list(kpts)
+    return kpts
+
