@@ -346,8 +346,17 @@ class AMSET(object):
 
 
     def get_dft_orbitals(self, bidx):
+        """
+        the contribution from s and p orbitals at a given band for kpoints
+            that were used in the DFT run (from which vasprun.xml is read)
+        Args:
+            bidx (idx): band index
+        Returns:
+            ([float], [float]) two lists: s&p orbital scores at the band # bidx
+        """
         projected = self._vrun.projected_eigenvalues
-        # print len(projected[Spin.up][0][10])  # indexes : Spin, kidx, bidx, atomidx, s,py,pz,px,dxy,dyz,dz2,dxz,dx2
+        # print len(projected[Spin.up][0][10])
+        # projected indexes : Spin; kidx; bidx; s,py,pz,px,dxy,dyz,dz2,dxz,dx2
 
         s_orbital = [0.0 for k in self.DFT_cartesian_kpts]
         p_orbital = [0.0 for k in self.DFT_cartesian_kpts]
@@ -366,12 +375,7 @@ class AMSET(object):
         self.volume = self._vrun.final_structure.volume
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
-        # @albalu why is this not called the reciprocal lattice? your _rec_lattice is better
-        # self._lattice_matrix = self._vrun.lattice_rec.matrix / (2 * pi)
-        # @albalu is there a convention to name variables that are other objects with a "_" in the front?
-            # yes, these are the ones that users are absolutely not supposed to change
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
-
         bs = self._vrun.get_band_structure()
         self.nbands = bs.nb_bands
         self.lorbit = 11 if len(sum(self._vrun.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
@@ -387,7 +391,6 @@ class AMSET(object):
         vbm = bs.get_vbm()
 
         logging.info("total number of bands: {}".format(self._vrun.get_band_structure().nb_bands))
-        # print bs.nb_bands
 
         cbm_vbm["n"]["energy"] = cbm["energy"]
         try:
@@ -408,10 +411,8 @@ class AMSET(object):
 
         if self.soc:
             self.nelec = cbm_vbm["p"]["bidx"] + 1
-            # self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands
         else:
             self.nelec = (cbm_vbm["p"]["bidx"] + 1) * 2
-            # self.dos_normalization_factor = self._vrun.get_band_structure().nb_bands*2
 
         logging.debug("total number of electrons nelec: {}".format(self.nelec))
 
@@ -425,11 +426,8 @@ class AMSET(object):
 
         if not self.poly_bands:
             for i, tp in enumerate(["n", "p"]):
-                # Ecut = self.Ecut if tp in self.all_types else min(self.Ecut/10.0, 10*k_B*300/3.0)
                 Ecut = self.Ecut[tp]
                 sgn = (-1) ** i
-                # @albalu what is this next line doing (even though it doesn't appear to be in use)?
-                    # this part determines how many bands are have energy values close enough to CBM/VBM to be included
                 while abs(min(sgn * bs["bands"]["1"][cbm_vbm[tp]["bidx"] + sgn * cbm_vbm[tp]["included"]]) -
                                           sgn * cbm_vbm[tp]["energy"]) < Ecut:
                     cbm_vbm[tp]["included"] += 1
@@ -439,7 +437,6 @@ class AMSET(object):
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands)
 
-        # TODO: change this later if the band indecies are corrected in Analytical_band class
         cbm_vbm["p"]["bidx"] += 1
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
 
@@ -460,9 +457,6 @@ class AMSET(object):
     def seeb_int_num(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
         fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T)) * E / (k_B * T)
-        # return {
-        # t: self.integrate_over_DOSxE_dE(func=fn, tp=t, fermi=self.egrid["fermi"][c][T], T=T, normalize_energy=True) for
-        # t in ["n", "p"]}
         return {
             t: self.integrate_over_DOSxE_dE(func=fn, tp=t, fermi=self.fermi_level[c][T], T=T, normalize_energy=True)
         for
@@ -470,9 +464,6 @@ class AMSET(object):
 
     def seeb_int_denom(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
-        # fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T))
-        # return {t:self.integrate_over_DOSxE_dE(func=fn,tp=t,fermi=self.egrid["fermi"][c][T],T=T, normalize_energy=True) for t in ["n", "p"]}
-
         return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in
                 ["n", "p"]}
 
@@ -528,9 +519,6 @@ class AMSET(object):
         """
 
         self.egrid = {
-            # "energy": {"n": [], "p": []},
-            # "DOS": {"n": [], "p": []},
-            # "all_en_flat": {"n": [], "p": []},
             "n": {"energy": [], "DOS": [], "all_en_flat": [], "all_ks_flat": []},
             "p": {"energy": [], "DOS": [], "all_en_flat": [], "all_ks_flat": []},
             "mobility": {}
@@ -539,13 +527,11 @@ class AMSET(object):
                                    "p": []}  # list of band and k index that are mapped to each memeber of egrid
         self.Efrequency = {"n": [], "p": []}
         self.sym_freq = {"n": [], "p":[]}
-        # reshape energies of all bands to one vector:
         E_idx = {"n": [], "p": []}
         for tp in ["n", "p"]:
             for ib, en_vec in enumerate(self.kgrid[tp]["energy"]):
                 self.egrid[tp]["all_en_flat"] += list(en_vec)
                 self.egrid[tp]["all_ks_flat"] += list(self.kgrid[tp]["kpoints"][ib])
-                # also store the flatten energy (i.e. no band index) as a tuple of band and k-indexes
                 E_idx[tp] += [(ib, iek) for iek in range(len(en_vec))]
 
             # get the indexes of sorted flattened energy
@@ -567,12 +553,8 @@ class AMSET(object):
                 counter = 1.0  # because the ith member is already included in sum_E
                 current_ib_ie_idx = [E_idx[tp][i]]
                 j = i
-                # while j<len(self.egrid[tp]["all_en_flat"])-1 and (counter <= self.nE_min or \
-                #         abs(self.egrid[tp]["all_en_flat"][i]-self.egrid[tp]["all_en_flat"][j+1]) < self.dE_min):
                 while j < len(self.egrid[tp]["all_en_flat"]) - 1 and \
                         abs(self.egrid[tp]["all_en_flat"][i] - self.egrid[tp]["all_en_flat"][j + 1]) < self.dE_min:
-                    # while i < len(self.egrid[tp]["all_en_flat"]) - 1 and \
-                    #          self.egrid[tp]["all_en_flat"][i] == self.egrid[tp]["all_en_flat"][i + 1] :
                     counter += 1
                     current_ib_ie_idx.append(E_idx[tp][j + 1])
                     sum_E += self.egrid[tp]["all_en_flat"][j + 1]
@@ -601,18 +583,9 @@ class AMSET(object):
                     self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(self.egrid[tp]["energy"][-1])][1])
 
             self.egrid[tp]["size"] = len(self.egrid[tp]["energy"])
-            # if dos_tp.lower()=="standard":
-            #     energy_counter = [ne/len(self.egrid[tp]["all_en_flat"]) for ne in energy_counter]
-            # TODO: what is the best value to pick for width here?I guess the lower is more precisely at each energy?
-            # dum, self.egrid[tp]["DOS"] = get_dos(self.egrid[tp]["energy"], energy_counter,width = 0.05)
-
-        # logging.debug("here self.kgrid_to_egrid_idx: {}".format(self.kgrid_to_egrid_idx[self.debug_tp]))
-        # logging.debug(self.kgrid[self.debug_tp]["energy"])
-
 
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
-
 
         logging.debug("here total number of ks from self.Efrequency for {}-type".format(self.debug_tp))
         logging.debug(sum(self.Efrequency[self.debug_tp]))
@@ -625,7 +598,6 @@ class AMSET(object):
         # initialize some fileds/properties
         self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
         for sn in self.elastic_scatterings + self.inelastic_scatterings + ["overall", "average", "SPB_ACD"]:
-            # self.egrid["mobility"+"_"+sn]={c:{T:{"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
             self.egrid["mobility"][sn] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
         for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
             self.egrid[transport] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
@@ -636,18 +608,6 @@ class AMSET(object):
         if self.fermi_calc_type == 'e':
             self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
             self.fermi_level = self.egrid["fermi"]
-
-        # self.egrid["fermi"]= {
-        #              2000000000000000.0: {
-        #                  300: -0.575512702461
-        #              }
-        #          }
-
-
-        # Since the SPB generated band structure may have several valleys, it's better to use the Fermi calculated from the actual band structure
-        # self.calculate_property(prop_name="fermi_SPB", prop_func=self.find_fermi_SPB)
-
-        ##  in case specific fermi levels are to be tested:
 
         #TODO: comment out these 3 lines and test, these were commented out in master 9/27/2017
         self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
