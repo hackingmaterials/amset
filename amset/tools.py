@@ -10,11 +10,11 @@ hbar = _cd('Planck constant in eV s') / (2 * pi)
 e = _cd('elementary charge')
 
 
-def remove_from_grid(grid):
+def remove_from_grid(grid, grid_rm_list):
     """deletes dictionaries storing properties that are no longer needed from
     a given grid (i.e. kgrid or egrid)"""
     for tp in ["n", "p"]:
-        for rm in grid:
+        for rm in grid_rm_list:
             try:
                 del (grid[tp][rm])
             except:

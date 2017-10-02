@@ -36,8 +36,8 @@ class AmsetTest(unittest.TestCase):
         amset.run(coeff_file, kgrid_tp='very coarse', loglevel=logging.ERROR)
         egrid = amset.egrid
         kgrid = amset.kgrid
-
         # check general characteristics of the grid
+        print(kgrid['n']['velocity'][0].shape)
         self.assertEqual(kgrid['n']['velocity'][0].shape[0], 576)
         mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
         self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS
