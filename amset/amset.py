@@ -145,9 +145,7 @@ class AMSET(object):
                     self.calc_doping[c][T]['p'] = self.integrate_over_states(1-self.f0_array[c][T]['p'])
 
         self.init_egrid(dos_tp="standard")
-
-        print('fermi level = {}'.format(self.fermi_level))
-
+        logging.info('fermi level = {}'.format(self.fermi_level))
         self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
         if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
             warnings.warn("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
@@ -156,10 +154,6 @@ class AMSET(object):
         # initialize g in the egrid
         self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
         self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
-
-
-        # logging.debug("average of the group velocity in egrid: \n {}".format(
-        #     np.mean(self.egrid[self.debug_tp]["velocity"], 0)))
 
         # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
         if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
@@ -175,7 +169,6 @@ class AMSET(object):
 
         for c in self.dopings:
             for T in self.temperatures:
-                #fermi = self.egrid["fermi"][c][T]
                 fermi = self.fermi_level[c][T]
                 for tp in ["n", "p"]:
                     fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
@@ -183,24 +176,20 @@ class AMSET(object):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             E = self.kgrid[tp]["energy"][ib][ik]
                             v = self.kgrid[tp]["velocity"][ib][ik]
-
                             self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
                             self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E, fermi, T) * v  # in cm
-                            self.kgrid[tp]["electric force"][c][T][ib][ik] = -1 * \
-                                                                             self.kgrid[tp]["df0dk"][c][T][ib][
-                                                                                 ik] * default_small_E / hbar  # in 1/s
+                            self.kgrid[tp]["electric force"][c][T][ib][ik] = \
+                                -1 * self.kgrid[tp]["df0dk"][c][T][ib][ik] * \
+                                default_small_E / hbar  # in 1/s
 
                             E_norm = E - self.cbm_vbm[tp]["energy"]
-                            # self.kgrid[tp]["electric force"][c][T][ib][ik] = 1
-                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = - v * f0(E_norm, fermi_norm, T) * (
-                            1 - f0(E_norm, fermi_norm, T)) * ( \
-                                                                                E_norm / (k_B * T) - self.egrid[
-                                                                                    "Seebeck_integral_numerator"][c][T][
-                                                                                    tp] /
-                                                                                self.egrid[
-                                                                                    "Seebeck_integral_denominator"][c][
-                                                                                    T][tp]) * dTdz / T
-
+                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = \
+                                - v * f0(E_norm, fermi_norm, T) * (1 - f0(
+                                E_norm, fermi_norm, T)) * (E_norm / (k_B * T)-\
+                                self.egrid["Seebeck_integral_numerator"][c][
+                                    T][tp] / self.egrid[
+                                        "Seebeck_integral_denominator"][c][
+                                        T][tp]) * dTdz / T
                 dop_tp = self.get_tp(c)
                 f0_removed = self.array_from_kgrid('f0', dop_tp, c, T)
                 f0_all = 1 / (np.exp((self.energy_array[dop_tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
@@ -222,22 +211,10 @@ class AMSET(object):
         # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
         self.solve_BTE_iteratively()
 
-        # if "POP" in self.inelastic_scatterings:
-        #     for key in ["plus", "minus"]:
-        #         with open("X_E{}_ik".format(key), "w") as fp:
-        #             json.dump(self.kgrid[self.debug_tp]["X_E{}_ik".format(key)][0], fp, cls=MontyEncoder)
-
         if self.k_integration:
             self.calculate_transport_properties_with_k()
         if self.e_integration:
             self.calculate_transport_properties_with_E()
-
-        # logging.debug('self.kgrid_to_egrid_idx[self.debug_tp]: \n {}'.format(self.kgrid_to_egrid_idx[self.debug_tp]))
-        # logging.debug('self.kgrid["velocity"][self.debug_tp][0]: \n {}'.format(self.kgrid[self.debug_tp]["velocity"][0]))
-        # logging.debug('self.egrid["velocity"][self.debug_tp]: \n {}'.format(self.egrid[self.debug_tp]["velocity"]))
-
-        # kremove_list = ["W_POP", "effective mass", "kweights", "a", "c""",
-        #                 "f_th", "g_th", "S_i_th", "S_o_th"]
 
         kgrid_rm_list = ["effective mass", "kweights",
                          "f_th", "S_i_th", "S_o_th"]
@@ -247,7 +224,6 @@ class AMSET(object):
             pprint(self.mobility)
         if self.e_integration:
             pprint(self.egrid["mobility"])
-        #pprint(self.egrid["seebeck"])
 
 
 
@@ -283,7 +259,6 @@ class AMSET(object):
             "adaptive_mesh": self.adaptive_mesh,
             "dos_bwidth": self.dos_bwidth,
             "nkdos": self.nkdos,
-            "wordy": self.wordy,
             "BTE_iters": self.BTE_iters
         }
 
@@ -321,10 +296,6 @@ class AMSET(object):
         these are set based on params (dict) set by the user or their default values"""
 
         self.bs_is_isotropic = params.get("bs_is_isotropic", False)
-        # TODO: remove this if later when anisotropic band structure is supported
-        # if not self.bs_is_isotropic:
-        #     raise IOError("Anisotropic option or bs_is_isotropic==False is NOT supported yet, please check back later")
-        # what scattering mechanisms to be included
         self.elastic_scatterings = params.get("elastic_scatterings", ["ACD", "IMP", "PIE"])
         self.inelastic_scatterings = params.get("inelastic_scatterings", ["POP"])
 
@@ -343,10 +314,8 @@ class AMSET(object):
         self.nkibz = params.get("nkibz", 40)
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 2)
-        # max eV range after which occupation is zero, we set this at least to 10*kB*300
         c_factor = max(1, 2*abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.15)
         Ecut = params.get("Ecut", c_factor * 15 * k_B * max(self.temperatures + [300]))
-        # Ecut = params.get("Ecut", 10 * k_B * max(self.temperatures + [300]))
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
         for tp in ["n", "p"]:
             logging.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
@@ -360,7 +329,6 @@ class AMSET(object):
         self.gl = 1e32  # a global large value
 
         # TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
-        self.wordy = params.get("wordy", False)
         self.BTE_iters = params.get("BTE_iters", 5)
         self.parallel = params.get("parallel", True)
         logging.info("parallel: {}".format(self.parallel))
