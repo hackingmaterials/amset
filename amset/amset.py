@@ -23,8 +23,9 @@ import multiprocessing
 from joblib import Parallel, delayed
 from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_energy, get_poly_energy
 
-from tools import norm, grid_norm, f0, df0dE, cos_angle, fermi_integral,\
-        GB, calculate_Sio, calculate_Sio_list, remove_from_grid
+from tools import norm, grid_norm, f0, df0dE, cos_angle, fermi_integral, GB, \
+        calculate_Sio, calculate_Sio_list, remove_from_grid, \
+        remove_duplicate_kpoints
 
 
 __author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
@@ -549,7 +550,7 @@ class AMSET(object):
             last_is_counted = False
             while i < len(self.egrid[tp]["all_en_flat"]) - 1:
                 sum_E = self.egrid[tp]["all_en_flat"][i]
-                sum_nksym = len(self.remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i])))
+                sum_nksym = len(remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i])))
                 counter = 1.0  # because the ith member is already included in sum_E
                 current_ib_ie_idx = [E_idx[tp][i]]
                 j = i
@@ -558,7 +559,7 @@ class AMSET(object):
                     counter += 1
                     current_ib_ie_idx.append(E_idx[tp][j + 1])
                     sum_E += self.egrid[tp]["all_en_flat"][j + 1]
-                    sum_nksym += len(self.remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i+1])))
+                    sum_nksym += len(remove_duplicate_kpoints(self.get_sym_eq_ks_in_first_BZ(self.egrid[tp]["all_ks_flat"][i+1])))
 
                     if j + 1 == len(self.egrid[tp]["all_en_flat"]) - 1:
                         last_is_counted = True
@@ -643,11 +644,8 @@ class AMSET(object):
     def get_Eidx_in_dos(self, E, Estep=None):
         if not Estep:
             Estep = max(self.dE_min, 0.0001)
-        # there might not be anything wrong with the following but for now I thought using argmin() is safer
-        # return int(round((E - self.dos_emin) / Estep))
-        return abs(self.dos_emesh - E).argmin()
-
-        # return min(int(round((E - self.dos_emin) / Estep)) , len(self.dos)-1)
+        return int(round((E - self.dos_emin) / Estep)) # ~faster than argmin
+        # return abs(self.dos_emesh - E).argmin()
 
 
 
@@ -661,7 +659,8 @@ class AMSET(object):
         """
         a = self.kgrid[tp]["a"][ib][ik]
         c = self.kgrid[tp]["c"][ib][ik]
-        return (a * self.kgrid[tp]["a"][ib_prm][ik_prm] + X * c * self.kgrid[tp]["c"][ib_prm][ik_prm]) ** 2
+        return (a * self.kgrid[tp]["a"][ib_prm][ik_prm] + \
+                X * c * self.kgrid[tp]["c"][ib_prm][ik_prm]) ** 2
 
 
 
@@ -734,75 +733,6 @@ class AMSET(object):
                         else:
                             self[grid][tp][name] = {c: {T: init_content for T in self.temperatures} for c in
                                                     self.dopings}
-
-
-    @staticmethod
-    def remove_duplicate_kpoints(kpts, dk=0.0001):
-        """kpts (list of list): list of coordinates of electrons
-         ALWAYS return either a list or ndarray: BE CONSISTENT with the input!!!
-
-         Attention: it is better to call this method only once as calculating the norms takes time.
-         """
-        start_time = time.time()
-
-        rm_list = []
-
-        kdist = [norm(k) for k in kpts]
-        ktuple = zip(kdist, kpts)
-        ktuple.sort(key=lambda x: x[0])
-        kpts = [tup[1] for tup in ktuple]
-
-        i = 0
-        while i < len(kpts) - 1:
-            j = i
-            while j < len(kpts) - 1 and ktuple[j + 1][0] - ktuple[i][0] < dk:
-
-                # for i in range(len(kpts)-2):
-                # if kpts[i][0] == kpts[i+1][0] and kpts[i][1] == kpts[i+1][1] and kpts[i][2] == kpts[i+1][2]:
-
-                if (abs(kpts[i][0] - kpts[j + 1][0]) < dk or abs(kpts[i][0]) == abs(kpts[j + 1][0]) == 0.5) and \
-                        (abs(kpts[i][1] - kpts[j + 1][1]) < dk or abs(kpts[i][1]) == abs(kpts[j + 1][1]) == 0.5) and \
-                        (abs(kpts[i][2] - kpts[j + 1][2]) < dk or abs(kpts[i][2]) == abs(kpts[j + 1][2]) == 0.5):
-                    rm_list.append(j + 1)
-                j += 1
-            i += 1
-
-        # The reason the following does NOT work is this example: [[0,3,4], [4,3,0], [0.001, 3, 4]]: In this example,
-        # the k-points are correctly sorted based on their norm but 0&1 or 1&2 are NOT equal but 0&3 are but not captured
-        # for i in range(len(kpts)-2):
-        #     if (abs(kpts[i][0]-kpts[i+1][0])<dk or abs(kpts[i][0])==abs(kpts[i+1][0])==0.5) and \
-        #             (abs(kpts[i][1]-kpts[i+1][1]) < dk or abs(kpts[i][1]) == abs(kpts[i+1][1]) == 0.5) and \
-        #             (abs(kpts[i][2]-kpts[i+1][2]) < dk or abs(kpts[i][2]) == abs(kpts[i+1][2]) == 0.5):
-        #             rm_list.append(i+1)
-
-        kpts = np.delete(kpts, rm_list, axis=0)
-        kpts = list(kpts)
-
-        # even if this works (i.e. the shape of kpts is figured out, etc), it's not good as does not consider 0.0001 and 0.0002 equal
-        # kpts = np.vstack({tuple(row) for row in kpts})
-
-
-        # CORRECT BUT TIME CONSUMING WAY OF REMOVING DUPLICATES
-        # for i in range(len(kpts)-2):
-        #     # if abs(abs(kpts[i][0]) - 0.5) < 0.0001 and abs(abs(kpts[i][1]) - 0.5) < 0.0001 and abs(abs(kpts[i][2]) - 0.5) < 0.0001:
-        #     #     rm_list.append(i)
-        #     #     continue
-        #     for j in range(i+1, len(kpts)-1):
-        #         if (abs(kpts[i][0] - kpts[j][0]) < 0.0001 or abs(kpts[i][0])==abs(kpts[j][0])==0.5) and \
-        #                 (abs(kpts[i][1] - kpts[j][1]) < 0.0001 or abs(kpts[i][1]) == abs(kpts[j][1]) == 0.5) and\
-        #             (abs(kpts[i][2] - kpts[j][2]) < 0.0001 or abs(kpts[i][2]) == abs(kpts[j][2]) == 0.5):
-        #
-        #             rm_list.append(j)
-        #
-        # kpts = np.delete(kpts, rm_list, axis=0)
-        # kpts = list(kpts)
-
-
-        # print "total time to remove duplicate k-points = {} seconds".format(time.time() - start_time)
-        # print "number of duplicates removed:"
-        # print len(rm_list)
-
-        return kpts
 
 
 
@@ -954,119 +884,13 @@ class AMSET(object):
         return energy, velocity, effective_m
 
 
-
-    # ultimately it might be most clean for this function to largely be two different functions (one for poly bands and one for analytical),
-    # and then the parts they share can be separate functions called by both
     def init_kgrid(self, coeff_file, kgrid_tp="coarse"):
         logging.debug("begin profiling init_kgrid: a {} grid".format(kgrid_tp))
         start_time = time.time()
-        Tmx = max(self.temperatures)
-        if kgrid_tp == "coarse":
-            nkstep = self.nkibz
-
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
-        self.rotations, self.translations = sg._get_symmetry()  # this returns unique symmetry operations
-
-        # logging.debug("rotation symmetry matrixes: \n {}".format(self.rotations))
-        # logging.debug("translation symmetry matrixes: \n {}".format(self.translations))
+        self.rotations, self.translations = sg._get_symmetry()
 
         logging.info("self.nkibz = {}".format(self.nkibz))
-
-        bs_extrema = {"n": [self.cbm_vbm["n"]["kpoint"]],
-                      "p": [self.cbm_vbm["p"]["kpoint"]]}
-        nkk = 11
-        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk), is_shift=[0, 0, 0])
-        initial_ibzkpt = [i[0] for i in kpts_and_weights]
-        step_signs = [[np.sign(k[0]), np.sign(k[1]), np.sign(k[2])] for k in initial_ibzkpt]
-        step_signs = self.remove_duplicate_kpoints(step_signs)
-        print step_signs
-        # kpts = [i[0] for i in kpts_and_weights]
-
-        #adaptive k-mesh
-        kpts = {tp: [self.cbm_vbm[tp]["kpoint"]] for tp in ["n", "p"]}
-
-        # print "test!"
-        # print self.rotations
-        all_ibz = []
-        # tk = 0.5
-        # relevant_kpoints = [[0.0, 0.0, 0.0],  [tk, 0.0, 0.0], [tk, tk, 0.0], [-tk, tk, 0.0]]
-        # for k in relevant_kpoints:
-        #     all_ibz += [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
-        # all_ibz = self.kpts_to_first_BZ(all_ibz)
-        # all_ibz = self.remove_duplicate_kpoints(all_ibz)
-        # print all_ibz
-        # print len(all_ibz)
-
-
-        print "step_signs:", step_signs
-        # test_signs = []
-        # for i in [-1, 0, 1]:
-        #     for j in [-1, 0, 1]:
-        #         for k in [-1, 0, 1]:
-        #             test_signs.append([i, j, k])
-
-        # fine mesh
-        # mesh =  in [[0.001, 10],[0.005, 10], [0.01, 21], [0.025, 21]]:
-        # loose mesh
-        # mesh = [[0.001, 5], [0.005, 10], [0.01, 10], [0.025, 10], [0.1, 5]]: # 1
-        #     print "mesh: 1"
-        #
-        # mesh = [[0.001, 5], [0.005, 20], [0.01, 15], [0.025, 10], [0.1, 5]]: # 2
-        #     print "mesh: 2"
-        #
-        # mesh =  [[0.001, 5], [0.005, 5], [0.01, 15], [0.025, 10], [0.1, 5]]: # 3
-        #     print "mesh: 3"
-
-        # mesh =  [[0.001, 5], [0.005, 5], [0.01, 20], [0.025, 10], [0.1, 5]]: # 4
-        #     print "mesh: 4"
-
-        # mesh =  [[0.001, 5], [0.005, 5], [0.01, 15], [0.025, 20]]: # 5
-        #     print "mesh: 5"
-
-        # mesh = [[0.001, 5], [0.005, 20], [0.01, 20], [0.025, 20]]: # 6
-        #     print "mesh: 6"
-
-        # mesh = [[0.001, 10], [0.005, 25], [0.01, 20], [0.025, 20]]: # 7
-        #     print "mesh: 7"
-
-        # mesh = [[0.001, 15], [0.005, 25], [0.01, 20], [0.025, 20]]: # 8
-        #     print "mesh: 8"
-        #
-        # mesh = [[0.001, 5], [0.005, 10], [0.01, 10], [0.025, 20]]: # 9
-        #     print "mesh: 9"
-        #
-
-        '''for step, nsteps in [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]]: # 10
-        # if kgrid_tp == "fine":
-        #     mesh = [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]] # 10
-            print "mesh: 10"
-        elif kgrid_tp == "coarse":
-            mesh = [[0.002, 5], [0.01, 5], [0.05, 5], [0.25, 3]]
-            print "mesh: 11"
-
-        for tp in ["n", "p"]:
-            for step, nsteps in mesh:
-                for k_extremum in bs_extrema[tp]:
-                    for kx_sign, ky_sign, kz_sign in step_signs:
-                    # for kx_sign, ky_sign, kz_sign in test_signs:
-                    # for kx_sign, ky_sign, kz_sign in [(1.0, 1.0, 1.0)]:
-                        for kx in [k_extremum[0] + i*step*kx_sign for i in range(nsteps)]:
-                            for ky in [k_extremum[1] + i * step*ky_sign for i in range(nsteps)]:
-                                for kz in [k_extremum[2] + i * step*kz_sign for i in range(nsteps)]:
-                                    kpts[tp].append([kx, ky, kz])
-                                # kpts.append([-kx, ky, kz])
-                                # kpts.append([kx, -ky, kz])
-                                # kpts.append([kx, ky, -kz])
-            # kpts[tp] = self.kpts_to_first_BZ(kpts[tp])
-            # kpts[tp] = self.remove_duplicate_kpoints(kpts[tp])
-        kpts = self.kpts_to_first_BZ(kpts)
-        kpts = self.remove_duplicate_kpoints(kpts)'''
-
-
-        # alternative version fo the above to create an appropriate kgrid for integration over k
-        # start by producing a 1D list of values
-        # setup a coarse "background" grid
-
         self.kgrid_array = {}
 
         #points_1d = {dir: [-0.4 + i*0.1 for i in range(9)] for dir in ['x', 'y', 'z']}
@@ -1194,7 +1018,7 @@ class AMSET(object):
             # these points will be used later to generate energy based on the minimum norm(k-k_i)
             for ib in range(len(self.poly_bands)):
                 for j in range(len(self.poly_bands[ib])):
-                    self.poly_bands[ib][j][0] = self.remove_duplicate_kpoints(
+                    self.poly_bands[ib][j][0] = remove_duplicate_kpoints(
                         self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0], cartesian=True))
 
         logging.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
@@ -1415,7 +1239,7 @@ class AMSET(object):
         #     for k in kpts[tp]:
         #         symmetrically_equivalent_ks += self.get_sym_eq_ks_in_first_BZ(k)
         #     kpts[tp] += symmetrically_equivalent_ks
-        #     kpts[tp] = self.remove_duplicate_kpoints(kpts[tp])
+        #     kpts[tp] = remove_duplicate_kpoints(kpts[tp])
         #
         #
         #     if len(kpts[tp]) < 3:
@@ -1465,7 +1289,7 @@ class AMSET(object):
         for i, tp in enumerate(["p", "n"]):
             self.cbm_vbm[tp]["cartesian k"] = self._rec_lattice.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
             self.cbm_vbm[tp]["all cartesian k"] = self.get_sym_eq_ks_in_first_BZ(self.cbm_vbm[tp]["kpoint"], cartesian=True)
-            self.cbm_vbm[tp]["all cartesian k"] = self.remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
+            self.cbm_vbm[tp]["all cartesian k"] = remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
 
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -3688,7 +3512,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
-               carrier_types=amset.all_types, save_format=None)
+    # amset.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
+    #            carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
