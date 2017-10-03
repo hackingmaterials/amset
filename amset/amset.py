@@ -316,7 +316,7 @@ class AMSET(object):
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 2)
         c_factor = max(1, 2*abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.15)
-        Ecut = params.get("Ecut", c_factor * 15 * k_B * max(self.temperatures + [300]))
+        Ecut = params.get("Ecut", c_factor * 10 * k_B * max(self.temperatures + [300]))
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
         for tp in ["n", "p"]:
             logging.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
@@ -3271,8 +3271,10 @@ if __name__ == "__main__":
 
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
-                  dopings = [-2e15], temperatures = [300], k_integration=True, e_integration=True, fermi_type='e'
-                  )   # -3.3e13
+                  dopings = [-2e15],
+                  temperatures = [300],
+                  k_integration=True, e_integration=True, fermi_type='e'
+                  )
     # cProfile.run('amset.run(coeff_file=coeff_file, kgrid_tp="very coarse")')
     profiler = cProfile.Profile()
     profiler.runcall(lambda: amset.run(coeff_file=coeff_file,
