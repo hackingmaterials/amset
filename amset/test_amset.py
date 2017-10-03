@@ -16,7 +16,7 @@ class AmsetTest(unittest.TestCase):
                              'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                              'inelastic_scatterings': ['POP']}
         self.performance_params = {'dE_min': 0.0001, 'nE_min': 2, 'Ecut': 0.7,
-                                   'parallel': True, 'BTE_iters': 5}
+                                'parallel': True, 'BTE_iters': 5, 'nkdos':29}
     def tearDown(self):
         pass
 

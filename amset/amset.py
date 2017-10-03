@@ -2138,71 +2138,114 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.05, max_iter=5000):
+    def find_fermi(self, c, T, tolerance=0.005, tolerance_loose=0.03, alpha=0.05, max_iter=5000):
         """
         To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
-        :param c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
-        :param T (float): The temperature.
-        :param tolerance (0<float<1): convergance threshold for relative error
-        :param tolerance_loose (0<float<1): maximum relative error allowed between the calculated and input c
-        :param alpha (float < 1): the fraction of the linear interpolation towards the actual fermi at each iteration
-        :param max_iter (int): after this many iterations the function returns even if it is not converged
-        :return:
+        Args:
+            c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
+            T (float): The temperature.
+            tolerance (0<float<1): convergance threshold for relative error
+            tolerance_loose (0<float<1): maximum relative error allowed between the calculated and input c
+            alpha (float < 1): the fraction of the linear interpolation towards the actual fermi at each iteration
+            max_iter (int): after this many iterations the function returns even if it is not converged
+        Returns:
             The fitted/calculated Fermi level
         """
 
         # initialize parameters
         relative_error = self.gl
-        iter = 0.0
-        tune_alpha = 1.0
+        niter = 0.0
         temp_doping = {"n": -0.01, "p": +0.01}
         typ = get_tp(c)
         typj = ["n", "p"].index(typ)
         fermi = self.cbm_vbm[typ]["energy"] + 0.01 * (-1)**typj # addition is to ensure Fermi is not exactly 0.0
         # fermi = self.egrid[typ]["energy"][0]
-
         print("calculating the fermi level at temperature: {} K".format(T))
         funcs = [lambda E, fermi0, T: f0(E, fermi0, T), lambda E, fermi0, T: 1 - f0(E, fermi0, T)]
         calc_doping = (-1) ** (typj + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
                       * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ, fermi=fermi, T=T))
 
-        while (relative_error > tolerance) and (iter < max_iter):
-            iter += 1  # to avoid an infinite loop
-            if iter / max_iter > 0.5:  # to avoid oscillation we re-adjust alpha at each iteration
-                tune_alpha = 1 - iter / max_iter
-            # fermi += (-1) ** (typj) * alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
-            fermi += alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * abs(fermi)
-            if abs(fermi) < 1e-5: # switch sign when getting really close to 0 as otherwise will never converge
-                fermi = fermi * -1
+        def linear_iteration(relative_error, fermi, calc_doping,
+                             iterations, niter):
+            tune_alpha = 1.0
+            while (relative_error > tolerance) and (niter < iterations):
+                niter += 1  # to avoid an infinite loop
+                if niter / max_iter > 0.5:  # to avoid oscillation we re-adjust alpha at each iteration
+                    tune_alpha = 1 - niter / max_iter
+                # fermi += (-1) ** (typj) * alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
+                fermi += alpha * tune_alpha * (calc_doping - c) / abs(
+                    c + calc_doping) * abs(fermi)
+                if abs(
+                        fermi) < 1e-5:  # switch sign when getting really close to 0 as otherwise will never converge
+                    fermi = fermi * -1
 
-            for j, tp in enumerate(["n", "p"]):
-                integral = 0.0
-                for ie in range((1 - j) * self.cbm_dos_idx,
-                                    (1 - j) * len(self.dos) + j * self.vbm_dos_idx - 1):
-                    integral += (self.dos[ie + 1][1] + self.dos[ie][1]) / 2 * funcs[j](self.dos[ie][0], fermi, T) * \
-                                (self.dos[ie + 1][0] - self.dos[ie][0])
-                temp_doping[tp] = (-1) ** (j + 1) * abs(integral / (self.volume * (A_to_m * m_to_cm) ** 3))
+                for j, tp in enumerate(["n", "p"]):
+                    integral = 0.0
+                    for ie in range((1 - j) * self.cbm_dos_idx,
+                                    (1 - j) * len(
+                                        self.dos) + j * self.vbm_dos_idx - 1):
+                        integral += (self.dos[ie + 1][1] + self.dos[ie][
+                            1]) / 2 * funcs[j](self.dos[ie][0], fermi, T) * \
+                                    (self.dos[ie + 1][0] - self.dos[ie][0])
+                    temp_doping[tp] = (-1) ** (j + 1) * abs(
+                        integral / (self.volume * (A_to_m * m_to_cm) ** 3))
+                calc_doping = temp_doping["n"] + temp_doping["p"]
+                if abs(calc_doping) < 1e-2:
+                    calc_doping = np.sign(
+                        calc_doping) * 0.01  # just so that calc_doping doesn't get stuck to zero!
+                # calculate the relative error from the desired concentration, c
+                relative_error = abs(calc_doping - c) / abs(c)
+            return relative_error, fermi, calc_doping, niter
 
-            calc_doping = temp_doping["n"] + temp_doping["p"]
-            if abs(calc_doping) < 1e-2:
-                calc_doping = np.sign(calc_doping) * 0.01  # just so that calc_doping doesn't get stuck to zero!
 
-            # calculate the relative error from the desired concentration, c
-            relative_error = abs(calc_doping - c) / abs(c)
+        relative_error, fermi, calc_doping, niter = linear_iteration(
+            relative_error, fermi, calc_doping, iterations=50, niter=niter)
+        if relative_error <= tolerance:
+            self.egrid["calc_doping"][c][T]["n"] = temp_doping["n"]
+            self.egrid["calc_doping"][c][T]["p"] = temp_doping["p"]
+            logging.info(
+                "fermi at {} 1/cm3 and {} K after {} iterations: {}".format(
+                    c, T, int(niter), fermi))
+            return fermi
 
-        self.egrid["calc_doping"][c][T]["n"] = temp_doping["n"]
-        self.egrid["calc_doping"][c][T]["p"] = temp_doping["p"]
+        # start with a simple grid search with maximum 6(2nstep+1) iterations
+        step = 0.1
+        nstep = 20
+        fermi0 = fermi
+        min_diff = 1e32
+        for i in range(5):
+            if i > 0:
+                nsetps = 10
+            for coeff in range(-nstep, nstep+1):
+                niter += 1
+                fermi = fermi0 + coeff*step
+                for j, tp in enumerate(["n", "p"]):
+                    integral = 0.0
+                    for ie in range((1 - j) * self.cbm_dos_idx,
+                                    (1 - j) * len(
+                                        self.dos) + j * self.vbm_dos_idx - 1):
+                        integral += (self.dos[ie + 1][1] + self.dos[ie][
+                            1]) / 2 * funcs[j](self.dos[ie][0], fermi, T) * \
+                                    (self.dos[ie + 1][0] - self.dos[ie][0])
+                    temp_doping[tp] = (-1) ** (j + 1) * abs(
+                        integral / (self.volume * (A_to_m * m_to_cm) ** 3))
+                calc_doping = temp_doping["n"] + temp_doping["p"]
+                if abs(calc_doping - c) / abs(c) < relative_error:
+                    relative_error = abs(calc_doping - c) / abs(c)
+                    self.egrid["calc_doping"][c][T]["n"] = temp_doping["n"]
+                    self.egrid["calc_doping"][c][T]["p"] = temp_doping["p"]
+                    if relative_error < tolerance:
+                        logging.info(
+                            "fermi at {} 1/cm3 and {} K after {} iterations: {}".format(
+                                c, T, int(niter), fermi))
+                        return fermi
+                    fermi0 = fermi
+            step /= 10
 
-        # check to see if the calculated concentration is close enough to the desired value
-        if relative_error > tolerance and relative_error <= tolerance_loose:
-            warnings.warn("The calculated concentration {} is not accurate compared to {}; results may be unreliable"
-                          .format(calc_doping, c))
-        elif relative_error > tolerance_loose:
-            raise ValueError("The calculated concentration {} is more than {}% away from {}; "
-                             "possible cause may low band gap, high temperature, small nsteps, etc; AMSET stops now!"
-                             .format(calc_doping, tolerance_loose * 100, c))
+        relative_error, fermi, calc_doping, niter = linear_iteration(
+            relative_error, fermi, calc_doping, iterations=max_iter, niter=niter)
 
-        logging.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(iter), fermi))
+        logging.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(niter), fermi))
         return fermi
 
 
@@ -2210,11 +2253,6 @@ class AMSET(object):
     def inverse_screening_length(self, c, T):
         """
         calculates the inverse screening length (beta) in 1/nm units
-        :param tp:
-        :param fermi:
-        :param T:
-        :param interpolation_nsteps:
-        :return:
         """
         beta = {}
         for tp in ["n", "p"]:
@@ -2233,7 +2271,6 @@ class AMSET(object):
     def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0):
         if not max_ndata:
             max_ndata = int(self.gl)
-
         egrid = deepcopy(self.egrid)
         if trimmed:
             nmax = int(min([max_ndata + 1, min([len(egrid["n"]["energy"]), 
@@ -2249,7 +2286,6 @@ class AMSET(object):
                                     egrid[tp][key][c][T] = self.egrid[tp][key][c][T][nstart:nstart + nmax]
                                 else:
                                     egrid[tp][key][c][T] = self.egrid[tp][key][c][T][::-1][nstart:nstart + nmax]
-                                    # egrid[tp][key][c][T] = self.egrid[tp][key][c][T][-(nstart+nmax):-max(nstart,1)][::-1]
                     except:
                         try:
                             if tp == "n":
@@ -3103,7 +3139,7 @@ if __name__ == "__main__":
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
                   dopings = [-2e15],
-                  temperatures = [800],
+                  temperatures = [300],
                   k_integration=True, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
