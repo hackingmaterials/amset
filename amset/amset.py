@@ -2174,15 +2174,6 @@ class AMSET(object):
                                 first_ib = self.kgrid_to_egrid_idx[tp][ie][0][0]
                                 first_ik = self.kgrid_to_egrid_idx[tp][ie][0][1]
                                 for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                                    # if norm(self.kgrid[tp][prop_name][c][T][ib][ik]) / norm(
-                                    #         self.kgrid[tp][prop_name][c][T][first_ib][first_ik]) > 1.25 or norm(
-                                    #         self.kgrid[tp][prop_name][c][T][ib][ik]) / norm(
-                                    #         self.kgrid[tp][prop_name][c][T][first_ib][first_ik]) < 0.8:
-                                    #     logging.debug('ERROR! Some {} values are more than 25% different at k points with the same energy.'.format(prop_name))
-                                    #     print('first k: {}, current k: {}'.format(
-                                    #         norm(self.kgrid[tp][prop_name][c][T][first_ib][first_ik]),
-                                    #         norm(self.kgrid[tp][prop_name][c][T][ib][ik])))
-
                                     if self.bs_is_isotropic and prop_type == "vector":
                                         self.egrid[tp][prop_name][c][T][ie] += norm(
                                             self.kgrid[tp][prop_name][c][T][ib][ik]) / sq3
@@ -2190,35 +2181,12 @@ class AMSET(object):
                                         self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
                                 self.egrid[tp][prop_name][c][T][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
 
-                                # if self.bs_is_isotropic and prop_type == "vector":
-                                #     self.egrid[tp][prop_name][c][T][ie] = np.array(
-                                #         [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
-
                             # df0dk must be negative but we used norm for df0dk when isotropic
                             if prop_name in ["df0dk"] and self.bs_is_isotropic:
                                 self.egrid[tp][prop_name][c][T] *= -1
                 else:
-                    raise ValueError(
+                    raise NotImplementedError(
                         "Guassian Broadening is NOT well tested and abandanded at the begining due to inaccurate results")
-                    # for c in self.dopings:
-                    #     for T in self.temperatures:
-                    #         for ie, en in enumerate(self.egrid[tp]["energy"]):
-                    #             N = 0.0 # total number of instances with the same energy
-                    #             for ib in range(self.cbm_vbm[tp]["included"]):
-                    #                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                    #                     self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik] * \
-                    #                            GB(self.kgrid[tp]["energy"][ib][ik] -
-                    #                                                         self.egrid[tp]["energy"][ie], 0.005)
-                    #             self.egrid[tp][prop_name][c][T][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
-                    #
-                    #
-                    #             if self.bs_is_isotropic and prop_type == "vector":
-                    #                 self.egrid[tp][prop_name][c][T][ie] = np.array(
-                    #                     [norm(self.egrid[tp][prop_name][c][T][ie])/sq3 for i in range(3)])
-                    #
-                    #         if prop_name in ["df0dk"]: # df0dk is always negative
-                    #             self.egrid[tp][c][T][prop_name] *= -1
-
 
 
     def find_fermi_SPB(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=1000):
