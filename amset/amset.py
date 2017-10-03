@@ -1509,7 +1509,6 @@ class AMSET(object):
         """
 
         norm_diff_k = norm(k - k_prm)  # the slope for PIE and IMP don't match with bs_is_isotropic
-
         if norm_diff_k == 0.0:
             warnings.warn("WARNING!!! same k and k' vectors as input of the elastic scattering equation")
             return 0.0
@@ -1565,8 +1564,14 @@ class AMSET(object):
         return grid
 
 
-    # grid is a 4d numpy array, where last dimension is vectors in a 3d grid specifying fractional position in BZ
     def array_to_kgrid(self, grid):
+        """
+        Args:
+            grid (np.array): 4d numpy array, where last dimension is vectors
+                in a 3d grid specifying fractional position in BZ
+        Returns:
+            a list of [kx, ky, kz] k-point coordinates compatible with AMSET
+        """
         kgrid = []
         for i in range(grid.shape[0]):
             for j in range(grid.shape[1]):
