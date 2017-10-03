@@ -1458,10 +1458,6 @@ class AMSET(object):
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
         for ib_prm in range(self.cbm_vbm[tp]["included"]):
-            # this code is commented out because it is unnecessary unless it saves a lot of time
-            # if ib==ib_prm and E_change==0.0:
-            #    ik_closest_E = ik
-            # else:
             ik_closest_E = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
 
             for step, start in [(1, 0), (-1, -1)]:
@@ -1472,27 +1468,27 @@ class AMSET(object):
                         result.append(X_ib_ik)
                     ik_prm += step
 
-        # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
-        ib_prm = ib
-        ik_closest_E = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
+        if E_change != 0.0:
+            # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
+            ib_prm = ib
+            ik_closest_E = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
 
-        for step, start in [(1, 0), (-1, -1)]:
-            # step -1 is in case we reached the end (ik_prm == nk - 1); then we choose from the lower energy k-points
-            ik_prm = ik_closest_E + start  # go up from ik_closest_E, down from ik_closest_E - 1
-            while ik_prm >= 0 and ik_prm < nk and len(result) - 1 < forced_min_npoints:
-                # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
-                # @albalu isn't this the function that is used to generate self.kgrid[tp]["X_E_ik"]? How will there already be something in self.kgrid[tp]["X_E_ik"] at this point?
-                for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
-                    X, ib_pmpm, ik_pmpm = X_ib_ik
-                    X_ib_ik_new = (
-                    cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm)
-                    if (X_ib_ik_new[1], X_ib_ik_new[2]) not in [(entry[1], entry[2]) for entry in result]:
-                        result.append(X_ib_ik_new)
-                    self.nforced_scat[tp] += 1
+            for step, start in [(1, 0), (-1, -1)]:
+                # step -1 is in case we reached the end (ik_prm == nk - 1); then we choose from the lower energy k-points
+                ik_prm = ik_closest_E + start  # go up from ik_closest_E, down from ik_closest_E - 1
+                while ik_prm >= 0 and ik_prm < nk and len(result) - 1 < forced_min_npoints:
+                    # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
+                    for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
+                        X, ib_pmpm, ik_pmpm = X_ib_ik
+                        X_ib_ik_new = (
+                        cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm)
+                        if (X_ib_ik_new[1], X_ib_ik_new[2]) not in [(entry[1], entry[2]) for entry in result]:
+                            result.append(X_ib_ik_new)
+                        self.nforced_scat[tp] += 1
 
-                self.ediff_scat[tp].append(
-                    self.kgrid[tp]["energy"][ib][ik] - self.kgrid[tp]["energy"][ib_prm][ik_prm])
-                ik_prm += step
+                    self.ediff_scat[tp].append(
+                        self.kgrid[tp]["energy"][ib][ik] - self.kgrid[tp]["energy"][ib_prm][ik_prm])
+                    ik_prm += step
 
         result.sort(key=lambda x: x[0])
         return result
@@ -1904,8 +1900,6 @@ class AMSET(object):
         integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
                 (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2)
 
-
-
         if "S_i" in sname:
             integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
             # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
@@ -1943,7 +1937,7 @@ class AMSET(object):
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         # only when very large # of k-points are present, make sense to parallelize as this function
                         # has become fast after better energy window selection
-                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 100000:
+                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 1000000:
                             # if False:
                             results = Parallel(n_jobs=self.num_cores)(delayed(calculate_Sio) \
                                                                           (tp, c, T, ib, ik, once_called, self.kgrid,
