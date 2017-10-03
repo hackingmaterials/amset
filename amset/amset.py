@@ -843,18 +843,6 @@ class AMSET(object):
     # them all in a single labeled tuple so the code is more readable?
     # engre through sgn: use for analytical bands energy; tp and ib: use for poly bands energy
     def calc_analytical_energy(self, xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, sgn):
-        """
-            :param xkpt (?): ?
-            :param engre (?): ?
-            :param nwave (?): ?
-            :param nsym (?): ?
-            :param nstv (?): ?
-            :param vec (?): ?
-            :param vec2 (?): ?
-            :param out_vec2 (?): ?
-            :param br_dir (?): ?
-            :param sgn (int): -1 or 1
-        """
         energy, de, dde = get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
         energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
         velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
@@ -865,11 +853,16 @@ class AMSET(object):
 
 
     def calc_poly_energy(self, xkpt, tp, ib):
-        '''
-        :param tp: "p" or "n"
-        :param ib: band index...?
-        :return:
-        '''
+        """
+
+        Args:
+            xkpt ([float]): fractional coordinates of a given k-point
+            tp (str): 'n' or 'p' type
+            ib (int): the band index
+
+        Returns:
+            (energy(eV), velocity (cm/s), effective mass) from a parabolic band
+        """
         energy, velocity, effective_m = get_poly_energy(
             self._rec_lattice.get_cartesian_coords(xkpt) / A_to_nm,
             poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
