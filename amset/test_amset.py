@@ -21,8 +21,8 @@ class AmsetTest(unittest.TestCase):
         pass
 
     def test_GaAs(self):
-        expected_mu = {'ACD': 68036.7, 'IMP': 1430458.2, 'PIE': 172180.7,
-                       'POP': 10084.5, 'overall': 8057.9}
+        expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
+                       'POP': 10113.9, 'overall': 8173.4}
         cube_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
         coeff_file = os.path.join(cube_path, 'fort.123_GaAs_1099kp')
         material_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
@@ -38,10 +38,10 @@ class AmsetTest(unittest.TestCase):
         kgrid = amset.kgrid
 
         # check general characteristics of the grid
-        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 576)
+        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 292)
         mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
         self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS
-        self.assertAlmostEqual(mean_v[0], 4.30840999e7, places=1) # zeroth band
+        self.assertAlmostEqual(mean_v[0], 1.93656060e7, places=1) # zeroth band
 
         # check mobility values
         for mu in expected_mu.keys():
