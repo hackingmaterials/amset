@@ -32,8 +32,9 @@ class AmsetTest(unittest.TestCase):
                       model_params=self.model_params,
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], k_integration=True,
-                      e_integration=True, fermi_type='e')
-        amset.run(coeff_file, kgrid_tp='very coarse', loglevel=logging.ERROR)
+                      e_integration=True, fermi_type='e',
+                      loglevel=logging.ERROR)
+        amset.run(coeff_file, kgrid_tp='very coarse')
         egrid = amset.egrid
         kgrid = amset.kgrid
 
