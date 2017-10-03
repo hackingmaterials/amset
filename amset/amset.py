@@ -1995,17 +1995,6 @@ class AMSET(object):
         k/energy directly extracted from the literature can be used here."""
 
         v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
-        # v = self.kgrid[tp]["velocity"][ib][ik] # because it's isotropic, it doesn't matter which one we choose
-        # perhaps more correct way of defining knrm is as follows since at momentum is supposed to be proportional to
-        # velocity as it is in free-electron formulation so we replaced hbar*knrm with m_e*v/(1e11*e) (momentum)
-
-
-        # if self.poly_bands: # the first one should be v and NOT v * sq3 so that the two match in SPB
-        # if False:  # I'm 90% sure that there is not need for the first type of knrm and that's why I added if False for now
-        #     knrm = m_e * self._avg_eff_mass[tp] * (v) / (
-        #     hbar * e * 1e11)  # in nm given that v is in cm/s and hbar in eV.s; this resulted in very high ACD and IMP scattering rates, actually only PIE would match with aMoBT results as it doesn't have k_nrm in its formula
-        ##TODO: make sure that ACD scattering as well as others match in SPB between bs_is_isotropic and when knrm is the following and not above (i.e. not m*v/hbar*e)
-        # else:
         knrm = self.kgrid[tp]["norm(k)"][ib][ik]
         par_c = self.kgrid[tp]["c"][ib][ik]
 
@@ -2014,22 +2003,8 @@ class AMSET(object):
             return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) / (3 * pi * hbar ** 2 * self.C_el * 1e9 * v) \
                    * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * e * 1e20
 
-            # return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) *norm(1.0/v)/ (3 * pi * hbar ** 2 * self.C_el * 1e9) \
-            #     * (3 - 8 * self.kgrid[tp]["c"][ib][ik] ** 2 + 6 * self.kgrid[tp]["c"][ib][ik] ** 4) * e * 1e20
-
-            # it is equivalent to the following also from Rode but always isotropic
-            # return m_e * knrm * self.E_D[tp] ** 2 * k_B * T / ( 3* pi * hbar ** 3 * self.C_el) \
-            #            * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * 1  # units work out! that's why conversion is 1
-
-
-            # The following is from Deformation potentials and... Ref. [Q] (DOI: 10.1103/PhysRev.80.72 ) page 82?
-            # if knrm < 1/(0.1*self._vrun.lattice.c*A_to_nm):
-
-            # replaced hbar*knrm with m_e*norm(v)/(1e11*e) which is momentum
-            # return m_e * m_e*v * self.E_D[tp] ** 2 * k_B * T / (3 * pi * hbar ** 4 * self.C_el) \
-            #        * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) / (1e11*e) # 1/1e11*e is to convert kg.cm/s to hbar.k units (i.e. ev.s/nm)
-
-        elif sname.upper() == "IMP":  # double-checked the units and equation on 5/12/2017
+        elif sname.upper() == "IMP":
+            # double-checked the units and equation on 5/12/2017
             # The following is a variation of Dingle's theory available in [R]
             beta = self.egrid["beta"][c][T][tp]
             B_II = (4 * knrm ** 2 / beta ** 2) / (1 + 4 * knrm ** 2 / beta ** 2) + 8 * (beta ** 2 + 2 * knrm ** 2) / (
@@ -2041,8 +2016,6 @@ class AMSET(object):
             return abs((e ** 4 * abs(self.egrid["N_II"][c][T])) / (
                 8 * pi * v * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2 *
                 knrm ** 2) * (D_II * log(1 + 4 * knrm ** 2 / beta ** 2) - B_II) * 3.89564386e27)
-
-
 
         elif sname.upper() == "PIE":
             return (e ** 2 * k_B * T * self.P_PIE ** 2) / (
