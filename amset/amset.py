@@ -259,7 +259,9 @@ class AMSET(object):
             "adaptive_mesh": self.adaptive_mesh,
             "dos_bwidth": self.dos_bwidth,
             "nkdos": self.nkdos,
-            "BTE_iters": self.BTE_iters
+            "BTE_iters": self.BTE_iters,
+            "max_nbands": self.max_nbands,
+            "max_normk": self.max_normk
         }
 
         with open("material_params.json", "w") as fp:
@@ -332,6 +334,8 @@ class AMSET(object):
         self.BTE_iters = params.get("BTE_iters", 5)
         self.parallel = params.get("parallel", True)
         logging.info("parallel: {}".format(self.parallel))
+        self.max_nbands = params.get("max_nbands", None)
+        self.max_normk = params.get("max_normk", None)
 
 
 
@@ -432,8 +436,8 @@ class AMSET(object):
                                           sgn * cbm_vbm[tp]["energy"]) < Ecut:
                     cbm_vbm[tp]["included"] += 1
 
-                # TODO: for now, I only include 1 band for quicker testing
-                # cbm_vbm[tp]["included"] = 1
+                if self.max_nbands:
+                    cbm_vbm[tp]["included"] = self.max_nbands
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands)
 
@@ -1138,6 +1142,8 @@ class AMSET(object):
                     self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - \
                                                                   self.cbm_vbm[tp]["all cartesian k"][min_dist_ik]
                     self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+                    # if abs(self.kgrid[tp]["norm(k)"][ib][ik] - 9.8) < 1.7:
+                    #     self.kgrid[tp]["norm(k)"][ib][ik] = abs(self.kgrid[tp]["norm(k)"][ib][ik] - 9.8)
                     self.kgrid[tp]["norm(actual_k)"][ib][ik] = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
 
                     if not self.poly_bands:
@@ -1173,8 +1179,9 @@ class AMSET(object):
                         rm_idx_list[tp][ib].append(ik)
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
-                    # if self.kgrid[tp]["norm(k)"][ib][ik] > 5:
-                    #     rm_idx_list[tp][ib].append(ik)
+                    if self.max_normk:
+                        if self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk:
+                            rm_idx_list[tp][ib].append(ik)
 
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
@@ -1447,9 +1454,12 @@ class AMSET(object):
 
             for step, start in [(1, 0), (-1, -1)]:
                 ik_prm = ik_closest_E + start  # go up from ik_closest_E, down from ik_closest_E - 1
+                k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
                 while ik_prm >= 0 and ik_prm < nk and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm] - E_prm) < tolerance:
-                    X_ib_ik = (cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm)
-                    if (X_ib_ik[1], X_ib_ik[2]) not in [(entry[1], entry[2]) for entry in result]:
+                    X_ib_ik = (cos_angle(k, k_prm), ib_prm, ik_prm)
+                    if (X_ib_ik[1], X_ib_ik[2]) not in [(entry[1], entry[2]) \
+                            for entry in result]:
+                        # and norm(k-k_prm) < 5: # 2nd condition to avoid inter-band scattering
                         result.append(X_ib_ik)
                     ik_prm += step
 
@@ -2992,9 +3002,10 @@ class AMSET(object):
                     if mobility:
                         all_plots = []
                         for mo in mu_list:
+                            mo_value = self.mobility[tp][mo][c][T] if self.k_integration else self.egrid['mobility'][mo][c][T]
                             all_plots.append({"x_col": self.temperatures,
                                               "y_col": [
-                                                  abs(self.get_scalar_output(self.mobility[tp][mo][c][T], dir))
+                                                  abs(self.get_scalar_output(mo_value, dir))
                                                   # I temporarily (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
                                                   for T in self.temperatures],
                                               "text": mo, 'legend': mo, 'size': 6, "mode": "lines+markers",
@@ -3112,7 +3123,8 @@ if __name__ == "__main__":
     if use_poly_bands:
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
 
-    performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True, "BTE_iters": 5}
+    performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
+                          "BTE_iters": 5, "max_nbands": 1, "max_normk": 5}
 
     ### for PbTe
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -3140,12 +3152,11 @@ if __name__ == "__main__":
                   model_params=model_params, performance_params=performance_params,
                   dopings = [-2e15],
                   temperatures = [300],
-                  k_integration=True, e_integration=True, fermi_type='e',
+                  k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file=coeff_file,
-            kgrid_tp="very coarse"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="coarse"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
@@ -3155,7 +3166,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    # amset.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
-    #            carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
+               carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
