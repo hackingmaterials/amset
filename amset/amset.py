@@ -1099,25 +1099,15 @@ class AMSET(object):
         # TODO: remove anything with "weight" later if ended up not using weights at all!
         kweights = {tp: [1.0 for i in kpts[tp]] for tp in ["n", "p"]}
 
-
-
-
-        # logging.debug("time to add the symmetrically equivalent k-points: \n {}".format(time.time() - start_time))
-        # start_time = time.time()
-
         # actual initiation of the kgrid
         self.kgrid = {
             "n": {},
             "p": {}}
-
         self.num_bands = {"n": {}, "p": {}}
-
         for tp in ["n", "p"]:
             self.num_bands[tp] = self.cbm_vbm[tp]["included"]
             self.kgrid[tp]["kpoints"] = [kpts[tp] for ib in range(self.num_bands[tp])]
             self.kgrid[tp]["kweights"] = [kweights[tp] for ib in range(self.num_bands[tp])]
-            # self.kgrid[tp]["kpoints"] = [[k for k in kpts] for ib in range(self.cbm_vbm[tp]["included"])]
-            # self.kgrid[tp]["kweights"] = [[kw for kw in kweights] for ib in range(self.cbm_vbm[tp]["included"])]
 
         self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)", "norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False, c_T_idx=False)
@@ -1143,9 +1133,8 @@ class AMSET(object):
                 self.kgrid[tp]["old cartesian kpoints"][ib] = self._rec_lattice.get_cartesian_coords(
                     self.kgrid[tp]["kpoints"][ib]) / A_to_nm
 
-                # REMEMBER TO MAKE A COPY HERE OTHERWISE THEY CHANGE TOGETHER
+                # WE MAKE A COPY HERE OTHERWISE THE TWO LISTS CHANGE TOGETHER
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(self.kgrid[tp]["old cartesian kpoints"][ib])
-                # [1/nm], these are PHYSICS convention k vectors (with a factor of 2 pi included)
 
                 if self.parallel and not self.poly_bands:
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
@@ -1159,13 +1148,10 @@ class AMSET(object):
 
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-
                     min_dist_ik = np.array([norm(ki - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) for ki in\
                                            self.cbm_vbm[tp]["all cartesian k"]]).argmin()
                     self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - \
                                                                   self.cbm_vbm[tp]["all cartesian k"][min_dist_ik]
-
-
                     self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
                     self.kgrid[tp]["norm(actual_k)"][ib][ik] = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
 
@@ -1195,18 +1181,11 @@ class AMSET(object):
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
                     self.kgrid[tp]["norm(v)"][ib][ik] = norm(velocity)
 
-                    # self.kgrid[tp]["velocity"][ib][ik] = de/hbar * A_to_m * m_to_cm * Ry_to_eV # to get v in units of cm/s
-                    # TODO: what's the implication of negative group velocities? check later after scattering rates are calculated
-                    # TODO: actually using abs() for group velocities mostly increase nu_II values at each energy
-                    # TODO: should I have de*2*pi for the group velocity and dde*(2*pi)**2 for effective mass?
                     if self.kgrid[tp]["velocity"][ib][ik][0] < self.v_min or  \
                                     self.kgrid[tp]["velocity"][ib][ik][1] < self.v_min \
                             or self.kgrid[tp]["velocity"][ib][ik][2] < self.v_min or \
                                     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]:
                         rm_idx_list[tp][ib].append(ik)
-                    # else:
-                        # print "this point remains in {}-type: extrema, current energy. ib, ik: {}, {}".format(tp,ib,ik)
-                        # , self.cbm_vbm[tp]["energy"], self.kgrid[tp]["energy"][ib][ik]
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
                     # if self.kgrid[tp]["norm(k)"][ib][ik] > 5:
@@ -1215,7 +1194,7 @@ class AMSET(object):
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
                     if self.poly_bands:
-                        self.kgrid[tp]["a"][ib][ik] = 1.0 # parabolic band s-orbital only
+                        self.kgrid[tp]["a"][ib][ik] = 1.0 # parabolic: s-only
                         self.kgrid[tp]["c"][ib][ik] = 0.0
                     else:
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
@@ -1224,7 +1203,8 @@ class AMSET(object):
             logging.debug("average of the {}-type group velocity in kgrid:\n {}".format(
                         tp, np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
 
-        rearranged_props = ["velocity", "effective mass", "energy", "a", "c", "kpoints", "cartesian kpoints",
+        rearranged_props = ["velocity", "effective mass", "energy", "a", "c",
+                            "kpoints", "cartesian kpoints",
                             "old cartesian kpoints", "kweights",
                             "norm(v)", "norm(k)", "norm(actual_k)"]
 
@@ -1241,8 +1221,6 @@ class AMSET(object):
             rm_idx_list[tp] = [rm_idx_list[tp][0] for ib in range(self.cbm_vbm[tp]["included"])]
 
         self.rm_idx_list = deepcopy(rm_idx_list)   # format: [tp][ib][ik]
-
-        # remove the k-points with off-energy values (>Ecut away from CBM/VBM) that are not removed already
         self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
 
         logging.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin, self.dos_emax))
@@ -1269,7 +1247,6 @@ class AMSET(object):
             self.kgrid[tp].pop("kweights", None)
             self.kgrid[tp]["size"] = [len(self.kgrid[tp]["kpoints"][ib]) \
                                       for ib in range(len(self.kgrid[tp]["kpoints"]))]
-
         self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, is_nparray=True, c_T_idx=False)
         self.initialize_var("kgrid", ["N_POP"], "scalar", 0.0, is_nparray=True, c_T_idx=True)
 
@@ -1282,31 +1259,25 @@ class AMSET(object):
                         self.kgrid[tp]["N_POP"][c][T][ib] = np.array(
                             [1 / (np.exp(hbar * W_POP / (k_B * T)) - 1) for W_POP in self.kgrid[tp]["W_POP"][ib]])
 
-        self.initialize_var(grid="kgrid", names=["_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th", "g_POP",
-                                                 "f", "f_th", "relaxation time", "df0dk", "electric force",
-                                                 "thermal force"],
-                            val_type="vector", initval=self.gs, is_nparray=True, c_T_idx=True)
+        self.initialize_var(grid="kgrid", names=[
+                "_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th",
+                "g_POP", "f", "f_th", "relaxation time", "df0dk",
+                "electric force","thermal force"], val_type="vector",
+                            initval=self.gs, is_nparray=True, c_T_idx=True)
 
         self.initialize_var("kgrid", ["f0", "f_plus", "f_minus", "g_plus", "g_minus"], "vector", self.gs,
                             is_nparray=True, c_T_idx=True)
-        # self.initialize_var("kgrid", ["lambda_i_plus", "lambda_i_minus"]
-        #                     , "vector", self.gs, is_nparray=True, c_T_idx=False)
-
 
         # calculation of the density of states (DOS)
         if not self.poly_bands:
-            emesh, dos, dos_nbands, bmin = analytical_bands.get_dos_from_scratch(self._vrun.final_structure,
-                                                                           [self.nkdos, self.nkdos, self.nkdos],
-                                                                           self.dos_emin, self.dos_emax,
-                                                                           int(round(
-                                                                               (self.dos_emax - self.dos_emin) / max(
-                                                                                   self.dE_min, 0.0001))),
-                                                                           width=self.dos_bwidth, scissor=self.scissor,
-                                                                           vbmidx=self.cbm_vbm["p"]["bidx"])
+            emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
+                    self._vrun.final_structure, [
+                    self.nkdos, self.nkdos, self.nkdos],self.dos_emin,
+                    self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
+                    / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
+                    scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
             logging.debug("dos_nbands: {} \n".format(dos_nbands))
             self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
-            # self.dos_normalization_factor = self.nbands*2 if not self.soc else self.nbands
-
             self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
                              + self.offset_from_vrun - self.scissor/2.0
             self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
@@ -1314,35 +1285,22 @@ class AMSET(object):
         else:
             logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
             emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
-                                                 [self.nkdos, self.nkdos, self.nkdos], self.dos_emin, self.dos_emax,
-                                                 int(round(
-                                                     (self.dos_emax - self.dos_emin) / max(self.dE_min, 0.0001))),
-                                                 poly_bands=self.poly_bands,
-                                                 bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
-                                                     "energy"],  # we include here the actual or after-scissor gap here
-                                                 width=self.dos_bwidth, SPB_DOS=False)
-            self.dos_normalization_factor = len(
-                self.poly_bands) * 2 * 2  # it is *2 elec/band & *2 because DOS is repeated in valence/conduction
+                    [self.nkdos, self.nkdos, self.nkdos], self.dos_emin,
+                    self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
+                    / max(self.dE_min, 0.0001))),poly_bands=self.poly_bands,
+                    bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
+                    "energy"], width=self.dos_bwidth, SPB_DOS=False)
+            self.dos_normalization_factor = len(self.poly_bands) * 2 * 2
+            # it is *2 elec/band & *2 because DOS repeats in valence/conduction
             self.dos_start = self.dos_emin
             self.dos_end = self.dos_emax
 
 
-        print("DOS normalization factor: {}".format(self.dos_normalization_factor))
-        # print("The actual emsh used for dos normalization: {}".format(emesh))
-        # print("The actual dos: {}".format(dos))
+        logging.info("DOS normalization factor: {}".format(self.dos_normalization_factor))
 
         integ = 0.0
-        # for idos in range(len(dos) - 2):
-
-        # here is the dos normalization story: to normalize DOS we first calculate the integral of the following two
-        # energy ranges (basically the min and max of the original energy range) and normalize it based on the DOS
-        # that is generated for a limited number of bands.
-
         self.dos_start = abs(emesh - self.dos_start).argmin()
         self.dos_end = abs(emesh - self.dos_end).argmin()
-
-        # self.dos_start = 0
-        # self.dos_end = len(dos) - 1
         for idos in range(self.dos_start, self.dos_end):
             # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
             #     break
@@ -1350,7 +1308,6 @@ class AMSET(object):
 
         print "dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ)
 
-        # normalize DOS
         # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
         dos = [g / integ * self.dos_normalization_factor for g in dos]
         # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
@@ -1360,9 +1317,9 @@ class AMSET(object):
         self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
         self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
 
-        print("vbm and cbm DOS index")
-        print self.vbm_dos_idx
-        print self.cbm_dos_idx
+        logging.info("vbm and cbm DOS index")
+        logging.info(self.vbm_dos_idx)
+        logging.info(self.cbm_dos_idx)
         # logging.debug("full dos after normalization: \n {}".format(self.dos))
         # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
 
