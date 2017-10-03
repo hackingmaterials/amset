@@ -1038,25 +1038,12 @@ class AMSET(object):
                         else:
                             energy, velocities[tp][ik], effective_m = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                         energies[tp][ik] = energy
-
-                        # @albalu why do we exclude values of k that have a small component of velocity?
-                        # @Jason: because scattering equations have v in the denominator: get too large for such points
-                        # if velocity[0] < self.v_min or velocity[1] < self.v_min or velocity[2] < self.v_min or \
-                        #                 abs(energy - self.cbm_vbm[tp]["energy"]) > Ecut:
-                        #     rm_list[tp].append(ik)
                 else:
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * self.cbm_vbm["p"][
                         "included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
                     for ik, res in enumerate(results):
                         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                         velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                        # if velocity[0] < self.v_min or velocity[1] < self.v_min or velocity[2] < self.v_min or \
-                        #                 abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"]) > Ecut:
-                        #     # if tp=="p":
-                        #     #     print "reason for removing the k-point:"
-                        #     #     print "energy: {}".format(energies[tp][ik])
-                        #     #     print "velocity: {}".format(velocity)
-                        #     rm_list[tp].append(ik)
 
                 self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], none_missing=True))
 
@@ -1087,48 +1074,8 @@ class AMSET(object):
         for ib in range(self.num_bands['n']):
             print('energy (type n, band {}):'.format(ib))
             print(self.energy_array['n'][ib][(N[0] - 1) / 2, (N[1] - 1) / 2, :])
-
         logging.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
-        start_time = time.time()
-        #TODO: the following for-loop is crucial but undone! it decides which k-points remove for speed and accuracy
-        '''for tp in ["p", "n"]:
-            Ecut = self.Ecut[tp]
-            Ediff_old = 0.0
-            # print "{}-type all Ediffs".format(tp)
-            for ib in [0]:
-                ik = -1
-                # for ik in range(len(kpts[tp])):
-                while ik < len(kpts[tp])-1:
-                    ik += 1
-                    Ediff = abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"])
-                    if Ediff > Ecut:
-                        rm_list[tp] += range(ik, len(kpts[tp]))
-                        break  # because the energies are sorted so after this point all energy points will be off
-                    if velocities[tp][ik][0] < self.v_min or velocities[tp][ik][1] < self.v_min or\
-                                    velocities[tp][ik][2] < self.v_min:
-                        rm_list[tp].append(ik)
 
-                    # the following if implements an adaptive dE_min as higher energy points are less important
-                    #TODO: note that if k-mesh integration on a regular grid (not tetrahedron) is implemented, the
-                    #TODO:following will make the results wrong as in that case we would assume the removed points are 0
-                    while ik < len(kpts[tp])-1 and \
-                            (Ediff > Ecut/5.0 and Ediff - Ediff_old < min(self.dE_min*10.0, 0.001) or
-                            (Ediff > Ecut / 2.0 and Ediff - Ediff_old < min(self.dE_min * 100.0,0.01))):
-                        rm_list[tp].append(ik)
-                        ik += 1
-                        Ediff = abs(energies[tp][ik] - self.cbm_vbm[tp]["energy"])
-
-                    # if Ediff>Ecut/5.0 and Ediff - Ediff_old < min(self.dE_min*10.0, 0.001):
-                            # or \
-                            # Ediff>Ecut/2.0 and Ediff - Ediff_old < min(self.dE_min*100.0, 0.01):
-                        # rm_list[tp].append(ik)
-                    Ediff_old = Ediff
-
-            rm_list[tp] = list(set(rm_list[tp]))'''
-
-        logging.debug("time to filter energies from ibz k-mesh: \n {}".format(time.time()-start_time))
-        start_time = time.time()
-        # this step is crucial in DOS normalization when poly_bands to cover the whole energy range in BZ
         if self.poly_bands:
             all_bands_energies = {"n": [], "p": []}
             for tp in ["p", "n"]:
@@ -1142,32 +1089,6 @@ class AMSET(object):
             self.dos_emin = min(all_bands_energies["p"])
             self.dos_emax = max(all_bands_energies["n"])
 
-        # logging.debug("energies before removing k-points with off-energy:\n {}".format(energies))
-        # remove energies that are out of range
-
-
-
-        # print "n-rm_list"
-        # print rm_list["n"]
-        # print "p-rm_list"
-        # print rm_list["p"]
-        '''
-        for tp in ["n", "p"]:
-            # if tp in self.all_types:
-            if True:
-                kpts[tp] = list(np.delete(kpts[tp], rm_list[tp], axis=0))
-                # energies[tp] = np.delete(energies[tp], rm_list[tp], axis=0)
-            else: # in this case it doesn't matter if the k-mesh is loose
-                kpts[tp] = list(np.delete(kpts[tp], rm_list["n"]+rm_list["p"], axis=0))
-                # energies[tp] = np.delete(energies[tp], rm_list["n"]+rm_list["p"], axis=0)
-            if len(kpts[tp]) > 10000:
-                warnings.warn("Too desne of a {}-type k-mesh (nk={}!); AMSET will be slow!".format(tp, len(kpts[tp])))
-
-            logging.info("number of {}-type ibz k-points AFTER ENERGY-FILTERING: {}".format(tp, len(kpts[tp])))'''
-
-        # 2 lines debug printing
-        # energies["n"].sort()
-        # print "{}-type energies for ibz after filtering: \n {}".format("n", energies["n"])
         del energies, velocities, e_sort_idx
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
