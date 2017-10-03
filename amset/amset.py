@@ -1474,9 +1474,6 @@ class AMSET(object):
 
         # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
         ib_prm = ib
-        # if E_change == 0.0:
-        #    ik_closest_E = ik
-        # else:
         ik_closest_E = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
 
         for step, start in [(1, 0), (-1, -1)]:
@@ -1561,10 +1558,6 @@ class AMSET(object):
         return integral
         # return integral/sum(self.Efrequency[tp][:-1])
 
-
-
-    # points_1d now a dictionary with 'x', 'y', and 'z' lists of points
-    # points_1d lists do not need to be sorted
     def create_grid(self, points_1d):
         for dir in ['x', 'y', 'z']:
             points_1d[dir].sort()
@@ -1639,7 +1632,6 @@ class AMSET(object):
 
         # convert from fractional to cartesian (k space) volume
         dv *= self._rec_lattice.volume / (A_to_m * m_to_cm) ** 3
-
         return dv
 
 
@@ -1667,16 +1659,6 @@ class AMSET(object):
     def integrate_over_BZ(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=True):
 
         weighted = False
-
-        """
-
-        :param tp:
-        :param c:
-        :param T:
-        :param distribution (str): can be switched between f, f0, g, g_POP, etc
-        :param xvel:
-        :return:
-        """
         wpower = 1
         if xvel:
             wpower += 1
@@ -1686,11 +1668,7 @@ class AMSET(object):
             sum_over_k = np.array([self.gs, self.gs, self.gs])
             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                 k_nrm = self.kgrid[tp]["norm(k)"][ib][ik]
-                # k_nrm = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
-
-                # 4*pi, hbar and norm(v) are coming from the conversion of dk to dE
                 product = k_nrm ** 2 / self.kgrid[tp]["norm(v)"][ib][ik] * 4 * pi / hbar
-                # product = 1.0
                 if xvel:
                     product *= self.kgrid[tp]["velocity"][ib][ik]
                 for j, p in enumerate(prop_list):
@@ -1701,12 +1679,9 @@ class AMSET(object):
                     else:
                         product *= self.kgrid[tp][p][c][T][ib][ik]
                 sum_over_k += product
-            # if not weighted:
-            #     sum_over_k /= len(self.kgrid_to_egrid_idx[tp][ie])
             if xDOS:
                 sum_over_k *= self.egrid[tp]["DOS"][ie]
             if weighted:
-            #     sum_over_k *= self.Efrequency[tp][ie] ** (wpower)
                 sum_over_k *=self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie])
             integral += sum_over_k * dE
 
@@ -1725,7 +1700,6 @@ class AMSET(object):
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.kgrid[tp]["kpoints"][0])))
         for ib in [0]:
-            # normk_sorted_idx = np.argsort([norm(k) for k in self.kgrid[tp]["old cartesian kpoints"][ib]])
             normk_sorted_idx = np.argsort(self.kgrid[tp][normk_tp][ib])
             diff = [0.0 for prop in prop_list]
 
@@ -1736,8 +1710,6 @@ class AMSET(object):
                 dk = (self.kgrid[tp][normk_tp][ib][ik_next] - normk)/interpolation_nsteps
                 if dk == 0.0:
                     continue
-                # print normk
-                # print dk
                 if xDOS:
                     dS = ((self.kgrid[tp][normk_tp][ib][ik_next]/pi)**2 - \
                          (self.kgrid[tp][normk_tp][ib][ik]/pi)**2)/interpolation_nsteps
@@ -1750,8 +1722,6 @@ class AMSET(object):
                                   (1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik])) / interpolation_nsteps
                     else:
                         diff[j] = (self.kgrid[tp][p][c][T][ib][ik_next] - self.kgrid[tp][p][c][T][ib][ik]) / interpolation_nsteps
-                    # product *= (self.kgrid[tp][p][c][T][ib][ik+1] + self.kgrid[tp][p][c][T][ib][ik])/2
-
 
                 for i in range(interpolation_nsteps):
                     multi = dk
