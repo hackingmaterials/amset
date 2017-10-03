@@ -2924,12 +2924,13 @@ class AMSET(object):
 
                     #TODO: not sure about the following part yet specially as sometimes due to position of fermi I get very off other type mobility values! (sometimes very large)
                     other_type = ["p", "n"][1 - j]
-                    self.egrid["seebeck"][c][T][tp] = (self.egrid["conductivity"][c][T][tp] * \
-                                                       self.egrid["seebeck"][c][T][tp] -
-                                                       self.egrid["conductivity"][c][T][other_type] * \
-                                                       self.egrid["seebeck"][c][T][other_type]) / (
-                                                      self.egrid["conductivity"][c][T][tp] +
-                                                      self.egrid["conductivity"][c][T][other_type])
+                    self.egrid["seebeck"][c][T][tp] = (
+                            self.egrid["conductivity"][c][T][tp] * \
+                            self.egrid["seebeck"][c][T][tp] -
+                            self.egrid["conductivity"][c][T][other_type] * \
+                            self.egrid["seebeck"][c][T][other_type]) / (
+                            self.egrid["conductivity"][c][T][tp] +
+                            self.egrid["conductivity"][c][T][other_type])
                     ## since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
                     ## self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
 
@@ -3278,7 +3279,7 @@ if __name__ == "__main__":
     # cProfile.run('amset.run(coeff_file=coeff_file, kgrid_tp="very coarse")')
     profiler = cProfile.Profile()
     profiler.runcall(lambda: amset.run(coeff_file=coeff_file,
-            kgrid_tp="very coarse", loglevel=logging.WARNING))
+            kgrid_tp="very coarse", loglevel=logging.DEBUG))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
