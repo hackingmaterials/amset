@@ -8,6 +8,7 @@ epsilon_0 = 8.854187817e-12  # dielectric constant in vacuum [C**2/m**2N]
 sq3 = 3 ** 0.5
 hbar = _cd('Planck constant in eV s') / (2 * pi)
 e = _cd('elementary charge')
+m_e = _cd('electron mass')  # in kg
 
 
 def remove_from_grid(grid, grid_rm_list):
@@ -41,14 +42,12 @@ def f0(E, fermi, T):
         return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
 
 
-
 def df0dE(E, fermi, T):
     """returns the energy derivative of the Fermi-Dirac equilibrium distribution"""
     if E - fermi > 5 or E - fermi < -5:  # This is necessary so at too low numbers python doesn't return NaN
         return 0.0
     else:
         return -1 / (k_B * T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
-
 
 
 def cos_angle(v1, v2):
@@ -60,7 +59,6 @@ def cos_angle(v1, v2):
         return 1.0  # In case of the two points are the origin, we assume 0 degree; i.e. no scattering: 1-X==0
     else:
         return np.dot(v1, v2) / (norm_v1 * norm_v2)
-
 
 
 def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
@@ -90,7 +88,6 @@ def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
     return integral
 
 
-
 def GB(x, eta):
     """Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function goes to the dirac-delta of x.
     Args:
@@ -104,7 +101,6 @@ def GB(x, eta):
     # return np.exp(-(x/eta)**2)
 
 
-
 def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
     S_i_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
     S_i_th_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
@@ -116,7 +112,6 @@ def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, eps
             calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf)
 
     return [S_i_list, S_i_th_list, S_o_list, S_o_th_list]
-
 
 
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
@@ -138,7 +133,6 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     S_i_th = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
     S_o = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
     S_o_th = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
-    # S_o = np.array([self.gs, self.gs, self.gs])
 
     v = kgrid[tp]["norm(v)"][ib][ik] / sq3  # 3**0.5 is to treat each direction as 1D BS
     k = kgrid[tp]["norm(k)"][ib][ik]
@@ -209,6 +203,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
 
     return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
 
+
 def remove_duplicate_kpoints(kpts, dk=0.0001):
     """kpts (list of list): list of coordinates of electrons
      ALWAYS return either a list or ndarray: BE CONSISTENT with the input!!!
@@ -236,9 +231,39 @@ def remove_duplicate_kpoints(kpts, dk=0.0001):
                 rm_list.append(j + 1)
             j += 1
         i += 1
-
-
     kpts = np.delete(kpts, rm_list, axis=0)
     kpts = list(kpts)
     return kpts
 
+
+def find_fermi_SPB(cbm_vbm, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=1000):
+    tp = get_tp(c)
+    sgn = np.sign(c)
+    m_eff = np.prod(cbm_vbm[tp]["eff_mass_xx"]) ** (1.0 / 3.0)
+    c *= sgn
+    initial_energy = cbm_vbm[tp]["energy"]
+    fermi = initial_energy + 0.02
+    iter = 0
+    for iter in range(max_iter):
+        calc_doping = 4 * pi * (2 * m_eff * m_e * k_B * T / hbar ** 2) ** 1.5 * fermi_integral(0.5, fermi, T,
+                                                                                               initial_energy) * 1e-6 / e ** 1.5
+        fermi += alpha * sgn * (calc_doping - c) / abs(c + calc_doping) * fermi
+        relative_error = abs(calc_doping - c) / abs(c)
+        if relative_error <= tolerance:
+            # This here assumes that the SPB generator set the VBM to 0.0 and CBM=  gap + scissor
+            if sgn < 0:
+                return fermi
+            else:
+                return -(fermi - initial_energy)
+    if relative_error > tolerance:
+        raise ValueError("could NOT find a corresponding SPB fermi level after {} itenrations".format(max_iter))
+
+
+def get_tp(c):
+    """returns "n" for n-tp or negative carrier concentration or "p" (p-tp)."""
+    if c < 0:
+        return "n"
+    elif c > 0:
+        return "p"
+    else:
+        raise ValueError("The carrier concentration cannot be zero! AMSET stops now!")
