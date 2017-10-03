@@ -1638,19 +1638,21 @@ class AMSET(object):
 
     # takes a coordinate grid in the form of a numpy array (CANNOT have missing points) and a function to integrate and
     # finds the integral using finite differences; missing points should be input as 0 in the function
-    def integrate_over_k(self, func_grid):#, xDOS=False, xvel=False, weighted=True):
-        '''
-        :return: result of the integral
-        '''
+    def integrate_over_k(self, func_grid):
+        """
+        Args:
+            func_grid:
 
-        # in the interest of not prematurely optimizing, func_grid must be a perfect grid: the only deviation from
-        # the cartesian coordinate system can be uniform stretches, as in the distance between adjacent planes of points
-        # can be any value, but no points can be missing from the next plane
+        Returns:
 
-        # in this case the format of fractional_grid is a 4d grid
-        # the last dimension is a vector of the k point fractional coordinates
-        # the dv grid is 3d and the indexes correspond to those of func_grid
+        in the interest of not prematurely optimizing, func_grid must be a perfect grid: the only deviation from
+        the cartesian coordinate system can be uniform stretches, as in the distance between adjacent planes of points
+        can be any value, but no points can be missing from the next plane
 
+        in this case the format of fractional_grid is a 4d grid
+        the last dimension is a vector of the k point fractional coordinates
+        the dv grid is 3d and the indexes correspond to those of func_grid
+        """
         if func_grid.ndim == 3:
             return np.sum(func_grid * self.dv_grid)
         return [np.sum(func_grid[:,:,:,i] * self.dv_grid) for i in range(func_grid.shape[3])]
@@ -1736,15 +1738,11 @@ class AMSET(object):
                     if xDOS:
                         multi *= (self.kgrid[tp][normk_tp][ib][ik]/pi)**2 + dS * i
                     integral += multi
-
-        # print "sorted cartesian kpoints for {}-type: {}".format(tp,[self.kgrid[tp]["old cartesian kpoints"][ib][ik] for ik in normk_sorted_idx])
-        # print "sorted cartesian kpoints for {}-type: {}".format(tp,[self.kgrid[tp]["norm(actual_k)"][ib][ik] for ik in normk_sorted_idx])
         return integral
 
 
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
-
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
 
         weighted = False
@@ -1794,9 +1792,6 @@ class AMSET(object):
                 if xvel:
                     multi *= self.egrid[tp]["velocity"][ie] + dv * i
                 if weighted:
-                    # integral += multi * self.Efrequency[tp][ie]**wpower * (-(dfdE + ddfdE))
-                    # integral += multi * self.Efrequency[tp][ie]**wpower *dfdE
-                    # integral += multi * self.Efrequency[tp][ie]**wpower * self.egrid[tp]["f0"][c][T][ie]
                     # integral += multi * self.Efrequency[tp][ie] ** wpower
                     integral += multi * (self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie]) + dweight * i)
                 else:
@@ -1804,7 +1799,6 @@ class AMSET(object):
         if weighted:
             return integral
             # return integral/(sum(self.Efrequency[tp][:-1]))
-
         else:
             return integral
 
@@ -1822,11 +1816,8 @@ class AMSET(object):
             DeltaX = X_E_index[ib][ik][i + 1][0] - X_E_index[ib][ik][i][0]
             if DeltaX == 0.0:
                 continue
-
             X, ib_prm, ik_prm = X_E_index[ib][ik][i + 1]
-
             dum = current_integrand / 2.0
-
             current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
 
             # This condition is to exclude self-scattering from the integration
@@ -1843,11 +1834,6 @@ class AMSET(object):
 
 
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
-
-        # The following (if passed on to s_el_eq) result in many cases k and k_prm being equal which we don't want.
-        # k = m_e * self._avg_eff_mass[tp] * self.kgrid[tp]["norm(v)"][ib][ik] / (hbar * e * 1e11)
-        # k_prm = m_e * self._avg_eff_mass[tp] * self.kgrid[tp]["normv"][ib_prm][ik_prm] / (hbar * e * 1e11)
-
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
@@ -1863,18 +1849,20 @@ class AMSET(object):
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
-        returns the evaluated number (float) of the expression inside the S_o and S_i(g) integrals.
-        :param tp (str): "n" or "p" type
-        :param c (float): carrier concentration/doping in cm**-3
-        :param T:
-        :param ib:
-        :param ik:
-        :param ib_prm:
-        :param ik_prm:
-        :param X:
-        :param alpha:
-        :param sname:
-        :return:
+        returns the evaluated number (float) of the expression inside the
+            S_o and S_i(g) integrals.
+        Args:
+            tp (str): "n" or "p" type
+            c (float): carrier concentration/doping in cm**-3
+            T:
+            ib:
+            ik:
+            ib_prm:
+            ik_prm:
+            X:
+            sname:
+            g_suffix:
+        Returns (float): the integral
         """
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         f = self.kgrid[tp]["f"][c][T][ib][ik]
@@ -1890,15 +1878,9 @@ class AMSET(object):
         if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
             return np.array(
             [0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
-        #fermi = self.egrid["fermi"][c][T]
         fermi = self.fermi_level[c][T]
 
-        # test
-        # f = self.f(self.kgrid[tp]["energy"][ib][ik], fermi, T, tp, c, alpha)
-        # f_prm = self.f(self.kgrid[tp]["energy"][ib_prm][ik_prm], fermi, T, tp, c, alpha)
-
         N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
-        # norm_diff = max(norm(k-k_prm), 1e-10)
         norm_diff = norm(k - k_prm)
         # print norm(k_prm)**2
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
@@ -1907,7 +1889,6 @@ class AMSET(object):
 
         if "S_i" in sname:
             integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
-            # integ *= X*self.kgrid[tp]["g" + g_suffix][c][T][ib][ik][alpha]
             if "minus" in sname:
                 if tp == "p" or (tp == "n" and \
                     self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
@@ -2112,32 +2093,12 @@ class AMSET(object):
                             else:
                                 self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
                         self.egrid[tp][prop_name][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
-
-                        # if self.bs_is_isotropic and prop_type=="vector":
-                        #     self.egrid[tp][prop_name][ie]=np.array([norm(self.egrid[tp][prop_name][ie])/sq3 for i in range(3)])
-
-
                 else:
-                    raise ValueError(
+                    raise NotImplementedError(
                         "Guassian Broadening is NOT well tested and abandanded at the begining due to inaccurate results")
-                    # for ie, en in enumerate(self.egrid[tp]["energy"]):
-                    #     N = 0.0  # total number of instances with the same energy
-                    #     for ib in range(self.cbm_vbm[tp]["included"]):
-                    #         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                    #             self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik] * \
-                    #                 GB(self.kgrid[tp]["energy"][ib][ik]-self.egrid[tp]["energy"][ie], 0.005)
-                    #
-                    #     self.egrid[tp][prop_name][ie] /= self.cbm_vbm[tp]["included"] * len(self.kgrid[tp]["kpoints"][0])
-                    #
-                    #     if self.bs_is_isotropic and prop_type=="vector":
-                    #         self.egrid[tp][prop_name][ie]=np.array([norm(self.egrid[tp][prop_name][ie])/sq3 for i in range(3)])
-
-
         else:
             self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=True)
-
             for tp in ["n", "p"]:
-
                 if not self.gaussian_broadening:
 
                     for c in self.dopings:
@@ -2162,7 +2123,6 @@ class AMSET(object):
 
 
     def find_fermi_SPB(self, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=1000):
-
         tp = self.get_tp(c)
         sgn = np.sign(c)
         m_eff = np.prod(self.cbm_vbm[tp]["eff_mass_xx"]) ** (1.0 / 3.0)
@@ -2186,9 +2146,7 @@ class AMSET(object):
 
 
 
-
     def find_fermi_k(self, tolerance=0.001):
-
         closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
         #energy = self.array_from_kgrid('energy', 'n', fill=1000)
         for c in self.dopings:
@@ -2214,7 +2172,6 @@ class AMSET(object):
                     range_of_energies = np.arange(closest_energy[c][T] - step, closest_energy[c][T] + step, step / 10)
                     step /= 10
                     diff = diffs[closest_energy[c][T]]
-
         return closest_energy
 
 
@@ -2248,11 +2205,6 @@ class AMSET(object):
                       * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ, fermi=fermi, T=T))
 
         while (relative_error > tolerance) and (iter < max_iter):
-            # print iter
-            # print calc_doping
-            # print fermi
-            # print (-1) ** (typj)
-            # print
             iter += 1  # to avoid an infinite loop
             if iter / max_iter > 0.5:  # to avoid oscillation we re-adjust alpha at each iteration
                 tune_alpha = 1 - iter / max_iter
@@ -2263,9 +2215,6 @@ class AMSET(object):
 
             for j, tp in enumerate(["n", "p"]):
                 integral = 0.0
-
-                # for ie in range((1 - j) * self.cbm_dos_idx + j * 0,
-                #                 (1 - j) * len(self.dos) - 1 + j * self.vbm_dos_idx - 1):
                 for ie in range((1 - j) * self.cbm_dos_idx,
                                     (1 - j) * len(self.dos) + j * self.vbm_dos_idx - 1):
                     integral += (self.dos[ie + 1][1] + self.dos[ie][1]) / 2 * funcs[j](self.dos[ie][0], fermi, T) * \
@@ -2308,33 +2257,18 @@ class AMSET(object):
         beta = {}
         for tp in ["n", "p"]:
             # TODO: the integration may need to be revised. Careful testing of IMP scattering against expt is necessary
-            # integral = self.integrate_over_E(func=func, tp=tp, fermi=self.egrid["fermi"][c][T], T=T)
-
-            # because this integral has no denominator to cancel the effect of weights, we do non-weighted integral
-            # integrate in egrid with /volume and proper unit conversion
-            # we assume here that DOS is normalized already
-            # integral = self.integrate_over_E(prop_list=["f0x1-f0"], tp=tp, c=c, T=T, xDOS=True, weighted=False)
             integral = self.integrate_over_normk(prop_list=["f0","1-f0"], tp=tp, c=c, T=T, xDOS=True)
             integral = sum(integral)/3
-            print('integral_over_norm_k') # for egrid it is 8.68538649689e-06
-            print(integral)
-            # integral = sum(self.integrate_over_BZ(["f0", "1-f0"], tp, c, T, xDOS=False, xvel=False, weighted=False))/3
+            logging.debug('integral_over_norm_k')
+            logging.debug(integral)
 
             # from aMoBT ( or basically integrate_over_normk )
             beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
-
-            # for integrate_over_E
-            # beta[tp] = (e ** 2 / (self.epsilon_s * epsilon_0 * k_B * T) * integral / self.volume * 1e12 / e) ** 0.5
-
-            # for integrate_over_BZ: incorrect (tested on 7/18/2017)
-            # beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 100/e)**0.5
-
         return beta
 
 
 
     def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0):
-
         if not max_ndata:
             max_ndata = int(self.gl)
 
@@ -2360,7 +2294,6 @@ class AMSET(object):
                                 egrid[tp][key] = self.egrid[tp][key][nstart:nstart + nmax]
                             else:
                                 egrid[tp][key] = self.egrid[tp][key][::-1][nstart:nstart + nmax]
-                                # egrid[tp][key] = self.egrid[tp][key][-(nstart+nmax):-max(nstart,1)][::-1]
                         except:
                             print "cutting data for {} numbers in egrid was NOT successful!".format(key)
                             pass
@@ -2388,8 +2321,6 @@ class AMSET(object):
                                     else:
                                         kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][::-1][nstart:nstart + nmax]
                                                                 for b in range(self.cbm_vbm[tp]["included"])]
-                                        # kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][-(nstart+nmax):-max(nstart,1)][::-1]
-                                        #                         for b in range(self.cbm_vbm[tp]["included"])]
                         except:
                             try:
                                 if tp == "n":
@@ -2398,8 +2329,6 @@ class AMSET(object):
                                 else:
                                     kgrid[tp][key] = [self.kgrid[tp][key][b][::-1][nstart:nstart + nmax]
                                                       for b in range(self.cbm_vbm[tp]["included"])]
-                                    # kgrid[tp][key] = [self.kgrid[tp][key][b][-(nstart+nmax):-max(nstart,1)][::-1]
-                                    #                   for b in range(self.cbm_vbm[tp]["included"])]
                             except:
                                 print "cutting data for {} numbers in kgrid was NOT successful!".format(key)
                                 pass
@@ -2874,8 +2803,6 @@ class AMSET(object):
                     ## since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
                     ## self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
 
-
-
     # for plotting
     def get_scalar_output(self, vec, dir):
         if dir == 'x':
@@ -2930,27 +2857,28 @@ class AMSET(object):
              direction=['avg'], show_interactive=True, save_format='png', textsize=40, ticksize=30, path=None,
              margin_left=160, margin_bottom=120, fontfamily="serif"):
         """
-        plots the calculated values
-        :param k_plots: (list of strings) the names of the quantities to be plotted against norm(k)
-            options: 'energy', 'df0dk', 'velocity', or just string 'all' (not in a list) to plot everything
-        :param E_plots: (list of strings) the names of the quantities to be plotted against E
-            options: 'frequency', 'relaxation time', '_all_elastic', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
-            'g_POP', 'g_th', 'S_i', 'S_o', or just string 'all' (not in a list) to plot everything
-        :param mobility: (boolean) if True, create a mobility against temperature plot
-        :param concentrations: (list of strings) a list of carrier concentrations, or the string 'all' to plot the
-            results of calculations done with all input concentrations
-        :param carrier_types: (list of strings) select carrier types to plot data for - ['n'], ['p'], or ['n', 'p']
-        :param direction: (list of strings) options to include in list are 'x', 'y', 'z', 'avg'; determines which
-            components of vector quantities are plotted
-        :param show_interactive: (boolean) if True creates and shows interactive html plots
-        :param save_format: (str) format for saving plots; options are 'png', 'jpeg', 'svg', 'pdf', None (None does not
-            save the plots). NOTE: plotly credentials are needed, see figrecipes documentation
-        :param textsize: (int) size of title and axis label text
-        :param ticksize: (int) size of axis tick label text
-        :param path: (string) location to save plots
-        :param margin_left: (int) plotly left margin
-        :param margin_bottom: (int) plotly bottom margin
-        :param fontfamily: (string) plotly font
+        plots the given k_plots and E_plots properties.
+        Args:
+            k_plots: (list of strings) the names of the quantities to be plotted against norm(k)
+                options: 'energy', 'df0dk', 'velocity', or just string 'all' (not in a list) to plot everything
+            E_plots: (list of strings) the names of the quantities to be plotted against E
+                options: 'frequency', 'relaxation time', '_all_elastic', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
+                'g_POP', 'g_th', 'S_i', 'S_o', or just string 'all' (not in a list) to plot everything
+            mobility: (boolean) if True, create a mobility against temperature plot
+            concentrations: (list of strings) a list of carrier concentrations, or the string 'all' to plot the
+                results of calculations done with all input concentrations
+            carrier_types: (list of strings) select carrier types to plot data for - ['n'], ['p'], or ['n', 'p']
+            direction: (list of strings) options to include in list are 'x', 'y', 'z', 'avg'; determines which
+                components of vector quantities are plotted
+            show_interactive: (boolean) if True creates and shows interactive html plots
+            save_format: (str) format for saving plots; options are 'png', 'jpeg', 'svg', 'pdf', None (None does not
+                save the plots). NOTE: plotly credentials are needed, see figrecipes documentation
+            textsize: (int) size of title and axis label text
+            ticksize: (int) size of axis tick label text
+            path: (string) location to save plots
+            margin_left: (int) plotly left margin
+            margin_bottom: (int) plotly bottom margin
+            fontfamily: (string) plotly font
         """
 
         if k_plots == 'all':
