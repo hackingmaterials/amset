@@ -1460,8 +1460,8 @@ class AMSET(object):
 
             for step, start in [(1, 0), (-1, -1)]:
                 ik_prm = ik_closest_E + start  # go up from ik_closest_E, down from ik_closest_E - 1
-                k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
                 while ik_prm >= 0 and ik_prm < nk and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm] - E_prm) < tolerance:
+                    k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
                     X_ib_ik = (cos_angle(k, k_prm), ib_prm, ik_prm)
                     if (X_ib_ik[1], X_ib_ik[2]) not in [(entry[1], entry[2]) \
                             for entry in result]:
@@ -1536,7 +1536,6 @@ class AMSET(object):
             raise ValueError("The elastic scattering name {} is not supported!".format(sname))
 
 
-
     def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None, normalize_energy=False):
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
@@ -1553,6 +1552,7 @@ class AMSET(object):
                 integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
         return integral
         # return integral/sum(self.Efrequency[tp][:-1])
+
 
     def create_grid(self, points_1d):
         for dir in ['x', 'y', 'z']:
@@ -3033,7 +3033,7 @@ class AMSET(object):
 
 
 
-    def to_csv(self, path=None, csv_filename='AMSET_results.csv'):
+    def to_csv(self, path=None, csv_filename='amset_results.csv'):
         """
         this function writes the calculated transport properties to a csv file for convenience.
         :param csv_filename (str):
@@ -3134,7 +3134,7 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
 
-    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"] }
     if use_poly_bands:
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
@@ -3168,11 +3168,11 @@ if __name__ == "__main__":
                   model_params=model_params, performance_params=performance_params,
                   dopings = [-2e15],
                   temperatures = [300],
-                  k_integration=True, e_integration=True, fermi_type='e',
+                  k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="coarse"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="fine"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
@@ -3182,7 +3182,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
+    amset.plot(k_plots=['energy', 'velocity'], E_plots='all', show_interactive=True,
                carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
