@@ -21,8 +21,12 @@ class AmsetTest(unittest.TestCase):
         pass
 
     def test_GaAs(self):
-        expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
-                       'POP': 10113.9, 'overall': 8173.4}
+        # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
+        # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
+        #                'POP': 10113.9, 'overall': 8173.4}
+
+        expected_mu = {'ACD': 48397.6, 'IMP': 58026678.3, 'PIE': 111243.3,
+                       'POP': 7478.1, 'overall': 6014.1}
         cube_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
         coeff_file = os.path.join(cube_path, 'fort.123_GaAs_1099kp')
         material_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
@@ -47,8 +51,8 @@ class AmsetTest(unittest.TestCase):
         # check mobility values
         for mu in expected_mu.keys():
             self.assertAlmostEqual(np.std( # test isotropic
-                egrid['mobility'][mu][-2e15][300]['n']), 0.00, places=2)
-            self.assertAlmostEqual(egrid['mobility'][mu][-2e15][300]['n'][0],
+                egrid['n']['mobility'][mu][-2e15][300]), 0.00, places=2)
+            self.assertAlmostEqual(egrid['n']['mobility'][mu][-2e15][300][0],
                     expected_mu[mu], places=1)
 
         # TODO-JF: similar tests for k-integration (e.g. isotropic mobility)

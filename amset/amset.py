@@ -2090,7 +2090,8 @@ class AMSET(object):
                             #     print('first k: {}, current k: {}'.format(norm(self.kgrid[tp][prop_name][first_ib][first_ik]), norm(self.kgrid[tp][prop_name][ib][ik])))
                             #     print('current energy, first energy, ik, first_ik')
                             #     print(self.kgrid[tp]['energy'][ib][ik], self.kgrid[tp]['energy'][first_ib][first_ik], ik, first_ik)
-                            if self.bs_is_isotropic and prop_type == "vector":
+                            # if self.bs_is_isotropic and prop_type == "vector":
+                            if False:
                                 self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik]) / sq3
                             else:
                                 self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
@@ -2109,7 +2110,8 @@ class AMSET(object):
                                 first_ib = self.kgrid_to_egrid_idx[tp][ie][0][0]
                                 first_ik = self.kgrid_to_egrid_idx[tp][ie][0][1]
                                 for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                                    if self.bs_is_isotropic and prop_type == "vector":
+                                    # if self.bs_is_isotropic and prop_type == "vector":
+                                    if False:
                                         self.egrid[tp][prop_name][c][T][ie] += norm(
                                             self.kgrid[tp][prop_name][c][T][ib][ik]) / sq3
                                     else:
@@ -2117,8 +2119,8 @@ class AMSET(object):
                                 self.egrid[tp][prop_name][c][T][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
 
                             # df0dk must be negative but we used norm for df0dk when isotropic
-                            if prop_name in ["df0dk"] and self.bs_is_isotropic:
-                                self.egrid[tp][prop_name][c][T] *= -1
+                            # if prop_name in ["df0dk"] and self.bs_is_isotropic:
+                            #     self.egrid[tp][prop_name][c][T] *= -1
                 else:
                     raise NotImplementedError(
                         "Guassian Broadening is NOT well tested and abandanded at the begining due to inaccurate results")
@@ -3134,13 +3136,13 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
 
-    model_params = {"bs_is_isotropic": False, "elastic_scatterings": ["ACD", "IMP", "PIE"],
+    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"] }
     if use_poly_bands:
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
-                          "BTE_iters": 5, "max_nbands": 1, "max_normk": 5}
+                          "BTE_iters": 5, "max_nbands": 1, "max_normk": 4}
 
     ### for PbTe
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -3172,12 +3174,12 @@ if __name__ == "__main__":
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="fine"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="coarse"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
-    stats.print_stats(10)  # only print the top 10 (10 slowest functions)
-    print()
+    stats.print_stats(15)  # only print the top 10 (10 slowest functions)
+    print
     # stats.print_callers(10)
 
     amset.write_input_files()
