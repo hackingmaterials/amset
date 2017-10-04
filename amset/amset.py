@@ -3055,10 +3055,8 @@ class AMSET(object):
                 for T in self.temperatures:
                     row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
                     for p in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings:
-                        row[p] = self.egrid[tp]["mobility"][p][c][T]
-                        #row[p] = sum(self.egrid["mobility"][p][c][T][tp]) / 3
-                    row["seebeck"] = self.egrid[tp]["seebeck"][c][T]
-                    # row["seebeck"] = sum(self.egrid[tp]["seebeck"][c][T]) / 3
+                        row[p] = sum(self.egrid[tp]["mobility"][p][c][T])/3
+                    row["seebeck"] = sum(self.egrid[tp]["seebeck"][c][T])/3
                     writer.writerow(row)
 
 
@@ -3168,13 +3166,13 @@ if __name__ == "__main__":
 
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
-                  dopings = [-2e15],
+                  dopings = [-3e13],
                   temperatures = [300],
                   k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="coarse"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="fine"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
