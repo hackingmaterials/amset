@@ -32,6 +32,33 @@ def grid_norm(grid):
     return (grid[:,:,:,0]**2 + grid[:,:,:,1]**2 + grid[:,:,:,2]**2) ** 0.5
 
 
+def create_grid(points_1d):
+    for dir in ['x', 'y', 'z']:
+        points_1d[dir].sort()
+    grid = np.zeros((len(points_1d['x']), len(points_1d['y']), len(points_1d['z']), 3))
+    for i, x in enumerate(points_1d['x']):
+        for j, y in enumerate(points_1d['y']):
+            for k, z in enumerate(points_1d['z']):
+                grid[i, j, k, :] = np.array([x, y, z])
+    return grid
+
+
+def array_to_kgrid(grid):
+    """
+    Args:
+        grid (np.array): 4d numpy array, where last dimension is vectors
+            in a 3d grid specifying fractional position in BZ
+    Returns:
+        a list of [kx, ky, kz] k-point coordinates compatible with AMSET
+    """
+    kgrid = []
+    for i in range(grid.shape[0]):
+        for j in range(grid.shape[1]):
+            for k in range(grid.shape[2]):
+                kgrid.append(grid[i,j,k])
+    return kgrid
+
+
 def f0(E, fermi, T):
     """returns the value of Fermi-Dirac at equilibrium for E (energy), fermi [level] and T (temperature)"""
     if E - fermi > 5:
