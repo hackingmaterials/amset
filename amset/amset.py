@@ -943,20 +943,20 @@ class AMSET(object):
         # remove duplicates
         for dir in ['x', 'y', 'z']:
             points_1d[dir] = list(set(np.array(points_1d[dir]).round(decimals=14)))
-        self.kgrid_array['k_points'] = self.create_grid(points_1d)
-        kpts = self.array_to_kgrid(self.kgrid_array['k_points'])
+        self.kgrid_array = self.create_grid(points_1d)
+        kpts = self.array_to_kgrid(self.kgrid_array)
 
-        N = self.kgrid_array['k_points'].shape
+        N = self.kgrid_array.shape
         self.k_hat_grid = np.zeros(N)
         for i in range(N[0]):
             for j in range(N[1]):
                 for k in range(N[2]):
-                    k_vec = self.kgrid_array['k_points'][i,j,k]
+                    k_vec = self.kgrid_array[i,j,k]
                     if norm(k_vec) == 0:
                         self.k_hat_grid[i,j,k] = [0, 0, 0]
                     else:
                         self.k_hat_grid[i,j,k] = k_vec / norm(k_vec)
-        self.dv_grid = self.find_dv(self.kgrid_array['k_points'])
+        self.dv_grid = self.find_dv(self.kgrid_array)
 
         logging.info("number of original ibz k-points: {}".format(len(kpts)))
         logging.debug("time to get the ibz k-mesh: \n {}".format(time.time()-start_time))
@@ -1078,7 +1078,7 @@ class AMSET(object):
 
             # kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
-        N = self.kgrid_array['k_points'].shape
+        N = self.kgrid_array.shape
 
         for ib in range(self.num_bands['n']):
             print('energy (type n, band {}):'.format(ib))
@@ -1596,7 +1596,7 @@ class AMSET(object):
 
 
     def grid_index_from_list_index(self, list_index):
-        N = self.kgrid_array['k_points'].shape
+        N = self.kgrid_array.shape
         count = list_index
         i, j, k = (0,0,0)
         while count >= N[2]*N[1]:
@@ -2443,8 +2443,8 @@ class AMSET(object):
         # print('energy:')
         # np.set_printoptions(precision=3)
         # print(energy_grid[0,:,:,:,0])
-        N = self.kgrid_array['k_points'].shape
-        k_grid = self.kgrid_array['k_points']
+        N = self.kgrid_array.shape
+        k_grid = self.kgrid_array
         v_vec_result = []
         for ib in range(self.num_bands[tp]):
             v_vec = np.gradient(energy_grid[ib][:,:,:,0], k_grid[:,0,0,0] * self._rec_lattice.a, k_grid[0,:,0,1] * self._rec_lattice.b, k_grid[0,0,:,2] * self._rec_lattice.c)
@@ -2499,7 +2499,7 @@ class AMSET(object):
     def grid_from_ordered_list(self, prop_list, tp=None, denom=False, none_missing=False):
         # need:
         # self.kgrid_array
-        N = self.kgrid_array['k_points'].shape
+        N = self.kgrid_array.shape
         grid = np.zeros(N)
         adjusted_prop_list = list(prop_list)
 
@@ -2545,7 +2545,7 @@ class AMSET(object):
         self.mobility = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in mo_labels} for tp in ["n", "p"]}
 
         #k_hat = np.array([self.k_hat_grid for ib in range(self.num_bands)])
-        N = self.kgrid_array['k_points'].shape
+        N = self.kgrid_array.shape
 
         for c in self.dopings:
             for T in self.temperatures:
@@ -3119,28 +3119,28 @@ class AMSET(object):
         # remove duplicates
         for dir in ['x', 'y', 'z']:
             points_1d[dir] = list(set(np.array(points_1d[dir]).round(decimals=14)))
-        self.kgrid_array['k_points'] = self.create_grid(points_1d)
-        kpts = self.array_to_kgrid(self.kgrid_array['k_points'])
+        self.kgrid_array = self.create_grid(points_1d)
+        kpts = self.array_to_kgrid(self.kgrid_array)
 
-        N = self.kgrid_array['k_points'].shape
+        N = self.kgrid_array.shape
         self.k_hat_grid = np.zeros(N)
         for i in range(N[0]):
             for j in range(N[1]):
                 for k in range(N[2]):
-                    k_vec = self.kgrid_array['k_points'][i, j, k]
+                    k_vec = self.kgrid_array[i, j, k]
                     if norm(k_vec) == 0:
                         self.k_hat_grid[i, j, k] = [0, 0, 0]
                     else:
                         self.k_hat_grid[i, j, k] = k_vec / norm(k_vec)
 
-        self.dv_grid = self.find_dv(self.kgrid_array['k_points'])
+        self.dv_grid = self.find_dv(self.kgrid_array)
 
-        k_x = self.kgrid_array['k_points'][:, :, :, 0]
-        k_y = self.kgrid_array['k_points'][:, :, :, 1]
-        k_z = self.kgrid_array['k_points'][:, :, :, 2]
+        k_x = self.kgrid_array[:, :, :, 0]
+        k_y = self.kgrid_array[:, :, :, 1]
+        k_z = self.kgrid_array[:, :, :, 2]
         result = self.integrate_over_k(np.cos(k_x))
         print(result)
-        #print(self.kgrid_array['k_points'])
+        #print(self.kgrid_array)
 
 
 if __name__ == "__main__":
@@ -3186,7 +3186,7 @@ if __name__ == "__main__":
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="fine"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="very coarse"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
