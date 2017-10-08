@@ -904,7 +904,7 @@ class AMSET(object):
         if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(self.cbm_vbm["n"]["kpoint"])).any():
             important_pts.append(self.cbm_vbm["p"]["kpoint"])
 
-        points_1d = generate_k_mesh_axes(kgrid_tp, important_pts)
+        points_1d = generate_k_mesh_axes(important_pts, kgrid_tp=kgrid_tp)
         self.kgrid_array = create_grid(points_1d)
         kpts = array_to_kgrid(self.kgrid_array)
 
@@ -3003,63 +3003,15 @@ class AMSET(object):
 
 
     def test_run(self):
-        self.kgrid_array = {}
-
-        # points_1d = {dir: [-0.4 + i*0.1 for i in range(9)] for dir in ['x', 'y', 'z']}
-        # points_1d = {dir: [-0.475 + i * 0.05 for i in range(20)] for dir in ['x', 'y', 'z']}
-        points_1d = {dir: [] for dir in ['x', 'y', 'z']}
-        # TODO: figure out which other points need a fine grid around them
         important_pts = [self.cbm_vbm["n"]["kpoint"]]
         if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(self.cbm_vbm["n"]["kpoint"])).any():
             important_pts.append(self.cbm_vbm["p"]["kpoint"])
 
-        for center in important_pts:
-            for dim, dir in enumerate(['x', 'y', 'z']):
-                points_1d[dir].append(center[dim])
-                one_list = True
-                if not one_list:
-                    # for step, nsteps in [[0.0015, 3], [0.005, 4], [0.01, 4], [0.05, 2]]:
-                    for step, nsteps in [[0.002, 2], [0.005, 4], [0.01, 4], [0.05, 2]]:
-                        # for step, nsteps in [[0.01, 2]]:
-                        # print "mesh: 10"
-                        # loop goes from 0 to nsteps-2, so added values go from step to step*(nsteps-1)
-                        for i in range(nsteps - 1):
-                            points_1d[dir].append(center[dim] - (i + 1) * step)
-                            points_1d[dir].append(center[dim] + (i + 1) * step)
-
-                else:
-                    # number of points options are: 175,616, 74,088, 15,625, 4,913
-                    # for step in [0.001, 0.002, 0.0035, 0.005, 0.0075, 0.01, 0.0125, 0.015, 0.018, 0.021, 0.025, 0.03, 0.035, 0.0425, 0.05, 0.06, 0.075, 0.1, 0.125, 0.15, 0.18, 0.21, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]:
-                    for step in [0.001, 0.002, 0.0035, 0.005, 0.0075, 0.01, 0.015, 0.02, 0.03, 0.04, 0.05, 0.07, 0.1,
-                                 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45]:
-                        # for step in [0.002, 0.005, 0.01, 0.015, 0.02, 0.03, 0.05, 0.1, 0.15, 0.25, 0.35, 0.45]:
-                        # for step in [0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.35, 0.45]:
-                        points_1d[dir].append(center[dim] + step)
-                        points_1d[dir].append(center[dim] - step)
-
-        # ensure all points are in first BZ
-        for dir in ['x', 'y', 'z']:
-            for ik1d in range(len(points_1d[dir])):
-                if points_1d[dir][ik1d] > 0.5:
-                    points_1d[dir][ik1d] -= 1
-                if points_1d[dir][ik1d] <= -0.5:
-                    points_1d[dir][ik1d] += 1
-        # remove duplicates
-        for dir in ['x', 'y', 'z']:
-            points_1d[dir] = list(set(np.array(points_1d[dir]).round(decimals=14)))
+        points_1d = generate_k_mesh_axes(important_pts, kgrid_tp='very fine')
         self.kgrid_array = create_grid(points_1d)
         kpts = array_to_kgrid(self.kgrid_array)
 
-        N = self.kgrid_array.shape
-        self.k_hat_array = np.zeros(N)
-        for i in range(N[0]):
-            for j in range(N[1]):
-                for k in range(N[2]):
-                    k_vec = self.kgrid_array[i, j, k]
-                    if norm(k_vec) == 0:
-                        self.k_hat_array[i, j, k] = [0, 0, 0]
-                    else:
-                        self.k_hat_array[i, j, k] = k_vec / norm(k_vec)
+        self.k_hat_array = normalize_array(self.kgrid_array)
 
         self.dv_grid = self.find_dv(self.kgrid_array)
 
@@ -3124,7 +3076,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy', 'velocity'], E_plots='all', show_interactive=True,
-               carrier_types=amset.all_types, save_format=None)
+    #amset.plot(k_plots=['energy', 'velocity'], E_plots='all', show_interactive=True,
+    #           carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
