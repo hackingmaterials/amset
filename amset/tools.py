@@ -32,6 +32,52 @@ def grid_norm(grid):
     return (grid[:,:,:,0]**2 + grid[:,:,:,1]**2 + grid[:,:,:,2]**2) ** 0.5
 
 
+def generate_k_mesh_axes(kgrid_tp, important_pts, one_list=True):
+    points_1d = {dir: [] for dir in ['x', 'y', 'z']}
+
+    for center in important_pts:
+        for dim, dir in enumerate(['x', 'y', 'z']):
+            points_1d[dir].append(center[dim])
+
+            if not one_list:
+                for step, nsteps in [[0.002, 2], [0.005, 4], [0.01, 4], [0.05, 2], [0.1, 5]]:
+                    for i in range(nsteps - 1):
+                        points_1d[dir].append(center[dim] - (i + 1) * step)
+                        points_1d[dir].append(center[dim] + (i + 1) * step)
+
+            else:
+                if kgrid_tp == 'very fine':
+                    mesh = [0.001, 0.002, 0.004, 0.007, 0.01, 0.02, 0.03,
+                            0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
+                elif kgrid_tp == 'fine':
+                    mesh = [0.004, 0.01, 0.02, 0.03,
+                            0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
+                elif kgrid_tp == 'coarse':
+                    mesh = [0.001, 0.005, 0.01, 0.05, 0.15, 0.5]
+                elif kgrid_tp == 'very coarse':
+                    mesh = [0.001, 0.01, 0.1, 0.5]
+                else:
+                    raise ValueError('Unsupported value for kgrid_tp: {}'.format(kgrid_tp))
+                for step in mesh:
+                    points_1d[dir].append(center[dim] + step)
+                    points_1d[dir].append(center[dim] - step)
+    print('included points in the mesh: {}'.format(points_1d))
+
+    # ensure all points are in "first BZ" (parallelepiped)
+    for dir in ['x', 'y', 'z']:
+        for ik1d in range(len(points_1d[dir])):
+            if points_1d[dir][ik1d] > 0.5:
+                points_1d[dir][ik1d] -= 1
+            if points_1d[dir][ik1d] < -0.5:
+                points_1d[dir][ik1d] += 1
+
+    # remove duplicates
+    for dir in ['x', 'y', 'z']:
+        points_1d[dir] = list(set(np.array(points_1d[dir]).round(decimals=14)))
+
+    return points_1d
+
+
 def create_grid(points_1d):
     for dir in ['x', 'y', 'z']:
         points_1d[dir].sort()
@@ -57,6 +103,20 @@ def array_to_kgrid(grid):
             for k in range(grid.shape[2]):
                 kgrid.append(grid[i,j,k])
     return kgrid
+
+
+def normalize_array(grid):
+    N = grid.shape
+    norm_grid = np.zeros(N)
+    for i in range(N[0]):
+        for j in range(N[1]):
+            for k in range(N[2]):
+                vec = grid[i, j, k]
+                if norm(vec) == 0:
+                    norm_grid[i, j, k] = [0, 0, 0]
+                else:
+                    norm_grid[i, j, k] = vec / norm(vec)
+    return norm_grid
 
 
 def f0(E, fermi, T):
