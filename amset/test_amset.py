@@ -21,6 +21,7 @@ class AmsetTest(unittest.TestCase):
         pass
 
     def test_poly_bands(self):
+        pass
 
     def test_GaAs(self):
         # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
