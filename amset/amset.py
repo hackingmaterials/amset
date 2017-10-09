@@ -802,8 +802,8 @@ class AMSET(object):
                 if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
                     kpoints_added[tp].append(kpts[ie])
 
-        print("here initial k-points for {}-type with low energy distance".format(self.debug_tp))
-        print(len(kpoints_added[self.debug_tp]))
+        logging.info("here initial k-points for {}-type with low energy distance".format(self.debug_tp))
+        logging.info(len(kpoints_added[self.debug_tp]))
         # print kpoints_added[self.debug_tp]
         final_kpts_added = []
         for tp in ["n", "p"]:
