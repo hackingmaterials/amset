@@ -20,6 +20,8 @@ class AmsetTest(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def test_poly_bands(self):
+
     def test_GaAs(self):
         # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
@@ -57,3 +59,6 @@ class AmsetTest(unittest.TestCase):
 
         # TODO-JF: similar tests for k-integration (e.g. isotropic mobility)
 
+
+if __name__ == '__main__':
+    unittest.main()
