@@ -2254,8 +2254,9 @@ class AMSET(object):
                             else:
                                 egrid[tp][key] = self.egrid[tp][key][::-1][nstart:nstart + nmax]
                         except:
-                            print "cutting data for {} numbers in egrid was NOT successful!".format(key)
-                            pass
+                            if key not in ['mobility']:
+                                logging.warning('in to_json: cutting {} '
+                                                'in egrid failed!'.format(key))
 
         with open("egrid.json", 'w') as fp:
             json.dump(egrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
@@ -2289,8 +2290,9 @@ class AMSET(object):
                                     kgrid[tp][key] = [self.kgrid[tp][key][b][::-1][nstart:nstart + nmax]
                                                       for b in range(self.cbm_vbm[tp]["included"])]
                             except:
-                                print "cutting data for {} numbers in kgrid was NOT successful!".format(key)
-                                pass
+                                if key not in ['mobility']:
+                                    logging.warning('in to_json: cutting {} '
+                                        'in kgrid failed!'.format(key))
 
             with open("kgrid.json", 'w') as fp:
                 json.dump(kgrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
@@ -3007,7 +3009,7 @@ class AMSET(object):
         if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(self.cbm_vbm["n"]["kpoint"])).any():
             important_pts.append(self.cbm_vbm["p"]["kpoint"])
 
-        points_1d = generate_k_mesh_axes(important_pts, kgrid_tp='very fine')
+        points_1d = generate_k_mesh_axes('very fine', important_pts)
         self.kgrid_array = create_grid(points_1d)
         kpts = array_to_kgrid(self.kgrid_array)
 
