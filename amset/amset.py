@@ -904,7 +904,7 @@ class AMSET(object):
         if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(self.cbm_vbm["n"]["kpoint"])).any():
             important_pts.append(self.cbm_vbm["p"]["kpoint"])
 
-        points_1d = generate_k_mesh_axes(important_pts, kgrid_tp=kgrid_tp)
+        points_1d = generate_k_mesh_axes(kgrid_tp, important_pts, one_list=True)
         self.kgrid_array = create_grid(points_1d)
         kpts = array_to_kgrid(self.kgrid_array)
 
