@@ -17,11 +17,34 @@ class AmsetTest(unittest.TestCase):
                              'inelastic_scatterings': ['POP']}
         self.performance_params = {'dE_min': 0.0001, 'nE_min': 2, 'Ecut': 0.7,
                                 'parallel': True, 'BTE_iters': 5, 'nkdos':29}
+
+
     def tearDown(self):
         pass
 
+
     def test_poly_bands(self):
-        pass
+        mass = 0.25
+        self.model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+        material_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
+                           'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
+                           'P_PIE': 0.052, 'scissor': 0.5818}
+        ### For GaAs
+        cube_path = "../test_files/GaAs/"
+        coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
+
+        amset = AMSET(calc_dir=cube_path, material_params=material_params,
+                      model_params=self.model_params,
+                      performance_params=self.performance_params,
+                      dopings=[-2e15], temperatures=[300], k_integration=True,
+                      e_integration=True, fermi_type='k',
+                      loglevel=logging.ERROR)
+        amset.run(coeff_file, kgrid_tp='poly_band')
+        egrid = amset.egrid
+        diff = abs(np.array(amset.mobility['n']['ACD'][-2e15][300]) - np.array(egrid['n']['mobility']['SPB_ACD'][-2e15][300]))
+        avg = (amset.mobility['n']['ACD'][-2e15][300] + egrid['n']['mobility']['SPB_ACD'][-2e15][300]) / 2
+        self.assertTrue((diff / avg <= 0.01).all())
+
 
     def test_GaAs(self):
         # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
