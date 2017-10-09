@@ -804,8 +804,8 @@ class AMSET(object):
                 if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
                     kpoints_added[tp].append(kpts[ie])
 
-        print "here initial k-points for {}-type with low energy distance".format(self.debug_tp)
-        print len(kpoints_added[self.debug_tp])
+        logging.info("here initial k-points for {}-type with low energy distance".format(self.debug_tp))
+        logging.info(len(kpoints_added[self.debug_tp]))
         # print kpoints_added[self.debug_tp]
         final_kpts_added = []
         for tp in ["n", "p"]:
@@ -906,7 +906,7 @@ class AMSET(object):
         if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(self.cbm_vbm["n"]["kpoint"])).any():
             important_pts.append(self.cbm_vbm["p"]["kpoint"])
 
-        points_1d = generate_k_mesh_axes(kgrid_tp, important_pts, one_list=True)
+        points_1d = generate_k_mesh_axes(important_pts, kgrid_tp, one_list=True)
         self.kgrid_array = create_grid(points_1d)
         kpts = array_to_kgrid(self.kgrid_array)
 
@@ -3011,7 +3011,7 @@ class AMSET(object):
         if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(self.cbm_vbm["n"]["kpoint"])).any():
             important_pts.append(self.cbm_vbm["p"]["kpoint"])
 
-        points_1d = generate_k_mesh_axes('very fine', important_pts)
+        points_1d = generate_k_mesh_axes(important_pts, kgrid_tp='very fine')
         self.kgrid_array = create_grid(points_1d)
         kpts = array_to_kgrid(self.kgrid_array)
 
