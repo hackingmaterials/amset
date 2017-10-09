@@ -32,7 +32,7 @@ def grid_norm(grid):
     return (grid[:,:,:,0]**2 + grid[:,:,:,1]**2 + grid[:,:,:,2]**2) ** 0.5
 
 
-def generate_k_mesh_axes(kgrid_tp, important_pts, one_list=True):
+def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
     points_1d = {dir: [] for dir in ['x', 'y', 'z']}
 
     for center in important_pts:

@@ -10,8 +10,11 @@ from amset import AMSET
 
 test_dir = os.path.dirname(__file__)
 
+print("check 0")
+
 class AmsetTest(unittest.TestCase):
     def setUp(self):
+        print("check 1")
         self.model_params = {'bs_is_isotropic': True,
                              'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                              'inelastic_scatterings': ['POP']}
@@ -24,6 +27,8 @@ class AmsetTest(unittest.TestCase):
         # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
         #                'POP': 10113.9, 'overall': 8173.4}
+
+        print("hello hello hello")
 
         expected_mu = {'ACD': 48397.6, 'IMP': 58026678.3, 'PIE': 111243.3,
                        'POP': 7478.1, 'overall': 6014.1}
@@ -57,3 +62,6 @@ class AmsetTest(unittest.TestCase):
 
         # TODO-JF: similar tests for k-integration (e.g. isotropic mobility)
 
+
+if __name__ == '__main__':
+    unittest.main()
