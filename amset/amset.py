@@ -23,8 +23,8 @@ import multiprocessing
 from joblib import Parallel, delayed
 from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_energy, get_poly_energy
 
-from tools import norm, grid_norm, f0, df0dE, cos_angle, fermi_integral, GB, \
-        calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
+from tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
+        fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
         remove_duplicate_kpoints
 
 __author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
@@ -896,67 +896,22 @@ class AMSET(object):
         self.rotations, self.translations = sg._get_symmetry()
 
         logging.info("self.nkibz = {}".format(self.nkibz))
-        self.kgrid_array = {}
-        points_1d = {dir: [] for dir in ['x', 'y', 'z']}
+
+        # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
         # TODO: figure out which other points need a fine grid around them
         # TODO-JF: can we have a separate mesh for n- and p-type from here?
         important_pts = [self.cbm_vbm["n"]["kpoint"]]
         if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(self.cbm_vbm["n"]["kpoint"])).any():
             important_pts.append(self.cbm_vbm["p"]["kpoint"])
 
-        for center in important_pts:
-            for dim, dir in enumerate(['x', 'y', 'z']):
-                points_1d[dir].append(center[dim])
-                one_list = True
-                if not one_list:
-                    for step, nsteps in [[0.002, 2], [0.005, 4], [0.01, 4], [0.05, 2],[0.1, 5]]:
-                        for i in range(nsteps - 1):
-                            points_1d[dir].append(center[dim]-(i+1)*step)
-                            points_1d[dir].append(center[dim]+(i+1)*step)
+        points_1d = generate_k_mesh_axes(important_pts, kgrid_tp=kgrid_tp)
+        self.kgrid_array = create_grid(points_1d)
+        kpts = array_to_kgrid(self.kgrid_array)
 
-                else:
-                    if kgrid_tp == 'very fine':
-                        mesh = [0.001, 0.002, 0.004, 0.007, 0.01, 0.02, 0.03,
-                                0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
-                    elif kgrid_tp == 'fine':
-                        mesh = [0.004, 0.01, 0.02, 0.03,
-                                0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
-                    elif kgrid_tp == 'coarse':
-                        mesh = [0.001, 0.005, 0.01, 0.05, 0.15, 0.5]
-                    elif kgrid_tp == 'very coarse':
-                        mesh = [0.001, 0.01, 0.1, 0.5]
-                    else:
-                        raise ValueError('Unsupported value for kgrid_tp: {}'.format(kgrid_tp))
-                    for step in mesh:
-                        points_1d[dir].append(center[dim] + step)
-                        points_1d[dir].append(center[dim] - step)
-        logging.info('included points in the mesh: {}'.format(points_1d))
-
-        # ensure all points are in "first BZ" (parallelepiped)
-        for dir in ['x', 'y', 'z']:
-            for ik1d in range(len(points_1d[dir])):
-                if points_1d[dir][ik1d] > 0.5:
-                    points_1d[dir][ik1d] -= 1
-                if points_1d[dir][ik1d] < -0.5:
-                    points_1d[dir][ik1d] += 1
-
-        # remove duplicates
-        for dir in ['x', 'y', 'z']:
-            points_1d[dir] = list(set(np.array(points_1d[dir]).round(decimals=14)))
-        self.kgrid_array['k_points'] = self.create_grid(points_1d)
-        kpts = self.array_to_kgrid(self.kgrid_array['k_points'])
-
-        N = self.kgrid_array['k_points'].shape
-        self.k_hat_grid = np.zeros(N)
-        for i in range(N[0]):
-            for j in range(N[1]):
-                for k in range(N[2]):
-                    k_vec = self.kgrid_array['k_points'][i,j,k]
-                    if norm(k_vec) == 0:
-                        self.k_hat_grid[i,j,k] = [0, 0, 0]
-                    else:
-                        self.k_hat_grid[i,j,k] = k_vec / norm(k_vec)
-        self.dv_grid = self.find_dv(self.kgrid_array['k_points'])
+        # generate a normalized numpy array of vectors pointing in the direction of k
+        self.k_hat_array = normalize_array(self.kgrid_array)
+        
+        self.dv_grid = self.find_dv(self.kgrid_array)
 
         logging.info("number of original ibz k-points: {}".format(len(kpts)))
         logging.debug("time to get the ibz k-mesh: \n {}".format(time.time()-start_time))
@@ -1078,7 +1033,7 @@ class AMSET(object):
 
             # kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
-        N = self.kgrid_array['k_points'].shape
+        N = self.kgrid_array.shape
 
         for ib in range(self.num_bands['n']):
             print('energy (type n, band {}):'.format(ib))
@@ -1568,35 +1523,8 @@ class AMSET(object):
         # return integral/sum(self.Efrequency[tp][:-1])
 
 
-    def create_grid(self, points_1d):
-        for dir in ['x', 'y', 'z']:
-            points_1d[dir].sort()
-        grid = np.zeros((len(points_1d['x']), len(points_1d['y']), len(points_1d['z']), 3))
-        for i, x in enumerate(points_1d['x']):
-            for j, y in enumerate(points_1d['y']):
-                for k, z in enumerate(points_1d['z']):
-                    grid[i, j, k, :] = np.array([x, y, z])
-        return grid
-
-
-    def array_to_kgrid(self, grid):
-        """
-        Args:
-            grid (np.array): 4d numpy array, where last dimension is vectors
-                in a 3d grid specifying fractional position in BZ
-        Returns:
-            a list of [kx, ky, kz] k-point coordinates compatible with AMSET
-        """
-        kgrid = []
-        for i in range(grid.shape[0]):
-            for j in range(grid.shape[1]):
-                for k in range(grid.shape[2]):
-                    kgrid.append(grid[i,j,k])
-        return kgrid
-
-
     def grid_index_from_list_index(self, list_index):
-        N = self.kgrid_array['k_points'].shape
+        N = self.kgrid_array.shape
         count = list_index
         i, j, k = (0,0,0)
         while count >= N[2]*N[1]:
@@ -2443,8 +2371,8 @@ class AMSET(object):
         # print('energy:')
         # np.set_printoptions(precision=3)
         # print(energy_grid[0,:,:,:,0])
-        N = self.kgrid_array['k_points'].shape
-        k_grid = self.kgrid_array['k_points']
+        N = self.kgrid_array.shape
+        k_grid = self.kgrid_array
         v_vec_result = []
         for ib in range(self.num_bands[tp]):
             v_vec = np.gradient(energy_grid[ib][:,:,:,0], k_grid[:,0,0,0] * self._rec_lattice.a, k_grid[0,:,0,1] * self._rec_lattice.b, k_grid[0,0,:,2] * self._rec_lattice.c)
@@ -2499,7 +2427,7 @@ class AMSET(object):
     def grid_from_ordered_list(self, prop_list, tp=None, denom=False, none_missing=False):
         # need:
         # self.kgrid_array
-        N = self.kgrid_array['k_points'].shape
+        N = self.kgrid_array.shape
         grid = np.zeros(N)
         adjusted_prop_list = list(prop_list)
 
@@ -2544,8 +2472,8 @@ class AMSET(object):
         mo_labels = self.elastic_scatterings + self.inelastic_scatterings + ['overall', 'average']
         self.mobility = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in mo_labels} for tp in ["n", "p"]}
 
-        #k_hat = np.array([self.k_hat_grid for ib in range(self.num_bands)])
-        N = self.kgrid_array['k_points'].shape
+        #k_hat = np.array([self.k_hat_array for ib in range(self.num_bands)])
+        N = self.kgrid_array.shape
 
         for c in self.dopings:
             for T in self.temperatures:
@@ -2586,7 +2514,7 @@ class AMSET(object):
                         nu_el = self.array_from_kgrid('_all_elastic', tp, c, T, denom=True)
                         S_i = 0
                         S_o = 1
-                        numerator = -self.integrate_over_states(v * self.k_hat_grid * (-1 / hbar) * df0dk / nu_el)
+                        numerator = -self.integrate_over_states(v * self.k_hat_array * (-1 / hbar) * df0dk / nu_el)
                         denominator = self.integrate_over_states(f0) * hbar * default_small_E
                         self.mobility[tp]['overall'][c][T] = numerator / denominator
 
@@ -2595,7 +2523,7 @@ class AMSET(object):
                         for el_mech in self.elastic_scatterings:
                             nu_el = self.array_from_kgrid(el_mech, tp, c, T, denom=True)
                             # includes e in numerator because hbar is in eV units, where e = 1
-                            numerator = -self.integrate_over_states(v * self.k_hat_grid * df0dk / nu_el)
+                            numerator = -self.integrate_over_states(v * self.k_hat_array * df0dk / nu_el)
                             denominator = self.integrate_over_states(f0) * hbar
                             # for ib in range(len(self.kgrid[tp]["energy"])):
                             #     #num_kpts = len(self.kgrid[tp]["energy"][ib])
@@ -2614,7 +2542,7 @@ class AMSET(object):
                             S_i = 0
                             S_o = 1
                             self.mobility[tp][inel_mech][c][T] = self.integrate_over_states(
-                                v * self.k_hat_grid * (-1 / hbar) * df0dk / S_o)
+                                v * self.k_hat_array * (-1 / hbar) * df0dk / S_o)
 
                         if tp == "n":
                             for mech in self.elastic_scatterings + ['overall']:
@@ -3075,72 +3003,24 @@ class AMSET(object):
 
 
     def test_run(self):
-        self.kgrid_array = {}
-
-        # points_1d = {dir: [-0.4 + i*0.1 for i in range(9)] for dir in ['x', 'y', 'z']}
-        # points_1d = {dir: [-0.475 + i * 0.05 for i in range(20)] for dir in ['x', 'y', 'z']}
-        points_1d = {dir: [] for dir in ['x', 'y', 'z']}
-        # TODO: figure out which other points need a fine grid around them
         important_pts = [self.cbm_vbm["n"]["kpoint"]]
         if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(self.cbm_vbm["n"]["kpoint"])).any():
             important_pts.append(self.cbm_vbm["p"]["kpoint"])
 
-        for center in important_pts:
-            for dim, dir in enumerate(['x', 'y', 'z']):
-                points_1d[dir].append(center[dim])
-                one_list = True
-                if not one_list:
-                    # for step, nsteps in [[0.0015, 3], [0.005, 4], [0.01, 4], [0.05, 2]]:
-                    for step, nsteps in [[0.002, 2], [0.005, 4], [0.01, 4], [0.05, 2]]:
-                        # for step, nsteps in [[0.01, 2]]:
-                        # print "mesh: 10"
-                        # loop goes from 0 to nsteps-2, so added values go from step to step*(nsteps-1)
-                        for i in range(nsteps - 1):
-                            points_1d[dir].append(center[dim] - (i + 1) * step)
-                            points_1d[dir].append(center[dim] + (i + 1) * step)
+        points_1d = generate_k_mesh_axes(important_pts, kgrid_tp='very fine')
+        self.kgrid_array = create_grid(points_1d)
+        kpts = array_to_kgrid(self.kgrid_array)
 
-                else:
-                    # number of points options are: 175,616, 74,088, 15,625, 4,913
-                    # for step in [0.001, 0.002, 0.0035, 0.005, 0.0075, 0.01, 0.0125, 0.015, 0.018, 0.021, 0.025, 0.03, 0.035, 0.0425, 0.05, 0.06, 0.075, 0.1, 0.125, 0.15, 0.18, 0.21, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]:
-                    for step in [0.001, 0.002, 0.0035, 0.005, 0.0075, 0.01, 0.015, 0.02, 0.03, 0.04, 0.05, 0.07, 0.1,
-                                 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45]:
-                        # for step in [0.002, 0.005, 0.01, 0.015, 0.02, 0.03, 0.05, 0.1, 0.15, 0.25, 0.35, 0.45]:
-                        # for step in [0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.35, 0.45]:
-                        points_1d[dir].append(center[dim] + step)
-                        points_1d[dir].append(center[dim] - step)
+        self.k_hat_array = normalize_array(self.kgrid_array)
 
-        # ensure all points are in first BZ
-        for dir in ['x', 'y', 'z']:
-            for ik1d in range(len(points_1d[dir])):
-                if points_1d[dir][ik1d] > 0.5:
-                    points_1d[dir][ik1d] -= 1
-                if points_1d[dir][ik1d] <= -0.5:
-                    points_1d[dir][ik1d] += 1
-        # remove duplicates
-        for dir in ['x', 'y', 'z']:
-            points_1d[dir] = list(set(np.array(points_1d[dir]).round(decimals=14)))
-        self.kgrid_array['k_points'] = self.create_grid(points_1d)
-        kpts = self.array_to_kgrid(self.kgrid_array['k_points'])
+        self.dv_grid = self.find_dv(self.kgrid_array)
 
-        N = self.kgrid_array['k_points'].shape
-        self.k_hat_grid = np.zeros(N)
-        for i in range(N[0]):
-            for j in range(N[1]):
-                for k in range(N[2]):
-                    k_vec = self.kgrid_array['k_points'][i, j, k]
-                    if norm(k_vec) == 0:
-                        self.k_hat_grid[i, j, k] = [0, 0, 0]
-                    else:
-                        self.k_hat_grid[i, j, k] = k_vec / norm(k_vec)
-
-        self.dv_grid = self.find_dv(self.kgrid_array['k_points'])
-
-        k_x = self.kgrid_array['k_points'][:, :, :, 0]
-        k_y = self.kgrid_array['k_points'][:, :, :, 1]
-        k_z = self.kgrid_array['k_points'][:, :, :, 2]
+        k_x = self.kgrid_array[:, :, :, 0]
+        k_y = self.kgrid_array[:, :, :, 1]
+        k_z = self.kgrid_array[:, :, :, 2]
         result = self.integrate_over_k(np.cos(k_x))
         print(result)
-        #print(self.kgrid_array['k_points'])
+        #print(self.kgrid_array)
 
 
 if __name__ == "__main__":
@@ -3186,7 +3066,7 @@ if __name__ == "__main__":
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="fine"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="very coarse"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
@@ -3196,7 +3076,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy', 'velocity'], E_plots='all', show_interactive=True,
-               carrier_types=amset.all_types, save_format=None)
+    #amset.plot(k_plots=['energy', 'velocity'], E_plots='all', show_interactive=True,
+    #           carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
