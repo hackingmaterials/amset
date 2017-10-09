@@ -3030,8 +3030,8 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
 
-    model_params = {"bs_is_isotropic": True, "elastic_scatterings": ["ACD", "IMP", "PIE"],
-                    "inelastic_scatterings": ["POP"] }
+    model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+                    'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
 
@@ -3064,11 +3064,11 @@ if __name__ == "__main__":
                   model_params=model_params, performance_params=performance_params,
                   dopings = [-2e15],
                   temperatures = [300],
-                  k_integration=True, e_integration=True, fermi_type='e',
+                  k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="very coarse"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="fine"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
@@ -3078,7 +3078,6 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    #amset.plot(k_plots=['energy', 'velocity'], E_plots='all', show_interactive=True,
-    #           carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy'], E_plots=['df0dk', 'velocity', 'ACD', 'IMP', 'PIE'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
