@@ -637,6 +637,8 @@ class AMSET(object):
                             self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
 
         self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
+        logging.debug('inverse screening length, beta is \n{}'.format(
+            self.egrid["beta"]))
         self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
         self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
         self.calculate_property(prop_name="Seebeck_integral_denominator", prop_func=self.seeb_int_denom)
@@ -3030,7 +3032,7 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
 
-    model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+    model_params = {'bs_is_isotropic': False, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
@@ -3068,7 +3070,7 @@ if __name__ == "__main__":
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="fine"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="coarse"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
