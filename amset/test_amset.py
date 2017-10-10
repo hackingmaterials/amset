@@ -30,9 +30,6 @@ class AmsetTest(unittest.TestCase):
     def test_poly_bands(self):
         mass = 0.25
         self.model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
-        cube_path = "../test_files/GaAs/"
-        coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
-
         amset = AMSET(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
@@ -82,7 +79,27 @@ class AmsetTest(unittest.TestCase):
 
 
     def test_GaAs_anisotropic(self):
-        pass
+        expected_mu = {'ACD': 44054.0, 'IMP': 55973854.8, 'PIE': 112134.2,
+                       'POP': 69055.9, 'overall': 21684.4}
+        amset = AMSET(calc_dir=self.GaAs_path,
+                      material_params=self.GaAs_params,
+                      model_params={'bs_is_isotropic': False,
+                             'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+                             'inelastic_scatterings': ['POP']},
+                      performance_params=self.performance_params,
+                      dopings=[-2e15], temperatures=[300], k_integration=False,
+                      e_integration=True, fermi_type='e',
+                      loglevel=logging.ERROR)
+        amset.run(self.GaAs_cube, kgrid_tp='very coarse')
+        egrid = amset.egrid
+        # check mobility values
+        for mu in expected_mu.keys():
+            self.assertLessEqual(np.std(  # GaAs band structure is isotropic
+                egrid['n']['mobility'][mu][-2e15][300]), 0.01*\
+                np.mean(egrid['n']['mobility'][mu][-2e15][300]))
+            self.assertAlmostEqual(egrid['n']['mobility'][mu][-2e15][300][0],
+                                   expected_mu[mu], places=1)
+
 
 if __name__ == '__main__':
     unittest.main()
