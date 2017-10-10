@@ -20,7 +20,8 @@ class AmsetTest(unittest.TestCase):
         self.GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
                 'P_PIE': 0.052, 'scissor': 0.5818}
-
+        self.GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
+        self.GaAs_cube = os.path.join(self.GaAs_path, "fort.123_GaAs_1099kp")
 
     def tearDown(self):
         pass
@@ -32,13 +33,13 @@ class AmsetTest(unittest.TestCase):
         cube_path = "../test_files/GaAs/"
         coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp")
 
-        amset = AMSET(calc_dir=cube_path, material_params=self.GaAs_params,
+        amset = AMSET(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], k_integration=True,
                       e_integration=True, fermi_type='k',
                       loglevel=logging.ERROR)
-        amset.run(coeff_file, kgrid_tp='poly_band')
+        amset.run(self.GaAs_cube, kgrid_tp='poly_band')
         egrid = amset.egrid
         diff = abs(np.array(amset.mobility['n']['ACD'][-2e15][300]) - \
                    np.array(egrid['n']['mobility']['SPB_ACD'][-2e15][300]))
@@ -54,15 +55,13 @@ class AmsetTest(unittest.TestCase):
 
         expected_mu = {'ACD': 48397.6, 'IMP': 58026678.3, 'PIE': 111243.3,
                        'POP': 7478.1, 'overall': 6014.1}
-        cube_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
-        coeff_file = os.path.join(cube_path, 'fort.123_GaAs_1099kp')
-        amset = AMSET(calc_dir=cube_path, material_params=self.GaAs_params,
+        amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], k_integration=True,
                       e_integration=True, fermi_type='e',
                       loglevel=logging.ERROR)
-        amset.run(coeff_file, kgrid_tp='very coarse')
+        amset.run(self.GaAs_cube, kgrid_tp='very coarse')
         egrid = amset.egrid
         kgrid = amset.kgrid
 
@@ -81,6 +80,9 @@ class AmsetTest(unittest.TestCase):
 
         # TODO-JF: similar tests for k-integration (e.g. isotropic mobility)
 
+
+    def test_GaAs_anisotropic(self):
+        pass
 
 if __name__ == '__main__':
     unittest.main()
