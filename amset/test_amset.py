@@ -45,7 +45,7 @@ class AmsetTest(unittest.TestCase):
         self.assertTrue((diff / avg <= 0.01).all())
 
 
-    def test_GaAs(self):
+    def test_GaAs_isotropic(self):
         # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
         #                'POP': 10113.9, 'overall': 8173.4}
