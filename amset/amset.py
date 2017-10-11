@@ -1787,15 +1787,16 @@ class AMSET(object):
         Args:
             tp (str): "n" or "p" type
             c (float): carrier concentration/doping in cm**-3
-            T:
-            ib:
-            ik:
-            ib_prm:
-            ik_prm:
-            X:
-            sname:
-            g_suffix:
-        Returns (float): the integral
+            T (float): the temperature
+            ib (int): the band index starting from 0 (CBM/VBM)
+            ik (int): the k-point index
+            ib_prm (int): ib' (band index for k' state)
+            ik_prm (int): ik' (k-index for k' state)
+            X (float): the angle between k and k'
+            sname (str): scattering name: 'S_oX_Eplus_ik', 'S_oX_Eminus_ik',
+                'S_iX_Eplus_ik' or 'S_iX_Eminus_ik'
+            g_suffix (str): '' or '_th' (th for thermal)
+        Returns (float): the integrand for POP scattering
         """
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
