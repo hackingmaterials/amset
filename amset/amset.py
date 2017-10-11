@@ -6,7 +6,6 @@ import json
 from pstats import Stats
 from random import random
 from scipy.interpolate import griddata
-from scipy.constants.codata import value as _cd
 from pprint import pprint
 import os
 from sys import stdout as STDOUT
@@ -26,6 +25,9 @@ from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_
 from tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
         fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
         remove_duplicate_kpoints
+from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
+                        epsilon_0, default_small_E, dTdz, sq3
+
 
 __author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
@@ -35,20 +37,6 @@ __email__ = "alireza.faghaninia@gmail.com"
 __status__ = "Development"
 __date__ = "July 2017"
 
-
-# some global constants
-hbar = _cd('Planck constant in eV s') / (2 * pi)
-m_e = _cd('electron mass')  # in kg
-Ry_to_eV = 13.605698066
-A_to_m = 1e-10
-m_to_cm = 100.00
-A_to_nm = 0.1
-e = _cd('elementary charge')
-k_B = _cd("Boltzmann constant in eV/K")
-epsilon_0 = 8.854187817e-12  # dielectric constant in vacuum [C**2/m**2N]
-default_small_E = 1  # eV/cm the value of this parameter does not matter
-dTdz = 10.0  # K/cm
-sq3 = 3 ** 0.5
 
 
 class AMSET(object):

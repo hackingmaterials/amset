@@ -1,15 +1,6 @@
 import numpy as np
-from scipy.constants.codata import value as _cd
-from math import log, pi
-
-
-k_B = _cd("Boltzmann constant in eV/K")
-epsilon_0 = 8.854187817e-12  # dielectric constant in vacuum [C**2/m**2N]
-sq3 = 3 ** 0.5
-hbar = _cd('Planck constant in eV s') / (2 * pi)
-e = _cd('elementary charge')
-m_e = _cd('electron mass')  # in kg
-
+from constants import hbar, m_e, e, k_B, epsilon_0, sq3
+from math import pi, log
 
 def remove_from_grid(grid, grid_rm_list):
     """deletes dictionaries storing properties that are no longer needed from
