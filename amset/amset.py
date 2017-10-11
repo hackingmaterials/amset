@@ -2115,16 +2115,21 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.005, tolerance_loose=0.03, alpha=0.05, max_iter=5000):
+    def find_fermi(self, c, T, tolerance=0.005, tolerance_loose=0.03,
+                   alpha=0.05, max_iter=5000):
         """
-        To find the Fermi level at a carrier concentration and temperature at kgrid (i.e. band structure, DOS, etc)
+        To find the Fermi level at a given c and T at egrid (i.e. DOS)
         Args:
-            c (float): The doping concentration; c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
+            c (float): The doping concentration;
+                c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
             T (float): The temperature.
             tolerance (0<float<1): convergance threshold for relative error
-            tolerance_loose (0<float<1): maximum relative error allowed between the calculated and input c
-            alpha (float < 1): the fraction of the linear interpolation towards the actual fermi at each iteration
-            max_iter (int): after this many iterations the function returns even if it is not converged
+            tolerance_loose (0<float<1): maximum relative error allowed
+                between the calculated and input c
+            alpha (float < 1): the fraction of the linear interpolation
+                towards the actual fermi at each iteration
+            max_iter (int): after this many iterations the function returns
+                even if it is not converged
         Returns:
             The fitted/calculated Fermi level
         """
@@ -2223,6 +2228,10 @@ class AMSET(object):
             relative_error, fermi, calc_doping, iterations=max_iter, niter=niter)
 
         logging.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(niter), fermi))
+        if relative_error > tolerance_loose:
+            raise ValueError('The calculated concentration is not within {}%'
+                             'of the given value ({}) at T={}'.format(
+                                                tolerance_loose*100, c, T))
         return fermi
 
 
@@ -2230,6 +2239,12 @@ class AMSET(object):
     def inverse_screening_length(self, c, T):
         """
         calculates the inverse screening length (beta) in 1/nm units
+        Args:
+            c (float): the carrier concentration (to get the fermi level)
+            T (float): the temperature
+
+        Returns:
+
         """
         beta = {}
         for tp in ["n", "p"]:
@@ -2997,9 +3012,10 @@ class AMSET(object):
 
     def to_csv(self, path=None, csv_filename='amset_results.csv'):
         """
-        this function writes the calculated transport properties to a csv file for convenience.
-        :param csv_filename (str):
-        :return:
+        writes the calculated transport properties to a csv file.
+        Args:
+            csv_filename (str):
+        Returns (.csv file)
         """
         import csv
         if not path:
