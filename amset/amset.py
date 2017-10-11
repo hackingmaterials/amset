@@ -1767,6 +1767,22 @@ class AMSET(object):
 
 
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
+        """
+        returns the evaluated (float) expression inside the elastic equations
+            to be integrated over angles, dX.
+        Args:
+            tp (str): "n" or "p" type
+            c (float): carrier concentration/doping in cm**-3
+            T (float): the temperature
+            ib (int): the band index starting from 0 (CBM/VBM)
+            ik (int): the k-point index
+            ib_prm (int): ib' (band index for k' state)
+            ik_prm (int): ik' (k-index for k' state)
+            X (float): the angle between k and k'
+            sname (str): elastic scattering name: 'ACD', 'PIE', 'IMP'
+            g_suffix (str): '' or '_th' (th for thermal)
+        Returns (float): the integrand for elastic scattering integration
+        """
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
@@ -1782,8 +1798,7 @@ class AMSET(object):
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
-        returns the evaluated number (float) of the expression inside the
-            S_o and S_i(g) integrals.
+        returns the evaluated (float) expression of the S_o & S_i(g) integrals.
         Args:
             tp (str): "n" or "p" type
             c (float): carrier concentration/doping in cm**-3
@@ -1796,12 +1811,18 @@ class AMSET(object):
             sname (str): scattering name: 'S_oX_Eplus_ik', 'S_oX_Eminus_ik',
                 'S_iX_Eplus_ik' or 'S_iX_Eminus_ik'
             g_suffix (str): '' or '_th' (th for thermal)
-        Returns (float): the integrand for POP scattering
+        Returns (float): the integrand for POP scattering (to be integrated
+            over X)
         """
+        if abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - \
+                self.kgrid[tp]['energy'][ib][ik]) < \
+                                hbar*self.kgrid[tp]["W_POP"][ib][ik]/2:
+            return 0.0
+        # elif tp=='n':
+        #     print('abs(energy_diff) = {}'.format(abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - self.kgrid[tp]['energy'][ib][ik])))
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
-
         v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
         if tp == "n":
             f = self.kgrid[tp]["f"][c][T][ib][ik]
@@ -1818,10 +1839,15 @@ class AMSET(object):
         # N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
 
         norm_diff = norm(k - k_prm)
+        if tp=='n' and norm_diff < 0.1:
+            print('energy: {}'.format(self.kgrid[tp]['energy'][ib][ik]))
+            print('energy: {}'.format(self.kgrid[tp]['energy'][ib_prm][ik_prm]))
+            print('norm_diff: {}'.format(norm_diff))
+            print
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         #TODO: this norm(v) in the following may need a /sq3
         integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
-                (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2)
+                (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
 
         if "S_i" in sname:
             integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm])
@@ -1835,10 +1861,10 @@ class AMSET(object):
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         elif "S_o" in sname:
             if "minus" in sname:
-                if tp == "p" or (tp=="n" and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
+                if tp == "p" or (tp=="n" and self.kgrid[tp]["energy"][ib_prm][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
             elif "plus" in sname:
-                if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
+                if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib_prm][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
@@ -1948,11 +1974,12 @@ class AMSET(object):
 
     def s_elastic(self, sname):
         """
-        the scattering rate equation for each elastic scattering name is entered in s_func and returned the integrated
-        scattering rate.
-        :param sname (st): the name of the tp of elastic scattering, options are 'IMP', 'ADE', 'PIE', 'POP', 'DIS'
-        :param s_func:
-        :return:
+        the scattering rate equation for each elastic scattering name (sname)
+        Args:
+            sname (st): elastic scattering name: 'IMP', 'ADE', 'PIE', 'DIS'
+        Returns:
+            it directly calculates the scattering rate at each k-point at each
+                c and T (self.kgrid[tp][sname][c][T][ib][ik])
         """
         sname = sname.upper()
 
@@ -3057,7 +3084,7 @@ if __name__ == "__main__":
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="very coarse"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="very fine"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
