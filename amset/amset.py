@@ -1787,7 +1787,7 @@ class AMSET(object):
                 [0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
 
 
-        return (1 - X) * norm(k_prm) ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
 
 
@@ -1810,25 +1810,27 @@ class AMSET(object):
         Returns (float): the integral
         """
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
-        f = self.kgrid[tp]["f"][c][T][ib][ik]
         f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
 
         v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
         if tp == "n":
+            f = self.kgrid[tp]["f"][c][T][ib][ik]
             f_prm = self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
         else:
+            f = 1 - self.kgrid[tp]["f"][c][T][ib][ik]
             f_prm = 1 - self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
 
         if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
-            return np.array(
-            [0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
+            return np.array([0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
         fermi = self.fermi_level[c][T]
 
-        N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
+        N_POP = self.kgrid[tp]["N_POP"][c][T][ib][ik]
+        # N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
+
         norm_diff = norm(k - k_prm)
-        # print norm(k_prm)**2
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
+        #TODO: this norm(v) in the following may need a /sq3
         integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
                 (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2)
 
@@ -1902,10 +1904,9 @@ class AMSET(object):
                                                                    self.inel_integrand_X,
                                                                    ib=ib, ik=ik, c=c, T=T, sname=sname + X_E_index_name,
                                                                    g_suffix=g_suffix)
-                            # self.kgrid[tp][sname][c][T][ib][ik] = abs(summation) * e**2*self.kgrid[tp]["W_POP"][ib][ik]/(4*pi*hbar) \
-                            self.kgrid[tp][sname][c][T][ib][ik] = summation * e ** 2 * self.kgrid[tp]["W_POP"][ib][ik] \
-                                                                  / (4 * pi * hbar) * (
-                                                                  1 / self.epsilon_inf - 1 / self.epsilon_s) / epsilon_0 * 100 / e
+                            self.kgrid[tp][sname][c][T][ib][ik] = summation * e ** 2 * self.kgrid[tp]["W_POP"][ib][ik] / (4 * pi * hbar) * (1 / self.epsilon_inf - 1 / self.epsilon_s) / epsilon_0 * 100 / e
+
+
                             # if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1:
                             #     self.kgrid[tp][sname][c][T][ib][ik] = [1, 1, 1]
                             # if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
@@ -2236,7 +2237,7 @@ class AMSET(object):
             max_ndata = int(self.gl)
         egrid = deepcopy(self.egrid)
         if trimmed:
-            nmax = int(min([max_ndata + 1, min([len(egrid["n"]["energy"]), 
+            nmax = int(min([max_ndata + 1, min([len(egrid["n"]["energy"]),
                                                 len(egrid["p"]["energy"])])]))
             for tp in ["n", "p"]:
                 for key in egrid[tp]:
@@ -3080,6 +3081,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy'], E_plots=['df0dk', 'velocity', 'ACD', 'IMP', 'PIE'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    # amset.plot(k_plots=['energy'], E_plots=['df0dk', 'velocity', 'ACD', 'IMP', 'PIE'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy'], E_plots=['g', 'g_POP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
