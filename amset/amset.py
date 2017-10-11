@@ -1824,30 +1824,26 @@ class AMSET(object):
                 (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2)
 
         if "S_i" in sname:
-            integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib][ik])
+            integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm])
             if "minus" in sname:
-                if tp == "p" or (tp == "n" and \
-                    self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
+                if tp == "p" or (tp == "n" and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f) * N_POP + f * (1 + N_POP)
             elif "plus" in sname:
-                if tp == "n" or (tp == "p" and \
-                    self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
+                if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f) * (1 + N_POP) + f * N_POP
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         elif "S_o" in sname:
             if "minus" in sname:
-                if tp == "p" or (tp=="n" and \
-                    self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
+                if tp == "p" or (tp=="n" and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
             elif "plus" in sname:
-                if tp == "n" or (tp == "p" and \
-                    self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
+                if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         else:
-            raise ValueError("The inelastic scattering name: {} is NOT supported".format(sname))
+            raise ValueError('Unsupported inelastic scattering name: {}'.format(sname))
         return integ
 
 
@@ -3022,7 +3018,7 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
 
-    model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+    model_params = {'bs_is_isotropic': False, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
