@@ -1855,18 +1855,19 @@ class AMSET(object):
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         # only when very large # of k-points are present, make sense to parallelize as this function
                         # has become fast after better energy window selection
-                        if self.parallel and len(self.kgrid[tp]["size"]) * max(self.kgrid[tp]["size"]) > 1000000:
+                        if self.parallel and len(self.kgrid[tp]["size"]) * \
+                                max(self.kgrid[tp]["size"]) > 1000000:
                             # if False:
-                            results = Parallel(n_jobs=self.num_cores)(delayed(calculate_Sio) \
-                                                                          (tp, c, T, ib, ik, once_called, self.kgrid,
-                                                                           self.cbm_vbm, self.epsilon_s,
-                                                                           self.epsilon_inf
-                                                                           ) for ik in
-                                                                      range(len(self.kgrid[tp]["kpoints"][ib])))
+                            results = Parallel(n_jobs=self.num_cores)(
+                                delayed(calculate_Sio)(tp, c, T, ib, ik,
+                                once_called, self.kgrid, self.cbm_vbm,
+                                self.epsilon_s, self.epsilon_inf) for ik in
+                                    range(len(self.kgrid[tp]["kpoints"][ib])))
                         else:
-                            results = [calculate_Sio(tp, c, T, ib, ik, once_called, self.kgrid, self.cbm_vbm,
-                                                     self.epsilon_s, self.epsilon_inf) for ik in
-                                       range(len(self.kgrid[tp]["kpoints"][ib]))]
+                            results = [calculate_Sio(tp, c, T, ib, ik,
+                                    once_called, self.kgrid, self.cbm_vbm,
+                                    self.epsilon_s, self.epsilon_inf) for ik in
+                                    range(len(self.kgrid[tp]["kpoints"][ib]))]
 
                         for ik, res in enumerate(results):
                             self.kgrid[tp]["S_i"][c][T][ib][ik] = res[0]
