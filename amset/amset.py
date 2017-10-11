@@ -1839,11 +1839,11 @@ class AMSET(object):
         # N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
 
         norm_diff = norm(k - k_prm)
-        if tp=='n' and norm_diff < 0.1:
-            print('energy: {}'.format(self.kgrid[tp]['energy'][ib][ik]))
-            print('energy: {}'.format(self.kgrid[tp]['energy'][ib_prm][ik_prm]))
-            print('norm_diff: {}'.format(norm_diff))
-            print
+        # if tp=='n' and norm_diff < 0.1:
+        #     print('energy: {}'.format(self.kgrid[tp]['energy'][ib][ik]))
+        #     print('energy: {}'.format(self.kgrid[tp]['energy'][ib_prm][ik_prm]))
+        #     print('norm_diff: {}'.format(norm_diff))
+        #     print
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         #TODO: this norm(v) in the following may need a /sq3
         integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
@@ -3062,7 +3062,7 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
 
-    model_params = {'bs_is_isotropic': False, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+    model_params = {'bs_is_isotropic': False    , 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
@@ -3100,7 +3100,7 @@ if __name__ == "__main__":
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="very fine"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="super fine"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
