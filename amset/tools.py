@@ -243,14 +243,22 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
         counted = len(kgrid[tp][X_Epm][ib][ik])
         for X_ib_ik in kgrid[tp][X_Epm][ib][ik]:
             X, ib_pm, ik_pm = X_ib_ik
-            g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
-            g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
-            v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
             k_pm = kgrid[tp]["norm(k)"][ib_pm][ik_pm]
             abs_kdiff = abs(k_pm - k)
             if abs_kdiff < 1e-4:
                 counted -= 1
                 continue
+            if abs(kgrid[tp]['energy'][ib_pm][ik_pm] - \
+                           kgrid[tp]['energy'][ib][ik]) < \
+                                    hbar * kgrid[tp]["W_POP"][ib][ik] / 2:
+                print abs(kgrid[tp]['energy'][ib_pm][ik_pm] - \
+                           kgrid[tp]['energy'][ib][ik])
+                counted -= 1
+                continue
+
+            g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
+            g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
+            v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
             a_pm = kgrid[tp]["a"][ib_pm][ik_pm]
             c_pm = kgrid[tp]["c"][ib_pm][ik_pm]
 
