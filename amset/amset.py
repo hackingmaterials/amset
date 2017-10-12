@@ -1818,6 +1818,10 @@ class AMSET(object):
                 self.kgrid[tp]['energy'][ib][ik]) < \
                                 hbar*self.kgrid[tp]["W_POP"][ib][ik]/2:
             return 0.0
+        if tp == "n" and 'minus' in sname and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]<self.cbm_vbm[tp]["energy"]:
+            return 0.0
+        if tp == "p" and 'plus' in sname and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]>self.cbm_vbm[tp]["energy"]:
+            return 0.0
         # elif tp=='n':
         #     print('abs(energy_diff) = {}'.format(abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - self.kgrid[tp]['energy'][ib][ik])))
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
@@ -1844,13 +1848,20 @@ class AMSET(object):
         #     print('energy: {}'.format(self.kgrid[tp]['energy'][ib_prm][ik_prm]))
         #     print('norm_diff: {}'.format(norm_diff))
         #     print
+        if norm_diff < 1e-4:
+            return 0.0
+
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         #TODO: this norm(v) in the following may need a /sq3
-        integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
-                (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
-
+        # integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
+        #         (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
+        # only changing ik_prm of norm(k) to ik made S_o look more like isotropic
+        integ = self.kgrid[tp]["norm(k)"][ib][ik]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
+                (self.kgrid[tp]["norm(v)"][ib][ik]*norm_diff**2/sq3)
+        # the following worked ok at superfine, the final POP and g matches with isotropic but S_i and S_o match are not good!
         if "S_i" in sname:
-            integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm])
+            # integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm])
+            integ *= X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm]
             if "minus" in sname:
                 if tp == "p" or (tp == "n" and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f) * N_POP + f * (1 + N_POP)
@@ -1861,20 +1872,53 @@ class AMSET(object):
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         elif "S_o" in sname:
             if "minus" in sname:
-                if tp == "p" or (tp=="n" and self.kgrid[tp]["energy"][ib_prm][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
+                if tp == "p" or (tp=="n" and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
             elif "plus" in sname:
-                if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib_prm][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
+                if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
                     integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         else:
             raise ValueError('Unsupported inelastic scattering name: {}'.format(sname))
+
+        # TODO: decide on which one is minus which is plus separately for S_i and S_o (20171011: Actually the following trial may be completely wrong)
+        # 10/11/2017: it seems like when I flipped only the S_i terms compared with the above the POP values consistency improved (S_o was similar already but now S_i is even better)!
+        # if "S_i" in sname:
+        #     integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm])
+        #     if "minus" in sname:
+        #         if tp == "p" or (tp == "n" and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
+        #             integ *= (1 - f) * (1 + N_POP) + f * N_POP
+        #     elif "plus" in sname:
+        #         if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
+        #             integ *= (1 - f) * N_POP + f * (1 + N_POP)
+        #     else:
+        #         raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
+        # elif "S_o" in sname:
+        #     if "minus" in sname:
+        #         if tp == "p" or (tp=="n" and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
+        #             integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
+        #     elif "plus" in sname:
+        #         if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
+        #             integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
+        #     else:
+        #         raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
+        # else:
+        #     raise ValueError('Unsupported inelastic scattering name: {}'.format(sname))
         return integ
 
 
 
     def s_inel_eq_isotropic(self, once_called=False):
+        """
+        calclates the inelastic S_i and S_o scattering rates in the kgrid based
+            on the isotropic formulation (integrated equations from Rode)
+        Args:
+            once_called (bool): since scattering out, S_o, needs to be
+                calculated only once (not a function of g), we use this flag
+        Returns:
+            updates values of S_i and S_o (np.array at each k-point) in kgrid
+        """
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
@@ -1927,11 +1971,21 @@ class AMSET(object):
 
 
     def s_el_eq_isotropic(self, sname, tp, c, T, ib, ik):
-        """returns elastic scattering rate (a numpy vector) at certain point (e.g. k-point, T, etc)
-        with the assumption that the band structure is isotropic (i.e. self.bs_is_isotropic==True).
-        This assumption significantly simplifies the model and the integrated rates at each
-        k/energy directly extracted from the literature can be used here."""
-
+        """
+        returns elastic scattering rate (a numpy vector) at given point
+        (i.e. k-point, c, T) in isotropic formulation (i.e. if
+        self.bs_is_isotropic==True). This assumption significantly simplifies
+        the model and the integrated rates at each k/energy directly extracted
+        from the literature can be used here.
+        Args:
+            sname (str): elastic scattering name: 'ACD', 'IMP', 'PIE', 'DIS'
+            tp (str): 'n' or 'p' type respectively for conduction and valence
+            c (float): carrier concentration
+            T (float): temperature
+            ib (int): band index starting from 0 (0 for CBM/VBM bands)
+            ik (int): k-point index
+        Returns (float): scalar (since assumed isotropic) scattering rate.
+        """
         v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
         knrm = self.kgrid[tp]["norm(k)"][ib][ik]
         par_c = self.kgrid[tp]["c"][ib][ik]
@@ -2026,14 +2080,15 @@ class AMSET(object):
 
     def map_to_egrid(self, prop_name, c_and_T_idx=True, prop_type="vector"):
         """
-        maps a propery from kgrid to egrid conserving the nomenclature. The mapped property should have the
-            kgrid[tp][prop_name][c][T][ib][ik] data structure and will have egrid[tp][prop_name][c][T][ie] structure
-        :param prop_name (string): the name of the property to be mapped. It must be available in the kgrid.
-        :param c_and_T_idx (bool): if True, the propetry will be calculated and maped at each concentration, c, and T
-        :param prop_type (str): options are "scalar", "vector", "tensor"
-        :return:
+        maps a propery from kgrid to egrid conserving the nomenclature.
+            The mapped property w/ format: kgrid[tp][prop_name][c][T][ib][ik]
+            will have the format: egrid[tp][prop_name][c][T][ie]
+        Args:
+            prop_name (string): the name of the property to be mapped. It must be available in the kgrid.
+            c_and_T_idx (bool): if True, the propetry will be calculated and maped at each concentration, c, and T
+            prop_type (str): options are "scalar", "vector", "tensor"
+        Returns (float or numpy.array): egrid[tp][prop_name][c][T][ie]
         """
-        # scalar_properties = ["g"]
         if not c_and_T_idx:
             self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=False)
             for tp in ["n", "p"]:
@@ -2118,7 +2173,7 @@ class AMSET(object):
     def find_fermi(self, c, T, tolerance=0.005, tolerance_loose=0.03,
                    alpha=0.05, max_iter=5000):
         """
-        To find the Fermi level at a given c and T at egrid (i.e. DOS)
+        finds the Fermi level at a given c and T at egrid (i.e. DOS)
         Args:
             c (float): The doping concentration;
                 c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
@@ -2238,13 +2293,10 @@ class AMSET(object):
 
     def inverse_screening_length(self, c, T):
         """
-        calculates the inverse screening length (beta) in 1/nm units
         Args:
             c (float): the carrier concentration (to get the fermi level)
             T (float): the temperature
-
-        Returns:
-
+        Returns (float): the inverse screening length (beta) in 1/nm units
         """
         beta = {}
         for tp in ["n", "p"]:
@@ -2261,6 +2313,16 @@ class AMSET(object):
 
 
     def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0):
+        """
+        writes the kgrid and egird to json files
+        Args:
+            kgrid (bool): whether to also write kgrid to kgrid.json
+            trimmed (bool): if trimmed some properties (dict keys) will be
+                removed to save space
+            max_ndata (int): the maximum index from the CBM/VBM written to file
+            nstart (int): the initial list index of a property written to file
+        Returns: egrid.json and (optional) kgrid.json file(s)
+        """
         if not max_ndata:
             max_ndata = int(self.gl)
         egrid = deepcopy(self.egrid)
@@ -3062,7 +3124,7 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
 
-    model_params = {'bs_is_isotropic': False    , 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+    model_params = {'bs_is_isotropic': False, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
@@ -3100,7 +3162,7 @@ if __name__ == "__main__":
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="super fine"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="very fine"))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
