@@ -28,6 +28,7 @@ class AmsetTest(unittest.TestCase):
 
 
     def test_poly_bands(self):
+        print('testing test_poly_bands...')
         mass = 0.25
         self.model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
         amset = AMSET(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
@@ -46,12 +47,13 @@ class AmsetTest(unittest.TestCase):
 
 
     def test_GaAs_isotropic(self):
+        print('testing test_GaAs_isotropic...')
         # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
         #                'POP': 10113.9, 'overall': 8173.4}
 
         expected_mu = {'ACD': 48397.6, 'IMP': 58026678.3, 'PIE': 111243.3,
-                       'POP': 7478.1, 'overall': 6014.1}
+                       'POP': 7498.6, 'overall': 6014.1, 'average': 6134.0}
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
@@ -79,8 +81,9 @@ class AmsetTest(unittest.TestCase):
 
 
     def test_GaAs_anisotropic(self):
+        print('testing test_GaAs_anisotropic...')
         expected_mu = {'ACD': 44054.0, 'IMP': 55973854.8, 'PIE': 112134.2,
-                       'POP': 69055.9, 'overall': 21684.4}
+                       'POP': 8525.2, 'overall': 6726.8, 'average': 6714.4}
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
