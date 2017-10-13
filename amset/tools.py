@@ -40,6 +40,9 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                 if kgrid_tp == 'poly_band':
                     mesh = [0.002, 0.004, 0.007, 0.01, 0.016, 0.025, 0.035,
                             0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
+                elif kgrid_tp == 'extremely fine':
+                    mesh = [0.0005, 0.001, 0.0015, 0.002, 0.003, 0.004, 0.0045, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.02, 0.03,
+                            0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.15, 0.25, 0.35, 0.5]
                 elif kgrid_tp == 'super fine':
                     mesh = [0.0005, 0.001, 0.002, 0.003, 0.004, 0.005, 0.007, 0.01, 0.02, 0.03,
                             0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
@@ -251,8 +254,6 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             if abs(kgrid[tp]['energy'][ib_pm][ik_pm] - \
                            kgrid[tp]['energy'][ib][ik]) < \
                                     hbar * kgrid[tp]["W_POP"][ib][ik] / 2:
-                print abs(kgrid[tp]['energy'][ib_pm][ik_pm] - \
-                           kgrid[tp]['energy'][ib][ik])
                 counted -= 1
                 continue
 
