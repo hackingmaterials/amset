@@ -1738,7 +1738,23 @@ class AMSET(object):
 
 
     def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None, g_suffix=""):
-        """integrate numerically with a simple trapezoidal algorithm."""
+        """
+        integrate numerically with a simple trapezoidal algorithm.
+        Args:
+            tp (str): 'n' or 'p' type
+            X_E_index ([[[(float, int, int)]]]): list of (X, ib', ik') for each
+                k-point at each band
+            integrand (func): the integrand function; options: el_integrand_X
+                or inel_integrand_X for elastic and inelastic respectively
+            ib (int): the band index
+            ik (int): the k-point index
+            c (float): the carrier concentration
+            T (float): the temperature
+            sname (str): the scattering name (see options in the documentation
+                of el_integrand_X and inel_integrand_X functions
+            g_suffix:
+        Returns (float or numpy.array): the integrated value/vector
+        """
         summation = np.array([0.0, 0.0, 0.0])
         if len(X_E_index[ib][ik]) == 0:
             raise ValueError("enforcing scattering points did NOT work, {}[{}][{}] is empty".format(X_E_index, ib, ik))
@@ -1814,14 +1830,14 @@ class AMSET(object):
         Returns (float): the integrand for POP scattering (to be integrated
             over X)
         """
-        if abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - \
-                self.kgrid[tp]['energy'][ib][ik]) < \
-                                hbar*self.kgrid[tp]["W_POP"][ib][ik]/2:
-            return 0.0
+        # if abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - \
+        #         self.kgrid[tp]['energy'][ib][ik]) < \
+        #                         hbar*self.kgrid[tp]["W_POP"][ib][ik]/2:
+        #     return 1e-32
         if tp == "n" and 'minus' in sname and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]<self.cbm_vbm[tp]["energy"]:
-            return 0.0
+            return 1e-32
         if tp == "p" and 'plus' in sname and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]>self.cbm_vbm[tp]["energy"]:
-            return 0.0
+            return 1e-32
         # elif tp=='n':
         #     print('abs(energy_diff) = {}'.format(abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - self.kgrid[tp]['energy'][ib][ik])))
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
@@ -1849,7 +1865,7 @@ class AMSET(object):
         #     print('norm_diff: {}'.format(norm_diff))
         #     print
         if norm_diff < 1e-4:
-            return 0.0
+            return 1e-32
 
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         #TODO: this norm(v) in the following may need a /sq3
@@ -1858,53 +1874,25 @@ class AMSET(object):
         # only changing ik_prm of norm(k) to ik made S_o look more like isotropic
         integ = self.kgrid[tp]["norm(k)"][ib][ik]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
                 (self.kgrid[tp]["norm(v)"][ib][ik]*norm_diff**2/sq3)
+
         # the following worked ok at superfine, the final POP and g matches with isotropic but S_i and S_o match are not good!
         if "S_i" in sname:
-            # integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm])
             integ *= X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm]
             if "minus" in sname:
-                if tp == "p" or (tp == "n" and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
-                    integ *= (1 - f) * N_POP + f * (1 + N_POP)
+                integ *= (1 - f) * N_POP + f * (1 + N_POP)
             elif "plus" in sname:
-                if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
-                    integ *= (1 - f) * (1 + N_POP) + f * N_POP
+                integ *= (1 - f) * (1 + N_POP) + f * N_POP
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         elif "S_o" in sname:
             if "minus" in sname:
-                if tp == "p" or (tp=="n" and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
-                    integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
+                integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
             elif "plus" in sname:
-                if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
-                    integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
+                integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
             else:
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         else:
             raise ValueError('Unsupported inelastic scattering name: {}'.format(sname))
-
-        # TODO: decide on which one is minus which is plus separately for S_i and S_o (20171011: Actually the following trial may be completely wrong)
-        # 10/11/2017: it seems like when I flipped only the S_i terms compared with the above the POP values consistency improved (S_o was similar already but now S_i is even better)!
-        # if "S_i" in sname:
-        #     integ *= abs(X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm])
-        #     if "minus" in sname:
-        #         if tp == "p" or (tp == "n" and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
-        #             integ *= (1 - f) * (1 + N_POP) + f * N_POP
-        #     elif "plus" in sname:
-        #         if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
-        #             integ *= (1 - f) * N_POP + f * (1 + N_POP)
-        #     else:
-        #         raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
-        # elif "S_o" in sname:
-        #     if "minus" in sname:
-        #         if tp == "p" or (tp=="n" and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]>=self.cbm_vbm[tp]["energy"]):
-        #             integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
-        #     elif "plus" in sname:
-        #         if tp == "n" or (tp == "p" and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]<=self.cbm_vbm[tp]["energy"]):
-        #             integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
-        #     else:
-        #         raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
-        # else:
-        #     raise ValueError('Unsupported inelastic scattering name: {}'.format(sname))
         return integ
 
 
