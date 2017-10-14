@@ -251,11 +251,11 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             if abs_kdiff < 1e-4:
                 counted -= 1
                 continue
-            if abs(kgrid[tp]['energy'][ib_pm][ik_pm] - \
-                           kgrid[tp]['energy'][ib][ik]) < \
-                                    hbar * kgrid[tp]["W_POP"][ib][ik] / 2:
-                counted -= 1
-                continue
+            # if abs(kgrid[tp]['energy'][ib_pm][ik_pm] - \
+            #                kgrid[tp]['energy'][ib][ik]) < \
+            #                         hbar * kgrid[tp]["W_POP"][ib][ik] / 2:
+            #     counted -= 1
+            #     continue
 
             g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
             g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
@@ -277,14 +277,14 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
 
             if not once_called:
                 lamb_opm = beta_pm * (
-                    A_pm ** 2 * log((k_pm + k) / (abs_kdiff + 1e-4)) - A_pm * c_ * c_pm - a * a_pm * c_ * c_pm)
+                    A_pm ** 2 * log((k_pm + k) / (abs_kdiff)) - A_pm * c_ * c_pm - a * a_pm * c_ * c_pm)
                 # because in the scalar form k+ or k- is suppused to be unique, here we take average
                 S_o[j] += (N_POP + j + (-1) ** j * f_pm) * lamb_opm
                 S_o_th[j] += (N_POP + j + (-1) ** j * f_pm_th) * lamb_opm
 
             lamb_ipm = beta_pm * (
                 (k_pm ** 2 + k ** 2) / (2 * k * k_pm) * \
-                A_pm ** 2 * log((k_pm + k) / (abs_kdiff + 1e-4)) - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
+                A_pm ** 2 * log((k_pm + k) / (abs_kdiff)) - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
             S_i[j] += (N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm
             S_i_th[j] += (N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th
 
