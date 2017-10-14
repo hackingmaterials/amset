@@ -1344,11 +1344,9 @@ class AMSET(object):
                     self.ediff_scat = {"n": [], "p": []}
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
-                                   tolerance=self.dE_min)
+                                E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2,
-                                        tolerance=self.dE_min)
+                                E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2)
                     enforced_ratio = self.nforced_scat[tp] / (
                         sum([len(points) for points in self.kgrid[tp]["X_Eplus_ik"][ib]]) + \
                         sum([len(points) for points in self.kgrid[tp]["X_Eminus_ik"][ib]]))
@@ -1392,7 +1390,7 @@ class AMSET(object):
         return new_X_ib_ik
 
 
-    def get_X_ib_ik_near_new_E(self, tp, ib, ik, E_change, forced_min_npoints=0, tolerance=0.01):
+    def get_X_ib_ik_near_new_E(self, tp, ib, ik, E_change, forced_min_npoints=0, tolerance=None):
         """Returns the sorted (based on angle, X) list of angle and band and k-point indexes of all the points
             that are within tolerance of E + E_change
             Attention!!! this function assumes self.kgrid is sorted based on the energy in ascending order.
@@ -1405,6 +1403,7 @@ class AMSET(object):
                 scattering if not enough points are found
             tolerance (float): the energy tolerance for finding the k' points that are within E_change energy of E(k)
             """
+        tolerance = tolerance or self.dE_min
         E = self.kgrid[tp]["energy"][ib][ik]
         E_prm = E + E_change  # E_prm is E prime, the new energy
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
@@ -1755,6 +1754,7 @@ class AMSET(object):
             g_suffix:
         Returns (float or numpy.array): the integrated value/vector
         """
+        # counter = 0.0
         summation = np.array([0.0, 0.0, 0.0])
         if len(X_E_index[ib][ik]) == 0:
             raise ValueError("enforcing scattering points did NOT work, {}[{}][{}] is empty".format(X_E_index, ib, ik))
@@ -1763,12 +1763,27 @@ class AMSET(object):
         current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
         for i in range(len(X_E_index[ib][ik]) - 1):
             DeltaX = X_E_index[ib][ik][i + 1][0] - X_E_index[ib][ik][i][0]
-            if DeltaX == 0.0:
-                continue
+            # if DeltaX < 1e-4:
+            #     continue
             X, ib_prm, ik_prm = X_E_index[ib][ik][i + 1]
             dum = current_integrand / 2.0
             current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
 
+            # if tp=='n' and 'S_o' in sname and abs(self.kgrid[tp]['energy'][ib][ik] - 1.2515)<1e-4:
+            #     print('\n here 0.5018')
+            #     print('counter:', counter)
+            #     print(current_integrand)
+            #     print(ik)
+            #     print(ik_prm)
+            #     print(X)
+            #     counter += 1
+            #
+            # if tp=='n' and abs(self.kgrid[tp]['energy'][ib][ik] - (self.cbm_vbm[tp]['energy'] + 0.0418))<1e-4:
+            #     print('\n here 0.0418')
+            #     print(current_integrand)
+            #     print(ik)
+            #     print(ik_prm)
+            #     print(X)
             # This condition is to exclude self-scattering from the integration
             if np.sum(current_integrand) == 0.0:
                 dum *= 2
@@ -1833,11 +1848,11 @@ class AMSET(object):
         # if abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - \
         #         self.kgrid[tp]['energy'][ib][ik]) < \
         #                         hbar*self.kgrid[tp]["W_POP"][ib][ik]/2:
-        #     return 1e-32
+        #     return 0.0
         if tp == "n" and 'minus' in sname and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]<self.cbm_vbm[tp]["energy"]:
-            return 1e-32
+            return 0.0
         if tp == "p" and 'plus' in sname and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]>self.cbm_vbm[tp]["energy"]:
-            return 1e-32
+            return 0.0
         # elif tp=='n':
         #     print('abs(energy_diff) = {}'.format(abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - self.kgrid[tp]['energy'][ib][ik])))
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
@@ -1852,7 +1867,8 @@ class AMSET(object):
             f_prm = 1 - self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
 
         if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
-            return np.array([0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
+            # return np.array([0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
+            return 0.0
         fermi = self.fermi_level[c][T]
 
         N_POP = self.kgrid[tp]["N_POP"][c][T][ib][ik]
@@ -1865,7 +1881,8 @@ class AMSET(object):
         #     print('norm_diff: {}'.format(norm_diff))
         #     print
         if norm_diff < 1e-4:
-            return 1e-32
+            return 0.0
+
 
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         #TODO: this norm(v) in the following may need a /sq3
@@ -1886,7 +1903,7 @@ class AMSET(object):
                 raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         elif "S_o" in sname:
             if "minus" in sname:
-                integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP
+                integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP # interestingly f or f_prm does NOT make any difference (maybe close energies?)
             elif "plus" in sname:
                 integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
             else:
@@ -3112,7 +3129,7 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
 
-    model_params = {'bs_is_isotropic': False, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+    model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
@@ -3150,7 +3167,7 @@ if __name__ == "__main__":
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp="very fine"))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp='fine'))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
@@ -3161,6 +3178,6 @@ if __name__ == "__main__":
     amset.write_input_files()
     amset.to_csv()
     # amset.plot(k_plots=['energy'], E_plots=['df0dk', 'velocity', 'ACD', 'IMP', 'PIE'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
-    amset.plot(k_plots=['energy'], E_plots=['g', 'g_POP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
