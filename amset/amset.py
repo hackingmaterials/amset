@@ -3062,18 +3062,22 @@ class AMSET(object):
                     if mobility:
                         all_plots = []
                         for mo in mu_list:
-                            mo_value = self.mobility[tp][mo][c][T] if self.k_integration else self.egrid[tp]['mobility'][mo][c][T]
+                            mo_values = [self.mobility[tp][mo][c][T] if \
+                                    self.k_integration else \
+                                    self.egrid[tp]['mobility'][mo][c][T] \
+                                         for T in self.temperatures]
                             all_plots.append({"x_col": self.temperatures,
-                                              "y_col": [
-                                                  abs(self.get_scalar_output(mo_value, dir))
-                                                  # I temporarily (for debugging purposes) added abs() for cases when mistakenly I get negative mobility values!
-                                                  for T in self.temperatures],
-                                              "text": mo, 'legend': mo, 'size': 6, "mode": "lines+markers",
-                                              "color": "", "marker": mu_markers[mo]})
-                        self.create_plots("Temperature (K)", "Mobility (cm2/V.s)", show_interactive,
-                                          save_format, c, tp, tp_c_dir,
-                                          textsize-5, ticksize-5, path, margin_left,
-                                          margin_bottom, fontfamily, all_plots=all_plots, y_label_short="mobility", y_axis_type='log')
+                                    "y_col": [self.get_scalar_output(mo_value,
+                                    dir) for mo_value in mo_values],
+                                    "text": mo, 'legend': mo, 'size': 6,
+                                    "mode": "lines+markers","color": "",
+                                              "marker": mu_markers[mo]})
+                        self.create_plots("Temperature (K)",
+                                "Mobility (cm2/V.s)", show_interactive,
+                                save_format, c, tp, tp_c_dir, textsize-5,
+                                ticksize-5, path, margin_left, margin_bottom,
+                                fontfamily, all_plots=all_plots,
+                                y_label_short="mobility", y_axis_type='log')
 
 
 
@@ -3108,7 +3112,7 @@ class AMSET(object):
         if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(self.cbm_vbm["n"]["kpoint"])).any():
             important_pts.append(self.cbm_vbm["p"]["kpoint"])
 
-        points_1d = generate_k_mesh_axes(important_pts, kgrid_tp='very fine')
+        points_1d = generate_k_mesh_axes(important_pts, kgrid_tp='very coarse')
         self.kgrid_array = create_grid(points_1d)
         kpts = array_to_kgrid(self.kgrid_array)
 
@@ -3161,13 +3165,14 @@ if __name__ == "__main__":
 
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
-                  dopings = [-2e15],
-                  temperatures = [300],
+                  dopings = [-3e13],
+                  # temperatures = [300, 600],
+                  temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp='fine'))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp='very fine'))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
