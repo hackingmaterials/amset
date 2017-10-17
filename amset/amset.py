@@ -1765,38 +1765,34 @@ class AMSET(object):
             # return summation
         X, ib_prm, ik_prm = X_E_index[ib][ik][0]
         current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
-        for i in range(len(X_E_index[ib][ik]) - 1):
-            DeltaX = X_E_index[ib][ik][i + 1][0] - X_E_index[ib][ik][i][0]
-            # if DeltaX < 1e-4:
-            #     continue
-            X, ib_prm, ik_prm = X_E_index[ib][ik][i + 1]
+
+        ikp = 0
+        while ikp < len(X_E_index[ib][ik]) - 1:
+            DeltaX = X_E_index[ib][ik][ikp + 1][0] - X_E_index[ib][ik][ikp][0]
+            X, ib_prm, ik_prm = X_E_index[ib][ik][ikp + 1]
             dum = current_integrand / 2.0
             current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
-
-            # if tp=='n' and 'S_o' in sname and abs(self.kgrid[tp]['energy'][ib][ik] - 1.2515)<1e-4:
-            #     print('\n here 0.5018')
-            #     print('counter:', counter)
-            #     print(current_integrand)
-            #     print(ik)
-            #     print(ik_prm)
-            #     print(X)
-            #     counter += 1
-            #
-            # if tp=='n' and abs(self.kgrid[tp]['energy'][ib][ik] - (self.cbm_vbm[tp]['energy'] + 0.0418))<1e-4:
-            #     print('\n here 0.0418')
-            #     print(current_integrand)
-            #     print(ik)
-            #     print(ik_prm)
-            #     print(X)
-            # This condition is to exclude self-scattering from the integration
             if np.sum(current_integrand) == 0.0:
                 dum *= 2
             elif np.sum(dum) == 0.0:
                 dum = current_integrand
             else:
                 dum += current_integrand / 2.0
-
             summation += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
+            ikp += 1
+
+        # for i in range(len(X_E_index[ib][ik]) - 1):
+        #     DeltaX = X_E_index[ib][ik][i + 1][0] - X_E_index[ib][ik][i][0]
+        #     X, ib_prm, ik_prm = X_E_index[ib][ik][i + 1]
+        #     dum = current_integrand / 2.0
+        #     current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
+        #     if np.sum(current_integrand) == 0.0:
+        #         dum *= 2
+        #     elif np.sum(dum) == 0.0:
+        #         dum = current_integrand
+        #     else:
+        #         dum += current_integrand / 2.0
+        #     summation += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
         return summation
 
 
@@ -3191,15 +3187,15 @@ if __name__ == "__main__":
 
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
-                  dopings = [-3e13],
-                  # dopings = [3.32e14],
-                  temperatures = [300],
-                  # temperatures = range(100, 1100, 100),
+                  # dopings = [-3e13],
+                  dopings = [3.32e14],
+                  # temperatures = [300],
+                  temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp='very coarse', write_outputs=True))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp='super fine', write_outputs=True))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
