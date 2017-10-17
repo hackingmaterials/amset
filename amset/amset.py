@@ -1,4 +1,5 @@
 # coding: utf-8
+import gzip
 import warnings
 import time
 import logging
@@ -2319,24 +2320,27 @@ class AMSET(object):
         return beta
 
 
-    def to_file(self, dir_path='.', filename='amset_outputs.json',
-                force_write=True):
+
+    def to_file(self, dir_path='.', fname='amsetrun', force_write=False):
         if not force_write:
             n = 1
-            fname0 = filename
-            while os.path.exists(os.path.join(dir_path, filename)):
+            fname0 = fname
+            while os.path.exists(
+                    os.path.join(dir_path, '{}.json.gz'.format(fname))):
                 warnings.warn('The file, {} exists. AMSET outputs will be '
-                        'written in {}'.format(filename, fname0+'_'+str(n)))
-                filename = fname0 + '_' + str(n)
+                        'written in {}'.format(fname, fname0+'_'+str(n)))
+                fname = fname0 + '_' + str(n)
                 n += 1
 
         # make the output dict
         out_d = {'kgrid': self.kgrid, 'egrid': self.egrid}
 
         # write the output dict to file
-        with open(os.path.join(dir_path, filename), 'w') as fp:
-            json.dump(out_d, fp, sort_keys=True, ensure_ascii=False,
-                      cls=MontyEncoder)
+        with gzip.GzipFile(
+                os.path.join(dir_path, '{}.json.gz'.format(fname)), 'w') as fp:
+            jsonstr = json.dumps(out_d, cls=MontyEncoder)
+            fp.write(jsonstr)
+
 
 
     def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0):
@@ -3187,8 +3191,8 @@ if __name__ == "__main__":
 
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
-                  # dopings = [-3e13],
-                  dopings = [3.32e14],
+                  dopings = [-3e13],
+                  # dopings = [3.32e14],
                   temperatures = [300],
                   # temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='e',
