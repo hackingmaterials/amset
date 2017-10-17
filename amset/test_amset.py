@@ -37,7 +37,7 @@ class AmsetTest(unittest.TestCase):
                       dopings=[-2e15], temperatures=[300], k_integration=True,
                       e_integration=True, fermi_type='k',
                       loglevel=logging.ERROR)
-        amset.run(self.GaAs_cube, kgrid_tp='poly_band')
+        amset.run(self.GaAs_cube, kgrid_tp='poly_band', write_outputs=False)
         egrid = amset.egrid
         diff = abs(np.array(amset.mobility['n']['ACD'][-2e15][300]) - \
                    np.array(egrid['n']['mobility']['SPB_ACD'][-2e15][300]))
@@ -60,7 +60,7 @@ class AmsetTest(unittest.TestCase):
                       dopings=[-2e15], temperatures=[300], k_integration=True,
                       e_integration=True, fermi_type='e',
                       loglevel=logging.ERROR)
-        amset.run(self.GaAs_cube, kgrid_tp='very coarse')
+        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
         egrid = amset.egrid
         kgrid = amset.kgrid
 
@@ -93,7 +93,7 @@ class AmsetTest(unittest.TestCase):
                       dopings=[-2e15], temperatures=[300], k_integration=False,
                       e_integration=True, fermi_type='e',
                       loglevel=logging.ERROR)
-        amset.run(self.GaAs_cube, kgrid_tp='very coarse')
+        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
         egrid = amset.egrid
         # check mobility values
         for mu in expected_mu.keys():
