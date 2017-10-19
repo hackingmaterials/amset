@@ -25,7 +25,7 @@ from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_
 
 from tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
         fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
-        remove_duplicate_kpoints
+        remove_duplicate_kpoints, get_angle, sort_angles
 from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
 
@@ -1759,7 +1759,7 @@ class AMSET(object):
         Returns (float or numpy.array): the integrated value/vector
         """
         # counter = 0.0
-        summation = np.array([0.0, 0.0, 0.0])
+        summation = 0.0
         if len(X_E_index[ib][ik]) == 0:
             raise ValueError("enforcing scattering points did NOT work, {}[{}][{}] is empty".format(X_E_index, ib, ik))
             # return summation
@@ -1768,18 +1768,112 @@ class AMSET(object):
 
         ikp = 0
         while ikp < len(X_E_index[ib][ik]) - 1:
+            # X, ib_prm, ik_prm = X_E_index[ib][ik][ikp]
+            # current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X,
+            #                               sname=sname, g_suffix=g_suffix)
             DeltaX = X_E_index[ib][ik][ikp + 1][0] - X_E_index[ib][ik][ikp][0]
-            X, ib_prm, ik_prm = X_E_index[ib][ik][ikp + 1]
-            dum = current_integrand / 2.0
-            current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
+            same_X_ks = [self.kgrid[tp]['old cartesian kpoints'][ib_prm][ik_prm]]
+            same_X_ks_integrands = [current_integrand]
+            loop_found = False
+
+            while DeltaX < 0.01 and ikp < len(X_E_index[ib][ik]) - 2:
+                # print(DeltaX)
+                ikp += 1
+                loop_found = True
+                X, ib_prm, ik_prm = X_E_index[ib][ik][ikp]
+                same_X_ks.append(self.kgrid[tp]['old cartesian kpoints'][ib_prm][ik_prm])
+                same_X_ks_integrands.append(integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix))
+                DeltaX = X_E_index[ib][ik][ikp + 1][0] - X_E_index[ib][ik][ikp][0]
+
+            if len(same_X_ks) > 1:
+                # print('here impossible')
+                # print(same_X_ks)
+                # print(DeltaX)
+                # print
+                # print('here same_X_ks')
+                # print(same_X_ks)
+                # print(len(same_X_ks))
+                m = np.sum(same_X_ks, axis=0)/len(same_X_ks)
+                same_X_ks = np.array(same_X_ks) - m
+                same_X_ks_sort, ks_indexes = sort_angles(same_X_ks)
+                same_X_ks_sort = np.vstack((same_X_ks_sort, same_X_ks_sort[0]))
+                ks_indexes.append(ks_indexes[0])
+
+                # print(ks_indexes)
+                sm = 0.0
+                # if tp=='n':
+                #     print('here integrands')
+                #     print(same_X_ks_integrands)
+                # print([get_angle(same_X_ks_sort[i+1], same_X_ks_sort[i]) for i in range(len(same_X_ks_sort)-1)])
+                for j in range(len(ks_indexes) - 1):
+                    angle = get_angle(same_X_ks_sort[j+1], same_X_ks_sort[j])
+                    sm += (same_X_ks_integrands[ks_indexes[j+1]] + \
+                           same_X_ks_integrands[ks_indexes[j]])/2.0 * angle
+                    # print(angle)
+                # print
+
+                dum = sm/(2*pi)/2.0
+                # dum = current_integrand/2.0
+                # X, ib_prm, ik_prm = X_E_index[ib][ik][ikp + 1]
+                # dum = same_X_ks_integrands[0] / 2.0
+                # current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm,
+                #                               X, sname=sname,
+                #                               g_suffix=g_suffix)
+                #
+                # dum += current_integrand / 2.0
+
+                # current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm,
+                #                               X, sname=sname,
+                #                               g_suffix=g_suffix)
+                # if np.sum(current_integrand) == 0.0:
+                #     dum *= 2
+                # elif np.sum(dum) == 0.0:
+                #     dum = current_integrand
+                # else:
+                #     dum += current_integrand / 2.0
+                # if tp=='n':
+                #     print('here weighted integral')
+                #     print(dum)
+                # dum = sm/len(same_X_ks_integrands)
+                # if abs(np.sum(dum)) < 1e-8:
+                #     dum = current_integrand
+                # else:
+                #     dum += current_integrand / 2.0
+                ikp += 1
+
+            if not loop_found:
+                # X, ib_prm, ik_prm = X_E_index[ib][ik][ikp + 1]
+                dum = current_integrand / 2.0
+                # current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
+                #
+                # dum += current_integrand/2.0
+                # dum = current_integrand / 2.0
+                # current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
+                # if np.sum(current_integrand) == 0.0:
+                #     dum *= 2
+                # elif np.sum(dum) == 0.0:
+                #     dum = current_integrand
+                # else:
+                #     dum += current_integrand / 2.0
+                ikp += 1
+
+            X, ib_prm, ik_prm = X_E_index[ib][ik][ikp]
+            current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X,
+                                          sname=sname, g_suffix=g_suffix)
             if np.sum(current_integrand) == 0.0:
                 dum *= 2
             elif np.sum(dum) == 0.0:
                 dum = current_integrand
             else:
                 dum += current_integrand / 2.0
+            # else:
+            #     X, ib_prm, ik_prm = X_E_index[ib][ik][ikp]
+            #     current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
+            # print(DeltaX)
+            # if not loop_found:
+            #     ikp += 1
             summation += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
-            ikp += 1
+
 
         # for i in range(len(X_E_index[ib][ik]) - 1):
         #     DeltaX = X_E_index[ib][ik][i + 1][0] - X_E_index[ib][ik][i][0]
@@ -3155,7 +3249,7 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
 
-    model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+    model_params = {'bs_is_isotropic': False, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
@@ -3188,14 +3282,15 @@ if __name__ == "__main__":
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
                   # dopings = [-3e13],
-                  dopings = [3.32e14],
-                  # temperatures = [300],
-                  temperatures = range(100, 1100, 100),
+                  dopings = [-2e15],
+                  # dopings = [3.32e14],
+                  temperatures = [300],
+                  # temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp='super fine', write_outputs=True))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp='fine', write_outputs=True))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
@@ -3205,7 +3300,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    # amset.plot(k_plots=['energy'], E_plots=['df0dk', 'velocity', 'ACD', 'IMP', 'PIE'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
-    amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy'], E_plots=['df0dk', 'velocity', 'ACD', 'IMP', 'PIE'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)

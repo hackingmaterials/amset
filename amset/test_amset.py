@@ -82,8 +82,8 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_anisotropic(self):
         print('testing test_GaAs_anisotropic...')
-        expected_mu = {'ACD': 44054.0, 'IMP': 55973495.8, 'PIE': 112132.9,
-                       'POP': 8525.7, 'overall': 6727.2, 'average': 6714.7}
+        expected_mu = {'ACD': 44114.54, 'IMP': 56039469.34, 'PIE': 112262.60,
+                       'POP': 8539.31, 'overall': 6743.91, 'average': 6724.98}
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
