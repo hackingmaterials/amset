@@ -122,7 +122,6 @@ class AMSET(object):
         self.init_kgrid(coeff_file=coeff_file, kgrid_tp=kgrid_tp)
         logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
 
-        self.f0_array = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
         if self.fermi_calc_type == 'k':
             self.fermi_level = self.find_fermi_k()
 
@@ -2153,6 +2152,7 @@ class AMSET(object):
 
     def find_fermi_k(self, tolerance=0.001):
         closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
+        self.f0_array = {c: {T: {tp: range(self.num_bands[tp]) for tp in ['n', 'p']} for T in self.temperatures} for c in self.dopings}
         self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
         #energy = self.array_from_kgrid('energy', 'n', fill=1000)
         for c in self.dopings:
@@ -2181,8 +2181,9 @@ class AMSET(object):
                 # find the calculated concentrations (dopings) of each type at the determined fermi level
                 e_f = closest_energy[c][T]
                 for j, tp in enumerate(['n', 'p']):
-                    self.f0_array[c][T][tp] = 1 / (np.exp((self.energy_array[tp] - e_f) / (k_B * T)) + 1)
-                    self.calc_doping[c][T][tp] = self.integrate_over_states(j - self.f0_array[c][T][tp])
+                    for ib in range(self.num_bands[tp]):
+                        self.f0_array[c][T][tp][ib] = 1 / (np.exp((self.energy_array[tp][ib][:,:,:,0] - e_f) / (k_B * T)) + 1)
+                    self.calc_doping[c][T][tp] = self.integrate_over_states(j - np.array(self.f0_array[c][T][tp]))
         return closest_energy
 
 
@@ -2685,8 +2686,9 @@ class AMSET(object):
                     if self.bs_is_isotropic:
                         # from equation 45 in Rode, elastic mechanisms
                         for ib in range(self.num_bands[tp]):
-                            print('f0 (type {}, band {}):'.format(tp, ib))
-                            print(f0_all[ib, (N[0]-1)/2, (N[1]-1)/2, :])
+                            logging.info('f0 (type {}, band {}):'.format(tp, ib))
+                            logging.info(f0_all[ib, (N[0]-1)/2, (N[1]-1)/2, :])
+                            #logging.info(self.f0_array[c][T][tp][ib][(N[0]-1)/2, (N[1]-1)/2, :])
                         if tp == 'n':
                             denominator = 3 * default_small_E * self.integrate_over_states(f0_all)
                         if tp == 'p':
