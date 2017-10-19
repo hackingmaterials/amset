@@ -360,3 +360,29 @@ def get_tp(c):
         return "p"
     else:
         raise ValueError("The carrier concentration cannot be zero! AMSET stops now!")
+
+
+def get_angle(v1, v2):
+    x = cos_angle(v1,v2)
+    if x < -1:
+        x = -1
+    elif x > 1:
+        x = 1
+    return np.arccos(x)
+
+
+def sort_angles(vecs):
+    sorted_vecs = []
+    indexes = range(len(vecs))
+    final_idx = []
+    vecs = list(vecs)
+    while len(vecs) > 1:
+        angles = [get_angle(vecs[0], vecs[i]) for i in range(len(vecs))]
+        sort_idx = np.argsort(angles)
+        vecs = [vecs[i] for i in sort_idx]
+        indexes = [indexes[i] for i in sort_idx]
+        sorted_vecs.append(vecs.pop(0)) # reduntant step for the first element
+        final_idx.append(indexes.pop(0))
+    vecs.extend(sorted_vecs)
+    indexes.extend(final_idx)
+    return np.array(vecs), indexes
