@@ -125,13 +125,6 @@ class AMSET(object):
         self.f0_array = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
         if self.fermi_calc_type == 'k':
             self.fermi_level = self.find_fermi_k()
-            self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
-            for c in self.dopings:
-                for T in self.temperatures:
-                    for tp in ['n', 'p']:
-                        self.f0_array[c][T][tp] = 1 / (np.exp((self.energy_array[tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                    self.calc_doping[c][T]['n'] = -self.integrate_over_states(self.f0_array[c][T]['n'])
-                    self.calc_doping[c][T]['p'] = self.integrate_over_states(1-self.f0_array[c][T]['p'])
 
         self.init_egrid(dos_tp="standard")
         logging.info('fermi level = {}'.format(self.fermi_level))
@@ -2241,6 +2234,7 @@ class AMSET(object):
 
     def find_fermi_k(self, tolerance=0.001):
         closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
+        self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
         #energy = self.array_from_kgrid('energy', 'n', fill=1000)
         for c in self.dopings:
             tp = get_tp(c)
@@ -2253,18 +2247,23 @@ class AMSET(object):
                     # try a number for fermi level
                     diffs = {}
                     for e_f in range_of_energies:
-                        # calculate distribution
-                        f = 1 / (np.exp((self.energy_array[tp] - e_f) / (k_B * T)) + 1)
+                        # calculate distribution in both conduction and valence bands
+                        f_con = 1 / (np.exp((self.energy_array['n'] - e_f) / (k_B * T)) + 1)
+                        f_val = 1 / (np.exp((self.energy_array['p'] - e_f) / (k_B * T)) + 1)
                         # see if it is close to concentration
-                        if tp == 'n':
-                            diffs[e_f] = abs(self.integrate_over_states(f)[0] - abs(c))
-                        if tp == 'p':
-                            diffs[e_f] = abs(self.integrate_over_states(1 - f)[0] - abs(c))
+                        n_concentration = self.integrate_over_states(f_con)[0]
+                        p_concentration = self.integrate_over_states(1 - f_val)[0]
+                        diffs[e_f] = abs((p_concentration - n_concentration) - c)
                     # compare all the numbers and zoom in on the closest
                     closest_energy[c][T] = min(diffs, key=diffs.get)
                     range_of_energies = np.arange(closest_energy[c][T] - step, closest_energy[c][T] + step, step / 10)
                     step /= 10
                     diff = diffs[closest_energy[c][T]]
+                # find the calculated concentrations (dopings) of each type at the determined fermi level
+                e_f = closest_energy[c][T]
+                for j, tp in enumerate(['n', 'p']):
+                    self.f0_array[c][T][tp] = 1 / (np.exp((self.energy_array[tp] - e_f) / (k_B * T)) + 1)
+                    self.calc_doping[c][T][tp] = self.integrate_over_states(j - self.f0_array[c][T][tp])
         return closest_energy
 
 
