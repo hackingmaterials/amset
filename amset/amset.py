@@ -824,10 +824,7 @@ class AMSET(object):
         :param cartesian (bool): if True, the output would be in cartesian (but still reciprocal) coordinates
         :return:
         """
-        fractional_ks = [np.dot(k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
-        #TODO: not sure if I should include also the translations or not (see Si example to see if it makes a difference)
-        # fractional_ks = [np.dot(k, self.rotations[i]) for i in range(len(self.rotations))]
-
+        fractional_ks = [np.dot(k, self.rotations[i]) for i in range(len(self.rotations))]
         fractional_ks = self.kpts_to_first_BZ(fractional_ks)
         if cartesian:
             return [self._rec_lattice.get_cartesian_coords(k_frac) / A_to_nm for k_frac in fractional_ks]
@@ -880,7 +877,7 @@ class AMSET(object):
         logging.debug("begin profiling init_kgrid: a {} grid".format(kgrid_tp))
         start_time = time.time()
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
-        self.rotations, self.translations = sg._get_symmetry()
+        self.rotations, _ = sg._get_symmetry()
 
         logging.info("self.nkibz = {}".format(self.nkibz))
 
@@ -1369,8 +1366,8 @@ class AMSET(object):
     def unique_X_ib_ik_symmetrically_equivalent(self, tp, ib, ik):
         frac_k = self.kgrid[tp]["kpoints"][ib][ik]
 
-        fractional_ks = [np.dot(frac_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
-
+        # fractional_ks = [np.dot(frac_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
+        fractional_ks = np.dot(frac_k, self.rotations)
         k = self.kgrid[tp]["kpoints"][ib][ik]
         seks = [self._rec_lattice.get_cartesian_coords(frac_k) / A_to_nm for frac_k in fractional_ks]
 
@@ -3208,7 +3205,7 @@ if __name__ == "__main__":
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp='very coarse', write_outputs=True))
+    profiler.runcall(lambda: amset.run(coeff_file,kgrid_tp='super fine', write_outputs=True))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
@@ -3218,7 +3215,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy'], E_plots=['df0dk', 'velocity', 'ACD', 'IMP', 'PIE'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy'], E_plots=['df0dk', 'ACD', 'IMP', 'PIE', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
