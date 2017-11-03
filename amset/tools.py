@@ -386,3 +386,9 @@ def sort_angles(vecs):
     vecs.extend(sorted_vecs)
     indexes.extend(final_idx)
     return np.array(vecs), indexes
+
+
+def rel_diff(num1, num2):
+    diff = abs(num1 - num2)
+    avg = (num1 + num2) / 2
+    return diff / avg
