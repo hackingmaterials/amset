@@ -1139,6 +1139,11 @@ class AMSET(object):
 
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
+                    # TODO: the following enforces isotropy but it's not necessary as bs_is_isotropic is just a different formulation and isotropy from bs should be taken into account
+                    # if self.bs_is_isotropic:
+                    #     self.kgrid[tp]["velocity"][ib][ik] = [norm(velocity)/sq3 for i in range(3)]
+                    # else:
+                    #     self.kgrid[tp]["velocity"][ib][ik] = velocity
                     self.kgrid[tp]["norm(v)"][ib][ik] = norm(velocity)
 
                     if self.kgrid[tp]["velocity"][ib][ik][0] < self.v_min or  \
@@ -3187,7 +3192,7 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
 
-    model_params = {'bs_is_isotropic': False, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+    model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
@@ -3223,6 +3228,7 @@ if __name__ == "__main__":
     coeff_file = None
     material_params = {"epsilon_s": 7.6, "epsilon_inf": 4.85, "W_POP": 12.6,
                        "C_el": 110, "E_D": {"n": 9.67, "p": 3.175}, "P_PIE": 0.052, "scissor":  1.42}
+    # in terms of anisotropy at 5e19 300K BoltzTraP return sigma/tau of [8.55e17, 8.86e17, 1.08e18] for xx, yy, zz respectively
 
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
@@ -3236,7 +3242,7 @@ if __name__ == "__main__":
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file, kgrid_tp='very coarse', write_outputs=True))
+    profiler.runcall(lambda: amset.run(coeff_file, kgrid_tp='very fine', write_outputs=True))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
