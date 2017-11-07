@@ -3203,11 +3203,11 @@ if __name__ == "__main__":
     # #coeff_file = os.path.join(cube_path, "fort.123")
 
     ## For GaAs
-    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-                       "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
-    cube_path = "../test_files/GaAs/"
-    #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
-    coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
+    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
+    #                    "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
+    # cube_path = "../test_files/GaAs/"
+    # #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
 
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_sym_23x23x23") # bad results! (because the fitting not good)
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_11x11x11_ISYM0") # good results
@@ -3219,15 +3219,16 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "Si_fort.123")
 
     # ## For AlCuS2
-    # cube_path = '../test_files/AlCuS2'
-    # coeff_file = None
-    # material_params = {"epsilon_s": 7.6, "epsilon_inf": 4.85, "W_POP": 12.6,
-    #                    "C_el": 110, "E_D": {"n": 9.67, "p": 3.175}, "P_PIE": 0.052, "scissor":  1.8}
+    cube_path = '../test_files/AlCuS2'
+    coeff_file = None
+    material_params = {"epsilon_s": 7.6, "epsilon_inf": 4.85, "W_POP": 12.6,
+                       "C_el": 110, "E_D": {"n": 9.67, "p": 3.175}, "P_PIE": 0.052, "scissor":  1.42}
 
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
                   # dopings = [-3e13],
-                  dopings = [-2e15],
+                  # dopings = [-2e15],
+                  dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
                   temperatures = [300],
                   # temperatures = range(100, 1100, 100),
