@@ -365,8 +365,8 @@ class AMSET(object):
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
-        bs = self._vrun.get_band_structure()
-        self.nbands = bs.nb_bands
+        self.bs = self._vrun.get_band_structure()
+        self.nbands = self.bs.nb_bands
         self.lorbit = 11 if len(sum(self._vrun.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
 
         self.DFT_cartesian_kpts = np.array(
@@ -376,8 +376,8 @@ class AMSET(object):
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
         cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
                    "p": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]}}
-        cbm = bs.get_cbm()
-        vbm = bs.get_vbm()
+        cbm = self.bs.get_cbm()
+        vbm = self.bs.get_vbm()
 
         logging.info("total number of bands: {}".format(self._vrun.get_band_structure().nb_bands))
 
@@ -386,14 +386,14 @@ class AMSET(object):
             cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.up][0]
         except IndexError:
             cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.down][0] # in case spin down has a lower CBM
-        cbm_vbm["n"]["kpoint"] = bs.kpoints[cbm["kpoint_index"][0]].frac_coords
+        cbm_vbm["n"]["kpoint"] = self.bs.kpoints[cbm["kpoint_index"][0]].frac_coords
 
         cbm_vbm["p"]["energy"] = vbm["energy"]
         try:
             cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.up][-1]
         except IndexError:
             cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.down][-1]
-        cbm_vbm["p"]["kpoint"] = bs.kpoints[vbm["kpoint_index"][0]].frac_coords
+        cbm_vbm["p"]["kpoint"] = self.bs.kpoints[vbm["kpoint_index"][0]].frac_coords
 
         self.dft_gap = cbm["energy"] - vbm["energy"]
         logging.debug("DFT gap from vasprun.xml : {} eV".format(self.dft_gap))
@@ -405,19 +405,19 @@ class AMSET(object):
 
         logging.debug("total number of electrons nelec: {}".format(self.nelec))
 
-        bs = bs.as_dict()
-        if bs["is_spin_polarized"]:
-            self.dos_emin = min(bs["bands"]["1"][0], bs["bands"]["-1"][0])
-            self.dos_emax = max(bs["bands"]["1"][-1], bs["bands"]["-1"][-1])
+        bsd = self.bs.as_dict()
+        if bsd["is_spin_polarized"]:
+            self.dos_emin = min(bsd["bands"]["1"][0], bsd["bands"]["-1"][0])
+            self.dos_emax = max(bsd["bands"]["1"][-1], bsd["bands"]["-1"][-1])
         else:
-            self.dos_emin = min(bs["bands"]["1"][0])
-            self.dos_emax = max(bs["bands"]["1"][-1])
+            self.dos_emin = min(bsd["bands"]["1"][0])
+            self.dos_emax = max(bsd["bands"]["1"][-1])
 
         if not self.poly_bands:
             for i, tp in enumerate(["n", "p"]):
                 Ecut = self.Ecut[tp]
                 sgn = (-1) ** i
-                while abs(min(sgn * bs["bands"]["1"][cbm_vbm[tp]["bidx"] + sgn * cbm_vbm[tp]["included"]]) -
+                while abs(min(sgn * bsd["bands"]["1"][cbm_vbm[tp]["bidx"] + sgn * cbm_vbm[tp]["included"]]) -
                                           sgn * cbm_vbm[tp]["energy"]) < Ecut:
                     cbm_vbm[tp]["included"] += 1
 
@@ -883,6 +883,11 @@ class AMSET(object):
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
         # TODO: figure out which other points need a fine grid around them
         important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
+        for tp in ['n', 'p']:
+            all_important_ks = []
+            for k in important_pts[tp]:
+                all_important_ks +=  list(self.bs.get_sym_eq_kpoints(k))
+            important_pts[tp] = remove_duplicate_kpoints(all_important_ks)
 
         self.kgrid_array = {}
         self.k_hat_array = {}
