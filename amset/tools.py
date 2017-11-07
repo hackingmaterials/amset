@@ -297,28 +297,23 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
 
 
-def get_closest_ks(initial_ks, ref_ks, retun_diff=True):
+def get_closest_k(kpoint, ref_ks, retun_diff=True):
     """
     returns the list of difference between kpoints. If return_diff True, then
-        for each kpoint in initial_ks list the minimum distance among distances
-        from ref_ks list is returned or just the reference kpoints that result
-        in minimum distance; the latter happens when return_diff==False
+        for a given kpoint the minimum distance among distances with ref_ks is
+        returned or just the reference kpoint that results if not return_diff
     Args:
-        initial_ks ([1x3 array]): list of initial k-points
+        kpoint (1x3 array): the coordinates of the input k-point
         ref_ks ([1x3 array]): list of reference k-points from which the
             distance with initial_ks are calculated
         return_diff (bool): if True, the minimum distance is returned
-    Returns ([1x3 array]):
+    Returns (1x3 array):
     """
-    final_ks = []
-    for kj in initial_ks:
-        min_dist_ik = np.array([norm(ki - kj) for ki in ref_ks]).argmin()
-        if retun_diff:
-            final_ks.append(kj - ref_ks[min_dist_ik])
-        else:
-            final_ks.append(ref_ks[min_dist_ik])
-    return final_ks
-
+    min_dist_ik = np.array([norm(ki - kpoint) for ki in ref_ks]).argmin()
+    if retun_diff:
+        return kpoint - ref_ks[min_dist_ik]
+    else:
+        return ref_ks[min_dist_ik]
 
 def remove_duplicate_kpoints(kpts, dk=0.0001):
     """kpts (list of list): list of coordinates of electrons
