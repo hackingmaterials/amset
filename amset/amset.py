@@ -26,7 +26,7 @@ from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_
 
 from tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
         fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
-        remove_duplicate_kpoints, get_angle, sort_angles
+        remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k
 from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
 
@@ -889,19 +889,19 @@ class AMSET(object):
 
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
         # TODO: figure out which other points need a fine grid around them
-        important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
+        self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
         for tp in ['n', 'p']:
             all_important_ks = []
-            for k in important_pts[tp]:
+            for k in self.important_pts[tp]:
                 all_important_ks +=  list(self.bs.get_sym_eq_kpoints(k))
-            important_pts[tp] = remove_duplicate_kpoints(all_important_ks)
+            self.important_pts[tp] = remove_duplicate_kpoints(all_important_ks)
 
         self.kgrid_array = {}
         self.k_hat_array = {}
         self.dv_grid = {}
         kpts = {}
         for tp in ['n', 'p']:
-            points_1d = generate_k_mesh_axes(important_pts[tp], kgrid_tp, one_list=True)
+            points_1d = generate_k_mesh_axes(self.important_pts[tp], kgrid_tp, one_list=True)
             self.kgrid_array[tp] = create_grid(points_1d)
             kpts[tp] = array_to_kgrid(self.kgrid_array[tp])
 
@@ -1085,6 +1085,7 @@ class AMSET(object):
             self.cbm_vbm[tp]["cartesian k"] = self._rec_lattice.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
             self.cbm_vbm[tp]["all cartesian k"] = self.get_sym_eq_ks_in_first_BZ(self.cbm_vbm[tp]["kpoint"], cartesian=True)
             self.cbm_vbm[tp]["all cartesian k"] = remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
+            self.important_pts[tp] = [self._rec_lattice.get_cartesian_coords(k)/A_to_nm for k in self.important_pts[tp]]
 
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -1106,10 +1107,9 @@ class AMSET(object):
 
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                    min_dist_ik = np.array([norm(ki - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) for ki in\
-                                           self.cbm_vbm[tp]["all cartesian k"]]).argmin()
-                    self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - \
-                                                                  self.cbm_vbm[tp]["all cartesian k"][min_dist_ik]
+                    # min_dist_ik = np.array([norm(ki - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) for ki in self.cbm_vbm[tp]["all cartesian k"]]).argmin()
+                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - self.cbm_vbm[tp]["all cartesian k"][min_dist_ik]
+                    self.kgrid[tp]["cartesian kpoints"][ib][ik] = get_closest_k(self.kgrid[tp]["old cartesian kpoints"][ib][ik], self.important_pts[tp])
                     self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
                     # if abs(self.kgrid[tp]["norm(k)"][ib][ik] - 9.8) < 1.7:
                     #     self.kgrid[tp]["norm(k)"][ib][ik] = abs(self.kgrid[tp]["norm(k)"][ib][ik] - 9.8)
