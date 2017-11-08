@@ -282,7 +282,7 @@ class AMSET(object):
         acceptor_charge = params.get("acceptor_charge", 1.0)
         dislocations_charge = params.get("dislocations_charge", 1.0)
         self.charge = {"n": donor_charge, "p": acceptor_charge, "dislocations": dislocations_charge}
-
+        self.add_extrema = params.get('add_extrema', {'n': [], 'p':[]})
 
 
     def set_model_params(self, params):
@@ -891,10 +891,14 @@ class AMSET(object):
         # TODO: figure out which other points need a fine grid around them
         self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
         for tp in ['n', 'p']:
+            self.important_pts['n'].extend(self.add_extrema[tp])
+        for tp in ['n', 'p']:
             all_important_ks = []
             for k in self.important_pts[tp]:
                 all_important_ks +=  list(self.bs.get_sym_eq_kpoints(k))
             self.important_pts[tp] = remove_duplicate_kpoints(all_important_ks)
+        logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
+        print('Here are the final extrema considered: \n {}'.format(self.important_pts))
 
         self.kgrid_array = {}
         self.k_hat_array = {}
@@ -1085,6 +1089,7 @@ class AMSET(object):
             self.cbm_vbm[tp]["cartesian k"] = self._rec_lattice.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
             self.cbm_vbm[tp]["all cartesian k"] = self.get_sym_eq_ks_in_first_BZ(self.cbm_vbm[tp]["kpoint"], cartesian=True)
             self.cbm_vbm[tp]["all cartesian k"] = remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
+
             self.important_pts[tp] = [self._rec_lattice.get_cartesian_coords(k)/A_to_nm for k in self.important_pts[tp]]
 
             sgn = (-1) ** i
@@ -1109,7 +1114,14 @@ class AMSET(object):
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     # min_dist_ik = np.array([norm(ki - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) for ki in self.cbm_vbm[tp]["all cartesian k"]]).argmin()
                     # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - self.cbm_vbm[tp]["all cartesian k"][min_dist_ik]
+
+
                     self.kgrid[tp]["cartesian kpoints"][ib][ik] = get_closest_k(self.kgrid[tp]["old cartesian kpoints"][ib][ik], self.important_pts[tp])
+
+                    # # The following 2 lines (i.e. when the closest kpoints to equivalent extrema are calculated in fractional coordinates) would change the anisotropic test! not sure why
+                    # closest_frac_k = np.array(get_closest_k(self.kgrid[tp]["kpoints"][ib][ik], self.important_pts[tp]))
+                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self._rec_lattice.get_cartesian_coords(closest_frac_k) / A_to_nm
+
                     self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
                     # if abs(self.kgrid[tp]["norm(k)"][ib][ik] - 9.8) < 1.7:
                     #     self.kgrid[tp]["norm(k)"][ib][ik] = abs(self.kgrid[tp]["norm(k)"][ib][ik] - 9.8)
@@ -1132,7 +1144,7 @@ class AMSET(object):
                                     2] * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
 
                     else:
-                        energy, velocity, effective_mass = get_poly_energy(self.kgrid[tp]["old cartesian kpoints"][ib][ik],
+                        energy, velocity, effective_mass = get_poly_energy(self.kgrid[tp]["cartesian kpoints"][ib][ik],
                                                                            poly_bands=self.poly_bands,
                                                                            type=tp, ib=ib,
                                                                            bandgap=self.dft_gap + self.scissor)
@@ -1772,14 +1784,14 @@ class AMSET(object):
         ikp = 0
         while ikp < len(X_E_index[ib][ik]) - 1:
             DeltaX = X_E_index[ib][ik][ikp + 1][0] - X_E_index[ib][ik][ikp][0]
-            same_X_ks = [self.kgrid[tp]['old cartesian kpoints'][ib_prm][ik_prm]]
+            same_X_ks = [self.kgrid[tp]['cartesian kpoints'][ib_prm][ik_prm]]
             same_X_ks_integrands = [current_integrand]
             loop_found = False
             while DeltaX < 0.01 and ikp < len(X_E_index[ib][ik]) - 2:
                 ikp += 1
                 loop_found = True
                 X, ib_prm, ik_prm = X_E_index[ib][ik][ikp]
-                same_X_ks.append(self.kgrid[tp]['old cartesian kpoints'][ib_prm][ik_prm])
+                same_X_ks.append(self.kgrid[tp]['cartesian kpoints'][ib_prm][ik_prm])
                 same_X_ks_integrands.append(integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix))
                 DeltaX = X_E_index[ib][ik][ikp + 1][0] - X_E_index[ib][ik][ikp][0]
 
@@ -2073,8 +2085,7 @@ class AMSET(object):
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             if self.bs_is_isotropic:
-                                self.kgrid[tp][sname][c][T][ib][ik] = \
-                                    self.s_el_eq_isotropic(sname, tp, c, T, ib, ik)
+                                self.kgrid[tp][sname][c][T][ib][ik] = self.s_el_eq_isotropic(sname, tp, c, T, ib, ik)
                             else:
                                 summation = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
                                                                   integrand=self.el_integrand_X,
@@ -2089,8 +2100,11 @@ class AMSET(object):
                                     self.kgrid[tp][sname][c][T][ib][ik] = [1e10, 1e10, 1e10]
 
                                 if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e20:
+                                    print self.kgrid[tp]['kpoints'][ib][ik]
+                                    print self.kgrid[tp]['cartesian kpoints'][ib][ik]
+                                    print self.kgrid[tp]['velocity'][ib][ik]
                                     print "WARNING!!! TOO LARGE of scattering rate for {}:".format(sname)
-                                    print summation
+                                    print self.kgrid[tp][sname][c][T][ib][ik]
                                     print self.kgrid[tp]["X_E_ik"][ib][ik]
                                     print
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
@@ -3162,7 +3176,10 @@ class AMSET(object):
                     row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
                     for p in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings:
                         row[p] = sum(self.egrid[tp]["mobility"][p][c][T])/3
-                    row["seebeck"] = sum(self.egrid[tp]["seebeck"][c][T])/3
+                    try:
+                        row["seebeck"] = sum(self.egrid[tp]["seebeck"][c][T])/3
+                    except TypeError:
+                        row["seebeck"] = self.egrid[tp]["seebeck"][c][T]
                     writer.writerow(row)
 
 
@@ -3191,6 +3208,7 @@ if __name__ == "__main__":
     # setting up inputs:
     mass = 0.25
     use_poly_bands = False
+    add_extrema = None
 
     model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
@@ -3208,14 +3226,16 @@ if __name__ == "__main__":
     # #coeff_file = os.path.join(cube_path, "fort.123")
 
     ## For GaAs
-    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, "C_el": 139.7,
-    #                    "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, "scissor":  0.5818}
-    # cube_path = "../test_files/GaAs/"
-    # #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
-    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
+    add_extrema = {'n': [], 'p':[]}
+    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
+            "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
+            "scissor":  0.5818, 'add_extrema': add_extrema}
+    cube_path = "../test_files/GaAs/"
+    #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
 
-    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_sym_23x23x23") # bad results! (because the fitting not good)
-    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_11x11x11_ISYM0") # good results
+    ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_sym_23x23x23") # bad results! (because the fitting not good)
+    ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_11x11x11_ISYM0") # good results
 
     ### For Si
     # material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
@@ -3224,25 +3244,25 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "Si_fort.123")
 
     # ## For AlCuS2
-    cube_path = '../test_files/AlCuS2'
-    coeff_file = None
-    material_params = {"epsilon_s": 7.6, "epsilon_inf": 4.85, "W_POP": 12.6,
-                       "C_el": 110, "E_D": {"n": 9.67, "p": 3.175}, "P_PIE": 0.052, "scissor":  1.42}
-    # in terms of anisotropy at 5e19 300K BoltzTraP return sigma/tau of [8.55e17, 8.86e17, 1.08e18] for xx, yy, zz respectively
+    # cube_path = '../test_files/AlCuS2'
+    # coeff_file = None
+    # material_params = {"epsilon_s": 7.6, "epsilon_inf": 4.85, "W_POP": 12.6,
+    #                    "C_el": 110, "E_D": {"n": 9.67, "p": 3.175}, "P_PIE": 0.052, "scissor":  1.42}
+    # # in terms of anisotropy at 5e19 300K BoltzTraP return sigma/tau of [8.55e17, 8.86e17, 1.08e18] for xx, yy, zz respectively
 
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
                   # dopings = [-3e13],
-                  # dopings = [-2e15],
-                  dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
+                  dopings = [-2e15],
+                  # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  temperatures = [300],
+                  temperatures = [600],
                   # temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file, kgrid_tp='very fine', write_outputs=True))
+    profiler.runcall(lambda: amset.run(coeff_file, kgrid_tp='very coarse', write_outputs=True))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
