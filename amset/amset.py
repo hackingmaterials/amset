@@ -282,7 +282,8 @@ class AMSET(object):
         acceptor_charge = params.get("acceptor_charge", 1.0)
         dislocations_charge = params.get("dislocations_charge", 1.0)
         self.charge = {"n": donor_charge, "p": acceptor_charge, "dislocations": dislocations_charge}
-        self.add_extrema = params.get('add_extrema', {'n': [], 'p':[]})
+        self.add_extrema = params.get('add_extrema', None)
+        self.add_extrema = self.add_extrema or {'n': [], 'p':[]}
 
 
     def set_model_params(self, params):
@@ -1168,6 +1169,11 @@ class AMSET(object):
                     if self.max_normk:
                         if self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk:
                             rm_idx_list[tp][ib].append(ik)
+                    # if self.kgrid[tp]["norm(k)"][ib][ik] < 0.01:
+                    #     print('HERE removed k-point')
+                    #     print(self.kgrid[tp]["kpoints"][ib][ik])
+                    #     print(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+                    #     rm_idx_list[tp][ib].append(ik)
 
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
@@ -1442,10 +1448,12 @@ class AMSET(object):
                 while ik_prm >= 0 and ik_prm < nk and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm] - E_prm) < tolerance:
                     k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
                     X_ib_ik = (cos_angle(k, k_prm), ib_prm, ik_prm)
-                    if (X_ib_ik[1], X_ib_ik[2]) not in [(entry[1], entry[2]) \
-                            for entry in result]:
-                        # and norm(k-k_prm) < 5: # 2nd condition to avoid inter-band scattering
-                        result.append(X_ib_ik)
+
+                    #TODO: the following condition make the tests fail even for GaAs and Gamma only and max_normk of 4; see why!??!
+                    # if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][ik_prm] - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) < self.max_normk:
+                    if True:
+                        if (X_ib_ik[1], X_ib_ik[2]) not in [(entry[1], entry[2]) for entry in result]: # 2nd condition to avoid inter-band scattering
+                            result.append(X_ib_ik)
                     ik_prm += step
 
         if E_change != 0.0:
@@ -3226,7 +3234,8 @@ if __name__ == "__main__":
     # #coeff_file = os.path.join(cube_path, "fort.123")
 
     ## For GaAs
-    add_extrema = {'n': [], 'p':[]}
+    add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
+
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
             "scissor":  0.5818, 'add_extrema': add_extrema}
@@ -3258,11 +3267,11 @@ if __name__ == "__main__":
                   # dopings = [3.32e14],
                   temperatures = [600],
                   # temperatures = range(100, 1100, 100),
-                  k_integration=False, e_integration=True, fermi_type='e',
+                  k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file, kgrid_tp='very coarse', write_outputs=True))
+    profiler.runcall(lambda: amset.run(coeff_file, kgrid_tp='fine', write_outputs=True))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
@@ -3272,7 +3281,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy'], E_plots=['df0dk', 'ACD', 'IMP', 'PIE', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy', 'ACD', 'S_o', 'velocity'], E_plots=['velocity', 'df0dk', 'ACD', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
