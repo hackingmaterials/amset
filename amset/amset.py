@@ -328,7 +328,7 @@ class AMSET(object):
         self.parallel = params.get("parallel", True)
         logging.info("parallel: {}".format(self.parallel))
         self.max_nbands = params.get("max_nbands", None)
-        self.max_normk = params.get("max_normk", None)
+        self.max_normk = params.get("max_normk", 4)
 
 
 
@@ -912,7 +912,7 @@ class AMSET(object):
 
             # generate a normalized numpy array of vectors pointing in the direction of k
             self.k_hat_array[tp] = normalize_array(self.kgrid_array[tp])
-        
+
             self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
 
             logging.info("number of original ibz {}-type k-points: {}".format(tp, len(kpts)))
@@ -1450,13 +1450,15 @@ class AMSET(object):
                     X_ib_ik = (cos_angle(k, k_prm), ib_prm, ik_prm)
 
                     #TODO: the following condition make the tests fail even for GaAs and Gamma only and max_normk of 4; see why!??!
-                    # if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][ik_prm] - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) < self.max_normk:
-                    if True:
+                    # AF: Maybe because symmetrically equivalent pockets are far from each other in BZ but can/should have scattering with each other?
+                    if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][ik_prm] - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) < 2*self.max_normk:
+                    # if True:
                         if (X_ib_ik[1], X_ib_ik[2]) not in [(entry[1], entry[2]) for entry in result]: # 2nd condition to avoid inter-band scattering
                             result.append(X_ib_ik)
                     ik_prm += step
 
         if E_change != 0.0:
+        # if True:
             # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
             ib_prm = ib
             ik_closest_E = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
@@ -1464,19 +1466,27 @@ class AMSET(object):
             for step, start in [(1, 0), (-1, -1)]:
                 # step -1 is in case we reached the end (ik_prm == nk - 1); then we choose from the lower energy k-points
                 ik_prm = ik_closest_E + start  # go up from ik_closest_E, down from ik_closest_E - 1
-                while ik_prm >= 0 and ik_prm < nk and len(result) - 1 < forced_min_npoints:
-                    # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
-                    for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
-                        X, ib_pmpm, ik_pmpm = X_ib_ik
-                        X_ib_ik_new = (
-                        cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm)
-                        if (X_ib_ik_new[1], X_ib_ik_new[2]) not in [(entry[1], entry[2]) for entry in result]:
-                            result.append(X_ib_ik_new)
-                        self.nforced_scat[tp] += 1
 
-                    self.ediff_scat[tp].append(
-                        self.kgrid[tp]["energy"][ib][ik] - self.kgrid[tp]["energy"][ib_prm][ik_prm])
-                    ik_prm += step
+                # the following if statement, makes GaAs POP results anisotropic which they should not be
+                # if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][ik_prm] - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) < 2*self.max_normk:
+                #     if E_change == 0.0:
+                #         if ik_prm != ik_closest_E:
+                #             result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
+                #             self.nforced_scat[tp] += 1
+                #     else:
+                while ik_prm >= 0 and ik_prm < nk and len(result) - 1 < forced_min_npoints:
+                        # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
+                        for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
+                            X, ib_pmpm, ik_pmpm = X_ib_ik
+                            X_ib_ik_new = (
+                            cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm)
+                            if (X_ib_ik_new[1], X_ib_ik_new[2]) not in [(entry[1], entry[2]) for entry in result]:
+                                result.append(X_ib_ik_new)
+                            self.nforced_scat[tp] += 1
+
+                        self.ediff_scat[tp].append(
+                            self.kgrid[tp]["energy"][ib][ik] - self.kgrid[tp]["energy"][ib_prm][ik_prm])
+                        ik_prm += step
 
         result.sort(key=lambda x: x[0])
         return result
@@ -3234,7 +3244,7 @@ if __name__ == "__main__":
     # #coeff_file = os.path.join(cube_path, "fort.123")
 
     ## For GaAs
-    add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
+    # add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
 
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
@@ -3265,13 +3275,13 @@ if __name__ == "__main__":
                   dopings = [-2e15],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  temperatures = [600],
+                  temperatures = [300],
                   # temperatures = range(100, 1100, 100),
-                  k_integration=True, e_integration=False, fermi_type='k',
+                  k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file, kgrid_tp='fine', write_outputs=True))
+    profiler.runcall(lambda: amset.run(coeff_file, kgrid_tp='very coarse', write_outputs=True))
     stats = Stats(profiler, stream=STDOUT)
     stats.strip_dirs()
     stats.sort_stats('cumulative')
