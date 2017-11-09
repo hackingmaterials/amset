@@ -18,7 +18,8 @@ class AmsetTest(unittest.TestCase):
                              'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                              'inelastic_scatterings': ['POP']}
         self.performance_params = {'dE_min': 0.0001, 'nE_min': 2, 'Ecut': 0.7,
-                                'parallel': True, 'BTE_iters': 5, 'nkdos':29}
+                                   'parallel': True, 'BTE_iters': 5,'nkdos':29,
+                                   'max_nbands': 1, 'max_normk': 4}
         self.GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
                 'P_PIE': 0.052, 'scissor': 0.5818}
@@ -30,7 +31,7 @@ class AmsetTest(unittest.TestCase):
 
 
     def test_poly_bands(self):
-        print('testing test_poly_bands...')
+        print('\ntesting test_poly_bands...')
         mass = 0.25
         self.model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
         amset = AMSET(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
@@ -49,13 +50,13 @@ class AmsetTest(unittest.TestCase):
 
 
     def test_GaAs_isotropic(self):
-        print('testing test_GaAs_isotropic...')
+        print('\ntesting test_GaAs_isotropic...')
         # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
         #                'POP': 10113.9, 'overall': 8173.4}
 
-        expected_mu = {'ACD': 48397.6, 'IMP': 58026678.3, 'PIE': 111243.3,
-                       'POP': 7484.6, 'overall': 6017.7, 'average': 6124.6}
+        expected_mu = {'ACD': 35313.39, 'IMP': 186507.15, 'PIE': 109217.59,
+                       'POP': 5083.98, 'overall': 4327.095, 'average': 4174.81}
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
@@ -67,7 +68,7 @@ class AmsetTest(unittest.TestCase):
         kgrid = amset.kgrid
 
         # check general characteristics of the grid
-        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 292)
+        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 100)
         mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
         self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS
         self.assertAlmostEqual(mean_v[0], 1.93656060e7, places=1) # zeroth band
@@ -81,15 +82,14 @@ class AmsetTest(unittest.TestCase):
 
 
     def test_GaAs_isotropic_k(self):
-        print('testing test_GaAs_isotropic_k...')
+        print('\ntesting test_GaAs_isotropic_k...')
         # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
         #                'POP': 10113.9, 'overall': 8173.4}
 
-        expected_mu = {'ACD': 35746.857, 'IMP': 52907945.168, 'PIE': 112505.173,
-                       'POP': 4994.131, 'overall': 4327.095, 'average': 4217.329}
+        expected_mu = {'ACD': 35745.99, 'IMP': 3382183.76, 'PIE': 109989.31,
+                       'POP': 5250.97, 'overall': 4553.54, 'average': 4389.74}
         performance_params = dict(self.performance_params)
-        performance_params["max_nbands"] = 1
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=performance_params,
@@ -110,9 +110,9 @@ class AmsetTest(unittest.TestCase):
 
 
     def test_GaAs_anisotropic(self):
-        print('testing test_GaAs_anisotropic...')
-        expected_mu = {'ACD': 44114.54, 'IMP': 56039469.34, 'PIE': 112262.60,
-                       'POP': 8539.31, 'overall': 6743.91, 'average': 6724.98}
+        print('\ntesting test_GaAs_anisotropic...')
+        expected_mu = {'ACD': 47957.47, 'IMP': 139492.12, 'PIE': 112012.98,
+                       'POP': 8436.67, 'overall': 5874.23, 'average': 6431.76}
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
