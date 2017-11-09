@@ -55,12 +55,12 @@ class AmsetTest(unittest.TestCase):
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
         #                'POP': 10113.9, 'overall': 8173.4}
 
-        expected_mu = {'ACD': 35313.39, 'IMP': 186507.15, 'PIE': 109217.59,
-                       'POP': 5083.98, 'overall': 4327.095, 'average': 4174.81}
+        expected_mu = {'ACD': 52617.19, 'IMP': 154780.49, 'PIE': 111864.79,
+                       'POP': 7706.76, 'overall': 5432.38, 'average': 6091.56}
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
-                      dopings=[-2e15], temperatures=[300], k_integration=True,
+                      dopings=[-2e15], temperatures=[300], k_integration=False,
                       e_integration=True, fermi_type='e',
                       loglevel=logging.ERROR)
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
