@@ -26,7 +26,8 @@ from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_
 
 from tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
         fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
-        remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k
+        remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
+        get_energy_args, calc_analytical_energy
 from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
 
@@ -839,20 +840,6 @@ class AMSET(object):
             return fractional_ks
 
 
-
-    # @albalu I created this function but do not understand what most of the arguments are. It may make sense to contain
-    # them all in a single labeled tuple so the code is more readable?
-    # engre through sgn: use for analytical bands energy; tp and ib: use for poly bands energy
-    def calc_analytical_energy(self, xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir, sgn):
-        energy, de, dde = get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-        energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-        velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
-        effective_m = hbar ** 2 / (
-            dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
-        return energy, velocity, effective_m
-
-
-
     def calc_poly_energy(self, xkpt, tp, ib):
         """
 
@@ -932,14 +919,15 @@ class AMSET(object):
 
             logging.debug("all_ibands: {}".format(all_ibands))
 
-            # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
-            engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
-            nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
-            out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
-            for nw in xrange(nwave):
-                for i in xrange(nstv[nw]):
-                    out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
-
+            # # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
+            # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
+            # nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
+            # out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+            # for nw in xrange(nwave):
+            #     for i in xrange(nstv[nw]):
+            #         out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+            engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
+                get_energy_args(coeff_file, all_ibands)
 
         # if using poly bands, remove duplicate k points (@albalu I'm not really sure what this is doing)
         else:
@@ -959,10 +947,10 @@ class AMSET(object):
             sgn = (-1) ** i
 
             if not self.poly_bands:
-                energy, velocity, effective_m = self.calc_analytical_energy(
+                energy, velocity, effective_m = calc_analytical_energy(
                         self.cbm_vbm[tp]["kpoint"],engre[i * self.cbm_vbm["p"][
                         "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
-                        br_dir, sgn)
+                        br_dir, sgn, scissor=self.scissor)
             else:
                 energy, velocity, effective_m = self.calc_poly_energy(
                         self.cbm_vbm[tp]["kpoint"], tp, 0)
@@ -996,7 +984,7 @@ class AMSET(object):
                 if not self.parallel or self.poly_bands:  # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts[tp])):
                         if not self.poly_bands:
-                            energy, velocities[tp][ik], effective_m = self.calc_analytical_energy(kpts[tp][ik],engre[i * self.cbm_vbm[
+                            energy, velocities[tp][ik], effective_m = calc_analytical_energy(kpts[tp][ik],engre[i * self.cbm_vbm[
                                 "p"]["included"] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn)
                         else:
                             energy, velocities[tp][ik], effective_m = self.calc_poly_energy(kpts[tp][ik], tp, ib)
@@ -3234,7 +3222,7 @@ if __name__ == "__main__":
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
-                          "BTE_iters": 5, "max_nbands": 1, "max_normk": 4}
+                          "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.5}
 
     ### for PbTe
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -3244,7 +3232,7 @@ if __name__ == "__main__":
     # #coeff_file = os.path.join(cube_path, "fort.123")
 
     ## For GaAs
-    # add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
+    add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
 
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
@@ -3277,7 +3265,7 @@ if __name__ == "__main__":
                   # dopings = [3.32e14],
                   temperatures = [300],
                   # temperatures = range(100, 1100, 100),
-                  k_integration=False, e_integration=True, fermi_type='e',
+                  k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
     profiler = cProfile.Profile()
@@ -3291,7 +3279,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy', 'ACD', 'S_o', 'velocity'], E_plots=['velocity', 'df0dk', 'ACD', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy', 'ACD', 'S_o', 'velocity', 'df0dk'], E_plots=['velocity', 'df0dk', 'ACD', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
