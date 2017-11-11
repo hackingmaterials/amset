@@ -1,5 +1,8 @@
 import numpy as np
-from constants import hbar, m_e, e, k_B, epsilon_0, sq3
+
+from analytical_band_from_BZT import Analytical_bands, outer, get_energy
+from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
+                        epsilon_0, default_small_E, dTdz, sq3
 from math import pi, log
 
 def remove_from_grid(grid, grid_rm_list):
@@ -410,3 +413,37 @@ def rel_diff(num1, num2):
     diff = abs(num1 - num2)
     avg = (num1 + num2) / 2
     return diff / avg
+
+
+def get_energy_args(coeff_file, ibands):
+    analytical_bands = Analytical_bands(coeff_file=coeff_file)
+    engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
+            analytical_bands.get_engre(iband=ibands)
+    nstv, vec, vec2 = analytical_bands.get_star_functions(
+            latt_points, nsym, symop, nwave, br_dir=br_dir)
+    out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+    for nw in xrange(nwave):
+        for i in xrange(nstv[nw]):
+            out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+    return engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir
+
+
+def calc_analytical_energy(kpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2,
+                           br_dir, sgn, scissor=0.0):
+    """
+    Args:
+        kpt ([1x3 array]): fractional coordinates of the k-point
+        engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir: all obtained via
+            get_energy_args
+        sgn (int): options are +1 for valence band and -1 for conduction bands
+        scissor (float): the amount by which the band gap is modified/scissored
+    Returns:
+
+    """
+    energy, de, dde = get_energy(kpt, engre, nwave, nsym, nstv, vec, vec2,
+                                 out_vec2, br_dir=br_dir)
+    energy = energy * Ry_to_eV - sgn * scissor / 2.0
+    velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
+    effective_m = hbar ** 2 / (
+        dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+    return energy, velocity, effective_m
