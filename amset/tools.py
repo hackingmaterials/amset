@@ -416,6 +416,13 @@ def rel_diff(num1, num2):
 
 
 def get_energy_args(coeff_file, ibands):
+    """
+    Args:
+        coeff_file (str): the address to the cube (*.123) file
+        ibands ([int]): list of band numbers to be calculated; note that the
+            first band index is 1 not 0
+    Returns (tuple): necessary inputs for calc_analytical_energy or get_energy
+    """
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
     engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
             analytical_bands.get_engre(iband=ibands)
