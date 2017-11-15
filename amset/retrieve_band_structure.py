@@ -6,7 +6,10 @@ from pymatgen.symmetry.bandstructure import HighSymmKpath
 from analytical_band_from_BZT import get_energy
 from pymatgen import Spin
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from tools import get_energy_args, calc_analytical_energy, norm
+from tools import get_energy_args, calc_analytical_energy, norm, \
+    get_bindex_bspin, get_bs_extrema
+from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
+                        epsilon_0, default_small_E, dTdz, sq3
 
 api = MPRester("fDJKEZpxSyvsXdCt")
 
@@ -32,10 +35,6 @@ def retrieve_bs(coeff_file, bs, ibands):
 
 
 
-def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
-                    Ecut=None):
-
-    return None, None
 
 if __name__ == "__main__":
     # user inputs
@@ -68,79 +67,85 @@ if __name__ == "__main__":
     # retrieve_bs(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[11, 12, 13, 14])
     # retrieve_bs(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[24, 25, 26, 27])
 
-    ibz = HighSymmKpath(GaAs_st)
-    print ibz.kpath
-    sg = SpacegroupAnalyzer(GaAs_st)
-    nk = 17
-    v_cut = 10000
-    norm_diff_cut = 0.05
-    Ecut = 1.2
-    kpts = [k_n_w[0] for k_n_w in sg.get_ir_reciprocal_mesh(mesh=(nk, nk, nk))]
-    kpts.extend(ibz.kpath['kpoints'].values())
-    grid = {'energy': [], 'velocity': [], 'mass': []}
-    engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(coeff_file=GaAs_coeff_file, ibands=ibands)
-    # print kpts
-    cbm = True
+    extrema = get_bs_extrema(bs, coeff_file=GaAs_coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
+                   Ecut=0.5, nex_max=20)
+    print(extrema)
 
-    for iband in range(len(ibands)):
-        if iband == 0:
-            cbm = False
-        else:
-            cbm = True
-        print('for the band {}'.format(ibands[iband]))
-        energies = []
-        velocities = []
-        normv = []
-        masses = []
-        for ik, kpt in enumerate(kpts):
-            sgn = 1
-            en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave, nsym, nstv, vec, vec2, out_vec2,
-                br_dir, sgn, scissor=0)
-            # en, v, mass = get_energy(kpt, engre[iband], nwave, nsym, nstv, vec,
-            #                      vec2=vec2, out_vec2=out_vec2, br_dir=br_dir,
-            #                      cbm=True)
-            energies.append(en)
-            velocities.append(abs(v))
-            normv.append(norm(v))
-            masses.append(mass.trace()/3)
 
-        indexes = np.argsort(normv)[:20]
-        energies = [energies[i] for i in indexes]
-        if cbm:
-            extremum0 = min(energies) # extremum0 is CBM here
-        else:
-            extremum0 = max(energies)
-        print ('extremum0: {}'.format(extremum0))
-        normv = [normv[i] for i in indexes]
-        velocities = [velocities[i] for i in indexes]
-        masses = [masses[i] for i in indexes]
-        kpts = [kpts[i] for i in indexes]
-
-        print ('\nhere')
-        print normv
-        print kpts
-        print
-        # if (velocities[0] <= v_cut).any():
-        # if normv[0] <= v_cut:
-        #     extrema = [kpts[0]]
-        # else:
-        extrema = []
-        if normv[0] > v_cut:
-            raise ValueError('No extremum point (v<{}) found!'.format(v_cut))
-        for i in range(0, len(kpts)):
-            # if (velocities[i] > v_cut).all() :
-            if normv[i] > v_cut:
-                break
-            else:
-                far_enough = True
-                for k in extrema:
-                    if norm(kpts[i] - k) <= norm_diff_cut:
-                        far_enough = False
-                if far_enough \
-                        and abs(energies[i]-extremum0) < Ecut \
-                        and masses[i]*(-1)**(int(cbm)+1)>=0:
-                    extrema.append(kpts[i])
-
-        print('extrema:')
-        print extrema
-
+    # if False:
+    #     ibz = HighSymmKpath(GaAs_st)
+    #     print ibz.kpath
+    #     sg = SpacegroupAnalyzer(GaAs_st)
+    #     nk = 17
+    #     v_cut = 10000
+    #     norm_diff_cut = 0.05
+    #     Ecut = 1.2
+    #     kpts = [k_n_w[0] for k_n_w in sg.get_ir_reciprocal_mesh(mesh=(nk, nk, nk))]
+    #     kpts.extend(ibz.kpath['kpoints'].values())
+    #     grid = {'energy': [], 'velocity': [], 'mass': []}
+    #     engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(coeff_file=GaAs_coeff_file, ibands=ibands)
+    #     # print kpts
+    #     cbm = True
+    #
+    #     for iband in range(len(ibands)):
+    #         if iband == 0:
+    #             cbm = False
+    #         else:
+    #             cbm = True
+    #         print('for the band {}'.format(ibands[iband]))
+    #         energies = []
+    #         velocities = []
+    #         normv = []
+    #         masses = []
+    #         for ik, kpt in enumerate(kpts):
+    #             sgn = 1
+    #             en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave, nsym, nstv, vec, vec2, out_vec2,
+    #                 br_dir, sgn, scissor=0)
+    #             # en, v, mass = get_energy(kpt, engre[iband], nwave, nsym, nstv, vec,
+    #             #                      vec2=vec2, out_vec2=out_vec2, br_dir=br_dir,
+    #             #                      cbm=True)
+    #             energies.append(en)
+    #             velocities.append(abs(v))
+    #             normv.append(norm(v))
+    #             masses.append(mass.trace()/3)
+    #
+    #         indexes = np.argsort(normv)[:20]
+    #         energies = [energies[i] for i in indexes]
+    #         if cbm:
+    #             extremum0 = min(energies) # extremum0 is CBM here
+    #         else:
+    #             extremum0 = max(energies)
+    #         print ('extremum0: {}'.format(extremum0))
+    #         normv = [normv[i] for i in indexes]
+    #         velocities = [velocities[i] for i in indexes]
+    #         masses = [masses[i] for i in indexes]
+    #         kpts = [kpts[i] for i in indexes]
+    #
+    #         print ('\nhere')
+    #         print normv
+    #         print kpts
+    #         print
+    #         # if (velocities[0] <= v_cut).any():
+    #         # if normv[0] <= v_cut:
+    #         #     extrema = [kpts[0]]
+    #         # else:
+    #         extrema = []
+    #         if normv[0] > v_cut:
+    #             raise ValueError('No extremum point (v<{}) found!'.format(v_cut))
+    #         for i in range(0, len(kpts)):
+    #             # if (velocities[i] > v_cut).all() :
+    #             if normv[i] > v_cut:
+    #                 break
+    #             else:
+    #                 far_enough = True
+    #                 for k in extrema:
+    #                     if norm(kpts[i] - k) <= norm_diff_cut:
+    #                         far_enough = False
+    #                 if far_enough \
+    #                         and abs(energies[i]-extremum0) < Ecut \
+    #                         and masses[i]*(-1)**(int(cbm)+1)>=0:
+    #                     extrema.append(kpts[i])
+    #
+    #         print('extrema:')
+    #         print extrema
+    #
