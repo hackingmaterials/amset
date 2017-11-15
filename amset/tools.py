@@ -492,17 +492,20 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
         v_cut (float): threshold under which the derivative is assumed 0 [cm/s]
         min_normdiff (float): the minimum allowed distance norm(fractional k)
             in extrema; this is important to avoid numerical instability errors
-        Ecut (float): max energy difference with CBM/VBM allowed for extrema
+        Ecut (float or dict): max energy difference with CBM/VBM allowed for
+            extrema
         nex_max (int): max number of low-velocity kpts tested for being extrema
     Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
     """
+    Ecut = Ecut or k_B*300
+    if not isinstance(Ecut, dict):
+        Ecut = {'n': Ecut, 'p': Ecut}
     vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
     # vbm_idx = bs.get_vbm()['band_index'][Spin.up][0]
     ibands = [1, 2]  # in this notation, 1 is the last valence band
     ibands = [i + vbm_idx + 1 for i in ibands]
     ibz = HighSymmKpath(bs.structure)
     sg = SpacegroupAnalyzer(bs.structure)
-    Ecut = Ecut or k_B*300
     kmesh = sg.get_ir_reciprocal_mesh(mesh=(nk_ibz, nk_ibz, nk_ibz))
     kpts = [k_n_w[0] for k_n_w in kmesh]
     kpts.extend(ibz.kpath['kpoints'].values())
@@ -551,7 +554,7 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
                     if norm(kpts[i] - k) <= min_normdiff:
                         far_enough = False
                 if far_enough \
-                        and abs(energies[i] - extremum0) < Ecut \
+                        and abs(energies[i] - extremum0) < Ecut[tp] \
                         and masses[i] * (-1) ** (int(is_cb) + 1) >= 0:
                     extrema[tp].append(kpts[i])
     return extrema
