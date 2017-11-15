@@ -5,6 +5,9 @@ from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
 from math import pi, log
 
+from pymatgen import Spin
+
+
 def remove_from_grid(grid, grid_rm_list):
     """deletes dictionaries storing properties that are no longer needed from
     a given grid (i.e. kgrid or egrid)"""
@@ -454,3 +457,23 @@ def calc_analytical_energy(kpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2,
     effective_m = hbar ** 2 / (
         dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
     return energy, velocity, effective_m
+
+
+def get_bindex_bspin(extremum, is_cbm):
+    """
+    Returns the band index and spin of band extremum
+
+    Args:
+        extremum (dict): dictionary containing the CBM/VBM, i.e. output of
+            Bandstructure.get_cbm()
+        is_cbm (bool): whether the extremum is the CBM or not
+    """
+
+    idx = int(is_cbm) - 1  # 0 for CBM and -1 for VBM
+    try:
+        bidx = extremum["band_index"][Spin.up][idx]
+        bspin = Spin.up
+    except IndexError:
+        bidx = extremum["band_index"][Spin.down][idx]
+        bspin = Spin.down
+    return bidx, bspin
