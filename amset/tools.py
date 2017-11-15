@@ -6,6 +6,8 @@ from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
 from math import pi, log
 
 from pymatgen import Spin
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 
 def remove_from_grid(grid, grid_rm_list):
@@ -477,3 +479,79 @@ def get_bindex_bspin(extremum, is_cbm):
         bidx = extremum["band_index"][Spin.down][idx]
         bspin = Spin.down
     return bidx, bspin
+
+def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
+                    Ecut=None, nex_max=20):
+    """
+    returns a dictionary of p-type (valence) and n-type (conduction) band
+        extrema k-points by looking at the 1st and 2nd derivatives of the bands
+    Args:
+        bs (pymatgen BandStructure object): must containt Structure
+        coeff_file (str): path to the cube file from BoltzTraP run
+        nk_ibz (int): maximum number of k-points in one direction in IBZ
+        v_cut (float): threshold under which the derivative is assumed 0 [cm/s]
+        min_normdiff (float): the minimum allowed distance norm(fractional k)
+            in extrema; this is important to avoid numerical instability errors
+        Ecut (float): max energy difference with CBM/VBM allowed for extrema
+        nex_max (int): max number of low-velocity kpts tested for being extrema
+    Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
+    """
+    vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
+    # vbm_idx = bs.get_vbm()['band_index'][Spin.up][0]
+    ibands = [1, 2]  # in this notation, 1 is the last valence band
+    ibands = [i + vbm_idx + 1 for i in ibands]
+    ibz = HighSymmKpath(bs.structure)
+    sg = SpacegroupAnalyzer(bs.structure)
+    Ecut = Ecut or k_B*300
+    kmesh = sg.get_ir_reciprocal_mesh(mesh=(nk_ibz, nk_ibz, nk_ibz))
+    kpts = [k_n_w[0] for k_n_w in kmesh]
+    kpts.extend(ibz.kpath['kpoints'].values())
+
+    # grid = {'energy': [], 'velocity': [], 'mass': [], 'normv': []}
+    extrema = {'n': [], 'p': []}
+    engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(
+        coeff_file=coeff_file, ibands=ibands)
+
+    for iband in range(len(ibands)):
+        is_cb = [False, True][iband]
+        tp = ['p', 'n'][iband]
+        energies = []
+        velocities = []
+        normv = []
+        masses = []
+        for ik, kpt in enumerate(kpts):
+            en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave,
+                nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=1, scissor=0)
+            energies.append(en)
+            velocities.append(abs(v))
+            normv.append(norm(v))
+            masses.append(mass.trace() / 3)
+        indexes = np.argsort(normv)[:nex_max]
+        # for prop in [energies, normv, velocities, masses, kpts]:
+        #     prop = [prop[i] for i in indexes]
+        energies = [energies[i] for i in indexes]
+        normv = [normv[i] for i in indexes]
+        velocities = [velocities[i] for i in indexes]
+        masses = [masses[i] for i in indexes]
+        kpts = [kpts[i] for i in indexes]
+        if is_cb:
+            extremum0 = min(energies)  # extremum0 is CBM here
+        else:
+            extremum0 = max(energies)
+
+        if normv[0] > v_cut:
+            raise ValueError('No extremum point (v<{}) found!'.format(v_cut))
+        for i in range(0, len(kpts)):
+            # if (velocities[i] > v_cut).all() :
+            if normv[i] > v_cut:
+                break
+            else:
+                far_enough = True
+                for k in extrema[tp]:
+                    if norm(kpts[i] - k) <= min_normdiff:
+                        far_enough = False
+                if far_enough \
+                        and abs(energies[i] - extremum0) < Ecut \
+                        and masses[i] * (-1) ** (int(is_cb) + 1) >= 0:
+                    extrema[tp].append(kpts[i])
+    return extrema
