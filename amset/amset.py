@@ -27,7 +27,7 @@ from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_
 from tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
         fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
         remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
-        get_energy_args, calc_analytical_energy
+        get_energy_args, calc_analytical_energy, get_bindex_bspin
 from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
 
@@ -391,17 +391,11 @@ class AMSET(object):
         logging.info("total number of bands: {}".format(self._vrun.get_band_structure().nb_bands))
 
         cbm_vbm["n"]["energy"] = cbm["energy"]
-        try:
-            cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.up][0]
-        except IndexError:
-            cbm_vbm["n"]["bidx"] = cbm["band_index"][Spin.down][0] # in case spin down has a lower CBM
+        cbm_vbm["n"]["bidx"], _ = get_bindex_bspin(cbm, is_cbm=True)
         cbm_vbm["n"]["kpoint"] = self.bs.kpoints[cbm["kpoint_index"][0]].frac_coords
 
         cbm_vbm["p"]["energy"] = vbm["energy"]
-        try:
-            cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.up][-1]
-        except IndexError:
-            cbm_vbm["p"]["bidx"] = vbm["band_index"][Spin.down][-1]
+        cbm_vbm["p"]["bidx"], _ = get_bindex_bspin(vbm, is_cbm=False)
         cbm_vbm["p"]["kpoint"] = self.bs.kpoints[vbm["kpoint_index"][0]].frac_coords
 
         self.dft_gap = cbm["energy"] - vbm["energy"]
@@ -1148,9 +1142,10 @@ class AMSET(object):
                     #     self.kgrid[tp]["velocity"][ib][ik] = velocity
                     self.kgrid[tp]["norm(v)"][ib][ik] = norm(velocity)
 
-                    if self.kgrid[tp]["velocity"][ib][ik][0] < self.v_min or  \
-                                    self.kgrid[tp]["velocity"][ib][ik][1] < self.v_min \
-                            or self.kgrid[tp]["velocity"][ib][ik][2] < self.v_min or \
+                    # if self.kgrid[tp]["velocity"][ib][ik][0] < self.v_min or  \
+                    #                 self.kgrid[tp]["velocity"][ib][ik][1] < self.v_min \
+                    #         or self.kgrid[tp]["velocity"][ib][ik][2] < self.v_min or \
+                    if (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() or \
                                     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]:
                         rm_idx_list[tp][ib].append(ik)
 
