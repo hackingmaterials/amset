@@ -27,7 +27,8 @@ from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_
 from tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
         fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
         remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
-        get_energy_args, calc_analytical_energy, get_bindex_bspin
+        get_energy_args, calc_analytical_energy, get_bindex_bspin, \
+    get_bs_extrema
 from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
 
@@ -375,6 +376,7 @@ class AMSET(object):
         self.density = self._vrun.final_structure.density
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
         self.bs = self._vrun.get_band_structure()
+        self.bs.structure = self._vrun.final_structure
         self.nbands = self.bs.nb_bands
         self.lorbit = 11 if len(sum(self._vrun.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
 
@@ -868,17 +870,23 @@ class AMSET(object):
         logging.info("self.nkibz = {}".format(self.nkibz))
 
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
-        # TODO: figure out which other points need a fine grid around them
+        # self.important_pts = get_bs_extrema(self.bs, coeff_file, nk_ibz=17,
+        #         v_cut=self.v_min, min_normdiff=0.1, Ecut=self.Ecut, nex_max=20)
         self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
+
+        logging.info(('here initial important_pts'))
+        logging.info((self.important_pts)) # for some reason the nscf uniform GaAs fitted coeffs return positive mass for valence at Gamma!
+
         for tp in ['n', 'p']:
-            self.important_pts['n'].extend(self.add_extrema[tp])
+            self.important_pts[tp].append(self.cbm_vbm[tp]["kpoint"])
+            self.important_pts[tp].extend(self.add_extrema[tp])
         for tp in ['n', 'p']:
             all_important_ks = []
             for k in self.important_pts[tp]:
                 all_important_ks +=  list(self.bs.get_sym_eq_kpoints(k))
             self.important_pts[tp] = remove_duplicate_kpoints(all_important_ks)
         logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
-        print('Here are the final extrema considered: \n {}'.format(self.important_pts))
+        logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
 
         self.kgrid_array = {}
         self.k_hat_array = {}
