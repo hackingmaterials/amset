@@ -497,7 +497,7 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
         nex_max (int): max number of low-velocity kpts tested for being extrema
     Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
     """
-    Ecut = Ecut or k_B*300
+    Ecut = Ecut or 10*k_B*300
     if not isinstance(Ecut, dict):
         Ecut = {'n': Ecut, 'p': Ecut}
     vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
