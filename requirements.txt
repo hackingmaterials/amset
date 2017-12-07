@@ -2,4 +2,5 @@ pymatgen==2017.11.6
 plotly==2.0.12
 joblib==0.11
 
-six==1.10.0
+future==0.16.0
+six==1.11.0
