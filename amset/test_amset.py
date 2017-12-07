@@ -7,7 +7,6 @@ import os
 import unittest
 
 from amset import AMSET
-
 from tools import rel_diff
 
 test_dir = os.path.dirname(__file__)
@@ -17,9 +16,9 @@ class AmsetTest(unittest.TestCase):
         self.model_params = {'bs_is_isotropic': True,
                              'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                              'inelastic_scatterings': ['POP']}
-        self.performance_params = {'dE_min': 0.0001, 'nE_min': 2, 'Ecut': 0.7,
-                                   'parallel': True, 'BTE_iters': 5,'nkdos':29,
-                                   'max_nbands': 1, 'max_normk': 2}
+        self.performance_params = {'dE_min': 0.0001, 'nE_min': 2,
+                'parallel': True, 'BTE_iters': 5,'nkdos':29, 'max_nbands': 1,
+                                'max_normk': 2, 'Ecut': 0.4}
         self.GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
                 'P_PIE': 0.052, 'scissor': 0.5818}
