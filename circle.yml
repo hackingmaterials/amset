@@ -1,6 +1,6 @@
 dependencies:
   pre:
-    - sudo yum install tkinter
+    - sudo apt-get install python3-tk
   override:
     - pyenv local 2.7.14 3.4.4
     - pip install -r requirements.txt
