@@ -6,7 +6,9 @@ from scipy.constants.codata import value as _cd
 from math import pi
 import numpy as np
 import warnings
-from pylab import plot,show, scatter
+import matplotlib
+matplotlib.use('agg')
+from matplotlib.pylab import plot, show, scatter
 
 
 # global constants

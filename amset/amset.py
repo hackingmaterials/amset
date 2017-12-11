@@ -270,7 +270,7 @@ class AMSET(object):
     def set_material_params(self, params):
 
         self.epsilon_s = params["epsilon_s"]
-        self.epsilon_inf = params["epsilon_inf"]
+        self.epsilon_inf = params.get("epsilon_inf", None)
         self.C_el = params["C_el"]
         self.W_POP = params["W_POP"] * 1e12 * 2 * pi
 
