@@ -128,7 +128,7 @@ class AmsetTest(unittest.TestCase):
             self.assertLessEqual(np.std(  # GaAs band structure is isotropic
                 egrid['n']['mobility'][mu][-2e15][300]), 0.02*\
                 np.mean(egrid['n']['mobility'][mu][-2e15][300]))
-            self.assertLess(rel_diff(egrid['n']['mobility'][mu][-2e15][300][0], expected_mu[mu]), 0.002)
+            self.assertLess(rel_diff(egrid['n']['mobility'][mu][-2e15][300][0], expected_mu[mu]), 0.01)
 
 
 if __name__ == '__main__':
