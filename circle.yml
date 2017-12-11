@@ -2,7 +2,7 @@ dependencies:
   pre:
     - sudo apt-get install python3-tk
   override:
-    - pyenv local 2.7.14 3.4.4
+    - pyenv local 2.7.12 3.4.4
     - pip install -r requirements.txt
     - python setup.py develop
 test:
