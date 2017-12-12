@@ -93,8 +93,8 @@ class AMSET(object):
         self.temperatures = temperatures or map(float, [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
         self.debug_tp = get_tp(self.dopings[0])
         logging.debug("""debug_tp: "{}" """.format(self.debug_tp))
-        self.set_material_params(material_params)
         self.set_model_params(model_params)
+        self.set_material_params(material_params)
         self.set_performance_params(performance_params)
         self.k_integration = k_integration
         self.e_integration = e_integration
@@ -268,17 +268,41 @@ class AMSET(object):
 
 
     def set_material_params(self, params):
+        """
+        set materials parameters. This function is meant to be called after
+            set_model_parameters as it may modify self.model_parameters.
+        Args:
+            params (dict):
+        Returns:
+
+        """
 
         self.epsilon_s = params["epsilon_s"]
+        self.P_PIE = params.get("P_PIE", None) or 0.15  # unitless
+        E_D = params.get("E_D", None)
+        self.C_el = params.get("C_el", None)
+        if (E_D is None or self.C_el is None) and 'ACD' in self.model_params['elastic_scatterings']:
+            self.model_params['elastic_scatterings'].pop(
+                self.model_params['elastic_scatterings'].index('ACD'))
+        if isinstance(E_D, dict):
+            if 'n' not in E_D and 'p' not in E_D:
+                raise ValueError('Neither "n" nor "p" keys not found in E_D')
+            self.E_D = E_D
+        else:
+            self.E_D = {'n': E_D, 'p': E_D}
+
         self.epsilon_inf = params.get("epsilon_inf", None)
-        self.C_el = params["C_el"]
-        self.W_POP = params["W_POP"] * 1e12 * 2 * pi
+        self.W_POP = params.get("W_POO", None)
+        if self.W_POP:
+            self.W_POP *= 1e12 * 2 * pi # convert to THz
+        if 'POP' in self.model_params['inelastic_scatterings']:
+            if self.epsilon_inf is None or self.W_POP is None:
+                warnings.warn('POP cannot be calculated w/o epsilon_inf and W_POP')
+                self.model_params['inelastic_scatterings'].pop(
+                    self.model_params['inelastic_scatterings'].index('POP'))
 
-        self.P_PIE = params.get("P_PIE", 0.15)  # unitless
-        self.E_D = params.get("E_D", {"n": 4.0, "p": 4.0})
-
-        self.N_dis = params.get("N_dis", 0.1)  # in 1/cm**2
-        self.scissor = params.get("scissor", 0.0)
+        self.N_dis = params.get("N_dis", None) or 0.1  # in 1/cm**2
+        self.scissor = params.get("scissor", None) or 0.0
 
         donor_charge = params.get("donor_charge", 1.0)
         acceptor_charge = params.get("acceptor_charge", 1.0)
