@@ -282,7 +282,7 @@ class AMSET(object):
         E_D = params.get("E_D", None)
         self.C_el = params.get("C_el", None)
         if (E_D is None or self.C_el is None) and 'ACD' in self.elastic_scatterings:
-            self.self.elastic_scatterings.pop(self.self.elastic_scatterings.index('ACD'))
+            self.elastic_scatterings.pop(self.elastic_scatterings.index('ACD'))
         if isinstance(E_D, dict):
             if 'n' not in E_D and 'p' not in E_D:
                 raise ValueError('Neither "n" nor "p" keys not found in E_D')
