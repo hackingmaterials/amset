@@ -291,7 +291,7 @@ class AMSET(object):
             self.E_D = {'n': E_D, 'p': E_D}
 
         self.epsilon_inf = params.get("epsilon_inf", None)
-        self.W_POP = params.get("W_POO", None)
+        self.W_POP = params.get("W_POP", None)
         if self.W_POP:
             self.W_POP *= 1e12 * 2 * pi # convert to THz
         if 'POP' in self.inelastic_scatterings:
