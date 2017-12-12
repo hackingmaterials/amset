@@ -281,9 +281,8 @@ class AMSET(object):
         self.P_PIE = params.get("P_PIE", None) or 0.15  # unitless
         E_D = params.get("E_D", None)
         self.C_el = params.get("C_el", None)
-        if (E_D is None or self.C_el is None) and 'ACD' in self.model_params['elastic_scatterings']:
-            self.model_params['elastic_scatterings'].pop(
-                self.model_params['elastic_scatterings'].index('ACD'))
+        if (E_D is None or self.C_el is None) and 'ACD' in self.elastic_scatterings:
+            self.self.elastic_scatterings.pop(self.self.elastic_scatterings.index('ACD'))
         if isinstance(E_D, dict):
             if 'n' not in E_D and 'p' not in E_D:
                 raise ValueError('Neither "n" nor "p" keys not found in E_D')
@@ -295,11 +294,10 @@ class AMSET(object):
         self.W_POP = params.get("W_POO", None)
         if self.W_POP:
             self.W_POP *= 1e12 * 2 * pi # convert to THz
-        if 'POP' in self.model_params['inelastic_scatterings']:
+        if 'POP' in self.inelastic_scatterings:
             if self.epsilon_inf is None or self.W_POP is None:
                 warnings.warn('POP cannot be calculated w/o epsilon_inf and W_POP')
-                self.model_params['inelastic_scatterings'].pop(
-                    self.model_params['inelastic_scatterings'].index('POP'))
+                self.inelastic_scatterings.pop(self.inelastic_scatterings.index('POP'))
 
         self.N_dis = params.get("N_dis", None) or 0.1  # in 1/cm**2
         self.scissor = params.get("scissor", None) or 0.0
