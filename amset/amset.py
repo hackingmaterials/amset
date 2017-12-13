@@ -2394,12 +2394,11 @@ class AMSET(object):
 
 
 
-    def to_file(self, dir_path='.', fname='amsetrun', force_write=False):
+    def to_file(self, dir_path='.', fname='amsetrun', force_write=True):
         if not force_write:
             n = 1
             fname0 = fname
-            while os.path.exists(
-                    os.path.join(dir_path, '{}.json.gz'.format(fname))):
+            while os.path.exists(os.path.join(dir_path, '{}.json.gz'.format(fname))):
                 warnings.warn('The file, {} exists. AMSET outputs will be '
                         'written in {}'.format(fname, fname0+'_'+str(n)))
                 fname = fname0 + '_' + str(n)
