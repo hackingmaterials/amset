@@ -290,8 +290,10 @@ class AMSET(object):
             if 'n' not in E_D and 'p' not in E_D:
                 raise ValueError('Neither "n" nor "p" keys not found in E_D')
             self.E_D = E_D
-        else:
+        elif E_D:
             self.E_D = {'n': E_D, 'p': E_D}
+        else:
+            self.E_D = E_D
 
         self.epsilon_inf = params.get("epsilon_inf", None)
         self.W_POP = params.get("W_POP", None)
@@ -317,7 +319,7 @@ class AMSET(object):
         """function to set instant variables related to the model and the level of the theory;
         these are set based on params (dict) set by the user or their default values"""
 
-        self.bs_is_isotropic = params.get("bs_is_isotropic", False)
+        self.bs_is_isotropic = params.get("bs_is_isotropic", True)
         self.elastic_scatterings = params.get("elastic_scatterings", ["ACD", "IMP", "PIE"])
         self.inelastic_scatterings = params.get("inelastic_scatterings", ["POP"])
 
@@ -355,7 +357,7 @@ class AMSET(object):
         self.parallel = params.get("parallel", True)
         logging.info("parallel: {}".format(self.parallel))
         self.max_nbands = params.get("max_nbands", None)
-        self.max_normk = params.get("max_normk", 4)
+        self.max_normk = params.get("max_normk", 2)
 
 
 
