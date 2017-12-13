@@ -1,6 +1,8 @@
 # coding: utf-8
 
 from __future__ import unicode_literals
+
+import json
 import logging
 import numpy as np
 import os
@@ -129,6 +131,35 @@ class AmsetTest(unittest.TestCase):
                 egrid['n']['mobility'][mu][-2e15][300]), 0.02*\
                 np.mean(egrid['n']['mobility'][mu][-2e15][300]))
             self.assertLess(rel_diff(egrid['n']['mobility'][mu][-2e15][300][0], expected_mu[mu]), 0.02)
+
+    def test_defaults(self):
+        print('\ntesting test_defaults...')
+        amset = AMSET(self.GaAs_path, material_params={'epsilon_s': 12.9})
+        amset.write_input_files()
+        with open("material_params.json", "r") as fp:
+            material_params = json.load(fp)
+        with open("model_params.json", "r") as fp:
+            model_params = json.load(fp)
+        with open("performance_params.json", "r") as fp:
+            performance_params = json.load(fp)
+
+        self.assertEqual(material_params['epsilon_inf'], None)
+        self.assertEqual(material_params['W_POP'], None)
+        self.assertEqual(material_params['scissor'], 0.0)
+        self.assertEqual(material_params['P_PIE'], 0.15)
+        self.assertEqual(material_params['E_D'], None)
+        self.assertEqual(material_params['N_dis'], 0.1)
+
+        self.assertEqual(model_params['bs_is_isotropic'], True)
+        self.assertEqual(model_params['elastic_scatterings'], ['IMP', 'PIE'])
+        self.assertEqual(model_params['inelastic_scatterings'], [])
+
+        self.assertEqual(performance_params['max_nbands'], None)
+        self.assertEqual(performance_params['max_normk'], 2)
+        self.assertEqual(performance_params['dE_min'], 0.0001)
+        self.assertEqual(performance_params['nkdos'], 29)
+        self.assertEqual(performance_params['dos_bwidth'], 0.05)
+        self.assertEqual(performance_params['nkdos'], 29)
 
 
 if __name__ == '__main__':
