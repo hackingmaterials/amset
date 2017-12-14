@@ -429,8 +429,13 @@ def get_energy_args(coeff_file, ibands):
     Returns (tuple): necessary inputs for calc_analytical_energy or get_energy
     """
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
-    engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
+    print('ibands')
+    print(ibands)
+    try:
+        engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
             analytical_bands.get_engre(iband=ibands)
+    except TypeError:
+        raise('try reducing Ecut to include fewer bands')
     nstv, vec, vec2 = analytical_bands.get_star_functions(
             latt_points, nsym, symop, nwave, br_dir=br_dir)
     out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
