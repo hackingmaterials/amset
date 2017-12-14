@@ -339,7 +339,9 @@ class AMSET(object):
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 2)
         c_factor = max(1, 2*abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.15)
-        Ecut = params.get("Ecut", c_factor * 10 * k_B * max(self.temperatures + [300]))
+        Tmax = max(self.temperatures + [300])
+        factor_T = 3000/Tmax # 10kBT if Tmax==300
+        Ecut = params.get("Ecut", c_factor * factor_T * k_B)
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
         for tp in ["n", "p"]:
             logging.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
