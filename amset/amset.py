@@ -612,7 +612,7 @@ class AMSET(object):
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
 
-        logging.debug("here total number of ks from self.Efrequency for {}-type: {}".format(self.debug_tp), sum(self.Efrequency[self.debug_tp]))
+        logging.debug("here total number of ks from self.Efrequency for {}-type: {}".format(self.debug_tp, sum(self.Efrequency[self.debug_tp])))
 
         min_nE = 2
 
