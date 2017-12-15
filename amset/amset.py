@@ -95,7 +95,7 @@ class AMSET(object):
         logging.debug("""debug_tp: "{}" """.format(self.debug_tp))
         self.set_model_params(model_params)
         self.set_material_params(material_params)
-        self.set_performance_params(performmpoance_params)
+        self.set_performance_params(performance_params)
         self.k_integration = k_integration
         self.e_integration = e_integration
         self.fermi_calc_type = fermi_type
