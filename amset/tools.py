@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 
 from analytical_band_from_BZT import Analytical_bands, outer, get_energy
@@ -9,6 +10,18 @@ from pymatgen import Spin
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
+
+class AmsetError(Exception):
+    """
+    Exception class for AMSET. Raised when AMSET gives an error.
+    """
+
+    def __init__(self, msg):
+        self.msg = msg
+        logging.error(self.msg)
+
+    def __str__(self):
+        return "AmsetError : " + self.msg
 
 def remove_from_grid(grid, grid_rm_list):
     """deletes dictionaries storing properties that are no longer needed from
@@ -434,8 +447,9 @@ def get_energy_args(coeff_file, ibands):
     try:
         engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
             analytical_bands.get_engre(iband=ibands)
-    except TypeError:
-        raise('try reducing Ecut to include fewer bands')
+    except TypeError as e:
+        raise AmsetError('try reducing Ecut to include fewer bands')
+
     nstv, vec, vec2 = analytical_bands.get_star_functions(
             latt_points, nsym, symop, nwave, br_dir=br_dir)
     out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
