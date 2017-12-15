@@ -110,6 +110,14 @@ class AMSET(object):
         if self.parallel:
             logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
 
+    def run_profiled(self, coeff_file=None, kgrid_tp="coarse", write_outputs=True):
+        profiler = cProfile.Profile()
+        profiler.runcall(lambda: self.run(coeff_file, kgrid_tp=kgrid_tp,
+                                           write_outputs=write_outputs))
+        stats = Stats(profiler, stream=STDOUT)
+        stats.strip_dirs()
+        stats.sort_stats('cumulative')
+        stats.print_stats(15)  # only print the top 10 (10 slowest functions)
 
 
     def run(self, coeff_file=None, kgrid_tp="coarse", write_outputs=True):
@@ -3315,13 +3323,8 @@ if __name__ == "__main__":
                   k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    profiler = cProfile.Profile()
-    profiler.runcall(lambda: amset.run(coeff_file, kgrid_tp='very coarse', write_outputs=True))
-    stats = Stats(profiler, stream=STDOUT)
-    stats.strip_dirs()
-    stats.sort_stats('cumulative')
-    stats.print_stats(15)  # only print the top 10 (10 slowest functions)
-    print
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+
     # stats.print_callers(10)
 
     amset.write_input_files()
