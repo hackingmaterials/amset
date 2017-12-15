@@ -28,7 +28,7 @@ from tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_k
         fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
         remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
         get_energy_args, calc_analytical_energy, get_bindex_bspin, \
-    get_bs_extrema
+        get_bs_extrema, AmsetError
 from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
 
@@ -87,15 +87,15 @@ class AMSET(object):
 
         logging.basicConfig(level=loglevel or logging.DEBUG)
         self.calc_dir = calc_dir
-        self.dopings = dopings or [-1e16, -1e17, -1e18, -1e19, -1e20, -1e21, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21]
+        self.dopings = dopings or [-1e20, 1e20]
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
         self.tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
-        self.temperatures = temperatures or map(float, [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+        self.temperatures = temperatures or map(float, [300, 600])
         self.debug_tp = get_tp(self.dopings[0])
         logging.debug("""debug_tp: "{}" """.format(self.debug_tp))
         self.set_model_params(model_params)
         self.set_material_params(material_params)
-        self.set_performance_params(performance_params)
+        self.set_performance_params(performmpoance_params)
         self.k_integration = k_integration
         self.e_integration = e_integration
         self.fermi_calc_type = fermi_type
@@ -125,14 +125,24 @@ class AMSET(object):
         """
         if not coeff_file:
             logging.warning('\nRunning BoltzTraP to generate the cube file...')
-            BoltztrapRunner(bs=self.bs, nelec=self.nelec).run(path_dir=self.calc_dir)
+            boltztrap_runner = BoltztrapRunner(bs=self.bs, nelec=self.nelec,
+                    doping=list(set([abs(d) for d in self.dopings])),
+                            tmax=max(self.temperatures))
+            boltztrap_runner.run(path_dir=self.calc_dir)
+            # BoltztrapRunner().run(path_dir=self.calc_dir)
             coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
+            if not os.path.exists(coeff_file):
+                raise AmsetError('{} does not exist! generating the cube file '
+                '(i.e. fort.123) requires a modified version of BoltzTraP. '
+                             'Contact {}'.format(coeff_file, __email__))
 
         self.init_kgrid(coeff_file=coeff_file, kgrid_tp=kgrid_tp)
         logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
 
+        start_time_fermi = time.time()
         if self.fermi_calc_type == 'k':
             self.fermi_level = self.find_fermi_k()
+        logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
 
         self.init_egrid(dos_tp="standard")
         logging.info('fermi level = {}'.format(self.fermi_level))
@@ -339,9 +349,7 @@ class AMSET(object):
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 2)
         c_factor = max(1, 2*abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.15)
-        Tmax = max(self.temperatures + [300])
-        factor_T = 3000/Tmax # 10kBT if Tmax==300
-        Ecut = params.get("Ecut", c_factor * factor_T * k_B)
+        Ecut = params.get("Ecut", c_factor * 5 * k_B * max(self.temperatures + [300]))
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
         for tp in ["n", "p"]:
             logging.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
@@ -604,8 +612,7 @@ class AMSET(object):
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
 
-        logging.debug("here total number of ks from self.Efrequency for {}-type".format(self.debug_tp))
-        logging.debug(sum(self.Efrequency[self.debug_tp]))
+        logging.debug("here total number of ks from self.Efrequency for {}-type: {}".format(self.debug_tp), sum(self.Efrequency[self.debug_tp]))
 
         min_nE = 2
 
@@ -914,6 +921,14 @@ class AMSET(object):
             for k in self.important_pts[tp]:
                 all_important_ks +=  list(self.bs.get_sym_eq_kpoints(k))
             self.important_pts[tp] = remove_duplicate_kpoints(all_important_ks)
+
+
+        ################TEST FOR Si##########################################
+        # self.important_pts = {'n': [[ 0.44444444,  0.44444444,  0.        ]],
+        #                       'p': [[0.0, 0.0, 0.0]]}
+        #################################################################
+
+
         logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
         logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
 
@@ -931,7 +946,7 @@ class AMSET(object):
 
             self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
 
-            logging.info("number of original ibz {}-type k-points: {}".format(tp, len(kpts)))
+            logging.info("number of original ibz {}-type k-points: {}".format(tp, len(kpts[tp])))
             logging.debug("time to get the ibz k-mesh: \n {}".format(time.time()-start_time))
             start_time = time.time()
 
@@ -2387,8 +2402,8 @@ class AMSET(object):
             # TODO: the integration may need to be revised. Careful testing of IMP scattering against expt is necessary
             integral = self.integrate_over_normk(prop_list=["f0","1-f0"], tp=tp, c=c, T=T, xDOS=True)
             integral = sum(integral)/3
-            logging.debug('integral_over_norm_k')
-            logging.debug(integral)
+            # logging.debug('integral_over_norm_k')
+            # logging.debug(integral)
 
             # from aMoBT ( or basically integrate_over_normk )
             beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
