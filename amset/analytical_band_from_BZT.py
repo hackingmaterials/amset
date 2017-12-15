@@ -1,14 +1,16 @@
 # coding: utf-8
+import matplotlib
+import numpy as np
+import re
+import warnings
+
+matplotlib.use('agg')
+from matplotlib.pylab import plot, show, scatter
+from math import pi
 from pymatgen.core.units import Energy
 from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from scipy.constants.codata import value as _cd
-from math import pi
-import numpy as np
-import warnings
-import matplotlib
-matplotlib.use('agg')
-from matplotlib.pylab import plot, show, scatter
 
 
 # global constants
@@ -437,7 +439,10 @@ class Analytical_bands(object):
                 if i<nwave:
                     latt_points[i]=np.fromstring(l,sep=' ')
                 elif i == nwave:
-                    bmin,bmax=np.fromstring(l,sep=' ',dtype=int)
+                    # all_bands = map(float, re.findall(r'\d+\.\d+', l))
+
+                    bmin, bmax = np.fromstring(l, sep=' ', dtype=int)
+
                     if iband == 'A':
                         iband = range(bmin,bmax+1)
                         # print "bmin: {}".format(bmin)
