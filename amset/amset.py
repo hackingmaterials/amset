@@ -120,7 +120,7 @@ class AMSET(object):
         stats.print_stats(15)  # only print the top 10 (10 slowest functions)
 
 
-    def run(self, coeff_file=None, kgrid_tp="coarse", write_outputs=True):
+    def run(self, coeff_file=None, kgrid_tp="coarse", write_outputs=True, test_k_anisotropic=False):
         """
         Function to run AMSET and generate the main outputs.
 
@@ -202,16 +202,11 @@ class AMSET(object):
                 f0_removed = self.array_from_kgrid('f0', dop_tp, c, T)
                 f0_all = 1 / (np.exp((self.energy_array[dop_tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                 if c < 0:
-                    result = self.integrate_over_states(f0_removed, dop_tp)
-                    result2 = self.integrate_over_states(f0_all, dop_tp)
-                    print('integral (points removed) of f0 over k at c={}, T={}: {}'.format(c, T, result))
-                    print('integral (all points) of f0 over k at c={}, T={}: {}'.format(c, T, result2))
+                    electrons = self.integrate_over_states(f0_all, dop_tp)
+                    logging.info('k-integral of f0 above band gap at c={}, T={}: {}'.format(c, T, electrons))
                 if c > 0:
-                    p_result = self.integrate_over_states(1-f0_removed, dop_tp)
-                    p_result2 = self.integrate_over_states(1-f0_all, dop_tp)
-                    print('integral (points removed) of 1-f0 over k at c={}, T={}: {}'.format(c, T, p_result))
-                    print('integral (all points) of 1-f0 over k at c={}, T={}: {}'.format(c, T, p_result2))
-
+                    holes = self.integrate_over_states(1-f0_all, dop_tp)
+                    logging.info('k-integral of 1-f0 below band gap at c={}, T={}: {}'.format(c, T, holes))
 
         self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
         self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
@@ -220,7 +215,7 @@ class AMSET(object):
         self.solve_BTE_iteratively()
 
         if self.k_integration:
-            self.calculate_transport_properties_with_k()
+            self.calculate_transport_properties_with_k(test_k_anisotropic)
         if self.e_integration:
             self.calculate_transport_properties_with_E()
 
@@ -942,17 +937,25 @@ class AMSET(object):
         logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
 
         self.kgrid_array = {}
+        self.kgrid_array_cartesian = {}
         self.k_hat_array = {}
+        self.k_hat_array_cartesian = {}
         self.dv_grid = {}
         kpts = {}
         for tp in ['n', 'p']:
             points_1d = generate_k_mesh_axes(self.important_pts[tp], kgrid_tp, one_list=True)
             self.kgrid_array[tp] = create_grid(points_1d)
             kpts[tp] = array_to_kgrid(self.kgrid_array[tp])
+            N = self.kgrid_array[tp].shape
+            self.kgrid_array_cartesian[tp] = np.zeros((N[0], N[1], N[2], 3))
+            for ii in range(N[0]):
+                for jj in range(N[1]):
+                    for kk in range(N[2]):
+                        self.kgrid_array_cartesian[tp][ii,jj,kk,:] = self._rec_lattice.get_cartesian_coords(self.kgrid_array[tp][ii,jj,kk])   # 1/A
 
             # generate a normalized numpy array of vectors pointing in the direction of k
             self.k_hat_array[tp] = normalize_array(self.kgrid_array[tp])
-
+            self.k_hat_array_cartesian[tp] = normalize_array(self.kgrid_array_cartesian[tp])
             self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
 
             logging.info("number of original ibz {}-type k-points: {}".format(tp, len(kpts[tp])))
@@ -1118,6 +1121,7 @@ class AMSET(object):
 
         self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)", "norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False, c_T_idx=False)
+        self.velocity_signed = {tp: np.array([[[0,0,0] for ik in range(len(kpts[tp]))] for ib in range(self.num_bands[tp])]) for tp in ['n', 'p']}
         self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=False, c_T_idx=False)
 
         start_time = time.time()
@@ -1178,15 +1182,19 @@ class AMSET(object):
                                 self.kgrid[tp]["kpoints"][ib][ik], engre[i * self.cbm_vbm["p"]["included"] + ib],
                                 nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                             energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
+                            velocity_signed = de / hbar * A_to_m * m_to_cm * Ry_to_eV
                             velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)  # to get v in cm/s
                             effective_mass = hbar ** 2 / (
                                 dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                         else:
                             energy = results[ik][0] * Ry_to_eV - sgn * self.scissor / 2.0
+                            velocity_signed = results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV
                             velocity = abs(results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
                             effective_mass = hbar ** 2 / (
                                 results[ik][
                                     2] * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+
+                        self.velocity_signed[tp][ib][ik] = velocity_signed
 
                     else:
                         energy, velocity, effective_mass = get_poly_energy(self.kgrid[tp]["cartesian kpoints"][ib][ik],
@@ -1196,6 +1204,11 @@ class AMSET(object):
 
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
+                    # if tp == 'n':
+                    #     print("k_frac = {}".format(self.kgrid['n']["kpoints"][ib][ik]))
+                    #     print("k_cart = {}".format(self.kgrid['n']["cartesian kpoints"][ib][ik]))
+                    #     print("k_old_cart = {}".format(self.kgrid['n']["old cartesian kpoints"][ib][ik]))
+                    #     print("v = {}".format(velocity_signed))
                     # TODO: the following enforces isotropy but it's not necessary as bs_is_isotropic is just a different formulation and isotropy from bs should be taken into account
                     # if self.bs_is_isotropic:
                     #     self.kgrid[tp]["velocity"][ib][ik] = [norm(velocity)/sq3 for i in range(3)]
@@ -1270,6 +1283,12 @@ class AMSET(object):
             for ib in range(self.num_bands[tp]):
                 self.pos_idx_2[tp][ib] = np.array(range(len(e_sort_idx_2[tp][ib])))[e_sort_idx_2[tp][ib]].argsort()
 
+        # for ib in range(self.num_bands['n']):
+        #     for ik in range(20):
+        #         print("k_frac = {}".format(self.kgrid['n']["kpoints"][ib][ik]))
+        #         print("k_cart = {}".format(self.kgrid['n']["cartesian kpoints"][ib][ik]))
+        #         print("v = {}".format((self.velocity_signed["n"][0][e_sort_idx_2["n"][0]])[ik]))
+
         # to save memory avoiding storage of variables that we don't need down the line
         for tp in ["n", "p"]:
             self.kgrid[tp].pop("effective mass", None)
@@ -1335,7 +1354,7 @@ class AMSET(object):
             #     break
             integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
 
-        print "dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ)
+        print("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
 
         # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
         dos = [g / integ * self.dos_normalization_factor for g in dos]
@@ -2155,10 +2174,10 @@ class AMSET(object):
                                                                   ib=ib, ik=ik, c=c, T=T, sname=sname, g_suffix="")
                                 self.kgrid[tp][sname][c][T][ib][ik] = abs(summation) * 2e-7 * pi / hbar
                                 if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 100 and sname not in ["DIS"]:
-                                    print "WARNING!!! here scattering {} < 1".format(sname)
+                                    print("WARNING!!! here scattering {} < 1".format(sname))
                                     # if self.kgrid[tp]["df0dk"][c][T][ib][ik][0] > 1e-32:
                                     #     print self.kgrid[tp]["df0dk"][c][T][ib][ik]
-                                    print self.kgrid[tp]["X_E_ik"][ib][ik]
+                                    print(self.kgrid[tp]["X_E_ik"][ib][ik])
 
                                     self.kgrid[tp][sname][c][T][ib][ik] = [1e10, 1e10, 1e10]
 
@@ -2488,7 +2507,7 @@ class AMSET(object):
         if kgrid:
             start_time = time.time()
             kgrid = deepcopy(self.kgrid)
-            print "time to copy kgrid = {} seconds".format(time.time() - start_time)
+            print("time to copy kgrid = {} seconds".format(time.time() - start_time))
             if trimmed:
                 nmax = min([max_ndata + 1, min([len(kgrid["n"]["kpoints"][0]), len(kgrid["p"]["kpoints"][0])])])
                 for tp in ["n", "p"]:
@@ -2588,27 +2607,33 @@ class AMSET(object):
                         if norm(self.egrid[tp]["g_POP"][c][T][ie]) > 1:
                             self.egrid[tp]["g_POP"][c][T][ie] = [1e-5, 1e-5, 1e-5]
 
-
     def calc_v_vec(self, tp):
-        # TODO: Take into account the fact that this gradient is found in three directions specified by the lattice, not
-        # the x, y, and z directions. It must be corrected to account for this.
-        energy_grid = self.array_from_kgrid('energy', tp)
-        # print('energy:')
-        # np.set_printoptions(precision=3)
-        # print(energy_grid[0,:,:,:,0])
-        N = self.kgrid_array[tp].shape
-        k_grid = self.kgrid_array[tp]
-        v_vec_result = []
+        v_vec_all_bands = []
         for ib in range(self.num_bands[tp]):
-            v_vec = np.gradient(energy_grid[ib][:,:,:,0], k_grid[:,0,0,0] * self._rec_lattice.a, k_grid[0,:,0,1] * self._rec_lattice.b, k_grid[0,0,:,2] * self._rec_lattice.c)
-            v_vec_rearranged = np.zeros((N[0], N[1], N[2], 3))
-            for i in range(N[0]):
-                for j in range(N[1]):
-                    for k in range(N[2]):
-                        v_vec_rearranged[i,j,k,:] = np.array([v_vec[0][i,j,k], v_vec[1][i,j,k], v_vec[2][i,j,k]])
-            v_vec_rearranged *= A_to_m * m_to_cm / hbar
-            v_vec_result.append(v_vec_rearranged)
-        return np.array(v_vec_result)
+            v_vec_k_ordered = self.velocity_signed[tp][ib][self.pos_idx[tp]]
+            v_vec_all_bands.append(self.grid_from_ordered_list(v_vec_k_ordered, tp, none_missing=True))
+        return np.array(v_vec_all_bands)
+
+    # def calc_v_vec(self, tp):
+    #     # TODO: Take into account the fact that this gradient is found in three directions specified by the lattice, not
+    #     # the x, y, and z directions. It must be corrected to account for this.
+    #     energy_grid = self.array_from_kgrid('energy', tp)
+    #     # print('energy:')
+    #     # np.set_printoptions(precision=3)
+    #     # print(energy_grid[0,:,:,:,0])
+    #     N = self.kgrid_array[tp].shape
+    #     k_grid = self.kgrid_array[tp]
+    #     v_vec_result = []
+    #     for ib in range(self.num_bands[tp]):
+    #         v_vec = np.gradient(energy_grid[ib][:,:,:,0], k_grid[:,0,0,0] * self._rec_lattice.a, k_grid[0,:,0,1] * self._rec_lattice.b, k_grid[0,0,:,2] * self._rec_lattice.c)
+    #         v_vec_rearranged = np.zeros((N[0], N[1], N[2], 3))
+    #         for i in range(N[0]):
+    #             for j in range(N[1]):
+    #                 for k in range(N[2]):
+    #                     v_vec_rearranged[i,j,k,:] = np.array([v_vec[0][i,j,k], v_vec[1][i,j,k], v_vec[2][i,j,k]])
+    #         v_vec_rearranged *= A_to_m * m_to_cm / hbar
+    #         v_vec_result.append(v_vec_rearranged)
+    #     return np.array(v_vec_result)
 
 
     # turns a kgrid property into a list of grid arrays of that property for k integration
@@ -2638,9 +2663,9 @@ class AMSET(object):
             if type(adjusted_prop_list[0]) == np.ndarray or type(adjusted_prop_list[0]) == list:
                 if len(adjusted_prop_list[0]) == 3:
                     insert_list = True
-            for ib in range(self.num_bands[tp]):
-                for ik in self.rm_idx_list[tp][ib]:
-                    adjusted_prop_list.insert(ik, fill) if not insert_list else adjusted_prop_list.insert(ik, [fill,fill,fill])
+            #for ib in range(self.num_bands[tp]):
+            for ik in self.rm_idx_list[tp][ib]:
+                adjusted_prop_list.insert(ik, fill) if not insert_list else adjusted_prop_list.insert(ik, [fill,fill,fill])
 
         # step 2 is reorder based on first sort
         adjusted_prop_list = np.array(adjusted_prop_list)[self.pos_idx[tp]]
@@ -2682,24 +2707,27 @@ class AMSET(object):
             result = np.zeros(3)
         else:
             result = 0
-        # num_bands = integrand_grid.shape[0]
+        num_bands = integrand_grid.shape[0]
 
-        if tp == 'n':
-            for ib in range(self.num_bands['n']):
-                result += self.integrate_over_k(integrand_grid[ib], tp)
-        if tp  == 'p':
-            for ib in range(self.num_bands['p']):
-                result += self.integrate_over_k(integrand_grid[ib], tp)
-        if tp == 'all':
-            for ib in range(self.num_bands['n']):
-                result += self.integrate_over_k(integrand_grid[ib], 'n')
-            for ib in range(self.num_bands['p']):
-                result += self.integrate_over_k(integrand_grid[ib + self.num_bands['n']], tp)
+        for ib in range(num_bands):
+            result += self.integrate_over_k(integrand_grid[ib], tp)
+
+        # if tp == 'n':
+        #     for ib in range(self.num_bands['n']):
+        #         result += self.integrate_over_k(integrand_grid[ib], tp)
+        # if tp  == 'p':
+        #     for ib in range(self.num_bands['p']):
+        #         result += self.integrate_over_k(integrand_grid[ib], tp)
+        # if tp == 'all':
+        #     for ib in range(self.num_bands['n']):
+        #         result += self.integrate_over_k(integrand_grid[ib], 'n')
+        #     for ib in range(self.num_bands['p']):
+        #         result += self.integrate_over_k(integrand_grid[ib + self.num_bands['n']], tp)
         return result
 
 
     # calculates transport properties for isotropic materials
-    def calculate_transport_properties_with_k(self):
+    def calculate_transport_properties_with_k(self, test_anisotropic):
         # calculate mobility by averaging velocity per electric field strength
         mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scatterings} for tp in ["n", "p"]}
         mu_denom = deepcopy(mu_num)
@@ -2710,16 +2738,18 @@ class AMSET(object):
 
         for c in self.dopings:
             for T in self.temperatures:
-                for j, tp in enumerate(["p", "n"]):
+                for j, tp in enumerate(["n", "p"]):
 
                     N = self.kgrid_array[tp].shape
+                    if tp == 'n':
+                        print(self.dv_grid['n'][(N[0] - 1) / 2, (N[1] - 1) / 2, :])
 
                     print('tp =  ' + tp + ':')
                     # get quantities that are independent of mechanism
                     num_k = [len(self.kgrid[tp]["energy"][ib]) for ib in range(self.num_bands[tp])]
                     df0dk = self.array_from_kgrid('df0dk', tp, c, T)
                     v = self.array_from_kgrid('velocity', tp)
-                    #v = self.calc_v_vec(tp)
+                    #v_vec = self.calc_v_vec(tp)
                     norm_v = np.array([self.grid_from_energy_list([norm(self.kgrid[tp]["velocity"][ib][ik]) / sq3 for ik in
                                                           range(num_k[ib])], tp, ib) for ib in range(self.num_bands[tp])])
                     #norm_v = grid_norm(v)
@@ -2743,52 +2773,111 @@ class AMSET(object):
                     # print(self.kgrid[tp]["electric force"][c][T][0])
 
                     # TODO: the anisotropic case is not correct right now
-                    if not self.bs_is_isotropic:   # this is NOT working
+                    if not self.bs_is_isotropic or test_anisotropic:
+
+                        v_vec = self.calc_v_vec(tp)
+
+                        #TODO: get f through solving the BTE anisotropically
+                        #k_hat = np.array([self.k_hat_array[tp] for ib in range(self.num_bands[tp])])
+                        k_hat_cartesian = np.array([self.k_hat_array_cartesian[tp] for ib in range(self.num_bands[tp])])
+                        g = self.array_from_kgrid("g", tp, c, T)
+                        # x is the cosine of the angle between the force and k, or negative the cosine of the angle
+                        # between the electric fields and k
+                        x = -k_hat_cartesian
+                        f_T = f0_all + x * g
+
+                        print('v')
+                        print(v_vec.shape)
+                        print(v_vec[0, (N[0]-1)/2, (N[1]-1)/2, :])
+                        print('k_hat_cartesian')
+                        print(k_hat_cartesian[0, (N[0]-1)/2, (N[1]-1)/2, :])
+                        print('g')
+                        print(g[0, (N[0]-1)/2, (N[1]-1)/2, :])
+
+                        print('v*f0_all')
+                        print((v_vec * f0_all)[0, (N[0]-1)/2, (N[1]-1)/2, :])
+                        print('v*f_T')
+                        print((v_vec * f_T)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                        print('v*(f_T-f0_all)')
+                        print((v_vec * k_hat_cartesian * g)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                        print('v*f_T*d3k')
+                        print(((v_vec * f_T)[0] * self.dv_grid['n'][:,:,:,np.newaxis])[(N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                        print("sum")
+                        print(np.sum(((v_vec * f_T)[0] * self.dv_grid['n'][:,:,:,np.newaxis]), axis=(0,1,2)))
 
                         # from equation 44 in Rode, overall
-                        nu_el = self.array_from_kgrid('_all_elastic', tp, c, T, denom=True)
-                        S_i = 0
-                        S_o = 1
-                        numerator = -self.integrate_over_states(v * self.k_hat_array[tp] * (-1 / hbar) * df0dk / nu_el, tp)
-                        denominator = self.integrate_over_states(f0, tp) * hbar * default_small_E
+                        #nu_el = self.array_from_kgrid('_all_elastic', tp, c, T, denom=True)
+                        # numerator = -self.integrate_over_states(v * self.k_hat_array[tp] * (-1 / hbar) * df0dk / nu_el, tp)
+                        # denominator = self.integrate_over_states(f0, tp) * hbar * default_small_E
+                        numerator = self.integrate_over_states(v_vec / default_small_E * f_T, tp)
+                        numerator2 = self.integrate_over_states(v_vec / default_small_E * f0_all, tp)
+                        denominator = self.integrate_over_states(j + ((-1) ** j) * f_T, tp)
                         self.mobility[tp]['overall'][c][T] = numerator / denominator
+
+                        print('ANISOTROPIC numerator, numerator without g, and denominator:')
+                        print(numerator)
+                        print(numerator2)
+                        print(denominator)
+
+                        if tp == 'n':
+                            denominator_iso = self.integrate_over_states(f0_all, tp)
+                        if tp == 'p':
+                            denominator_iso = self.integrate_over_states(1-f0_all, tp)
+                        numerator_iso = self.integrate_over_states(g * norm_v, tp) / 3 / default_small_E
+
+                        print('norm_v')
+                        print(norm_v[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                        print('g*norm_v')
+                        print((g*norm_v)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                        print('ISOTROPIC numerator and denominator:')
+                        print(numerator_iso)
+                        print(denominator_iso)
+
+                        k_norm = np.sqrt(self.kgrid_array_cartesian[tp][:,:,:,0]**2 + self.kgrid_array_cartesian[tp][:,:,:,1]**2 + self.kgrid_array_cartesian[tp][:,:,:,2]**2) / (A_to_m * m_to_cm)
+                        print('norm(k)')
+                        print(k_norm[(N[0] - 1) / 2, (N[1] - 1) / 2, :])   # 1/cm
+                        print(self._rec_lattice.volume)   # in 1/A^3
+                        k_0 = (self._rec_lattice.volume)**(1./3) / (A_to_m * m_to_cm)
+                        #vol = self._rec_lattice.volume / (A_to_m * m_to_cm)**3
+                        print('k_0')
+                        print(k_0)   # in 1/cm
+                        print('test integral of e^(-r) * cos^2(theta)')
+                        aa = 10 / (k_0 / 2)   # in cm
+                        print(self.integrate_over_k(np.exp(-aa * k_norm) * k_hat_cartesian[0, :, :, :, 2]**2 * aa**3, tp))
+                        # np.sum(np.exp(-(aa * 7.5) * k_norm) * k_hat_cartesian[0, :, :, :, 2] ** 2 * (aa * 7.5) ** 3 * self.dv_grid['n'][:, :, :], axis=(0, 1, 2))
 
                         # from equation 44 in Rode, elastic
                         #el_mech stands for elastic mechanism
-                        for el_mech in self.elastic_scatterings:
-                            nu_el = self.array_from_kgrid(el_mech, tp, c, T, denom=True)
-                            # includes e in numerator because hbar is in eV units, where e = 1
-                            numerator = -self.integrate_over_states(v * self.k_hat_array[tp] * df0dk / nu_el, tp)
-                            denominator = self.integrate_over_states(f0, tp) * hbar
-                            # for ib in range(len(self.kgrid[tp]["energy"])):
-                            #     #num_kpts = len(self.kgrid[tp]["energy"][ib])
-                            #     # integrate numerator / norm(F) of equation 44 in Rode
-                            #     for dim in range(3):
-                            #         # TODO: add in f0 to the integral so that this works for anisotropic materials
-                            #         mu_num[tp][el_mech][c][T][dim] += self.integrate_over_k(v_vec[ib] * k_hat[ib] * df0dk[ib] / nu_el[ib])[dim]
-                            #         mu_denom[tp][el_mech][c][T][dim] += self.integrate_over_k(f0[ib])[dim]
+                        # for el_mech in self.elastic_scatterings:
+                        #     nu_el = self.array_from_kgrid(el_mech, tp, c, T, denom=True)
+                        #     # includes e in numerator because hbar is in eV units, where e = 1
+                        #     numerator = -self.integrate_over_states(v * self.k_hat_array[tp] * df0dk / nu_el, tp)
+                        #     denominator = self.integrate_over_states(f0, tp) * hbar
+                        #     # for ib in range(len(self.kgrid[tp]["energy"])):
+                        #     #     #num_kpts = len(self.kgrid[tp]["energy"][ib])
+                        #     #     # integrate numerator / norm(F) of equation 44 in Rode
+                        #     #     for dim in range(3):
+                        #     #         # TODO: add in f0 to the integral so that this works for anisotropic materials
+                        #     #         mu_num[tp][el_mech][c][T][dim] += self.integrate_over_k(v_vec[ib] * k_hat[ib] * df0dk[ib] / nu_el[ib])[dim]
+                        #     #         mu_denom[tp][el_mech][c][T][dim] += self.integrate_over_k(f0[ib])[dim]
+                        #
+                        #     # should be -e / hbar but hbar already in eV units, where e=1
+                        #     self.mobility[tp][el_mech][c][T] = numerator / denominator
+                        #
+                        # # from equation 44 in Rode, inelastic
+                        # for inel_mech in self.inelastic_scatterings:
+                        #     nu_el = self.array_from_kgrid('_all_elastic', tp, c, T, denom=True)
+                        #     S_i = 0
+                        #     S_o = 1
+                        #     self.mobility[tp][inel_mech][c][T] = self.integrate_over_states(
+                        #         v * self.k_hat_array[tp] * (-1 / hbar) * df0dk / S_o, tp)
 
-                            # should be -e / hbar but hbar already in eV units, where e=1
-                            self.mobility[tp][el_mech][c][T] = numerator / denominator
-
-                        # from equation 44 in Rode, inelastic
-                        for inel_mech in self.inelastic_scatterings:
-                            nu_el = self.array_from_kgrid('_all_elastic', tp, c, T, denom=True)
-                            S_i = 0
-                            S_o = 1
-                            self.mobility[tp][inel_mech][c][T] = self.integrate_over_states(
-                                v * self.k_hat_array[tp] * (-1 / hbar) * df0dk / S_o, tp)
-
-                        if tp == "n":
-                            for mech in self.elastic_scatterings + ['overall']:
-                                print('new {} mobility at T={}: {}'.format(mech, T, self.mobility[tp][mech][c][T]))
-
-                    if self.bs_is_isotropic:
+                    if self.bs_is_isotropic and not test_anisotropic:
                         # from equation 45 in Rode, elastic mechanisms
-                        for ib in range(self.num_bands[tp]):
-                            logging.info('f0 (type {}, band {}):'.format(tp, ib))
-                            logging.info(f0_all[ib, (N[0]-1)/2, (N[1]-1)/2, :])
-                            #logging.info(self.f0_array[c][T][tp][ib][(N[0]-1)/2, (N[1]-1)/2, :])
+                        # for ib in range(self.num_bands[tp]):
+                        #     logging.info('f0 (type {}, band {}):'.format(tp, ib))
+                        #     logging.info(f0_all[ib, (N[0]-1)/2, (N[1]-1)/2, :])
+                        #     #logging.info(self.f0_array[c][T][tp][ib][(N[0]-1)/2, (N[1]-1)/2, :])
                         if tp == 'n':
                             denominator = 3 * default_small_E * self.integrate_over_states(f0_all, tp)
                         if tp == 'p':
@@ -2806,21 +2895,17 @@ class AMSET(object):
                         # from equation 45 in Rode, inelastic mechanisms
                         for inel_mech in self.inelastic_scatterings:
                             g = self.array_from_kgrid("g_"+inel_mech, tp, c, T)
-                            # print('g*norm(v) for {}:'.format(inel_mech))
-                            # print((g * norm_v)[0, (N[0]-1)/2, (N[1]-1)/2, :])
                             self.mobility[tp][inel_mech][c][T] = self.integrate_over_states(g * norm_v, tp) / denominator
 
                         # from equation 45 in Rode, overall
                         g = self.array_from_kgrid("g", tp, c, T)
-                        #print('g: {}'.format(g))
-                        #print('norm_v: {}'.format(norm_v))
-                        for ib in range(self.num_bands[tp]):
-                            print('g for overall (type {}, band {}):'.format(tp, ib))
-                            print(g[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                            print('norm(v) for overall (type {}, band {}):'.format(tp, ib))
-                            print(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                            print('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
-                            print((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
+                        # for ib in range(self.num_bands[tp]):
+                        #     logging.info('g for overall (type {}, band {}):'.format(tp, ib))
+                        #     logging.info(g[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                        #     logging.info('norm(v) for overall (type {}, band {}):'.format(tp, ib))
+                        #     logging.info(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                        #     logging.info('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
+                        #     logging.info((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
                         self.mobility[tp]['overall'][c][T] = self.integrate_over_states(g * norm_v, tp) / denominator
 
                     print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
@@ -2888,7 +2973,7 @@ class AMSET(object):
                             denom = self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
                                                           weighted=False)
 
-                    print "denom for {}-type with integrate_over_kgrid: {}: \n {}".format(tp, integrate_over_kgrid, denom)
+                    print("denom for {}-type with integrate_over_kgrid: {}: \n {}".format(tp, integrate_over_kgrid, denom))
 
                     if integrate_over_kgrid:
                         for mu_inel in self.inelastic_scatterings:
@@ -2901,8 +2986,8 @@ class AMSET(object):
                                 self.integrate_over_BZ(["g"], tp, c, T,
                                 xDOS=False,xvel=True,weighted=True)
 
-                        print "overll numerator"
-                        print self.egrid[tp]["mobility"]["overall"][c][T]
+                        print("overll numerator")
+                        print(self.egrid[tp]["mobility"]["overall"][c][T])
                     else:
                         for mu_inel in self.inelastic_scatterings:
                             # calculate mobility["POP"] based on g_POP
@@ -2992,12 +3077,12 @@ class AMSET(object):
                         # self.egrid["seebeck"][c][T][tp] += 1e6 \
                         #                 * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
 
-                    print "3 {}-seebeck terms at c={} and T={}:".format(tp, c, T)
-                    print self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                          / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B
+                    print("3 {}-seebeck terms at c={} and T={}:".format(tp, c, T))
+                    print(self.egrid["Seebeck_integral_numerator"][c][T][tp] \
+                          / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B)
                     #print + (self.egrid["fermi"][c][T] - self.cbm_vbm[tp]["energy"]) * 1e6 * k_B / (k_B * T)
-                    print + (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) * 1e6 * k_B / (k_B * T)
-                    print + self.egrid[tp]["J_th"][c][T] / self.egrid[tp]["conductivity"][c][T]/ dTdz * 1e6
+                    print((self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) * 1e6 * k_B / (k_B * T))
+                    print(self.egrid[tp]["J_th"][c][T] / self.egrid[tp]["conductivity"][c][T]/ dTdz * 1e6)
 
 
                     #TODO: not sure about the following part yet specially as sometimes due to position of fermi I get very off other type mobility values! (sometimes very large)
@@ -3339,3 +3424,37 @@ if __name__ == "__main__":
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
+
+    # test_dir = os.path.dirname(__file__)
+    # model_params = {'bs_is_isotropic': True,
+    #                      'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+    #                      'inelastic_scatterings': ['POP']}
+    # performance_params = {'dE_min': 0.0001, 'nE_min': 2, 'Ecut': 0.7,
+    #                            'parallel': True, 'BTE_iters': 5, 'nkdos': 29}
+    # GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
+    #                     'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
+    #                     'P_PIE': 0.052, 'scissor': 0.5818}
+    # GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
+    # GaAs_cube = os.path.join(GaAs_path, "fort.123_GaAs_1099kp")
+    #
+    # expected_mu = {'overall': 4327.095}
+    # performance_params = dict(performance_params)
+    # performance_params["max_nbands"] = 1
+    # amset = AMSET(calc_dir=GaAs_path, material_params=GaAs_params,
+    #               model_params=model_params,
+    #               performance_params=performance_params,
+    #               dopings=[-3e13], temperatures=[300], k_integration=True,
+    #               e_integration=False, fermi_type='k',
+    #               loglevel=logging.ERROR)
+    # amset.run(GaAs_cube, kgrid_tp='fine', write_outputs=False, test_k_anisotropic=True)
+    # mobility = amset.mobility
+    # kgrid = amset.kgrid
+    #
+    # # check mobility values
+    # for mu in expected_mu.keys():
+    #     diff = np.std(mobility['n'][mu][-3e13][300])
+    #     avg = np.mean(mobility['n'][mu][-3e13][300])
+    #     self.assertLess(diff / avg, 0.002)
+    #     diff = abs(mobility['n'][mu][-3e13][300][0] - expected_mu[mu])
+    #     avg = (mobility['n'][mu][-3e13][300][0] + expected_mu[mu]) / 2
+    #     self.assertTrue(diff / avg <= 0.01)
