@@ -58,10 +58,7 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                         points_1d[dir].append(center[dim] + (i + 1) * step)
 
             else:
-                if kgrid_tp == 'poly_band':
-                    mesh = [0.002, 0.004, 0.007, 0.01, 0.016, 0.025, 0.035,
-                            0.05, 0.07, 0.1, 0.15, 0.25]
-                elif kgrid_tp == 'extremely fine':
+                if kgrid_tp == 'extremely fine':
                     mesh = [0.0005, 0.001, 0.0015, 0.002, 0.003, 0.004, 0.0045, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.02, 0.03,
                             0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.15, 0.25]
                 elif kgrid_tp == 'super fine':
@@ -74,7 +71,7 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                     mesh = [0.004, 0.01, 0.02, 0.03,
                             0.05, 0.07, 0.1, 0.15, 0.25]
                 elif kgrid_tp == 'coarse':
-                    mesh = [0.001, 0.005, 0.01, 0.05, 0.15]
+                    mesh = [0.001, 0.005, 0.01, 0.02, 0.05, 0.15]
                 elif kgrid_tp == 'very coarse':
                     mesh = [0.001, 0.01]
                 else:

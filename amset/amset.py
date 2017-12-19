@@ -106,7 +106,7 @@ class AMSET(object):
             self.cbm_vbm["p"]["energy"] = 0.0
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
 
-        self.num_cores = max(int(multiprocessing.cpu_count()/4), 8)
+        self.num_cores = max(int(multiprocessing.cpu_count()/4), self.max_ncpu)
         if self.parallel:
             logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
 
@@ -271,7 +271,8 @@ class AMSET(object):
             "nkdos": self.nkdos,
             "BTE_iters": self.BTE_iters,
             "max_nbands": self.max_nbands,
-            "max_normk": self.max_normk
+            "max_normk": self.max_normk,
+            "max_ncpu": self.max_ncpu
         }
 
         with open("material_params.json", "w") as fp:
@@ -351,7 +352,7 @@ class AMSET(object):
         self.nkibz = params.get("nkibz", 40)
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 2)
-        c_factor = max(1, 2*abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.15)
+        c_factor = max(1, 3 * abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.25)
         Ecut = params.get("Ecut", c_factor * 5 * k_B * max(self.temperatures + [300]))
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
         for tp in ["n", "p"]:
@@ -368,10 +369,10 @@ class AMSET(object):
         # TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.BTE_iters = params.get("BTE_iters", 5)
         self.parallel = params.get("parallel", True)
+        self.max_ncpu = params.get("max_ncpu", 8)
         logging.info("parallel: {}".format(self.parallel))
         self.max_nbands = params.get("max_nbands", None)
         self.max_normk = params.get("max_normk", 2)
-
 
 
     def __getitem__(self, key):
@@ -2478,7 +2479,8 @@ class AMSET(object):
                                                 len(egrid["p"]["energy"])])]))
             for tp in ["n", "p"]:
                 for key in egrid[tp]:
-                    if key in ["size"]:
+                    if key in ['size', 'J_th', 'relaxation time constant',
+                               'conductivity', 'seebeck', 'TE_power_factor']:
                         continue
                     try:
                         for c in self.dopings:
@@ -2927,6 +2929,11 @@ class AMSET(object):
 
 
     def calculate_transport_properties_with_E(self):
+        """
+        Mobility and Seebeck coefficient are calculated by integrating the
+            the perturbation to electron distribution as well as group velocity
+            over the energy
+        """
         integrate_over_kgrid = False
         for c in self.dopings:
             for T in self.temperatures:
@@ -3355,6 +3362,8 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
     add_extrema = None
+    # add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
+
 
     model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
@@ -3362,7 +3371,7 @@ if __name__ == "__main__":
         model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
-                          "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.5}
+            "BTE_iters": 5, "max_nbands": 1, "max_normk": 2.5, "max_ncpu": 4}
 
     ### for PbTe
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -3370,9 +3379,6 @@ if __name__ == "__main__":
     # cube_path = "../test_files/PbTe/nscf_line"
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     # #coeff_file = os.path.join(cube_path, "fort.123")
-
-    ## For GaAs
-    add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
 
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
@@ -3400,21 +3406,21 @@ if __name__ == "__main__":
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
                   # dopings = [-3e13],
-                  dopings = [-2e15],
+                  dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
                   temperatures = [300],
                   # temperatures = range(100, 1100, 100),
-                  k_integration=True, e_integration=False, fermi_type='k',
+                  k_integration=True, e_integration=False, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
     # stats.print_callers(10)
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy', 'ACD', 'S_o', 'velocity', 'df0dk'], E_plots=['velocity', 'df0dk', 'ACD', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy', 'ACD', 'S_o', 'velocity', 'df0dk'], E_plots=['velocity', 'df0dk', 'ACD','IMP', 'PIE', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
