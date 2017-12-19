@@ -11,6 +11,7 @@ from amset import AMSET
 from tools import rel_diff
 
 test_dir = os.path.dirname(__file__)
+#test_dir = 'amset/amset'
 
 class AmsetTest(unittest.TestCase):
     def setUp(self):
@@ -130,6 +131,35 @@ class AmsetTest(unittest.TestCase):
                 egrid['n']['mobility'][mu][-2e15][300]), 0.01*\
                 np.mean(egrid['n']['mobility'][mu][-2e15][300]))
             self.assertLess(rel_diff(egrid['n']['mobility'][mu][-2e15][300][0], expected_mu[mu]), 0.002)
+
+
+    def test_GaAs_anisotropic_k(self):
+        print('testing test_GaAs_isotropic_k...')
+        # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
+        # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
+        #                'POP': 10113.9, 'overall': 8173.4}
+
+        expected_mu = {'overall': 4327.095}
+        performance_params = dict(self.performance_params)
+        performance_params["max_nbands"] = 1
+        amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
+                      model_params=self.model_params,
+                      performance_params=performance_params,
+                      dopings=[-3e13], temperatures=[300], k_integration=True,
+                      e_integration=False, fermi_type='k',
+                      loglevel=logging.ERROR)
+        amset.run(self.GaAs_cube, kgrid_tp='very fine', write_outputs=False, test_k_anisotropic=True)
+        mobility = amset.mobility
+        kgrid = amset.kgrid
+
+        # check mobility values
+        for mu in expected_mu.keys():
+            diff = np.std(mobility['n'][mu][-3e13][300])
+            avg = np.mean(mobility['n'][mu][-3e13][300])
+            self.assertLess(diff / avg, 0.002)
+            diff = abs(mobility['n'][mu][-3e13][300][0] - expected_mu[mu])
+            avg = (mobility['n'][mu][-3e13][300][0] + expected_mu[mu]) / 2
+            self.assertTrue(diff / avg <= 0.01)
 
 
 if __name__ == '__main__':
