@@ -1,6 +1,27 @@
+import logging
 import numpy as np
-from constants import hbar, m_e, e, k_B, epsilon_0, sq3
+
+from analytical_band_from_BZT import Analytical_bands, outer, get_energy
+from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
+                        epsilon_0, default_small_E, dTdz, sq3
 from math import pi, log
+
+from pymatgen import Spin
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from pymatgen.symmetry.bandstructure import HighSymmKpath
+
+
+class AmsetError(Exception):
+    """
+    Exception class for AMSET. Raised when AMSET gives an error.
+    """
+
+    def __init__(self, msg):
+        self.msg = msg
+        logging.error(self.msg)
+
+    def __str__(self):
+        return "AmsetError : " + self.msg
 
 def remove_from_grid(grid, grid_rm_list):
     """deletes dictionaries storing properties that are no longer needed from
@@ -39,23 +60,23 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
             else:
                 if kgrid_tp == 'poly_band':
                     mesh = [0.002, 0.004, 0.007, 0.01, 0.016, 0.025, 0.035,
-                            0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
+                            0.05, 0.07, 0.1, 0.15, 0.25]
                 elif kgrid_tp == 'extremely fine':
                     mesh = [0.0005, 0.001, 0.0015, 0.002, 0.003, 0.004, 0.0045, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.02, 0.03,
-                            0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.15, 0.25, 0.35, 0.5]
+                            0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.15, 0.25]
                 elif kgrid_tp == 'super fine':
                     mesh = [0.0005, 0.001, 0.002, 0.003, 0.004, 0.005, 0.007, 0.01, 0.02, 0.03,
-                            0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
+                            0.05, 0.07, 0.1, 0.15, 0.25]
                 elif kgrid_tp == 'very fine':
                     mesh = [0.001, 0.002, 0.004, 0.007, 0.01, 0.02, 0.03,
-                            0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
+                            0.05, 0.07, 0.1, 0.15, 0.25]
                 elif kgrid_tp == 'fine':
                     mesh = [0.004, 0.01, 0.02, 0.03,
-                            0.05, 0.07, 0.1, 0.15, 0.25, 0.35, 0.5]
+                            0.05, 0.07, 0.1, 0.15, 0.25]
                 elif kgrid_tp == 'coarse':
-                    mesh = [0.001, 0.005, 0.01, 0.05, 0.15, 0.5]
+                    mesh = [0.001, 0.005, 0.01, 0.05, 0.15]
                 elif kgrid_tp == 'very coarse':
-                    mesh = [0.001, 0.01, 0.1, 0.5]
+                    mesh = [0.001, 0.01]
                 else:
                     raise ValueError('Unsupported value for kgrid_tp: {}'.format(kgrid_tp))
                 for step in mesh:
@@ -297,6 +318,24 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
 
 
+def get_closest_k(kpoint, ref_ks, retun_diff=True):
+    """
+    returns the list of difference between kpoints. If return_diff True, then
+        for a given kpoint the minimum distance among distances with ref_ks is
+        returned or just the reference kpoint that results if not return_diff
+    Args:
+        kpoint (1x3 array): the coordinates of the input k-point
+        ref_ks ([1x3 array]): list of reference k-points from which the
+            distance with initial_ks are calculated
+        return_diff (bool): if True, the minimum distance is returned
+    Returns (1x3 array):
+    """
+    min_dist_ik = np.array([norm(ki - kpoint) for ki in ref_ks]).argmin()
+    if retun_diff:
+        return kpoint - ref_ks[min_dist_ik]
+    else:
+        return ref_ks[min_dist_ik]
+
 def remove_duplicate_kpoints(kpts, dk=0.0001):
     """kpts (list of list): list of coordinates of electrons
      ALWAYS return either a list or ndarray: BE CONSISTENT with the input!!!
@@ -392,3 +431,149 @@ def rel_diff(num1, num2):
     diff = abs(num1 - num2)
     avg = (num1 + num2) / 2
     return diff / avg
+
+
+def get_energy_args(coeff_file, ibands):
+    """
+    Args:
+        coeff_file (str): the address to the cube (*.123) file
+        ibands ([int]): list of band numbers to be calculated; note that the
+            first band index is 1 not 0
+    Returns (tuple): necessary inputs for calc_analytical_energy or get_energy
+    """
+    analytical_bands = Analytical_bands(coeff_file=coeff_file)
+    print('ibands')
+    print(ibands)
+    try:
+        engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
+            analytical_bands.get_engre(iband=ibands)
+    except TypeError as e:
+        raise AmsetError('try reducing Ecut to include fewer bands')
+
+    nstv, vec, vec2 = analytical_bands.get_star_functions(
+            latt_points, nsym, symop, nwave, br_dir=br_dir)
+    out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+    for nw in xrange(nwave):
+        for i in xrange(nstv[nw]):
+            out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+    return engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir
+
+
+def calc_analytical_energy(kpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2,
+                           br_dir, sgn, scissor=0.0):
+    """
+    Args:
+        kpt ([1x3 array]): fractional coordinates of the k-point
+        engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir: all obtained via
+            get_energy_args
+        sgn (int): options are +1 for valence band and -1 for conduction bands
+        scissor (float): the amount by which the band gap is modified/scissored
+    Returns:
+
+    """
+    energy, de, dde = get_energy(kpt, engre, nwave, nsym, nstv, vec, vec2,
+                                 out_vec2, br_dir=br_dir)
+    energy = energy * Ry_to_eV - sgn * scissor / 2.0
+    velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)
+    effective_m = hbar ** 2 / (
+        dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+    return energy, velocity, effective_m
+
+
+def get_bindex_bspin(extremum, is_cbm):
+    """
+    Returns the band index and spin of band extremum
+
+    Args:
+        extremum (dict): dictionary containing the CBM/VBM, i.e. output of
+            Bandstructure.get_cbm()
+        is_cbm (bool): whether the extremum is the CBM or not
+    """
+
+    idx = int(is_cbm) - 1  # 0 for CBM and -1 for VBM
+    try:
+        bidx = extremum["band_index"][Spin.up][idx]
+        bspin = Spin.up
+    except IndexError:
+        bidx = extremum["band_index"][Spin.down][idx]
+        bspin = Spin.down
+    return bidx, bspin
+
+def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
+                    Ecut=None, nex_max=20):
+    """
+    returns a dictionary of p-type (valence) and n-type (conduction) band
+        extrema k-points by looking at the 1st and 2nd derivatives of the bands
+    Args:
+        bs (pymatgen BandStructure object): must containt Structure
+        coeff_file (str): path to the cube file from BoltzTraP run
+        nk_ibz (int): maximum number of k-points in one direction in IBZ
+        v_cut (float): threshold under which the derivative is assumed 0 [cm/s]
+        min_normdiff (float): the minimum allowed distance norm(fractional k)
+            in extrema; this is important to avoid numerical instability errors
+        Ecut (float or dict): max energy difference with CBM/VBM allowed for
+            extrema
+        nex_max (int): max number of low-velocity kpts tested for being extrema
+    Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
+    """
+    Ecut = Ecut or 10*k_B*300
+    if not isinstance(Ecut, dict):
+        Ecut = {'n': Ecut, 'p': Ecut}
+    vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
+    # vbm_idx = bs.get_vbm()['band_index'][Spin.up][0]
+    ibands = [1, 2]  # in this notation, 1 is the last valence band
+    ibands = [i + vbm_idx + 1 for i in ibands]
+    ibz = HighSymmKpath(bs.structure)
+    sg = SpacegroupAnalyzer(bs.structure)
+    kmesh = sg.get_ir_reciprocal_mesh(mesh=(nk_ibz, nk_ibz, nk_ibz))
+    kpts = [k_n_w[0] for k_n_w in kmesh]
+    kpts.extend(ibz.kpath['kpoints'].values())
+
+    # grid = {'energy': [], 'velocity': [], 'mass': [], 'normv': []}
+    extrema = {'n': [], 'p': []}
+    engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(
+        coeff_file=coeff_file, ibands=ibands)
+
+    for iband in range(len(ibands)):
+        is_cb = [False, True][iband]
+        tp = ['p', 'n'][iband]
+        energies = []
+        velocities = []
+        normv = []
+        masses = []
+        for ik, kpt in enumerate(kpts):
+            en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave,
+                nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=1, scissor=0)
+            energies.append(en)
+            velocities.append(abs(v))
+            normv.append(norm(v))
+            masses.append(mass.trace() / 3)
+        indexes = np.argsort(normv)[:nex_max]
+        # for prop in [energies, normv, velocities, masses, kpts]:
+        #     prop = [prop[i] for i in indexes]
+        energies = [energies[i] for i in indexes]
+        normv = [normv[i] for i in indexes]
+        velocities = [velocities[i] for i in indexes]
+        masses = [masses[i] for i in indexes]
+        kpts = [kpts[i] for i in indexes]
+        if is_cb:
+            extremum0 = min(energies)  # extremum0 is CBM here
+        else:
+            extremum0 = max(energies)
+
+        if normv[0] > v_cut:
+            raise ValueError('No extremum point (v<{}) found!'.format(v_cut))
+        for i in range(0, len(kpts)):
+            # if (velocities[i] > v_cut).all() :
+            if normv[i] > v_cut:
+                break
+            else:
+                far_enough = True
+                for k in extrema[tp]:
+                    if norm(kpts[i] - k) <= min_normdiff:
+                        far_enough = False
+                if far_enough \
+                        and abs(energies[i] - extremum0) < Ecut[tp] \
+                        and masses[i] * (-1) ** (int(is_cb) + 1) >= 0:
+                    extrema[tp].append(kpts[i])
+    return extrema
