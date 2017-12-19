@@ -41,7 +41,7 @@ class AmsetTest(unittest.TestCase):
                       dopings=[-2e15], temperatures=[300], k_integration=True,
                       e_integration=True, fermi_type='k',
                       loglevel=logging.ERROR)
-        amset.run(self.GaAs_cube, kgrid_tp='poly_band', write_outputs=False)
+        amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
         egrid = amset.egrid
         diff = abs(np.array(amset.mobility['n']['ACD'][-2e15][300]) - \
                    np.array(egrid['n']['mobility']['SPB_ACD'][-2e15][300]))
