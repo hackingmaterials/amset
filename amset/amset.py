@@ -28,7 +28,7 @@ from tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_k
         fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
         remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
         get_energy_args, calc_analytical_energy, get_bindex_bspin, \
-        get_bs_extrema, AmsetError
+        get_bs_extrema, AmsetError, kpts_to_first_BZ
 from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
 
@@ -815,7 +815,7 @@ class AMSET(object):
 
                 # final_kpts_added += self.get_intermediate_kpoints_list(list(kpts[ies_sorted[idx]]),
                 #                                    list(kpts[ies_sorted[idx+1]]), max(int(Ediff/target_Ediff) , 1))
-        return self.kpts_to_first_BZ(final_kpts_added)
+        return kpts_to_first_BZ(final_kpts_added)
 
 
 
@@ -845,20 +845,7 @@ class AMSET(object):
                 final_kpts_added += self.get_intermediate_kpoints_list(list(kpoints_added[tp][ik]),
                                                                        list(kpoints_added[tp][ik + 1]), nsteps)
 
-        return self.kpts_to_first_BZ(final_kpts_added)
-
-
-
-    def kpts_to_first_BZ(self, kpts):
-        for i, k in enumerate(kpts):
-            for alpha in range(3):
-                if k[alpha] > 0.5:
-                    k[alpha] -= 1
-                if k[alpha] < -0.5:
-                    k[alpha] += 1
-            kpts[i] = k
-        return kpts
-
+        return kpts_to_first_BZ(final_kpts_added)
 
 
     def get_sym_eq_ks_in_first_BZ(self, k, cartesian=False):
@@ -869,7 +856,7 @@ class AMSET(object):
         :return:
         """
         fractional_ks = [np.dot(k, self.rotations[i]) for i in range(len(self.rotations))]
-        fractional_ks = self.kpts_to_first_BZ(fractional_ks)
+        fractional_ks = kpts_to_first_BZ(fractional_ks)
         if cartesian:
             return [self._rec_lattice.get_cartesian_coords(k_frac) / A_to_nm for k_frac in fractional_ks]
         else:
@@ -930,6 +917,11 @@ class AMSET(object):
         ################TEST FOR Si##########################################
         # self.important_pts = {'n': [[ 0.44444444,  0.44444444,  0.        ]],
         #                       'p': [[0.0, 0.0, 0.0]]}
+        #################################################################
+
+        ################TEST FOR GaAs-L ##########################################
+        # self.important_pts = {'p': [np.array([ 0.,  0.,  0.])],
+        #                       'n': [np.array([-0.5,  0. ,  0. ]), np.array([ 0. , -0.5,  0. ]), np.array([ 0. ,  0. , -0.5]), np.array([ 0.5,  0.5,  0.5])]}
         #################################################################
 
 
@@ -3362,7 +3354,7 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
     add_extrema = None
-    # add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
+    add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
 
 
     model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
@@ -3420,7 +3412,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy', 'ACD', 'S_o', 'velocity', 'df0dk'], E_plots=['velocity', 'df0dk', 'ACD','IMP', 'PIE', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy', 'ACD', 'IMP', 'PIE', 'S_o', 'velocity', 'df0dk'], E_plots=['velocity', 'df0dk'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)

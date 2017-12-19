@@ -43,6 +43,15 @@ def norm(v):
 def grid_norm(grid):
     return (grid[:,:,:,0]**2 + grid[:,:,:,1]**2 + grid[:,:,:,2]**2) ** 0.5
 
+def kpts_to_first_BZ(kpts):
+    for i, k in enumerate(kpts):
+        for alpha in range(3):
+            if k[alpha] > 0.5:
+                k[alpha] -= 1
+            if k[alpha] < -0.5:
+                k[alpha] += 1
+        kpts[i] = k
+    return kpts
 
 def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
     points_1d = {dir: [] for dir in ['x', 'y', 'z']}
