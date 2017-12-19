@@ -954,7 +954,7 @@ class AMSET(object):
 
             # generate a normalized numpy array of vectors pointing in the direction of k
             self.k_hat_array[tp] = normalize_array(self.kgrid_array[tp])
-        self.k_hat_array_cartesian[tp] = normalize_array(self.kgrid_array_cartesian[tp])
+            self.k_hat_array_cartesian[tp] = normalize_array(self.kgrid_array_cartesian[tp])
             self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
 
             logging.info("number of original ibz {}-type k-points: {}".format(tp, len(kpts[tp])))
@@ -1193,6 +1193,8 @@ class AMSET(object):
                                 results[ik][
                                     2] * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
 
+                        self.velocity_signed[tp][ib][ik] = velocity_signed
+
                     else:
                         energy, velocity, effective_mass = get_poly_energy(self.kgrid[tp]["cartesian kpoints"][ib][ik],
                                                                            poly_bands=self.poly_bands,
@@ -1200,8 +1202,7 @@ class AMSET(object):
                                                                            bandgap=self.dft_gap + self.scissor)
 
                     self.kgrid[tp]["energy"][ib][ik] = energy
-                    self.kgrid[tp]["velocity"][ib][ik] = velocity
-                    self.velocity_signed[tp][ib][ik] = velocity_signed
+                    self.kgrid[tp]["velocity"][ib][ik] = velocit
                     # if tp == 'n':
                     #     print("k_frac = {}".format(self.kgrid['n']["kpoints"][ib][ik]))
                     #     print("k_cart = {}".format(self.kgrid['n']["cartesian kpoints"][ib][ik]))
@@ -2746,7 +2747,7 @@ class AMSET(object):
                     num_k = [len(self.kgrid[tp]["energy"][ib]) for ib in range(self.num_bands[tp])]
                     df0dk = self.array_from_kgrid('df0dk', tp, c, T)
                     v = self.array_from_kgrid('velocity', tp)
-                    v_vec = self.calc_v_vec(tp)
+                    #v_vec = self.calc_v_vec(tp)
                     norm_v = np.array([self.grid_from_energy_list([norm(self.kgrid[tp]["velocity"][ib][ik]) / sq3 for ik in
                                                           range(num_k[ib])], tp, ib) for ib in range(self.num_bands[tp])])
                     #norm_v = grid_norm(v)
@@ -2771,6 +2772,8 @@ class AMSET(object):
 
                     # TODO: the anisotropic case is not correct right now
                     if not self.bs_is_isotropic or test_anisotropic:
+
+                        v_vec = self.calc_v_vec(tp)
 
                         #TODO: get f through solving the BTE anisotropically
                         #k_hat = np.array([self.k_hat_array[tp] for ib in range(self.num_bands[tp])])

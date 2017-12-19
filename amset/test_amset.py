@@ -164,7 +164,7 @@ class AmsetTest(unittest.TestCase):
 
 
     def test_GaAs_anisotropic_k(self):
-        print('testing test_GaAs_isotropic_k...')
+        print('\ntesting test_GaAs_anisotropic_k...')
         # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
         #                'POP': 10113.9, 'overall': 8173.4}
