@@ -1,5 +1,7 @@
 dependencies:
-  override:
+  pre:
+    - pyenv local 2.7.12
+    - sudo apt-get install tk-dev python-tk
     - pip install -r requirements.txt
     - python setup.py develop
 test:
