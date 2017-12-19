@@ -2460,7 +2460,8 @@ class AMSET(object):
                                                 len(egrid["p"]["energy"])])]))
             for tp in ["n", "p"]:
                 for key in egrid[tp]:
-                    if key in ["size"]:
+                    if key in ['size', 'J_th', 'relaxation time constant',
+                               'conductivity', 'seebeck', 'TE_power_factor']:
                         continue
                     try:
                         for c in self.dopings:
@@ -3276,6 +3277,8 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
     add_extrema = None
+    # add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
+
 
     model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
@@ -3291,9 +3294,6 @@ if __name__ == "__main__":
     # cube_path = "../test_files/PbTe/nscf_line"
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     # #coeff_file = os.path.join(cube_path, "fort.123")
-
-    ## For GaAs
-    add_extrema = None # {'n': [[0.5, 0.5, 0.5]], 'p':[]}
 
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
@@ -3329,7 +3329,7 @@ if __name__ == "__main__":
                   k_integration=True, e_integration=False, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
     # stats.print_callers(10)
 
