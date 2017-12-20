@@ -324,7 +324,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
 
 
-def get_closest_k(kpoint, ref_ks, retun_diff=True):
+def get_closest_k(kpoint, ref_ks, return_diff=False):
     """
     returns the list of difference between kpoints. If return_diff True, then
         for a given kpoint the minimum distance among distances with ref_ks is
@@ -337,7 +337,7 @@ def get_closest_k(kpoint, ref_ks, retun_diff=True):
     Returns (1x3 array):
     """
     min_dist_ik = np.array([norm(ki - kpoint) for ki in ref_ks]).argmin()
-    if retun_diff:
+    if return_diff:
         return kpoint - ref_ks[min_dist_ik]
     else:
         return ref_ks[min_dist_ik]
@@ -473,6 +473,7 @@ def calc_analytical_energy(kpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2,
         engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir: all obtained via
             get_energy_args
         sgn (int): options are +1 for valence band and -1 for conduction bands
+            sgn is basically ignored (doesn't matter) if scissor==0.0
         scissor (float): the amount by which the band gap is modified/scissored
     Returns:
 
@@ -505,13 +506,15 @@ def get_bindex_bspin(extremum, is_cbm):
         bspin = Spin.down
     return bidx, bspin
 
-def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
+def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
                     Ecut=None, nex_max=20):
     """
     returns a dictionary of p-type (valence) and n-type (conduction) band
         extrema k-points by looking at the 1st and 2nd derivatives of the bands
     Args:
-        bs (pymatgen BandStructure object): must containt Structure
+        bs (pymatgen BandStructure object): must containt Structure and have
+            the same number of valence electrons and settings as the vasprun.xml
+            from which coeff_file is generated.
         coeff_file (str): path to the cube file from BoltzTraP run
         nk_ibz (int): maximum number of k-points in one direction in IBZ
         v_cut (float): threshold under which the derivative is assumed 0 [cm/s]
@@ -547,6 +550,57 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
         velocities = []
         normv = []
         masses = []
+
+######################################################################
+        # kpts_list = [np.array([ 0.,  0.,  0.]),
+        #              [-0.5, -0.5, -0.5],
+        #              [-0.5, 0.0, 0.0],
+        #              [0., -0.5, 0.],
+        #              [0., 0., -0.5],
+        #              [0.5, 0.5, 0.5],
+        #              [0.5, 0.0, 0.0],
+        #              [0., 0.5, 0.],
+        #              [0., 0., 0.5],
+        #              np.array([0., 0., 0.]),
+        #              [ 0.5,  0.,  0.5],
+        #             [0., -0.5, -0.5],
+        #              [0.5 , 0.5 , 0.],
+        #              [-0.5, 0., -0.5],
+        #              [0., 0.5, 0.5],
+        #              [-0.5, -0.5, 0.]
+        #              ]
+
+
+ #        kpts_list = [ [0.0, 0.0, 0.0],
+ #            [ 0.  ,  0.44,  0.44],
+ # [ 0.44,  0.44  ,0.  ],
+ # [ 0. ,  -0.44, -0.44],
+ # [-0.44 ,-0.44,  0.  ],
+ # [ 0.44 , 0.  ,  0.44],
+ # [-0.44 , 0.  , -0.44],
+ # [ 0. ,  -0.44 ,-0.44],
+ # [-0.44 ,-0.44 , 0.  ],
+ # [ 0. ,   0.44 , 0.44],
+ # [ 0.44,  0.44 , 0.  ],
+ # [-0.44 , 0. ,  -0.44],
+ # [ 0.44 , 0. ,   0.44] ,
+ #   [ 0.5,  0. ,  0.5],
+ # [ 0. ,  0.5,  0.5],
+ # [ 0.5 , 0.5,  0. ],
+ # [-0.5 , 0.  ,-0.5],
+ # [ 0. , -0.5 ,-0.5],
+ # [-0.5 ,-0.5 , 0. ]     ]
+ #        print('here kpts_list:')
+ #        print(kpts_list)
+ #        print('here the energies')
+ #        for ik, kpt in enumerate(kpts_list):
+ #            en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave,
+ #                nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=1, scissor=0)
+ #            print en
+
+
+######################################################################
+
         for ik, kpt in enumerate(kpts):
             en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave,
                 nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=1, scissor=0)
@@ -555,17 +609,46 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
             normv.append(norm(v))
             masses.append(mass.trace() / 3)
         indexes = np.argsort(normv)[:nex_max]
-        # for prop in [energies, normv, velocities, masses, kpts]:
-        #     prop = [prop[i] for i in indexes]
         energies = [energies[i] for i in indexes]
         normv = [normv[i] for i in indexes]
         velocities = [velocities[i] for i in indexes]
         masses = [masses[i] for i in indexes]
         kpts = [kpts[i] for i in indexes]
+
+        # print('here')
+        # cbmk = np.array([ 0.44,  0.44,  0.  ])
+        # print(np.vstack((bs.get_sym_eq_kpoints(cbmk),bs.get_sym_eq_kpoints(-cbmk))))
+        # cbmk = np.array([ 0.5,  0. ,  0.5])
+        # print(np.vstack((bs.get_sym_eq_kpoints(cbmk),bs.get_sym_eq_kpoints(-cbmk))))
+
+        # print('here values')
+        # print energies[:10]
+        # print normv[:10]
+        # print kpts[:10]
+        # print masses[:10]
         if is_cb:
-            extremum0 = min(energies)  # extremum0 is CBM here
+            iextrem = np.argmin(energies)
+            extremum0 = energies[iextrem]  # extremum0 is numerical CBM here
+            # The following is in case CBM doesn't have a zero numerical norm(v)
+            cbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
+            closest_cbm = get_closest_k(kpts[iextrem], np.vstack((bs.get_sym_eq_kpoints(cbmk),bs.get_sym_eq_kpoints(-cbmk))))
+            if norm(np.array(kpts[iextrem]) - closest_cbm) < min_normdiff and \
+                            abs(bs.get_cbm()['energy']-extremum0) < 0.05:
+                extrema['n'].append(cbmk)
+            else:
+                extrema['n'].append(kpts[iextrem])
         else:
-            extremum0 = max(energies)
+            iextrem = np.argmax(energies)
+            extremum0 = energies[iextrem]
+            vbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
+            closest_vbm = get_closest_k(kpts[iextrem], np.vstack((bs.get_sym_eq_kpoints(vbmk),bs.get_sym_eq_kpoints(-vbmk))))
+            if norm(np.array(kpts[iextrem]) - closest_vbm) < min_normdiff and \
+                            abs(bs.get_vbm()['energy']-extremum0) < 0.05:
+                extrema['p'].append(vbmk)
+            else:
+                extrema['p'].append(kpts[iextrem])
+
+
 
         if normv[0] > v_cut:
             raise ValueError('No extremum point (v<{}) found!'.format(v_cut))
@@ -580,6 +663,6 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
                         far_enough = False
                 if far_enough \
                         and abs(energies[i] - extremum0) < Ecut[tp] \
-                        and masses[i] * (-1) ** (int(is_cb) + 1) >= 0:
+                        and masses[i] * ((-1) ** (int(is_cb) + 1)) >= 0:
                     extrema[tp].append(kpts[i])
     return extrema
