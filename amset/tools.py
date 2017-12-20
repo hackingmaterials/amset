@@ -448,7 +448,7 @@ def get_energy_args(coeff_file, ibands):
     Returns (tuple): necessary inputs for calc_analytical_energy or get_energy
     """
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
-    print('ibands')
+    print('ibands in get_energy_args')
     print(ibands)
     try:
         engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
@@ -528,7 +528,7 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
     vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
     # vbm_idx = bs.get_vbm()['band_index'][Spin.up][0]
     ibands = [1, 2]  # in this notation, 1 is the last valence band
-    ibands = [i + vbm_idx + 1 for i in ibands]
+    ibands = [i + vbm_idx for i in ibands]
     ibz = HighSymmKpath(bs.structure)
     sg = SpacegroupAnalyzer(bs.structure)
     kmesh = sg.get_ir_reciprocal_mesh(mesh=(nk_ibz, nk_ibz, nk_ibz))
