@@ -1,6 +1,9 @@
 from pymatgen import MPRester
 from pylab import plot,show, scatter
 import numpy as np
+
+from pymatgen.electronic_structure.plotter import BSPlotter
+from pymatgen.io.vasp import Vasprun
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 from analytical_band_from_BZT import get_energy
@@ -13,7 +16,7 @@ from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
 
 api = MPRester("fDJKEZpxSyvsXdCt")
 
-def retrieve_bs(coeff_file, bs, ibands):
+def retrieve_bs(coeff_file, bs, ibands, cbm):
     # sp=bs.bands.keys()[0]
     engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(coeff_file, ibands)
 
@@ -22,8 +25,6 @@ def retrieve_bs(coeff_file, bs, ibands):
         en = []
         sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
         for kpt in sym_line_kpoints:
-            # cbm = False
-            cbm = True
             e, v, m = get_energy(kpt, engre[i], nwave, nsym, nstv, vec, vec2=vec2, out_vec2=out_vec2, br_dir=br_dir, cbm=cbm)
             en.append(e*13.605)
 
@@ -40,17 +41,22 @@ if __name__ == "__main__":
     # user inputs
     PbTe_id = 'mp-19717' # valence_idx = 9
     Si_id = 'mp-149' # valence_idx = 4
-    GaAs_id = 'mp-2534' # valence_idx = 14
+    GaAs_id = 'mp-2534' # valence_idx = ?
     SnSe2_id = "mp-665"
 
-    bs = api.get_bandstructure_by_material_id(SnSe2_id)
+    # bs = api.get_bandstructure_by_material_id(GaAs_id)
+    bs = Vasprun('GaAs_28electron_ncsf_line_vasprun.xml').get_band_structure(
+        kpoints_filename='GaAs_28electron_KPOINTS', line_mode=True)
     GaAs_st = api.get_structure_by_material_id(GaAs_id)
     bs.structure =  GaAs_st
     print(bs.get_sym_eq_kpoints([0.5, 0.5, 0.5]))
 
-    vbm_idx = bs.get_vbm()['band_index'][Spin.up][0]
+
+    # vbm_idx = bs.get_vbm()['band_index'][Spin.up][0]
+    vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
+    print('vbm band index (vbm_idx): {}'.format(vbm_idx))
     ibands = [1, 2] # in this notation, 1 is the last valence band
-    ibands = [i + vbm_idx + 1 for i in ibands]
+    ibands = [i + vbm_idx for i in ibands]
 
     PbTe_coeff_file = '../test_files/PbTe/fort.123'
     Si_coeff_file = "../test_files/Si/Si_fort.123"
@@ -62,7 +68,7 @@ if __name__ == "__main__":
 
     # retrieve_bs(coeff_file=PbTe_coeff_file, bs=bs, ibands=ibands)
 
-    # retrieve_bs(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands)
+    # retrieve_bs(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands, cbm=False)
 
     # retrieve_bs(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[11, 12, 13, 14])
     # retrieve_bs(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[24, 25, 26, 27])
