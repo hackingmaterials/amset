@@ -12,7 +12,6 @@ from amset import AMSET
 from tools import rel_diff
 
 test_dir = os.path.dirname(__file__)
-#test_dir = 'amset/amset'
 
 class AmsetTest(unittest.TestCase):
     def setUp(self):
@@ -24,7 +23,8 @@ class AmsetTest(unittest.TestCase):
                                 'max_normk': 2, 'Ecut': 0.4}
         self.GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
-                'P_PIE': 0.052, 'scissor': 0.5818}
+                'P_PIE': 0.052, 'scissor': 0.5818,
+                'important_points':{tp:[[0.0, 0.0, 0.0]] for tp in ['p', 'n']}}
         self.GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
         self.GaAs_cube = os.path.join(self.GaAs_path, "fort.123_GaAs_1099kp")
 
