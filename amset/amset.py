@@ -146,6 +146,15 @@ class AMSET(object):
 
         self.init_kgrid(coeff_file=coeff_file, kgrid_tp=kgrid_tp)
         logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
+        cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
+        # if self.kgrid['n']['energy'][0][cbm_idx] < self.cbm_vbm['n']['energy']:
+        #     self.cbm_vbm['n']['energy'] = self.kgrid['n']['energy'][0][cbm_idx]
+        #     self.cbm_vbm['n']['energy']
+        logging.debug("actual CBM k: {}".format(self.kgrid['n']['kpoints'][0][cbm_idx]))
+        logging.debug("actual CBM: {}".format(self.kgrid['n']['energy'][0][cbm_idx]))
+        vbm_idx = np.argmax(self.kgrid['p']['energy'][0])
+        logging.debug("actual VBM k: {}".format(self.kgrid['p']['kpoints'][0][vbm_idx]))
+        logging.debug("actual VBM: {}".format(self.kgrid['p']['energy'][0][vbm_idx]))
 
         start_time_fermi = time.time()
         if self.fermi_calc_type == 'k':
@@ -248,7 +257,8 @@ class AMSET(object):
             "scissor": self.scissor,
             "donor_charge": self.charge["n"],
             "acceptor_charge": self.charge["p"],
-            "dislocations_charge": self.charge["dislocations"]
+            "dislocations_charge": self.charge["dislocations"],
+            "important_points": self.important_pts
         }
         if self.W_POP:
             material_params["W_POP"] = self.W_POP / (1e12 * 2 * pi)
@@ -327,6 +337,7 @@ class AMSET(object):
         self.charge = {"n": donor_charge, "p": acceptor_charge, "dislocations": dislocations_charge}
         self.add_extrema = params.get('add_extrema', None)
         self.add_extrema = self.add_extrema or {'n': [], 'p':[]}
+        self.important_pts = params.get('important_points', None)
 
 
     def set_model_params(self, params):
@@ -889,7 +900,7 @@ class AMSET(object):
                 'very coarse', 'coarse', 'fine', 'very fine'
         Returns:
         """
-        logging.debug("begin profiling init_kgrid: a {} grid".format(kgrid_tp))
+        logging.debug('begin profiling init_kgrid: a "{}" grid'.format(kgrid_tp))
         start_time = time.time()
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
         self.rotations, _ = sg._get_symmetry()
@@ -897,35 +908,57 @@ class AMSET(object):
         logging.info("self.nkibz = {}".format(self.nkibz))
 
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
-        # self.important_pts = get_bs_extrema(self.bs, coeff_file, nk_ibz=17,
-        #         v_cut=self.v_min, min_normdiff=0.1, Ecut=self.Ecut, nex_max=20)
-        self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
+        if not self.important_pts:
+            self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file, nk_ibz=self.nkdos,
+                v_cut=self.v_min, min_normdiff=0.1, Ecut=self.Ecut, nex_max=20, return_global=True, niter=10)
+            # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
+            for tp in ['p', 'n']:
+                self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
+                self.cbm_vbm[tp]['kpoint'] = new_cbm_vbm[tp]['kpoint']
 
         logging.info(('here initial important_pts'))
         logging.info((self.important_pts)) # for some reason the nscf uniform GaAs fitted coeffs return positive mass for valence at Gamma!
 
-        for tp in ['n', 'p']:
-            self.important_pts[tp].append(self.cbm_vbm[tp]["kpoint"])
-            self.important_pts[tp].extend(self.add_extrema[tp])
-        for tp in ['n', 'p']:
-            all_important_ks = []
-            for k in self.important_pts[tp]:
-                all_important_ks +=  list(self.bs.get_sym_eq_kpoints(k))
-            self.important_pts[tp] = remove_duplicate_kpoints(all_important_ks)
+        # for tp in ['n', 'p']:
+        #     self.important_pts[tp].append(self.cbm_vbm[tp]["kpoint"])
+        #     self.important_pts[tp].extend(self.add_extrema[tp])
+        # for tp in ['n', 'p']:
+        #     all_important_ks = []
+        #     for k in self.important_pts[tp]:
+        #         all_important_ks +=  list(self.bs.get_sym_eq_kpoints(k))
+        #     self.important_pts[tp] = remove_duplicate_kpoints(all_important_ks)
 
 
         ################TEST FOR Si##########################################
-        # self.important_pts = {'n': [[ 0.44444444,  0.44444444,  0.        ]],
-        #                       'p': [[0.0, 0.0, 0.0]]}
+        # cbm_k = np.array([ 0.48648649,  0.48648649,  0.        ])
+        # cbm_k = np.array([ 0.42105263,  0.42105263,  0.        ])
+
+        # cbm_k = np.array([ 0.43105263 , 0.43105263,  0.001     ])
+        # self.important_pts = {
+        #     # 'n': [[ 0.42905263 , 0.42905263 , 0.001     ]],
+        #     'n': [[ -4.26549744e-01,  -4.26549744e-01,  -1.35782351e-08]],
+        #     # 'n': [[ 0.47058824,  0.47058824,  0.        ]],
+        #     'p': [[0.0, 0.0, 0.0]]}
+        #     'n': np.vstack((self.bs.get_sym_eq_kpoints(cbm_k),self.bs.get_sym_eq_kpoints(-cbm_k)))
+        # }
         #################################################################
 
         ################TEST FOR GaAs-L ##########################################
         # self.important_pts = {'p': [np.array([ 0.,  0.,  0.])],
-        #                       'n': [np.array([-0.5,  0. ,  0. ]), np.array([ 0. , -0.5,  0. ]), np.array([ 0. ,  0. , -0.5]), np.array([ 0.5,  0.5,  0.5])]}
+        #                       # 'n': [np.array([-0.5,  0. ,  0. ])]}
+        #                       # 'n': [np.array([ 0.,  0.,  0.]), np.array([0.5,  0.5 ,  0.5 ]), np.array([ 0.5,  0.,  0.5])]}
+        #                     'n': [np.array([ 0.,  0.,  0.]), np.array([0.5,  0.5 ,  0.5 ])]}
+
+                              # 'n': [np.array([ 0.5,  0.5,  0.5]),
+                              #       np.array([-0.5,  0. ,  0. ]), np.array([ 0. , -0.5,  0. ]), np.array([ 0. ,  0. , -0.5])
+                              #       , np.array([0.5,  0. ,  0. ]), np.array([ 0. , 0.5,  0. ]), np.array([ 0. ,  0. , 0.5])
+                              #       ]}
+
+
+
         #################################################################
 
 
-        logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
         logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
 
         self.kgrid_array = {}
@@ -1106,6 +1139,7 @@ class AMSET(object):
             "n": {},
             "p": {}}
         self.num_bands = {"n": {}, "p": {}}
+        # logging.debug('here the n-type kgrid :\n{}'.format(kpts['n']))
         for tp in ["n", "p"]:
             self.num_bands[tp] = self.cbm_vbm[tp]["included"]
             self.kgrid[tp]["kpoints"] = [kpts[tp] for ib in range(self.num_bands[tp])]
@@ -1131,7 +1165,7 @@ class AMSET(object):
             self.cbm_vbm[tp]["all cartesian k"] = self.get_sym_eq_ks_in_first_BZ(self.cbm_vbm[tp]["kpoint"], cartesian=True)
             self.cbm_vbm[tp]["all cartesian k"] = remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
 
-            self.important_pts[tp] = [self._rec_lattice.get_cartesian_coords(k)/A_to_nm for k in self.important_pts[tp]]
+            # self.important_pts[tp] = [self._rec_lattice.get_cartesian_coords(k)/A_to_nm for k in self.important_pts[tp]]
 
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -1157,10 +1191,13 @@ class AMSET(object):
                     # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - self.cbm_vbm[tp]["all cartesian k"][min_dist_ik]
 
 
-                    self.kgrid[tp]["cartesian kpoints"][ib][ik] = get_closest_k(self.kgrid[tp]["old cartesian kpoints"][ib][ik], self.important_pts[tp])
+                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = get_closest_k(self.kgrid[tp]["old cartesian kpoints"][ib][ik], self.important_pts[tp], return_diff=True)
+                    self.kgrid[tp]["cartesian kpoints"][ib][ik] = \
+                        self._rec_lattice.get_cartesian_coords(get_closest_k(
+                            self.kgrid[tp]["kpoints"][ib][ik], self.important_pts[tp], return_diff=True)) / A_to_nm
 
                     # # The following 2 lines (i.e. when the closest kpoints to equivalent extrema are calculated in fractional coordinates) would change the anisotropic test! not sure why
-                    # closest_frac_k = np.array(get_closest_k(self.kgrid[tp]["kpoints"][ib][ik], self.important_pts[tp]))
+                    # closest_frac_k = np.array(get_closest_k(self.kgrid[tp]["kpoints"][ib][ik], self.important_pts[tp]), return_diff=True)
                     # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self._rec_lattice.get_cartesian_coords(closest_frac_k) / A_to_nm
 
                     self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
@@ -1219,11 +1256,10 @@ class AMSET(object):
                     if self.max_normk:
                         if self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk:
                             rm_idx_list[tp][ib].append(ik)
-                    # if self.kgrid[tp]["norm(k)"][ib][ik] < 0.01:
-                    #     print('HERE removed k-point')
-                    #     print(self.kgrid[tp]["kpoints"][ib][ik])
-                    #     print(self.kgrid[tp]["cartesian kpoints"][ib][ik])
-                    #     rm_idx_list[tp][ib].append(ik)
+                    if self.kgrid[tp]["norm(k)"][ib][ik] < 0.0001:
+                        logging.debug('HERE removed k-point {} ; cartesian: {}'.format(
+                            self.kgrid[tp]["kpoints"][ib][ik], self.kgrid[tp]["cartesian kpoints"][ib][ik]))
+                        rm_idx_list[tp][ib].append(ik)
 
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
@@ -3354,7 +3390,7 @@ if __name__ == "__main__":
     mass = 0.25
     use_poly_bands = False
     add_extrema = None
-    add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
+    # add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
 
 
     model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
@@ -3372,21 +3408,21 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     # #coeff_file = os.path.join(cube_path, "fort.123")
 
-    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
-            "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
-            "scissor":  0.5818, 'add_extrema': add_extrema}
-    cube_path = "../test_files/GaAs/"
-    #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
-    coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
+    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
+    #         "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
+    #         "scissor":  0.5818, 'add_extrema': add_extrema}
+    # cube_path = "../test_files/GaAs/"
+    # #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
 
     ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_sym_23x23x23") # bad results! (because the fitting not good)
     ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_11x11x11_ISYM0") # good results
 
     ### For Si
-    # material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
-    #                    "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.5154}
-    # cube_path = "../test_files/Si/"
-    # coeff_file = os.path.join(cube_path, "Si_fort.123")
+    material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
+                       "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.5154}
+    cube_path = "../test_files/Si/"
+    coeff_file = os.path.join(cube_path, "Si_fort.123")
 
     # ## For AlCuS2
     # cube_path = '../test_files/AlCuS2'
@@ -3412,7 +3448,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy', 'ACD', 'IMP', 'PIE', 'S_o', 'velocity', 'df0dk'], E_plots=['velocity', 'df0dk'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_o'], E_plots=['velocity'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
