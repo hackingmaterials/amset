@@ -908,7 +908,7 @@ class AMSET(object):
         logging.info("self.nkibz = {}".format(self.nkibz))
 
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
-        if not self.important_pts:
+        if self.important_pts is None:
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file, nk_ibz=self.nkdos,
                 v_cut=self.v_min, min_normdiff=0.1, Ecut=self.Ecut, nex_max=20, return_global=True, niter=10)
             # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
@@ -1256,10 +1256,13 @@ class AMSET(object):
                     if self.max_normk:
                         if self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk:
                             rm_idx_list[tp][ib].append(ik)
-                    if self.kgrid[tp]["norm(k)"][ib][ik] < 0.0001:
-                        logging.debug('HERE removed k-point {} ; cartesian: {}'.format(
-                            self.kgrid[tp]["kpoints"][ib][ik], self.kgrid[tp]["cartesian kpoints"][ib][ik]))
-                        rm_idx_list[tp][ib].append(ik)
+
+                    # This caused some tests to break as it was changing mobility
+                    # values and making them more anisotropic since it was removing Gamma from GaAs
+                    # if self.kgrid[tp]["norm(k)"][ib][ik] < 0.0001:
+                    #     logging.debug('HERE removed k-point {} ; cartesian: {}'.format(
+                    #         self.kgrid[tp]["kpoints"][ib][ik], self.kgrid[tp]["cartesian kpoints"][ib][ik]))
+                    #     rm_idx_list[tp][ib].append(ik)
 
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
