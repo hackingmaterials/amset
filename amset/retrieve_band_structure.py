@@ -50,7 +50,8 @@ if __name__ == "__main__":
     GaAs_st = api.get_structure_by_material_id(GaAs_id)
 
     bs.structure =  GaAs_st
-    Si_bs.structure = api.get_structure_by_material_id(Si_id)
+    # Si_bs.structure = api.get_structure_by_material_id(Si_id)
+    Si_bs.structure = Vasprun("../test_files/Si/vasprun.xml").final_structure
     print(bs.get_sym_eq_kpoints([0.5, 0.5, 0.5]))
     print(bs.get_sym_eq_kpoints([ 0.5,  0.,  0.5]))
 
@@ -77,5 +78,5 @@ if __name__ == "__main__":
     # retrieve_bs(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[24, 25, 26, 27])
 
     # extrema = get_bs_extrema(bs, coeff_file=GaAs_coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1, Ecut=0.5, nex_max=20)
-    extrema = get_bs_extrema(Si_bs, coeff_file=Si_coeff_file, nk_ibz=25, v_cut=1e4, min_normdiff=0.1, Ecut=0.5, nex_max=20)
+    extrema = get_bs_extrema(Si_bs, coeff_file=Si_coeff_file, nk_ibz=31, v_cut=1e4, min_normdiff=0.15, Ecut=0.25, nex_max=20)
     print(extrema)
