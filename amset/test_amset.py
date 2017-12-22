@@ -10,6 +10,7 @@ import unittest
 
 from amset import AMSET
 from tools import rel_diff
+from tools import grid_norm
 
 test_dir = os.path.dirname(__file__)
 
@@ -35,19 +36,28 @@ class AmsetTest(unittest.TestCase):
     def test_poly_bands(self):
         print('\ntesting test_poly_bands...')
         mass = 0.25
+        c = -2e15
         self.model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
         amset = AMSET(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
-                      dopings=[-2e15], temperatures=[300], k_integration=True,
+                      dopings=[c], temperatures=[300], k_integration=True,
                       e_integration=True, fermi_type='k',
                       loglevel=logging.ERROR)
         amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
+
+        # check fermi level
+        N_c = 2 * (2 * np.pi * mass * 9.11e-31 * 1.3806e-23 * 300 / ((6.626e-34)**2))**1.5
+        expected_fermi_level = amset.cbm_vbm['n']["energy"] - (1.3806e-23 * 300 * np.log(N_c / (-c * 1e6)) * 6.242e18)
+        diff = abs(amset.fermi_level[c][300] - expected_fermi_level)
+        avg = (amset.fermi_level[c][300] + expected_fermi_level) / 2
+        self.assertTrue(diff / avg < 0.02)
+
         egrid = amset.egrid
-        diff = abs(np.array(amset.mobility['n']['ACD'][-2e15][300]) - \
-                   np.array(egrid['n']['mobility']['SPB_ACD'][-2e15][300]))
-        avg = (amset.mobility['n']['ACD'][-2e15][300] + \
-               egrid['n']['mobility']['SPB_ACD'][-2e15][300]) / 2
+        diff = abs(np.array(amset.mobility['n']['ACD'][c][300]) - \
+                   np.array(egrid['n']['mobility']['SPB_ACD'][c][300]))
+        avg = (amset.mobility['n']['ACD'][c][300] + \
+               egrid['n']['mobility']['SPB_ACD'][c][300]) / 2
         self.assertTrue((diff / avg <= 0.01).all())
 
 
@@ -89,8 +99,8 @@ class AmsetTest(unittest.TestCase):
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
         #                'POP': 10113.9, 'overall': 8173.4}
 
-        expected_mu = {'ACD': 101397.69, 'IMP': 8496857.31, 'PIE': 325384.23,
-                       'POP': 14431.63, 'overall': 12552.64, 'average': 12143.97}
+        expected_mu = {'ACD': 101397.69, 'IMP': 43442.789, 'PIE': 325384.23,
+                       'POP': 12309.095, 'overall': 6428.338, 'average': 8532.79}
         performance_params = dict(self.performance_params)
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
@@ -100,7 +110,14 @@ class AmsetTest(unittest.TestCase):
                       loglevel=logging.ERROR)
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
         mobility = amset.mobility
-        kgrid = amset.kgrid
+
+        # check fermi level
+        # expected_fermi = amset.cbm_vbm['n']["energy"] - 0.2477
+        # print('expected_fermi = {}'.format(expected_fermi))
+        # print('k calculated fermi = {}'.format(amset.fermi_level[-3e13][300]))
+        # diff = abs(amset.fermi_level[-3e13][300] - expected_fermi)
+        # avg = (amset.fermi_level[-3e13][300] + expected_fermi) / 2
+        # self.assertTrue(diff / avg < 0.02)
 
         # check mobility values
         for mu in expected_mu.keys():
