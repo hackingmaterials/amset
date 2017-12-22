@@ -2278,9 +2278,10 @@ class AMSET(object):
                         # calculate distribution in both conduction and valence bands
                         f_con = 1 / (np.exp((self.energy_array['n'] - e_f) / (k_B * T)) + 1)
                         f_val = 1 / (np.exp((self.energy_array['p'] - e_f) / (k_B * T)) + 1)
+                        dens_of_states = 1 / (8*np.pi**3)   # note that density of states in k space is V/8pi^3, but states per real volume per k volume is 1/8pi^3
                         # see if it is close to concentration
-                        n_concentration = self.integrate_over_states(f_con, 'n')[0]
-                        p_concentration = self.integrate_over_states(1 - f_val, 'p')[0]
+                        n_concentration = self.integrate_over_states(f_con * dens_of_states, 'n')[0]
+                        p_concentration = self.integrate_over_states((1 - f_val) * dens_of_states, 'p')[0]
                         diffs[e_f] = abs((p_concentration - n_concentration) - c)
                     # compare all the numbers and zoom in on the closest
                     closest_energy[c][T] = min(diffs, key=diffs.get)
@@ -3411,7 +3412,7 @@ if __name__ == "__main__":
                   # dopings = [3.32e14],
                   temperatures = [300],
                   # temperatures = range(100, 1100, 100),
-                  k_integration=True, e_integration=False, fermi_type='e',
+                  k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
     amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
