@@ -149,112 +149,115 @@ class AMSET(object):
                   self.dopings} for el_mech in mo_labels} for tp in ["n", "p"]}
 
         self.find_all_important_points()
-        self.count_mobility = {'n': True, 'p': True}
-        important_points = {'n': [], 'p': []}
+
+        once_called = True
         for i in range(max(len(self.important_pts['n']), len(self.important_pts['p']))):
+            self.count_mobility = {'n': True, 'p': True}
+            important_points = {'n': None, 'p': None}
+            if i == 0:
+                once_called = False
             for tp in ['p', 'n']:
                 try:
-                    important_points[tp].append(self.important_pts[tp][i])
+                    important_points[tp] = [self.important_pts[tp][i]]
                 except:
-                    important_points[tp].append(self.important_pts[tp][0])
+                    important_points[tp] = [self.important_pts[tp][0]]
                     self.count_mobility[tp] = False
 
+            self.init_kgrid(coeff_file=coeff_file, important_points=important_points,
+                            kgrid_tp=kgrid_tp, once_run=once_called)
 
-        self.init_kgrid(coeff_file=coeff_file, important_points=important_points,
-                        kgrid_tp=kgrid_tp, once_run=False)
+            logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
+            cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
+            # if self.kgrid['n']['energy'][0][cbm_idx] < self.cbm_vbm['n']['energy']:
+            #     self.cbm_vbm['n']['energy'] = self.kgrid['n']['energy'][0][cbm_idx]
+            #     self.cbm_vbm['n']['energy']
+            logging.debug("actual CBM k: {}".format(self.kgrid['n']['kpoints'][0][cbm_idx]))
+            logging.debug("actual CBM: {}".format(self.kgrid['n']['energy'][0][cbm_idx]))
+            vbm_idx = np.argmax(self.kgrid['p']['energy'][0])
+            logging.debug("actual VBM k: {}".format(self.kgrid['p']['kpoints'][0][vbm_idx]))
+            logging.debug("actual VBM: {}".format(self.kgrid['p']['energy'][0][vbm_idx]))
 
-        logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
-        cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
-        # if self.kgrid['n']['energy'][0][cbm_idx] < self.cbm_vbm['n']['energy']:
-        #     self.cbm_vbm['n']['energy'] = self.kgrid['n']['energy'][0][cbm_idx]
-        #     self.cbm_vbm['n']['energy']
-        logging.debug("actual CBM k: {}".format(self.kgrid['n']['kpoints'][0][cbm_idx]))
-        logging.debug("actual CBM: {}".format(self.kgrid['n']['energy'][0][cbm_idx]))
-        vbm_idx = np.argmax(self.kgrid['p']['energy'][0])
-        logging.debug("actual VBM k: {}".format(self.kgrid['p']['kpoints'][0][vbm_idx]))
-        logging.debug("actual VBM: {}".format(self.kgrid['p']['energy'][0][vbm_idx]))
+            start_time_fermi = time.time()
+            if self.fermi_calc_type == 'k':
+                self.fermi_level = self.find_fermi_k()
+            logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
 
-        start_time_fermi = time.time()
-        if self.fermi_calc_type == 'k':
-            self.fermi_level = self.find_fermi_k()
-        logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
+            self.init_egrid(dos_tp="standard")
+            logging.info('fermi level = {}'.format(self.fermi_level))
+            self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
+            if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
+                warnings.warn("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
+                # raise ValueError("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
 
-        self.init_egrid(dos_tp="standard")
-        logging.info('fermi level = {}'.format(self.fermi_level))
-        self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
-        if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
-            warnings.warn("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
-            # raise ValueError("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
+            # initialize g in the egrid
+            self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
+            self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
 
-        # initialize g in the egrid
-        self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
-        self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
+            # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
+            if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
+                self.generate_angles_and_indexes_for_integration()
 
-        # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
-        if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
-            self.generate_angles_and_indexes_for_integration()
+            # calculate all elastic scattering rates in kgrid and then map it to egrid:
+            for sname in self.elastic_scatterings:
+                self.s_elastic(sname=sname)
+                self.map_to_egrid(prop_name=sname)
 
-        # calculate all elastic scattering rates in kgrid and then map it to egrid:
-        for sname in self.elastic_scatterings:
-            self.s_elastic(sname=sname)
-            self.map_to_egrid(prop_name=sname)
+            self.map_to_egrid(prop_name="_all_elastic")
+            self.map_to_egrid(prop_name="relaxation time")
 
-        self.map_to_egrid(prop_name="_all_elastic")
-        self.map_to_egrid(prop_name="relaxation time")
+            for c in self.dopings:
+                for T in self.temperatures:
+                    fermi = self.fermi_level[c][T]
+                    for tp in ["n", "p"]:
+                        fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
+                        for ib in range(len(self.kgrid[tp]["energy"])):
+                            for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                                E = self.kgrid[tp]["energy"][ib][ik]
+                                v = self.kgrid[tp]["velocity"][ib][ik]
+                                self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
+                                self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E, fermi, T) * v  # in cm
+                                self.kgrid[tp]["electric force"][c][T][ib][ik] = \
+                                    -1 * self.kgrid[tp]["df0dk"][c][T][ib][ik] * \
+                                    default_small_E / hbar  # in 1/s
 
-        for c in self.dopings:
-            for T in self.temperatures:
-                fermi = self.fermi_level[c][T]
-                for tp in ["n", "p"]:
-                    fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
-                    for ib in range(len(self.kgrid[tp]["energy"])):
-                        for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            E = self.kgrid[tp]["energy"][ib][ik]
-                            v = self.kgrid[tp]["velocity"][ib][ik]
-                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
-                            self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E, fermi, T) * v  # in cm
-                            self.kgrid[tp]["electric force"][c][T][ib][ik] = \
-                                -1 * self.kgrid[tp]["df0dk"][c][T][ib][ik] * \
-                                default_small_E / hbar  # in 1/s
+                                E_norm = E - self.cbm_vbm[tp]["energy"]
+                                self.kgrid[tp]["thermal force"][c][T][ib][ik] = \
+                                    - v * f0(E_norm, fermi_norm, T) * (1 - f0(
+                                    E_norm, fermi_norm, T)) * (E_norm / (k_B * T)-\
+                                    self.egrid["Seebeck_integral_numerator"][c][
+                                        T][tp] / self.egrid[
+                                            "Seebeck_integral_denominator"][c][
+                                            T][tp]) * dTdz / T
+                    dop_tp = get_tp(c)
+                    f0_removed = self.array_from_kgrid('f0', dop_tp, c, T)
+                    f0_all = 1 / (np.exp((self.energy_array[dop_tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                    if c < 0:
+                        electrons = self.integrate_over_states(f0_all, dop_tp)
+                        logging.info('k-integral of f0 above band gap at c={}, T={}: {}'.format(c, T, electrons))
+                    if c > 0:
+                        holes = self.integrate_over_states(1-f0_all, dop_tp)
+                        logging.info('k-integral of 1-f0 below band gap at c={}, T={}: {}'.format(c, T, holes))
 
-                            E_norm = E - self.cbm_vbm[tp]["energy"]
-                            self.kgrid[tp]["thermal force"][c][T][ib][ik] = \
-                                - v * f0(E_norm, fermi_norm, T) * (1 - f0(
-                                E_norm, fermi_norm, T)) * (E_norm / (k_B * T)-\
-                                self.egrid["Seebeck_integral_numerator"][c][
-                                    T][tp] / self.egrid[
-                                        "Seebeck_integral_denominator"][c][
-                                        T][tp]) * dTdz / T
-                dop_tp = get_tp(c)
-                f0_removed = self.array_from_kgrid('f0', dop_tp, c, T)
-                f0_all = 1 / (np.exp((self.energy_array[dop_tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                if c < 0:
-                    electrons = self.integrate_over_states(f0_all, dop_tp)
-                    logging.info('k-integral of f0 above band gap at c={}, T={}: {}'.format(c, T, electrons))
-                if c > 0:
-                    holes = self.integrate_over_states(1-f0_all, dop_tp)
-                    logging.info('k-integral of 1-f0 below band gap at c={}, T={}: {}'.format(c, T, holes))
+            self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
+            self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
 
-        self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
-        self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
+            # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
+            self.solve_BTE_iteratively()
 
-        # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
-        self.solve_BTE_iteratively()
+            if self.k_integration:
+                self.calculate_transport_properties_with_k(test_k_anisotropic)
+            if self.e_integration:
+                self.calculate_transport_properties_with_E()
 
-        if self.k_integration:
-            self.calculate_transport_properties_with_k(test_k_anisotropic)
-        if self.e_integration:
-            self.calculate_transport_properties_with_E()
+            kgrid_rm_list = ["effective mass", "kweights",
+                             "f_th", "S_i_th", "S_o_th"]
+            self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
 
-        kgrid_rm_list = ["effective mass", "kweights",
-                         "f_th", "S_i_th", "S_o_th"]
-        self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
-
-        if self.k_integration:
-            pprint(self.mobility)
-        if self.e_integration:
-            pprint(self.egrid["n"]["mobility"])
-            pprint(self.egrid["p"]["mobility"])
+            if self.k_integration:
+                pprint(self.mobility)
+            if self.e_integration:
+                pprint(self.egrid["n"]["mobility"])
+                pprint(self.egrid["p"]["mobility"])
 
         if write_outputs:
             self.to_file()
@@ -2788,7 +2791,8 @@ class AMSET(object):
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["n", "p"]):
-
+                    if not self.count_mobility[tp]:
+                        continue
                     N = self.kgrid_array[tp].shape
                     if tp == 'n':
                         print(self.dv_grid['n'][(N[0] - 1) / 2, (N[1] - 1) / 2, :])
