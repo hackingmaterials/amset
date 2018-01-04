@@ -981,8 +981,6 @@ class AMSET(object):
         self.rotations, _ = sg._get_symmetry()
         logging.info("self.nkibz = {}".format(self.nkibz))
 
-        self.important_pts = important_points
-
         self.kgrid_array = {}
         self.kgrid_array_cartesian = {}
         self.k_hat_array = {}
@@ -990,7 +988,7 @@ class AMSET(object):
         self.dv_grid = {}
         kpts = {}
         for tp in ['n', 'p']:
-            points_1d = generate_k_mesh_axes(self.important_pts[tp], kgrid_tp, one_list=True)
+            points_1d = generate_k_mesh_axes(important_points[tp], kgrid_tp, one_list=True)
             self.kgrid_array[tp] = create_grid(points_1d)
             kpts[tp] = array_to_kgrid(self.kgrid_array[tp])
             N = self.kgrid_array[tp].shape
@@ -1216,7 +1214,7 @@ class AMSET(object):
                     # self.kgrid[tp]["cartesian kpoints"][ib][ik] = get_closest_k(self.kgrid[tp]["old cartesian kpoints"][ib][ik], self.important_pts[tp], return_diff=True)
                     self.kgrid[tp]["cartesian kpoints"][ib][ik] = \
                         self._rec_lattice.get_cartesian_coords(get_closest_k(
-                            self.kgrid[tp]["kpoints"][ib][ik], self.important_pts[tp], return_diff=True)) / A_to_nm
+                            self.kgrid[tp]["kpoints"][ib][ik], important_points[tp], return_diff=True)) / A_to_nm
 
                     # # The following 2 lines (i.e. when the closest kpoints to equivalent extrema are calculated in fractional coordinates) would change the anisotropic test! not sure why
                     # closest_frac_k = np.array(get_closest_k(self.kgrid[tp]["kpoints"][ib][ik], self.important_pts[tp]), return_diff=True)
@@ -3439,7 +3437,7 @@ if __name__ == "__main__":
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
             "scissor":  0.5818, 'add_extrema': add_extrema
-            , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p':[[0, 0, 0]]}
+            , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
                        }
     cube_path = "../test_files/GaAs/"
     #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
