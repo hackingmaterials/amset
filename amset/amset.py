@@ -182,7 +182,7 @@ class AMSET(object):
                 self.fermi_level = self.find_fermi_k()
             logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
 
-            self.init_egrid(dos_tp="standard")
+            self.init_egrid(once_called=once_called, dos_tp="standard")
             logging.info('fermi level = {}'.format(self.fermi_level))
             self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
             if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
@@ -623,7 +623,7 @@ class AMSET(object):
 
 
 
-    def init_egrid(self, dos_tp="simple"):
+    def init_egrid(self, once_called, dos_tp="simple"):
         """
         :param
             dos_tp (string): options are "simple", ...
@@ -3439,7 +3439,7 @@ if __name__ == "__main__":
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
             "scissor":  0.5818, 'add_extrema': add_extrema
-            , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
+            , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p':[[0, 0, 0]]}
                        }
     cube_path = "../test_files/GaAs/"
     #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
