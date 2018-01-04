@@ -148,7 +148,21 @@ class AMSET(object):
         self.mobility = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in
                   self.dopings} for el_mech in mo_labels} for tp in ["n", "p"]}
 
-        self.init_kgrid(coeff_file=coeff_file, kgrid_tp=kgrid_tp)
+        self.find_all_important_points()
+        self.count_mobility = {'n': True, 'p': True}
+        important_points = {'n': [], 'p': []}
+        for i in range(max(len(self.important_pts['n']), len(self.important_pts['p']))):
+            for tp in ['p', 'n']:
+                try:
+                    important_points[tp].append(self.important_pts[tp][i])
+                except:
+                    important_points[tp].append(self.important_pts[tp][0])
+                    self.count_mobility[tp] = False
+
+
+        self.init_kgrid(coeff_file=coeff_file, important_points=important_points,
+                        kgrid_tp=kgrid_tp, once_run=False)
+
         logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
         cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
         # if self.kgrid['n']['energy'][0][cbm_idx] < self.cbm_vbm['n']['energy']:
@@ -245,6 +259,59 @@ class AMSET(object):
         if write_outputs:
             self.to_file()
 
+
+    def find_all_important_points(self):
+        # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
+        if self.important_pts is None:
+            self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file, nk_ibz=self.nkdos,
+                v_cut=self.v_min, min_normdiff=0.1, Ecut=self.Ecut, nex_max=20, return_global=True, niter=10)
+            # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
+            for tp in ['p', 'n']:
+                self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
+                self.cbm_vbm[tp]['kpoint'] = new_cbm_vbm[tp]['kpoint']
+
+        logging.info(('here initial important_pts'))
+        logging.info((self.important_pts)) # for some reason the nscf uniform GaAs fitted coeffs return positive mass for valence at Gamma!
+
+        # for tp in ['n', 'p']:
+        #     self.important_pts[tp].append(self.cbm_vbm[tp]["kpoint"])
+        #     self.important_pts[tp].extend(self.add_extrema[tp])
+        # for tp in ['n', 'p']:
+        #     all_important_ks = []
+        #     for k in self.important_pts[tp]:
+        #         all_important_ks +=  list(self.bs.get_sym_eq_kpoints(k))
+        #     self.important_pts[tp] = remove_duplicate_kpoints(all_important_ks)
+
+
+        ################TEST FOR Si##########################################
+        # cbm_k = np.array([ 0.48648649,  0.48648649,  0.        ])
+        # cbm_k = np.array([ 0.42105263,  0.42105263,  0.        ])
+
+        # cbm_k = np.array([ 0.43105263 , 0.43105263,  0.001     ])
+        # self.important_pts = {
+        #     # 'n': [[ 0.42905263 , 0.42905263 , 0.001     ]],
+        #     'n': [[ -4.26549744e-01,  -4.26549744e-01,  -1.35782351e-08]],
+        #     # 'n': [[ 0.47058824,  0.47058824,  0.        ]],
+        #     'p': [[0.0, 0.0, 0.0]]}
+        #     'n': np.vstack((self.bs.get_sym_eq_kpoints(cbm_k),self.bs.get_sym_eq_kpoints(-cbm_k)))
+        # }
+        #################################################################
+
+        ################TEST FOR GaAs-L ##########################################
+        # self.important_pts = {'p': [np.array([ 0.,  0.,  0.])],
+        #                       # 'n': [np.array([-0.5,  0. ,  0. ])]}
+        #                       # 'n': [np.array([ 0.,  0.,  0.]), np.array([0.5,  0.5 ,  0.5 ]), np.array([ 0.5,  0.,  0.5])]}
+        #                     'n': [np.array([ 0.,  0.,  0.]), np.array([0.5,  0.5 ,  0.5 ])]}
+
+                              # 'n': [np.array([ 0.5,  0.5,  0.5]),
+                              #       np.array([-0.5,  0. ,  0. ]), np.array([ 0. , -0.5,  0. ]), np.array([ 0. ,  0. , -0.5])
+                              #       , np.array([0.5,  0. ,  0. ]), np.array([ 0. , 0.5,  0. ]), np.array([ 0. ,  0. , 0.5])
+                              #       ]}
+
+
+
+        #################################################################
+        logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
 
 
     def write_input_files(self):
@@ -895,7 +962,8 @@ class AMSET(object):
         return energy, velocity, effective_m
 
 
-    def init_kgrid(self, coeff_file, kgrid_tp="coarse"):
+    def init_kgrid(self, coeff_file, important_points, kgrid_tp="coarse",
+                   once_run=False):
         """
 
         Args:
@@ -908,62 +976,9 @@ class AMSET(object):
         start_time = time.time()
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
         self.rotations, _ = sg._get_symmetry()
-
         logging.info("self.nkibz = {}".format(self.nkibz))
 
-        # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
-        if self.important_pts is None:
-            self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file, nk_ibz=self.nkdos,
-                v_cut=self.v_min, min_normdiff=0.1, Ecut=self.Ecut, nex_max=20, return_global=True, niter=10)
-            # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
-            for tp in ['p', 'n']:
-                self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
-                self.cbm_vbm[tp]['kpoint'] = new_cbm_vbm[tp]['kpoint']
-
-        logging.info(('here initial important_pts'))
-        logging.info((self.important_pts)) # for some reason the nscf uniform GaAs fitted coeffs return positive mass for valence at Gamma!
-
-        # for tp in ['n', 'p']:
-        #     self.important_pts[tp].append(self.cbm_vbm[tp]["kpoint"])
-        #     self.important_pts[tp].extend(self.add_extrema[tp])
-        # for tp in ['n', 'p']:
-        #     all_important_ks = []
-        #     for k in self.important_pts[tp]:
-        #         all_important_ks +=  list(self.bs.get_sym_eq_kpoints(k))
-        #     self.important_pts[tp] = remove_duplicate_kpoints(all_important_ks)
-
-
-        ################TEST FOR Si##########################################
-        # cbm_k = np.array([ 0.48648649,  0.48648649,  0.        ])
-        # cbm_k = np.array([ 0.42105263,  0.42105263,  0.        ])
-
-        # cbm_k = np.array([ 0.43105263 , 0.43105263,  0.001     ])
-        # self.important_pts = {
-        #     # 'n': [[ 0.42905263 , 0.42905263 , 0.001     ]],
-        #     'n': [[ -4.26549744e-01,  -4.26549744e-01,  -1.35782351e-08]],
-        #     # 'n': [[ 0.47058824,  0.47058824,  0.        ]],
-        #     'p': [[0.0, 0.0, 0.0]]}
-        #     'n': np.vstack((self.bs.get_sym_eq_kpoints(cbm_k),self.bs.get_sym_eq_kpoints(-cbm_k)))
-        # }
-        #################################################################
-
-        ################TEST FOR GaAs-L ##########################################
-        # self.important_pts = {'p': [np.array([ 0.,  0.,  0.])],
-        #                       # 'n': [np.array([-0.5,  0. ,  0. ])]}
-        #                       # 'n': [np.array([ 0.,  0.,  0.]), np.array([0.5,  0.5 ,  0.5 ]), np.array([ 0.5,  0.,  0.5])]}
-        #                     'n': [np.array([ 0.,  0.,  0.]), np.array([0.5,  0.5 ,  0.5 ])]}
-
-                              # 'n': [np.array([ 0.5,  0.5,  0.5]),
-                              #       np.array([-0.5,  0. ,  0. ]), np.array([ 0. , -0.5,  0. ]), np.array([ 0. ,  0. , -0.5])
-                              #       , np.array([0.5,  0. ,  0. ]), np.array([ 0. , 0.5,  0. ]), np.array([ 0. ,  0. , 0.5])
-                              #       ]}
-
-
-
-        #################################################################
-
-
-        logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
+        self.important_pts = important_points
 
         self.kgrid_array = {}
         self.kgrid_array_cartesian = {}
