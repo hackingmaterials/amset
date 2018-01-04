@@ -144,6 +144,10 @@ class AMSET(object):
                 '(i.e. fort.123) requires a modified version of BoltzTraP. '
                              'Contact {}'.format(coeff_file, __email__))
 
+        mo_labels = self.elastic_scatterings + self.inelastic_scatterings + ['overall', 'average']
+        self.mobility = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in
+                  self.dopings} for el_mech in mo_labels} for tp in ["n", "p"]}
+
         self.init_kgrid(coeff_file=coeff_file, kgrid_tp=kgrid_tp)
         logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
         cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
@@ -2763,8 +2767,6 @@ class AMSET(object):
         # calculate mobility by averaging velocity per electric field strength
         mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scatterings} for tp in ["n", "p"]}
         mu_denom = deepcopy(mu_num)
-        mo_labels = self.elastic_scatterings + self.inelastic_scatterings + ['overall', 'average']
-        self.mobility = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in mo_labels} for tp in ["n", "p"]}
 
         #k_hat = np.array([self.k_hat_array[tp] for ib in range(self.num_bands)])
 
@@ -2922,12 +2924,12 @@ class AMSET(object):
                             g = -1 / hbar * df0dk / nu_el
                             # print('g*norm(v) for {}:'.format(el_mech))
                             # print((g * norm_v)[0, (N[0]-1)/2, (N[1]-1)/2, :])
-                            self.mobility[tp][el_mech][c][T] = self.integrate_over_states(g * norm_v, tp) / denominator
+                            self.mobility[tp][el_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / denominator
 
                         # from equation 45 in Rode, inelastic mechanisms
                         for inel_mech in self.inelastic_scatterings:
                             g = self.array_from_kgrid("g_"+inel_mech, tp, c, T)
-                            self.mobility[tp][inel_mech][c][T] = self.integrate_over_states(g * norm_v, tp) / denominator
+                            self.mobility[tp][inel_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / denominator
 
                         # from equation 45 in Rode, overall
                         g = self.array_from_kgrid("g", tp, c, T)
@@ -2938,7 +2940,7 @@ class AMSET(object):
                         #     logging.info(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                         #     logging.info('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
                         #     logging.info((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
-                        self.mobility[tp]['overall'][c][T] = self.integrate_over_states(g * norm_v, tp) / denominator
+                        self.mobility[tp]['overall'][c][T] += self.integrate_over_states(g * norm_v, tp) / denominator
 
                     print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
                     for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
@@ -2952,7 +2954,7 @@ class AMSET(object):
                         self.mobility[tp]["average"][c][T] += 1 / (np.array(self.mobility[tp][transport][c][T]) + 1e-50)
                         if mu_overrall_norm > norm(self.mobility[tp][transport][c][T]):
                             faulty_overall_mobility = True  # because the overall mobility should be lower than all
-                    self.mobility[tp]["average"][c][T] = 1 / np.array(self.mobility[tp]["average"][c][T])
+                    self.mobility[tp]["average"][c][T] += 1 / np.array(self.mobility[tp]["average"][c][T])
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
                     if mu_overrall_norm == 0.0 or faulty_overall_mobility:
@@ -3400,7 +3402,10 @@ if __name__ == "__main__":
     model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
-        model_params["poly_bands"] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+        model_params["poly_bands"] = [[
+            [[0.0, 0.0, 0.0], [0.0, mass]],
+            # [[0.5, 0.5, 0.5], [0.0, mass]]
+        ]]
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 2.5, "max_ncpu": 4}
@@ -3412,21 +3417,23 @@ if __name__ == "__main__":
     # coeff_file = os.path.join(cube_path, "..", "fort.123")
     # #coeff_file = os.path.join(cube_path, "fort.123")
 
-    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
-    #         "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
-    #         "scissor":  0.5818, 'add_extrema': add_extrema}
-    # cube_path = "../test_files/GaAs/"
-    # #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
-    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
+    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
+            "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
+            "scissor":  0.5818, 'add_extrema': add_extrema
+            , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
+                       }
+    cube_path = "../test_files/GaAs/"
+    #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
+    coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
 
     ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_sym_23x23x23") # bad results! (because the fitting not good)
     ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_11x11x11_ISYM0") # good results
 
     ### For Si
-    material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
-                       "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.5154}
-    cube_path = "../test_files/Si/"
-    coeff_file = os.path.join(cube_path, "Si_fort.123")
+    # material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
+    #                    "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.5154}
+    # cube_path = "../test_files/Si/"
+    # coeff_file = os.path.join(cube_path, "Si_fort.123")
 
     # ## For AlCuS2
     # cube_path = '../test_files/AlCuS2'
@@ -3438,7 +3445,7 @@ if __name__ == "__main__":
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
                   # dopings = [-3e13],
-                  dopings = [-1e20],
+                  dopings = [-2e15],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
                   temperatures = [300],
