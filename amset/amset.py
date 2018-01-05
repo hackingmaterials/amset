@@ -2966,12 +2966,13 @@ class AMSET(object):
                     # figure out average mobility
                     faulty_overall_mobility = False
                     mu_overrall_norm = norm(self.mobility[tp]["overall"][c][T])
+                    mu_average = np.array([0.0, 0.0, 0.0])
                     for transport in self.elastic_scatterings + self.inelastic_scatterings:
                         # averaging all mobility values via Matthiessen's rule
-                        self.mobility[tp]["average"][c][T] += 1 / (np.array(self.mobility[tp][transport][c][T]) + 1e-50)
+                        mu_average += 1 / (np.array(self.mobility[tp][transport][c][T]) + 1e-50)
                         if mu_overrall_norm > norm(self.mobility[tp][transport][c][T]):
                             faulty_overall_mobility = True  # because the overall mobility should be lower than all
-                    self.mobility[tp]["average"][c][T] += 1 / np.array(self.mobility[tp]["average"][c][T])
+                    self.mobility[tp]["average"][c][T] += 1 / mu_average
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
                     if mu_overrall_norm == 0.0 or faulty_overall_mobility:
@@ -3437,7 +3438,7 @@ if __name__ == "__main__":
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
             "scissor":  0.5818, 'add_extrema': add_extrema
-            , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
+            , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p':[[0, 0, 0]]}
                        }
     cube_path = "../test_files/GaAs/"
     #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
