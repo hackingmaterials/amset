@@ -164,7 +164,7 @@ class AMSET(object):
                     self.count_mobility[tp] = False
 
             self.init_kgrid(coeff_file=coeff_file, important_points=important_points,
-                            kgrid_tp=kgrid_tp, once_run=once_called)
+                            kgrid_tp=kgrid_tp, once_called=once_called)
 
             logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
             cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
@@ -966,7 +966,7 @@ class AMSET(object):
 
 
     def init_kgrid(self, coeff_file, important_points, kgrid_tp="coarse",
-                   once_run=False):
+                   once_called=False):
         """
 
         Args:
@@ -1046,31 +1046,32 @@ class AMSET(object):
         # calculate only the CBM and VBM energy values - @albalu why is this separate from the other energy value calculations?
         # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
 
-        for i, tp in enumerate(["p", "n"]):
-            sgn = (-1) ** i
+        if not once_called:
+            for i, tp in enumerate(["p", "n"]):
+                sgn = (-1) ** i
 
-            # just calculating the first valence and the conduction band
+                # just calculating the first valence and the conduction band
+                if not self.poly_bands:
+                    energy, velocity, effective_m = calc_analytical_energy(
+                            self.cbm_vbm[tp]["kpoint"],engre[i * self.cbm_vbm["p"][
+                            "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
+                            br_dir, sgn, scissor=self.scissor)
+                else:
+                    energy, velocity, effective_m = self.calc_poly_energy(
+                            self.cbm_vbm[tp]["kpoint"], tp, 0)
+
+                # @albalu why is there already an energy value calculated from vasp that this code overrides? # we are renormalizing the E vlues as the new energy has a different reference energy
+                self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
+                logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
+                self.cbm_vbm[tp]["energy"] = energy
+                self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
+
             if not self.poly_bands:
-                energy, velocity, effective_m = calc_analytical_energy(
-                        self.cbm_vbm[tp]["kpoint"],engre[i * self.cbm_vbm["p"][
-                        "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
-                        br_dir, sgn, scissor=self.scissor)
-            else:
-                energy, velocity, effective_m = self.calc_poly_energy(
-                        self.cbm_vbm[tp]["kpoint"], tp, 0)
+                self.dos_emax += self.offset_from_vrun
+                self.dos_emin += self.offset_from_vrun
 
-            # @albalu why is there already an energy value calculated from vasp that this code overrides? # we are renormalizing the E vlues as the new energy has a different reference energy
-            self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
-            logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
-            self.cbm_vbm[tp]["energy"] = energy
-            self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
-
-        if not self.poly_bands:
-            self.dos_emax += self.offset_from_vrun
-            self.dos_emin += self.offset_from_vrun
-
-        logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
-        self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm[tp]["eff_mass_xx"])) for tp in ["n", "p"]}
+            logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
+            self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm[tp]["eff_mass_xx"])) for tp in ["n", "p"]}
 
         # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
         start_time = time.time()
@@ -1368,63 +1369,62 @@ class AMSET(object):
                             is_nparray=True, c_T_idx=True)
 
         # calculation of the density of states (DOS)
-        if not self.poly_bands:
-            emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
-                    self._vrun.final_structure, [
-                    self.nkdos, self.nkdos, self.nkdos],self.dos_emin,
-                    self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
-                    / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
-                    scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
-            logging.debug("dos_nbands: {} \n".format(dos_nbands))
-            self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
-            self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
-                             + self.offset_from_vrun - self.scissor/2.0
-            self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
-                           + self.offset_from_vrun + self.scissor / 2.0
-        else:
-            logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
-            emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
-                    [self.nkdos, self.nkdos, self.nkdos], self.dos_emin,
-                    self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
-                    / max(self.dE_min, 0.0001))),poly_bands=self.poly_bands,
-                    bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
-                    "energy"], width=self.dos_bwidth, SPB_DOS=False)
-            self.dos_normalization_factor = len(self.poly_bands) * 2 * 2
-            # it is *2 elec/band & *2 because DOS repeats in valence/conduction
-            self.dos_start = self.dos_emin
-            self.dos_end = self.dos_emax
+        if not once_called:
+            if not self.poly_bands:
+                emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
+                        self._vrun.final_structure, [
+                        self.nkdos, self.nkdos, self.nkdos],self.dos_emin,
+                        self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
+                        / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
+                        scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
+                logging.debug("dos_nbands: {} \n".format(dos_nbands))
+                self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
+                self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
+                                 + self.offset_from_vrun - self.scissor/2.0
+                self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
+                               + self.offset_from_vrun + self.scissor / 2.0
+            else:
+                logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
+                emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
+                        [self.nkdos, self.nkdos, self.nkdos], self.dos_emin,
+                        self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
+                        / max(self.dE_min, 0.0001))),poly_bands=self.poly_bands,
+                        bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
+                        "energy"], width=self.dos_bwidth, SPB_DOS=False)
+                self.dos_normalization_factor = len(self.poly_bands) * 2 * 2
+                # it is *2 elec/band & *2 because DOS repeats in valence/conduction
+                self.dos_start = self.dos_emin
+                self.dos_end = self.dos_emax
 
 
-        logging.info("DOS normalization factor: {}".format(self.dos_normalization_factor))
+            logging.info("DOS normalization factor: {}".format(self.dos_normalization_factor))
 
-        integ = 0.0
-        self.dos_start = abs(emesh - self.dos_start).argmin()
-        self.dos_end = abs(emesh - self.dos_end).argmin()
-        for idos in range(self.dos_start, self.dos_end):
-            # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
-            #     break
-            integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
+            integ = 0.0
+            self.dos_start = abs(emesh - self.dos_start).argmin()
+            self.dos_end = abs(emesh - self.dos_end).argmin()
+            for idos in range(self.dos_start, self.dos_end):
+                # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
+                #     break
+                integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
 
-        print("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
+            print("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
 
-        # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
-        dos = [g / integ * self.dos_normalization_factor for g in dos]
-        # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
+            # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
+            dos = [g / integ * self.dos_normalization_factor for g in dos]
+            # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
 
-        self.dos = zip(emesh, dos)
-        self.dos_emesh = np.array(emesh)
-        self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
-        self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
+            self.dos = zip(emesh, dos)
+            self.dos_emesh = np.array(emesh)
+            self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
+            self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
 
-        logging.info("vbm and cbm DOS index")
-        logging.info(self.vbm_dos_idx)
-        logging.info(self.cbm_dos_idx)
-        # logging.debug("full dos after normalization: \n {}".format(self.dos))
-        # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
+            logging.info("vbm and cbm DOS index")
+            logging.info(self.vbm_dos_idx)
+            logging.info(self.cbm_dos_idx)
+            # logging.debug("full dos after normalization: \n {}".format(self.dos))
+            # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
 
-        self.dos = [list(a) for a in self.dos]
-
-        logging.debug("time to finish the remaining part of init_kgrid: \n {}".format(time.time() - start_time))
+            self.dos = [list(a) for a in self.dos]
 
 
     def sort_vars_based_on_energy(self, args, ascending=True):
