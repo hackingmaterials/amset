@@ -150,17 +150,19 @@ def normalize_array(grid):
 
 def f0(E, fermi, T):
     """returns the value of Fermi-Dirac at equilibrium for E (energy), fermi [level] and T (temperature)"""
-    if E - fermi > 5:
+    exponent = (E - fermi) / (k_B * T)
+    if exponent > 40:
         return 0.0
-    elif E - fermi < -5:
+    elif exponent < -40:
         return 1.0
     else:
-        return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
+        return 1 / (1 + np.exp(exponent))
 
 
 def df0dE(E, fermi, T):
     """returns the energy derivative of the Fermi-Dirac equilibrium distribution"""
-    if E - fermi > 5 or E - fermi < -5:  # This is necessary so at too low numbers python doesn't return NaN
+    exponent = (E - fermi) / (k_B * T)
+    if exponent > 40 or exponent < -40:  # This is necessary so at too low numbers python doesn't return NaN
         return 0.0
     else:
         return -1 / (k_B * T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
