@@ -2933,8 +2933,9 @@ class AMSET(object):
                             denominator = 3 * default_small_E * self.integrate_over_states(f0_all, tp)
                         if tp == 'p':
                             denominator = 3 * default_small_E * self.integrate_over_states(1-f0_all, tp)
-                        # print('denominator:')
-                        # print(denominator)
+                        denominator += 1e-32 # to avoid division by zero
+                        print('denominator:')
+                        print(denominator)
                         for el_mech in self.elastic_scatterings:
                             nu_el = self.array_from_kgrid(el_mech, tp, c, T, denom=True)
                             # this line should have -e / hbar except that hbar is in units of eV*s so in those units e=1
@@ -2969,7 +2970,7 @@ class AMSET(object):
                     mu_average = np.array([0.0, 0.0, 0.0])
                     for transport in self.elastic_scatterings + self.inelastic_scatterings:
                         # averaging all mobility values via Matthiessen's rule
-                        mu_average += 1 / (np.array(self.mobility[tp][transport][c][T]) + 1e-50)
+                        mu_average += 1 / (np.array(self.mobility[tp][transport][c][T]) + 1e-32)
                         if mu_overrall_norm > norm(self.mobility[tp][transport][c][T]):
                             faulty_overall_mobility = True  # because the overall mobility should be lower than all
                     self.mobility[tp]["average"][c][T] += 1 / mu_average
@@ -3438,8 +3439,8 @@ if __name__ == "__main__":
     # #coeff_file = os.path.join(cube_path, "fort.123")
 
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
-            "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
-            "scissor":  0., 'add_extrema': add_extrema
+            "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, 'add_extrema': add_extrema
+            , "scissor": 0.5818
             , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
                        }
     cube_path = "../test_files/GaAs/"
@@ -3479,7 +3480,9 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_o'], E_plots=['velocity'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
+    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_i', 'S_o', 'g'], E_plots=['velocity'], show_interactive=True
+               # , carrier_types=amset.all_types
+               , save_format=None)
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
