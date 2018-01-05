@@ -3111,6 +3111,8 @@ class AMSET(object):
                     #                                                     tp] - (
                     #                                                 self.egrid["fermi"][c][T] - self.cbm_vbm[tp][
                     #                                                     "energy"]) / (k_B * T))
+
+                    # TODO: to calculate Seebeck define a separate function after ALL important_points are exhausted and the overall sum of self.mobility is evaluated!
                     self.egrid[tp]["seebeck"][c][T] = -1e6 * k_B * (
                             self.egrid["Seebeck_integral_numerator"][c][T][tp]\
                             /self.egrid["Seebeck_integral_denominator"][c][T][
