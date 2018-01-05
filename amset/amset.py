@@ -623,7 +623,7 @@ class AMSET(object):
 
 
 
-    def init_egrid(self, once_called, dos_tp="simple"):
+    def init_egrid(self, once_called, dos_tp="standard"):
         """
         :param
             dos_tp (string): options are "simple", ...
@@ -709,22 +709,23 @@ class AMSET(object):
             raise ValueError("The final egrid have fewer than {} energy values, AMSET stops now".format(min_nE))
 
         # initialize some fileds/properties
-        self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-        for sn in self.elastic_scatterings + self.inelastic_scatterings + ["overall", "average", "SPB_ACD"]:
-            for tp in ['n', 'p']:
-                self.egrid[tp]['mobility'][sn] = {c: {T: [0.0, 0.0, 0.0] for T in\
-                        self.temperatures} for c in self.dopings}
-        for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
-            for tp in ['n', 'p']:
-                self.egrid[tp][transport] = {c: {T: 0.0 for T in\
-                        self.temperatures} for c in self.dopings}
+        if not once_called:
+            self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
+            for sn in self.elastic_scatterings + self.inelastic_scatterings + ["overall", "average", "SPB_ACD"]:
+                for tp in ['n', 'p']:
+                    self.egrid[tp]['mobility'][sn] = {c: {T: [0.0, 0.0, 0.0] for T in\
+                            self.temperatures} for c in self.dopings}
+            for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
+                for tp in ['n', 'p']:
+                    self.egrid[tp][transport] = {c: {T: 0.0 for T in\
+                            self.temperatures} for c in self.dopings}
 
-        # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
-        if self.fermi_calc_type == 'k':
-            self.egrid["calc_doping"] = self.calc_doping
-        if self.fermi_calc_type == 'e':
-            self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
-            self.fermi_level = self.egrid["fermi"]
+            # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
+            if self.fermi_calc_type == 'k':
+                self.egrid["calc_doping"] = self.calc_doping
+            if self.fermi_calc_type == 'e':
+                self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
+                self.fermi_level = self.egrid["fermi"]
 
         #TODO: comment out these 3 lines and test, these were commented out in master 9/27/2017
         self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
@@ -734,9 +735,8 @@ class AMSET(object):
         for prop in ["f", "f_th"]:
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
-        self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi, T: f0(E, fermi, T)
-                                                                                   * (1 - f0(E, fermi, T)),
-                                for_all_E=True)
+        self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi,
+                T: f0(E, fermi, T) * (1 - f0(E, fermi, T)), for_all_E=True)
 
         for c in self.dopings:
             for T in self.temperatures:
