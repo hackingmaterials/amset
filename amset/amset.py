@@ -245,7 +245,7 @@ class AMSET(object):
             self.solve_BTE_iteratively()
 
             if self.k_integration:
-                self.calculate_transport_properties_with_k(test_k_anisotropic)
+                self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
             if self.e_integration:
                 self.calculate_transport_properties_with_E()
 
@@ -2785,7 +2785,7 @@ class AMSET(object):
 
 
     # calculates transport properties for isotropic materials
-    def calculate_transport_properties_with_k(self, test_anisotropic):
+    def calculate_transport_properties_with_k(self, test_anisotropic, important_points):
         # calculate mobility by averaging velocity per electric field strength
         mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scatterings} for tp in ["n", "p"]}
         mu_denom = deepcopy(mu_num)
@@ -2948,12 +2948,12 @@ class AMSET(object):
                             g = -1 / hbar * df0dk / nu_el
                             # print('g*norm(v) for {}:'.format(el_mech))
                             # print((g * norm_v)[0, (N[0]-1)/2, (N[1]-1)/2, :])
-                            self.mobility[tp][el_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / denominator
+                            self.mobility[tp][el_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / denominator * self.bs.get_kpoint_degeneracy(important_points[tp][0])
 
                         # from equation 45 in Rode, inelastic mechanisms
                         for inel_mech in self.inelastic_scatterings:
                             g = self.array_from_kgrid("g_"+inel_mech, tp, c, T)
-                            self.mobility[tp][inel_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / denominator
+                            self.mobility[tp][inel_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / denominator * self.bs.get_kpoint_degeneracy(important_points[tp][0])
 
                         # from equation 45 in Rode, overall
                         g = self.array_from_kgrid("g", tp, c, T)
@@ -2964,7 +2964,7 @@ class AMSET(object):
                         #     logging.info(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                         #     logging.info('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
                         #     logging.info((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
-                        self.mobility[tp]['overall'][c][T] += self.integrate_over_states(g * norm_v, tp) / denominator
+                        self.mobility[tp]['overall'][c][T] += self.integrate_over_states(g * norm_v, tp) / denominator * self.bs.get_kpoint_degeneracy(important_points[tp][0])
 
                     print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
                     for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
@@ -2979,7 +2979,7 @@ class AMSET(object):
                         mu_average += 1 / (np.array(self.mobility[tp][transport][c][T]) + 1e-32)
                         if mu_overrall_norm > norm(self.mobility[tp][transport][c][T]):
                             faulty_overall_mobility = True  # because the overall mobility should be lower than all
-                    self.mobility[tp]["average"][c][T] += 1 / mu_average
+                    self.mobility[tp]["average"][c][T] = 1 / mu_average
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
                     if mu_overrall_norm == 0.0 or faulty_overall_mobility:
@@ -3447,7 +3447,7 @@ if __name__ == "__main__":
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, 'add_extrema': add_extrema
             , "scissor": 0.5818
-            , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
+            # , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p':[[0, 0, 0]]}
                        }
     cube_path = "../test_files/GaAs/"
     #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
@@ -3480,14 +3480,15 @@ if __name__ == "__main__":
                   k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
     # stats.print_callers(10)
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_i', 'S_o', 'g', 'g_POP'], E_plots=['velocity'], show_interactive=True
-               # , carrier_types=amset.all_types
+    # amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_i', 'S_o', 'g', 'g_POP'], E_plots=['velocity'], show_interactive=True
+    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_o'], E_plots=['velocity'], show_interactive=True
+               , carrier_types=amset.all_types
                , save_format=None)
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
