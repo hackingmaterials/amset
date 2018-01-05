@@ -2621,7 +2621,13 @@ class AMSET(object):
 
                             self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
                                                                  self.kgrid[tp]["electric force"][c][T][ib]) / (
-                                                                    self.kgrid[tp]["S_o"][c][T][ib] + self.gs)
+                                                                    self.kgrid[tp]["S_o"][c][T][ib] + self.gs + 1)
+                            # the following 5 lines are a hacky and dirty fix to the problem that the last (largest norm(k) of the opposite type has very large value and messes up mobility_POP
+                            means = np.mean(self.kgrid[tp]["g_POP"][c][T][ib], axis=1)
+                            g_POP_median = np.median(means)
+                            for igpop in range(len(means)):
+                                if means[igpop] > 1e10 * g_POP_median:
+                                    self.kgrid[tp]["g_POP"][c][T][ib][igpop]= 0
 
                             self.kgrid[tp]["g"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
                                                              self.kgrid[tp]["electric force"][c][
@@ -2933,7 +2939,7 @@ class AMSET(object):
                             denominator = 3 * default_small_E * self.integrate_over_states(f0_all, tp)
                         if tp == 'p':
                             denominator = 3 * default_small_E * self.integrate_over_states(1-f0_all, tp)
-                        denominator += 1e-32 # to avoid division by zero
+                        denominator += 1e-10 # to avoid division by zero
                         print('denominator:')
                         print(denominator)
                         for el_mech in self.elastic_scatterings:
@@ -3480,7 +3486,7 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_i', 'S_o', 'g'], E_plots=['velocity'], show_interactive=True
+    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_i', 'S_o', 'g', 'g_POP'], E_plots=['velocity'], show_interactive=True
                # , carrier_types=amset.all_types
                , save_format=None)
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
