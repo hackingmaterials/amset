@@ -111,6 +111,7 @@ class AmsetTest(unittest.TestCase):
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
         mobility = amset.mobility
 
+
         # check fermi level
         # expected_fermi = amset.cbm_vbm['n']["energy"] - 0.2477
         # print('expected_fermi = {}'.format(expected_fermi))
@@ -118,6 +119,8 @@ class AmsetTest(unittest.TestCase):
         # diff = abs(amset.fermi_level[-3e13][300] - expected_fermi)
         # avg = (amset.fermi_level[-3e13][300] + expected_fermi) / 2
         # self.assertTrue(diff / avg < 0.02)
+
+        self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.697, 3)
 
         # check mobility values
         for mu in expected_mu.keys():
