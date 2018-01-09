@@ -101,10 +101,10 @@ class AMSET(object):
         self.fermi_calc_type = fermi_type
 
         self.read_vrun(calc_dir=self.calc_dir, filename="vasprun.xml")
-        if self.poly_bands:
+        if self.poly_bands0 is not None:
             self.cbm_vbm["n"]["energy"] = self.dft_gap
             self.cbm_vbm["p"]["energy"] = 0.0
-            self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands[0][0][0]
+            self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands0[0][0][0]
 
         self.num_cores = max(int(multiprocessing.cpu_count()/4), self.max_ncpu)
         if self.parallel:
@@ -151,6 +151,7 @@ class AMSET(object):
         self.find_all_important_points()
         kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
         analytical_band_tuple, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
+
 
         logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
         cbm_idx = np.argmin(energies['n'])
@@ -307,10 +308,10 @@ class AMSET(object):
 
     def get_energy_array(self, coeff_file, kpts, once_called=False, return_energies=False):
         start_time = time.time()
-        if not once_called:
-            sg = SpacegroupAnalyzer(self._vrun.final_structure)
-            self.rotations, _ = sg._get_symmetry()
-            logging.info("self.nkibz = {}".format(self.nkibz))
+        # if not once_called:
+        sg = SpacegroupAnalyzer(self._vrun.final_structure)
+        self.rotations, _ = sg._get_symmetry()
+        logging.info("self.nkibz = {}".format(self.nkibz))
 
         analytical_band_tuple = None
         # TODO for now, I get these parameters everytime which is wasteful but I only need to run this part once
@@ -318,7 +319,7 @@ class AMSET(object):
         if True: # We only need to set all_bands once
             # TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
             # if using analytical bands: create the object, determine list of band indices, and get energy info
-            if not self.poly_bands:
+            if self.poly_bands0 is None:
                 logging.debug("start interpolating bands from {}".format(coeff_file))
                 analytical_bands = Analytical_bands(coeff_file=coeff_file)
                 # all_ibands supposed to start with index of last valence band then
@@ -345,10 +346,12 @@ class AMSET(object):
             else:
                 # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
                 # these points will be used later to generate energy based on the minimum norm(k-k_i)
-                for ib in range(len(self.poly_bands)):
-                    for j in range(len(self.poly_bands[ib])):
-                        self.poly_bands[ib][j][0] = remove_duplicate_kpoints(
-                            self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0], cartesian=True))
+
+                self.poly_bands = np.array(self.poly_bands0)
+                for ib in range(len(self.poly_bands0)):
+                    for valley in range(len(self.poly_bands0[ib])):
+                        self.poly_bands[ib][valley][0] = remove_duplicate_kpoints(
+                            self.get_sym_eq_ks_in_first_BZ(self.poly_bands0[ib][valley][0], cartesian=True))
 
             logging.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
 
@@ -360,7 +363,7 @@ class AMSET(object):
                 sgn = (-1) ** i
 
                 # just calculating the first valence and the conduction band
-                if not self.poly_bands:
+                if self.poly_bands is None:
                     energy, velocity, effective_m = calc_analytical_energy(
                             self.cbm_vbm[tp]["kpoint"],engre[i * self.cbm_vbm["p"][
                             "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
@@ -375,7 +378,7 @@ class AMSET(object):
                 self.cbm_vbm[tp]["energy"] = energy
                 self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
 
-            if not self.poly_bands:
+            if self.poly_bands is None:
                 self.dos_emax += self.offset_from_vrun
                 self.dos_emin += self.offset_from_vrun
 
@@ -395,9 +398,9 @@ class AMSET(object):
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
-                if not self.parallel or self.poly_bands:  # The PB generator is fast enough no need for parallelization
+                if not self.parallel or self.poly_bands is not None:  # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts[tp])):
-                        if not self.poly_bands:
+                        if self.poly_bands is None:
                             energy, velocities[tp][ik], effective_m = calc_analytical_energy(kpts[tp][ik],engre[i * self.cbm_vbm[
                                 "p"]["included"] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
                         else:
@@ -441,7 +444,7 @@ class AMSET(object):
             logging.debug(self.energy_array['n'][ib][(N_n[0] - 1) / 2, (N_n[1] - 1) / 2, :])
         logging.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
 
-        if self.poly_bands:
+        if self.poly_bands is not None:
             all_bands_energies = {"n": [], "p": []}
             for tp in ["p", "n"]:
                 all_bands_energies[tp] = energies[tp]
@@ -458,7 +461,7 @@ class AMSET(object):
 
         # calculation of the density of states (DOS)
         if not once_called:
-            if not self.poly_bands:
+            if self.poly_bands is None:
                 emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
                         self._vrun.final_structure, [
                         self.nkdos, self.nkdos, self.nkdos],self.dos_emin,
@@ -679,7 +682,8 @@ class AMSET(object):
         self.elastic_scatterings = params.get("elastic_scatterings", ["ACD", "IMP", "PIE"])
         self.inelastic_scatterings = params.get("inelastic_scatterings", ["POP"])
 
-        self.poly_bands = params.get("poly_bands", None)
+        self.poly_bands0 = params.get("poly_bands", None)
+        self.poly_bands = self.poly_bands0
 
         # TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
         # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
@@ -801,7 +805,7 @@ class AMSET(object):
             self.dos_emin = min(bsd["bands"]["1"][0])
             self.dos_emax = max(bsd["bands"]["1"][-1])
 
-        if not self.poly_bands:
+        if self.poly_bands0 is None:
             for i, tp in enumerate(["n", "p"]):
                 Ecut = self.Ecut[tp]
                 sgn = (-1) ** i
@@ -812,7 +816,7 @@ class AMSET(object):
                 if self.max_nbands:
                     cbm_vbm[tp]["included"] = self.max_nbands
         else:
-            cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands)
+            cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands0)
 
         cbm_vbm["p"]["bidx"] += 1
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
@@ -1289,7 +1293,7 @@ class AMSET(object):
                 # WE MAKE A COPY HERE OTHERWISE THE TWO LISTS CHANGE TOGETHER
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(self.kgrid[tp]["old cartesian kpoints"][ib])
 
-                if self.parallel and not self.poly_bands:
+                if self.parallel and self.poly_bands is None:
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
                              engre[i * self.cbm_vbm["p"]["included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2,
                              br_dir) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
@@ -1319,7 +1323,7 @@ class AMSET(object):
                     #     self.kgrid[tp]["norm(k)"][ib][ik] = abs(self.kgrid[tp]["norm(k)"][ib][ik] - 9.8)
                     self.kgrid[tp]["norm(actual_k)"][ib][ik] = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
 
-                    if not self.poly_bands:
+                    if self.poly_bands is None:
                         if not self.parallel:
                             energy, de, dde = get_energy(
                                 self.kgrid[tp]["kpoints"][ib][ik], engre[i * self.cbm_vbm["p"]["included"] + ib],
@@ -1380,12 +1384,12 @@ class AMSET(object):
 
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
-                    if self.poly_bands:
-                        self.kgrid[tp]["a"][ib][ik] = 1.0 # parabolic: s-only
-                        self.kgrid[tp]["c"][ib][ik] = 0.0
-                    else:
+                    if self.poly_bands is None:
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
                         self.kgrid[tp]["c"][ib][ik] = (1 - self.kgrid[tp]["a"][ib][ik]**2)**0.5
+                    else:
+                        self.kgrid[tp]["a"][ib][ik] = 1.0  # parabolic: s-only
+                        self.kgrid[tp]["c"][ib][ik] = 0.0
 
             logging.debug("average of the {}-type group velocity in kgrid:\n {}".format(
                         tp, np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
