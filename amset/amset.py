@@ -149,9 +149,25 @@ class AMSET(object):
                   self.dopings} for el_mech in mo_labels} for tp in ["n", "p"]}
 
         self.find_all_important_points()
+        kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
+        analytical_band_tuple, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
-        once_called = True
+        logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
+        cbm_idx = np.argmin(energies['n'])
+        logging.debug("actual CBM k: {}".format(kpts['n'][cbm_idx]))
+        logging.debug("actual CBM: {}".format(energies['n'][cbm_idx]))
+        vbm_idx = np.argmax(energies['p'])
+        logging.debug("actual VBM k: {}".format(kpts['p'][vbm_idx]))
+        logging.debug("actual VBM: {}".format(energies['p'][vbm_idx]))
+
+        start_time_fermi = time.time()
+        if self.fermi_calc_type == 'k':
+            self.fermi_level = self.find_fermi_k()
+        logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
+
+        once_called = False
         for i in range(max(len(self.important_pts['n']), len(self.important_pts['p']))):
+            # once_called = True
             self.count_mobility = {'n': True, 'p': True}
             important_points = {'n': None, 'p': None}
             if i == 0:
@@ -163,24 +179,23 @@ class AMSET(object):
                     important_points[tp] = [self.important_pts[tp][0]]
                     self.count_mobility[tp] = False
 
-            self.init_kgrid(coeff_file=coeff_file, important_points=important_points,
-                            kgrid_tp=kgrid_tp, once_called=once_called)
+            kpts = self.generate_kmesh(important_points=important_points,kgrid_tp=kgrid_tp)
+            analytical_band_tuple = self.get_energy_array(coeff_file, kpts, once_called=once_called)
+            self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
 
-            logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
-            cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
-            # if self.kgrid['n']['energy'][0][cbm_idx] < self.cbm_vbm['n']['energy']:
-            #     self.cbm_vbm['n']['energy'] = self.kgrid['n']['energy'][0][cbm_idx]
-            #     self.cbm_vbm['n']['energy']
-            logging.debug("actual CBM k: {}".format(self.kgrid['n']['kpoints'][0][cbm_idx]))
-            logging.debug("actual CBM: {}".format(self.kgrid['n']['energy'][0][cbm_idx]))
-            vbm_idx = np.argmax(self.kgrid['p']['energy'][0])
-            logging.debug("actual VBM k: {}".format(self.kgrid['p']['kpoints'][0][vbm_idx]))
-            logging.debug("actual VBM: {}".format(self.kgrid['p']['energy'][0][vbm_idx]))
 
-            start_time_fermi = time.time()
-            if self.fermi_calc_type == 'k':
-                self.fermi_level = self.find_fermi_k()
-            logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
+            # logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
+            # cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
+            # logging.debug("actual CBM k: {}".format(self.kgrid['n']['kpoints'][0][cbm_idx]))
+            # logging.debug("actual CBM: {}".format(self.kgrid['n']['energy'][0][cbm_idx]))
+            # vbm_idx = np.argmax(self.kgrid['p']['energy'][0])
+            # logging.debug("actual VBM k: {}".format(self.kgrid['p']['kpoints'][0][vbm_idx]))
+            # logging.debug("actual VBM: {}".format(self.kgrid['p']['energy'][0][vbm_idx]))
+            #
+            # start_time_fermi = time.time()
+            # if self.fermi_calc_type == 'k':
+            #     self.fermi_level = self.find_fermi_k()
+            # logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
 
             self.init_egrid(once_called=once_called, dos_tp="standard")
             logging.info('fermi level = {}'.format(self.fermi_level))
@@ -261,6 +276,248 @@ class AMSET(object):
 
         if write_outputs:
             self.to_file()
+
+    def generate_kmesh(self, important_points, kgrid_tp='coarse'):
+        self.kgrid_array = {}
+        self.kgrid_array_cartesian = {}
+        self.k_hat_array = {}
+        self.k_hat_array_cartesian = {}
+        self.dv_grid = {}
+        kpts = {}
+        for tp in ['n', 'p']:
+            points_1d = generate_k_mesh_axes(important_points[tp], kgrid_tp, one_list=True)
+            self.kgrid_array[tp] = create_grid(points_1d)
+            kpts[tp] = array_to_kgrid(self.kgrid_array[tp])
+            N = self.kgrid_array[tp].shape
+            self.kgrid_array_cartesian[tp] = np.zeros((N[0], N[1], N[2], 3))
+            for ii in range(N[0]):
+                for jj in range(N[1]):
+                    for kk in range(N[2]):
+                        self.kgrid_array_cartesian[tp][ii,jj,kk,:] = self._rec_lattice.get_cartesian_coords(self.kgrid_array[tp][ii,jj,kk])   # 1/A
+
+            # generate a normalized numpy array of vectors pointing in the direction of k
+            self.k_hat_array[tp] = normalize_array(self.kgrid_array[tp])
+            self.k_hat_array_cartesian[tp] = normalize_array(self.kgrid_array_cartesian[tp])
+            self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
+
+            # logging.info("number of original ibz {}-type k-points: {}".format(tp, len(kpts[tp])))
+            # logging.debug("time to get the ibz k-mesh: \n {}".format(time.time()-start_time))
+            # start_time = time.time()
+        return kpts
+
+    def get_energy_array(self, coeff_file, kpts, once_called=False, return_energies=False):
+        start_time = time.time()
+        if not once_called:
+            sg = SpacegroupAnalyzer(self._vrun.final_structure)
+            self.rotations, _ = sg._get_symmetry()
+            logging.info("self.nkibz = {}".format(self.nkibz))
+
+        analytical_band_tuple = None
+        # TODO for now, I get these parameters everytime which is wasteful but I only need to run this part once
+        # if not once_called:
+        if True: # We only need to set all_bands once
+            # TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
+            # if using analytical bands: create the object, determine list of band indices, and get energy info
+            if not self.poly_bands:
+                logging.debug("start interpolating bands from {}".format(coeff_file))
+                analytical_bands = Analytical_bands(coeff_file=coeff_file)
+                # all_ibands supposed to start with index of last valence band then
+                # VBM-1 ... and then index of CBM then CBM+1 ...
+                self.all_ibands = []
+                for i, tp in enumerate(["p", "n"]):
+                    sgn = (-1) ** (i + 1)
+                    for ib in range(self.cbm_vbm[tp]["included"]):
+                        self.all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
+
+                logging.debug("all_ibands: {}".format(self.all_ibands))
+
+                # # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
+                # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
+                # nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
+                # out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+                # for nw in xrange(nwave):
+                #     for i in xrange(nstv[nw]):
+                #         out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+                engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
+                    get_energy_args(coeff_file, self.all_ibands)
+                analytical_band_tuple = (analytical_bands, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
+            # if using poly bands, remove duplicate k points (@albalu I'm not really sure what this is doing)
+            else:
+                # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
+                # these points will be used later to generate energy based on the minimum norm(k-k_i)
+                for ib in range(len(self.poly_bands)):
+                    for j in range(len(self.poly_bands[ib])):
+                        self.poly_bands[ib][j][0] = remove_duplicate_kpoints(
+                            self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0], cartesian=True))
+
+            logging.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
+
+        # calculate only the CBM and VBM energy values - @albalu why is this separate from the other energy value calculations?
+        # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
+
+        if not once_called:
+            for i, tp in enumerate(["p", "n"]):
+                sgn = (-1) ** i
+
+                # just calculating the first valence and the conduction band
+                if not self.poly_bands:
+                    energy, velocity, effective_m = calc_analytical_energy(
+                            self.cbm_vbm[tp]["kpoint"],engre[i * self.cbm_vbm["p"][
+                            "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
+                            br_dir, sgn, scissor=self.scissor)
+                else:
+                    energy, velocity, effective_m = self.calc_poly_energy(
+                            self.cbm_vbm[tp]["kpoint"], tp, 0)
+
+                # @albalu why is there already an energy value calculated from vasp that this code overrides? # we are renormalizing the E vlues as the new energy has a different reference energy
+                self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
+                logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
+                self.cbm_vbm[tp]["energy"] = energy
+                self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
+
+            if not self.poly_bands:
+                self.dos_emax += self.offset_from_vrun
+                self.dos_emin += self.offset_from_vrun
+
+            logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
+            self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm[tp]["eff_mass_xx"])) for tp in ["n", "p"]}
+
+        # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
+        start_time = time.time()
+        energies = {"n": [0.0 for ik in kpts['n']], "p": [0.0 for ik in kpts['p']]}
+        velocities = {"n": [[0.0, 0.0, 0.0] for ik in kpts['n']], "p": [[0.0, 0.0, 0.0] for ik in kpts['p']]}
+
+        self.pos_idx = {'n': [], 'p': []}
+        self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
+        self.energy_array = {'n': [], 'p': []}
+
+        # calculate energies
+        for i, tp in enumerate(["p", "n"]):
+            sgn = (-1) ** i
+            for ib in range(self.cbm_vbm[tp]["included"]):
+                if not self.parallel or self.poly_bands:  # The PB generator is fast enough no need for parallelization
+                    for ik in range(len(kpts[tp])):
+                        if not self.poly_bands:
+                            energy, velocities[tp][ik], effective_m = calc_analytical_energy(kpts[tp][ik],engre[i * self.cbm_vbm[
+                                "p"]["included"] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
+                        else:
+                            energy, velocities[tp][ik], effective_m = self.calc_poly_energy(kpts[tp][ik], tp, ib)
+                        energies[tp][ik] = energy
+                else:
+                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * self.cbm_vbm["p"][
+                        "included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
+                    for ik, res in enumerate(results):
+                        energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
+                        velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
+
+                self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
+
+                if ib == 0:      # we only include the first band to decide on order of ibz k-points
+                    e_sort_idx = np.array(energies[tp]).argsort() if tp == "n" else np.array(energies[tp]).argsort()[::-1]
+                    energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
+                    velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
+                    self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
+                    kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
+
+
+            # self.energy_array[tp] = [self.grid_from_ordered_list(energies[tp], none_missing=True) for ib in range(self.num_bands[tp])]
+
+            # e_sort_idx = np.array(energies[tp]).argsort() if tp =="n" else np.array(energies[tp]).argsort()[::-1]
+
+            # energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
+
+            # self.dos_end = max(energies["n"])
+            # self.dos_start = min(energies["p"])
+
+            # velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
+            # self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
+
+            # kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
+
+        N_n = self.kgrid_array['n'].shape
+
+        for ib in range(self.num_bands['n']):
+            logging.debug('energy (type n, band {}):'.format(ib))
+            logging.debug(self.energy_array['n'][ib][(N_n[0] - 1) / 2, (N_n[1] - 1) / 2, :])
+        logging.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
+
+        if self.poly_bands:
+            all_bands_energies = {"n": [], "p": []}
+            for tp in ["p", "n"]:
+                all_bands_energies[tp] = energies[tp]
+                for ib in range(1, len(self.poly_bands)):
+                    for ik in range(len(kpts[tp])):
+                        energy, velocity, effective_m = get_poly_energy(
+                            self._rec_lattice.get_cartesian_coords(kpts[ik]) / A_to_nm,
+                            poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+                        all_bands_energies[tp].append(energy)
+            self.dos_emin = min(all_bands_energies["p"])
+            self.dos_emax = max(all_bands_energies["n"])
+
+        del velocities, e_sort_idx
+
+        # calculation of the density of states (DOS)
+        if not once_called:
+            if not self.poly_bands:
+                emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
+                        self._vrun.final_structure, [
+                        self.nkdos, self.nkdos, self.nkdos],self.dos_emin,
+                        self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
+                        / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
+                        scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
+                logging.debug("dos_nbands: {} \n".format(dos_nbands))
+                self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
+                self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
+                                 + self.offset_from_vrun - self.scissor/2.0
+                self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
+                               + self.offset_from_vrun + self.scissor / 2.0
+            else:
+                logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
+                emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
+                        [self.nkdos, self.nkdos, self.nkdos], self.dos_emin,
+                        self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
+                        / max(self.dE_min, 0.0001))),poly_bands=self.poly_bands,
+                        bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
+                        "energy"], width=self.dos_bwidth, SPB_DOS=False)
+                self.dos_normalization_factor = len(self.poly_bands) * 2 * 2
+                # it is *2 elec/band & *2 because DOS repeats in valence/conduction
+                self.dos_start = self.dos_emin
+                self.dos_end = self.dos_emax
+
+
+            logging.info("DOS normalization factor: {}".format(self.dos_normalization_factor))
+
+            integ = 0.0
+            self.dos_start = abs(emesh - self.dos_start).argmin()
+            self.dos_end = abs(emesh - self.dos_end).argmin()
+            for idos in range(self.dos_start, self.dos_end):
+                # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
+                #     break
+                integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
+
+            print("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
+
+            # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
+            dos = [g / integ * self.dos_normalization_factor for g in dos]
+            # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
+
+            self.dos = zip(emesh, dos)
+            self.dos_emesh = np.array(emesh)
+            self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
+            self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
+
+            logging.info("vbm and cbm DOS index")
+            logging.info(self.vbm_dos_idx)
+            logging.info(self.cbm_dos_idx)
+            # logging.debug("full dos after normalization: \n {}".format(self.dos))
+            # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
+
+            self.dos = [list(a) for a in self.dos]
+
+        if return_energies:
+            return analytical_band_tuple, energies
+        else:
+            return analytical_band_tuple
 
 
     def find_all_important_points(self):
@@ -965,8 +1222,7 @@ class AMSET(object):
         return energy, velocity, effective_m
 
 
-    def init_kgrid(self, coeff_file, important_points, kgrid_tp="coarse",
-                   once_called=False):
+    def init_kgrid(self, kpts, important_points, analytical_band_tuple=None, once_called=False):
         """
 
         Args:
@@ -975,177 +1231,14 @@ class AMSET(object):
                 'very coarse', 'coarse', 'fine', 'very fine'
         Returns:
         """
-        logging.debug('begin profiling init_kgrid: a "{}" grid'.format(kgrid_tp))
-        start_time = time.time()
-        sg = SpacegroupAnalyzer(self._vrun.final_structure)
-        self.rotations, _ = sg._get_symmetry()
-        logging.info("self.nkibz = {}".format(self.nkibz))
+        # logging.debug('begin profiling init_kgrid: a "{}" grid'.format(kgrid_tp))
+        # start_time = time.time()
 
-        self.kgrid_array = {}
-        self.kgrid_array_cartesian = {}
-        self.k_hat_array = {}
-        self.k_hat_array_cartesian = {}
-        self.dv_grid = {}
-        kpts = {}
-        for tp in ['n', 'p']:
-            points_1d = generate_k_mesh_axes(important_points[tp], kgrid_tp, one_list=True)
-            self.kgrid_array[tp] = create_grid(points_1d)
-            kpts[tp] = array_to_kgrid(self.kgrid_array[tp])
-            N = self.kgrid_array[tp].shape
-            self.kgrid_array_cartesian[tp] = np.zeros((N[0], N[1], N[2], 3))
-            for ii in range(N[0]):
-                for jj in range(N[1]):
-                    for kk in range(N[2]):
-                        self.kgrid_array_cartesian[tp][ii,jj,kk,:] = self._rec_lattice.get_cartesian_coords(self.kgrid_array[tp][ii,jj,kk])   # 1/A
+        if analytical_band_tuple is None:
+            analytical_band_tuple = [None for _ in range(9)]
 
-            # generate a normalized numpy array of vectors pointing in the direction of k
-            self.k_hat_array[tp] = normalize_array(self.kgrid_array[tp])
-            self.k_hat_array_cartesian[tp] = normalize_array(self.kgrid_array_cartesian[tp])
-            self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
+        analytical_bands, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = analytical_band_tuple
 
-            logging.info("number of original ibz {}-type k-points: {}".format(tp, len(kpts[tp])))
-            logging.debug("time to get the ibz k-mesh: \n {}".format(time.time()-start_time))
-            start_time = time.time()
-
-        # TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
-        # if using analytical bands: create the object, determine list of band indices, and get energy info
-        if not self.poly_bands:
-            logging.debug("start interpolating bands from {}".format(coeff_file))
-            analytical_bands = Analytical_bands(coeff_file=coeff_file)
-            # all_ibands supposed to start with index of last valence band then
-            # VBM-1 ... and then index of CBM then CBM+1 ...
-            all_ibands = []
-            for i, tp in enumerate(["p", "n"]):
-                sgn = (-1) ** (i + 1)
-                for ib in range(self.cbm_vbm[tp]["included"]):
-                    all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
-
-            logging.debug("all_ibands: {}".format(all_ibands))
-
-            # # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
-            # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
-            # nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
-            # out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
-            # for nw in xrange(nwave):
-            #     for i in xrange(nstv[nw]):
-            #         out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
-            engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
-                get_energy_args(coeff_file, all_ibands)
-
-        # if using poly bands, remove duplicate k points (@albalu I'm not really sure what this is doing)
-        else:
-            # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
-            # these points will be used later to generate energy based on the minimum norm(k-k_i)
-            for ib in range(len(self.poly_bands)):
-                for j in range(len(self.poly_bands[ib])):
-                    self.poly_bands[ib][j][0] = remove_duplicate_kpoints(
-                        self.get_sym_eq_ks_in_first_BZ(self.poly_bands[ib][j][0], cartesian=True))
-
-        logging.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
-
-        # calculate only the CBM and VBM energy values - @albalu why is this separate from the other energy value calculations?
-        # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
-
-        if not once_called:
-            for i, tp in enumerate(["p", "n"]):
-                sgn = (-1) ** i
-
-                # just calculating the first valence and the conduction band
-                if not self.poly_bands:
-                    energy, velocity, effective_m = calc_analytical_energy(
-                            self.cbm_vbm[tp]["kpoint"],engre[i * self.cbm_vbm["p"][
-                            "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
-                            br_dir, sgn, scissor=self.scissor)
-                else:
-                    energy, velocity, effective_m = self.calc_poly_energy(
-                            self.cbm_vbm[tp]["kpoint"], tp, 0)
-
-                # @albalu why is there already an energy value calculated from vasp that this code overrides? # we are renormalizing the E vlues as the new energy has a different reference energy
-                self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
-                logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
-                self.cbm_vbm[tp]["energy"] = energy
-                self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
-
-            if not self.poly_bands:
-                self.dos_emax += self.offset_from_vrun
-                self.dos_emin += self.offset_from_vrun
-
-            logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
-            self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm[tp]["eff_mass_xx"])) for tp in ["n", "p"]}
-
-        # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
-        start_time = time.time()
-        energies = {"n": [0.0 for ik in kpts['n']], "p": [0.0 for ik in kpts['p']]}
-        velocities = {"n": [[0.0, 0.0, 0.0] for ik in kpts['n']], "p": [[0.0, 0.0, 0.0] for ik in kpts['p']]}
-
-        self.pos_idx = {'n': [], 'p': []}
-        self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
-        self.energy_array = {'n': [], 'p': []}
-
-        # calculate energies
-        for i, tp in enumerate(["p", "n"]):
-            sgn = (-1) ** i
-            for ib in range(self.cbm_vbm[tp]["included"]):
-                if not self.parallel or self.poly_bands:  # The PB generator is fast enough no need for parallelization
-                    for ik in range(len(kpts[tp])):
-                        if not self.poly_bands:
-                            energy, velocities[tp][ik], effective_m = calc_analytical_energy(kpts[tp][ik],engre[i * self.cbm_vbm[
-                                "p"]["included"] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
-                        else:
-                            energy, velocities[tp][ik], effective_m = self.calc_poly_energy(kpts[tp][ik], tp, ib)
-                        energies[tp][ik] = energy
-                else:
-                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * self.cbm_vbm["p"][
-                        "included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
-                    for ik, res in enumerate(results):
-                        energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
-                        velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
-
-                self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
-
-                if ib == 0:      # we only include the first band to decide on order of ibz k-points
-                    e_sort_idx = np.array(energies[tp]).argsort() if tp == "n" else np.array(energies[tp]).argsort()[::-1]
-                    energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
-                    velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
-                    self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
-                    kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
-
-
-            # self.energy_array[tp] = [self.grid_from_ordered_list(energies[tp], none_missing=True) for ib in range(self.num_bands[tp])]
-
-            # e_sort_idx = np.array(energies[tp]).argsort() if tp =="n" else np.array(energies[tp]).argsort()[::-1]
-
-            # energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
-
-            # self.dos_end = max(energies["n"])
-            # self.dos_start = min(energies["p"])
-
-            # velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
-            # self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
-
-            # kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
-
-        N_n = self.kgrid_array['n'].shape
-
-        for ib in range(self.num_bands['n']):
-            logging.debug('energy (type n, band {}):'.format(ib))
-            logging.debug(self.energy_array['n'][ib][(N_n[0] - 1) / 2, (N_n[1] - 1) / 2, :])
-        logging.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
-
-        if self.poly_bands:
-            all_bands_energies = {"n": [], "p": []}
-            for tp in ["p", "n"]:
-                all_bands_energies[tp] = energies[tp]
-                for ib in range(1, len(self.poly_bands)):
-                    for ik in range(len(kpts[tp])):
-                        energy, velocity, effective_m = get_poly_energy(
-                            self._rec_lattice.get_cartesian_coords(kpts[ik]) / A_to_nm,
-                            poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
-                        all_bands_energies[tp].append(energy)
-            self.dos_emin = min(all_bands_energies["p"])
-            self.dos_emax = max(all_bands_energies["n"])
-
-        del energies, velocities, e_sort_idx
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
         if self.adaptive_mesh:
@@ -1368,63 +1461,63 @@ class AMSET(object):
         self.initialize_var("kgrid", ["f0", "f_plus", "f_minus", "g_plus", "g_minus"], "vector", self.gs,
                             is_nparray=True, c_T_idx=True)
 
-        # calculation of the density of states (DOS)
-        if not once_called:
-            if not self.poly_bands:
-                emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
-                        self._vrun.final_structure, [
-                        self.nkdos, self.nkdos, self.nkdos],self.dos_emin,
-                        self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
-                        / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
-                        scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
-                logging.debug("dos_nbands: {} \n".format(dos_nbands))
-                self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
-                self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
-                                 + self.offset_from_vrun - self.scissor/2.0
-                self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
-                               + self.offset_from_vrun + self.scissor / 2.0
-            else:
-                logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
-                emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
-                        [self.nkdos, self.nkdos, self.nkdos], self.dos_emin,
-                        self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
-                        / max(self.dE_min, 0.0001))),poly_bands=self.poly_bands,
-                        bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
-                        "energy"], width=self.dos_bwidth, SPB_DOS=False)
-                self.dos_normalization_factor = len(self.poly_bands) * 2 * 2
-                # it is *2 elec/band & *2 because DOS repeats in valence/conduction
-                self.dos_start = self.dos_emin
-                self.dos_end = self.dos_emax
-
-
-            logging.info("DOS normalization factor: {}".format(self.dos_normalization_factor))
-
-            integ = 0.0
-            self.dos_start = abs(emesh - self.dos_start).argmin()
-            self.dos_end = abs(emesh - self.dos_end).argmin()
-            for idos in range(self.dos_start, self.dos_end):
-                # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
-                #     break
-                integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
-
-            print("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
-
-            # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
-            dos = [g / integ * self.dos_normalization_factor for g in dos]
-            # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
-
-            self.dos = zip(emesh, dos)
-            self.dos_emesh = np.array(emesh)
-            self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
-            self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
-
-            logging.info("vbm and cbm DOS index")
-            logging.info(self.vbm_dos_idx)
-            logging.info(self.cbm_dos_idx)
-            # logging.debug("full dos after normalization: \n {}".format(self.dos))
-            # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
-
-            self.dos = [list(a) for a in self.dos]
+        # # calculation of the density of states (DOS)
+        # if not once_called:
+        #     if not self.poly_bands:
+        #         emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
+        #                 self._vrun.final_structure, [
+        #                 self.nkdos, self.nkdos, self.nkdos],self.dos_emin,
+        #                 self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
+        #                 / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
+        #                 scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
+        #         logging.debug("dos_nbands: {} \n".format(dos_nbands))
+        #         self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
+        #         self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
+        #                          + self.offset_from_vrun - self.scissor/2.0
+        #         self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
+        #                        + self.offset_from_vrun + self.scissor / 2.0
+        #     else:
+        #         logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
+        #         emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
+        #                 [self.nkdos, self.nkdos, self.nkdos], self.dos_emin,
+        #                 self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
+        #                 / max(self.dE_min, 0.0001))),poly_bands=self.poly_bands,
+        #                 bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
+        #                 "energy"], width=self.dos_bwidth, SPB_DOS=False)
+        #         self.dos_normalization_factor = len(self.poly_bands) * 2 * 2
+        #         # it is *2 elec/band & *2 because DOS repeats in valence/conduction
+        #         self.dos_start = self.dos_emin
+        #         self.dos_end = self.dos_emax
+        #
+        #
+        #     logging.info("DOS normalization factor: {}".format(self.dos_normalization_factor))
+        #
+        #     integ = 0.0
+        #     self.dos_start = abs(emesh - self.dos_start).argmin()
+        #     self.dos_end = abs(emesh - self.dos_end).argmin()
+        #     for idos in range(self.dos_start, self.dos_end):
+        #         # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
+        #         #     break
+        #         integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
+        #
+        #     print("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
+        #
+        #     # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
+        #     dos = [g / integ * self.dos_normalization_factor for g in dos]
+        #     # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
+        #
+        #     self.dos = zip(emesh, dos)
+        #     self.dos_emesh = np.array(emesh)
+        #     self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
+        #     self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
+        #
+        #     logging.info("vbm and cbm DOS index")
+        #     logging.info(self.vbm_dos_idx)
+        #     logging.info(self.cbm_dos_idx)
+        #     # logging.debug("full dos after normalization: \n {}".format(self.dos))
+        #     # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
+        #
+        #     self.dos = [list(a) for a in self.dos]
 
 
     def sort_vars_based_on_energy(self, args, ascending=True):
@@ -3476,11 +3569,12 @@ if __name__ == "__main__":
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
                   temperatures = [300],
+                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = range(100, 1100, 100),
                   k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
     # stats.print_callers(10)
 
