@@ -3337,14 +3337,15 @@ class AMSET(object):
             margin_bottom: (int) plotly bottom margin
             fontfamily: (string) plotly font
         """
-
+        supported_k_plots = ['energy', 'df0dk', 'velocity'] + self.elastic_scatterings
+        supported_E_plots = ['frequency', 'relaxation time', 'df0dk', 'velocity'] + self.elastic_scatterings
+        if "POP" in self.inelastic_scatterings:
+            supported_E_plots += ['g', 'g_POP', 'S_i', 'S_o']
+            supported_k_plots += ['g', 'g_POP', 'S_i', 'S_o']
         if k_plots == 'all':
-            k_plots = ['energy', 'df0dk', 'velocity']
+            k_plots = supported_k_plots
         if E_plots == 'all':
-            E_plots = ['frequency', 'relaxation time', 'df0dk', 'velocity'] + self.elastic_scatterings
-            if "POP" in self.inelastic_scatterings:
-                E_plots += ['g', 'g_POP', 'S_i', 'S_o']
-
+            E_plots = supported_E_plots
         if concentrations == 'all':
             concentrations = self.dopings
 
@@ -3371,12 +3372,16 @@ class AMSET(object):
         temp_independent_E_props = []
         temp_dependent_k_props = []
         for prop in k_plots:
+            if prop not in supported_k_plots:
+                raise AmsetError('No support for {} vs. k plot!'.format(prop))
             if prop in all_temp_independent_k_props:
                 temp_independent_k_props.append(prop)
             else:
                 temp_dependent_k_props.append(prop)
         temp_dependent_E_props = []
         for prop in E_plots:
+            if prop not in supported_E_plots:
+                raise AmsetError('No support for {} vs. E plot!'.format(prop))
             if prop in all_temp_independent_E_props:
                 temp_independent_E_props.append(prop)
             else:
