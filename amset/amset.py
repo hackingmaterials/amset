@@ -166,9 +166,9 @@ class AMSET(object):
             self.fermi_level = self.find_fermi_k()
         logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
 
-        once_called = False
+        # once_called = False
         for i in range(max(len(self.important_pts['n']), len(self.important_pts['p']))):
-            # once_called = True
+            once_called = True
             self.count_mobility = {'n': True, 'p': True}
             important_points = {'n': None, 'p': None}
             if i == 0:
@@ -198,7 +198,8 @@ class AMSET(object):
             #     self.fermi_level = self.find_fermi_k()
             # logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
 
-            self.init_egrid(once_called=once_called, dos_tp="standard")
+            # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
+            self.init_egrid(once_called=False, dos_tp="standard")
             logging.info('fermi level = {}'.format(self.fermi_level))
             self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
             if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
@@ -877,8 +878,12 @@ class AMSET(object):
         :param T:
         :return:
         """
-        N_II = abs(self.egrid["calc_doping"][c][T]["n"]) * self.charge["n"] ** 2 + \
-               abs(self.egrid["calc_doping"][c][T]["p"]) * self.charge["p"] ** 2 + \
+        # N_II = abs(self.egrid["calc_doping"][c][T]["n"]) * self.charge["n"] ** 2 + \
+        #        abs(self.egrid["calc_doping"][c][T]["p"]) * self.charge["p"] ** 2 + \
+        #        self.N_dis / self.volume ** (1 / 3) * 1e8 * self.charge["dislocations"] ** 2
+
+        N_II = abs(self.calc_doping[c][T]["n"]) * self.charge["n"] ** 2 + \
+               abs(self.calc_doping[c][T]["p"]) * self.charge["p"] ** 2 + \
                self.N_dis / self.volume ** (1 / 3) * 1e8 * self.charge["dislocations"] ** 2
         return N_II
 
@@ -891,7 +896,6 @@ class AMSET(object):
 
         :return: an updated grid that contains the field DOS
         """
-
         self.egrid = {
             "n": {"energy": [], "DOS": [], "all_en_flat": [],
                   "all_ks_flat": [], "mobility": {}},
@@ -985,6 +989,7 @@ class AMSET(object):
             if self.fermi_calc_type == 'k':
                 self.egrid["calc_doping"] = self.calc_doping
             if self.fermi_calc_type == 'e':
+                self.calc_doping = self.egrid["calc_doping"]
                 self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
                 self.fermi_level = self.egrid["fermi"]
 
