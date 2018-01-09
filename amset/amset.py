@@ -3590,7 +3590,7 @@ if __name__ == "__main__":
     amset.write_input_files()
     amset.to_csv()
     # amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_i', 'S_o', 'g', 'g_POP'], E_plots=['velocity'], show_interactive=True
-    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_o'], E_plots=['velocity', 'energy', 'df0dk'], show_interactive=True
+    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_o'], E_plots=['velocity', 'df0dk'], show_interactive=True
                , carrier_types=amset.all_types
                , save_format=None)
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
