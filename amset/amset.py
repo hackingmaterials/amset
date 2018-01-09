@@ -150,7 +150,7 @@ class AMSET(object):
 
         self.find_all_important_points()
         kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
-        analytical_band_tuple, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
+        analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
 
         logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
@@ -181,7 +181,7 @@ class AMSET(object):
                     self.count_mobility[tp] = False
 
             kpts = self.generate_kmesh(important_points=important_points,kgrid_tp=kgrid_tp)
-            analytical_band_tuple = self.get_energy_array(coeff_file, kpts, once_called=once_called)
+            analytical_band_tuple, kpts = self.get_energy_array(coeff_file, kpts, once_called=once_called)
             self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
 
 
@@ -519,9 +519,9 @@ class AMSET(object):
             self.dos = [list(a) for a in self.dos]
 
         if return_energies:
-            return analytical_band_tuple, energies
+            return analytical_band_tuple, kpts, energies
         else:
-            return analytical_band_tuple
+            return analytical_band_tuple, kpts
 
 
     def find_all_important_points(self):
@@ -3580,7 +3580,7 @@ if __name__ == "__main__":
                   temperatures = [300],
                   # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = range(100, 1100, 100),
-                  k_integration=True, e_integration=False, fermi_type='k',
+                  k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
     amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
@@ -3590,7 +3590,7 @@ if __name__ == "__main__":
     amset.write_input_files()
     amset.to_csv()
     # amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_i', 'S_o', 'g', 'g_POP'], E_plots=['velocity'], show_interactive=True
-    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_o'], E_plots=['velocity'], show_interactive=True
+    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_o'], E_plots=['velocity', 'energy', 'df0dk'], show_interactive=True
                , carrier_types=amset.all_types
                , save_format=None)
     # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
