@@ -164,6 +164,18 @@ class AMSET(object):
         start_time_fermi = time.time()
         if self.fermi_calc_type == 'k':
             self.fermi_level = self.find_fermi_k()
+
+        self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
+        for c in self.dopings:
+            for T in self.temperatures:
+                f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
+                self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
+
+        print('denominator:')
+        print(self.denominator)
+
         logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
 
         # once_called = False
@@ -3037,25 +3049,19 @@ class AMSET(object):
                         #     logging.info('f0 (type {}, band {}):'.format(tp, ib))
                         #     logging.info(f0_all[ib, (N[0]-1)/2, (N[1]-1)/2, :])
                         #     #logging.info(self.f0_array[c][T][tp][ib][(N[0]-1)/2, (N[1]-1)/2, :])
-                        if tp == 'n':
-                            self.denominator = 3 * default_small_E * self.integrate_over_states(f0_all, tp)
-                        if tp == 'p':
-                            self.denominator = 3 * default_small_E * self.integrate_over_states(1-f0_all, tp)
-                        self.denominator += 1e-10 # to avoid division by zero
-                        print('denominator:')
-                        print(self.denominator)
+
                         for el_mech in self.elastic_scatterings:
                             nu_el = self.array_from_kgrid(el_mech, tp, c, T, denom=True)
                             # this line should have -e / hbar except that hbar is in units of eV*s so in those units e=1
                             g = -1 / hbar * df0dk / nu_el
                             # print('g*norm(v) for {}:'.format(el_mech))
                             # print((g * norm_v)[0, (N[0]-1)/2, (N[1]-1)/2, :])
-                            self.mobility[tp][el_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator * self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                            self.mobility[tp][el_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
 
                         # from equation 45 in Rode, inelastic mechanisms
                         for inel_mech in self.inelastic_scatterings:
                             g = self.array_from_kgrid("g_"+inel_mech, tp, c, T)
-                            self.mobility[tp][inel_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator * self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                            self.mobility[tp][inel_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
 
                         # from equation 45 in Rode, overall
                         g = self.array_from_kgrid("g", tp, c, T)
@@ -3066,7 +3072,7 @@ class AMSET(object):
                         #     logging.info(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                         #     logging.info('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
                         #     logging.info((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
-                        self.mobility[tp]['overall'][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator * self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                        self.mobility[tp]['overall'][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
 
                     print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
                     for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
@@ -3585,7 +3591,7 @@ if __name__ == "__main__":
                   temperatures = [300],
                   # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = range(100, 1100, 100),
-                  k_integration=False, e_integration=True, fermi_type='e',
+                  k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
     amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
