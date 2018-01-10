@@ -3056,12 +3056,11 @@ class AMSET(object):
                             g = -1 / hbar * df0dk / nu_el
                             # print('g*norm(v) for {}:'.format(el_mech))
                             # print((g * norm_v)[0, (N[0]-1)/2, (N[1]-1)/2, :])
-                            self.mobility[tp][el_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
-
+                            self.mobility[tp][el_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
                         # from equation 45 in Rode, inelastic mechanisms
                         for inel_mech in self.inelastic_scatterings:
                             g = self.array_from_kgrid("g_"+inel_mech, tp, c, T)
-                            self.mobility[tp][inel_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                            self.mobility[tp][inel_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
 
                         # from equation 45 in Rode, overall
                         g = self.array_from_kgrid("g", tp, c, T)
@@ -3072,7 +3071,7 @@ class AMSET(object):
                         #     logging.info(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                         #     logging.info('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
                         #     logging.info((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
-                        self.mobility[tp]['overall'][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                        self.mobility[tp]['overall'][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 # self.bs.get_kpoint_degeneracy(important_points[tp][0])
 
                     print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
                     for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
@@ -3220,7 +3219,7 @@ class AMSET(object):
                         print('old {}-type {} mobility at T = {}: {}'.format(tp, mech, T, self.egrid[tp]["mobility"][mech][c][T]))
 
                     # calculating other overall transport properties:
-                    self.egrid[tp]["conductivity"][c][T] = self.egrid[tp]["mobility"]["overall"][c][T]* e * abs(c)
+                    self.egrid[tp]["conductivity"][c][T] = self.egrid[tp]["mobility"]["overall"][c][T] * e * abs(c)
                     # self.egrid["seebeck"][c][T][tp] = -1e6 * k_B * (self.egrid["Seebeck_integral_numerator"][c][T][tp] \
                     #                                                 / self.egrid["Seebeck_integral_denominator"][c][T][
                     #                                                     tp] - (
@@ -3560,7 +3559,7 @@ if __name__ == "__main__":
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, 'add_extrema': add_extrema
             , "scissor": 0.5818
-            , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
+            # , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p':[[0, 0, 0]]}
                        }
     cube_path = "../test_files/GaAs/"
     #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
