@@ -2610,10 +2610,13 @@ class AMSET(object):
 
     def calc_v_vec(self, tp):
         v_vec_all_bands = []
+        v_norm_all_bands = []
         for ib in range(self.num_bands[tp]):
             v_vec_k_ordered = self.velocity_signed[tp][ib][self.pos_idx[tp]]
+            v_norm_k_ordered = (v_vec_k_ordered[:,0]**2 + v_vec_k_ordered[:,1]**2 + v_vec_k_ordered[:,2]**2)**0.5
             v_vec_all_bands.append(self.grid_from_ordered_list(v_vec_k_ordered, tp, none_missing=True))
-        return np.array(v_vec_all_bands)
+            v_norm_all_bands.append(self.grid_from_ordered_list(v_norm_k_ordered, tp, none_missing=True, scalar=True))
+        return np.array(v_vec_all_bands), np.array(v_norm_all_bands)
 
     # def calc_v_vec(self, tp):
     #     # TODO: Take into account the fact that this gradient is found in three directions specified by the lattice, not
@@ -2675,10 +2678,12 @@ class AMSET(object):
 
 
     # return a grid of the (x,y,z) k points in the proper grid
-    def grid_from_ordered_list(self, prop_list, tp, denom=False, none_missing=False):
+    def grid_from_ordered_list(self, prop_list, tp, denom=False, none_missing=False, scalar=False):
         # need:
         # self.kgrid_array[tp]
-        N = self.kgrid_array[tp].shape
+        N = list(self.kgrid_array[tp].shape)
+        if scalar:
+            N[-1] = 1
         grid = np.zeros(N)
         adjusted_prop_list = list(prop_list)
 
@@ -2776,7 +2781,7 @@ class AMSET(object):
                     # TODO: the anisotropic case is not correct right now
                     if not self.bs_is_isotropic or test_anisotropic:
 
-                        v_vec = self.calc_v_vec(tp)
+                        v_vec, v_norm = self.calc_v_vec(tp)
 
                         #TODO: get f through solving the BTE anisotropically
                         #k_hat = np.array([self.k_hat_array[tp] for ib in range(self.num_bands[tp])])
@@ -2787,24 +2792,25 @@ class AMSET(object):
                         x = -k_hat_cartesian
                         f_T = f0_all + x * g
 
-                        print('v')
-                        print(v_vec.shape)
-                        print(v_vec[0, (N[0]-1)/2, (N[1]-1)/2, :])
-                        print('k_hat_cartesian')
-                        print(k_hat_cartesian[0, (N[0]-1)/2, (N[1]-1)/2, :])
-                        print('g')
-                        print(g[0, (N[0]-1)/2, (N[1]-1)/2, :])
+                        if tp == 'n':
+                            print('v')
+                            print(v_vec.shape)
+                            print(v_vec[0, (N[0]-1)/2, (N[1]-1)/2, :])
+                            print('k_hat_cartesian')
+                            print(k_hat_cartesian[0, (N[0]-1)/2, (N[1]-1)/2, :])
+                            print('g')
+                            print(g[0, (N[0]-1)/2, (N[1]-1)/2, :])
 
-                        print('v*f0_all')
-                        print((v_vec * f0_all)[0, (N[0]-1)/2, (N[1]-1)/2, :])
-                        print('v*f_T')
-                        print((v_vec * f_T)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                        print('v*(f_T-f0_all)')
-                        print((v_vec * k_hat_cartesian * g)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                        print('v*f_T*d3k')
-                        print(((v_vec * f_T)[0] * self.dv_grid['n'][:,:,:,np.newaxis])[(N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                        print("sum")
-                        print(np.sum(((v_vec * f_T)[0] * self.dv_grid['n'][:,:,:,np.newaxis]), axis=(0,1,2)))
+                            print('v*f0_all')
+                            print((v_vec * f0_all)[0, (N[0]-1)/2, (N[1]-1)/2, :])
+                            print('v*f_T')
+                            print((v_vec * f_T)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                            print('v*(f_T-f0_all)')
+                            print((v_vec * k_hat_cartesian * g)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                            print('v*f_T*d3k')
+                            print(((v_vec * f_T)[0] * self.dv_grid['n'][:,:,:,np.newaxis])[(N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                            print("sum")
+                            print(np.sum(((v_vec * f_T)[0] * self.dv_grid['n'][:,:,:,np.newaxis]), axis=(0,1,2)))
 
                         # from equation 44 in Rode, overall
                         #nu_el = self.array_from_kgrid('_all_elastic', tp, c, T, denom=True)
@@ -2812,27 +2818,37 @@ class AMSET(object):
                         # denominator = self.integrate_over_states(f0, tp) * hbar * default_small_E
                         numerator = self.integrate_over_states(v_vec / default_small_E * f_T, tp)
                         numerator2 = self.integrate_over_states(v_vec / default_small_E * f0_all, tp)
+                        numerator3 = self.integrate_over_states(v_vec / default_small_E * (f_T - f0_all), tp)
+                        numerator4 = self.integrate_over_states(v_vec / default_small_E * (x * g), tp)
+                        numerator5 = self.integrate_over_states(v_norm * x * x * g, tp) / default_small_E
+                        numerator6 = self.integrate_over_states(v_norm * x**2 * g, tp) / default_small_E
                         denominator = self.integrate_over_states(j + ((-1) ** j) * f_T, tp)
                         self.mobility[tp]['overall'][c][T] = numerator / denominator
 
-                        print('ANISOTROPIC numerator, numerator without g, and denominator:')
-                        print(numerator)
-                        print(numerator2)
-                        print(denominator)
+                        if tp == 'n':
+                            print('ANISOTROPIC numerator, numerator without g, and denominator:')
+                            print(numerator)
+                            print(numerator2)
+                            print(numerator3)
+                            print(numerator4)
+                            print(numerator5)
+                            print(numerator6)
+                            print(denominator)
 
                         if tp == 'n':
                             denominator_iso = self.integrate_over_states(f0_all, tp)
                         if tp == 'p':
                             denominator_iso = self.integrate_over_states(1-f0_all, tp)
-                        numerator_iso = self.integrate_over_states(g * norm_v, tp) / 3 / default_small_E
+                        numerator_iso = self.integrate_over_states(g * v_norm, tp) / 3 / default_small_E
 
-                        print('norm_v')
-                        print(norm_v[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                        print('g*norm_v')
-                        print((g*norm_v)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                        print('ISOTROPIC numerator and denominator:')
-                        print(numerator_iso)
-                        print(denominator_iso)
+                        if tp == 'n':
+                            print('norm_v')
+                            print(norm_v[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                            print('g*norm_v')
+                            print((g*norm_v)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                            print('ISOTROPIC numerator and denominator:')
+                            print(numerator_iso)
+                            print(denominator_iso)
 
                         k_norm = np.sqrt(self.kgrid_array_cartesian[tp][:,:,:,0]**2 + self.kgrid_array_cartesian[tp][:,:,:,1]**2 + self.kgrid_array_cartesian[tp][:,:,:,2]**2) / (A_to_m * m_to_cm)
                         print('norm(k)')
@@ -2924,7 +2940,9 @@ class AMSET(object):
                     self.mobility[tp]["average"][c][T] = 1 / np.array(self.mobility[tp]["average"][c][T])
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
-                    if mu_overrall_norm == 0.0 or faulty_overall_mobility:
+                    if (mu_overrall_norm == 0.0 or faulty_overall_mobility) and not test_anisotropic:
+                        print(mu_overrall_norm)
+                        print(faulty_overall_mobility)
                         self.mobility[tp]["overall"][c][T] = self.mobility[tp]["average"][c][T]
 
 
@@ -3406,16 +3424,17 @@ if __name__ == "__main__":
 
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
-                  # dopings = [-3e13],
-                  dopings = [-1e20],
+                  dopings = [-3e13],
+                  # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  temperatures = [300],
+                  # temperatures = [300],
+                  temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
                   # temperatures = range(100, 1100, 100),
                   k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
 
     # stats.print_callers(10)
 
@@ -3447,10 +3466,13 @@ if __name__ == "__main__":
     #               dopings=[-3e13], temperatures=[300], k_integration=True,
     #               e_integration=False, fermi_type='k',
     #               loglevel=logging.ERROR)
-    # amset.run(GaAs_cube, kgrid_tp='fine', write_outputs=False, test_k_anisotropic=True)
+    # amset.run(GaAs_cube, kgrid_tp='coarse', write_outputs=False, test_k_anisotropic=True)
     # mobility = amset.mobility
     # kgrid = amset.kgrid
     #
+    # amset.plot(k_plots=['energy'], E_plots=['g'], show_interactive=True,
+    #            carrier_types=amset.all_types, save_format=None)
+
     # # check mobility values
     # for mu in expected_mu.keys():
     #     diff = np.std(mobility['n'][mu][-3e13][300])
