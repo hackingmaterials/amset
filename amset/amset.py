@@ -148,10 +148,15 @@ class AMSET(object):
         self.mobility = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in
                   self.dopings} for el_mech in mo_labels} for tp in ["n", "p"]}
 
-        self.find_all_important_points()
-        kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
-        analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
+        # self.find_all_important_points()
+        ## all_important_pts = get_bs_extrema(self.bs, coeff_file, nk_ibz=self.nkdos,
+        ##         v_cut=self.v_min, min_normdiff=0.1, Ecut=self.Ecut, nex_max=20, return_global=False, niter=10)
+        # kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
+        # analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
+
+        kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='uniform')
+        analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
         logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
         cbm_idx = np.argmin(energies['n'])
@@ -165,16 +170,21 @@ class AMSET(object):
         if self.fermi_calc_type == 'k':
             self.fermi_level = self.find_fermi_k()
 
-        self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
-        for c in self.dopings:
-            for T in self.temperatures:
-                f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
-                self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
+        self.find_all_important_points()
+        ## kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
+        ## analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
-        print('denominator:')
-        print(self.denominator)
+        # self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
+        # for c in self.dopings:
+        #     for T in self.temperatures:
+        #         f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+        #         f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+        #         self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
+        #         self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
+        #
+        #
+        # print('denominator:')
+        # print(self.denominator)
 
         logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
 
@@ -196,6 +206,17 @@ class AMSET(object):
             analytical_band_tuple, kpts = self.get_energy_array(coeff_file, kpts, once_called=once_called)
             self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
 
+            self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
+            for c in self.dopings:
+                for T in self.temperatures:
+                    f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                    f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                    self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
+                    self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
+
+
+            print('denominator:')
+            print(self.denominator)
 
             # logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
             # cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
@@ -3583,17 +3604,18 @@ if __name__ == "__main__":
 
     amset = AMSET(calc_dir=cube_path, material_params=material_params,
                   model_params=model_params, performance_params=performance_params,
-                  # dopings = [-3e13],
-                  dopings = [-2e15],
+                  dopings = [-3e13],
+                  # dopings = [-2e15],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
-                  # dopings = [3.32e14],
-                  temperatures = [300],
+                  # dopings = [3.32e14
+                  # ],
+                  temperatures = [1000],
                   # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = range(100, 1100, 100),
                   k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='test', write_outputs=True)
 
     # stats.print_callers(10)
 
