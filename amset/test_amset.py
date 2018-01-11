@@ -46,7 +46,7 @@ class AmsetTest(unittest.TestCase):
                       loglevel=logging.ERROR)
         amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
 
-        # check fermi level
+        # check fermi level, source: http://hib.iiit-bh.ac.in/Hibiscus/docs/iiit/NBDB/FP008/597_Semiconductor%20in%20Equilibrium&pn%20junction1.pdf
         N_c = 2 * (2 * np.pi * mass * 9.11e-31 * 1.3806e-23 * 300 / ((6.626e-34)**2))**1.5
         expected_fermi_level = amset.cbm_vbm['n']["energy"] - (1.3806e-23 * 300 * np.log(N_c / (-c * 1e6)) * 6.242e18)
         diff = abs(amset.fermi_level[c][300] - expected_fermi_level)
