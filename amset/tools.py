@@ -1,5 +1,7 @@
 import logging
 import numpy as np
+import scipy
+from scipy.optimize import basinhopping
 
 from analytical_band_from_BZT import Analytical_bands, outer, get_energy
 from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
@@ -43,6 +45,15 @@ def norm(v):
 def grid_norm(grid):
     return (grid[:,:,:,0]**2 + grid[:,:,:,1]**2 + grid[:,:,:,2]**2) ** 0.5
 
+def kpts_to_first_BZ(kpts):
+    for i, k in enumerate(kpts):
+        for alpha in range(3):
+            if k[alpha] > 0.5:
+                k[alpha] -= 1
+            if k[alpha] < -0.5:
+                k[alpha] += 1
+        kpts[i] = k
+    return kpts
 
 def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
     points_1d = {dir: [] for dir in ['x', 'y', 'z']}
@@ -74,6 +85,11 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                     mesh = [0.001, 0.005, 0.01, 0.02, 0.05, 0.15]
                 elif kgrid_tp == 'very coarse':
                     mesh = [0.001, 0.01]
+                elif kgrid_tp == 'uniform':
+                    mesh = np.linspace(0.01, 0.50, 11)
+                elif kgrid_tp == 'test':
+                    mesh = [0.001, 0.005, 0.01, 0.02, 0.03,
+                            0.04, 0.05, 0.06, 0.07, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5]
                 else:
                     raise ValueError('Unsupported value for kgrid_tp: {}'.format(kgrid_tp))
                 for step in mesh:
@@ -139,17 +155,19 @@ def normalize_array(grid):
 
 def f0(E, fermi, T):
     """returns the value of Fermi-Dirac at equilibrium for E (energy), fermi [level] and T (temperature)"""
-    if E - fermi > 5:
+    exponent = (E - fermi) / (k_B * T)
+    if exponent > 40:
         return 0.0
-    elif E - fermi < -5:
+    elif exponent < -40:
         return 1.0
     else:
-        return 1 / (1 + np.exp((E - fermi) / (k_B * T)))
+        return 1 / (1 + np.exp(exponent))
 
 
 def df0dE(E, fermi, T):
     """returns the energy derivative of the Fermi-Dirac equilibrium distribution"""
-    if E - fermi > 5 or E - fermi < -5:  # This is necessary so at too low numbers python doesn't return NaN
+    exponent = (E - fermi) / (k_B * T)
+    if exponent > 40 or exponent < -40:  # This is necessary so at too low numbers python doesn't return NaN
         return 0.0
     else:
         return -1 / (k_B * T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
@@ -315,7 +333,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
 
 
-def get_closest_k(kpoint, ref_ks, retun_diff=True):
+def get_closest_k(kpoint, ref_ks, return_diff=False):
     """
     returns the list of difference between kpoints. If return_diff True, then
         for a given kpoint the minimum distance among distances with ref_ks is
@@ -328,7 +346,7 @@ def get_closest_k(kpoint, ref_ks, retun_diff=True):
     Returns (1x3 array):
     """
     min_dist_ik = np.array([norm(ki - kpoint) for ki in ref_ks]).argmin()
-    if retun_diff:
+    if return_diff:
         return kpoint - ref_ks[min_dist_ik]
     else:
         return ref_ks[min_dist_ik]
@@ -439,8 +457,7 @@ def get_energy_args(coeff_file, ibands):
     Returns (tuple): necessary inputs for calc_analytical_energy or get_energy
     """
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
-    print('ibands')
-    print(ibands)
+    logging.debug('ibands in get_energy_args: {}'.format(ibands))
     try:
         engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
             analytical_bands.get_engre(iband=ibands)
@@ -464,6 +481,7 @@ def calc_analytical_energy(kpt, engre, nwave, nsym, nstv, vec, vec2, out_vec2,
         engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir: all obtained via
             get_energy_args
         sgn (int): options are +1 for valence band and -1 for conduction bands
+            sgn is basically ignored (doesn't matter) if scissor==0.0
         scissor (float): the amount by which the band gap is modified/scissored
     Returns:
 
@@ -496,13 +514,36 @@ def get_bindex_bspin(extremum, is_cbm):
         bspin = Spin.down
     return bidx, bspin
 
-def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
-                    Ecut=None, nex_max=20):
+
+def insert_intermediate_kpoints(kpts, n=2):
+    """
+    Insert n k-points in between each two k-points from kpts and return the
+        latter bigger list. This can be used for example to make a finer-mesh
+        HighSymmKpath
+    Args:
+        kpts ([[float]]): list of coordinates of k-points
+        n (int): the number of k-points inserted between each pair of k-points
+    Returns ([[float]]): the final list of k-point coordinates
+    """
+    n += 1
+    new_kpts = []
+    for i in range(len(kpts)-1):
+        step = (kpts[i+1] - kpts[i])/n
+        for j in range(n):
+            new_kpts.append(kpts[i] + j*step)
+    new_kpts.append(kpts[-1])
+    return new_kpts
+
+
+def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
+                    Ecut=None, nex_max=0, return_global=False, niter=10):
     """
     returns a dictionary of p-type (valence) and n-type (conduction) band
         extrema k-points by looking at the 1st and 2nd derivatives of the bands
     Args:
-        bs (pymatgen BandStructure object): must containt Structure
+        bs (pymatgen BandStructure object): must containt Structure and have
+            the same number of valence electrons and settings as the vasprun.xml
+            from which coeff_file is generated.
         coeff_file (str): path to the cube file from BoltzTraP run
         nk_ibz (int): maximum number of k-points in one direction in IBZ
         v_cut (float): threshold under which the derivative is assumed 0 [cm/s]
@@ -511,26 +552,47 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
         Ecut (float or dict): max energy difference with CBM/VBM allowed for
             extrema
         nex_max (int): max number of low-velocity kpts tested for being extrema
+        return_global (bool): in addition to the extrema, return the actual
+            CBM (global minimum) and VBM (global maximum) w/ their k-point
+        niter (int): number of iterations in basinhoopping for finding the
+            global extremum
     Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
     """
+    #TODO: MAJOR cleanup needed in this function; also look into parallelizing get_analytical_energy at all kpts if it's time consuming
+    #TODO: if decided to only include one of many symmetrically equivalent extrema, write a method to keep only one of symmetrically equivalent extrema as a representative
     Ecut = Ecut or 10*k_B*300
     if not isinstance(Ecut, dict):
         Ecut = {'n': Ecut, 'p': Ecut}
+    actual_cbm_vbm={'n': {}, 'p': {}}
     vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
     # vbm_idx = bs.get_vbm()['band_index'][Spin.up][0]
     ibands = [1, 2]  # in this notation, 1 is the last valence band
-    ibands = [i + vbm_idx + 1 for i in ibands]
+    ibands = [i + vbm_idx for i in ibands]
     ibz = HighSymmKpath(bs.structure)
     sg = SpacegroupAnalyzer(bs.structure)
     kmesh = sg.get_ir_reciprocal_mesh(mesh=(nk_ibz, nk_ibz, nk_ibz))
     kpts = [k_n_w[0] for k_n_w in kmesh]
-    kpts.extend(ibz.kpath['kpoints'].values())
+    kpts.extend(insert_intermediate_kpoints(ibz.kpath['kpoints'].values(), n=10))
+
+
 
     # grid = {'energy': [], 'velocity': [], 'mass': [], 'normv': []}
     extrema = {'n': [], 'p': []}
     engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(
         coeff_file=coeff_file, ibands=ibands)
 
+    cbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
+    vbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
+    bounds = [(-0.5,0.5), (-0.5,0.5), (-0.5,0.5)]
+    func = lambda x: calc_analytical_energy(x, engre[1], nwave,
+            nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=-1, scissor=0)[0]
+    opt = basinhopping(func, x0=cbmk, niter=20, T=0.1, minimizer_kwargs={'bounds': bounds})
+    kpts.append(opt.x)
+
+    func = lambda x: -calc_analytical_energy(x, engre[0], nwave,
+            nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=+1, scissor=0)[0]
+    opt = basinhopping(func, x0=vbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
+    kpts.append(opt.x)
     for iband in range(len(ibands)):
         is_cb = [False, True][iband]
         tp = ['p', 'n'][iband]
@@ -538,6 +600,57 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
         velocities = []
         normv = []
         masses = []
+
+######################################################################
+        # kpts_list = [np.array([ 0.,  0.,  0.]),
+        #              [-0.5, -0.5, -0.5],
+        #              [-0.5, 0.0, 0.0],
+        #              [0., -0.5, 0.],
+        #              [0., 0., -0.5],
+        #              [0.5, 0.5, 0.5],
+        #              [0.5, 0.0, 0.0],
+        #              [0., 0.5, 0.],
+        #              [0., 0., 0.5],
+        #              np.array([0., 0., 0.]),
+        #              [ 0.5,  0.,  0.5],
+        #             [0., -0.5, -0.5],
+        #              [0.5 , 0.5 , 0.],
+        #              [-0.5, 0., -0.5],
+        #              [0., 0.5, 0.5],
+        #              [-0.5, -0.5, 0.]
+        #              ]
+
+
+ #        kpts_list = [ [0.0, 0.0, 0.0],
+ #            [ 0.  ,  0.44,  0.44],
+ # [ 0.44,  0.44  ,0.  ],
+ # [ 0. ,  -0.44, -0.44],
+ # [-0.44 ,-0.44,  0.  ],
+ # [ 0.44 , 0.  ,  0.44],
+ # [-0.44 , 0.  , -0.44],
+ # [ 0. ,  -0.44 ,-0.44],
+ # [-0.44 ,-0.44 , 0.  ],
+ # [ 0. ,   0.44 , 0.44],
+ # [ 0.44,  0.44 , 0.  ],
+ # [-0.44 , 0. ,  -0.44],
+ # [ 0.44 , 0. ,   0.44] ,
+ #   [ 0.5,  0. ,  0.5],
+ # [ 0. ,  0.5,  0.5],
+ # [ 0.5 , 0.5,  0. ],
+ # [-0.5 , 0.  ,-0.5],
+ # [ 0. , -0.5 ,-0.5],
+ # [-0.5 ,-0.5 , 0. ]     ]
+ #        print('here kpts_list:')
+ #        print(kpts_list)
+ #        print('here the energies')
+ #        for ik, kpt in enumerate(kpts_list):
+ #            en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave,
+ #                nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=1, scissor=0)
+ #            print en
+
+
+######################################################################
+
         for ik, kpt in enumerate(kpts):
             en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave,
                 nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=1, scissor=0)
@@ -545,32 +658,67 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1,
             velocities.append(abs(v))
             normv.append(norm(v))
             masses.append(mass.trace() / 3)
-        indexes = np.argsort(normv)[:nex_max]
-        # for prop in [energies, normv, velocities, masses, kpts]:
-        #     prop = [prop[i] for i in indexes]
+        indexes = np.argsort(normv)
         energies = [energies[i] for i in indexes]
         normv = [normv[i] for i in indexes]
         velocities = [velocities[i] for i in indexes]
         masses = [masses[i] for i in indexes]
-        kpts = [kpts[i] for i in indexes]
+        kpts = [np.array(kpts[i]) for i in indexes]
+
+        # print('here')
+        # cbmk = np.array([ 0.44,  0.44,  0.  ])
+        # print(np.vstack((bs.get_sym_eq_kpoints(cbmk),bs.get_sym_eq_kpoints(-cbmk))))
+        # cbmk = np.array([ 0.5,  0. ,  0.5])
+        # print(np.vstack((bs.get_sym_eq_kpoints(cbmk),bs.get_sym_eq_kpoints(-cbmk))))
+
+        # print('here values')
+        # print energies[:10]
+        # print normv[:10]
+        # print kpts[:10]
+        # print masses[:10]
         if is_cb:
-            extremum0 = min(energies)  # extremum0 is CBM here
+            iextrem = np.argmin(energies)
+            extremum0 = energies[iextrem]  # extremum0 is numerical CBM here
+            actual_cbm_vbm[tp]['energy'] = extremum0
+            actual_cbm_vbm[tp]['kpoint'] = kpts[iextrem]
+            # The following is in case CBM doesn't have a zero numerical norm(v)
+            closest_cbm = get_closest_k(kpts[iextrem], np.vstack((bs.get_sym_eq_kpoints(cbmk),bs.get_sym_eq_kpoints(-cbmk))))
+            if norm(np.array(kpts[iextrem]) - closest_cbm) < min_normdiff and \
+                            abs(bs.get_cbm()['energy']-extremum0) < 0.05:
+                extrema['n'].append(cbmk)
+            else:
+                extrema['n'].append(kpts[iextrem])
         else:
-            extremum0 = max(energies)
+            iextrem = np.argmax(energies)
+            extremum0 = energies[iextrem]
+            actual_cbm_vbm[tp]['energy'] = extremum0
+            actual_cbm_vbm[tp]['kpoint'] = kpts[iextrem]
+            closest_vbm = get_closest_k(kpts[iextrem], np.vstack((bs.get_sym_eq_kpoints(vbmk),bs.get_sym_eq_kpoints(-vbmk))))
+            if norm(np.array(kpts[iextrem]) - closest_vbm) < min_normdiff and \
+                            abs(bs.get_vbm()['energy']-extremum0) < 0.05:
+                extrema['p'].append(vbmk)
+            else:
+                extrema['p'].append(kpts[iextrem])
+
+
 
         if normv[0] > v_cut:
             raise ValueError('No extremum point (v<{}) found!'.format(v_cut))
-        for i in range(0, len(kpts)):
+        for i in range(0, len(kpts[:nex_max])):
             # if (velocities[i] > v_cut).all() :
             if normv[i] > v_cut:
                 break
             else:
                 far_enough = True
                 for k in extrema[tp]:
-                    if norm(kpts[i] - k) <= min_normdiff:
+                    if norm(get_closest_k(kpts[i], np.vstack((bs.get_sym_eq_kpoints(k),bs.get_sym_eq_kpoints(-k))), return_diff=True)) <= min_normdiff:
+                    # if norm(kpts[i] - k) <= min_normdiff:
                         far_enough = False
                 if far_enough \
                         and abs(energies[i] - extremum0) < Ecut[tp] \
-                        and masses[i] * (-1) ** (int(is_cb) + 1) >= 0:
+                        and masses[i] * ((-1) ** (int(is_cb) + 1)) >= 0:
                     extrema[tp].append(kpts[i])
-    return extrema
+    if not return_global:
+        return extrema
+    else:
+        return extrema, actual_cbm_vbm
