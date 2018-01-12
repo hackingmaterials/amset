@@ -14,7 +14,8 @@ from sys import stdout as STDOUT
 import numpy as np
 from math import log, pi
 
-from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
+from pymatgen.electronic_structure.boltztrap import BoltztrapRunner, \
+    BoltztrapAnalyzer
 from pymatgen.io.vasp import Vasprun, Spin, Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from monty.json import MontyEncoder
@@ -154,21 +155,35 @@ class AMSET(object):
         # kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
         # analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
+        self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
 
-        kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='uniform')
+
+        kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='test uniform')
         analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
-        logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
-        cbm_idx = np.argmin(energies['n'])
-        logging.debug("actual CBM k: {}".format(kpts['n'][cbm_idx]))
-        logging.debug("actual CBM: {}".format(energies['n'][cbm_idx]))
-        vbm_idx = np.argmax(energies['p'])
-        logging.debug("actual VBM k: {}".format(kpts['p'][vbm_idx]))
-        logging.debug("actual VBM: {}".format(energies['p'][vbm_idx]))
-
-        start_time_fermi = time.time()
         if self.fermi_calc_type == 'k':
             self.fermi_level = self.find_fermi_k()
+        elif self.fermi_calc_type == 'e':
+            self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple)
+            self.pre_init_egrid(once_called=False, dos_tp='standard')
+            self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
+            for c in self.dopings:
+                for T in self.temperatures:
+                    self.fermi_level[c][T] = self.find_fermi(c, T)
+
+        # self.fermi_level = {-30000000000000.0: {300: 0.87819932720991623}}
+        logging.info('fermi level = {}'.format(self.fermi_level))
+
+
+        # logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
+        # cbm_idx = np.argmin(energies['n'])
+        # logging.debug("actual CBM k: {}".format(kpts['n'][cbm_idx]))
+        # logging.debug("actual CBM: {}".format(energies['n'][cbm_idx]))
+        # vbm_idx = np.argmax(energies['p'])
+        # logging.debug("actual VBM k: {}".format(kpts['p'][vbm_idx]))
+        # logging.debug("actual VBM: {}".format(energies['p'][vbm_idx]))
+
+        # self.find_fermi_boltztrap()
 
         self.find_all_important_points()
         ## kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
@@ -185,8 +200,6 @@ class AMSET(object):
         #
         # print('denominator:')
         # print(self.denominator)
-
-        logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
 
         # once_called = False
         for i in range(max(len(self.important_pts['n']), len(self.important_pts['p']))):
@@ -233,7 +246,6 @@ class AMSET(object):
 
             # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
             self.init_egrid(once_called=False, dos_tp="standard")
-            logging.info('fermi level = {}'.format(self.fermi_level))
             self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
             if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
                 warnings.warn("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
@@ -311,6 +323,23 @@ class AMSET(object):
 
         if write_outputs:
             self.to_file()
+
+
+    def find_fermi_boltztrap(self):
+        logging.warning('\nRunning BoltzTraP to calculate the Fermi levels...')
+        boltztrap_runner = BoltztrapRunner(bs=self.bs, nelec=self.nelec,
+                doping=list(set([abs(d) for d in self.dopings])),
+                        tmax=max(self.temperatures))
+        boltztrap_runner.run(path_dir=self.calc_dir)
+        # coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
+        an = BoltztrapAnalyzer.from_files(os.path.join(self.calc_dir, 'boltztrap'))
+        print an.doping
+        print an.mu_doping
+        print an.parse_outputtrans(os.path.join(self.calc_dir, "boltztrap"))[2]
+        # for c in self.dopings:
+        #     for T in self.temperatures:
+        #         for c_b in an.doping:
+
 
     def generate_kmesh(self, important_points, kgrid_tp='coarse'):
         self.kgrid_array = {}
@@ -921,14 +950,7 @@ class AMSET(object):
         return N_II
 
 
-
-    def init_egrid(self, once_called, dos_tp="standard"):
-        """
-        :param
-            dos_tp (string): options are "simple", ...
-
-        :return: an updated grid that contains the field DOS
-        """
+    def pre_init_egrid(self, once_called=False, dos_tp="standard"):
         self.egrid = {
             "n": {"energy": [], "DOS": [], "all_en_flat": [],
                   "all_ks_flat": [], "mobility": {}},
@@ -1006,6 +1028,17 @@ class AMSET(object):
         if len(self.Efrequency["n"]) < min_nE or len(self.Efrequency["p"]) < min_nE:
             raise ValueError("The final egrid have fewer than {} energy values, AMSET stops now".format(min_nE))
 
+
+
+    def init_egrid(self, once_called, dos_tp="standard"):
+        """
+        :param
+            dos_tp (string): options are "simple", ...
+
+        :return: an updated grid that contains the field DOS
+        """
+        self.pre_init_egrid(once_called=once_called, dos_tp=dos_tp)
+
         # initialize some fileds/properties
         if not once_called:
             self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
@@ -1022,9 +1055,11 @@ class AMSET(object):
             if self.fermi_calc_type == 'k':
                 self.egrid["calc_doping"] = self.calc_doping
             if self.fermi_calc_type == 'e':
-                self.calc_doping = self.egrid["calc_doping"]
-                self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
-                self.fermi_level = self.egrid["fermi"]
+                # self.calc_doping = self.egrid["calc_doping"]
+                self.egrid["calc_doping"] = self.calc_doping
+                # self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
+                # self.fermi_level = self.egrid["fermi"]
+                self.egrid["fermi"] = self.fermi_level
 
         #TODO: comment out these 3 lines and test, these were commented out in master 9/27/2017
         self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
@@ -2448,7 +2483,6 @@ class AMSET(object):
     def find_fermi_k(self, tolerance=0.001):
         closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
         self.f0_array = {c: {T: {tp: range(self.num_bands[tp]) for tp in ['n', 'p']} for T in self.temperatures} for c in self.dopings}
-        self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
         #energy = self.array_from_kgrid('energy', 'n', fill=1000)
         for c in self.dopings:
             tp = get_tp(c)
@@ -2552,8 +2586,11 @@ class AMSET(object):
         relative_error, fermi, calc_doping, niter = linear_iteration(
             relative_error, fermi, calc_doping, iterations=50, niter=niter)
         if relative_error <= tolerance:
-            self.egrid["calc_doping"][c][T]["n"] = temp_doping["n"]
-            self.egrid["calc_doping"][c][T]["p"] = temp_doping["p"]
+            # self.egrid["calc_doping"][c][T]["n"] = temp_doping["n"]
+            # self.egrid["calc_doping"][c][T]["p"] = temp_doping["p"]
+
+            self.calc_doping[c][T]['n'] = temp_doping['n']
+            self.calc_doping[c][T]['p'] = temp_doping['p']
             logging.info(
                 "fermi at {} 1/cm3 and {} K after {} iterations: {}".format(
                     c, T, int(niter), fermi))
@@ -3598,7 +3635,7 @@ if __name__ == "__main__":
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, 'add_extrema': add_extrema
             , "scissor": 0.5818
-            # , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p':[[0, 0, 0]]}
+            , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
                        }
     cube_path = "../test_files/GaAs/"
     #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
@@ -3626,14 +3663,14 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  # temperatures = [300],
-                  temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
+                  temperatures = [300],
+                  # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
-                  k_integration=True, e_integration=False, fermi_type='k',
+                  k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
