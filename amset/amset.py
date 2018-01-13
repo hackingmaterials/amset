@@ -2464,7 +2464,8 @@ class AMSET(object):
                         # calculate distribution in both conduction and valence bands
                         f_con = 1 / (np.exp((self.energy_array['n'] - e_f) / (k_B * T)) + 1)
                         f_val = 1 / (np.exp((self.energy_array['p'] - e_f) / (k_B * T)) + 1)
-                        dens_of_states = 1 / (8*np.pi**3)   # note that density of states in k space is V/8pi^3, but states per real volume per k volume is 1/8pi^3
+                        # density of states in k space is V/8pi^3 per spin, but total states per real volume per k volume is 2/8pi^3
+                        dens_of_states = 1 / (4*np.pi**3)
                         # see if it is close to concentration
                         n_concentration = self.integrate_over_states(f_con * dens_of_states, 'n')[0]
                         p_concentration = self.integrate_over_states((1 - f_val) * dens_of_states, 'p')[0]
