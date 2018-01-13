@@ -37,28 +37,33 @@ class AmsetTest(unittest.TestCase):
         print('\ntesting test_poly_bands...')
         mass = 0.25
         c = -2e15
+        temperatures = [300, 800]
         self.model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
         amset = AMSET(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
-                      dopings=[c], temperatures=[300], k_integration=True,
+                      dopings=[c], temperatures=temperatures, k_integration=True,
                       e_integration=True, fermi_type='k',
                       loglevel=logging.ERROR)
         amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
 
-        # check fermi level, source: http://hib.iiit-bh.ac.in/Hibiscus/docs/iiit/NBDB/FP008/597_Semiconductor%20in%20Equilibrium&pn%20junction1.pdf
-        N_c = 2 * (2 * np.pi * mass * 9.11e-31 * 1.3806e-23 * 300 / ((6.626e-34)**2))**1.5
-        expected_fermi_level = amset.cbm_vbm['n']["energy"] - (1.3806e-23 * 300 * np.log(N_c / (-c * 1e6)) * 6.242e18)
-        diff = abs(amset.fermi_level[c][300] - expected_fermi_level)
-        avg = (amset.fermi_level[c][300] + expected_fermi_level) / 2
-        self.assertTrue(diff / avg < 0.02)
-
+        # check fermi level
+        # density calculation source: http://hib.iiit-bh.ac.in/Hibiscus/docs/iiit/NBDB/FP008/597_Semiconductor%20in%20Equilibrium&pn%20junction1.pdf
+        # density of states source: http://web.eecs.umich.edu/~fredty/public_html/EECS320_SP12/DOS_Derivation.pdf
         egrid = amset.egrid
-        diff = abs(np.array(amset.mobility['n']['ACD'][c][300]) - \
-                   np.array(egrid['n']['mobility']['SPB_ACD'][c][300]))
-        avg = (amset.mobility['n']['ACD'][c][300] + \
-               egrid['n']['mobility']['SPB_ACD'][c][300]) / 2
-        self.assertTrue((diff / avg <= 0.01).all())
+        for T in temperatures:
+            N_c = 2 * (2 * np.pi * mass * 9.11e-31 * 1.3806e-23 * T / ((6.626e-34)**2))**1.5
+            expected_fermi_level = amset.cbm_vbm['n']["energy"] - (1.3806e-23 * T * np.log(N_c / (-c * 1e6)) * 6.242e18)
+
+            diff = abs(amset.fermi_level[c][T] - expected_fermi_level)
+            avg = (amset.fermi_level[c][T] + expected_fermi_level) / 2
+            self.assertTrue(diff / avg < 0.02)
+
+            diff = abs(np.array(amset.mobility['n']['ACD'][c][T]) - \
+                       np.array(egrid['n']['mobility']['SPB_ACD'][c][T]))
+            avg = (amset.mobility['n']['ACD'][c][T] + \
+                   egrid['n']['mobility']['SPB_ACD'][c][T]) / 2
+            self.assertTrue((diff / avg <= 0.01).all())
 
 
     # #TODO: since we run through several different k-meshes now for varous valleys, egrid changes hence egrid tests may be changing and ignored for now
