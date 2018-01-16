@@ -158,7 +158,7 @@ class AMSET(object):
         self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
 
 
-        kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='uniform')
+        kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='test uniform')
         analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
         if self.fermi_calc_type == 'k':
@@ -319,8 +319,9 @@ class AMSET(object):
             if self.k_integration:
                 pprint(self.mobility)
             if self.e_integration:
-                pprint(self.egrid["n"]["mobility"])
-                pprint(self.egrid["p"]["mobility"])
+                pprint(self.mobility)
+                # pprint(self.egrid["n"]["mobility"])
+                # pprint(self.egrid["p"]["mobility"])
 
         if write_outputs:
             self.to_file()
@@ -3211,7 +3212,7 @@ class AMSET(object):
                             self.mobility[tp][mu_el][c][T] += (-1) * default_small_E / hbar * \
                                     self.integrate_over_BZ(prop_list=[
                                     "/" + mu_el, "df0dk"], tp=tp, c=c,T=T,
-                                        xDOS=False, xvel=True, weighted=True)/denom #* 1e-7 * 1e-3 * self.volume
+                                        xDOS=False, xvel=True, weighted=True)/denom/(3*default_small_E) #* 1e-7 * 1e-3 * self.volume
 
                         else:
                             # self.egrid[tp]["mobility"][mu_el][c][T] = \
@@ -3224,7 +3225,7 @@ class AMSET(object):
                             self.mobility[tp][mu_el][c][T] += (-1) * default_small_E / hbar * \
                                     self.integrate_over_E(prop_list=[
                                     "/" + mu_el, "df0dk"], tp=tp, c=c, T=T,
-                                        xDOS=False, xvel=True, weighted=True)/denom
+                                        xDOS=False, xvel=True, weighted=True)/denom/(3*default_small_E)
 
                     if integrate_over_kgrid:
                         for mu_inel in self.inelastic_scatterings:
@@ -3248,23 +3249,23 @@ class AMSET(object):
                                         xDOS=False, xvel=True, weighted=True)
                             self.mobility[tp][mu_inel][c][T] += self.integrate_over_E(prop_list=[
                                     "g_" + mu_inel], tp=tp, c=c, T=T,
-                                        xDOS=False, xvel=True, weighted=True)/denom
+                                        xDOS=False, xvel=True, weighted=True)/denom/(3*default_small_E)
 
                         # self.egrid[tp]["mobility"]["overall"][c][T] = self.integrate_over_E(prop_list=["g"],
                         #                                                                     tp=tp, c=c, T=T, xDOS=False,
                         #                                                                     xvel=True, weighted=True)
 
                         mu_overall_valley = self.integrate_over_E(prop_list=["g"],
-                               tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)/denom
+                               tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)/denom/(3*default_small_E)
 
                     self.egrid[tp]["J_th"][c][T] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
                                                                           xDOS=False, xvel=True,
                                                                           weighted=True) / denom) * e * abs(
                         c)  # in units of A/cm2
 
-                    for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
-                        # self.egrid[tp]["mobility"][transport][c][T] /= 3 * default_small_E
-                        self.mobility[tp][transport][c][T] /= 3 * default_small_E
+                    # for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
+                    #     # self.egrid[tp]["mobility"][transport][c][T] /= 3 * default_small_E
+                    #     self.mobility[tp][transport][c][T] /= (3*default_small_E)
 
                     # The following did NOT work as J_th only has one integral (see aMoBT but that one is over k)
                     # and with that one the units don't work out and if you use two integral, J_th will be of 1e6 order!
@@ -3292,7 +3293,7 @@ class AMSET(object):
                                                                                    wordy=True) * e ** 0.5 * 1e4  # to cm2/V.s
 
                     faulty_overall_mobility = False
-                    mu_overrall_norm = norm(self.egrid[tp]["mobility"]["overall"][c][T])
+                    # mu_overrall_norm = norm(self.egrid[tp]["mobility"]["overall"][c][T])
                     # mu_overall_norm = norm(self.mobility[tp]['overall'][c][T])
                     temp_avg = np.array([0.0, 0.0, 0.0])
                     for transport in self.elastic_scatterings + self.inelastic_scatterings:
@@ -3694,7 +3695,7 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  temperatures = [600],
+                  temperatures = [300, 600, 900],
                   # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
@@ -3702,7 +3703,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
