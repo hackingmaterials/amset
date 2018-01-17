@@ -99,6 +99,7 @@ class AMSET(object):
         self.set_performance_params(performance_params)
         self.k_integration = k_integration
         self.e_integration = e_integration
+        assert(self.k_integration != self.e_integration), "AMSET can do either k_integration or e_integration"
         self.fermi_calc_type = fermi_type
 
         self.read_vrun(calc_dir=self.calc_dir, filename="vasprun.xml")
@@ -158,7 +159,7 @@ class AMSET(object):
         self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
 
 
-        kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='test uniform')
+        kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='uniform')
         analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
         if self.fermi_calc_type == 'k':
@@ -171,7 +172,11 @@ class AMSET(object):
                 for T in self.temperatures:
                     self.fermi_level[c][T] = self.find_fermi(c, T)
 
-        # self.fermi_level = {-30000000000000.0: {300: 0.87819932720991623}}
+        ## uncomment the following only for quick testing if fermi_levels are known
+        # CCC = -30000000000000.0
+        # self.fermi_level = {CCC: {800: 0.48104885687968513, 900: 0.48088985687968477, 1000: 0.48109215687968487, 300: 0.91309932720991627, 400: 0.80670885687968463, 500: 0.68516885687968521, 600: 0.55576885687968502, 700: 0.48798885687968518}}
+        # self.calc_doping = {CCC: {T: {'n': CCC, 'p': 0.0} for T in self.temperatures}}
+
         logging.info('fermi level = {}'.format(self.fermi_level))
 
 
@@ -220,7 +225,7 @@ class AMSET(object):
             self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
 
             self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
-            logging.debug('here self.energy_array:\n{}'.format(self.energy_array))
+            # logging.debug('here self.energy_array:\n{}'.format(self.energy_array))
             for c in self.dopings:
                 for T in self.temperatures:
                     f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
@@ -582,6 +587,7 @@ class AMSET(object):
 
             self.dos = [list(a) for a in self.dos]
 
+        self.energy_array = {tp: np.array(self.energy_array[tp]) for tp in ['p', 'n']}
         if return_energies:
             return analytical_band_tuple, kpts, energies
         else:
@@ -3646,7 +3652,9 @@ if __name__ == "__main__":
     # add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
 
 
-    model_params = {'bs_is_isotropic': True, 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+    model_params = {'bs_is_isotropic': True,
+                    # 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+                    'elastic_scatterings': ['ACD', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
         model_params["poly_bands"] = [[
@@ -3695,26 +3703,24 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  temperatures = [300, 600, 900],
-                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
+                  # temperatures = [300, 600, 900],
+                  temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
-                  k_integration=False, e_integration=True, fermi_type='k',
+                  k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='fine', write_outputs=True)
 
 
     # stats.print_callers(10)
 
     amset.write_input_files()
     amset.to_csv()
-    # amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_i', 'S_o', 'g', 'g_POP'], E_plots=['velocity'], show_interactive=True
-    amset.plot(k_plots=['energy', 'velocity', 'ACD', 'IMP', 'df0dk', 'S_o'], E_plots=['velocity', 'df0dk'], show_interactive=True
+    amset.plot(k_plots=['energy', 'velocity', 'df0dk', 'S_o']+model_params['elastic_scatterings'], E_plots=['velocity', 'df0dk'], show_interactive=True
                , carrier_types=amset.all_types
                , save_format=None)
-    # amset.plot(k_plots=['energy', 'S_o'], E_plots=['ACD', 'IMP', 'S_i', 'S_o'], show_interactive=True, carrier_types=amset.all_types, save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
 
