@@ -159,23 +159,22 @@ class AMSET(object):
         self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
 
 
-        kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='uniform')
-        analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
-
-        if self.fermi_calc_type == 'k':
-            self.fermi_level = self.find_fermi_k()
-        elif self.fermi_calc_type == 'e':
-            self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple)
-            self.pre_init_egrid(once_called=False, dos_tp='standard')
-            self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
-            for c in self.dopings:
-                for T in self.temperatures:
-                    self.fermi_level[c][T] = self.find_fermi(c, T)
+        # kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='uniform')
+        # analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
+        # if self.fermi_calc_type == 'k':
+        #     self.fermi_level = self.find_fermi_k()
+        # elif self.fermi_calc_type == 'e':
+        #     self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple)
+        #     self.pre_init_egrid(once_called=False, dos_tp='standard')
+        #     self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
+        #     for c in self.dopings:
+        #         for T in self.temperatures:
+        #             self.fermi_level[c][T] = self.find_fermi(c, T)
 
         ## uncomment the following only for quick testing if fermi_levels are known
-        # CCC = -30000000000000.0
-        # self.fermi_level = {CCC: {800: 0.48104885687968513, 900: 0.48088985687968477, 1000: 0.48109215687968487, 300: 0.91309932720991627, 400: 0.80670885687968463, 500: 0.68516885687968521, 600: 0.55576885687968502, 700: 0.48798885687968518}}
-        # self.calc_doping = {CCC: {T: {'n': CCC, 'p': 0.0} for T in self.temperatures}}
+        CCC = -30000000000000.0
+        self.fermi_level = {CCC: {800: 0.48104885687968513, 900: 0.48088985687968477, 1000: 0.48109215687968487, 300: 0.91309932720991627, 400: 0.80670885687968463, 500: 0.68516885687968521, 600: 0.55576885687968502, 700: 0.48798885687968518}}
+        self.calc_doping = {CCC: {T: {'n': CCC, 'p': 0.0} for T in self.temperatures}}
 
         logging.info('fermi level = {}'.format(self.fermi_level))
 
@@ -3061,7 +3060,7 @@ class AMSET(object):
                         numerator5 = self.integrate_over_states(v_norm * x * x * g, tp) / default_small_E
                         numerator6 = self.integrate_over_states(v_norm * x**2 * g, tp) / default_small_E
                         denominator = self.integrate_over_states(j + ((-1) ** j) * f_T, tp)
-                        self.mobility[tp]['overall'][c][T] = numerator / denominator
+                        # self.mobility[tp]['overall'][c][T] = numerator / denominator
 
                         if tp == 'n':
                             print('ANISOTROPIC numerator, numerator without g, and denominator:')
@@ -3155,7 +3154,8 @@ class AMSET(object):
                         #     logging.info(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                         #     logging.info('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
                         #     logging.info((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
-                        self.mobility[tp]['overall'][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 # self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                        mu_overall = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 # self.bs.get_kpoint_degeneracy(important_points[tp][0])
+
 
                     print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
                     for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
@@ -3163,20 +3163,23 @@ class AMSET(object):
 
                     # figure out average mobility
                     faulty_overall_mobility = False
-                    mu_overrall_norm = norm(self.mobility[tp]["overall"][c][T])
+                    mu_overrall_norm = norm(mu_overall)
                     mu_average = np.array([0.0, 0.0, 0.0])
                     for transport in self.elastic_scatterings + self.inelastic_scatterings:
                         # averaging all mobility values via Matthiessen's rule
                         mu_average += 1 / (np.array(self.mobility[tp][transport][c][T]) + 1e-32)
                         if mu_overrall_norm > norm(self.mobility[tp][transport][c][T]):
                             faulty_overall_mobility = True  # because the overall mobility should be lower than all
-                    self.mobility[tp]["average"][c][T] = 1 / mu_average
+                    self.mobility[tp]["average"][c][T] += 1 / mu_average
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
                     if (mu_overrall_norm == 0.0 or faulty_overall_mobility) and not test_anisotropic:
                         print(mu_overrall_norm)
                         print(faulty_overall_mobility)
-                        self.mobility[tp]["overall"][c][T] = self.mobility[tp]["average"][c][T]
+                        self.mobility[tp]['overall'][c][T] += 1 / mu_average
+
+                    else:
+                        self.mobility[tp]['overall'][c][T] += mu_overall
 
 
 
@@ -3675,7 +3678,7 @@ if __name__ == "__main__":
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, 'add_extrema': add_extrema
             , "scissor": 0.5818
-            # , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p':[[0, 0, 0]]}
+            , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
                        }
     cube_path = "../test_files/GaAs/"
     #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
@@ -3703,15 +3706,15 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  # temperatures = [300, 600, 900],
-                  temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
+                  temperatures = [300],
+                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
                   k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
