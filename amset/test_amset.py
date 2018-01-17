@@ -9,8 +9,6 @@ import os
 import unittest
 
 from amset import AMSET
-from tools import rel_diff
-from tools import grid_norm
 
 test_dir = os.path.dirname(__file__)
 
