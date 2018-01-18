@@ -64,36 +64,35 @@ class AmsetTest(unittest.TestCase):
 
 
     # #TODO: since we run through several different k-meshes now for varous valleys, egrid changes hence egrid tests may be changing and ignored for now
-    # def refactored_test_GaAs_isotropic(self):
-    #     print('\ntesting test_GaAs_isotropic...')
-    #     # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
-    #     # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
-    #     #                'POP': 10113.9, 'overall': 8173.4}
-    #
-    #     expected_mu = {'ACD': 52617.19, 'IMP': 154780.49, 'PIE': 111864.79,
-    #                    'POP': 7706.76, 'overall': 5432.38, 'average': 6091.56}
-    #     amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
-    #                   model_params=self.model_params,
-    #                   performance_params=self.performance_params,
-    #                   dopings=[-2e15], temperatures=[300], k_integration=False,
-    #                   e_integration=True, fermi_type='e',
-    #                   loglevel=logging.ERROR)
-    #     amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
-    #     egrid = amset.egrid
-    #     kgrid = amset.kgrid
-    #
-    #     # check general characteristics of the grid
-    #     self.assertEqual(kgrid['n']['velocity'][0].shape[0], 100)
-    #     mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
-    #     self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS
-    #     self.assertAlmostEqual(mean_v[0], 32253886.41, places=1) # zeroth band
-    #
-    #     # check mobility values
-    #     for mu in expected_mu.keys():
-    #         self.assertAlmostEqual(np.std( # test isotropic
-    #             egrid['n']['mobility'][mu][-2e15][300]), 0.00, places=2)
-    #         self.assertAlmostEqual(egrid['n']['mobility'][mu][-2e15][300][0],
-    #                 expected_mu[mu], places=1)
+    def test_GaAs_isotropic_E(self):
+        print('\ntesting test_GaAs_isotropic...')
+        # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
+        # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
+        #                'POP': 10113.9, 'overall': 8173.4}
+
+        expected_mu = {'ACD': 52617.3, 'IMP': 154816.1, 'PIE': 111864.7,
+                       'POP': 7706.8, 'overall': 5432.5, 'average': 6091.6}
+        amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
+                      model_params=self.model_params,
+                      performance_params=self.performance_params,
+                      dopings=[-2e15], temperatures=[300], k_integration=False,
+                      e_integration=True, fermi_type='e',
+                      loglevel=logging.ERROR)
+        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
+        kgrid = amset.kgrid
+
+        # check general characteristics of the grid
+        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 100)
+        mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
+        self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS
+        self.assertAlmostEqual(mean_v[0], 32253886.41, places=1) # zeroth band
+
+        # check mobility values
+        for mu in expected_mu.keys():
+            self.assertAlmostEqual(np.std( # test isotropic
+                amset.mobility['n'][mu][-2e15][300]), 0.00, places=2)
+            self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
+                    expected_mu[mu], places=1)
 
 
     def test_GaAs_isotropic_k(self):
