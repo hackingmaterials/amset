@@ -147,8 +147,9 @@ class AMSET(object):
                              'Contact {}'.format(coeff_file, __email__))
 
         mo_labels = self.elastic_scatterings + self.inelastic_scatterings + ['overall', 'average']
+        spb_labels = ['SPB_ACD']
         self.mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
-                  self.dopings} for el_mech in mo_labels} for tp in ["n", "p"]}
+                  self.dopings} for el_mech in mo_labels+spb_labels} for tp in ["n", "p"]}
 
         # self.find_all_important_points()
         ## all_important_pts = get_bs_extrema(self.bs, coeff_file, nk_ibz=self.nkdos,
@@ -159,22 +160,22 @@ class AMSET(object):
         self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
 
 
-        # kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='uniform')
-        # analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
-        # if self.fermi_calc_type == 'k':
-        #     self.fermi_level = self.find_fermi_k()
-        # elif self.fermi_calc_type == 'e':
-        #     self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple)
-        #     self.pre_init_egrid(once_called=False, dos_tp='standard')
-        #     self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
-        #     for c in self.dopings:
-        #         for T in self.temperatures:
-        #             self.fermi_level[c][T] = self.find_fermi(c, T)
+        kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
+        analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
+        if self.fermi_calc_type == 'k':
+            self.fermi_level = self.find_fermi_k()
+        elif self.fermi_calc_type == 'e':
+            self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple)
+            self.pre_init_egrid(once_called=False, dos_tp='standard')
+            self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
+            for c in self.dopings:
+                for T in self.temperatures:
+                    self.fermi_level[c][T] = self.find_fermi(c, T)
 
         ## uncomment the following only for quick testing if fermi_levels are known
-        CCC = -30000000000000.0
-        self.fermi_level = {CCC: {800: 0.48104885687968513, 900: 0.48088985687968477, 1000: 0.48109215687968487, 300: 0.91309932720991627, 400: 0.80670885687968463, 500: 0.68516885687968521, 600: 0.55576885687968502, 700: 0.48798885687968518}}
-        self.calc_doping = {CCC: {T: {'n': CCC, 'p': 0.0} for T in self.temperatures}}
+        # CCC = -30000000000000.0
+        # self.fermi_level = {CCC: {800: 0.48104885687968513, 900: 0.48088985687968477, 1000: 0.48109215687968487, 300: 0.91309932720991627, 400: 0.80670885687968463, 500: 0.68516885687968521, 600: 0.55576885687968502, 700: 0.48798885687968518}}
+        # self.calc_doping = {CCC: {T: {'n': CCC, 'p': 0.0} for T in self.temperatures}}
 
         logging.info('fermi level = {}'.format(self.fermi_level))
 
@@ -316,6 +317,8 @@ class AMSET(object):
             if self.e_integration:
                 self.calculate_transport_properties_with_E()
 
+            self.calculate_spb_transport()
+
             kgrid_rm_list = ["effective mass", "kweights",
                              "f_th", "S_i_th", "S_o_th"]
             self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
@@ -329,6 +332,24 @@ class AMSET(object):
 
         if write_outputs:
             self.to_file()
+
+
+    def calculate_spb_transport(self):
+        for tp in ['p', 'n']:
+            for c in self.dopings:
+                for T in self.temperatures:
+                    fermi = self.fermi_level[c][T]
+
+                    # TODO: note that now I only calculate one mobility, define a relative energy term for both n- and p-SPB later
+                    energy = self.cbm_vbm[get_tp(c)]["energy"]
+
+                    # ACD mobility based on single parabolic band extracted from Thermoelectric Nanomaterials,
+                    # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
+                    self.mobility[tp]["SPB_ACD"][c][T] = 2 ** 0.5 * pi * hbar ** 4 * e * self.C_el * 1e9 / (
+                        3 * (self.cbm_vbm[tp]["eff_mass_xx"] * m_e) ** 2.5 * (k_B * T) ** 1.5 * self.E_D[tp] ** 2) \
+                                                                  * fermi_integral(0, fermi, T, energy, wordy=True) \
+                                                                  / fermi_integral(0.5, fermi, T, energy,
+                                                                                   wordy=True) * e ** 0.5 * 1e4  # to cm2/V.s
 
 
     def find_fermi_boltztrap(self):
@@ -789,7 +810,7 @@ class AMSET(object):
         logging.info("parallel: {}".format(self.parallel))
         self.max_nbands = params.get("max_nbands", None)
         self.max_normk = params.get("max_normk", 2)
-
+        self.fermi_kgrid_tp = params.get("fermi_kgrid_tp", "uniform")
 
     def __getitem__(self, key):
         if key == "kgrid":
@@ -1049,7 +1070,7 @@ class AMSET(object):
         # initialize some fileds/properties
         if not once_called:
             self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-            for sn in self.elastic_scatterings + self.inelastic_scatterings + ["overall", "average", "SPB_ACD"]:
+            for sn in self.elastic_scatterings + self.inelastic_scatterings + ["overall", "average"]:
                 for tp in ['n', 'p']:
                     self.egrid[tp]['mobility'][sn] = {c: {T: [0.0, 0.0, 0.0] for T in\
                             self.temperatures} for c in self.dopings}
@@ -3060,7 +3081,7 @@ class AMSET(object):
                         numerator5 = self.integrate_over_states(v_norm * x * x * g, tp) / default_small_E
                         numerator6 = self.integrate_over_states(v_norm * x**2 * g, tp) / default_small_E
                         denominator = self.integrate_over_states(j + ((-1) ** j) * f_T, tp)
-                        # self.mobility[tp]['overall'][c][T] = numerator / denominator
+                        self.mobility[tp]['overall'][c][T] = numerator / denominator
 
                         if tp == 'n':
                             print('ANISOTROPIC numerator, numerator without g, and denominator:')
@@ -3177,7 +3198,6 @@ class AMSET(object):
                         print(mu_overrall_norm)
                         print(faulty_overall_mobility)
                         self.mobility[tp]['overall'][c][T] += 1 / mu_average
-
                     else:
                         self.mobility[tp]['overall'][c][T] += mu_overall
 
@@ -3285,21 +3305,21 @@ class AMSET(object):
 
                     # other semi-empirical mobility values:
                     #fermi = self.egrid["fermi"][c][T]
-                    fermi = self.fermi_level[c][T]
-                    # fermi_SPB = self.egrid["fermi_SPB"][c][T]
-                    energy = self.cbm_vbm[get_tp(c)]["energy"]
-
-                    # for mu in ["overall", "average"] + self.inelastic_scatterings + self.elastic_scatterings:
-                    #     self.egrid[tp]["mobility"][mu][c][T] /= 3.0
-
-                    # ACD mobility based on single parabolic band extracted from Thermoelectric Nanomaterials,
-                    # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
-                    self.egrid[tp]["mobility"]["SPB_ACD"][c][T] = 2 ** 0.5 * pi * hbar ** 4 * e * self.C_el * 1e9 / (
-                    # C_el in GPa
-                        3 * (self.cbm_vbm[tp]["eff_mass_xx"] * m_e) ** 2.5 * (k_B * T) ** 1.5 * self.E_D[tp] ** 2) \
-                                                                  * fermi_integral(0, fermi, T, energy, wordy=True) \
-                                                                  / fermi_integral(0.5, fermi, T, energy,
-                                                                                   wordy=True) * e ** 0.5 * 1e4  # to cm2/V.s
+                    # fermi = self.fermi_level[c][T]
+                    # # fermi_SPB = self.egrid["fermi_SPB"][c][T]
+                    # energy = self.cbm_vbm[get_tp(c)]["energy"]
+                    #
+                    # # for mu in ["overall", "average"] + self.inelastic_scatterings + self.elastic_scatterings:
+                    # #     self.egrid[tp]["mobility"][mu][c][T] /= 3.0
+                    #
+                    # # ACD mobility based on single parabolic band extracted from Thermoelectric Nanomaterials,
+                    # # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
+                    # self.mobility[tp]["SPB_ACD"][c][T] = 2 ** 0.5 * pi * hbar ** 4 * e * self.C_el * 1e9 / (
+                    # # C_el in GPa
+                    #     3 * (self.cbm_vbm[tp]["eff_mass_xx"] * m_e) ** 2.5 * (k_B * T) ** 1.5 * self.E_D[tp] ** 2) \
+                    #                                               * fermi_integral(0, fermi, T, energy, wordy=True) \
+                    #                                               / fermi_integral(0.5, fermi, T, energy,
+                    #                                                                wordy=True) * e ** 0.5 * 1e4  # to cm2/V.s
 
                     faulty_overall_mobility = False
                     # mu_overrall_norm = norm(self.egrid[tp]["mobility"]["overall"][c][T])
@@ -3714,7 +3734,7 @@ if __name__ == "__main__":
                   k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
