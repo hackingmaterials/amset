@@ -146,10 +146,10 @@ class AMSET(object):
                 '(i.e. fort.123) requires a modified version of BoltzTraP. '
                              'Contact {}'.format(coeff_file, __email__))
 
-        mo_labels = self.elastic_scatterings + self.inelastic_scatterings + ['overall', 'average']
-        spb_labels = ['SPB_ACD']
+        self.mo_labels = self.elastic_scatterings + self.inelastic_scatterings + ['overall', 'average']
+        self.spb_labels = ['SPB_ACD']
         self.mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
-                  self.dopings} for el_mech in mo_labels+spb_labels} for tp in ["n", "p"]}
+                  self.dopings} for el_mech in self.mo_labels+self.spb_labels} for tp in ["n", "p"]}
 
         # self.find_all_important_points()
         ## all_important_pts = get_bs_extrema(self.bs, coeff_file, nk_ibz=self.nkdos,
@@ -219,10 +219,12 @@ class AMSET(object):
                 except:
                     important_points[tp] = [self.important_pts[tp][0]]
                     self.count_mobility[tp] = False
-
+            logging.info('Current valleys:\n{}'.format(important_points))
+            logging.info('Whether to count valleys: {}'.format(self.count_mobility))
             kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
             analytical_band_tuple, kpts = self.get_energy_array(coeff_file, kpts, once_called=once_called)
             self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
+            # logging.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
 
             self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
             # logging.debug('here self.energy_array:\n{}'.format(self.energy_array))
@@ -233,9 +235,6 @@ class AMSET(object):
                     self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
                     self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
 
-
-            print('denominator:')
-            print(self.denominator)
 
             # logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
             # cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
@@ -2996,6 +2995,8 @@ class AMSET(object):
         # calculate mobility by averaging velocity per electric field strength
         mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scatterings} for tp in ["n", "p"]}
         mu_denom = deepcopy(mu_num)
+        valley_mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
+                  self.dopings} for el_mech in self.mo_labels+self.spb_labels} for tp in ["n", "p"]}
 
         #k_hat = np.array([self.k_hat_array[tp] for ib in range(self.num_bands)])
 
@@ -3148,6 +3149,11 @@ class AMSET(object):
                         #         v * self.k_hat_array[tp] * (-1 / hbar) * df0dk / S_o, tp)
 
                     if self.bs_is_isotropic and not test_anisotropic:
+                        if tp == get_tp(c):
+                            logging.info('calculating mobility by integrating over'
+                                         ' k-grid and isotropic BS assumption...')
+                            logging.debug('current valley is at {}'.format(important_points))
+                            logging.debug('the denominator is:\n{}'.format(self.denominator))
                         # from equation 45 in Rode, elastic mechanisms
                         # for ib in range(self.num_bands[tp]):
                         #     logging.info('f0 (type {}, band {}):'.format(tp, ib))
@@ -3160,11 +3166,11 @@ class AMSET(object):
                             g = -1 / hbar * df0dk / nu_el
                             # print('g*norm(v) for {}:'.format(el_mech))
                             # print((g * norm_v)[0, (N[0]-1)/2, (N[1]-1)/2, :])
-                            self.mobility[tp][el_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                            valley_mobility[tp][el_mech][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
                         # from equation 45 in Rode, inelastic mechanisms
                         for inel_mech in self.inelastic_scatterings:
                             g = self.array_from_kgrid("g_"+inel_mech, tp, c, T)
-                            self.mobility[tp][inel_mech][c][T] += self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                            valley_mobility[tp][inel_mech][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
 
                         # from equation 45 in Rode, overall
                         g = self.array_from_kgrid("g", tp, c, T)
@@ -3175,32 +3181,37 @@ class AMSET(object):
                         #     logging.info(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                         #     logging.info('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
                         #     logging.info((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
-                        mu_overall = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 # self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                        valley_mobility[tp]['overall'][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 # self.bs.get_kpoint_degeneracy(important_points[tp][0])
 
-
-                    print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
-                    for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
-                        print('new {}-type {} mobility at T = {}: {}'.format(tp, el_mech, T, self.mobility[tp][el_mech][c][T]))
 
                     # figure out average mobility
                     faulty_overall_mobility = False
-                    mu_overrall_norm = norm(mu_overall)
+                    mu_overrall_norm = norm(valley_mobility[tp]['overall'][c][T])
                     mu_average = np.array([0.0, 0.0, 0.0])
                     for transport in self.elastic_scatterings + self.inelastic_scatterings:
                         # averaging all mobility values via Matthiessen's rule
-                        mu_average += 1 / (np.array(self.mobility[tp][transport][c][T]) + 1e-32)
-                        if mu_overrall_norm > norm(self.mobility[tp][transport][c][T]):
+                        mu_average += 1 / (np.array(valley_mobility[tp][transport][c][T]) + 1e-32)
+                        if mu_overrall_norm > norm(valley_mobility[tp][transport][c][T]):
                             faulty_overall_mobility = True  # because the overall mobility should be lower than all
-                    self.mobility[tp]["average"][c][T] += 1 / mu_average
+                        valley_mobility[tp]["average"][c][T] = 1 / mu_average
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
                     if (mu_overrall_norm == 0.0 or faulty_overall_mobility) and not test_anisotropic:
-                        print(mu_overrall_norm)
-                        print(faulty_overall_mobility)
-                        self.mobility[tp]['overall'][c][T] += 1 / mu_average
-                    else:
-                        self.mobility[tp]['overall'][c][T] += mu_overall
+                        logging.warning('There may be a problem with overall '
+                                        'mobility; setting it to average...')
+                        valley_mobility[tp]['overall'][c][T] += 1 / mu_average
+                    # else:
+                    #     valley_mobility[tp]['overall'][c][T] += mu_overall
 
+
+                    for mu in self.mo_labels + self.spb_labels:
+                        self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
+
+                    # print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
+                    # for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
+                    #     print('new {}-type {} mobility at T = {}: {}'.format(tp, el_mech, T, self.mobility[tp][el_mech][c][T]))
+        print('mobility of the valley {}'.format(important_points))
+        pprint(valley_mobility)
 
 
     def calculate_transport_properties_with_E(self):
@@ -3335,11 +3346,16 @@ class AMSET(object):
                     # self.egrid[tp]["mobility"]["average"][c][T] = 1 / self.egrid[tp]["mobility"]["average"][c][T]
                     self.mobility[tp]['average'][c][T] += 1 / temp_avg
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
+
+                    logging.debug('mobility before overall is added:\n{}'.format(self.mobility))
+
                     if norm(mu_overall_valley) == 0.0 or faulty_overall_mobility:
                         # self.egrid[tp]["mobility"]["overall"][c][T] = self.egrid[tp]["mobility"]["average"][c][T]
                         self.mobility[tp]['overall'][c][T] += self.mobility[tp]['average'][c][T]
                     else:
                         self.mobility[tp]["overall"][c][T] += mu_overall_valley
+
+                    logging.debug('mobility after overall is added:\n{}'.format(self.mobility))
 
                     # self.egrid[tp]["relaxation time constant"][c][T] = self.egrid[tp]["mobility"]["overall"][c][T] \
                     #         * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
@@ -3348,10 +3364,10 @@ class AMSET(object):
                             * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
 
                     # print('old {}-type overall mobility at T = {}: {}'.format(tp, T, self.egrid[tp]["mobility"]["overall"][c][T]))
-                    print('old {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]["overall"][c][T]))
-                    for mech in self.elastic_scatterings + self.inelastic_scatterings:
-                        # print('old {}-type {} mobility at T = {}: {}'.format(tp, mech, T, self.egrid[tp]["mobility"][mech][c][T]))
-                        print('old {}-type {} mobility at T = {}: {}'.format(tp, mech, T, self.mobility[tp][mech][c][T]))
+                    # print('old {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]["overall"][c][T]))
+                    # for mech in self.elastic_scatterings + self.inelastic_scatterings:
+                    #     # print('old {}-type {} mobility at T = {}: {}'.format(tp, mech, T, self.egrid[tp]["mobility"][mech][c][T]))
+                    #     print('old {}-type {} mobility at T = {}: {}'.format(tp, mech, T, self.mobility[tp][mech][c][T]))
 
                     # calculating other overall transport properties:
                     # self.egrid[tp]["conductivity"][c][T] = self.egrid[tp]["mobility"]["overall"][c][T] * e * abs(c)
@@ -3686,7 +3702,9 @@ if __name__ == "__main__":
         ]]
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
-            "BTE_iters": 5, "max_nbands": 1, "max_normk": 2.5, "max_ncpu": 4}
+            "BTE_iters": 5, "max_nbands": 1, "max_normk": 2, "max_ncpu": 4
+                          , "fermi_kgrid_tp": "coarse"
+                          }
 
     ### for PbTe
     # material_params = {"epsilon_s": 44.4, "epsilon_inf": 25.6, "W_POP": 10.0, "C_el": 128.8,
@@ -3698,7 +3716,8 @@ if __name__ == "__main__":
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, 'add_extrema': add_extrema
             , "scissor": 0.5818
-            , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
+            # , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
+            , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p': [[0, 0, 0]]}
                        }
     cube_path = "../test_files/GaAs/"
     #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
@@ -3726,7 +3745,7 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  temperatures = [300],
+                  temperatures = [600],
                   # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
@@ -3734,7 +3753,7 @@ if __name__ == "__main__":
                   k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
