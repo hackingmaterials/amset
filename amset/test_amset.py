@@ -19,7 +19,7 @@ class AmsetTest(unittest.TestCase):
                              'inelastic_scatterings': ['POP']}
         self.performance_params = {'dE_min': 0.0001, 'nE_min': 2,
                 'parallel': True, 'BTE_iters': 5,'nkdos':29, 'max_nbands': 1,
-                                'max_normk': 2, 'Ecut': 0.4}
+                'max_normk': 2, 'Ecut': 0.4, 'fermi_kgrid_tp': 'coarse'}
         self.GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
                 'P_PIE': 0.052, 'scissor': 0.5818,
@@ -35,20 +35,19 @@ class AmsetTest(unittest.TestCase):
         print('\ntesting test_poly_bands...')
         mass = 0.25
         c = -2e15
-        temperatures = [300, 800]
+        temperatures = [300]
         self.model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
         amset = AMSET(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
                       dopings=[c], temperatures=temperatures, k_integration=True,
-                      e_integration=True, fermi_type='k',
+                      e_integration=False, fermi_type='k',
                       loglevel=logging.ERROR)
         amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
 
         # check fermi level
         # density calculation source: http://hib.iiit-bh.ac.in/Hibiscus/docs/iiit/NBDB/FP008/597_Semiconductor%20in%20Equilibrium&pn%20junction1.pdf
         # density of states source: http://web.eecs.umich.edu/~fredty/public_html/EECS320_SP12/DOS_Derivation.pdf
-        egrid = amset.egrid
         for T in temperatures:
             N_c = 2 * (2 * np.pi * mass * 9.11e-31 * 1.3806e-23 * T / ((6.626e-34)**2))**1.5
             expected_fermi_level = amset.cbm_vbm['n']["energy"] - (1.3806e-23 * T * np.log(N_c / (-c * 1e6)) * 6.242e18)
@@ -58,9 +57,9 @@ class AmsetTest(unittest.TestCase):
             self.assertTrue(diff / avg < 0.02)
 
             diff = abs(np.array(amset.mobility['n']['ACD'][c][T]) - \
-                       np.array(egrid['n']['mobility']['SPB_ACD'][c][T]))
+                       np.array(amset.mobility['n']['SPB_ACD'][c][T]))
             avg = (amset.mobility['n']['ACD'][c][T] + \
-                   egrid['n']['mobility']['SPB_ACD'][c][T]) / 2
+                   amset.mobility['n']['SPB_ACD'][c][T]) / 2
             self.assertTrue((diff / avg <= 0.01).all())
 
 
@@ -103,8 +102,8 @@ class AmsetTest(unittest.TestCase):
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
         #                'POP': 10113.9, 'overall': 8173.4}
 
-        expected_mu = {'ACD': 101397.69, 'IMP': 43442.789, 'PIE': 325384.23,
-                       'POP': 12309.095, 'overall': 6428.338, 'average': 8532.79}
+        expected_mu = {'ACD': 101397.61, 'IMP': 120713.75, 'PIE': 325384.19,
+                       'POP': 13329.22, 'overall': 9235.71, 'average': 10390.40}
         performance_params = dict(self.performance_params)
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
@@ -124,7 +123,7 @@ class AmsetTest(unittest.TestCase):
         # avg = (amset.fermi_level[-3e13][300] + expected_fermi) / 2
         # self.assertTrue(diff / avg < 0.02)
 
-        self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.697, 3)
+        self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.846, 3)
 
         # check mobility values
         for mu in expected_mu.keys():
