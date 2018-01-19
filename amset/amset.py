@@ -528,9 +528,9 @@ class AMSET(object):
 
         N_n = self.kgrid_array['n'].shape
 
-        for ib in range(self.num_bands['n']):
-            logging.debug('energy (type n, band {}):'.format(ib))
-            logging.debug(self.energy_array['n'][ib][(N_n[0] - 1) / 2, (N_n[1] - 1) / 2, :])
+        # for ib in range(self.num_bands['n']):
+        #     logging.debug('energy (type n, band {}):'.format(ib))
+        #     logging.debug(self.energy_array['n'][ib][(N_n[0] - 1) / 2, (N_n[1] - 1) / 2, :])
         logging.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
 
         if self.poly_bands is not None:
@@ -3239,7 +3239,8 @@ class AMSET(object):
                         else:
                             denom = self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
                                                           weighted=False)*3*default_small_E
-                    print("denom for {}-type with integrate_over_E: {}: \n {}".format(tp, integrate_over_kgrid, denom))
+                    logging.debug("denominator {}-type valley {}: \n{}".format(
+                            tp, important_points[tp], denom))
 
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
@@ -3714,7 +3715,7 @@ if __name__ == "__main__":
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, 'add_extrema': add_extrema
             , "scissor": 0.5818
             # , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
-            , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p': [[0, 0, 0]]}
+            # , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p': [[0, 0, 0]]}
                        }
     cube_path = "../test_files/GaAs/"
     #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
@@ -3742,15 +3743,15 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  temperatures = [600],
-                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
+                  # temperatures = [600],
+                  temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='super fine', write_outputs=True)
 
 
     # stats.print_callers(10)
