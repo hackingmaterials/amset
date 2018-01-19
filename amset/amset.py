@@ -154,7 +154,7 @@ class AMSET(object):
 
 
         kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
-        analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
+        analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands)
         if self.fermi_calc_type == 'k':
             self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
         elif self.fermi_calc_type == 'e':
@@ -185,7 +185,17 @@ class AMSET(object):
 
         logging.info('here initial number of bands:\n{}'.format(self.initial_num_bands))
 
-        self.find_all_important_points(nblow_vbm=0, nabove_cbm=0)
+        vibands = range(self.initial_num_bands['p'])
+        cibands = range(self.initial_num_bands['n'])
+        if len(vibands) > len(cibands):
+            ibands_tuple = zip(vibands, cibands+[cibands[-1]]*(len(vibands)-len(cibands)))
+        else:
+            ibands_tuple = zip(vibands+[vibands[-1]]*(len(cibands)-len(vibands)), cibands)
+
+        logging.debug('here ibands_tuple')
+        logging.debug(ibands_tuple)
+
+        self.find_all_important_points(nbelow_vbm=0, nabove_cbm=0)
         ## kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
         ## analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
@@ -392,7 +402,9 @@ class AMSET(object):
             # start_time = time.time()
         return kpts
 
-    def get_energy_array(self, coeff_file, kpts, once_called=False, return_energies=False):
+    def get_energy_array(self, coeff_file, kpts, once_called=False,
+                         return_energies=False, num_bands=None):
+        num_bands = num_bands or self.num_bands
         start_time = time.time()
         # if not once_called:
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
@@ -413,7 +425,7 @@ class AMSET(object):
                 self.all_ibands = []
                 for i, tp in enumerate(["p", "n"]):
                     sgn = (-1) ** (i + 1)
-                    for ib in range(self.cbm_vbm[tp]["included"]):
+                    for ib in range(num_bands[tp]):
                         self.all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
 
                 logging.debug("all_ibands: {}".format(self.all_ibands))
@@ -458,7 +470,6 @@ class AMSET(object):
                     energy, velocity, effective_m = self.calc_poly_energy(
                             self.cbm_vbm[tp]["kpoint"], tp, 0)
 
-                # @albalu why is there already an energy value calculated from vasp that this code overrides? # we are renormalizing the E vlues as the new energy has a different reference energy
                 self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
                 logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
                 self.cbm_vbm[tp]["energy"] = energy
@@ -477,24 +488,21 @@ class AMSET(object):
         velocities = {"n": [[0.0, 0.0, 0.0] for ik in kpts['n']], "p": [[0.0, 0.0, 0.0] for ik in kpts['p']]}
 
         self.pos_idx = {'n': [], 'p': []}
-        self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
         self.energy_array = {'n': [], 'p': []}
 
         # calculate energies
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
-            for ib in range(self.cbm_vbm[tp]["included"]):
+            for ib in range(num_bands[tp]):
                 if not self.parallel or self.poly_bands is not None:  # The PB generator is fast enough no need for parallelization
                     for ik in range(len(kpts[tp])):
                         if self.poly_bands is None:
-                            energy, velocities[tp][ik], effective_m = calc_analytical_energy(kpts[tp][ik],engre[i * self.cbm_vbm[
-                                "p"]["included"] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
+                            energy, velocities[tp][ik], effective_m = calc_analytical_energy(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
                         else:
                             energy, velocities[tp][ik], effective_m = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                         energies[tp][ik] = energy
                 else:
-                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * self.cbm_vbm["p"][
-                        "included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
+                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
                     for ik, res in enumerate(results):
                         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                         velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
@@ -616,7 +624,7 @@ class AMSET(object):
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
                     nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
                     Ecut=self.Ecut, nex_max=20, return_global=True, niter=10,
-                          nblow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm)
+                          nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm)
             # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
             for tp in ['p', 'n']:
                 self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
@@ -914,7 +922,7 @@ class AMSET(object):
 
         self.cbm_vbm = cbm_vbm
         logging.info("original cbm_vbm:\n {}".format(self.cbm_vbm))
-
+        self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
 
 
     def seeb_int_num(self, c, T):
@@ -3704,7 +3712,7 @@ if __name__ == "__main__":
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 2, "max_ncpu": 4
-                          , "fermi_kgrid_tp": "uniform"
+                          , "fermi_kgrid_tp": "very coarse"
                           }
 
     ### for PbTe
@@ -3754,7 +3762,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
