@@ -150,13 +150,6 @@ class AMSET(object):
         self.spb_labels = ['SPB_ACD']
         self.mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
                   self.dopings} for el_mech in self.mo_labels+self.spb_labels} for tp in ["n", "p"]}
-
-        # self.find_all_important_points()
-        ## all_important_pts = get_bs_extrema(self.bs, coeff_file, nk_ibz=self.nkdos,
-        ##         v_cut=self.v_min, min_normdiff=0.1, Ecut=self.Ecut, nex_max=20, return_global=False, niter=10)
-        # kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
-        # analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
-
         self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
 
 
@@ -190,7 +183,7 @@ class AMSET(object):
 
         # self.find_fermi_boltztrap()
 
-        self.find_all_important_points()
+        self.find_all_important_points(nblow_vbm=0, nabove_cbm=0)
         ## kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
         ## analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
@@ -321,6 +314,8 @@ class AMSET(object):
             kgrid_rm_list = ["effective mass", "kweights",
                              "f_th", "S_i_th", "S_o_th"]
             self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
+
+
 
             if self.k_integration:
                 pprint(self.mobility)
@@ -613,11 +608,13 @@ class AMSET(object):
             return analytical_band_tuple, kpts
 
 
-    def find_all_important_points(self):
+    def find_all_important_points(self, nblow_vbm=0, nabove_cbm=0):
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
         if self.important_pts is None:
-            self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file, nk_ibz=self.nkdos,
-                v_cut=self.v_min, min_normdiff=0.1, Ecut=self.Ecut, nex_max=20, return_global=True, niter=10)
+            self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
+                    nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
+                    Ecut=self.Ecut, nex_max=20, return_global=True, niter=10,
+                          nblow_vbm= nblow_vbm, nabove_cbm=nabove_cbm)
             # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
             for tp in ['p', 'n']:
                 self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
@@ -2579,6 +2576,7 @@ class AMSET(object):
         calc_doping = (-1) ** (typj + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
                       * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ, fermi=fermi, T=T))
 
+
         def linear_iteration(relative_error, fermi, calc_doping,
                              iterations, niter):
             tune_alpha = 1.0
@@ -3690,8 +3688,8 @@ if __name__ == "__main__":
 
 
     model_params = {'bs_is_isotropic': True,
-                    # 'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
-                    'elastic_scatterings': ['ACD', 'PIE'],
+                    'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+                    # 'elastic_scatterings': ['ACD', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
         model_params["poly_bands"] = [[
@@ -3743,7 +3741,7 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  # temperatures = [600],
+                  # temperatures = [300, 600, 900],
                   temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
@@ -3751,7 +3749,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='super fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
 
 
     # stats.print_callers(10)
