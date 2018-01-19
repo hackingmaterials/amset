@@ -156,7 +156,7 @@ class AMSET(object):
         kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
         analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
         if self.fermi_calc_type == 'k':
-            self.fermi_level = self.find_fermi_k()
+            self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
         elif self.fermi_calc_type == 'e':
             self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple)
             self.pre_init_egrid(once_called=False, dos_tp='standard')
@@ -182,6 +182,8 @@ class AMSET(object):
         # logging.debug("actual VBM: {}".format(energies['p'][vbm_idx]))
 
         # self.find_fermi_boltztrap()
+
+        logging.info('here initial number of bands:\n{}'.format(self.initial_num_bands))
 
         self.find_all_important_points(nblow_vbm=0, nabove_cbm=0)
         ## kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
@@ -608,13 +610,13 @@ class AMSET(object):
             return analytical_band_tuple, kpts
 
 
-    def find_all_important_points(self, nblow_vbm=0, nabove_cbm=0):
+    def find_all_important_points(self, nbelow_vbm=0, nabove_cbm=0):
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
-        if self.important_pts is None:
+        if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
                     nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
                     Ecut=self.Ecut, nex_max=20, return_global=True, niter=10,
-                          nblow_vbm= nblow_vbm, nabove_cbm=nabove_cbm)
+                          nblow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm)
             # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
             for tp in ['p', 'n']:
                 self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
@@ -892,6 +894,7 @@ class AMSET(object):
             self.dos_emin = min(bsd["bands"]["1"][0])
             self.dos_emax = max(bsd["bands"]["1"][-1])
 
+        self.initial_num_bands = {'n': None, 'p': None}
         if self.poly_bands0 is None:
             for i, tp in enumerate(["n", "p"]):
                 Ecut = self.Ecut[tp]
@@ -900,6 +903,7 @@ class AMSET(object):
                                           sgn * cbm_vbm[tp]["energy"]) < Ecut:
                     cbm_vbm[tp]["included"] += 1
 
+                self.initial_num_bands[tp] = cbm_vbm[tp]["included"]
                 if self.max_nbands:
                     cbm_vbm[tp]["included"] = self.max_nbands
         else:
@@ -2505,9 +2509,10 @@ class AMSET(object):
 
 
 
-    def find_fermi_k(self, tolerance=0.001):
+    def find_fermi_k(self, tolerance=0.001, num_bands = None):
+        num_bands = num_bands or self.num_bands
         closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
-        self.f0_array = {c: {T: {tp: range(self.num_bands[tp]) for tp in ['n', 'p']} for T in self.temperatures} for c in self.dopings}
+        self.f0_array = {c: {T: {tp: range(num_bands[tp]) for tp in ['n', 'p']} for T in self.temperatures} for c in self.dopings}
         #energy = self.array_from_kgrid('energy', 'n', fill=1000)
         for c in self.dopings:
             tp = get_tp(c)
@@ -2537,7 +2542,7 @@ class AMSET(object):
                 # find the calculated concentrations (dopings) of each type at the determined fermi level
                 e_f = closest_energy[c][T]
                 for j, tp in enumerate(['n', 'p']):
-                    for ib in range(self.num_bands[tp]):
+                    for ib in range(num_bands[tp]):
                         self.f0_array[c][T][tp][ib] = 1 / (np.exp((self.energy_array[tp][ib][:,:,:,0] - e_f) / (k_B * T)) + 1)
                     self.calc_doping[c][T][tp] = self.integrate_over_states(j - np.array(self.f0_array[c][T][tp]), tp)
         return closest_energy
@@ -3699,7 +3704,7 @@ if __name__ == "__main__":
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 2, "max_ncpu": 4
-                          , "fermi_kgrid_tp": "coarse"
+                          , "fermi_kgrid_tp": "uniform"
                           }
 
     ### for PbTe
