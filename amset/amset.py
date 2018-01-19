@@ -404,7 +404,7 @@ class AMSET(object):
 
     def get_energy_array(self, coeff_file, kpts, once_called=False,
                          return_energies=False, num_bands=None):
-        num_bands = num_bands or self.num_bands
+        num_bands = num_bands
         start_time = time.time()
         # if not once_called:
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
@@ -517,19 +517,7 @@ class AMSET(object):
                     kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
 
-            # self.energy_array[tp] = [self.grid_from_ordered_list(energies[tp], none_missing=True) for ib in range(self.num_bands[tp])]
 
-            # e_sort_idx = np.array(energies[tp]).argsort() if tp =="n" else np.array(energies[tp]).argsort()[::-1]
-
-            # energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
-
-            # self.dos_end = max(energies["n"])
-            # self.dos_start = min(energies["p"])
-
-            # velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
-            # self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
-
-            # kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
         N_n = self.kgrid_array['n'].shape
 
@@ -916,6 +904,8 @@ class AMSET(object):
                     cbm_vbm[tp]["included"] = self.max_nbands
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands0)
+            self.initial_num_bands['n'] = self.initial_num_bands['p'] = len(self.poly_bands0)
+
 
         cbm_vbm["p"]["bidx"] += 1
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
