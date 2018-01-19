@@ -539,7 +539,7 @@ def insert_intermediate_kpoints(kpts, n=2):
 
 def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
                     Ecut=None, nex_max=0, return_global=False, niter=10,
-                   nblow_vbm= 0, nabove_cbm=0):
+                   nbelow_vbm= 0, nabove_cbm=0):
     """
     returns a dictionary of p-type (valence) and n-type (conduction) band
         extrema k-points by looking at the 1st and 2nd derivatives of the bands
@@ -559,7 +559,7 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
             CBM (global minimum) and VBM (global maximum) w/ their k-point
         niter (int): number of iterations in basinhoopping for finding the
             global extremum
-        nblow_vbm (int): # of bands below the last valence band
+        nbelow_vbm (int): # of bands below the last valence band
         nabove_vbm (int): # of bands above the first conduction band
     Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
     """
@@ -571,7 +571,7 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
     actual_cbm_vbm={'n': {}, 'p': {}}
     vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
     # vbm_idx = bs.get_vbm()['band_index'][Spin.up][0]
-    ibands = [1-nblow_vbm, 2+nabove_cbm]  # in this notation, 1 is the last valence band
+    ibands = [1-nbelow_vbm, 2+nabove_cbm]  # in this notation, 1 is the last valence band
     ibands = [i + vbm_idx for i in ibands]
     ibz = HighSymmKpath(bs.structure)
     sg = SpacegroupAnalyzer(bs.structure)
