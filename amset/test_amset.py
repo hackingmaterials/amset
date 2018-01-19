@@ -9,6 +9,7 @@ import os
 import unittest
 
 from amset import AMSET
+from tools import rel_diff
 
 test_dir = os.path.dirname(__file__)
 
@@ -63,13 +64,8 @@ class AmsetTest(unittest.TestCase):
             self.assertTrue((diff / avg <= 0.01).all())
 
 
-    # #TODO: since we run through several different k-meshes now for varous valleys, egrid changes hence egrid tests may be changing and ignored for now
     def test_GaAs_isotropic_E(self):
         print('\ntesting test_GaAs_isotropic...')
-        # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
-        # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
-        #                'POP': 10113.9, 'overall': 8173.4}
-
         expected_mu = {'ACD': 52617.3, 'IMP': 154816.1, 'PIE': 111864.7,
                        'POP': 7706.8, 'overall': 5432.5, 'average': 6091.6}
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
@@ -133,27 +129,26 @@ class AmsetTest(unittest.TestCase):
                                    expected_mu[mu], places=2)
 
     # #TODO: since we run through several different k-meshes now for varous valleys, egrid changes hence egrid tests may be changing and ignored for now
-    # def refactored_test_GaAs_anisotropic(self):
-    #     print('\ntesting test_GaAs_anisotropic...')
-    #     expected_mu = {'ACD': 47957.47, 'IMP': 139492.12, 'PIE': 112012.98,
-    #                    'POP': 8436.67, 'overall': 5874.23, 'average': 6431.76}
-    #     amset = AMSET(calc_dir=self.GaAs_path,
-    #                   material_params=self.GaAs_params,
-    #                   model_params={'bs_is_isotropic': False,
-    #                          'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
-    #                          'inelastic_scatterings': ['POP']},
-    #                   performance_params=self.performance_params,
-    #                   dopings=[-2e15], temperatures=[300], k_integration=False,
-    #                   e_integration=True, fermi_type='e',
-    #                   loglevel=logging.ERROR)
-    #     amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
-    #     egrid = amset.egrid
-    #     # check mobility values
-    #     for mu in expected_mu.keys():
-    #         self.assertLessEqual(np.std(  # GaAs band structure is isotropic
-    #             egrid['n']['mobility'][mu][-2e15][300]), 0.02*\
-    #             np.mean(egrid['n']['mobility'][mu][-2e15][300]))
-    #         self.assertLess(rel_diff(egrid['n']['mobility'][mu][-2e15][300][0], expected_mu[mu]), 0.02)
+    def test_GaAs_anisotropic(self):
+        print('\ntesting test_GaAs_anisotropic...')
+        expected_mu = {'ACD': 47957.55, 'IMP': 139521.01, 'PIE': 112012.93,
+                       'POP': 8552.04, 'overall': 5914.90, 'average': 6498.66}
+        amset = AMSET(calc_dir=self.GaAs_path,
+                      material_params=self.GaAs_params,
+                      model_params={'bs_is_isotropic': False,
+                             'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+                             'inelastic_scatterings': ['POP']},
+                      performance_params=self.performance_params,
+                      dopings=[-2e15], temperatures=[300], k_integration=False,
+                      e_integration=True, fermi_type='e',
+                      loglevel=logging.ERROR)
+        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
+        # check mobility values
+        for mu in expected_mu.keys():
+            self.assertLessEqual(np.std(  # GaAs band structure is isotropic
+                amset.mobility['n'][mu][-2e15][300]), 0.02*\
+                np.mean(amset.mobility['n'][mu][-2e15][300]))
+            self.assertLess(rel_diff(amset.mobility['n'][mu][-2e15][300][0], expected_mu[mu]), 0.02)
 
     def test_defaults(self):
         print('\ntesting test_defaults...')
