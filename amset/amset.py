@@ -617,9 +617,15 @@ class AMSET(object):
                     Ecut=self.Ecut, nex_max=20, return_global=True, niter=10,
                           nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm)
             # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
-            for tp in ['p', 'n']:
-                self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
-                self.cbm_vbm[tp]['kpoint'] = new_cbm_vbm[tp]['kpoint']
+            if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy']:
+                self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
+                self.cbm_vbm['n']['kpoint'] = new_cbm_vbm['n']['kpoint']
+            if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p']['energy']:
+                self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
+                self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
+            # for tp in ['p', 'n']:
+            #     self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
+            #     self.cbm_vbm[tp]['kpoint'] = new_cbm_vbm[tp]['kpoint']
 
         logging.info(('here initial important_pts'))
         logging.info((self.important_pts)) # for some reason the nscf uniform GaAs fitted coeffs return positive mass for valence at Gamma!
