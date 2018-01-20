@@ -404,7 +404,7 @@ class AMSET(object):
 
     def get_energy_array(self, coeff_file, kpts, once_called=False,
                          return_energies=False, num_bands=None):
-        num_bands = num_bands
+        num_bands = num_bands or self.num_bands
         start_time = time.time()
         # if not once_called:
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
