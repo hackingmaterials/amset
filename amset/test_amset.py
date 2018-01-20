@@ -67,7 +67,7 @@ class AmsetTest(unittest.TestCase):
     def test_GaAs_isotropic_E(self):
         print('\ntesting test_GaAs_isotropic_E...')
         expected_mu = {'ACD': 52596.9, 'IMP': 156816.3, 'PIE': 111875.4,
-                       'POP': 7704.8, 'overall': 5438.4, 'average': 6091.6}
+                       'POP': 7704.8, 'overall': 5438.4, 'average': 6093.2}
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
@@ -97,7 +97,7 @@ class AmsetTest(unittest.TestCase):
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
         #                'POP': 10113.9, 'overall': 8173.4}
 
-        expected_mu = {'ACD': 101397.6, 'IMP': 120713.8, 'PIE': 325384.2,
+        expected_mu = {'ACD': 101397.6, 'IMP': 120715.8, 'PIE': 325384.2,
                        'POP': 13329.2, 'overall': 9235.7, 'average': 10390.4}
         performance_params = dict(self.performance_params)
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
