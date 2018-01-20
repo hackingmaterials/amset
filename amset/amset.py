@@ -509,6 +509,8 @@ class AMSET(object):
                         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                         # velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
 
+                self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
+
                 if ib == 0:      # we only include the first band to decide on order of ibz k-points
                     e_sort_idx = np.array(energies[tp]).argsort() if tp == "n" else np.array(energies[tp]).argsort()[::-1]
                     energies_sorted[tp] = [energies[tp][ie] for ie in e_sort_idx]
@@ -517,7 +519,6 @@ class AMSET(object):
                     self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
                     kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
-                self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
 
 
 
@@ -3711,7 +3712,7 @@ if __name__ == "__main__":
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 2, "max_ncpu": 4
-                          , "fermi_kgrid_tp": "very coarse"
+                          , "fermi_kgrid_tp": "uniform"
                           }
 
     ### for PbTe
@@ -3758,10 +3759,10 @@ if __name__ == "__main__":
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
-                  k_integration=False, e_integration=True, fermi_type='k',
+                  k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
 
 
     # stats.print_callers(10)
