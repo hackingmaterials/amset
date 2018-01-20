@@ -911,7 +911,7 @@ class AMSET(object):
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
 
         self.cbm_vbm = cbm_vbm
-        logging.info("original cbm_vbm:\n {}".format(self.cbm_vbm))
+        logging.info("original cbm_vbm:\n {}".format(cbm_vbm))
         self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
 
 
