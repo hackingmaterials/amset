@@ -192,6 +192,7 @@ class AMSET(object):
         else:
             ibands_tuple = zip(vibands+[vibands[-1]]*(len(cibands)-len(vibands)), cibands)
 
+        #TODO: this ibands_tuple is to treat each band (and valleys with) independently (so each time num_bands will be {'n': 1, 'p': 1} but with different band indexes
         logging.debug('here ibands_tuple')
         logging.debug(ibands_tuple)
 
@@ -485,6 +486,7 @@ class AMSET(object):
         # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
         start_time = time.time()
         energies = {"n": [0.0 for ik in kpts['n']], "p": [0.0 for ik in kpts['p']]}
+        energies_sorted = {"n": [0.0 for ik in kpts['n']], "p": [0.0 for ik in kpts['p']]}
         velocities = {"n": [[0.0, 0.0, 0.0] for ik in kpts['n']], "p": [[0.0, 0.0, 0.0] for ik in kpts['p']]}
 
         self.pos_idx = {'n': [], 'p': []}
@@ -505,16 +507,17 @@ class AMSET(object):
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
                     for ik, res in enumerate(results):
                         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
-                        velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
-
-                self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
+                        # velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
 
                 if ib == 0:      # we only include the first band to decide on order of ibz k-points
                     e_sort_idx = np.array(energies[tp]).argsort() if tp == "n" else np.array(energies[tp]).argsort()[::-1]
+                    energies_sorted[tp] = [energies[tp][ie] for ie in e_sort_idx]
                     energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
-                    velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
+                    # velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
                     self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
                     kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
+
+                self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
 
 
 
@@ -539,7 +542,7 @@ class AMSET(object):
             self.dos_emin = min(all_bands_energies["p"])
             self.dos_emax = max(all_bands_energies["n"])
 
-        del velocities, e_sort_idx
+        del e_sort_idx
 
         # calculation of the density of states (DOS)
         if not once_called:
@@ -601,7 +604,7 @@ class AMSET(object):
 
         self.energy_array = {tp: np.array(self.energy_array[tp]) for tp in ['p', 'n']}
         if return_energies:
-            return analytical_band_tuple, kpts, energies
+            return analytical_band_tuple, kpts, energies_sorted
         else:
             return analytical_band_tuple, kpts
 
