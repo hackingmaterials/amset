@@ -196,137 +196,140 @@ class AMSET(object):
         logging.debug('here ibands_tuple')
         logging.debug(ibands_tuple)
 
-        self.find_all_important_points(nbelow_vbm=0, nabove_cbm=0)
-        ## kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
-        ## analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
+        for nbelow_vbm, nabove_cbm in ibands_tuple:
 
-        # self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
-        # for c in self.dopings:
-        #     for T in self.temperatures:
-        #         f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-        #         f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-        #         self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
-        #         self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
-        #
-        #
-        # print('denominator:')
-        # print(self.denominator)
+            self.find_all_important_points(nbelow_vbm=nbelow_vbm, nabove_cbm=nabove_cbm)
+            ## kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
+            ## analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
-        # once_called = False
-        for i in range(max(len(self.important_pts['n']), len(self.important_pts['p']))):
-            once_called = True
-            self.count_mobility = {'n': True, 'p': True}
-            important_points = {'n': None, 'p': None}
-            if i == 0:
-                once_called = False
-            for tp in ['p', 'n']:
-                try:
-                    important_points[tp] = [self.important_pts[tp][i]]
-                except:
-                    important_points[tp] = [self.important_pts[tp][0]]
-                    self.count_mobility[tp] = False
-            logging.info('Current valleys:\n{}'.format(important_points))
-            logging.info('Whether to count valleys: {}'.format(self.count_mobility))
-            kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
-            analytical_band_tuple, kpts = self.get_energy_array(coeff_file, kpts, once_called=once_called)
-            self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
-            # logging.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
-
-            self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
-            # logging.debug('here self.energy_array:\n{}'.format(self.energy_array))
-            for c in self.dopings:
-                for T in self.temperatures:
-                    f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                    f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                    self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
-                    self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
-
-
-            # logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
-            # cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
-            # logging.debug("actual CBM k: {}".format(self.kgrid['n']['kpoints'][0][cbm_idx]))
-            # logging.debug("actual CBM: {}".format(self.kgrid['n']['energy'][0][cbm_idx]))
-            # vbm_idx = np.argmax(self.kgrid['p']['energy'][0])
-            # logging.debug("actual VBM k: {}".format(self.kgrid['p']['kpoints'][0][vbm_idx]))
-            # logging.debug("actual VBM: {}".format(self.kgrid['p']['energy'][0][vbm_idx]))
+            # self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
+            # for c in self.dopings:
+            #     for T in self.temperatures:
+            #         f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+            #         f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+            #         self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
+            #         self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
             #
-            # start_time_fermi = time.time()
-            # if self.fermi_calc_type == 'k':
-            #     self.fermi_level = self.find_fermi_k()
-            # logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
+            #
+            # print('denominator:')
+            # print(self.denominator)
 
-            # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
-            self.init_egrid(once_called=False, dos_tp="standard")
-            self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
-            if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
-                warnings.warn("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
-                # raise ValueError("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
+            # once_called = False
+            for i in range(max(len(self.important_pts['n']), len(self.important_pts['p']))):
+                once_called = True
+                self.count_mobility = {'n': True, 'p': True}
+                important_points = {'n': None, 'p': None}
+                if i == 0:
+                    once_called = False
+                for tp in ['p', 'n']:
+                    try:
+                        important_points[tp] = [self.important_pts[tp][i]]
+                    except:
+                        important_points[tp] = [self.important_pts[tp][0]]
+                        self.count_mobility[tp] = False
+                logging.info('Current valleys:\n{}'.format(important_points))
+                logging.info('Whether to count valleys: {}'.format(self.count_mobility))
+                kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
+                analytical_band_tuple, kpts = self.get_energy_array(coeff_file, kpts, once_called=once_called)
+                self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
+                # logging.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
 
-            # initialize g in the egrid
-            self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
-            self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
+                self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
+                # logging.debug('here self.energy_array:\n{}'.format(self.energy_array))
+                for c in self.dopings:
+                    for T in self.temperatures:
+                        f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                        f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                        self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
+                        self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
 
-            # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
-            if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
-                self.generate_angles_and_indexes_for_integration()
 
-            # calculate all elastic scattering rates in kgrid and then map it to egrid:
-            for sname in self.elastic_scatterings:
-                self.s_elastic(sname=sname)
-                self.map_to_egrid(prop_name=sname)
+                # logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
+                # cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
+                # logging.debug("actual CBM k: {}".format(self.kgrid['n']['kpoints'][0][cbm_idx]))
+                # logging.debug("actual CBM: {}".format(self.kgrid['n']['energy'][0][cbm_idx]))
+                # vbm_idx = np.argmax(self.kgrid['p']['energy'][0])
+                # logging.debug("actual VBM k: {}".format(self.kgrid['p']['kpoints'][0][vbm_idx]))
+                # logging.debug("actual VBM: {}".format(self.kgrid['p']['energy'][0][vbm_idx]))
+                #
+                # start_time_fermi = time.time()
+                # if self.fermi_calc_type == 'k':
+                #     self.fermi_level = self.find_fermi_k()
+                # logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
 
-            self.map_to_egrid(prop_name="_all_elastic")
-            self.map_to_egrid(prop_name="relaxation time")
+                # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
+                self.init_egrid(once_called=False, dos_tp="standard")
+                self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
+                if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
+                    warnings.warn("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
+                    # raise ValueError("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
 
-            for c in self.dopings:
-                for T in self.temperatures:
-                    fermi = self.fermi_level[c][T]
-                    for tp in ["n", "p"]:
-                        fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
-                        for ib in range(len(self.kgrid[tp]["energy"])):
-                            for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                                E = self.kgrid[tp]["energy"][ib][ik]
-                                v = self.kgrid[tp]["velocity"][ib][ik]
-                                self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
-                                self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E, fermi, T) * v  # in cm
-                                self.kgrid[tp]["electric force"][c][T][ib][ik] = \
-                                    -1 * self.kgrid[tp]["df0dk"][c][T][ib][ik] * \
-                                    default_small_E / hbar  # in 1/s
+                # initialize g in the egrid
+                self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
+                self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
 
-                                E_norm = E - self.cbm_vbm[tp]["energy"]
-                                self.kgrid[tp]["thermal force"][c][T][ib][ik] = \
-                                    - v * f0(E_norm, fermi_norm, T) * (1 - f0(
-                                    E_norm, fermi_norm, T)) * (E_norm / (k_B * T)-\
-                                    self.egrid["Seebeck_integral_numerator"][c][
-                                        T][tp] / self.egrid[
-                                            "Seebeck_integral_denominator"][c][
-                                            T][tp]) * dTdz / T
-                    dop_tp = get_tp(c)
-                    f0_removed = self.array_from_kgrid('f0', dop_tp, c, T)
-                    f0_all = 1 / (np.exp((self.energy_array[dop_tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                    if c < 0:
-                        electrons = self.integrate_over_states(f0_all, dop_tp)
-                        logging.info('k-integral of f0 above band gap at c={}, T={}: {}'.format(c, T, electrons))
-                    if c > 0:
-                        holes = self.integrate_over_states(1-f0_all, dop_tp)
-                        logging.info('k-integral of 1-f0 below band gap at c={}, T={}: {}'.format(c, T, holes))
+                # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
+                if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
+                    self.generate_angles_and_indexes_for_integration()
 
-            self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
-            self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
+                # calculate all elastic scattering rates in kgrid and then map it to egrid:
+                for sname in self.elastic_scatterings:
+                    self.s_elastic(sname=sname)
+                    self.map_to_egrid(prop_name=sname)
 
-            # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
-            self.solve_BTE_iteratively()
+                self.map_to_egrid(prop_name="_all_elastic")
+                self.map_to_egrid(prop_name="relaxation time")
 
-            if self.k_integration:
-                self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
-            if self.e_integration:
-                self.calculate_transport_properties_with_E(important_points)
+                for c in self.dopings:
+                    for T in self.temperatures:
+                        fermi = self.fermi_level[c][T]
+                        for tp in ["n", "p"]:
+                            fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
+                            for ib in range(len(self.kgrid[tp]["energy"])):
+                                for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                                    E = self.kgrid[tp]["energy"][ib][ik]
+                                    v = self.kgrid[tp]["velocity"][ib][ik]
+                                    self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
+                                    self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E, fermi, T) * v  # in cm
+                                    self.kgrid[tp]["electric force"][c][T][ib][ik] = \
+                                        -1 * self.kgrid[tp]["df0dk"][c][T][ib][ik] * \
+                                        default_small_E / hbar  # in 1/s
 
-            self.calculate_spb_transport()
+                                    E_norm = E - self.cbm_vbm[tp]["energy"]
+                                    self.kgrid[tp]["thermal force"][c][T][ib][ik] = \
+                                        - v * f0(E_norm, fermi_norm, T) * (1 - f0(
+                                        E_norm, fermi_norm, T)) * (E_norm / (k_B * T)-\
+                                        self.egrid["Seebeck_integral_numerator"][c][
+                                            T][tp] / self.egrid[
+                                                "Seebeck_integral_denominator"][c][
+                                                T][tp]) * dTdz / T
+                        dop_tp = get_tp(c)
+                        f0_removed = self.array_from_kgrid('f0', dop_tp, c, T)
+                        f0_all = 1 / (np.exp((self.energy_array[dop_tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                        if c < 0:
+                            electrons = self.integrate_over_states(f0_all, dop_tp)
+                            logging.info('k-integral of f0 above band gap at c={}, T={}: {}'.format(c, T, electrons))
+                        if c > 0:
+                            holes = self.integrate_over_states(1-f0_all, dop_tp)
+                            logging.info('k-integral of 1-f0 below band gap at c={}, T={}: {}'.format(c, T, holes))
 
-            kgrid_rm_list = ["effective mass", "kweights",
-                             "f_th", "S_i_th", "S_o_th"]
-            self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
+                self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
+                self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
+
+                # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
+                self.solve_BTE_iteratively()
+
+                if self.k_integration:
+                    self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
+                if self.e_integration:
+                    self.calculate_transport_properties_with_E(important_points)
+
+                self.calculate_spb_transport()
+
+                kgrid_rm_list = ["effective mass", "kweights",
+                                 "f_th", "S_i_th", "S_o_th"]
+                self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
+
 
 
 
@@ -3711,7 +3714,7 @@ if __name__ == "__main__":
         ]]
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
-            "BTE_iters": 5, "max_nbands": 1, "max_normk": 2, "max_ncpu": 4
+            "BTE_iters": 5, "max_nbands": None, "max_normk": 2, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform"
                           }
 
@@ -3754,15 +3757,15 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  # temperatures = [300, 600, 900],
-                  temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
+                  temperatures = [600],
+                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
-                  k_integration=True, e_integration=False, fermi_type='k',
+                  k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
