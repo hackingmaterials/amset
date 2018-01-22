@@ -190,16 +190,19 @@ class AMSET(object):
         self.count_mobility = [{'n': True, 'p': True} for _ in range(max(self.initial_num_bands['p'], self.initial_num_bands['n']))]
 
         if len(vibands) > len(cibands):
-            ibands_tuple = zip(vibands, cibands+[cibands[-1]]*(len(vibands)-len(cibands)))
+            ibands_tuple = zip(vibands, cibands+[cibands[0]]*(len(vibands)-len(cibands)))
             for i in range(len(cibands), len(vibands)):
                 self.count_mobility[i]['n'] = False
         else:
-            ibands_tuple = zip(vibands+[vibands[-1]]*(len(cibands)-len(vibands)), cibands)
+            ibands_tuple = zip(vibands+[vibands[0]]*(len(cibands)-len(vibands)), cibands)
             for i in range(len(vibands), len(cibands)):
                 self.count_mobility[i]['p'] = False
 
         self.count_mobility0 = deepcopy(self.count_mobility)
         #TODO: this ibands_tuple is to treat each band (and valleys with) independently (so each time num_bands will be {'n': 1, 'p': 1} but with different band indexes
+        if self.max_nbands:
+            ibands_tuple = ibands_tuple[:min(len(ibands_tuple, self.max_nbands))]
+
         logging.debug('here ibands_tuple')
         logging.debug(ibands_tuple)
 
@@ -3769,15 +3772,15 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  temperatures = [600],
-                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
+                  # temperatures = [600],
+                  temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
 
 
     # stats.print_callers(10)
