@@ -201,7 +201,7 @@ class AMSET(object):
         self.count_mobility0 = deepcopy(self.count_mobility)
         #TODO: this ibands_tuple is to treat each band (and valleys with) independently (so each time num_bands will be {'n': 1, 'p': 1} but with different band indexes
         if self.max_nbands:
-            ibands_tuple = ibands_tuple[:min(len(ibands_tuple, self.max_nbands))]
+            ibands_tuple = ibands_tuple[:min(len(ibands_tuple), self.max_nbands)]
 
         logging.debug('here ibands_tuple')
         logging.debug(ibands_tuple)
