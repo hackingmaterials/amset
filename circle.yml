@@ -6,5 +6,4 @@ dependencies:
     - python setup.py develop
 test:
   override:
-    - nosetests
-        timeout: 1200
+    - nosetests --process-timeout=1200
