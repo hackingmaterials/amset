@@ -813,7 +813,8 @@ class AMSET(object):
         self.nE_min = params.get("nE_min", 2)
         c_factor = max(1, 3 * abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.25)
         Ecut = params.get("Ecut", c_factor * 5 * k_B * max(self.temperatures + [300]))
-        self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
+        # self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
+        self.Ecut = {tp: Ecut for tp in ["n", "p"]}
         for tp in ["n", "p"]:
             logging.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
         self.adaptive_mesh = params.get("adaptive_mesh", False)
