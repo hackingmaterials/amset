@@ -210,7 +210,7 @@ class AMSET(object):
         logging.debug(self.count_mobility)
 
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
-
+            logging.info('going over conduction and valence # {}'.format(self.ibrun))
             self.find_all_important_points(coeff_file, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm)
             ## kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
             ## analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
@@ -489,7 +489,7 @@ class AMSET(object):
                     energy, velocity, effective_m = self.calc_poly_energy(
                             self.cbm_vbm[tp]["kpoint"], tp, 0)
 
-                self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
+                self.offset_from_vrun = energy - self.cbm_vbm0[tp]["energy"]
                 logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
                 self.cbm_vbm[tp]["energy"] = energy
                 self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
@@ -940,6 +940,7 @@ class AMSET(object):
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
 
         self.cbm_vbm = cbm_vbm
+        self.cbm_vbm0 = deepcopy(cbm_vbm)
         logging.info("original cbm_vbm:\n {}".format(cbm_vbm))
         self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
 
@@ -1496,6 +1497,12 @@ class AMSET(object):
                     #         or self.kgrid[tp]["velocity"][ib][ik][2] < self.v_min or \
                     if (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() or \
                                     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]:
+                        if tp == 'p':
+                            if abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]:
+                                logging.debug('off energy for {}-type'.format(tp))
+                                logging.debug('ibrun: {}'.format(self.ibrun))
+                                logging.debug('here energy: {}'.format(self.kgrid[tp]["energy"][ib][ik]))
+                                logging.debug('here k-point: {}'.format(self.kgrid[tp]['kpoints'][ib][ik]))
                         rm_idx_list[tp][ib].append(ik)
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
@@ -1544,6 +1551,7 @@ class AMSET(object):
 
         logging.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin, self.dos_emax))
 
+        logging.debug('current cbm_vbm:\n{}'.format(self.cbm_vbm))
         for tp in ["n", "p"]:
             for ib in range(len(self.kgrid[tp]["energy"])):
                 logging.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
@@ -3743,7 +3751,7 @@ if __name__ == "__main__":
 
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, 'add_extrema': add_extrema
-            , "scissor": 0.5818
+            # , "scissor": 0.5818
             # , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
             # , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p': [[0, 0, 0]]}
                        }
@@ -3781,7 +3789,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
