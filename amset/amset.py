@@ -187,18 +187,28 @@ class AMSET(object):
 
         vibands = range(self.initial_num_bands['p'])
         cibands = range(self.initial_num_bands['n'])
+        self.count_mobility = [{'n': True, 'p': True} for _ in range(max(self.initial_num_bands['p'], self.initial_num_bands['n']))]
+
         if len(vibands) > len(cibands):
             ibands_tuple = zip(vibands, cibands+[cibands[-1]]*(len(vibands)-len(cibands)))
+            for i in range(len(cibands), len(vibands)):
+                self.count_mobility[i]['n'] = False
         else:
             ibands_tuple = zip(vibands+[vibands[-1]]*(len(cibands)-len(vibands)), cibands)
+            for i in range(len(vibands), len(cibands)):
+                self.count_mobility[i]['p'] = False
 
+        self.count_mobility0 = deepcopy(self.count_mobility)
         #TODO: this ibands_tuple is to treat each band (and valleys with) independently (so each time num_bands will be {'n': 1, 'p': 1} but with different band indexes
         logging.debug('here ibands_tuple')
         logging.debug(ibands_tuple)
 
-        for nbelow_vbm, nabove_cbm in ibands_tuple:
+        logging.debug('here whether to count bands')
+        logging.debug(self.count_mobility)
 
-            self.find_all_important_points(nbelow_vbm=nbelow_vbm, nabove_cbm=nabove_cbm)
+        for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
+
+            self.find_all_important_points(coeff_file, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm)
             ## kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
             ## analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
 
@@ -216,8 +226,8 @@ class AMSET(object):
 
             # once_called = False
             for i in range(max(len(self.important_pts['n']), len(self.important_pts['p']))):
+                self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
                 once_called = True
-                self.count_mobility = {'n': True, 'p': True}
                 important_points = {'n': None, 'p': None}
                 if i == 0:
                     once_called = False
@@ -226,9 +236,11 @@ class AMSET(object):
                         important_points[tp] = [self.important_pts[tp][i]]
                     except:
                         important_points[tp] = [self.important_pts[tp][0]]
-                        self.count_mobility[tp] = False
+                        self.count_mobility[self.ibrun][tp] = False
+
+                logging.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 logging.info('Current valleys:\n{}'.format(important_points))
-                logging.info('Whether to count valleys: {}'.format(self.count_mobility))
+                logging.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
                 kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
                 analytical_band_tuple, kpts = self.get_energy_array(coeff_file, kpts, once_called=once_called)
                 self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
@@ -613,7 +625,7 @@ class AMSET(object):
             return analytical_band_tuple, kpts
 
 
-    def find_all_important_points(self, nbelow_vbm=0, nabove_cbm=0):
+    def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0):
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
         if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
@@ -3017,7 +3029,7 @@ class AMSET(object):
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["n", "p"]):
-                    if not self.count_mobility[tp]:
+                    if not self.count_mobility[self.ibrun][tp]:
                         continue
                     N = self.kgrid_array[tp].shape
                     # if tp == 'n':
