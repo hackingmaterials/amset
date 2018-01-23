@@ -209,6 +209,10 @@ class AMSET(object):
         logging.debug('here whether to count bands')
         logging.debug(self.count_mobility)
 
+        #TODO: if we use ibands_tuple, then for each couple of conduction/valence bands we only use 1 band together (i.e. always ib==0)
+        for tp in ['p', 'n']:
+            self.cbm_vbm[tp]['included'] = 1
+
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
             logging.info('going over conduction and valence # {}'.format(self.ibrun))
             self.find_all_important_points(coeff_file, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm)
@@ -1497,12 +1501,6 @@ class AMSET(object):
                     #         or self.kgrid[tp]["velocity"][ib][ik][2] < self.v_min or \
                     if (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() or \
                                     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]:
-                        if tp == 'p':
-                            if abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]:
-                                logging.debug('off energy for {}-type'.format(tp))
-                                logging.debug('ibrun: {}'.format(self.ibrun))
-                                logging.debug('here energy: {}'.format(self.kgrid[tp]["energy"][ib][ik]))
-                                logging.debug('here k-point: {}'.format(self.kgrid[tp]['kpoints'][ib][ik]))
                         rm_idx_list[tp][ib].append(ik)
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
@@ -3789,7 +3787,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
 
 
     # stats.print_callers(10)
