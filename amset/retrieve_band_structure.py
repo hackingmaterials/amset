@@ -55,8 +55,8 @@ if __name__ == "__main__":
     print(bs.get_sym_eq_kpoints([0.5, 0.5, 0.5]))
     print(bs.get_sym_eq_kpoints([ 0.5,  0.,  0.5]))
 
-    # vbm_idx = bs.get_vbm()['band_index'][Spin.up][0]
-    vbm_idx, _ = get_bindex_bspin(Si_bs.get_vbm(), is_cbm=False)
+    # vbm_idx, _ = get_bindex_bspin(Si_bs.get_vbm(), is_cbm=False)
+    vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
     print('vbm band index (vbm_idx): {}'.format(vbm_idx))
     ibands = [1, 2] # in this notation, 1 is the last valence band
     ibands = [i + vbm_idx for i in ibands]
@@ -72,11 +72,11 @@ if __name__ == "__main__":
     # retrieve_bs(coeff_file=PbTe_coeff_file, bs=bs, ibands=ibands)
     # retrieve_bs(coeff_file=Si_coeff_file, bs=Si_bs, ibands=ibands, cbm=True)
 
-    # retrieve_bs(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands, cbm=False)
+    retrieve_bs(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands, cbm=True)
 
     # retrieve_bs(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[11, 12, 13, 14])
     # retrieve_bs(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[24, 25, 26, 27])
 
     # extrema = get_bs_extrema(bs, coeff_file=GaAs_coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.1, Ecut=0.5, nex_max=20)
-    extrema = get_bs_extrema(Si_bs, coeff_file=Si_coeff_file, nk_ibz=31, v_cut=1e4, min_normdiff=0.15, Ecut=0.25, nex_max=20)
-    print(extrema)
+    # extrema = get_bs_extrema(Si_bs, coeff_file=Si_coeff_file, nk_ibz=31, v_cut=1e4, min_normdiff=0.15, Ecut=0.25, nex_max=20)
+    # print(extrema)
