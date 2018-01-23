@@ -350,6 +350,9 @@ class AMSET(object):
                 for tp in ['p', 'n']:
                     if self.count_mobility[self.ibrun][tp]:
                         k = important_points[tp][0]
+                        for i in range(3):
+                            if abs(k[i]) < 1e-4:
+                                k[i] = 0.0
                         self.valleys[tp]['band {}'.format(self.ibrun)]['{};{};{}'.format(k[0], k[1], k[2])] = valley_mobility[tp]
                 self.calculate_spb_transport()
 
