@@ -343,10 +343,14 @@ class AMSET(object):
                 self.solve_BTE_iteratively()
 
                 if self.k_integration:
-                    self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
+                    valley_mobility = self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
                 if self.e_integration:
-                    self.calculate_transport_properties_with_E(important_points)
+                    valley_mobility = self.calculate_transport_properties_with_E(important_points)
 
+                for tp in ['p', 'n']:
+                    if self.count_mobility[self.ibrun][tp]:
+                        k = important_points[tp][0]
+                        self.valleys[tp]['band {}'.format(self.ibrun)]['{};{};{}'.format(k[0], k[1], k[2])] = valley_mobility[tp]
                 self.calculate_spb_transport()
 
                 kgrid_rm_list = ["effective mass", "kweights",
@@ -949,6 +953,7 @@ class AMSET(object):
 
         self.cbm_vbm = cbm_vbm
         self.cbm_vbm0 = deepcopy(cbm_vbm)
+        self.valleys = {tp: {'band {}'.format(i): {} for i in range(self.cbm_vbm0[tp]['included']) } for tp in ['p', 'n']}
         logging.info("original cbm_vbm:\n {}".format(cbm_vbm))
         self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
 
@@ -2753,7 +2758,7 @@ class AMSET(object):
 
 
 
-    def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0):
+    def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0, valleys=True):
         """
         writes the kgrid and egird to json files
         Args:
@@ -2831,7 +2836,9 @@ class AMSET(object):
 
             with open("kgrid.json", 'w') as fp:
                 json.dump(kgrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
-
+        if valleys:
+            with open("valleys.json", 'w') as fp:
+                json.dump(self.valleys, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
 
 
     def solve_BTE_iteratively(self):
@@ -3249,6 +3256,7 @@ class AMSET(object):
                     #     print('new {}-type {} mobility at T = {}: {}'.format(tp, el_mech, T, self.mobility[tp][el_mech][c][T]))
         print('mobility of the valley {}'.format(important_points))
         pprint(valley_mobility)
+        return  valley_mobility
 
 
     def calculate_transport_properties_with_E(self, important_points):
@@ -3452,7 +3460,7 @@ class AMSET(object):
                     ## self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
         print('mobility of the valley {}'.format(important_points))
         pprint(valley_mobility)
-
+        return valley_mobility
 
 
     # for plotting
@@ -3783,15 +3791,15 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  # temperatures = [600],
-                  temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
+                  temperatures = [600],
+                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
