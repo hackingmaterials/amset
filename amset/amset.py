@@ -172,15 +172,6 @@ class AMSET(object):
 
         logging.info('fermi level = {}'.format(self.fermi_level))
 
-
-        # logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
-        # cbm_idx = np.argmin(energies['n'])
-        # logging.debug("actual CBM k: {}".format(kpts['n'][cbm_idx]))
-        # logging.debug("actual CBM: {}".format(energies['n'][cbm_idx]))
-        # vbm_idx = np.argmax(energies['p'])
-        # logging.debug("actual VBM k: {}".format(kpts['p'][vbm_idx]))
-        # logging.debug("actual VBM: {}".format(energies['p'][vbm_idx]))
-
         # self.find_fermi_boltztrap()
 
         logging.info('here initial number of bands:\n{}'.format(self.initial_num_bands))
@@ -216,20 +207,6 @@ class AMSET(object):
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
             logging.info('going over conduction and valence # {}'.format(self.ibrun))
             self.find_all_important_points(coeff_file, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm)
-            ## kpts = self.generate_kmesh(important_points=self.important_pts, kgrid_tp=kgrid_tp)
-            ## analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True)
-
-            # self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
-            # for c in self.dopings:
-            #     for T in self.temperatures:
-            #         f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-            #         f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-            #         self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
-            #         self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
-            #
-            #
-            # print('denominator:')
-            # print(self.denominator)
 
             # once_called = False
             for i in range(max(len(self.important_pts['n']), len(self.important_pts['p']))):
@@ -265,20 +242,6 @@ class AMSET(object):
                         f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                         self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
                         self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
-
-
-                # logging.debug("self.cbm_vbm: {}".format(self.cbm_vbm))
-                # cbm_idx = np.argmin(self.kgrid['n']['energy'][0])
-                # logging.debug("actual CBM k: {}".format(self.kgrid['n']['kpoints'][0][cbm_idx]))
-                # logging.debug("actual CBM: {}".format(self.kgrid['n']['energy'][0][cbm_idx]))
-                # vbm_idx = np.argmax(self.kgrid['p']['energy'][0])
-                # logging.debug("actual VBM k: {}".format(self.kgrid['p']['kpoints'][0][vbm_idx]))
-                # logging.debug("actual VBM: {}".format(self.kgrid['p']['energy'][0][vbm_idx]))
-                #
-                # start_time_fermi = time.time()
-                # if self.fermi_calc_type == 'k':
-                #     self.fermi_level = self.find_fermi_k()
-                # logging.info('time to calculate the fermi levels: {}s'.format(time.time() - start_time_fermi))
 
                 # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
                 self.init_egrid(once_called=False, dos_tp="standard")
