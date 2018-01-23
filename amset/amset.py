@@ -3365,17 +3365,8 @@ class AMSET(object):
                     for mu in self.mo_labels + self.spb_labels:
                         self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
 
-                    # self.egrid[tp]["relaxation time constant"][c][T] = self.egrid[tp]["mobility"]["overall"][c][T] \
-                    #         * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
-
                     self.egrid[tp]["relaxation time constant"][c][T] = self.mobility[tp]["overall"][c][T] \
                             * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
-
-                    # print('old {}-type overall mobility at T = {}: {}'.format(tp, T, self.egrid[tp]["mobility"]["overall"][c][T]))
-                    # print('old {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]["overall"][c][T]))
-                    # for mech in self.elastic_scatterings + self.inelastic_scatterings:
-                    #     # print('old {}-type {} mobility at T = {}: {}'.format(tp, mech, T, self.egrid[tp]["mobility"][mech][c][T]))
-                    #     print('old {}-type {} mobility at T = {}: {}'.format(tp, mech, T, self.mobility[tp][mech][c][T]))
 
                     # calculating other overall transport properties:
                     # self.egrid[tp]["conductivity"][c][T] = self.egrid[tp]["mobility"]["overall"][c][T] * e * abs(c)
@@ -3777,40 +3768,3 @@ if __name__ == "__main__":
                , save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
-
-    # test_dir = os.path.dirname(__file__)
-    # model_params = {'bs_is_isotropic': True,
-    #                      'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
-    #                      'inelastic_scatterings': ['POP']}
-    # performance_params = {'dE_min': 0.0001, 'nE_min': 2, 'Ecut': 0.7,
-    #                            'parallel': True, 'BTE_iters': 5, 'nkdos': 29}
-    # GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
-    #                     'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
-    #                     'P_PIE': 0.052, 'scissor': 0.5818}
-    # GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
-    # GaAs_cube = os.path.join(GaAs_path, "fort.123_GaAs_1099kp")
-    #
-    # expected_mu = {'overall': 4327.095}
-    # performance_params = dict(performance_params)
-    # performance_params["max_nbands"] = 1
-    # amset = AMSET(calc_dir=GaAs_path, material_params=GaAs_params,
-    #               model_params=model_params,
-    #               performance_params=performance_params,
-    #               dopings=[-3e13], temperatures=[300], k_integration=True,
-    #               e_integration=False, fermi_type='k',
-    #               loglevel=logging.ERROR)
-    # amset.run(GaAs_cube, kgrid_tp='coarse', write_outputs=False, test_k_anisotropic=True)
-    # mobility = amset.mobility
-    # kgrid = amset.kgrid
-    #
-    # amset.plot(k_plots=['energy'], E_plots=['g'], show_interactive=True,
-    #            carrier_types=amset.all_types, save_format=None)
-
-    # # check mobility values
-    # for mu in expected_mu.keys():
-    #     diff = np.std(mobility['n'][mu][-3e13][300])
-    #     avg = np.mean(mobility['n'][mu][-3e13][300])
-    #     self.assertLess(diff / avg, 0.002)
-    #     diff = abs(mobility['n'][mu][-3e13][300][0] - expected_mu[mu])
-    #     avg = (mobility['n'][mu][-3e13][300][0] + expected_mu[mu]) / 2
-    #     self.assertTrue(diff / avg <= 0.01)
