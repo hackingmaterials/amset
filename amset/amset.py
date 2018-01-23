@@ -248,6 +248,10 @@ class AMSET(object):
                 logging.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 logging.info('Current valleys:\n{}'.format(important_points))
                 logging.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
+                if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
+                    logging.info('skipping this valley as it is unimportant for both n and p type...')
+                    continue
+
                 kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
                 analytical_band_tuple, kpts = self.get_energy_array(coeff_file, kpts, once_called=once_called)
                 self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
