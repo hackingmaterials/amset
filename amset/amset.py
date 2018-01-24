@@ -330,20 +330,22 @@ class AMSET(object):
                 if self.e_integration:
                     valley_mobility = self.calculate_transport_properties_with_E(important_points)
 
-                for tp in ['p', 'n']:
-                    if self.count_mobility[self.ibrun][tp]:
-                        k = important_points[tp][0]
-                        for i in range(3):
-                            if abs(k[i]) < 1e-4:
-                                k[i] = 0.0
-                            elif abs(abs(k[i]) - 0.5) < 1e-4:
-                                k[i] = round(k[i], 1)
-                            elif round(k[i], 1) == round(k[i], 2):
-                                k[i] = round(k[i], 1)
-                            elif k[i] != round(k[i], 2):
-                                k[i] = round(k[i], 2)
-                        self.valleys[tp]['band {}'.format(self.ibrun)]['{};{};{}'.format(k[0], k[1], k[2])] = valley_mobility[tp]
                 self.calculate_spb_transport()
+
+                if self.poly_bands0 is None:
+                    for tp in ['p', 'n']:
+                        if self.count_mobility[self.ibrun][tp]:
+                            k = important_points[tp][0]
+                            for i in range(3):
+                                if abs(k[i]) < 1e-4:
+                                    k[i] = 0.0
+                                elif abs(abs(k[i]) - 0.5) < 1e-4:
+                                    k[i] = round(k[i], 1)
+                                elif round(k[i], 1) == round(k[i], 2):
+                                    k[i] = round(k[i], 1)
+                                elif k[i] != round(k[i], 2):
+                                    k[i] = round(k[i], 2)
+                            self.valleys[tp]['band {}'.format(self.ibrun)]['{};{};{}'.format(k[0], k[1], k[2])] = valley_mobility[tp]
 
                 kgrid_rm_list = ["effective mass", "kweights",
                                  "f_th", "S_i_th", "S_o_th"]
