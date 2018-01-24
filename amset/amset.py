@@ -152,9 +152,13 @@ class AMSET(object):
                   self.dopings} for el_mech in self.mo_labels+self.spb_labels} for tp in ["n", "p"]}
         self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
 
+        self.update_cbm_vbm_dos(coeff_file=coeff_file)
+        #TODO: if we use ibands_tuple, then for each couple of conduction/valence bands we only use 1 band together (i.e. always ib==0)
+        for tp in ['p', 'n']:
+            self.cbm_vbm[tp]['included'] = 1
         #
         kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
-        analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands)
+        analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
         if self.fermi_calc_type == 'k':
             self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
         elif self.fermi_calc_type == 'e':
@@ -200,9 +204,7 @@ class AMSET(object):
         logging.debug('here whether to count bands')
         logging.debug(self.count_mobility)
 
-        #TODO: if we use ibands_tuple, then for each couple of conduction/valence bands we only use 1 band together (i.e. always ib==0)
-        for tp in ['p', 'n']:
-            self.cbm_vbm[tp]['included'] = 1
+
 
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
             logging.info('going over conduction and valence # {}'.format(self.ibrun))
@@ -230,7 +232,7 @@ class AMSET(object):
                     continue
 
                 kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
-                analytical_band_tuple, kpts = self.get_energy_array(coeff_file, kpts, once_called=once_called)
+                analytical_band_tuple, kpts = self.get_energy_array(coeff_file, kpts, once_called=once_called, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, num_bands={'p': 1, 'n': 1})
                 self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
                 # logging.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
 
@@ -350,9 +352,9 @@ class AMSET(object):
                     # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
                     self.mobility[tp]["SPB_ACD"][c][T] = 2 ** 0.5 * pi * hbar ** 4 * e * self.C_el * 1e9 / (
                         3 * (self.cbm_vbm[tp]["eff_mass_xx"] * m_e) ** 2.5 * (k_B * T) ** 1.5 * self.E_D[tp] ** 2) \
-                                                                  * fermi_integral(0, fermi, T, energy, wordy=True) \
+                                                                  * fermi_integral(0, fermi, T, energy, wordy=False) \
                                                                   / fermi_integral(0.5, fermi, T, energy,
-                                                                                   wordy=True) * e ** 0.5 * 1e4  # to cm2/V.s
+                                                                                   wordy=False) * e ** 0.5 * 1e4  # to cm2/V.s
 
 
     def find_fermi_boltztrap(self):
@@ -399,8 +401,98 @@ class AMSET(object):
             # start_time = time.time()
         return kpts
 
+    def update_cbm_vbm_dos(self, coeff_file):
+        analytical_band_tuple = None
+        if self.poly_bands0 is None:
+            logging.debug(
+                "start interpolating bands from {}".format(coeff_file))
+            analytical_bands = Analytical_bands(coeff_file=coeff_file)
+
+            self.all_ibands = []
+            for i, tp in enumerate(["p", "n"]):
+                sgn = (-1) ** (i + 1)
+                for ib in range(self.cbm_vbm0[tp]["included"]):
+                    self.all_ibands.append(self.cbm_vbm0[tp]["bidx"] + sgn * ib)
+
+
+            logging.debug("all_ibands: {}".format(self.all_ibands))
+
+            # # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
+            # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
+            # nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
+            # out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+            # for nw in xrange(nwave):
+            #     for i in xrange(nstv[nw]):
+            #         out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+            engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
+                get_energy_args(coeff_file, self.all_ibands)
+            analytical_band_tuple = (
+            analytical_bands, engre, nwave, nsym, nstv, vec, vec2,
+            out_vec2, br_dir)
+        # if using poly bands, remove duplicate k points (@albalu I'm not really sure what this is doing)
+        else:
+            # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
+            # these points will be used later to generate energy based on the minimum norm(k-k_i)
+
+            self.poly_bands = np.array(self.poly_bands0)
+            for ib in range(len(self.poly_bands0)):
+                for valley in range(len(self.poly_bands0[ib])):
+                    self.poly_bands[ib][valley][
+                        0] = remove_duplicate_kpoints(
+                        self.get_sym_eq_ks_in_first_BZ(
+                            self.poly_bands0[ib][valley][0],
+                            cartesian=True))
+
+
+        for i, tp in enumerate(["p", "n"]):
+            sgn = (-1) ** i
+
+            # just calculating the first valence and the conduction band
+            # if self.poly_bands is None:
+            #     energy, velocity, effective_m = calc_analytical_energy(
+            #             self.cbm_vbm[tp]["kpoint"],engre[i * self.cbm_vbm["p"][
+            #             "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
+            #             br_dir, sgn, scissor=self.scissor)
+            # else:
+            #     energy, velocity, effective_m = self.calc_poly_energy(
+            #             self.cbm_vbm[tp]["kpoint"], tp, 0)
+            # self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
+
+            if self.poly_bands is None:
+                energy, velocity, effective_m = calc_analytical_energy(
+                        self.cbm_vbm0[tp]["kpoint"],engre[i * self.cbm_vbm0["p"][
+                        "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
+                        br_dir, sgn, scissor=self.scissor)
+            else:
+                energy, velocity, effective_m = self.calc_poly_energy(
+                        self.cbm_vbm0[tp]["kpoint"], tp, 0)
+            self.offset_from_vrun = energy - self.cbm_vbm0[tp]["energy"]
+
+
+            logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
+            self.cbm_vbm0[tp]["energy"] = energy
+            self.cbm_vbm0[tp]["eff_mass_xx"] = effective_m.diagonal()
+
+        if self.poly_bands is None:
+            self.dos_emax += self.offset_from_vrun
+            self.dos_emin += self.offset_from_vrun
+
+        # print('here debug')
+        # print(self.cbm_vbm0)
+        # print(len(engre))
+        # print(self.all_ibands)
+
+
+        for tp in ['p', 'n']:
+            self.cbm_vbm[tp]['energy'] = self.cbm_vbm0[tp]['energy']
+            self.cbm_vbm[tp]['eff_mass_xx'] = self.cbm_vbm0[tp]['eff_mass_xx']
+
+        logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
+        self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm0[tp]["eff_mass_xx"])) for tp in ["n", "p"]}
+
     def get_energy_array(self, coeff_file, kpts, once_called=False,
-                         return_energies=False, num_bands=None):
+                         return_energies=False, num_bands=None,
+                         nbelow_vbm=0, nabove_cbm=0):
         num_bands = num_bands or self.num_bands
         start_time = time.time()
         # if not once_called:
@@ -408,6 +500,8 @@ class AMSET(object):
         self.rotations, _ = sg._get_symmetry()
         logging.info("self.nkibz = {}".format(self.nkibz))
 
+
+        # the first part is just to update the cbm_vbm once!
         analytical_band_tuple = None
         # TODO for now, I get these parameters everytime which is wasteful but I only need to run this part once
         # if not once_called:
@@ -420,10 +514,14 @@ class AMSET(object):
                 # all_ibands supposed to start with index of last valence band then
                 # VBM-1 ... and then index of CBM then CBM+1 ...
                 self.all_ibands = []
-                for i, tp in enumerate(["p", "n"]):
-                    sgn = (-1) ** (i + 1)
-                    for ib in range(num_bands[tp]):
-                        self.all_ibands.append(self.cbm_vbm[tp]["bidx"] + sgn * ib)
+                # for i, tp in enumerate(["p", "n"]):
+                #     sgn = (-1) ** (i + 1)
+                #     for ib in range(num_bands[tp]):
+                #         self.all_ibands.append(self.cbm_vbm0[tp]["bidx"] + sgn * ib)
+
+                self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm)
+                self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm)
+
 
                 logging.debug("all_ibands: {}".format(self.all_ibands))
 
@@ -453,31 +551,6 @@ class AMSET(object):
         # calculate only the CBM and VBM energy values - @albalu why is this separate from the other energy value calculations?
         # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
 
-        if not once_called:
-            for i, tp in enumerate(["p", "n"]):
-                sgn = (-1) ** i
-
-                # just calculating the first valence and the conduction band
-                if self.poly_bands is None:
-                    energy, velocity, effective_m = calc_analytical_energy(
-                            self.cbm_vbm[tp]["kpoint"],engre[i * self.cbm_vbm["p"][
-                            "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
-                            br_dir, sgn, scissor=self.scissor)
-                else:
-                    energy, velocity, effective_m = self.calc_poly_energy(
-                            self.cbm_vbm[tp]["kpoint"], tp, 0)
-
-                self.offset_from_vrun = energy - self.cbm_vbm0[tp]["energy"]
-                logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
-                self.cbm_vbm[tp]["energy"] = energy
-                self.cbm_vbm[tp]["eff_mass_xx"] = effective_m.diagonal()
-
-            if self.poly_bands is None:
-                self.dos_emax += self.offset_from_vrun
-                self.dos_emin += self.offset_from_vrun
-
-            logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
-            self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm[tp]["eff_mass_xx"])) for tp in ["n", "p"]}
 
         # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
         start_time = time.time()
@@ -500,6 +573,12 @@ class AMSET(object):
                             energy, velocities[tp][ik], effective_m = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                         energies[tp][ik] = energy
                 else:
+                    # print('here debug')
+                    # print(num_bands)
+                    # print(ib)
+                    # print(tp)
+                    # print(len(engre))
+                    # print(len(kpts[tp]))
                     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
                     for ik, res in enumerate(results):
                         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
@@ -3253,8 +3332,8 @@ class AMSET(object):
                         else:
                             denom = self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
                                                           weighted=False)*3*default_small_E
-                    logging.debug("denominator {}-type valley {}: \n{}".format(
-                            tp, important_points[tp], denom))
+                    # logging.debug("denominator {}-type valley {}: \n{}".format(
+                    #         tp, important_points[tp], denom))
 
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
@@ -3337,9 +3416,9 @@ class AMSET(object):
                     # self.mobility[tp]["SPB_ACD"][c][T] = 2 ** 0.5 * pi * hbar ** 4 * e * self.C_el * 1e9 / (
                     # # C_el in GPa
                     #     3 * (self.cbm_vbm[tp]["eff_mass_xx"] * m_e) ** 2.5 * (k_B * T) ** 1.5 * self.E_D[tp] ** 2) \
-                    #                                               * fermi_integral(0, fermi, T, energy, wordy=True) \
+                    #                                               * fermi_integral(0, fermi, T, energy, wordy=False) \
                     #                                               / fermi_integral(0.5, fermi, T, energy,
-                    #                                                                wordy=True) * e ** 0.5 * 1e4  # to cm2/V.s
+                    #                                                                wordy=False) * e ** 0.5 * 1e4  # to cm2/V.s
 
                     faulty_overall_mobility = False
                     # mu_overrall_norm = norm(self.egrid[tp]["mobility"]["overall"][c][T])
@@ -3396,12 +3475,11 @@ class AMSET(object):
                         # self.egrid["seebeck"][c][T][tp] += 1e6 \
                         #                 * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
 
-                    print("3 {}-seebeck terms at c={} and T={}:".format(tp, c, T))
-                    print(self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                          / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B)
-                    #print + (self.egrid["fermi"][c][T] - self.cbm_vbm[tp]["energy"]) * 1e6 * k_B / (k_B * T)
-                    print((self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) * 1e6 * k_B / (k_B * T))
-                    print(self.egrid[tp]["J_th"][c][T] / self.egrid[tp]["conductivity"][c][T]/ dTdz * 1e6)
+                    # print("3 {}-seebeck terms at c={} and T={}:".format(tp, c, T))
+                    # print(self.egrid["Seebeck_integral_numerator"][c][T][tp] \
+                    #       / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B)
+                    # print((self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) * 1e6 * k_B / (k_B * T))
+                    # print(self.egrid[tp]["J_th"][c][T] / self.egrid[tp]["conductivity"][c][T]/ dTdz * 1e6)
 
 
                     #TODO: not sure about the following part yet specially as sometimes due to position of fermi I get very off other type mobility values! (sometimes very large)
@@ -3756,7 +3834,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
