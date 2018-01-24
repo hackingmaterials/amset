@@ -496,8 +496,6 @@ class AMSET(object):
         num_bands = num_bands or self.num_bands
         start_time = time.time()
         # if not once_called:
-        sg = SpacegroupAnalyzer(self._vrun.final_structure)
-        self.rotations, _ = sg._get_symmetry()
         logging.info("self.nkibz = {}".format(self.nkibz))
 
 
@@ -935,6 +933,8 @@ class AMSET(object):
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
+        sg = SpacegroupAnalyzer(self._vrun.final_structure)
+        self.rotations, _ = sg._get_symmetry()
         self.bs = self._vrun.get_band_structure()
         self.bs.structure = self._vrun.final_structure
         self.nbands = self.bs.nb_bands
@@ -3843,7 +3843,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
 
 
     # stats.print_callers(10)
