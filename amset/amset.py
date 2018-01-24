@@ -235,9 +235,18 @@ class AMSET(object):
                 analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=once_called, return_energies=True, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, num_bands={'p': 1, 'n': 1})
 
                 if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut['n']:
+                    logging.debug('not counting conduction band {} valley {} due to off enery...'.format(self.ibrun, important_points['n'][0]))
+                    # print('here debug')
+                    # print(min(energies['n']))
+                    # print(self.cbm_vbm['n']['energy'])
                     self.count_mobility[self.ibrun]['n'] = False
                 if self.cbm_vbm['p']['energy'] - max(energies['p']) > self.Ecut['p']:
+                    logging.debug('not counting valence band {} valley {} due to off enery...'.format(self.ibrun, important_points['p'][0]))
+                    # print('here debug')
+                    # print(max(energies['p']))
+                    # print(self.cbm_vbm['p']['energy'])
                     self.count_mobility[self.ibrun]['p'] = False
+
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
                     logging.info('skipping this valley as it is unimportant or its energies are way off...')
                     continue
@@ -1579,8 +1588,6 @@ class AMSET(object):
                         # TODO: remove this if when treating valence valleys and conduction valleys separately
                         if len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib]):
                             rm_idx_list[tp][ib].append(ik)
-                        else:
-                            self.count_mobility[self.ibrun][tp] = False
 
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
@@ -3328,8 +3335,8 @@ class AMSET(object):
                     # for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
                     #     print('new {}-type {} mobility at T = {}: {}'.format(tp, el_mech, T, self.mobility[tp][el_mech][c][T]))
         print('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
+        print('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
         pprint(valley_mobility)
-        return  valley_mobility
 
 
     def calculate_transport_properties_with_E(self, important_points):
@@ -3873,7 +3880,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
 
 
     # stats.print_callers(10)
