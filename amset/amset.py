@@ -255,13 +255,6 @@ class AMSET(object):
                 # logging.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
 
                 self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
-                # logging.debug('here self.energy_array:\n{}'.format(self.energy_array))
-                for c in self.dopings:
-                    for T in self.temperatures:
-                        f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                        f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                        self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
-                        self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
 
                 # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
                 self.init_egrid(once_called=False, dos_tp="standard")
@@ -273,6 +266,13 @@ class AMSET(object):
                 # initialize g in the egrid
                 self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
                 self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
+
+                for c in self.dopings:
+                    for T in self.temperatures:
+                        f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                        f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                        self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
+                        self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
 
                 # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
                 if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
@@ -3339,7 +3339,6 @@ class AMSET(object):
         print('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
         print('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
         pprint(valley_mobility)
-        
         return valley_mobility
 
 
