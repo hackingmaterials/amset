@@ -97,7 +97,7 @@ class AmsetTest(unittest.TestCase):
         # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
         #                'POP': 10113.9, 'overall': 8173.4}
 
-        expected_mu = {'ACD': 101397.6, 'IMP': 120715.8, 'PIE': 325384.2,
+        expected_mu = {'ACD': 101397.6, 'IMP': 120713.8, 'PIE': 325384.2,
                        'POP': 13329.2, 'overall': 9235.7, 'average': 10390.4}
         performance_params = dict(self.performance_params)
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
