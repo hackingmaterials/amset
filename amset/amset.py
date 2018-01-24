@@ -515,12 +515,14 @@ class AMSET(object):
                 # VBM-1 ... and then index of CBM then CBM+1 ...
                 self.all_ibands = []
                 # for i, tp in enumerate(["p", "n"]):
-                #     sgn = (-1) ** (i + 1)
+                #     # sgn = (-1) ** (i + 1)
                 #     for ib in range(num_bands[tp]):
                 #         self.all_ibands.append(self.cbm_vbm0[tp]["bidx"] + sgn * ib)
 
-                self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm)
-                self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm)
+                for ib in range(num_bands['p']):
+                    self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
+                for ib in range(num_bands['n']):
+                    self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
 
 
                 logging.debug("all_ibands: {}".format(self.all_ibands))
