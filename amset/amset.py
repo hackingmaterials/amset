@@ -162,7 +162,7 @@ class AMSET(object):
         if self.fermi_calc_type == 'k':
             self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
         elif self.fermi_calc_type == 'e':
-            self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple)
+            self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple, delete_off_points=False)
             self.pre_init_egrid(once_called=False, dos_tp='standard')
             self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
             for c in self.dopings:
@@ -988,11 +988,15 @@ class AMSET(object):
                     cbm_vbm[tp]["included"] += 1
 
                 self.initial_num_bands[tp] = cbm_vbm[tp]["included"]
-                if self.max_nbands:
-                    cbm_vbm[tp]["included"] = self.max_nbands
+
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands0)
             self.initial_num_bands['n'] = self.initial_num_bands['p'] = len(self.poly_bands0)
+
+        # if self.max_nbands:
+        #     for tp in ['p', 'n']:
+        #         cbm_vbm[tp]["included"] = self.max_nbands
+        #         self.initial_num_bands[tp] = self.max_nbands
 
 
         cbm_vbm["p"]["bidx"] += 1
@@ -1415,7 +1419,7 @@ class AMSET(object):
         return energy, velocity, effective_m
 
 
-    def init_kgrid(self, kpts, important_points, analytical_band_tuple=None, once_called=False):
+    def init_kgrid(self, kpts, important_points, analytical_band_tuple=None, once_called=False, delete_off_points=True):
         """
 
         Args:
@@ -1557,7 +1561,9 @@ class AMSET(object):
                     #         or self.kgrid[tp]["velocity"][ib][ik][2] < self.v_min or \
                     if (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() or \
                                     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]:
-                        rm_idx_list[tp][ib].append(ik)
+                        # TODO: remove this if when treating valence valleys and conduction valleys separately
+                        if len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib]):
+                            rm_idx_list[tp][ib].append(ik)
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
                     if self.max_normk:
@@ -1601,7 +1607,8 @@ class AMSET(object):
             rm_idx_list[tp] = [rm_idx_list[tp][0] for ib in range(self.cbm_vbm[tp]["included"])]
 
         self.rm_idx_list = deepcopy(rm_idx_list)   # format: [tp][ib][ik]
-        self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
+        if delete_off_points:
+            self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
 
         logging.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin, self.dos_emax))
 
@@ -3836,7 +3843,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
