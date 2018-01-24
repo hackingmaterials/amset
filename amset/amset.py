@@ -192,7 +192,7 @@ class AMSET(object):
             ibands_tuple = zip(vibands+[vibands[0]]*(len(cibands)-len(vibands)), cibands)
             for i in range(len(vibands), len(cibands)):
                 self.count_mobility[i]['p'] = False
-
+        self.ibands_tuple = ibands_tuple
         self.count_mobility0 = deepcopy(self.count_mobility)
         #TODO: this ibands_tuple is to treat each band (and valleys with) independently (so each time num_bands will be {'n': 1, 'p': 1} but with different band indexes
         if self.max_nbands:
@@ -232,7 +232,16 @@ class AMSET(object):
                     continue
 
                 kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
-                analytical_band_tuple, kpts = self.get_energy_array(coeff_file, kpts, once_called=once_called, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, num_bands={'p': 1, 'n': 1})
+                analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=once_called, return_energies=True, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, num_bands={'p': 1, 'n': 1})
+
+                if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut['n']:
+                    self.count_mobility[self.ibrun]['n'] = False
+                if self.cbm_vbm['p']['energy'] - max(energies['p']) > self.Ecut['p']:
+                    self.count_mobility[self.ibrun]['p'] = False
+                if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
+                    logging.info('skipping this valley as it is unimportant or its energies are way off...')
+                    continue
+
                 self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
                 # logging.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
 
@@ -333,7 +342,7 @@ class AMSET(object):
 
 
 
-
+            print('\nFinal Mobility Values:')
             if self.k_integration:
                 pprint(self.mobility)
             if self.e_integration:
@@ -1570,6 +1579,8 @@ class AMSET(object):
                         # TODO: remove this if when treating valence valleys and conduction valleys separately
                         if len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib]):
                             rm_idx_list[tp][ib].append(ik)
+                        else:
+                            self.count_mobility[self.ibrun][tp] = False
 
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
@@ -3310,12 +3321,13 @@ class AMSET(object):
 
 
                     for mu in self.mo_labels + self.spb_labels:
-                        self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
+                        if self.count_mobility[self.ibrun][tp]:
+                            self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
 
                     # print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
                     # for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
                     #     print('new {}-type {} mobility at T = {}: {}'.format(tp, el_mech, T, self.mobility[tp][el_mech][c][T]))
-        print('mobility of the valley {}'.format(important_points))
+        print('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
         pprint(valley_mobility)
         return  valley_mobility
 
@@ -3458,7 +3470,8 @@ class AMSET(object):
                         valley_mobility[tp]["overall"][c][T] = mu_overall_valley
 
                     for mu in self.mo_labels + self.spb_labels:
-                        self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
+                        if self.count_mobility[self.ibrun][tp]:
+                            self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
 
                     self.egrid[tp]["relaxation time constant"][c][T] = self.mobility[tp]["overall"][c][T] \
                             * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
@@ -3509,8 +3522,18 @@ class AMSET(object):
                             self.egrid[other_type]["conductivity"][c][T])
                     ## since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
                     ## self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
-        print('mobility of the valley {}'.format(important_points))
+
+        print('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
+        print('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
         pprint(valley_mobility)
+
+        # if valley_mobility['n']['ACD'][-3e13][300.0][0] < 0:
+        #     print('here debug')
+        #     # print(self.energy_array['n'])
+        #     print(self.kgrid['n']['energy'][0])
+        #     quit()
+
+
         return valley_mobility
 
 
@@ -3850,7 +3873,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
