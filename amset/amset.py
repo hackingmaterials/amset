@@ -3339,6 +3339,8 @@ class AMSET(object):
         print('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
         print('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
         pprint(valley_mobility)
+        
+        return valley_mobility
 
 
     def calculate_transport_properties_with_E(self, important_points):
