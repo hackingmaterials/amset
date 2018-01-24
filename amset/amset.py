@@ -3361,23 +3361,25 @@ class AMSET(object):
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
-                    if integrate_over_kgrid:
-                        if tp == "n":
-                            denom = self.integrate_over_BZ(["f0"], tp, c, T, xDOS=False, xvel=False,
-                                                       weighted=False)*3*default_small_E #* 1e-7 * 1e-3 * self.volume
-                            print('old denominator = ' + str(denom))
-                        else:
-                            denom = self.integrate_over_BZ(["1 - f0"], tp, c, T, xDOS=False, xvel=False,
-                                                           weighted=False)*3*default_small_E
-                    else:
-                        if tp == "n":
-                            denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
-                                                      weighted=False)*3*default_small_E
-                        else:
-                            denom = self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
-                                                          weighted=False)*3*default_small_E
-                    # logging.debug("denominator {}-type valley {}: \n{}".format(
-                    #         tp, important_points[tp], denom))
+                    # if integrate_over_kgrid:
+                    #     if tp == "n":
+                    #         denom = self.integrate_over_BZ(["f0"], tp, c, T, xDOS=False, xvel=False,
+                    #                                    weighted=False)*3*default_small_E #* 1e-7 * 1e-3 * self.volume
+                    #         print('old denominator = ' + str(denom))
+                    #     else:
+                    #         denom = self.integrate_over_BZ(["1 - f0"], tp, c, T, xDOS=False, xvel=False,
+                    #                                        weighted=False)*3*default_small_E
+                    # else:
+                    #     if tp == "n":
+                    #         denom = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
+                    #                                   weighted=False)*3*default_small_E
+                    #     else:
+                    #         denom = self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
+                    #                                       weighted=False)*3*default_small_E
+                    # # logging.debug("denominator {}-type valley {}: \n{}".format(
+                    # #         tp, important_points[tp], denom))
+
+                    denom = self.denominator[c][T][tp]
 
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
