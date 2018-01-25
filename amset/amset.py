@@ -275,8 +275,8 @@ class AMSET(object):
                             self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
                             self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
                         if self.e_integration:
-                            self.denominator[c][T]['n'] = self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)*3*default_small_E
-                            self.denominator[c][T]['p'] = self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)*3*default_small_E
+                            self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                            self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
 
                 # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
                 if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
@@ -336,10 +336,13 @@ class AMSET(object):
 
                 self.calculate_spb_transport()
 
-                for mu in self.mo_labels + self.spb_labels:
-                    if self.count_mobility[self.ibrun][tp]:
-                        # self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
-                        self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] / self.denominator[c][T][tp]
+                for tp in ['p', 'n']:
+                    for mu in self.mo_labels + self.spb_labels:
+                        for c in self.dopings:
+                            for T in self.temperatures:
+                                if self.count_mobility[self.ibrun][tp]:
+                                    # self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
+                                    self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] / self.denominator[c][T][tp]
 
                 if self.poly_bands0 is None:
                     for tp in ['p', 'n']:
