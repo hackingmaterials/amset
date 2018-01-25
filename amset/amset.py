@@ -336,7 +336,6 @@ class AMSET(object):
 
                 self.calculate_spb_transport()
 
-                print('counter: we add numerator and denomintaor of mobilities')
                 for c in self.dopings:
                     for T in self.temperatures:
                         if self.count_mobility[self.ibrun][tp]:
@@ -348,7 +347,7 @@ class AMSET(object):
                             if self.e_integration:
                                 self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
                                 self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
-                            for mu in self.mo_labels + self.spb_labels:
+                            for mu in self.mo_labels:
                                 for tp in ['p', 'n']:
                                     self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
                                     # self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] / self.denominator[c][T][tp]
@@ -373,7 +372,7 @@ class AMSET(object):
                 self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
 
         for tp in ['p', 'n']:
-            for mu in self.mo_labels + self.spb_labels:
+            for mu in self.mo_labels:
                 for c in self.dopings:
                     for T in self.temperatures:
                         self.mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
