@@ -376,8 +376,7 @@ class AMSET(object):
             for mu in self.mo_labels + self.spb_labels:
                 for c in self.dopings:
                     for T in self.temperatures:
-                        if self.count_mobility[self.ibrun][tp]:
-                            self.mobility[tp][mu][c][T]  /= self.denominator[c][T][tp]
+                        self.mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
 
 
         print('\nFinal Mobility Values:')
