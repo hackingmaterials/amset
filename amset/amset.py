@@ -254,7 +254,6 @@ class AMSET(object):
                 self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
                 # logging.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
 
-                self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
 
                 # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
                 self.init_egrid(once_called=False, dos_tp="standard")
@@ -267,6 +266,7 @@ class AMSET(object):
                 self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
                 self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
 
+                self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
                 for c in self.dopings:
                     for T in self.temperatures:
                         if self.k_integration:
