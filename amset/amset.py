@@ -336,6 +336,11 @@ class AMSET(object):
 
                 self.calculate_spb_transport()
 
+                for mu in self.mo_labels + self.spb_labels:
+                    if self.count_mobility[self.ibrun][tp]:
+                        # self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
+                        self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] / self.denominator[c][T][tp]
+
                 if self.poly_bands0 is None:
                     for tp in ['p', 'n']:
                         if self.count_mobility[self.ibrun][tp]:
@@ -350,6 +355,9 @@ class AMSET(object):
                                 elif k[i] != round(k[i], 2):
                                     k[i] = round(k[i], 2)
                             self.valleys[tp]['band {}'.format(self.ibrun)]['{};{};{}'.format(k[0], k[1], k[2])] = valley_mobility[tp]
+
+
+
 
                 kgrid_rm_list = ["effective mass", "kweights",
                                  "f_th", "S_i_th", "S_o_th"]
@@ -3297,11 +3305,13 @@ class AMSET(object):
                             g = -1 / hbar * df0dk / nu_el
                             # print('g*norm(v) for {}:'.format(el_mech))
                             # print((g * norm_v)[0, (N[0]-1)/2, (N[1]-1)/2, :])
-                            valley_mobility[tp][el_mech][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
-                        # from equation 45 in Rode, inelastic mechanisms
+                            # valley_mobility[tp][el_mech][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                            valley_mobility[tp][el_mech][c][T] = self.integrate_over_states(g * norm_v, tp)
+             # from equation 45 in Rode, inelastic mechanisms
                         for inel_mech in self.inelastic_scatterings:
                             g = self.array_from_kgrid("g_"+inel_mech, tp, c, T)
-                            valley_mobility[tp][inel_mech][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                            # valley_mobility[tp][inel_mech][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                            valley_mobility[tp][inel_mech][c][T] = self.integrate_over_states(g * norm_v, tp)
 
                         # from equation 45 in Rode, overall
                         g = self.array_from_kgrid("g", tp, c, T)
@@ -3312,7 +3322,8 @@ class AMSET(object):
                         #     logging.info(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                         #     logging.info('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
                         #     logging.info((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
-                        valley_mobility[tp]['overall'][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 # self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                        # valley_mobility[tp]['overall'][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 # self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                        valley_mobility[tp]['overall'][c][T] = self.integrate_over_states(g * norm_v, tp)
 
 
                     # figure out average mobility
@@ -3335,9 +3346,7 @@ class AMSET(object):
                     #     valley_mobility[tp]['overall'][c][T] += mu_overall
 
 
-                    for mu in self.mo_labels + self.spb_labels:
-                        if self.count_mobility[self.ibrun][tp]:
-                            self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
+
 
                     # print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
                     # for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
@@ -3379,7 +3388,7 @@ class AMSET(object):
                     # # logging.debug("denominator {}-type valley {}: \n{}".format(
                     # #         tp, important_points[tp], denom))
 
-                    denom = self.denominator[c][T][tp]
+                    denom = None
 
                     # mobility numerators
                     for mu_el in self.elastic_scatterings:
@@ -3392,7 +3401,7 @@ class AMSET(object):
                             valley_mobility[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
                                     self.integrate_over_BZ(prop_list=[
                                     "/" + mu_el, "df0dk"], tp=tp, c=c,T=T,
-                                        xDOS=False, xvel=True, weighted=True)/denom #* 1e-7 * 1e-3 * self.volume
+                                        xDOS=False, xvel=True, weighted=True) #* 1e-7 * 1e-3 * self.volume
 
                         else:
                             # self.egrid[tp]["mobility"][mu_el][c][T] = \
@@ -3405,7 +3414,7 @@ class AMSET(object):
                             valley_mobility[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
                                     self.integrate_over_E(prop_list=[
                                     "/" + mu_el, "df0dk"], tp=tp, c=c, T=T,
-                                        xDOS=False, xvel=True, weighted=True)/denom
+                                        xDOS=False, xvel=True, weighted=True)
 
                     # if integrate_over_kgrid:
                     #     for mu_inel in self.inelastic_scatterings:
@@ -3430,12 +3439,12 @@ class AMSET(object):
                             #             xDOS=False, xvel=True, weighted=True)
                             valley_mobility[tp][mu_inel][c][T] = self.integrate_over_E(prop_list=[
                                     "g_" + mu_inel], tp=tp, c=c, T=T,
-                                        xDOS=False, xvel=True, weighted=True)/denom
+                                        xDOS=False, xvel=True, weighted=True)
                         mu_overall_valley = self.integrate_over_E(prop_list=["g"],
-                               tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)/denom
+                               tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
 
                     self.egrid[tp]["J_th"][c][T] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
-                            xDOS=False, xvel=True, weighted=True) / denom) * e * abs(c)  # in units of A/cm2
+                            xDOS=False, xvel=True, weighted=True)) * e * abs(c)  # in units of A/cm2
 
                     # for transport in self.elastic_scatterings + self.inelastic_scatterings + ["overall"]:
                     #     # self.egrid[tp]["mobility"][transport][c][T] /= 3 * default_small_E
@@ -3487,9 +3496,9 @@ class AMSET(object):
                     else:
                         valley_mobility[tp]["overall"][c][T] = mu_overall_valley
 
-                    for mu in self.mo_labels + self.spb_labels:
-                        if self.count_mobility[self.ibrun][tp]:
-                            self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
+                    # for mu in self.mo_labels + self.spb_labels:
+                    #     if self.count_mobility[self.ibrun][tp]:
+                    #         self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
 
                     self.egrid[tp]["relaxation time constant"][c][T] = self.mobility[tp]["overall"][c][T] \
                             * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
@@ -3890,7 +3899,7 @@ if __name__ == "__main__":
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
-                  k_integration=False, e_integration=True, fermi_type='k',
+                  k_integration=True, e_integration=False, fermi_type='k',
                   loglevel=logging.DEBUG
                   )
     amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
