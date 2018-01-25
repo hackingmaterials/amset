@@ -205,7 +205,7 @@ class AMSET(object):
         logging.debug(self.count_mobility)
 
 
-
+        self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
             logging.info('going over conduction and valence # {}'.format(self.ibrun))
             self.find_all_important_points(coeff_file, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm)
@@ -266,17 +266,17 @@ class AMSET(object):
                 self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
                 self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
 
-                self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
-                for c in self.dopings:
-                    for T in self.temperatures:
-                        if self.k_integration:
-                            f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                            f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                            self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
-                            self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
-                        if self.e_integration:
-                            self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
-                            self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                # self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
+                # for c in self.dopings:
+                #     for T in self.temperatures:
+                #         if self.k_integration:
+                #             f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                #             f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                #             self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
+                #             self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
+                #         if self.e_integration:
+                #             self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                #             self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
 
                 # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
                 if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
@@ -341,8 +341,17 @@ class AMSET(object):
                         for c in self.dopings:
                             for T in self.temperatures:
                                 if self.count_mobility[self.ibrun][tp]:
-                                    # self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
-                                    self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] / self.denominator[c][T][tp]
+                                    self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
+                                    # self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] / self.denominator[c][T][tp]
+                                    if self.k_integration:
+                                        f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                                        f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                                        self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
+                                        self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
+                                    if self.e_integration:
+                                        self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                                        self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)
+
 
                 if self.poly_bands0 is None:
                     for tp in ['p', 'n']:
@@ -359,22 +368,25 @@ class AMSET(object):
                                     k[i] = round(k[i], 2)
                             self.valleys[tp]['band {}'.format(self.ibrun)]['{};{};{}'.format(k[0], k[1], k[2])] = valley_mobility[tp]
 
-
-
-
                 kgrid_rm_list = ["effective mass", "kweights",
                                  "f_th", "S_i_th", "S_o_th"]
                 self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
 
+        for tp in ['p', 'n']:
+            for mu in self.mo_labels + self.spb_labels:
+                for c in self.dopings:
+                    for T in self.temperatures:
+                        if self.count_mobility[self.ibrun][tp]:
+                            self.mobility[tp][mu][c][T]  /= self.denominator[c][T][tp]
 
 
-            print('\nFinal Mobility Values:')
-            if self.k_integration:
-                pprint(self.mobility)
-            if self.e_integration:
-                pprint(self.mobility)
-                # pprint(self.egrid["n"]["mobility"])
-                # pprint(self.egrid["p"]["mobility"])
+        print('\nFinal Mobility Values:')
+        if self.k_integration:
+            pprint(self.mobility)
+        if self.e_integration:
+            pprint(self.mobility)
+            # pprint(self.egrid["n"]["mobility"])
+            # pprint(self.egrid["p"]["mobility"])
 
         if write_outputs:
             self.to_file()
