@@ -1622,9 +1622,9 @@ class AMSET(object):
                     #                 self.kgrid[tp]["velocity"][ib][ik][1] < self.v_min \
                     #         or self.kgrid[tp]["velocity"][ib][ik][2] < self.v_min or \
                     if (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() or \
-                                    abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]:
+                        (abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]
                         # TODO: remove this if when treating valence valleys and conduction valleys separately
-                        if len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib]):
+                        and len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])):
                             rm_idx_list[tp][ib].append(ik)
 
 
@@ -3872,7 +3872,7 @@ if __name__ == "__main__":
         ]]
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
-            "BTE_iters": 5, "max_nbands": None, "max_normk": 2, "max_ncpu": 4
+            "BTE_iters": 5, "max_nbands": None, "max_normk": 1, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform"
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           }
@@ -3921,10 +3921,10 @@ if __name__ == "__main__":
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
-                  k_integration=True, e_integration=False  , fermi_type='k',
+                  k_integration=False, e_integration=True  , fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='fine', write_outputs=True)
 
 
     # stats.print_callers(10)
