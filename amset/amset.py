@@ -344,14 +344,14 @@ class AMSET(object):
                             if self.k_integration:
                                 f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                                 f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
-                                self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
+                                self.denominator[c][T]['n'] += (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10) * self.bs.get_kpoint_degeneracy(important_points['n'][0])
+                                self.denominator[c][T]['p'] += (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10) *self.bs.get_kpoint_degeneracy(important_points['p'][0])
                             elif self.e_integration:
-                                self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)
-                                self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                                self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False) * self.bs.get_kpoint_degeneracy(important_points['n'][0])
+                                self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)* self.bs.get_kpoint_degeneracy(important_points['p'][0])
                             for mu in self.mo_labels:
                                 for tp in ['p', 'n']:
-                                    self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
+                                    self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
                                     # self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] / self.denominator[c][T][tp]
 
                 if self.poly_bands0 is None:
