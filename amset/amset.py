@@ -384,7 +384,9 @@ class AMSET(object):
                 for c in self.dopings:
                     for T in self.temperatures:
                         self.mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
-
+                        for band in list(self.valleys.keys()):
+                            for valley_k in list(self.valleys[band].keys()):
+                                self.valleys[tp][band][valley_k][mu][c][T] /= self.denominator[c][T][tp]
 
 
         print('\nFinal Mobility Values:')
