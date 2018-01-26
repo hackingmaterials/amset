@@ -100,6 +100,8 @@ class AMSET(object):
         self.k_integration = k_integration
         self.e_integration = e_integration
         assert(self.k_integration != self.e_integration), "AMSET can do either k_integration or e_integration"
+        logging.info('k_integration: {}'.format(self.k_integration))
+        logging.info('e_integration: {}'.format(self.e_integration))
         self.fermi_calc_type = fermi_type
 
         self.read_vrun(calc_dir=self.calc_dir, filename="vasprun.xml")
@@ -3917,10 +3919,10 @@ if __name__ == "__main__":
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
-                  k_integration=False, e_integration=True, fermi_type='k',
+                  k_integration=True, e_integration=False  , fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
 
 
     # stats.print_callers(10)
