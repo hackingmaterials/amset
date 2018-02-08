@@ -158,6 +158,8 @@ class AMSET(object):
         #TODO: if we use ibands_tuple, then for each couple of conduction/valence bands we only use 1 band together (i.e. always ib==0)
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['included'] = 1
+        self.ibrun = 0 # initialize as may be called in init_kgrid as debug
+        self.count_mobility = [{'n': True, 'p': True} for _ in range(max(self.initial_num_bands['p'], self.initial_num_bands['n']))]
 
         if self.pre_determined_fermi is None:
             kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
@@ -184,7 +186,6 @@ class AMSET(object):
 
         vibands = range(self.initial_num_bands['p'])
         cibands = range(self.initial_num_bands['n'])
-        self.count_mobility = [{'n': True, 'p': True} for _ in range(max(self.initial_num_bands['p'], self.initial_num_bands['n']))]
 
         if len(vibands) > len(cibands):
             ibands_tuple = zip(vibands, cibands+[cibands[0]]*(len(vibands)-len(cibands)))
@@ -855,7 +856,7 @@ class AMSET(object):
             "nkdos": self.nkdos,
             "BTE_iters": self.BTE_iters,
             "max_nbands": self.max_nbands,
-            "max_normk": self.max_normk,
+            "max_normk0": self.max_normk0,
             "max_ncpu": self.max_ncpu,
             "pre_determined_fermi": self.pre_determined_fermi
         }
@@ -1639,6 +1640,7 @@ class AMSET(object):
                             print('here debug removing k-points')
                             print(tp)
                             print(self.ibrun)
+                            print(important_points[tp])
                             print(self.count_mobility[self.ibrun])
                             print(self.kgrid[tp]["kpoints"][ib][ik])
                             print(self.kgrid[tp]["cartesian kpoints"][ib][ik])
@@ -3944,7 +3946,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True  , fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
