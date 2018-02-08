@@ -226,9 +226,19 @@ class AMSET(object):
                         important_points[tp] = [self.important_pts[tp][0]]
                         self.count_mobility[self.ibrun][tp] = False
 
+                if self.max_normk0 is None:
+                    for tp in ['n', 'p']:
+                        min_dist = 100000.0
+                        for k in self.bs.get_sym_eq_kpoints(important_points[tp]):
+                            new_dist = norm(self._rec_lattice.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True)))
+                            if new_dist < min_dist:
+                                min_dist = new_dist
+                        self.max_normk[tp] = min_dist/2.0
                 logging.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 logging.info('Current valleys:\n{}'.format(important_points))
                 logging.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
+                logging.info('max_normk:\n{}'.format(self.max_normk))
+
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
                     logging.info('skipping this valley as it is unimportant for both n and p type...')
                     continue
@@ -950,7 +960,8 @@ class AMSET(object):
         self.max_ncpu = params.get("max_ncpu", 8)
         logging.info("parallel: {}".format(self.parallel))
         self.max_nbands = params.get("max_nbands", None)
-        self.max_normk = params.get("max_normk", 2)
+        self.max_normk0 = params.get("max_normk", None)
+        self.max_normk = {'n': self.max_normk0, 'p': self.max_normk0}
         self.fermi_kgrid_tp = params.get("fermi_kgrid_tp", "uniform")
         self.pre_determined_fermi = params.get("pre_determined_fermi")
 
@@ -1625,12 +1636,20 @@ class AMSET(object):
                         (abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]
                         # TODO: remove this if when treating valence valleys and conduction valleys separately
                         and len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])):
+                            print('here debug removing k-points')
+                            print(tp)
+                            print(self.ibrun)
+                            print(self.count_mobility[self.ibrun])
+                            print(self.kgrid[tp]["kpoints"][ib][ik])
+                            print(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+                            print(self.kgrid[tp]["energy"][ib][ik])
+                            print(self.kgrid[tp]["velocity"][ib][ik])
                             rm_idx_list[tp][ib].append(ik)
 
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
-                    if self.max_normk:
-                        if self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk:
+                    if self.max_normk0:
+                        if self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]:
                             rm_idx_list[tp][ib].append(ik)
 
                     # This caused some tests to break as it was changing mobility
@@ -1923,7 +1942,7 @@ class AMSET(object):
 
                     #TODO: the following condition make the tests fail even for GaAs and Gamma only and max_normk of 4; see why!??!
                     # AF: Maybe because symmetrically equivalent pockets are far from each other in BZ but can/should have scattering with each other?
-                    if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][ik_prm] - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) < 2*self.max_normk:
+                    if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][ik_prm] - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) < 2*self.max_normk[tp]:
                     # if True:
                         if (X_ib_ik[1], X_ib_ik[2]) not in [(entry[1], entry[2]) for entry in result]: # 2nd condition to avoid inter-band scattering
                             result.append(X_ib_ik)
@@ -1940,7 +1959,7 @@ class AMSET(object):
                 ik_prm = ik_closest_E + start  # go up from ik_closest_E, down from ik_closest_E - 1
 
                 # the following if statement, makes GaAs POP results anisotropic which they should not be
-                # if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][ik_prm] - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) < 2*self.max_normk:
+                # if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][ik_prm] - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) < 2*self.max_normk[tp]:
                 #     if E_change == 0.0:
                 #         if ik_prm != ik_closest_E:
                 #             result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
@@ -3871,6 +3890,7 @@ if __name__ == "__main__":
             # [[0.5, 0.5, 0.5], [0.0, mass]]
         ]]
 
+    # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
             "BTE_iters": 5, "max_nbands": None, "max_normk": 1, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform"
@@ -3924,7 +3944,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True  , fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
