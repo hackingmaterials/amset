@@ -231,7 +231,7 @@ class AMSET(object):
                     for tp in ['n', 'p']:
                         min_dist = 100000.0
                         for k in self.bs.get_sym_eq_kpoints(important_points[tp][0]): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
-                            new_dist = norm(self._rec_lattice.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True)))
+                            new_dist = norm(self._rec_lattice.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True, threshold=0.01)))
                             # print('here dist')
                             # print get_closest_k(k, self.important_pts[tp][0], return_diff=True)
                             # print(self.important_pts[tp][0])
@@ -243,6 +243,7 @@ class AMSET(object):
                 logging.info('Current valleys:\n{}'.format(important_points))
                 logging.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
                 logging.info('max_normk:\n{}'.format(self.max_normk))
+                logging.info('important points for this band:\n{}'.format(self.important_pts))
 
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
                     logging.info('skipping this valley as it is unimportant for both n and p type...')
@@ -3950,7 +3951,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True  , fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
