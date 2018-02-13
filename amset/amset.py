@@ -230,9 +230,13 @@ class AMSET(object):
                 if self.max_normk0 is None:
                     for tp in ['n', 'p']:
                         min_dist = 100000.0
-                        for k in self.bs.get_sym_eq_kpoints(important_points[tp]):
+                        for k in self.bs.get_sym_eq_kpoints(important_points[tp][0]): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
                             new_dist = norm(self._rec_lattice.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True)))
-                            if new_dist < min_dist:
+                            # print('here dist')
+                            # print get_closest_k(k, self.important_pts[tp][0], return_diff=True)
+                            # print(self.important_pts[tp][0])
+                            # print(new_dist)
+                            if new_dist < min_dist and new_dist > 0.01: # to avoid self-counting, 0.01 criterion added
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
                 logging.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
@@ -1637,15 +1641,15 @@ class AMSET(object):
                         (abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]
                         # TODO: remove this if when treating valence valleys and conduction valleys separately
                         and len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])):
-                            print('here debug removing k-points')
-                            print(tp)
-                            print(self.ibrun)
-                            print(important_points[tp])
-                            print(self.count_mobility[self.ibrun])
-                            print(self.kgrid[tp]["kpoints"][ib][ik])
-                            print(self.kgrid[tp]["cartesian kpoints"][ib][ik])
-                            print(self.kgrid[tp]["energy"][ib][ik])
-                            print(self.kgrid[tp]["velocity"][ib][ik])
+                            # print('here debug removing k-points')
+                            # print(tp)
+                            # print(self.ibrun)
+                            # print(important_points[tp])
+                            # print(self.count_mobility[self.ibrun])
+                            # print(self.kgrid[tp]["kpoints"][ib][ik])
+                            # print(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+                            # print(self.kgrid[tp]["energy"][ib][ik])
+                            # print(self.kgrid[tp]["velocity"][ib][ik])
                             rm_idx_list[tp][ib].append(ik)
 
 
@@ -3894,7 +3898,7 @@ if __name__ == "__main__":
 
     # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
-            "BTE_iters": 5, "max_nbands": None, "max_normk": 1, "max_ncpu": 4
+            "BTE_iters": 5, "max_nbands": None, "max_normk": None, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform"
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           }
@@ -3946,7 +3950,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True  , fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
