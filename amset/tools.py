@@ -335,7 +335,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
 
 
-def get_closest_k(kpoint, ref_ks, return_diff=False):
+def get_closest_k(kpoint, ref_ks, return_diff=False, threshold = 0.001):
     """
     returns the list of difference between kpoints. If return_diff True, then
         for a given kpoint the minimum distance among distances with ref_ks is
@@ -347,7 +347,27 @@ def get_closest_k(kpoint, ref_ks, return_diff=False):
         return_diff (bool): if True, the minimum distance is returned
     Returns (1x3 array):
     """
-    min_dist_ik = np.array([norm(ki - kpoint) for ki in ref_ks]).argmin()
+    # kpoint = np.array(kpoint) # not necessary?
+    # ref_ks = np.array(ref_ks) # not necessary?
+    # print('here inputs')
+    # print(kpoint)
+    # print(ref_ks)
+    assert len(list(kpoint)) == 3
+    assert len(list(ref_ks[0])) == 3
+    assert isinstance(ref_ks[0][0], (float, list))
+    norms = []
+    for ki in ref_ks:
+        norm_diff = norm(ki - kpoint)
+        if norm_diff > threshold:
+            norms.append(norm_diff)
+        else:
+            norms.append(1e10)
+    min_dist_ik = np.array(norms).argmin()
+    # min_dist_ik = np.array([norm(ki - kpoint) for ki in ref_ks]).argmin()
+    # print('here min dist')
+    # print(min_dist_ik)
+    # print(kpoint)
+    # print(ref_ks[min_dist_ik])
     if return_diff:
         return kpoint - ref_ks[min_dist_ik]
     else:
