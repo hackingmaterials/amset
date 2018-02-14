@@ -229,7 +229,7 @@ class AMSET(object):
 
                 if self.max_normk0 is None:
                     for tp in ['n', 'p']:
-                        min_dist = 100000.0
+                        min_dist = 4.0
                         for k in self.bs.get_sym_eq_kpoints(important_points[tp][0]): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
                             new_dist = norm(self._rec_lattice.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True, threshold=0.01)))
                             # print('here dist')
@@ -1638,11 +1638,11 @@ class AMSET(object):
                     # if self.kgrid[tp]["velocity"][ib][ik][0] < self.v_min or  \
                     #                 self.kgrid[tp]["velocity"][ib][ik][1] < self.v_min \
                     #         or self.kgrid[tp]["velocity"][ib][ik][2] < self.v_min or \
-                    if (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() or \
-                        (abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]
+                    if ((self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() or \
+                        abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
+                        and (len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])):
                         # TODO: remove this if when treating valence valleys and conduction valleys separately
-                        and len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])):
-                            # print('here debug removing k-points')
+                        # print('here debug removing k-points')
                             # print(tp)
                             # print(self.ibrun)
                             # print(important_points[tp])
@@ -3889,12 +3889,10 @@ if __name__ == "__main__":
 
     model_params = {'bs_is_isotropic': True,
                     'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
-                    # 'elastic_scatterings': ['ACD', 'PIE'],
                     'inelastic_scatterings': ['POP'] }
     if use_poly_bands:
         model_params["poly_bands"] = [[
             [[0.0, 0.0, 0.0], [0.0, mass]],
-            # [[0.5, 0.5, 0.5], [0.0, mass]]
         ]]
 
     # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
@@ -3951,7 +3949,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True  , fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
 
 
     # stats.print_callers(10)
