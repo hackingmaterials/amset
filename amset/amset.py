@@ -212,7 +212,11 @@ class AMSET(object):
             self.find_all_important_points(coeff_file, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm)
 
             # once_called = False
-            for i in range(max(len(self.important_pts['n']), len(self.important_pts['p']))):
+            max_nvalleys = max(len(self.important_pts['n']), len(self.important_pts['p']))
+            if self.max_nvalleys is not None:
+                max_nvalleys = min(max_nvalleys, self.max_nvalleys)
+
+            for i in range(max_nvalleys):
                 self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
                 once_called = True
                 important_points = {'n': None, 'p': None}
@@ -237,6 +241,8 @@ class AMSET(object):
                             if new_dist < min_dist and new_dist > 0.01: # to avoid self-counting, 0.01 criterion added
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
+                if self.max_nvalleys and self.max_nvalleys==1:
+                    self.max_normk = {'n': 2.0, 'p': 2.0}
                 logging.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 logging.info('Current valleys:\n{}'.format(important_points))
                 logging.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
@@ -858,6 +864,7 @@ class AMSET(object):
             "BTE_iters": self.BTE_iters,
             "max_nbands": self.max_nbands,
             "max_normk0": self.max_normk0,
+            "max_nvalleys": self.max_nvalleys,
             "max_ncpu": self.max_ncpu,
             "pre_determined_fermi": self.pre_determined_fermi
         }
@@ -964,6 +971,7 @@ class AMSET(object):
         self.max_nbands = params.get("max_nbands", None)
         self.max_normk0 = params.get("max_normk", None)
         self.max_normk = {'n': self.max_normk0, 'p': self.max_normk0}
+        self.max_nvalleys = params.get("max_nvalleys", None)
         self.fermi_kgrid_tp = params.get("fermi_kgrid_tp", "uniform")
         self.pre_determined_fermi = params.get("pre_determined_fermi")
 
@@ -3891,7 +3899,7 @@ if __name__ == "__main__":
     # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
             "BTE_iters": 5, "max_nbands": 1, "max_normk": None, "max_ncpu": 4
-                          , "fermi_kgrid_tp": "uniform"
+                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           }
 
