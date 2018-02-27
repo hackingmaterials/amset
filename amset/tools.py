@@ -208,8 +208,8 @@ def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
         integral += dE * (E / (k_B * T)) ** order / (1. + np.exp((E - fermi) / (k_B * T)))
 
     if wordy:
-        print "order {} fermi integral at fermi={} and {} K".format(order, fermi, T)
-        print integral
+        print("order {} fermi integral at fermi={} and {} K".format(order, fermi, T))
+        print(integral)
     return integral
 
 
@@ -382,7 +382,7 @@ def remove_duplicate_kpoints(kpts, dk=0.0001):
     rm_list = []
 
     kdist = [norm(k) for k in kpts]
-    ktuple = zip(kdist, kpts)
+    ktuple = list(zip(kdist, kpts))
     ktuple.sort(key=lambda x: x[0])
     kpts = [tup[1] for tup in ktuple]
 
@@ -489,8 +489,8 @@ def get_energy_args(coeff_file, ibands):
     nstv, vec, vec2 = analytical_bands.get_star_functions(
             latt_points, nsym, symop, nwave, br_dir=br_dir)
     out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
-    for nw in xrange(nwave):
-        for i in xrange(nstv[nw]):
+    for nw in range(nwave):
+        for i in range(nstv[nw]):
             out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
     return engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir
 
@@ -597,7 +597,7 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
     sg = SpacegroupAnalyzer(bs.structure)
     kmesh = sg.get_ir_reciprocal_mesh(mesh=(nk_ibz, nk_ibz, nk_ibz))
     kpts = [k_n_w[0] for k_n_w in kmesh]
-    kpts.extend(insert_intermediate_kpoints(ibz.kpath['kpoints'].values(), n=10))
+    kpts.extend(insert_intermediate_kpoints(list(ibz.kpath['kpoints'].values()), n=10))
 
 
 

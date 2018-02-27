@@ -356,7 +356,7 @@ class Analytical_bands(object):
         if br_dir is not None:
             vec2 = np.zeros((nwave,nsym,3))
 
-        for nw in xrange(nwave):
+        for nw in range(nwave):
             nstv[nw], vec[nw]  = self.stern(latt_points[nw],nsym,symop)
             if br_dir is not None:
                 vec2[nw] = vec[nw].dot(br_dir)
@@ -449,10 +449,10 @@ class Analytical_bands(object):
                         # print "bmax: {}".format(bmax)
 
                     elif iband == None:
-                        print "Bands range: {}-{}".format(bmin,bmax)
+                        print("Bands range: {}-{}".format(bmin,bmax))
                         return
                     elif len([ib for ib in iband if ib > bmax or ib < bmin]) > 0:
-                        print "ERROR! one band is not in range : {}-{}".format(bmin,bmax)
+                        print("ERROR! one band is not in range : {}-{}".format(bmin,bmax))
                         return
                     iband2 = [nwave+(b-bmin+1) for b in iband]
                 elif i in iband2:
@@ -602,9 +602,9 @@ if __name__ == "__main__":
     print("outputs:")
     print("Energy: {}".format(en))
     print("1st derivate:")
-    print den
+    print(den)
     print("2nd derivative:")
-    print dde
+    print(dde)
     m_tensor = hbar ** 2 /(dde*4*pi**2) / m_e / A_to_m ** 2 * e * Ry_to_eV # m_tensor: the last part is unit conversion
     print("effective mass tensor")
     print(m_tensor)
@@ -612,7 +612,7 @@ if __name__ == "__main__":
 
     print("group velocity:")
     v = de /hbar*A_to_m*m_to_cm * Ry_to_eV # to get v in units of cm/s
-    print v
+    print(v)
 
     run = Vasprun('vasprun.xml')
     lattice_matrix = run.final_structure.lattice.reciprocal_lattice
