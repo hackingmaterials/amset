@@ -243,7 +243,7 @@ class AMSET(object):
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
                 if self.max_nvalleys and self.max_nvalleys==1: # this ignores max_normk0
-                    self.max_normk = {'n': 2.0, 'p': 2.0}
+                    self.max_normk = {'n': 1.5, 'p': 1.5}
                 logging.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 logging.info('Current valleys:\n{}'.format(important_points))
                 logging.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
@@ -1666,9 +1666,9 @@ class AMSET(object):
 
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
-                    if self.max_normk0:
-                        if self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]:
-                            rm_idx_list[tp][ib].append(ik)
+                    # if self.max_normk0:
+                    if self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]:
+                        rm_idx_list[tp][ib].append(ik)
 
                     # This caused some tests to break as it was changing mobility
                     # values and making them more anisotropic since it was removing Gamma from GaAs
