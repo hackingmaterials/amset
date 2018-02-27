@@ -826,10 +826,15 @@ class AMSET(object):
         logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
 
 
-    def write_input_files(self):
+    def write_input_files(self, path=None, dir_name="run_data"):
         """writes all 3 types of inputs in json files for example to
         conveniently track what inputs had been used later or read
         inputs from files (see from_files method)"""
+        if not path:
+            path = os.path.join(os.getcwd(), dir_name)
+            if not os.path.exists(path):
+                os.makedirs(name=path)
+
         material_params = {
             "epsilon_s": self.epsilon_s,
             "epsilon_inf": self.epsilon_inf,
@@ -870,11 +875,11 @@ class AMSET(object):
             "pre_determined_fermi": self.pre_determined_fermi
         }
 
-        with open("material_params.json", "w") as fp:
+        with open(os.path.join(path, "material_params.json"), "w") as fp:
             json.dump(material_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
-        with open("model_params.json", "w") as fp:
+        with open(os.path.join(path, "model_params.json"), "w") as fp:
             json.dump(model_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
-        with open("performance_params.json", "w") as fp:
+        with open(os.path.join(path, "performance_params.json"), "w") as fp:
             json.dump(performance_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
 
 
@@ -2886,11 +2891,13 @@ class AMSET(object):
 
 
 
-    def to_file(self, dir_path='.', fname='amsetrun', force_write=True):
+    def to_file(self, dir_path='.', dir_name='run_data', fname='amsetrun',
+                force_write=True):
+        path = os.path.join(dir_path, dir_name, '{}.json.gz'.format(fname))
         if not force_write:
             n = 1
             fname0 = fname
-            while os.path.exists(os.path.join(dir_path, '{}.json.gz'.format(fname))):
+            while os.path.exists(path):
                 warnings.warn('The file, {} exists. AMSET outputs will be '
                         'written in {}'.format(fname, fname0+'_'+str(n)))
                 fname = fname0 + '_' + str(n)
@@ -2900,14 +2907,15 @@ class AMSET(object):
         out_d = {'kgrid': self.kgrid, 'egrid': self.egrid}
 
         # write the output dict to file
-        with gzip.GzipFile(os.path.join(dir_path, '{}.json.gz'.format(fname)), mode='w') as fp:
+        with gzip.GzipFile(path, mode='w') as fp:
             json_str = json.dumps(out_d, cls=MontyEncoder)
             json_bytes = json_str.encode('utf-8')
             fp.write(json_bytes)
 
 
 
-    def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0, valleys=True):
+    def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0,
+                valleys=True, path=None, dir_name="run_data"):
         """
         writes the kgrid and egird to json files
         Args:
@@ -2918,6 +2926,11 @@ class AMSET(object):
             nstart (int): the initial list index of a property written to file
         Returns: egrid.json and (optional) kgrid.json file(s)
         """
+        if not path:
+            path = os.path.join(os.getcwd(), dir_name)
+            if not os.path.exists(path):
+                os.makedirs(name=path)
+
         if not max_ndata:
             max_ndata = int(self.gl)
         egrid = deepcopy(self.egrid)
@@ -2947,7 +2960,7 @@ class AMSET(object):
                                 logging.warning('in to_json: cutting {} '
                                                 'in egrid failed!'.format(key))
 
-        with open("egrid.json", 'w') as fp:
+        with open(os.path.join(path, "egrid.json"), 'w') as fp:
             json.dump(egrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
 
         # self.kgrid trimming
@@ -2983,10 +2996,10 @@ class AMSET(object):
                                     logging.warning('in to_json: cutting {} '
                                         'in kgrid failed!'.format(key))
 
-            with open("kgrid.json", 'w') as fp:
+            with open(os.path.join(path, "kgrid.json"), 'w') as fp:
                 json.dump(kgrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
         if valleys:
-            with open("valleys.json", 'w') as fp:
+            with open(os.path.join(path, "valleys.json"), 'w') as fp:
                 json.dump(self.valleys, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
 
 
@@ -3830,7 +3843,7 @@ class AMSET(object):
 
 
 
-    def to_csv(self, path=None, csv_filename='amset_results.csv'):
+    def to_csv(self, path=None, dir_name="run_data", csv_filename='amset_results.csv'):
         """
         writes the calculated transport properties to a csv file.
         Args:
@@ -3839,7 +3852,9 @@ class AMSET(object):
         """
         import csv
         if not path:
-            path = os.getcwd()
+            path = os.path.join(os.getcwd(), dir_name)
+            if not os.path.exists(path):
+                os.makedirs(name=path)
 
         with open(os.path.join(path, csv_filename), 'w') as csvfile:
             fieldnames = ['type', 'c(cm-3)', 'T(K)', 'overall', 'average'] + \
