@@ -3793,48 +3793,30 @@ class AMSET(object):
                         for y_value in y_values:
                             plot_data = []
                             names = []
-                            labels = []
                             for T in self.temperatures:
                                 plot_data.append((x_data[x_value], y_data_temp_dependent[x_value][y_value][T]))
-                                labels.append(T)
                                 names.append(str(T) + ' K')
-                                # all_plots.append({"x_col": x_data[x_value],
-                                #                   "y_col": y_data_temp_dependent[x_value][y_value][T],
-                                #                   "text": T, 'legend': str(T) + ' K', 'size': 6, "mode": "markers",
-                                #                   "color": "", "marker": temp_markers[T]})
                             self.create_plots(x_axis_label[x_value], y_value, show_interactive,
                                               save_format, c, tp, tp_c_dir,
                                               textsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
-                                              x_label_short=x_value, names=names, labels=labels)
+                                              x_label_short=x_value, names=names)
 
                     # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
                     if mobility:
                         # all_plots = []
                         plot_data = []
                         names = []
-                        labels = []
                         for mo in mu_list:
-                            # mo_values = [self.mobility[tp][mo][c][T] if \
-                            #         self.k_integration else \
-                            #         self.egrid[tp]['mobility'][mo][c][T] \
-                            #              for T in self.temperatures]
                             mo_values = [self.mobility[tp][mo][c][T] for T in self.temperatures]
-                            # all_plots.append({"x_col": self.temperatures,
-                            #         "y_col": [self.get_scalar_output(mo_value,
-                            #         dir) for mo_value in mo_values],
-                            #         "text": mo, 'legend': mo, 'size': 6,
-                            #         "mode": "lines+markers","color": "",
-                            #                   "marker": mu_markers[mo]})
                             plot_data.append((self.temperatures, [self.get_scalar_output(mo_value,
                                     dir) for mo_value in mo_values]))
                             names.append(mo)
-                            labels.append(mo)
 
                         self.create_plots("Temperature (K)",
                                 "Mobility (cm2/V.s)", show_interactive,
                                 save_format, c, tp, tp_c_dir, textsize-5,
                                 ticksize-5, path, margins,
-                                fontfamily, plot_data=plot_data, names=names, labels=labels, mode='lines+markers',
+                                fontfamily, plot_data=plot_data, names=names, mode='lines+markers',
                                 y_label_short="mobility", y_axis_type='log')
 
 
