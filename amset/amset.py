@@ -23,14 +23,14 @@ from copy import deepcopy
 import multiprocessing
 from joblib import Parallel, delayed
 
-from amset.analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_energy, get_poly_energy
+from analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_energy, get_poly_energy
 
-from amset.tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
+from tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
         fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
         remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
         get_energy_args, calc_analytical_energy, get_bindex_bspin, \
         get_bs_extrema, AmsetError, kpts_to_first_BZ
-from amset.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
+from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
 
 

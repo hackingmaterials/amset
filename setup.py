@@ -9,7 +9,7 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 if __name__ == "__main__":
     setup(
         name='Amset',
-        version='0.0.1',
+        version='0.1.0',
         description='Amset is Ab initio Mobility, Seebeck, and Transport',
         long_description=open(os.path.join(module_dir, 'README.rst')).read(),
         url='https://github.com/hackingmaterials/Amset',
