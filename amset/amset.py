@@ -13,7 +13,6 @@ from sys import stdout as STDOUT
 
 import numpy as np
 from math import log, pi
-
 from pymatgen.electronic_structure.boltztrap import BoltztrapRunner, \
     BoltztrapAnalyzer
 from pymatgen.io.vasp import Vasprun, Spin, Structure
@@ -36,11 +35,10 @@ from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
 
 __author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
-__version__ = "0.1"
+__version__ = "0.1.0"
 __maintainer__ = "Alireza Faghaninia"
 __email__ = "alireza.faghaninia@gmail.com"
 __status__ = "Development"
-__date__ = "July 2017"
 
 
 
@@ -91,7 +89,7 @@ class AMSET(object):
         self.dopings = dopings or [-1e20, 1e20]
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
         self.tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
-        self.temperatures = temperatures or map(float, [300, 600])
+        self.temperatures = temperatures or [300.0, 600.0]
         self.debug_tp = get_tp(self.dopings[0])
         logging.debug("""debug_tp: "{}" """.format(self.debug_tp))
         self.set_model_params(model_params)
@@ -184,15 +182,15 @@ class AMSET(object):
 
         logging.info('here initial number of bands:\n{}'.format(self.initial_num_bands))
 
-        vibands = range(self.initial_num_bands['p'])
-        cibands = range(self.initial_num_bands['n'])
+        vibands = list(range(self.initial_num_bands['p']))
+        cibands = list(range(self.initial_num_bands['n']))
 
         if len(vibands) > len(cibands):
-            ibands_tuple = zip(vibands, cibands+[cibands[0]]*(len(vibands)-len(cibands)))
+            ibands_tuple = list(zip(vibands, cibands+[cibands[0]]*(len(vibands)-len(cibands))))
             for i in range(len(cibands), len(vibands)):
                 self.count_mobility[i]['n'] = False
         else:
-            ibands_tuple = zip(vibands+[vibands[0]]*(len(cibands)-len(vibands)), cibands)
+            ibands_tuple = list(zip(vibands+[vibands[0]]*(len(cibands)-len(vibands)), cibands))
             for i in range(len(vibands), len(cibands)):
                 self.count_mobility[i]['p'] = False
         self.ibands_tuple = ibands_tuple
@@ -441,9 +439,7 @@ class AMSET(object):
         boltztrap_runner.run(path_dir=self.calc_dir)
         # coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
         an = BoltztrapAnalyzer.from_files(os.path.join(self.calc_dir, 'boltztrap'))
-        print an.doping
-        print an.mu_doping
-        print an.parse_outputtrans(os.path.join(self.calc_dir, "boltztrap"))[2]
+
         # for c in self.dopings:
         #     for T in self.temperatures:
         #         for c_b in an.doping:
@@ -1528,7 +1524,8 @@ class AMSET(object):
         self.kgrid = {
             "n": {},
             "p": {}}
-        self.num_bands = {"n": {}, "p": {}}
+        # self.num_bands = {"n": {}, "p": {}}
+        self.num_bands = {"n": 1, "p": 1}
         # logging.debug('here the n-type kgrid :\n{}'.format(kpts['n']))
         for tp in ["n", "p"]:
             self.num_bands[tp] = self.cbm_vbm[tp]["included"]
@@ -2617,13 +2614,13 @@ class AMSET(object):
                                     self.kgrid[tp][sname][c][T][ib][ik] = [1e10, 1e10, 1e10]
 
                                 if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e20:
-                                    print self.kgrid[tp]['kpoints'][ib][ik]
-                                    print self.kgrid[tp]['cartesian kpoints'][ib][ik]
-                                    print self.kgrid[tp]['velocity'][ib][ik]
-                                    print "WARNING!!! TOO LARGE of scattering rate for {}:".format(sname)
-                                    print self.kgrid[tp][sname][c][T][ib][ik]
-                                    print self.kgrid[tp]["X_E_ik"][ib][ik]
-                                    print
+                                    print(self.kgrid[tp]['kpoints'][ib][ik])
+                                    print(self.kgrid[tp]['cartesian kpoints'][ib][ik])
+                                    print(self.kgrid[tp]['velocity'][ib][ik])
+                                    print("WARNING!!! TOO LARGE of scattering rate for {}:".format(sname))
+                                    print(self.kgrid[tp][sname][c][T][ib][ik])
+                                    print(self.kgrid[tp]["X_E_ik"][ib][ik])
+                                    print()
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
 
                         # logging.debug("relaxation time at c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["relaxation time"][c][T][ib]))
@@ -2697,7 +2694,7 @@ class AMSET(object):
     def find_fermi_k(self, tolerance=0.001, num_bands = None):
         num_bands = num_bands or self.num_bands
         closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
-        self.f0_array = {c: {T: {tp: range(num_bands[tp]) for tp in ['n', 'p']} for T in self.temperatures} for c in self.dopings}
+        self.f0_array = {c: {T: {tp: list(range(num_bands[tp])) for tp in ['n', 'p']} for T in self.temperatures} for c in self.dopings}
         #energy = self.array_from_kgrid('energy', 'n', fill=1000)
         for c in self.dopings:
             tp = get_tp(c)
@@ -2727,7 +2724,7 @@ class AMSET(object):
                 # find the calculated concentrations (dopings) of each type at the determined fermi level
                 e_f = closest_energy[c][T]
                 for j, tp in enumerate(['n', 'p']):
-                    for ib in range(num_bands[tp]):
+                    for ib in list(range(num_bands[tp])):
                         self.f0_array[c][T][tp][ib] = 1 / (np.exp((self.energy_array[tp][ib][:,:,:,0] - e_f) / (k_B * T)) + 1)
                     self.calc_doping[c][T][tp] = self.integrate_over_states(j - np.array(self.f0_array[c][T][tp]), tp)
         return closest_energy
@@ -2894,10 +2891,10 @@ class AMSET(object):
         out_d = {'kgrid': self.kgrid, 'egrid': self.egrid}
 
         # write the output dict to file
-        with gzip.GzipFile(
-                os.path.join(dir_path, '{}.json.gz'.format(fname)), 'w') as fp:
-            jsonstr = json.dumps(out_d, cls=MontyEncoder)
-            fp.write(jsonstr)
+        with gzip.GzipFile(os.path.join(dir_path, '{}.json.gz'.format(fname)), mode='w') as fp:
+            json_str = json.dumps(out_d, cls=MontyEncoder)
+            json_bytes = json_str.encode('utf-8')
+            fp.write(json_bytes)
 
 
 
@@ -3626,9 +3623,9 @@ class AMSET(object):
 
 
     def create_plots(self, x_label, y_label, show_interactive, save_format, c, tp, file_suffix,
-                     textsize, ticksize, path, margin_left, margin_bottom, fontfamily, x_data=None, y_data=None,
-                     all_plots=None, x_label_short='', y_label_short=None, y_axis_type='linear', plot_title=None):
-        from matminer.figrecipes.plotly.make_plots import PlotlyFig
+                     textsize, ticksize, path, margins, fontfamily, plot_data, names=None, labels=None,
+                     x_label_short='', y_label_short=None, mode='markers', y_axis_type='linear', plot_title=None):
+        from matminer.figrecipes.plot import PlotlyFig
         if not plot_title:
             plot_title = '{} for {}, c={}'.format(y_label, self.tp_title[tp], c)
         if not y_label_short:
@@ -3638,33 +3635,36 @@ class AMSET(object):
                 filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, 'html'))
             else:
                 filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, 'html'))
-            plt = PlotlyFig(x_title=x_label, y_title=y_label,
-                            plot_title=plot_title, textsize=textsize,
-                            plot_mode='offline', filename=filename, ticksize=ticksize,
-                            margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
-            if all_plots:plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type=y_axis_type, color='black', showlegend=True)
+            pf = PlotlyFig(x_title=x_label, y_title=y_label, y_scale=y_axis_type,
+                            title=plot_title, fontsize=textsize,
+                           mode='offline', filename=filename, ticksize=ticksize,
+                            margins=margins, fontfamily=fontfamily)
+            # if all_plots:plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type=y_axis_type, color='black', showlegend=True)
+            #
+            # else:
+            #     plt.xy((x_data, y_data), colors='black')
 
-            else:
-                plt.xy_plot(x_col=x_data, y_col=y_data, y_axis_type=y_axis_type, color='black')
+            pf.xy(plot_data, names=names, labels=labels, modes=mode)
         if save_format is not None:
             if not x_label_short:
                 filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, save_format))
             else:
                 filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, save_format))
-            plt = PlotlyFig(x_title=x_label, y_title=y_label,
-                            plot_title=plot_title, textsize=textsize,
-                            plot_mode='static', filename=filename, ticksize=ticksize,
-                            margin_left=margin_left, margin_bottom=margin_bottom, fontfamily=fontfamily)
-            if all_plots:
-                plt.xy_plot(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type=y_axis_type, color='black', showlegend=True)
-            else:
-                plt.xy_plot(x_col=x_data, y_col=y_data, y_axis_type=y_axis_type, color='black')
+            pf = PlotlyFig(x_title=x_label, y_title=y_label,
+                            title=plot_title, fontsize=textsize,
+                            mode='static', filename=filename, ticksize=ticksize,
+                            margins=margins, fontfamily=fontfamily)
+            pf.xy(plot_data, names=names, labels=labels, modes=mode)
+            # if all_plots:
+            #     plt.xy(x_col=[], y_col=[], add_xy_plot=all_plots, y_axis_type=y_axis_type, color='black', showlegend=True)
+            # else:
+            #     plt.xy_plot(x_col=x_data, y_col=y_data, y_axis_type=y_axis_type, color='black')
 
 
 
     def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'],
-             direction=['avg'], show_interactive=True, save_format='png', textsize=40, ticksize=30, path=None,
-             margin_left=160, margin_bottom=120, fontfamily="serif"):
+             direction=['avg'], show_interactive=True, save_format='png', textsize=30, ticksize=25, path=None,
+             margins=100, fontfamily="serif"):
         """
         plots the given k_plots and E_plots properties.
         Args:
@@ -3685,8 +3685,7 @@ class AMSET(object):
             textsize: (int) size of title and axis label text
             ticksize: (int) size of axis tick label text
             path: (string) location to save plots
-            margin_left: (int) plotly left margin
-            margin_bottom: (int) plotly bottom margin
+            margins: (int) figrecipes plotly margins
             fontfamily: (string) plotly font
         """
         supported_k_plots = ['energy', 'df0dk', 'velocity'] + self.elastic_scatterings
@@ -3762,8 +3761,9 @@ class AMSET(object):
                             if y_value == 'frequency':
                                 plot_title = 'Energy Histogram for {}, c={}'.format(self.tp_title[tp], c)
                             self.create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, c, tp, tp_c,
-                                              textsize, ticksize, path, margin_left,
-                                              margin_bottom, fontfamily, x_data=x_data[x_value], y_data=y_data_temp_independent[x_value][y_value], x_label_short=x_value, plot_title=plot_title)
+                                              textsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
+                                              x_label_short=x_value, plot_title=plot_title)
+
 
                 for dir in direction:
                     y_data_temp_independent = {'k': {'energy': self.kgrid[tp]['energy'][0],
@@ -3779,9 +3779,7 @@ class AMSET(object):
                             if vec[y_value]:
                                 self.create_plots(x_axis_label[x_value], y_value, show_interactive,
                                                   save_format, c, tp, tp_c_dir,
-                                                  textsize, ticksize, path, margin_left,
-                                                  margin_bottom, fontfamily, x_data=x_data[x_value],
-                                                  y_data=y_data_temp_independent[x_value][y_value], x_label_short=x_value)
+                                                  textsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
 
                     # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
                     # kgrid and egrid data)
@@ -3793,37 +3791,50 @@ class AMSET(object):
                     # temperature dependent k and E plots
                     for x_value, y_values in [('k', temp_dependent_k_props), ('E', temp_dependent_E_props)]:
                         for y_value in y_values:
-                            all_plots = []
+                            plot_data = []
+                            names = []
+                            labels = []
                             for T in self.temperatures:
-                                all_plots.append({"x_col": x_data[x_value],
-                                                  "y_col": y_data_temp_dependent[x_value][y_value][T],
-                                                  "text": T, 'legend': str(T) + ' K', 'size': 6, "mode": "markers",
-                                                  "color": "", "marker": temp_markers[T]})
+                                plot_data.append((x_data[x_value], y_data_temp_dependent[x_value][y_value][T]))
+                                labels.append(T)
+                                names.append(str(T) + ' K')
+                                # all_plots.append({"x_col": x_data[x_value],
+                                #                   "y_col": y_data_temp_dependent[x_value][y_value][T],
+                                #                   "text": T, 'legend': str(T) + ' K', 'size': 6, "mode": "markers",
+                                #                   "color": "", "marker": temp_markers[T]})
                             self.create_plots(x_axis_label[x_value], y_value, show_interactive,
                                               save_format, c, tp, tp_c_dir,
-                                              textsize, ticksize, path, margin_left,
-                                              margin_bottom, fontfamily, all_plots=all_plots, x_label_short=x_value)
+                                              textsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
+                                              x_label_short=x_value, names=names, labels=labels)
 
                     # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
                     if mobility:
-                        all_plots = []
+                        # all_plots = []
+                        plot_data = []
+                        names = []
+                        labels = []
                         for mo in mu_list:
                             # mo_values = [self.mobility[tp][mo][c][T] if \
                             #         self.k_integration else \
                             #         self.egrid[tp]['mobility'][mo][c][T] \
                             #              for T in self.temperatures]
                             mo_values = [self.mobility[tp][mo][c][T] for T in self.temperatures]
-                            all_plots.append({"x_col": self.temperatures,
-                                    "y_col": [self.get_scalar_output(mo_value,
-                                    dir) for mo_value in mo_values],
-                                    "text": mo, 'legend': mo, 'size': 6,
-                                    "mode": "lines+markers","color": "",
-                                              "marker": mu_markers[mo]})
+                            # all_plots.append({"x_col": self.temperatures,
+                            #         "y_col": [self.get_scalar_output(mo_value,
+                            #         dir) for mo_value in mo_values],
+                            #         "text": mo, 'legend': mo, 'size': 6,
+                            #         "mode": "lines+markers","color": "",
+                            #                   "marker": mu_markers[mo]})
+                            plot_data.append((self.temperatures, [self.get_scalar_output(mo_value,
+                                    dir) for mo_value in mo_values]))
+                            names.append(mo)
+                            labels.append(mo)
+
                         self.create_plots("Temperature (K)",
                                 "Mobility (cm2/V.s)", show_interactive,
                                 save_format, c, tp, tp_c_dir, textsize-5,
-                                ticksize-5, path, margin_left, margin_bottom,
-                                fontfamily, all_plots=all_plots,
+                                ticksize-5, path, margins,
+                                fontfamily, plot_data=plot_data, names=names, labels=labels, mode='lines+markers',
                                 y_label_short="mobility", y_axis_type='log')
 
 
@@ -3897,7 +3908,7 @@ if __name__ == "__main__":
 
     # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
-            "BTE_iters": 5, "max_nbands": None, "max_normk": None, "max_ncpu": 4
+            "BTE_iters": 5, "max_nbands": 1, "max_normk": None, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform"
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           }
@@ -3941,15 +3952,15 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  # temperatures = [600],
-                  temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
+                  temperatures = [600],
+                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True  , fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
