@@ -24,7 +24,7 @@ if __name__ == "__main__":
         install_requires=[],
         #extras_require={'plotting':['matplotlib>=1.1.1'},
         extras_require={},
-        classifiers=['Programming Language :: Python :: 2.7',
+        classifiers=['Programming Language :: Python :: 3.6',
                      'Development Status :: 4 - Beta',
                      'Intended Audience :: Science/Research',
                      'Intended Audience :: System Administrators',
