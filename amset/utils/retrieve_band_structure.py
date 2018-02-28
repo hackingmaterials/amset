@@ -14,6 +14,7 @@ from tools import get_energy_args, calc_analytical_energy, norm, \
 from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
 
+
 api = MPRester("fDJKEZpxSyvsXdCt")
 
 def retrieve_bs(coeff_file, bs, ibands, cbm):

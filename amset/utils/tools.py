@@ -3,8 +3,8 @@ import numpy as np
 import scipy
 from scipy.optimize import basinhopping
 
-from analytical_band_from_BZT import Analytical_bands, outer, get_energy
-from constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
+from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, get_energy
+from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
 from math import pi, log
 
@@ -84,7 +84,7 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                 elif kgrid_tp == 'coarse':
                     mesh = [0.001, 0.005, 0.01, 0.02, 0.05, 0.15, 0.5]
                 elif kgrid_tp == 'very coarse':
-                    mesh = [0.001, 0.01]
+                    mesh = [0.001, 0.01, 0.02]
                 elif kgrid_tp == 'uniform':
                     mesh = np.linspace(0.001, 0.50, 23)
                 elif kgrid_tp == 'test uniform':
