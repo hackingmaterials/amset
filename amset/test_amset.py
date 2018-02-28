@@ -150,15 +150,15 @@ class AmsetTest(unittest.TestCase):
                 np.mean(amset.mobility['n'][mu][-2e15][300]))
             self.assertLess(rel_diff(amset.mobility['n'][mu][-2e15][300][0], expected_mu[mu]), 0.02)
 
-    def test_defaults(self):
+    def test_defaults(self, data_dir="run_data"):
         print('\ntesting test_defaults...')
         amset = AMSET(self.GaAs_path, material_params={'epsilon_s': 12.9})
         amset.write_input_files()
-        with open("material_params.json", "r") as fp:
+        with open(os.path.join(data_dir, "material_params.json"), "r") as fp:
             material_params = json.load(fp)
-        with open("model_params.json", "r") as fp:
+        with open(os.path.join(data_dir, "model_params.json"), "r") as fp:
             model_params = json.load(fp)
-        with open("performance_params.json", "r") as fp:
+        with open(os.path.join(data_dir, "performance_params.json"), "r") as fp:
             performance_params = json.load(fp)
 
         self.assertEqual(material_params['epsilon_inf'], None)
