@@ -2893,13 +2893,18 @@ class AMSET(object):
 
 
 
-    def to_file(self, dir_path='.', dir_name='run_data', fname='amsetrun',
+    def to_file(self, path=None, dir_name='run_data', fname='amsetrun',
                 force_write=True):
-        path = os.path.join(dir_path, dir_name, '{}.json.gz'.format(fname))
+        if not path:
+            path = os.path.join(os.getcwd(), dir_name)
+            if not os.path.exists(path):
+                os.makedirs(name=path)
+        else:
+            path = os.path.join(path, dir_name)
         if not force_write:
             n = 1
             fname0 = fname
-            while os.path.exists(path):
+            while os.path.exists(os.path.join(path, '{}.json.gz'.format(fname))):
                 warnings.warn('The file, {} exists. AMSET outputs will be '
                         'written in {}'.format(fname, fname0+'_'+str(n)))
                 fname = fname0 + '_' + str(n)
@@ -2909,7 +2914,8 @@ class AMSET(object):
         out_d = {'kgrid': self.kgrid, 'egrid': self.egrid}
 
         # write the output dict to file
-        with gzip.GzipFile(path, mode='w') as fp:
+        with gzip.GzipFile(os.path.join(path, '{}.json.gz'.format(fname)),
+                           mode='w') as fp:
             json_str = json.dumps(out_d, cls=MontyEncoder)
             json_bytes = json_str.encode('utf-8')
             fp.write(json_bytes)
