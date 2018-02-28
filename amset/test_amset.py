@@ -1,15 +1,15 @@
 # coding: utf-8
 
 from __future__ import unicode_literals
-
+from __future__ import absolute_import
 import json
 import logging
 import numpy as np
 import os
 import unittest
 
-from amset import AMSET
-from tools import rel_diff
+from amset.core import AMSET
+from amset.utils.tools import rel_diff
 
 test_dir = os.path.dirname(__file__)
 
