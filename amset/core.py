@@ -35,6 +35,7 @@ from amset.utils.tools import norm, grid_norm, generate_k_mesh_axes, create_grid
 
 from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
+from scipy.optimize import basinhopping
 
 __author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
@@ -177,8 +178,13 @@ class AMSET(object):
         else:
         ## uncomment the following only for quick testing if fermi_levels are known
             self.fermi_level = self.pre_determined_fermi
-            self.calc_doping = {doping: {T: {'n': doping, 'p': 0.0} for T in list(self.fermi_level[doping].keys())} for doping in list(self.fermi_level.keys())}
-
+            self.calc_doping = {doping: {T: {'n': 0.0, 'p': 0.0} for T in list(self.fermi_level[doping].keys())} for doping in list(self.fermi_level.keys())}
+            for doping in list(self.fermi_level.keys()):
+                for T in list(self.fermi_level[doping].keys()):
+                    if doping > 0:
+                        self.calc_doping[doping][T]['p'] = doping
+                    else:
+                        self.calc_doping[doping][T]['n'] = doping
         logging.info('fermi level = {}'.format(self.fermi_level))
 
         # self.find_fermi_boltztrap()
@@ -245,7 +251,8 @@ class AMSET(object):
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
                 if self.max_nvalleys and self.max_nvalleys==1: # this ignores max_normk0
-                    self.max_normk = {'n': 1.5, 'p': 1.5}
+                    self.max_normk = {'n': self.max_normk0 or 1.5,
+                                      'p': self.max_normk0 or 1.5}
                 logging.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 logging.info('Current valleys:\n{}'.format(important_points))
                 logging.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
@@ -2765,6 +2772,8 @@ class AMSET(object):
         Returns:
             The fitted/calculated Fermi level
         """
+        funcs = [lambda E, fermi0, T: f0(E, fermi0, T),
+                 lambda E, fermi0, T: 1 - f0(E, fermi0, T)]
 
         # initialize parameters
         relative_error = self.gl
@@ -2772,13 +2781,37 @@ class AMSET(object):
         temp_doping = {"n": -0.01, "p": +0.01}
         typ = get_tp(c)
         typj = ["n", "p"].index(typ)
-        fermi = self.cbm_vbm[typ]["energy"] + 0.01 * (-1)**typj # addition is to ensure Fermi is not exactly 0.0
+        fermi0 = self.cbm_vbm[typ]["energy"] + 0.01 * (-1)**typj # addition is to ensure Fermi is not exactly 0.0
+        calc_doping = (-1) ** (typj + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
+                * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ,fermi=fermi0, T=T))
+        fermi=fermi0
+
+        ## The following is a compact code to find fermi with basin hoping. It's not well tested, it worked for GaAs, c=-3e13 and T=300K
+        # def abs_doping_diff(fermi):
+        #     for j, tp in enumerate(["n", "p"]):
+        #         integral = 0.0
+        #         for ie in range((1 - j) * self.cbm_dos_idx,
+        #                         (1 - j) * len(
+        #                             self.dos) + j * self.vbm_dos_idx - 1):
+        #             integral += (self.dos[ie + 1][1] + self.dos[ie][
+        #                 1]) / 2 * funcs[j](self.dos[ie][0], fermi, T) * \
+        #                         (self.dos[ie + 1][0] - self.dos[ie][0])
+        #         temp_doping[tp] = (-1) ** (j + 1) * abs(
+        #             integral / (self.volume * (A_to_m * m_to_cm) ** 3))
+        #     calc_doping = temp_doping['n'] + temp_doping['p']
+        #     self.calc_doping[c][T]['n'] = temp_doping['n']
+        #     self.calc_doping[c][T]['p'] = temp_doping['p']
+        #     relative_error = abs(calc_doping - c) / abs(c)
+        #     return relative_error
+        #
+        # opt = basinhopping(abs_doping_diff, x0=fermi0, niter=20, T=0.1)
+        # fermi = opt.x[0]
+        # print('fermi after minimization: {}'.format(fermi))
+        # print('calculated relative error:', opt.fun)
+
+
         # fermi = self.egrid[typ]["energy"][0]
         print("calculating the fermi level at temperature: {} K".format(T))
-        funcs = [lambda E, fermi0, T: f0(E, fermi0, T), lambda E, fermi0, T: 1 - f0(E, fermi0, T)]
-        calc_doping = (-1) ** (typj + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
-                      * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ, fermi=fermi, T=T))
-
 
         def linear_iteration(relative_error, fermi, calc_doping,
                              iterations, niter):
@@ -2826,7 +2859,7 @@ class AMSET(object):
                     c, T, int(niter), fermi))
             return fermi
 
-        # start with a simple grid search with maximum 6(2nstep+1) iterations
+        ## start with a simple grid search with maximum 6(2nstep+1) iterations
         step = 0.1
         nstep = 20
         fermi0 = fermi
@@ -2850,8 +2883,8 @@ class AMSET(object):
                 calc_doping = temp_doping["n"] + temp_doping["p"]
                 if abs(calc_doping - c) / abs(c) < relative_error:
                     relative_error = abs(calc_doping - c) / abs(c)
-                    self.egrid["calc_doping"][c][T]["n"] = temp_doping["n"]
-                    self.egrid["calc_doping"][c][T]["p"] = temp_doping["p"]
+                    self.calc_doping[c][T]['n'] = temp_doping["n"]
+                    self.calc_doping[c][T]['p'] = temp_doping["p"]
                     if relative_error < tolerance:
                         logging.info(
                             "fermi at {} 1/cm3 and {} K after {} iterations: {}".format(
