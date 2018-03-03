@@ -1260,10 +1260,10 @@ class AMSET(object):
         # initialize some fileds/properties
         if not once_called:
             self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-            for sn in self.elastic_scatterings + self.inelastic_scatterings + ["overall", "average"]:
-                for tp in ['n', 'p']:
-                    self.egrid[tp]['mobility'][sn] = {c: {T: [0.0, 0.0, 0.0] for T in\
-                            self.temperatures} for c in self.dopings}
+            # for sn in self.elastic_scatterings + self.inelastic_scatterings + ["overall", "average"]:
+            #     for tp in ['n', 'p']:
+            #         self.egrid[tp]['mobility'][sn] = {c: {T: [0.0, 0.0, 0.0] for T in\
+            #                 self.temperatures} for c in self.dopings}
             for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
                 for tp in ['n', 'p']:
                     self.egrid[tp][transport] = {c: {T: 0.0 for T in\
@@ -3907,7 +3907,7 @@ class AMSET(object):
                 for T in self.temperatures:
                     row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
                     for p in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings:
-                        row[p] = sum(self.egrid[tp]["mobility"][p][c][T])/3
+                        row[p] = sum(self.mobility[tp][p][c][T])/3
                     try:
                         row["seebeck"] = sum(self.egrid[tp]["seebeck"][c][T])/3
                     except TypeError:
