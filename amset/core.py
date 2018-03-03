@@ -2944,7 +2944,8 @@ class AMSET(object):
                 n += 1
 
         # make the output dict
-        out_d = {'kgrid': self.kgrid, 'egrid': self.egrid}
+        out_d = {'kgrid': self.kgrid, 'egrid': self.egrid,
+                 'mobility': self.mobility}
 
         # write the output dict to file
         with gzip.GzipFile(os.path.join(path, '{}.json.gz'.format(fname)),
