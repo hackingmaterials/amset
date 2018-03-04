@@ -19,7 +19,7 @@ from pymatgen.electronic_structure.boltztrap import BoltztrapRunner, \
     BoltztrapAnalyzer
 from pymatgen.io.vasp import Vasprun, Spin, Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from monty.json import MontyEncoder
+from monty.json import MontyEncoder, MontyDecoder
 import cProfile
 from copy import deepcopy
 import multiprocessing
@@ -106,12 +106,6 @@ class AMSET(object):
         logging.info('e_integration: {}'.format(self.e_integration))
         self.fermi_calc_type = fermi_type
 
-        self.read_vrun(calc_dir=self.calc_dir, filename="vasprun.xml")
-        if self.poly_bands0 is not None:
-            self.cbm_vbm["n"]["energy"] = self.dft_gap
-            self.cbm_vbm["p"]["energy"] = 0.0
-            self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = self.poly_bands0[0][0][0]
-
         self.num_cores = max(int(multiprocessing.cpu_count()/4), self.max_ncpu)
         if self.parallel:
             logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
@@ -137,6 +131,13 @@ class AMSET(object):
         kgrid_tp (str): define the density of k-point mesh.
             options: 'very coarse', 'coarse', 'fine'
         """
+        self.read_vrun(calc_dir=self.calc_dir, filename="vasprun.xml")
+        if self.poly_bands0 is not None:
+            self.cbm_vbm["n"]["energy"] = self.dft_gap
+            self.cbm_vbm["p"]["energy"] = 0.0
+            self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = \
+            self.poly_bands0[0][0][0]
+
         if not coeff_file:
             logging.warning('\nRunning BoltzTraP to generate the cube file...')
             boltztrap_runner = BoltztrapRunner(bs=self.bs, nelec=self.nelec,
@@ -2944,8 +2945,12 @@ class AMSET(object):
                 n += 1
 
         # make the output dict
-        out_d = {'kgrid': self.kgrid, 'egrid': self.egrid,
-                 'mobility': self.mobility}
+        out_d = {'kgrid': self.kgrid, 'egrid': self.egrid, 'cbm_vbm': self.cbm_vbm,
+                 'mobility': self.mobility, 'epsilon_s': self.epsilon_s,
+                 'elastic_scatterings': self.elastic_scatterings,
+                 'inelastic_scatterings': self.inelastic_scatterings,
+                 'Efrequency': self.Efrequency,
+                 'dopings': self.dopings, 'temperatures': self.temperatures}
 
         # write the output dict to file
         with gzip.GzipFile(os.path.join(path, '{}.json.gz'.format(fname)),
@@ -2954,6 +2959,26 @@ class AMSET(object):
             json_bytes = json_str.encode('utf-8')
             fp.write(json_bytes)
 
+
+    @staticmethod
+    def from_file(path=None, dir_name="run_data", filename="amsetrun.json.gz"):
+        #TODO: make this better, maybe organize these class attributes a bit?
+        if not path:
+            path = os.path.join(os.getcwd(), dir_name)
+
+        with gzip.GzipFile(os.path.join(path, filename), mode='r') as fp:
+            d = json.load(fp, cls=MontyDecoder)
+        amset = AMSET(calc_dir=path, material_params={'epsilon_s': d['epsilon_s']})
+        amset.kgrid = d['kgrid']
+        amset.egrid = d['egrid']
+        amset.mobility = d['mobility']
+        amset.elastic_scatterings = d['elastic_scatterings']
+        amset.inelastic_scatterings = d['inelastic_scatterings']
+        amset.cbm_vbm = d['cbm_vbm']
+        amset.Efrequency = d['Efrequency']
+        amset.dopings = [float(dope) for dope in d['dopings']]
+        amset.temperatures = [float(T) for T in d['temperatures']]
+        return amset
 
 
     def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0,
@@ -3846,11 +3871,16 @@ class AMSET(object):
                                                   textsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
 
                     # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
-                    # kgrid and egrid data)
-                    y_data_temp_dependent = {'k': {prop: {T: [self.get_scalar_output(p, dir) for p in self.kgrid[tp][prop][c][T][0]]
-                                                          for T in self.temperatures} for prop in temp_dependent_k_props},
-                                             'E': {prop: {T: [self.get_scalar_output(p, dir) for p in self.egrid[tp][prop][c][T]]
-                                                          for T in self.temperatures} for prop in temp_dependent_E_props}}
+                    try:
+                        y_data_temp_dependent = {'k': {prop: {T: [self.get_scalar_output(p, dir) for p in self.kgrid[tp][prop][c][T][0]]
+                                                                for T in self.temperatures} for prop in temp_dependent_k_props},
+                                                'E': {prop: {T: [self.get_scalar_output(p, dir) for p in self.egrid[tp][prop][c][T]]
+                                                                for T in self.temperatures} for prop in temp_dependent_E_props}}
+                    except KeyError: # for when from_file is called
+                        y_data_temp_dependent = {'k': {prop: {T: [self.get_scalar_output(p, dir) for p in self.kgrid[tp][prop][str(c)][str(int(T))][0]]
+                                                                for T in self.temperatures} for prop in temp_dependent_k_props},
+                                                'E': {prop: {T: [self.get_scalar_output(p, dir) for p in self.egrid[tp][prop][str(c)][str(int(T))]]
+                                                                for T in self.temperatures} for prop in temp_dependent_E_props}}
 
                     # temperature dependent k and E plots
                     for x_value, y_values in [('k', temp_dependent_k_props), ('E', temp_dependent_E_props)]:
@@ -3871,7 +3901,10 @@ class AMSET(object):
                         plot_data = []
                         names = []
                         for mo in mu_list:
-                            mo_values = [self.mobility[tp][mo][c][T] for T in self.temperatures]
+                            try:
+                                mo_values = [self.mobility[tp][mo][c][T] for T in self.temperatures]
+                            except KeyError: # for when from_file is called
+                                mo_values = [self.mobility[tp][mo][str(c)][str(int(T))] for T in self.temperatures]
                             plot_data.append((self.temperatures, [self.get_scalar_output(mo_value,
                                     dir) for mo_value in mo_values]))
                             names.append(mo)
