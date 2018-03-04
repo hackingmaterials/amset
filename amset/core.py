@@ -284,9 +284,14 @@ class AMSET(object):
                     logging.info('skipping this valley as it is unimportant or its energies are way off...')
                     continue
 
-                self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
+                corrupt_tps = self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
                 # logging.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
+                for tp in corrupt_tps:
+                    self.count_mobility[self.ibrun][tp] = False
 
+                if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
+                    logging.info('skipping this valley as it is unimportant or its energies are way off...')
+                    continue
 
                 # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
                 self.init_egrid(once_called=False, dos_tp="standard")
@@ -1530,6 +1535,7 @@ class AMSET(object):
         # logging.debug('begin profiling init_kgrid: a "{}" grid'.format(kgrid_tp))
         # start_time = time.time()
 
+        corrupt_tps = []
         if analytical_band_tuple is None:
             analytical_band_tuple = [None for _ in range(9)]
 
@@ -1728,8 +1734,8 @@ class AMSET(object):
                 logging.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
 
             if len(self.kgrid[tp]["kpoints"][0]) < 5:
-                raise ValueError("VERY BAD {}-type k-mesh; please change the k-mesh and try again!".format(tp))
-
+                # raise ValueError("VERY BAD {}-type k-mesh; please change the k-mesh and try again!".format(tp))
+                corrupt_tps.append(tp)
         logging.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order and keep track of old indexes
@@ -1829,7 +1835,7 @@ class AMSET(object):
         #     # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
         #
         #     self.dos = [list(a) for a in self.dos]
-
+        return corrupt_tps
 
     def sort_vars_based_on_energy(self, args, ascending=True):
         """sort the list of variables specified by "args" (type: [str]) in self.kgrid based on the "energy" values
