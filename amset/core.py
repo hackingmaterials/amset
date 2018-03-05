@@ -1683,7 +1683,8 @@ class AMSET(object):
 
                     # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
                     # if self.max_normk0:
-                    if self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]:
+                    if (self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp])\
+                            and (len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])):
                         rm_idx_list[tp][ib].append(ik)
 
                     # This caused some tests to break as it was changing mobility
