@@ -157,7 +157,9 @@ class AMSET(object):
                   self.dopings} for el_mech in self.mo_labels+self.spb_labels} for tp in ["n", "p"]}
         self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
 
+        # make the reference energy consistent w/ interpolation rather than DFT
         self.update_cbm_vbm_dos(coeff_file=coeff_file)
+
         #TODO: if we use ibands_tuple, then for each couple of conduction/valence bands we only use 1 band together (i.e. always ib==0)
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['included'] = 1
@@ -230,7 +232,7 @@ class AMSET(object):
                 self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
                 once_called = True
                 important_points = {'n': None, 'p': None}
-                if i == 0:
+                if i == 0 and self.ibrun==0 and self.pre_determined_fermi is not None:
                     once_called = False
                 for tp in ['p', 'n']:
                     try:
@@ -380,6 +382,7 @@ class AMSET(object):
                             if self.k_integration:
                                 f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                                 f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                                # if denominator is defined as a single common denominator, += if specific to each valley, self.denominator[c][T][tp] = ...
                                 self.denominator[c][T]['n'] += (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10) * self.bs.get_kpoint_degeneracy(important_points['n'][0])
                                 self.denominator[c][T]['p'] += (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10) *self.bs.get_kpoint_degeneracy(important_points['p'][0])
                             elif self.e_integration:
@@ -412,8 +415,7 @@ class AMSET(object):
         # print('here debug mobility')
         # print(self.mobility['n'])
         # print()
-        # print('here denominator')
-        # print(self.denominator)
+        logging.debug('here denominator:\n{}'.format(self.denominator))
 
         for tp in ['p', 'n']:
             for mu in self.mo_labels:
@@ -2794,7 +2796,7 @@ class AMSET(object):
                 * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ,fermi=fermi0, T=T))
         fermi=fermi0
 
-        ## The following is a compact code to find fermi with basin hoping. It's not well tested, it worked for GaAs, c=-3e13 and T=300K
+        # The following is a compact code to find fermi with basin hoping. It's not well tested, it worked for GaAs, c=-3e13 and T=300K
         # def abs_doping_diff(fermi):
         #     for j, tp in enumerate(["n", "p"]):
         #         integral = 0.0
@@ -2812,7 +2814,7 @@ class AMSET(object):
         #     relative_error = abs(calc_doping - c) / abs(c)
         #     return relative_error
         #
-        # opt = basinhopping(abs_doping_diff, x0=fermi0, niter=20, T=0.1)
+        # opt = basinhopping(abs_doping_diff, x0=fermi0, niter=200, T=0.1)
         # fermi = opt.x[0]
         # print('fermi after minimization: {}'.format(fermi))
         # print('calculated relative error:', opt.fun)
@@ -3637,6 +3639,7 @@ class AMSET(object):
                     else:
                         valley_mobility[tp]["overall"][c][T] = mu_overall_valley
 
+
                     # for mu in self.mo_labels + self.spb_labels:
                     #     if self.count_mobility[self.ibrun][tp]:
                     #         self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
@@ -3996,8 +3999,8 @@ if __name__ == "__main__":
 
     # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
-            "BTE_iters": 5, "max_nbands": 1, "max_normk": None, "max_ncpu": 4
-                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
+            "BTE_iters": 5, "max_nbands": None, "max_normk": None, "max_ncpu": 4
+                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": None
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           }
 
@@ -4048,7 +4051,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True  , fermi_type='k',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
