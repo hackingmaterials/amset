@@ -167,11 +167,13 @@ class AMSET(object):
         self.count_mobility = [{'n': True, 'p': True} for _ in range(max(self.initial_num_bands['p'], self.initial_num_bands['n']))]
 
         if self.pre_determined_fermi is None:
-            kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
-            analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
             if self.fermi_calc_type == 'k':
+                kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='very coarse')
+                analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
                 self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
             elif self.fermi_calc_type == 'e':
+                kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='very coarse')
+                analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
                 self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple, delete_off_points=False)
                 self.pre_init_egrid(once_called=False, dos_tp='standard')
                 self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
@@ -2764,7 +2766,7 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.005, tolerance_loose=0.03,
+    def find_fermi(self, c, T, tolerance=0.01, tolerance_loose=0.03,
                    alpha=0.05, max_iter=5000):
         """
         finds the Fermi level at a given c and T at egrid (i.e. DOS)
@@ -2796,31 +2798,11 @@ class AMSET(object):
                 * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ,fermi=fermi0, T=T))
         fermi=fermi0
 
-        # The following is a compact code to find fermi with basin hoping. It's not well tested, it worked for GaAs, c=-3e13 and T=300K
-        # def abs_doping_diff(fermi):
-        #     for j, tp in enumerate(["n", "p"]):
-        #         integral = 0.0
-        #         for ie in range((1 - j) * self.cbm_dos_idx,
-        #                         (1 - j) * len(
-        #                             self.dos) + j * self.vbm_dos_idx - 1):
-        #             integral += (self.dos[ie + 1][1] + self.dos[ie][
-        #                 1]) / 2 * funcs[j](self.dos[ie][0], fermi, T) * \
-        #                         (self.dos[ie + 1][0] - self.dos[ie][0])
-        #         temp_doping[tp] = (-1) ** (j + 1) * abs(
-        #             integral / (self.volume * (A_to_m * m_to_cm) ** 3))
-        #     calc_doping = temp_doping['n'] + temp_doping['p']
-        #     self.calc_doping[c][T]['n'] = temp_doping['n']
-        #     self.calc_doping[c][T]['p'] = temp_doping['p']
-        #     relative_error = abs(calc_doping - c) / abs(c)
-        #     return relative_error
-        #
-        # opt = basinhopping(abs_doping_diff, x0=fermi0, niter=200, T=0.1)
-        # fermi = opt.x[0]
-        # print('fermi after minimization: {}'.format(fermi))
-        # print('calculated relative error:', opt.fun)
+        dos_emesh = np.array([d[0] for d in self.dos])
+        dos_ediff = np.array([self.dos[i + 1][0] - self.dos[i][0] for i, _ in enumerate(self.dos[:-1])] + [0.0])
+        dos_dosmesh = np.array([d[1] for d in self.dos])
 
 
-        # fermi = self.egrid[typ]["energy"][0]
         print("calculating the fermi level at temperature: {} K".format(T))
 
         def linear_iteration(relative_error, fermi, calc_doping,
@@ -2830,7 +2812,6 @@ class AMSET(object):
                 niter += 1  # to avoid an infinite loop
                 if niter / max_iter > 0.5:  # to avoid oscillation we re-adjust alpha at each iteration
                     tune_alpha = 1 - niter / max_iter
-                # fermi += (-1) ** (typj) * alpha * tune_alpha * (calc_doping - c) / abs(c + calc_doping) * fermi
                 fermi += alpha * tune_alpha * (calc_doping - c) / abs(
                     c + calc_doping) * abs(fermi)
                 if abs(
@@ -2839,12 +2820,11 @@ class AMSET(object):
 
                 for j, tp in enumerate(["n", "p"]):
                     integral = 0.0
-                    for ie in range((1 - j) * self.cbm_dos_idx,
-                                    (1 - j) * len(
-                                        self.dos) + j * self.vbm_dos_idx - 1):
-                        integral += (self.dos[ie + 1][1] + self.dos[ie][
-                            1]) / 2 * funcs[j](self.dos[ie][0], fermi, T) * \
-                                    (self.dos[ie + 1][0] - self.dos[ie][0])
+                    idx_s = (1 - j) * self.cbm_dos_idx
+                    idx_e = (1 - j) * len(self.dos) + j * self.vbm_dos_idx - 1
+                    integral = np.sum(dos_dosmesh[idx_s:idx_e] * funcs[j](
+                        dos_emesh[idx_s:idx_e], fermi, T) * dos_ediff[idx_s:idx_e])
+
                     temp_doping[tp] = (-1) ** (j + 1) * abs(
                         integral / (self.volume * (A_to_m * m_to_cm) ** 3))
                 calc_doping = temp_doping["n"] + temp_doping["p"]
@@ -2855,39 +2835,24 @@ class AMSET(object):
                 relative_error = abs(calc_doping - c) / abs(c)
             return relative_error, fermi, calc_doping, niter
 
-
-        relative_error, fermi, calc_doping, niter = linear_iteration(
-            relative_error, fermi, calc_doping, iterations=50, niter=niter)
-        if relative_error <= tolerance:
-            # self.egrid["calc_doping"][c][T]["n"] = temp_doping["n"]
-            # self.egrid["calc_doping"][c][T]["p"] = temp_doping["p"]
-
-            self.calc_doping[c][T]['n'] = temp_doping['n']
-            self.calc_doping[c][T]['p'] = temp_doping['p']
-            logging.info(
-                "fermi at {} 1/cm3 and {} K after {} iterations: {}".format(
-                    c, T, int(niter), fermi))
-            return fermi
-
         ## start with a simple grid search with maximum 6(2nstep+1) iterations
         step = 0.1
         nstep = 20
         fermi0 = fermi
         min_diff = 1e32
-        for i in range(5):
+
+        for i in range(15):
             if i > 0:
                 nsetps = 10
             for coeff in range(-nstep, nstep+1):
                 niter += 1
                 fermi = fermi0 + coeff*step
                 for j, tp in enumerate(["n", "p"]):
-                    integral = 0.0
-                    for ie in range((1 - j) * self.cbm_dos_idx,
-                                    (1 - j) * len(
-                                        self.dos) + j * self.vbm_dos_idx - 1):
-                        integral += (self.dos[ie + 1][1] + self.dos[ie][
-                            1]) / 2 * funcs[j](self.dos[ie][0], fermi, T) * \
-                                    (self.dos[ie + 1][0] - self.dos[ie][0])
+                    idx_s = (1 - j) * self.cbm_dos_idx
+                    idx_e = (1 - j) * len(self.dos) + j * self.vbm_dos_idx - 1
+                    integral = np.sum(dos_dosmesh[idx_s:idx_e] * funcs[j](
+                        dos_emesh[idx_s:idx_e], fermi, T) * dos_ediff[idx_s:idx_e])
+
                     temp_doping[tp] = (-1) ** (j + 1) * abs(
                         integral / (self.volume * (A_to_m * m_to_cm) ** 3))
                 calc_doping = temp_doping["n"] + temp_doping["p"]
@@ -2903,6 +2868,7 @@ class AMSET(object):
                     fermi0 = fermi
             step /= 10
 
+        # adding this just in case the griddy grid search misses the  right fermi
         relative_error, fermi, calc_doping, niter = linear_iteration(
             relative_error, fermi, calc_doping, iterations=max_iter, niter=niter)
 
