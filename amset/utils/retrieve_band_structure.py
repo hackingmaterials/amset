@@ -5,17 +5,16 @@ from matminer import PlotlyFig
 import BoltzTraP2.dft
 from BoltzTraP2 import sphere, fite
 
-from pymatgen.electronic_structure.plotter import BSPlotter
+# from pymatgen.electronic_structure.plotter import BSPlotter
 from pymatgen.io.vasp import Vasprun
-from pymatgen.symmetry.bandstructure import HighSymmKpath
+# from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 from amset.utils.analytical_band_from_BZT import get_energy
-from pymatgen import Spin
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from amset.utils.tools import get_energy_args, calc_analytical_energy, norm, \
-    get_bindex_bspin, get_bs_extrema
-from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
-                        epsilon_0, default_small_E, dTdz, sq3
+# from pymatgen import Spin
+# from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from amset.utils.tools import get_energy_args, get_bindex_bspin
+# from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
+#                         epsilon_0, default_small_E, dTdz, sq3
 
 
 api = MPRester("fDJKEZpxSyvsXdCt")
@@ -39,6 +38,7 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, cbm):
         names.append('band {}'.format(iband))
     pf.xy(plot_data, names=names)
 
+
 def retrieve_bs_boltztrap2(vrun_path, ibands):
     pf = PlotlyFig(filename='boltztrap2')
     bz_data = BoltzTraP2.dft.DFTData(vrun_path, derivatives=False)
@@ -52,13 +52,13 @@ def retrieve_bs_boltztrap2(vrun_path, ibands):
     fitted = fite.getBands(kp=kpts, equivalences=equivalences,
                            lattvec=lattvec, coeffs=coeffs)
 
-    e = fitted[0]*13.605
-    print(e.shape)
-    print(e)
+    EE = fitted[0]*13.605
+    print(EE.shape)
+    print(EE)
 
     v = fitted[1]
     print(v.shape)
-    v[abs(v) < 1e-10] = 0
+    # v[abs(v) < 1e-10] = 0
     print(v)
 
 if __name__ == "__main__":
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     # retrieve_bs_boltztrap1(coeff_file=Si_coeff_file, bs=Si_bs, ibands=ibands, cbm=True)
 
     # retrieve_bs_boltztrap1(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands, cbm=True)
-    retrieve_bs_boltztrap2('/Users/alirezafaghaninia/Documents/py3/py3_codes/amset/test_files/GaAs', ibands=[13, 14])
+    retrieve_bs_boltztrap2(os.path.join(test_dir, 'GaAs'), ibands=[13, 14])
     # retrieve_bs_boltztrap2(os.path.join(test_dir, 'GaAs/28_electrons_line'), ibands=[13, 14])
     # retrieve_bs_boltztrap2('/Users/alirezafaghaninia/Documents/py3/py3_codes/BoltzTraP2-18.1.2/scratch/Si_data', ibands=[4, 5])
 
