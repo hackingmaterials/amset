@@ -175,87 +175,91 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
         out_tempc = out_vec2 * (-tempc[:, :, np.newaxis, np.newaxis])
         ddspwre = np.sum(out_tempc, axis=1) / nstv[:, np.newaxis, np.newaxis]
 
-    ene = spwre.T.dot(engre)
+    ene = spwre.dot(engre)
     if br_dir is not None:
-        dene = np.dot(dspwre.T, engre)
-        ddene = np.dot(ddspwre.T, engre)
+        dene = np.sum(dspwre.T * engre, axis=1)
+        ddene = np.sum(ddspwre * engre.reshape(nwave, 1, 1) * 2, axis=0)
         return sign * ene, dene, ddene
     else:
         return sign * ene
 
-# def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br_dir=None, cbm=True):
-#     ''' Compute energy for a k-point from star functions
-#
-#         Input:
-#             xkpt: k-point coordinates as array
-#             engre: matrix containing the coefficients of fitted band from get_engre() function
-#             nwave: number of G vectors
-#             nsym: number of symmetries
-#             nstv: number of vectors in a star function
-#             vec: the star vectors for each G vector and symmetry
-#             vec2: dot product of star vectors with cell matrix for each G vector
-#                 and symmetry. Needed only to compute the derivatives of energy
-#             br_dir: cell matrix. Needed only to compute the derivatives of energy
-#             cbm: True if the considered band is a conduction band. False if it is a valence band
-#             out_vec2: outer product of vec2 with itself. It is calculated outside to improve performances
-#
-#         Output:
-#             ene: the electronic energy at the k-point in input
-#             dene: 1st derivative of the electronic energy at the k-point in input
-#             ddene: 2nd derivative of the electronic energy at the k-point in input
-#     '''
-#     # xkpt = np.array(xkpt)
-#     if len(xkpt.shape) > 1:
-#         xkpt = xkpt.T
-#         nstv = np.tile(nstv, (xkpt.shape[1], 1)).T
-#         nsym = np.tile(nsym, (xkpt.shape[1], 1)).T
-#         # engre = np.tile(engre, (xkpt.shape[1], 1)).T
-#         vec2 = np.tile(vec2.T, (xkpt.shape[1], 1, 1, 1)).T
-#         out_vec2 = np.tile(out_vec2.T, (xkpt.shape[1], 1, 1, 1, 1)).T
-#     # print('xkpt shape: {}'.format(xkpt.shape))
-#     sign = -1 if cbm == False else 1
-#     arg = 2 * np.pi * vec.dot(xkpt)
-#     # print('arg shape: {}'.format(arg.shape))
-#     tempc = np.cos(arg)
-#     spwre = np.sum(tempc, axis=1) - (nsym - nstv)  # [:,np.newaxis]
-#     # print('spwre shape: {}'.format(spwre.shape))
-#     spwre /= nstv  # [:,np.newaxis]
-#
-#     if br_dir is not None:
-#         dene = np.zeros(3)
-#         ddene = np.zeros((3, 3))
-#         dspwre = np.zeros((nwave, 3))
-#         ddspwre = np.zeros((nwave, 3, 3))
-#         temps = np.sin(arg)
-#         # print('temps shape: {}'.format(temps.shape))
-#         # print('vec2 shape: {}'.format(vec2.shape))
-#         dspwre = np.sum(vec2 * temps[:, :, np.newaxis], axis=1)
-#         # print('dspwre shape: {}'.format(dspwre.shape))
-#         dspwre /= nstv[:, np.newaxis]
-#
-#         # print('out_vec2 shape: {}'.format(out_vec2.shape))
-#         # print('tempc shape: {}'.format(tempc.shape))
-#         out_tempc = out_vec2 * (-tempc[:, :, np.newaxis, np.newaxis])
-#         ddspwre = np.sum(out_tempc, axis=1) / nstv[:, np.newaxis, np.newaxis]
-#
-#     # print('ddspwre shape: {}'.format(ddspwre.shape))
-#     # print('spwre shape: {}'.format(spwre.shape))
-#     # print('engre shape: {}'.format(engre.shape))
-#     ene = spwre.T.dot(engre)
-#     # print('ene shape: {}'.format(ene.shape))
-#
-#
-#     if br_dir is not None:
-#         # dene = np.sum(dspwre.T * engre, axis=1)
-#         dene = np.dot(dspwre.T, engre)
-#         # print('dene shape: {}'.format(dene.shape))
-#         # ddene = np.sum(ddspwre * engre.reshape(nwave, 1, 1) * 2, axis=0)
-#         ddene = np.dot(ddspwre.T, engre)
-#         # print('ddene shape: {}'.format(ddene.shape))
-#
-#         return sign * ene, dene, ddene
-#     else:
-#         return sign * ene
+
+def get_energy_vectorized(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br_dir=None, cbm=True):
+    ''' Compute energy for a k-point from star functions
+        the only difference between this and get_energy is that xkpt can be
+        a list of k-points. It should work just like get_energy but because it
+        was causing circle tests (only online) to choke and run out of time, I
+        just reverted back to get_energy
+        Input:
+            xkpt: k-point coordinates as array
+            engre: matrix containing the coefficients of fitted band from get_engre() function
+            nwave: number of G vectors
+            nsym: number of symmetries
+            nstv: number of vectors in a star function
+            vec: the star vectors for each G vector and symmetry
+            vec2: dot product of star vectors with cell matrix for each G vector
+                and symmetry. Needed only to compute the derivatives of energy
+            br_dir: cell matrix. Needed only to compute the derivatives of energy
+            cbm: True if the considered band is a conduction band. False if it is a valence band
+            out_vec2: outer product of vec2 with itself. It is calculated outside to improve performances
+
+        Output:
+            ene: the electronic energy at the k-point in input
+            dene: 1st derivative of the electronic energy at the k-point in input
+            ddene: 2nd derivative of the electronic energy at the k-point in input
+    '''
+    # xkpt = np.array(xkpt)
+    if len(xkpt.shape) > 1:
+        xkpt = xkpt.T
+        nstv = np.tile(nstv, (xkpt.shape[1], 1)).T
+        nsym = np.tile(nsym, (xkpt.shape[1], 1)).T
+        # engre = np.tile(engre, (xkpt.shape[1], 1)).T
+        vec2 = np.tile(vec2.T, (xkpt.shape[1], 1, 1, 1)).T
+        out_vec2 = np.tile(out_vec2.T, (xkpt.shape[1], 1, 1, 1, 1)).T
+    # print('xkpt shape: {}'.format(xkpt.shape))
+    sign = -1 if cbm == False else 1
+    arg = 2 * np.pi * vec.dot(xkpt)
+    # print('arg shape: {}'.format(arg.shape))
+    tempc = np.cos(arg)
+    spwre = np.sum(tempc, axis=1) - (nsym - nstv)  # [:,np.newaxis]
+    # print('spwre shape: {}'.format(spwre.shape))
+    spwre /= nstv  # [:,np.newaxis]
+
+    if br_dir is not None:
+        dene = np.zeros(3)
+        ddene = np.zeros((3, 3))
+        dspwre = np.zeros((nwave, 3))
+        ddspwre = np.zeros((nwave, 3, 3))
+        temps = np.sin(arg)
+        # print('temps shape: {}'.format(temps.shape))
+        # print('vec2 shape: {}'.format(vec2.shape))
+        dspwre = np.sum(vec2 * temps[:, :, np.newaxis], axis=1)
+        # print('dspwre shape: {}'.format(dspwre.shape))
+        dspwre /= nstv[:, np.newaxis]
+
+        # print('out_vec2 shape: {}'.format(out_vec2.shape))
+        # print('tempc shape: {}'.format(tempc.shape))
+        out_tempc = out_vec2 * (-tempc[:, :, np.newaxis, np.newaxis])
+        ddspwre = np.sum(out_tempc, axis=1) / nstv[:, np.newaxis, np.newaxis]
+
+    # print('ddspwre shape: {}'.format(ddspwre.shape))
+    # print('spwre shape: {}'.format(spwre.shape))
+    # print('engre shape: {}'.format(engre.shape))
+    ene = spwre.T.dot(engre)
+    # print('ene shape: {}'.format(ene.shape))
+
+
+    if br_dir is not None:
+        # dene = np.sum(dspwre.T * engre, axis=1)
+        dene = np.dot(dspwre.T, engre)
+        # print('dene shape: {}'.format(dene.shape))
+        # ddene = np.sum(ddspwre * engre.reshape(nwave, 1, 1) * 2, axis=0)
+        ddene = np.dot(ddspwre.T, engre)
+        # print('ddene shape: {}'.format(ddene.shape))
+
+        return sign * ene, dene, ddene
+    else:
+        return sign * ene
 
 
 
