@@ -308,17 +308,19 @@ class AMSET(object):
                 self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
                 self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
 
+
                 # self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
-                # for c in self.dopings:
-                #     for T in self.temperatures:
-                #         if self.k_integration:
-                #             f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                #             f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                #             self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
-                #             self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
-                #         if self.e_integration:
-                #             self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)
-                #             self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                if self.independent_valleys:
+                    for c in self.dopings:
+                        for T in self.temperatures:
+                            if self.k_integration:
+                                f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                                f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                                self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
+                                self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
+                            if self.e_integration:
+                                self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                                self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)
 
                 # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
                 if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
@@ -381,19 +383,23 @@ class AMSET(object):
                 for c in self.dopings:
                     for T in self.temperatures:
                         if self.count_mobility[self.ibrun][tp]:
-                            if self.k_integration:
-                                f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                # if denominator is defined as a single common denominator, += if specific to each valley, self.denominator[c][T][tp] = ...
-                                self.denominator[c][T]['n'] += (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10) * self.bs.get_kpoint_degeneracy(important_points['n'][0])
-                                self.denominator[c][T]['p'] += (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10) *self.bs.get_kpoint_degeneracy(important_points['p'][0])
-                            elif self.e_integration:
-                                self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False) * self.bs.get_kpoint_degeneracy(important_points['n'][0])
-                                self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)* self.bs.get_kpoint_degeneracy(important_points['p'][0])
-                            for mu in self.mo_labels:
-                                for tp in ['p', 'n']:
-                                    self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
-                                    # self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] / self.denominator[c][T][tp]
+                            if not self.independent_valleys:
+                                if self.k_integration:
+                                    f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                                    f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                                    # if denominator is defined as a single common denominator, += if specific to each valley, self.denominator[c][T][tp] = ...
+                                    self.denominator[c][T]['n'] += (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10) * self.bs.get_kpoint_degeneracy(important_points['n'][0])
+                                    self.denominator[c][T]['p'] += (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10) *self.bs.get_kpoint_degeneracy(important_points['p'][0])
+                                elif self.e_integration:
+                                    self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False) * self.bs.get_kpoint_degeneracy(important_points['n'][0])
+                                    self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)* self.bs.get_kpoint_degeneracy(important_points['p'][0])
+                                for mu in self.mo_labels:
+                                    for tp in ['p', 'n']:
+                                        self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                            else:
+                                for mu in self.mo_labels:
+                                    for tp in ['p', 'n']:
+                                        self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T]
 
                 if self.poly_bands0 is None:
                     for tp in ['p', 'n']:
@@ -419,14 +425,15 @@ class AMSET(object):
         # print()
         logging.debug('here denominator:\n{}'.format(self.denominator))
 
-        for tp in ['p', 'n']:
-            for mu in self.mo_labels:
-                for c in self.dopings:
-                    for T in self.temperatures:
-                        self.mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
-                        for band in list(self.valleys[tp].keys()):
-                            for valley_k in list(self.valleys[tp][band].keys()):
-                                self.valleys[tp][band][valley_k][mu][c][T] /= self.denominator[c][T][tp]
+        if not self.independent_valleys:
+            for tp in ['p', 'n']:
+                for mu in self.mo_labels:
+                    for c in self.dopings:
+                        for T in self.temperatures:
+                            self.mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
+                            for band in list(self.valleys[tp].keys()):
+                                for valley_k in list(self.valleys[tp][band].keys()):
+                                    self.valleys[tp][band][valley_k][mu][c][T] /= self.denominator[c][T][tp]
 
 
         print('\nFinal Mobility Values:')
@@ -966,7 +973,7 @@ class AMSET(object):
         self.gaussian_broadening = False
         self.soc = params.get("soc", False)
         logging.info("bs_is_isotropic: {}".format(self.bs_is_isotropic))
-
+        self.independent_valleys = params.get('independent_valleys', False)
 
 
     def set_performance_params(self, params):
@@ -3446,11 +3453,22 @@ class AMSET(object):
                     if (mu_overrall_norm == 0.0 or faulty_overall_mobility) and not test_anisotropic:
                         logging.warning('There may be a problem with overall '
                                         'mobility; setting it to average...')
-                        valley_mobility[tp]['overall'][c][T] += 1 / mu_average
+
+# 20180305 backup: didn't make sense
+#                         valley_mobility[tp]['overall'][c][T] += 1 / mu_average
+#                     # else:
+#                     #     valley_mobility[tp]['overall'][c][T] += mu_overall
+
+# 20180305 update:
+                        valley_mobility[tp]['overall'][c][T] = valley_mobility[tp]["average"][c][T]
                     # else:
                     #     valley_mobility[tp]['overall'][c][T] += mu_overall
 
 
+
+                    if self.independent_valleys:
+                        for mu in self.mo_labels:
+                            valley_mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
 
 
                     # print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
@@ -3601,6 +3619,9 @@ class AMSET(object):
                     else:
                         valley_mobility[tp]["overall"][c][T] = mu_overall_valley
 
+                    if self.independent_valleys:
+                        for mu in self.mo_labels:
+                            valley_mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
 
                     # for mu in self.mo_labels + self.spb_labels:
                     #     if self.count_mobility[self.ibrun][tp]:
@@ -3953,7 +3974,7 @@ if __name__ == "__main__":
 
     model_params = {'bs_is_isotropic': True,
                     'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
-                    'inelastic_scatterings': ['POP'] }
+                    'inelastic_scatterings': ['POP'], 'independent_valleys': True}
     if use_poly_bands:
         model_params["poly_bands"] = [[
             [[0.0, 0.0, 0.0], [0.0, mass]],
