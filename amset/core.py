@@ -309,19 +309,17 @@ class AMSET(object):
                 self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
 
 
-                # self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
                 if self.independent_valleys:
                     for c in self.dopings:
                         for T in self.temperatures:
                             if self.k_integration:
                                 f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                                 f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                # if denominator is defined as a single common denominator, += if specific to each valley, self.denominator[c][T][tp] = ...
-                                self.denominator[c][T]['n'] += (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10)
-                                self.denominator[c][T]['p'] += (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10)
+                                self.denominator[c][T]['n'] = (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10)
+                                self.denominator[c][T]['p'] = (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10)
                             elif self.e_integration:
-                                self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)
-                                self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                                self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                                self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)
 
                 # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
                 if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
@@ -378,6 +376,9 @@ class AMSET(object):
                     valley_mobility = self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
                 if self.e_integration:
                     valley_mobility = self.calculate_transport_properties_with_E(important_points)
+                print('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
+                print('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
+                pprint(valley_mobility)
 
                 self.calculate_spb_transport()
 
@@ -3488,10 +3489,7 @@ class AMSET(object):
 
                     # print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
                     # for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
-                    #     print('new {}-type {} mobility at T = {}: {}'.format(tp, el_mech, T, self.mobility[tp][el_mech][c][T]))
-        print('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
-        print('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
-        pprint(valley_mobility)
+                    #     print('new {}-type {} mobility at T = {}: {}'.format(tp, el_mech, T, self.mobility[tp][el_mech][c][T])
         return valley_mobility
 
 
@@ -3691,10 +3689,6 @@ class AMSET(object):
                             self.egrid[other_type]["conductivity"][c][T])
                     ## since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
                     ## self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
-
-        print('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
-        print('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
-        pprint(valley_mobility)
 
         # if valley_mobility['n']['ACD'][-3e13][300.0][0] < 0:
         #     print('here debug')
