@@ -168,7 +168,7 @@ class AMSET(object):
 
         if self.pre_determined_fermi is None:
             if self.fermi_calc_type == 'k':
-                kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='very coarse')
+                kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
                 analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
                 self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
             elif self.fermi_calc_type == 'e':
