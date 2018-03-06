@@ -149,13 +149,21 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br
             dene: 1st derivative of the electronic energy at the k-point in input
             ddene: 2nd derivative of the electronic energy at the k-point in input
     '''
-    
-    
-    
+    xkpt = np.array(xkpt)
+    if len(np.array(xkpt).shape) > 1:
+        xkpt = xkpt.T
+        nstv = np.tile(nstv, (xkpt.shape[1], 1)).T
+        nsym = np.tile(nsym, (xkpt.shape[1], 1)).T
+        # engre = np.tile(engre, (xkpt.shape[1], 1)).T
+        vec2 = np.tile(vec2.T, (xkpt.shape[1], 1, 1, 1)).T
+        out_vec2 = np.tile(out_vec2.T, (xkpt.shape[1], 1, 1, 1, 1)).T
+    # print('xkpt shape: {}'.format(xkpt.shape))
     sign = -1 if cbm == False else 1
     arg = 2 * np.pi * vec.dot(xkpt)
+    # print('arg shape: {}'.format(arg.shape))
     tempc = np.cos(arg)
     spwre = np.sum(tempc, axis=1) - (nsym - nstv)  # [:,np.newaxis]
+    # print('spwre shape: {}'.format(spwre.shape))
     spwre /= nstv  # [:,np.newaxis]
 
     if br_dir is not None:
@@ -164,21 +172,32 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br
         dspwre = np.zeros((nwave, 3))
         ddspwre = np.zeros((nwave, 3, 3))
         temps = np.sin(arg)
+        # print('temps shape: {}'.format(temps.shape))
+        # print('vec2 shape: {}'.format(vec2.shape))
         dspwre = np.sum(vec2 * temps[:, :, np.newaxis], axis=1)
+        # print('dspwre shape: {}'.format(dspwre.shape))
         dspwre /= nstv[:, np.newaxis]
 
-        # maybe possible a further speed up here
-        # for nw in xrange(nwave):
-        # for i in xrange(nstv[nw]):
-        # ddspwre[nw] += outer(vec2[nw,i],vec2[nw,i])*(-tempc[nw,i])
-        # ddspwre[nw] /= nstv[nw]
+        # print('out_vec2 shape: {}'.format(out_vec2.shape))
+        # print('tempc shape: {}'.format(tempc.shape))
         out_tempc = out_vec2 * (-tempc[:, :, np.newaxis, np.newaxis])
         ddspwre = np.sum(out_tempc, axis=1) / nstv[:, np.newaxis, np.newaxis]
 
-    ene = spwre.dot(engre)
+    # print('ddspwre shape: {}'.format(ddspwre.shape))
+    # print('spwre shape: {}'.format(spwre.shape))
+    # print('engre shape: {}'.format(engre.shape))
+    ene = spwre.T.dot(engre)
+    # print('ene shape: {}'.format(ene.shape))
+
+
     if br_dir is not None:
-        dene = np.sum(dspwre.T * engre, axis=1)
-        ddene = np.sum(ddspwre * engre.reshape(nwave, 1, 1) * 2, axis=0)
+        # dene = np.sum(dspwre.T * engre, axis=1)
+        dene = np.dot(dspwre.T, engre)
+        # print('dene shape: {}'.format(dene.shape))
+        # ddene = np.sum(ddspwre * engre.reshape(nwave, 1, 1) * 2, axis=0)
+        ddene = np.dot(ddspwre.T, engre)
+        # print('ddene shape: {}'.format(ddene.shape))
+
         return sign * ene, dene, ddene
     else:
         return sign * ene
