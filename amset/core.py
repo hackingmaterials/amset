@@ -2784,8 +2784,8 @@ class AMSET(object):
         Returns:
             The fitted/calculated Fermi level
         """
-        funcs = [lambda E, fermi0, T: f0(E, fermi0, T),
-                 lambda E, fermi0, T: 1 - f0(E, fermi0, T)]
+        funcs = [lambda E, fermi, T: 1 / (1 + np.exp((E - fermi) / (k_B * T))),
+                 lambda E, fermi, T: 1 - 1 / (1 + np.exp((E - fermi) / (k_B * T)))]
 
         # initialize parameters
         relative_error = self.gl
@@ -2802,9 +2802,6 @@ class AMSET(object):
         dos_ediff = np.array([self.dos[i + 1][0] - self.dos[i][0] for i, _ in enumerate(self.dos[:-1])] + [0.0])
         dos_dosmesh = np.array([d[1] for d in self.dos])
 
-
-        print("calculating the fermi level at temperature: {} K".format(T))
-
         def linear_iteration(relative_error, fermi, calc_doping,
                              iterations, niter):
             tune_alpha = 1.0
@@ -2819,7 +2816,6 @@ class AMSET(object):
                     fermi = fermi * -1
 
                 for j, tp in enumerate(["n", "p"]):
-                    integral = 0.0
                     idx_s = (1 - j) * self.cbm_dos_idx
                     idx_e = (1 - j) * len(self.dos) + j * self.vbm_dos_idx - 1
                     integral = np.sum(dos_dosmesh[idx_s:idx_e] * funcs[j](
@@ -2839,8 +2835,8 @@ class AMSET(object):
         step = 0.1
         nstep = 20
         fermi0 = fermi
-        min_diff = 1e32
 
+        print("calculating the fermi level at temperature: {} K".format(T))
         for i in range(15):
             if i > 0:
                 nsetps = 10
