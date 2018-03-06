@@ -149,7 +149,7 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br
             dene: 1st derivative of the electronic energy at the k-point in input
             ddene: 2nd derivative of the electronic energy at the k-point in input
     '''
-    xkpt = np.array(xkpt)
+    # xkpt = np.array(xkpt)
     if len(np.array(xkpt).shape) > 1:
         xkpt = xkpt.T
         nstv = np.tile(nstv, (xkpt.shape[1], 1)).T
