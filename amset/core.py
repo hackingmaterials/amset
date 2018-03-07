@@ -134,6 +134,7 @@ class AMSET(object):
         kgrid_tp (str): define the density of k-point mesh.
             options: 'very coarse', 'coarse', 'fine'
         """
+        logging.info('Running on "{}" mesh for each valley'.format(kgrid_tp))
         self.read_vrun(calc_dir=self.calc_dir, filename="vasprun.xml")
         if self.poly_bands0 is not None:
             self.cbm_vbm["n"]["energy"] = self.dft_gap
