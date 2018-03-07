@@ -1691,35 +1691,48 @@ class AMSET(object):
                     # if self.kgrid[tp]["velocity"][ib][ik][0] < self.v_min or  \
                     #                 self.kgrid[tp]["velocity"][ib][ik][1] < self.v_min \
                     #         or self.kgrid[tp]["velocity"][ib][ik][2] < self.v_min or \
-                    if ((self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() or \
-                        abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
-                        and (len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])):
-                        # TODO: remove this if when treating valence valleys and conduction valleys separately
-                        # print('here debug removing k-points')
-                            # print(tp)
-                            # print(self.ibrun)
-                            # print(important_points[tp])
-                            # print(self.count_mobility[self.ibrun])
-                            # print(self.kgrid[tp]["kpoints"][ib][ik])
-                            # print(self.kgrid[tp]["cartesian kpoints"][ib][ik])
-                            # print(self.kgrid[tp]["energy"][ib][ik])
-                            # print(self.kgrid[tp]["velocity"][ib][ik])
-                            rm_idx_list[tp][ib].append(ik)
+                    # if ((self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() or \
+                    #     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
+                    #     and (len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])):
+                    #     # TODO: remove this if when treating valence valleys and conduction valleys separately
+                    #     # print('here debug removing k-points')
+                    #         # print(tp)
+                    #         # print(self.ibrun)
+                    #         # print(important_points[tp])
+                    #         # print(self.count_mobility[self.ibrun])
+                    #         # print(self.kgrid[tp]["kpoints"][ib][ik])
+                    #         # print(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+                    #         # print(self.kgrid[tp]["energy"][ib][ik])
+                    #         # print(self.kgrid[tp]["velocity"][ib][ik])
+                    #         rm_idx_list[tp][ib].append(ik)
 
-
-                    # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
-                    # if self.max_normk0:
-                    if (self.max_normk[tp]) and (self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]) \
-                            and (len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])) \
-                            and self.poly_bands0 is None: # this last part to avoid an error in test_poly_bands
+                    if (len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])) and (
+                            (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() \
+                        or \
+                            (abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
+                        or \
+                            ((self.max_normk[tp]) and (self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]) and (self.poly_bands0 is None))
+                    ):
                         rm_idx_list[tp][ib].append(ik)
 
-                    # This caused some tests to break as it was changing mobility
-                    # values and making them more anisotropic since it was removing Gamma from GaAs
-                    # if self.kgrid[tp]["norm(k)"][ib][ik] < 0.0001:
-                    #     logging.debug('HERE removed k-point {} ; cartesian: {}'.format(
-                    #         self.kgrid[tp]["kpoints"][ib][ik], self.kgrid[tp]["cartesian kpoints"][ib][ik]))
+                    #
+                    # # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
+                    # # if self.max_normk0:
+                    # if (self.max_normk[tp]) and (self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]) \
+                    #         # and (len(rm_idx_list[tp][ib]) + 0 < len(self.kgrid[tp]['kpoints'][ib])) \
+                    #         and self.poly_bands0 is None: # this last part to avoid an error in test_poly_bands
+                    #     if self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]:
+                    #         print('here norm(k) too large')
+                    #         print(self.kgrid[tp]["norm(k)"][ib][ik])
+                    #         print(len(rm_idx_list[tp][ib]))
                     #     rm_idx_list[tp][ib].append(ik)
+                    #
+                    # # This caused some tests to break as it was changing mobility
+                    # # values and making them more anisotropic since it was removing Gamma from GaAs
+                    # # if self.kgrid[tp]["norm(k)"][ib][ik] < 0.0001:
+                    # #     logging.debug('HERE removed k-point {} ; cartesian: {}'.format(
+                    # #         self.kgrid[tp]["kpoints"][ib][ik], self.kgrid[tp]["cartesian kpoints"][ib][ik]))
+                    # #     rm_idx_list[tp][ib].append(ik)
 
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
@@ -1733,7 +1746,7 @@ class AMSET(object):
             logging.debug("average of the {}-type group velocity in kgrid:\n {}".format(
                         tp, np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
 
-        rearranged_props = ["velocity", "effective mass", "energy", "a", "c",
+        rearranged_props = ["velocity",  "effective mass", "energy", "a", "c",
                             "kpoints", "cartesian kpoints",
                             "old cartesian kpoints", "kweights",
                             "norm(v)", "norm(k)", "norm(actual_k)"]
@@ -1751,9 +1764,19 @@ class AMSET(object):
             rm_idx_list[tp] = [rm_idx_list[tp][0] for ib in range(self.cbm_vbm[tp]["included"])]
 
         self.rm_idx_list = deepcopy(rm_idx_list)   # format: [tp][ib][ik]
+        # print('sanity check...')
+        # print('ib={}'.format(ib))
+        # if len(self.kgrid['n']["kpoints"]) > 1:
+        #     print(self.kgrid['n'])
+        #     raise ValueError('ib=0 must always')
         if delete_off_points:
+            # print('BEFORE REMOVING')
+            # print(len(self.kgrid['n']["kpoints"][ib]))
+            # print(len(self.kgrid['p']["kpoints"][ib]))
             self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
-
+            # print('AFTER REMOVING')
+            # print(len(self.kgrid['n']["kpoints"][ib]))
+            # print(len(self.kgrid['p']["kpoints"][ib]))
         logging.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin, self.dos_emax))
 
         logging.debug('current cbm_vbm:\n{}'.format(self.cbm_vbm))
@@ -3982,7 +4005,9 @@ if __name__ == "__main__":
 
     model_params = {'bs_is_isotropic': True,
                     'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
-                    'inelastic_scatterings': ['POP'], 'independent_valleys': True}
+                    'inelastic_scatterings': ['POP']
+        , 'independent_valleys': False
+                    }
     if use_poly_bands:
         model_params["poly_bands"] = [[
             [[0.0, 0.0, 0.0], [0.0, mass]],
@@ -3990,7 +4015,7 @@ if __name__ == "__main__":
 
     # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
     performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
-            "BTE_iters": 5, "max_nbands": 1, "max_normk": 2, "max_ncpu": 4
+            "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           }
