@@ -259,8 +259,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     S_o = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
     S_o_th = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
 
-    # v = kgrid[tp]["norm(v)"][ib][ik] / sq3  # 3**0.5 is to treat each direction as 1D BS
-    v = kgrid[tp]["norm(v)"][ib][ik]  # 20180306: still not sure about /sq3 and whether it's necessary
+    v = kgrid[tp]["norm(v)"][ib][ik] / sq3  # 3**0.5 is to treat each direction as 1D BS
+    # v = kgrid[tp]["norm(v)"][ib][ik]  # 20180306: still not sure about /sq3 and whether it's necessary it has been /sq3 for a long time and is tested more
     k = kgrid[tp]["norm(k)"][ib][ik]
     a = kgrid[tp]["a"][ib][ik]
     c_ = kgrid[tp]["c"][ib][ik]
@@ -298,8 +298,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
 
             g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
             g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
-            # v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
-            v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] # 20180306: still not sure about /sq3 and whether it's necessary
+            v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
+            # v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] # 20180306: still not sure about /sq3 and whether it's necessary
             a_pm = kgrid[tp]["a"][ib_pm][ik_pm]
             c_pm = kgrid[tp]["c"][ib_pm][ik_pm]
 
