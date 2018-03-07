@@ -259,7 +259,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     S_o = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
     S_o_th = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
 
-    v = kgrid[tp]["norm(v)"][ib][ik] / sq3  # 3**0.5 is to treat each direction as 1D BS
+    # v = kgrid[tp]["norm(v)"][ib][ik] / sq3  # 3**0.5 is to treat each direction as 1D BS
+    v = kgrid[tp]["norm(v)"][ib][ik]  # 20180306: still not sure about /sq3 and whether it's necessary
     k = kgrid[tp]["norm(k)"][ib][ik]
     a = kgrid[tp]["a"][ib][ik]
     c_ = kgrid[tp]["c"][ib][ik]
@@ -297,7 +298,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
 
             g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
             g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
-            v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
+            # v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
+            v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] # 20180306: still not sure about /sq3 and whether it's necessary
             a_pm = kgrid[tp]["a"][ib_pm][ik_pm]
             c_pm = kgrid[tp]["c"][ib_pm][ik_pm]
 
@@ -316,7 +318,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             if not once_called:
                 lamb_opm = beta_pm * (
                     A_pm ** 2 * log((k_pm + k) / (abs_kdiff)) - A_pm * c_ * c_pm - a * a_pm * c_ * c_pm)
-                # because in the scalar form k+ or k- is suppused to be unique, here we take average
+                # because in the scalar form k+ or k- is supposed to be unique, here we take average
                 S_o[j] += (N_POP + j + (-1) ** j * f_pm) * lamb_opm
                 S_o_th[j] += (N_POP + j + (-1) ** j * f_pm_th) * lamb_opm
 
