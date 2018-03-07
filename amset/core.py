@@ -110,6 +110,8 @@ class AMSET(object):
         self.num_cores = max(int(multiprocessing.cpu_count()/4), self.max_ncpu)
         if self.parallel:
             logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
+        self.counter = 0 # a global counter just for debugging
+
 
     def run_profiled(self, coeff_file=None, kgrid_tp="coarse", write_outputs=True):
         profiler = cProfile.Profile()
@@ -164,6 +166,9 @@ class AMSET(object):
         #TODO: if we use ibands_tuple, then for each couple of conduction/valence bands we only use 1 band together (i.e. always ib==0)
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['included'] = 1
+
+        logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
+
         self.ibrun = 0 # initialize as may be called in init_kgrid as debug
         self.count_mobility = [{'n': True, 'p': True} for _ in range(max(self.initial_num_bands['p'], self.initial_num_bands['n']))]
 
@@ -605,9 +610,8 @@ class AMSET(object):
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['energy'] = self.cbm_vbm0[tp]['energy']
             self.cbm_vbm[tp]['eff_mass_xx'] = self.cbm_vbm0[tp]['eff_mass_xx']
-
-        logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
         self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm0[tp]["eff_mass_xx"])) for tp in ["n", "p"]}
+
 
     def get_energy_array(self, coeff_file, kpts, once_called=False,
                          return_energies=False, num_bands=None,
@@ -813,10 +817,10 @@ class AMSET(object):
                           nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm)
             # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
             if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy']:
-                self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
+                self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy'] + self.scissor/2.0
                 self.cbm_vbm['n']['kpoint'] = new_cbm_vbm['n']['kpoint']
             if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p']['energy']:
-                self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
+                self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy'] - self.scissor/2.0
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
             # for tp in ['p', 'n']:
             #     self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
@@ -1705,6 +1709,8 @@ class AMSET(object):
                     #         # print(self.kgrid[tp]["velocity"][ib][ik])
                     #         rm_idx_list[tp][ib].append(ik)
 
+                    # logging.info('cbm_vbm right before checking for omission: {}'.format(self.cbm_vbm))
+
                     if (len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])) and (
                             (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() \
                         or \
@@ -1712,6 +1718,11 @@ class AMSET(object):
                         or \
                             ((self.max_normk[tp]) and (self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]) and (self.poly_bands0 is None))
                     ):
+                        # if abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]:
+                        #     print('here energy diff large')
+                        #     print(self.cbm_vbm)
+                        #     self.counter += 1
+                        #     print(self.counter)
                         rm_idx_list[tp][ib].append(ik)
 
                     #
@@ -2551,7 +2562,7 @@ class AMSET(object):
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
-                    for ib in range(len(self.kgrid[tp]["energy"])):
+                    for ib in range(len(self.kgrid[tp]["kpoints"])):
                         # only when very large # of k-points are present, make sense to parallelize as this function
                         # has become fast after better energy window selection
                         if self.parallel and len(self.kgrid[tp]["size"]) * \
