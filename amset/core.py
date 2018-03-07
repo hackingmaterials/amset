@@ -97,6 +97,7 @@ class AMSET(object):
         self.debug_tp = get_tp(self.dopings[0])
         logging.debug("""debug_tp: "{}" """.format(self.debug_tp))
         self.set_model_params(model_params)
+        logging.info('independent_valleys: {}'.format(self.independent_valleys))
         self.set_material_params(material_params)
         self.set_performance_params(performance_params)
         self.k_integration = k_integration
@@ -382,6 +383,7 @@ class AMSET(object):
 
                 self.calculate_spb_transport()
 
+                logging.info('Mobility Labels: {}'.format(self.mo_labels))
                 for c in self.dopings:
                     for T in self.temperatures:
                         if self.count_mobility[self.ibrun][tp]:
@@ -452,10 +454,7 @@ class AMSET(object):
 
 
         print('\nFinal Mobility Values:')
-        if self.k_integration:
-            pprint(self.mobility)
-        if self.e_integration:
-            pprint(self.mobility)
+        pprint(self.mobility)
 
         if write_outputs:
             self.to_file()
