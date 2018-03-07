@@ -2451,15 +2451,17 @@ class AMSET(object):
         """
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
-
         if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
             return np.array(
                 [0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
 
 
-        return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-               * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
+        # return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
 
+        # 20180307: I removed /sq3 from all elastic and inelastics: iso-aniso consistency can still be established
+        return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+               * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm])
 
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
@@ -2493,7 +2495,7 @@ class AMSET(object):
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
-        v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
+        # v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
         if tp == "n":
             f = self.kgrid[tp]["f"][c][T][ib][ik]
             f_prm = self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
@@ -2525,7 +2527,7 @@ class AMSET(object):
         #         (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
         # only changing ik_prm of norm(k) to ik made S_o look more like isotropic
         integ = self.kgrid[tp]["norm(k)"][ib][ik]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
-                (self.kgrid[tp]["norm(v)"][ib][ik]*norm_diff**2/sq3)
+                (self.kgrid[tp]["norm(v)"][ib][ik]*norm_diff**2)
 
         # the following worked ok at superfine, the final POP and g matches with isotropic but S_i and S_o match are not good!
         if "S_i" in sname:
@@ -2626,7 +2628,8 @@ class AMSET(object):
             ik (int): k-point index
         Returns (float): scalar (since assumed isotropic) scattering rate.
         """
-        v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
+        # v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
+        v = self.kgrid[tp]["norm(v)"][ib][ik] # 20180307: I don't think /sq3 is necessary, iso-aniso consistency can still be established by removing all /sq3 from v/sq3
         knrm = self.kgrid[tp]["norm(k)"][ib][ik]
         par_c = self.kgrid[tp]["c"][ib][ik]
 
