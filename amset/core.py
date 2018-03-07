@@ -2533,8 +2533,8 @@ class AMSET(object):
                         # only when very large # of k-points are present, make sense to parallelize as this function
                         # has become fast after better energy window selection
                         if self.parallel and len(self.kgrid[tp]["size"]) * \
-                                max(self.kgrid[tp]["size"]) > 1000000:
-                            # if False:
+                                max(self.kgrid[tp]["size"]) > 1000000000000:
+                            # if False: Parallel should never be used here as it gets stuck or it's slower than series, perhaps since too much data (kgrid) transfer and pickling happens
                             results = Parallel(n_jobs=self.num_cores)(
                                 delayed(calculate_Sio)(tp, c, T, ib, ik,
                                 once_called, self.kgrid, self.cbm_vbm,
@@ -3089,7 +3089,6 @@ class AMSET(object):
                     for tp in ["n", "p"]:
                         g_old = np.array(self.kgrid[tp]["g"][c][T][0])
                         for ib in range(self.cbm_vbm[tp]["included"]):
-
                             self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
                                                                  self.kgrid[tp]["electric force"][c][T][ib]) / (
                                                                     self.kgrid[tp]["S_o"][c][T][ib] + self.gs + 1)
