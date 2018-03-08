@@ -3324,7 +3324,9 @@ class AMSET(object):
                     num_k = [len(self.kgrid[tp]["energy"][ib]) for ib in range(self.num_bands[tp])]
                     df0dk = self.array_from_kgrid('df0dk', tp, c, T)
                     v = self.array_from_kgrid('velocity', tp)
-                    norm_v = np.array([self.grid_from_energy_list([norm(self.kgrid[tp]["velocity"][ib][ik]) / sq3 for ik in
+                    # norm_v = np.array([self.grid_from_energy_list([norm(self.kgrid[tp]["velocity"][ib][ik]) / sq3 for ik in
+                    #                                       range(num_k[ib])], tp, ib) for ib in range(self.num_bands[tp])])
+                    norm_v = np.array([self.grid_from_energy_list([self.kgrid[tp]["norm(v)"][ib][ik] for ik in
                                                           range(num_k[ib])], tp, ib) for ib in range(self.num_bands[tp])])
                     #norm_v = grid_norm(v)
                     f0_removed = self.array_from_kgrid('f0', tp, c, T)
