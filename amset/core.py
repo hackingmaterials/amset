@@ -252,9 +252,9 @@ class AMSET(object):
 
                 if self.max_normk0 is None:
                     for tp in ['n', 'p']:
-                        min_dist = 4.0
+                        min_dist = 20.0
                         for k in self.bs.get_sym_eq_kpoints(important_points[tp][0]): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
-                            new_dist = norm(self._rec_lattice.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True, threshold=0.01)))
+                            new_dist = norm(self._rec_lattice.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True, threshold=0.01)) /A_to_nm )
                             # print('here dist')
                             # print get_closest_k(k, self.important_pts[tp][0], return_diff=True)
                             # print(self.important_pts[tp][0])
@@ -401,8 +401,8 @@ class AMSET(object):
                                     self.denominator[c][T]['n'] += (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10)
                                     self.denominator[c][T]['p'] += (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10)
                                 elif self.e_integration:
-                                    self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)
-                                    self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                                    self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)  * self.bs.get_kpoint_degeneracy(important_points['n'][0])
+                                    self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False) * self.bs.get_kpoint_degeneracy(important_points['p'][0])
 
                                 ## with degeneracy multiplied (I think this is relevant only if all valleys are considered!
                                 # if self.k_integration:
@@ -1068,6 +1068,9 @@ class AMSET(object):
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
+        # print(norm(self._rec_lattice.get_cartesian_coords([0.5, 0.5, 0.5])/A_to_nm )/2  )
+        # print(norm(self._rec_lattice.get_cartesian_coords([0.5, 0.0, 0.5])/A_to_nm )/2  )
+
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
         self.rotations, _ = sg._get_symmetry()
         self.bs = self._vrun.get_band_structure()
