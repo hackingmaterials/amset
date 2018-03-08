@@ -2278,38 +2278,61 @@ class AMSET(object):
             normk_sorted_idx = np.argsort(self.kgrid[tp][normk_tp][ib])
             diff = [0.0 for prop in prop_list]
 
-
-            for j, ik in enumerate(normk_sorted_idx[:-1]):
-                ik_next = normk_sorted_idx[j+1]
-                normk = self.kgrid[tp][normk_tp][ib][ik]
-                dk = (self.kgrid[tp][normk_tp][ib][ik_next] - normk)/interpolation_nsteps
-                if dk == 0.0:
-                    continue
-                if xDOS:
-                    dS = ((self.kgrid[tp][normk_tp][ib][ik_next]/pi)**2 - \
-                         (self.kgrid[tp][normk_tp][ib][ik]/pi)**2)/interpolation_nsteps
-                for j, p in enumerate(prop_list):
-                    if p[0] == "/":
-                        diff[j] = (self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik_next] - \
-                                        self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik]) / interpolation_nsteps
-                    elif p[0] == "1":
-                        diff[j] = ((1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik_next]) - \
-                                  (1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik])) / interpolation_nsteps
-                    else:
-                        diff[j] = (self.kgrid[tp][p][c][T][ib][ik_next] - self.kgrid[tp][p][c][T][ib][ik]) / interpolation_nsteps
-
-                for i in range(interpolation_nsteps):
-                    multi = dk
-                    for j, p in enumerate(prop_list):
-                        if p[0] == "/":
-                            multi /= self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik] + diff[j] * i
-                        elif "1" in p:
-                            multi *= 1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik] + diff[j] * i
-                        else:
-                            multi *= self.kgrid[tp][p][c][T][ib][ik] + diff[j] * i
-                    if xDOS:
-                        multi *= (self.kgrid[tp][normk_tp][ib][ik]/pi)**2 + dS * i
-                    integral += multi
+            normk_vec = np.array(self.kgrid[tp][normk_tp][ib])
+            dk_vec = np.array([
+                self.kgrid[tp][normk_tp][ib][normk_sorted_idx[j+1]] - \
+                self.kgrid[tp][normk_tp][ib][normk_sorted_idx[j]]
+                        for j in range(len(normk_sorted_idx)-1)] + [0.0])
+            integral_vec = normk_vec * dk_vec
+            if xDOS:
+                integral_vec *= normk_vec**2/pi
+            for j, p in enumerate(prop_list):
+                if p[0] == "/":
+                    vec = np.array(self.kgrid[tp][p.split("/")[-1]][c][T][ib])
+                elif p[0] == "1":
+                    vec = np.array(self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib])
+                else:
+                    vec = np.array(self.kgrid[tp][p][c][T][ib])
+                if len(vec.shape) > 1:
+                    integral_vec *= np.mean(vec, axis=-1)
+                else:
+                    integral_vec *= vec
+                # try:
+                #     integral_vec *= np.mean(vec, axis=1)
+                # except IndexError:
+                #     integral_vec *= vec
+            integral = np.sum(integral_vec)
+            # for j, ik in enumerate(normk_sorted_idx[:-1]):
+            #     ik_next = normk_sorted_idx[j+1]
+            #     normk = self.kgrid[tp][normk_tp][ib][ik]
+            #     dk = (self.kgrid[tp][normk_tp][ib][ik_next] - normk)/interpolation_nsteps
+            #     if dk == 0.0:
+            #         continue
+            #     if xDOS:
+            #         dS = ((self.kgrid[tp][normk_tp][ib][ik_next]/pi)**2 - \
+            #              (self.kgrid[tp][normk_tp][ib][ik]/pi)**2)/interpolation_nsteps
+            #     for j, p in enumerate(prop_list):
+            #         if p[0] == "/":
+            #             diff[j] = (self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik_next] - \
+            #                             self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik]) / interpolation_nsteps
+            #         elif p[0] == "1":
+            #             diff[j] = ((1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik_next]) - \
+            #                       (1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik])) / interpolation_nsteps
+            #         else:
+            #             diff[j] = (self.kgrid[tp][p][c][T][ib][ik_next] - self.kgrid[tp][p][c][T][ib][ik]) / interpolation_nsteps
+            #
+            #     for i in range(interpolation_nsteps):
+            #         multi = dk
+            #         for j, p in enumerate(prop_list):
+            #             if p[0] == "/":
+            #                 multi /= self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik] + diff[j] * i
+            #             elif "1" in p:
+            #                 multi *= 1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik] + diff[j] * i
+            #             else:
+            #                 multi *= self.kgrid[tp][p][c][T][ib][ik] + diff[j] * i
+            #         if xDOS:
+            #             multi *= (self.kgrid[tp][normk_tp][ib][ik]/pi)**2 + dS * i
+            #         integral += multi
         return integral
 
 
@@ -2962,7 +2985,7 @@ class AMSET(object):
         for tp in ["n", "p"]:
             # TODO: the integration may need to be revised. Careful testing of IMP scattering against expt is necessary
             integral = self.integrate_over_normk(prop_list=["f0","1-f0"], tp=tp, c=c, T=T, xDOS=True)
-            integral = sum(integral)/3
+            # integral = sum(integral)/3
             # logging.debug('integral_over_norm_k')
             # logging.debug(integral)
 
@@ -2990,11 +3013,11 @@ class AMSET(object):
                 n += 1
 
         # make the output dict
-        out_d = {'kgrid': self.kgrid, 'egrid': self.egrid, 'cbm_vbm': self.cbm_vbm,
+        out_d = {'kgrid0': self.kgrid0, 'egrid0': self.egrid0, 'cbm_vbm': self.cbm_vbm,
                  'mobility': self.mobility, 'epsilon_s': self.epsilon_s,
                  'elastic_scatterings': self.elastic_scatterings,
                  'inelastic_scatterings': self.inelastic_scatterings,
-                 'Efrequency': self.Efrequency,
+                 'Efrequency0': self.Efrequency0,
                  'dopings': self.dopings, 'temperatures': self.temperatures}
 
         # write the output dict to file
@@ -3014,13 +3037,13 @@ class AMSET(object):
         with gzip.GzipFile(os.path.join(path, filename), mode='r') as fp:
             d = json.load(fp, cls=MontyDecoder)
         amset = AMSET(calc_dir=path, material_params={'epsilon_s': d['epsilon_s']})
-        amset.kgrid = d['kgrid']
-        amset.egrid = d['egrid']
+        amset.kgrid0 = d['kgrid0']
+        amset.egrid0 = d['egrid0']
         amset.mobility = d['mobility']
         amset.elastic_scatterings = d['elastic_scatterings']
         amset.inelastic_scatterings = d['inelastic_scatterings']
         amset.cbm_vbm = d['cbm_vbm']
-        amset.Efrequency = d['Efrequency']
+        amset.Efrequency0 = d['Efrequency0']
         amset.dopings = [float(dope) for dope in d['dopings']]
         amset.temperatures = [float(T) for T in d['temperatures']]
         return amset
