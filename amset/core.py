@@ -208,12 +208,12 @@ class AMSET(object):
 
         if len(vibands) > len(cibands):
             ibands_tuple = list(zip(vibands, cibands+[cibands[0]]*(len(vibands)-len(cibands))))
-            for i in range(len(cibands), len(vibands)):
-                self.count_mobility[i]['n'] = False
+            for ivt in range(len(cibands), len(vibands)):
+                self.count_mobility[ivt]['n'] = False
         else:
             ibands_tuple = list(zip(vibands+[vibands[0]]*(len(cibands)-len(vibands)), cibands))
-            for i in range(len(vibands), len(cibands)):
-                self.count_mobility[i]['p'] = False
+            for ivt in range(len(vibands), len(cibands)):
+                self.count_mobility[ivt]['p'] = False
         self.ibands_tuple = ibands_tuple
         self.count_mobility0 = deepcopy(self.count_mobility)
         #TODO: this ibands_tuple is to treat each band (and valleys with) independently (so each time num_bands will be {'n': 1, 'p': 1} but with different band indexes
@@ -237,15 +237,15 @@ class AMSET(object):
             if self.max_nvalleys is not None:
                 max_nvalleys = min(max_nvalleys, self.max_nvalleys)
 
-            for i in range(max_nvalleys):
+            for ivalley in range(max_nvalleys):
                 self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
                 once_called = True
                 important_points = {'n': None, 'p': None}
-                if i == 0 and self.ibrun==0 and self.pre_determined_fermi is not None:
+                if ivalley == 0 and self.ibrun==0 and self.pre_determined_fermi is not None:
                     once_called = False
                 for tp in ['p', 'n']:
                     try:
-                        important_points[tp] = [self.important_pts[tp][i]]
+                        important_points[tp] = [self.important_pts[tp][ivalley]]
                     except:
                         important_points[tp] = [self.important_pts[tp][0]]
                         self.count_mobility[self.ibrun][tp] = False
@@ -442,6 +442,12 @@ class AMSET(object):
                 kgrid_rm_list = ["effective mass", "kweights",
                                  "f_th", "S_i_th", "S_o_th"]
                 self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
+                if ivalley==0 and self.ibrun==0:
+                    print('here copy kgrid')
+                    self.kgrid0 = deepcopy(self.kgrid)
+                    self.egrid0 = deepcopy(self.egrid)
+                    self.Efrequency0 = deepcopy(self.Efrequency)
+
 
         # print('here debug mobility')
         # print(self.mobility['n'])
@@ -3876,7 +3882,7 @@ class AMSET(object):
                'frequency': False}
 
         for tp in carrier_types:
-            x_data = {'k': self.kgrid[tp]["norm(k)"][0],
+            x_data = {'k': self.kgrid0[tp]["norm(k)"][0],
                       'E': [E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]]}
             x_axis_label = {'k': 'norm(k)', 'E': 'energy (eV)'}
 
@@ -3885,9 +3891,9 @@ class AMSET(object):
                 # plots of scalar properties first
                 tp_c = tp + '_' + str(c)
                 for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
-                    y_data_temp_independent = {'k': {'energy': self.kgrid[tp]['energy'][0],
-                                                     'velocity': self.kgrid[tp]["norm(v)"][0]},
-                                               'E': {'frequency': self.Efrequency[tp]}}
+                    y_data_temp_independent = {'k': {'energy': self.kgrid0[tp]['energy'][0],
+                                                     'velocity': self.kgrid0[tp]["norm(v)"][0]},
+                                               'E': {'frequency': self.Efrequency0[tp]}}
                     for y_value in y_values:
                         if not vec[y_value]:
                             plot_title = None
@@ -3899,10 +3905,10 @@ class AMSET(object):
 
 
                 for dir in direction:
-                    y_data_temp_independent = {'k': {'energy': self.kgrid[tp]['energy'][0],
-                                                     'velocity': self.kgrid[tp]["norm(v)"][0]},
-                                               'E': {'frequency': self.Efrequency[tp],
-                                                     'velocity': [self.get_scalar_output(p, dir) for p in self.egrid[tp]['velocity']]}}
+                    y_data_temp_independent = {'k': {'energy': self.kgrid0[tp]['energy'][0],
+                                                     'velocity': self.kgrid0[tp]["norm(v)"][0]},
+                                               'E': {'frequency': self.Efrequency0[tp],
+                                                     'velocity': [self.get_scalar_output(p, dir) for p in self.egrid0[tp]['velocity']]}}
 
                     tp_c_dir = tp_c + '_' + dir
 
@@ -3916,14 +3922,14 @@ class AMSET(object):
 
                     # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
                     try:
-                        y_data_temp_dependent = {'k': {prop: {T: [self.get_scalar_output(p, dir) for p in self.kgrid[tp][prop][c][T][0]]
+                        y_data_temp_dependent = {'k': {prop: {T: [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][prop][c][T][0]]
                                                                 for T in self.temperatures} for prop in temp_dependent_k_props},
-                                                'E': {prop: {T: [self.get_scalar_output(p, dir) for p in self.egrid[tp][prop][c][T]]
+                                                'E': {prop: {T: [self.get_scalar_output(p, dir) for p in self.egrid0[tp][prop][c][T]]
                                                                 for T in self.temperatures} for prop in temp_dependent_E_props}}
                     except KeyError: # for when from_file is called
-                        y_data_temp_dependent = {'k': {prop: {T: [self.get_scalar_output(p, dir) for p in self.kgrid[tp][prop][str(c)][str(int(T))][0]]
+                        y_data_temp_dependent = {'k': {prop: {T: [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][prop][str(c)][str(int(T))][0]]
                                                                 for T in self.temperatures} for prop in temp_dependent_k_props},
-                                                'E': {prop: {T: [self.get_scalar_output(p, dir) for p in self.egrid[tp][prop][str(c)][str(int(T))]]
+                                                'E': {prop: {T: [self.get_scalar_output(p, dir) for p in self.egrid0[tp][prop][str(c)][str(int(T))]]
                                                                 for T in self.temperatures} for prop in temp_dependent_E_props}}
 
                     # temperature dependent k and E plots
