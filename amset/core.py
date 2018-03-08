@@ -150,6 +150,10 @@ class AMSET(object):
             boltztrap_runner.run(path_dir=self.calc_dir)
             # BoltztrapRunner().run(path_dir=self.calc_dir)
             coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
+            logging.warning('BoltzTraP run finished, I suggest to set the following '
+                            'to skip this step next time:\n{}="{}"'.format(
+                "coeff_file", os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
+            ))
             if not os.path.exists(coeff_file):
                 raise AmsetError('{} does not exist! generating the cube file '
                 '(i.e. fort.123) requires a modified version of BoltzTraP. '
@@ -262,9 +266,10 @@ class AMSET(object):
                             if new_dist < min_dist and new_dist > 0.01: # to avoid self-counting, 0.01 criterion added
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
-                if self.max_nvalleys and self.max_nvalleys==1: # this ignores max_normk0
-                    self.max_normk = {'n': self.max_normk0 or 1.5,
-                                      'p': self.max_normk0 or 1.5}
+                if self.max_nvalleys and self.max_nvalleys==1:
+                    # this ignores max_normk0 because if only a single valley, we don't want it to go over the whole BZ
+                    self.max_normk = {'n': self.max_normk0 or 2,
+                                      'p': self.max_normk0 or 2}
                 logging.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 logging.info('Current valleys:\n{}'.format(important_points))
                 logging.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
