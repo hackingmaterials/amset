@@ -3326,8 +3326,9 @@ class AMSET(object):
                     v = self.array_from_kgrid('velocity', tp)
                     # norm_v = np.array([self.grid_from_energy_list([norm(self.kgrid[tp]["velocity"][ib][ik]) / sq3 for ik in
                     #                                       range(num_k[ib])], tp, ib) for ib in range(self.num_bands[tp])])
-                    norm_v = np.array([self.grid_from_energy_list([self.kgrid[tp]["norm(v)"][ib][ik] for ik in
-                                                          range(num_k[ib])], tp, ib) for ib in range(self.num_bands[tp])])
+                    # norm_v = np.array([self.grid_from_energy_list([self.kgrid[tp]["norm(v)"][ib][ik] for ik in
+                    #                                       range(num_k[ib])], tp, ib) for ib in range(self.num_bands[tp])])
+                    norm_v = v # 20180307: AF: I added this since we want to see the mobility in 3 main directions, in isotropic material it's the same as norm(v)/sq3
                     #norm_v = grid_norm(v)
                     f0_removed = self.array_from_kgrid('f0', tp, c, T)
 
