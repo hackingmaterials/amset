@@ -443,7 +443,7 @@ class AMSET(object):
                                  "f_th", "S_i_th", "S_o_th"]
                 self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
                 if ivalley==0 and self.ibrun==0:
-                    print('here copy kgrid')
+                    # TODO: make it possible for the user to choose which valley(s) to plot
                     self.kgrid0 = deepcopy(self.kgrid)
                     self.egrid0 = deepcopy(self.egrid)
                     self.Efrequency0 = deepcopy(self.Efrequency)
