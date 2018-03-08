@@ -739,8 +739,9 @@ class AMSET(object):
                             self._rec_lattice.get_cartesian_coords(kpts[ik]) / A_to_nm,
                             poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
                         all_bands_energies[tp].append(energy)
-            self.dos_emin = min(all_bands_energies["p"])
-            self.dos_emax = max(all_bands_energies["n"])
+            if not once_called:
+                self.dos_emin = min(all_bands_energies["p"])
+                self.dos_emax = max(all_bands_energies["n"])
 
         del e_sort_idx
 
@@ -1712,7 +1713,7 @@ class AMSET(object):
 
                     # logging.info('cbm_vbm right before checking for omission: {}'.format(self.cbm_vbm))
 
-                    if (len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])) and (
+                    if (len(rm_idx_list[tp][ib]) + 20 < len(self.kgrid[tp]['kpoints'][ib])) and (
                             (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() \
                         or \
                             (abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
