@@ -260,7 +260,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     S_o_th = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
 
     # v = kgrid[tp]["norm(v)"][ib][ik] / sq3  # 3**0.5 is to treat each direction as 1D BS
-    v = kgrid[tp]["norm(v)"][ib][ik]  # 20180306: still not sure about /sq3 and whether it's necessary it has been /sq3 for a long time and is tested more
+    # v = kgrid[tp]["norm(v)"][ib][ik]  # 20180306: still not sure about /sq3 and whether it's necessary it has been /sq3 for a long time and is tested more
+    # 20180306: it seems like v is NOT used anyway?
     k = kgrid[tp]["norm(k)"][ib][ik]
     a = kgrid[tp]["a"][ib][ik]
     c_ = kgrid[tp]["c"][ib][ik]
