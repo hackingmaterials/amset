@@ -86,7 +86,7 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                 elif kgrid_tp == 'very coarse':
                     mesh = [0.001, 0.01]
                 elif kgrid_tp == 'uniform':
-                    mesh = np.linspace(0.001, 0.50, 23)
+                    mesh = np.linspace(0.001, 0.50, 15)
                 elif kgrid_tp == 'test uniform':
                     mesh = np.linspace(0.001, 0.50, 7)
                 elif kgrid_tp == 'test':
