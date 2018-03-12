@@ -119,7 +119,7 @@ class AmsetTest(unittest.TestCase):
         # avg = (amset.fermi_level[-3e13][300] + expected_fermi) / 2
         # self.assertTrue(diff / avg < 0.02)
 
-        self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.846, 3)
+        self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.918, 3)
 
         # check mobility values
         for mu in expected_mu.keys():
