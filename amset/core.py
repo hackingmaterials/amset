@@ -145,7 +145,8 @@ class AMSET(object):
         if not coeff_file:
             logging.warning('\nRunning BoltzTraP to generate the cube file...')
             boltztrap_runner = BoltztrapRunner(bs=self.bs, nelec=self.nelec,
-                    doping=list(set([abs(d) for d in self.dopings])),
+                    # doping=list(set([abs(d) for d in self.dopings])),
+                    doping=[1e20],
                             tmax=max(self.temperatures))
             boltztrap_runner.run(path_dir=self.calc_dir)
             # BoltztrapRunner().run(path_dir=self.calc_dir)
