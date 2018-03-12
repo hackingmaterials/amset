@@ -17,7 +17,7 @@ from amset.utils.tools import get_energy_args, get_bindex_bspin
 #                         epsilon_0, default_small_E, dTdz, sq3
 
 
-api = MPRester("fDJKEZpxSyvsXdCt")
+# api = MPRester("fDJKEZpxSyvsXdCt")
 
 
 def retrieve_bs_boltztrap1(coeff_file, bs, ibands, cbm):
@@ -39,27 +39,36 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, cbm):
     pf.xy(plot_data, names=names)
 
 
-def retrieve_bs_boltztrap2(vrun_path, ibands):
+def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
+    ibands = [i-1 for i in ibands]
     pf = PlotlyFig(filename='boltztrap2')
+    sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
+
     bz_data = BoltzTraP2.dft.DFTData(vrun_path, derivatives=False)
     equivalences = sphere.get_equivalences(bz_data.atoms, len(bz_data.kpoints) * 10)
     lattvec = bz_data.get_lattvec()
     coeffs = fite.fitde3D(bz_data, equivalences)
 
-    kpts = np.array([[0., 0., 0.], [0.5, 0.4, 0.3]])
-    energies = []
-    velocities = []
+    # kpts = np.array([[0., 0., 0.], [0.5, 0.4, 0.3]])
+    kpts = np.array(sym_line_kpoints)
+
     fitted = fite.getBands(kp=kpts, equivalences=equivalences,
                            lattvec=lattvec, coeffs=coeffs)
 
     EE = fitted[0]*13.605
     print(EE.shape)
-    print(EE)
+    # print(EE[ibands, :])
 
     v = fitted[1]
     print(v.shape)
-    # v[abs(v) < 1e-10] = 0
-    print(v)
+    # print(v[:, ibands, :])
+    plot_data = []
+    names = []
+    for iband in ibands:
+        plot_data.append((np.linspace(0, EE.shape[1]), EE[iband, :]))
+        names.append('band {}'.format(iband))
+    pf.xy(plot_data, names=names)
+
 
 if __name__ == "__main__":
     # user inputs
@@ -72,8 +81,16 @@ if __name__ == "__main__":
     test_dir = os.path.join(DIR, '../../test_files')
 
     # Si_bs = api.get_bandstructure_by_material_id(Si_id)
+
     bs = Vasprun(os.path.join(test_dir, 'GaAs/28_electrons_line/vasprun.xml')).get_band_structure(
         kpoints_filename=os.path.join(test_dir, 'GaAs/28_electrons_line/KPOINTS'), line_mode=True)
+
+    # root = '/Users/alirezafaghaninia/Documents/py3/py3_codes/thermoelectrics_work/thermoelectrics_work/amset_examples/InP_mp-20351'
+    # bs = Vasprun(os.path.join(root, 'vasprun.xml')).get_band_structure(
+    #     kpoints_filename=os.path.join(root, 'KPOINTS'))
+    # InP_st = api.get_structure_by_material_id('mp-20351')
+    # bs.structure = InP_st
+
     # GaAs_st = api.get_structure_by_material_id(GaAs_id)
     #
     # bs.structure =  GaAs_st
@@ -82,7 +99,6 @@ if __name__ == "__main__":
     # print(bs.get_sym_eq_kpoints([0.5, 0.5, 0.5]))
     # print(bs.get_sym_eq_kpoints([ 0.5,  0.,  0.5]))
 
-    # vbm_idx, _ = get_bindex_bspin(Si_bs.get_vbm(), is_cbm=False)
     vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
     print('vbm band index (vbm_idx): {}'.format(vbm_idx))
     ibands = [1, 2] # in this notation, 1 is the last valence band
@@ -96,9 +112,14 @@ if __name__ == "__main__":
     # retrieve_bs_boltztrap1(coeff_file=Si_coeff_file, bs=Si_bs, ibands=ibands, cbm=True)
 
     # retrieve_bs_boltztrap1(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands, cbm=True)
-    retrieve_bs_boltztrap2(os.path.join(test_dir, 'GaAs'), ibands=[13, 14])
-    # retrieve_bs_boltztrap2(os.path.join(test_dir, 'GaAs/28_electrons_line'), ibands=[13, 14])
-    # retrieve_bs_boltztrap2('/Users/alirezafaghaninia/Documents/py3/py3_codes/BoltzTraP2-18.1.2/scratch/Si_data', ibands=[4, 5])
+
+
+    # retrieve_bs_boltztrap2(os.path.join(test_dir, 'GaAs'), ibands=ibands)
+    # retrieve_bs_boltztrap2(os.path.join(test_dir, 'ZnS_391_vrun'), ibands=ibands)
+    # retrieve_bs_boltztrap2(os.path.join(DIR, '../../../BoltzTraP2-18.1.2/data/Si.vasp'), ibands=[3, 4])
+    # retrieve_bs_boltztrap2(root, ibands=[2, 3])
+    retrieve_bs_boltztrap2(os.path.join(test_dir, 'GaAs/28_electrons_line'), bs=bs, ibands=ibands)
+    # retrieve_bs_boltztrap2(os.path.join(test_dir, 'GaAs/nscf-uniform'), ibands=ibands)
 
     # retrieve_bs_boltztrap1(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[11, 12, 13, 14])
     # retrieve_bs_boltztrap1(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[24, 25, 26, 27])
