@@ -66,8 +66,13 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_isotropic_E(self):
         print('\ntesting test_GaAs_isotropic_E...')
-        expected_mu = {'ACD': 52615.8, 'IMP': 154559.4, 'PIE': 111865.49,
-                       'POP': 7706.3, 'overall': 5431.8, 'average': 6090.9}
+        # w/o /sq3 factor
+        # expected_mu = {'ACD': 91133.295, 'IMP': 267704.777, 'PIE': 193756.725,
+        #                'POP': 13347.784, 'overall': 9408.1722, 'average': 10549.824}
+
+        # w/ /sq3 factor
+        expected_mu = {'ACD': 52615.832, 'IMP': 74774.641, 'PIE':111865.4976,
+                       'POP': 7572.312, 'overall':4973.4635, 'average': 5767.725}
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
@@ -93,12 +98,8 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
-        # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
-        # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
-        #                'POP': 10113.9, 'overall': 8173.4}
-
-        expected_mu = {'ACD': 101397.6, 'IMP': 120713.8, 'PIE': 325384.2,
-                       'POP': 13329.2, 'overall': 9235.7, 'average': 10390.4}
+        expected_mu = {'ACD': 108153.024, 'IMP': 84991.248, 'PIE': 361569.271,
+                       'POP': 12989.195, 'overall': 7993.207, 'average':9924.094}
         performance_params = dict(self.performance_params)
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
@@ -131,8 +132,13 @@ class AmsetTest(unittest.TestCase):
     # #TODO: since we run through several different k-meshes now for varous valleys, egrid changes hence egrid tests may be changing and ignored for now
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
-        expected_mu = {'ACD': 47957.55, 'IMP': 139521.01, 'PIE': 112012.93,
-                       'POP': 8552.04, 'overall': 5914.90, 'average': 6498.66}
+        # w/o /sq3 factor:
+        # expected_mu = {'ACD': 83063.162, 'IMP': 245084.04, 'PIE': 194271.41,
+        #                'POP': 14615.437, 'overall': 10176.876, 'average': 11149.824}
+        # w/ /sq3 factor
+        expected_mu = {'ACD': 47956.539, 'IMP': 101310.7042, 'PIE': 112162.651,
+                       'POP': 5711.9015, 'overall': 4713.134, 'average': 4657.41}
+
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
