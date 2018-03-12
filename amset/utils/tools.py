@@ -298,8 +298,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
 
             g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
             g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
-            # v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
-            v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] # 20180306: still not sure about /sq3 and whether it's necessary
+            v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
+            # v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] # 20180306: still not sure about /sq3 and whether it's necessary
             a_pm = kgrid[tp]["a"][ib_pm][ik_pm]
             c_pm = kgrid[tp]["c"][ib_pm][ik_pm]
 
@@ -560,7 +560,7 @@ def insert_intermediate_kpoints(kpts, n=2):
 
 
 def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
-                    Ecut=None, nex_max=0, return_global=False, niter=10,
+                    Ecut=None, nex_max=0, return_global=False, niter=5,
                    nbelow_vbm= 0, nabove_cbm=0):
     """
     returns a dictionary of p-type (valence) and n-type (conduction) band
@@ -613,7 +613,7 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
     bounds = [(-0.5,0.5), (-0.5,0.5), (-0.5,0.5)]
     func = lambda x: calc_analytical_energy(x, engre[1], nwave,
             nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=-1, scissor=0)[0]
-    opt = basinhopping(func, x0=cbmk, niter=20, T=0.1, minimizer_kwargs={'bounds': bounds})
+    opt = basinhopping(func, x0=cbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
     kpts.append(opt.x)
 
     func = lambda x: -calc_analytical_energy(x, engre[0], nwave,

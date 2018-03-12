@@ -826,7 +826,7 @@ class AMSET(object):
         if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
                     nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
-                    Ecut=self.Ecut, nex_max=20, return_global=True, niter=10,
+                    Ecut=self.Ecut, nex_max=20, return_global=True, niter=5,
                           nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm)
             # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
             if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy']:
@@ -2495,12 +2495,12 @@ class AMSET(object):
                 [0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
 
 
-        # return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
+        return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+               * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
 
         # 20180307: I removed /sq3 from all elastic and inelastics: iso-aniso consistency can still be established
-        return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-               * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm])
+        # return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm])
 
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
@@ -2562,11 +2562,11 @@ class AMSET(object):
 
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         #TODO: this norm(v) in the following may need a /sq3
-        # integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
-        #         (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
+        integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
+                (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
         # only changing ik_prm of norm(k) to ik made S_o look more like isotropic
-        integ = self.kgrid[tp]["norm(k)"][ib][ik]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
-                (self.kgrid[tp]["norm(v)"][ib][ik]*norm_diff**2)
+        # integ = self.kgrid[tp]["norm(k)"][ib][ik]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
+        #         (self.kgrid[tp]["norm(v)"][ib][ik]*norm_diff**2)
 
         # the following worked ok at superfine, the final POP and g matches with isotropic but S_i and S_o match are not good!
         if "S_i" in sname:
@@ -2667,8 +2667,8 @@ class AMSET(object):
             ik (int): k-point index
         Returns (float): scalar (since assumed isotropic) scattering rate.
         """
-        # v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
-        v = self.kgrid[tp]["norm(v)"][ib][ik] # 20180307: I don't think /sq3 is necessary, iso-aniso consistency can still be established by removing all /sq3 from v/sq3
+        v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
+        # v = self.kgrid[tp]["norm(v)"][ib][ik] # 20180307: I don't think /sq3 is necessary, iso-aniso consistency can still be established by removing all /sq3 from v/sq3
         knrm = self.kgrid[tp]["norm(k)"][ib][ik]
         par_c = self.kgrid[tp]["c"][ib][ik]
 
