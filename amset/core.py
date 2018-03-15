@@ -4070,7 +4070,8 @@ if __name__ == "__main__":
                        }
     cube_path = "../test_files/GaAs/"
     #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
-    coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
+    # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
+    coeff_file = os.path.join(cube_path, "nscf-uniform/boltztrap/fort.123") # good results!
 
     ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_sym_23x23x23") # bad results! (because the fitting not good)
     ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_11x11x11_ISYM0") # good results
@@ -4102,7 +4103,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
