@@ -751,7 +751,7 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
         return extrema, actual_cbm_vbm
 
 
-def get_dos_boltztrap2(params, st, mesh, e_points, vbmidx = None, width=0.2, scissor=0.0):
+def get_dos_boltztrap2(params, st, mesh, estep, vbmidx = None, width=0.2, scissor=0.0):
     from BoltzTraP2 import fite
     (bz2_data, equivalences, lattvec, coeffs) = params
     ir_kpts = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
@@ -763,12 +763,14 @@ def get_dos_boltztrap2(params, st, mesh, e_points, vbmidx = None, width=0.2, sci
     fitted = fite.getBands(kp=ir_kpts, equivalences=equivalences,
                            lattvec=lattvec, coeffs=coeffs)
     energies = fitted[0]  # shape==(bands, nkpoints)
+    nbands = energies.shape[0]
     if vbmidx:
         energies[vbmidx + 1:, :] += scissor / 2.
         energies[:vbmidx + 1, :] -= scissor / 2.
     e_min = np.min(energies)
     e_max = np.max(energies)
     height = 1.0 / (width * np.sqrt(2 * np.pi))
+    e_points = int(round((e_max - e_min) / estep))
     e_mesh, step = np.linspace(e_min, e_max, num=e_points, endpoint=True,
                                retstep=True)
     e_range = len(e_mesh)
@@ -779,4 +781,4 @@ def get_dos_boltztrap2(params, st, mesh, e_points, vbmidx = None, width=0.2, sci
             g = height * np.exp(
                 -((e_mesh - energies[b, ik]) / width) ** 2 / 2.)
             dos += w * g
-    return e_mesh, dos
+    return e_mesh, dos, nbands
