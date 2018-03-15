@@ -703,7 +703,7 @@ class AMSET(object):
             for ib in range(num_bands[tp]):
                 if self.poly_bands is not None:
                     for ik in range(len(kpts[tp])):
-                        energies[tp][ik] = self.calc_poly_energy(kpts[tp][ik], tp, ib)
+                        energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                 elif self.interpolation == "boltztrap1":
                     if not self.parallel:
                         for ik in range(len(kpts[tp])):
@@ -4111,7 +4111,7 @@ if __name__ == "__main__":
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
-                          , "interpolation": "boltztrap2"
+                          # , "interpolation": "boltztrap2"
                           }
 
     ### for PbTe
@@ -4161,7 +4161,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
