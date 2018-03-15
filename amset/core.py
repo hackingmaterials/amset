@@ -1878,63 +1878,6 @@ class AMSET(object):
         self.initialize_var("kgrid", ["f0", "f_plus", "f_minus", "g_plus", "g_minus"], "vector", self.gs,
                             is_nparray=True, c_T_idx=True)
 
-        # # calculation of the density of states (DOS)
-        # if not once_called:
-        #     if not self.poly_bands:
-        #         emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
-        #                 self._vrun.final_structure, [
-        #                 self.nkdos, self.nkdos, self.nkdos],self.dos_emin,
-        #                 self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
-        #                 / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
-        #                 scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
-        #         logging.debug("dos_nbands: {} \n".format(dos_nbands))
-        #         self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
-        #         self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
-        #                          + self.offset_from_vrun - self.scissor/2.0
-        #         self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
-        #                        + self.offset_from_vrun + self.scissor / 2.0
-        #     else:
-        #         logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
-        #         emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
-        #                 [self.nkdos, self.nkdos, self.nkdos], self.dos_emin,
-        #                 self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
-        #                 / max(self.dE_min, 0.0001))),poly_bands=self.poly_bands,
-        #                 bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
-        #                 "energy"], width=self.dos_bwidth, SPB_DOS=False)
-        #         self.dos_normalization_factor = len(self.poly_bands) * 2 * 2
-        #         # it is *2 elec/band & *2 because DOS repeats in valence/conduction
-        #         self.dos_start = self.dos_emin
-        #         self.dos_end = self.dos_emax
-        #
-        #
-        #     logging.info("DOS normalization factor: {}".format(self.dos_normalization_factor))
-        #
-        #     integ = 0.0
-        #     self.dos_start = abs(emesh - self.dos_start).argmin()
-        #     self.dos_end = abs(emesh - self.dos_end).argmin()
-        #     for idos in range(self.dos_start, self.dos_end):
-        #         # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
-        #         #     break
-        #         integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
-        #
-        #     print("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
-        #
-        #     # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
-        #     dos = [g / integ * self.dos_normalization_factor for g in dos]
-        #     # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
-        #
-        #     self.dos = zip(emesh, dos)
-        #     self.dos_emesh = np.array(emesh)
-        #     self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
-        #     self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
-        #
-        #     logging.info("vbm and cbm DOS index")
-        #     logging.info(self.vbm_dos_idx)
-        #     logging.info(self.cbm_dos_idx)
-        #     # logging.debug("full dos after normalization: \n {}".format(self.dos))
-        #     # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
-        #
-        #     self.dos = [list(a) for a in self.dos]
         return corrupt_tps
 
     def sort_vars_based_on_energy(self, args, ascending=True):
