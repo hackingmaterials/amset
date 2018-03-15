@@ -39,6 +39,13 @@ from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm,
                         epsilon_0, default_small_E, dTdz, sq3
 from scipy.optimize import basinhopping
 
+try:
+    import BoltzTraP2
+    import BoltzTraP2.dft
+    from BoltzTraP2 import sphere, fite
+except ImportError:
+    warnings.warn('BoltzTraP2 not imported, "boltztrap2" interpolation not available.')
+
 __author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
 __version__ = "0.1.0"
@@ -605,8 +612,9 @@ class AMSET(object):
                         "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
                         br_dir, sgn, scissor=self.scissor)
             elif self.interpolation=="boltztrap2":
-                fitted = fite.getBands(self.cbm_vbm0[tp]["kpoint"], *self.bz2_params)
-                energy = fitted[0][self.cbm_vbm[tp]["bidx"]][0]
+                fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.bz2_params)
+                energy = fitted[0][self.cbm_vbm[tp]["bidx"]][0]*13.605
+                effective_m = fitted[2][:, :, 0, self.cbm_vbm[tp]["bidx"]].T
             self.offset_from_vrun = energy - self.cbm_vbm0[tp]["energy"]
 
 
@@ -718,7 +726,7 @@ class AMSET(object):
                         for ik, res in enumerate(results):
                             energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                 elif self.interpolation == "boltztrap2":
-                    fitted = fite.getBands(kp=kpts, *self.bz2_params)
+                    fitted = fite.getBands(np.array(kpts[tp]), *self.bz2_params)
                     energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']+ i * num_bands['p'], :]*13.605
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
@@ -772,11 +780,13 @@ class AMSET(object):
                     self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
                                    + self.offset_from_vrun + self.scissor / 2.0
                 elif self.interpolation=="boltztrap2":
-                    e_mesh, dos, dos_nbands = get_dos_boltztrap2(analytical_band_tuple,
+                    emesh, dos, dos_nbands = get_dos_boltztrap2(analytical_band_tuple,
                                             self._vrun.final_structure,
                             mesh=[self.nkdos, self.nkdos, self.nkdos],
-                            e_step=max(self.dE_min, 0.0001), vbmidx = self.cbm_vbm["p"]["bidx"],
+                            estep=max(self.dE_min, 0.0001), vbmidx = self.cbm_vbm["p"]["bidx"],
                                 width=self.dos_bwidth, scissor=self.scissor)
+                    self.dos_start = emesh[0]
+                    self.dos_end = emesh[-1]
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
                 self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
@@ -1089,9 +1099,6 @@ class AMSET(object):
     def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
         self._vrun = Vasprun(os.path.join(calc_dir, filename), parse_projected_eigen=True)
         if self.interpolation == "boltztrap2":
-            import BoltzTraP2
-            import BoltzTraP2.dft
-            from BoltzTraP2 import sphere, fite
             bz2_data = BoltzTraP2.dft.DFTData(calc_dir, derivatives=False)
             equivalences = sphere.get_equivalences(bz2_data.atoms,
                                             len(bz2_data.kpoints) * 10)
@@ -1608,7 +1615,8 @@ class AMSET(object):
         if analytical_band_tuple is None:
             analytical_band_tuple = [None for _ in range(9)]
 
-        analytical_bands, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = analytical_band_tuple
+        if self.interpolation == "boltztrap1":
+            analytical_bands, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = analytical_band_tuple
 
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
@@ -1672,7 +1680,7 @@ class AMSET(object):
                                  engre[i * self.cbm_vbm["p"]["included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2,
                                  br_dir) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
                 elif self.interpolation == "boltztrap2":
-                    fitted = fite.getBands(kp=kpts, *self.bz2_params)
+                    fitted = fite.getBands(np.array(kpts[tp]), *self.bz2_params)
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
 
@@ -1717,8 +1725,8 @@ class AMSET(object):
                             self.velocity_signed[tp][ib][ik] = velocity_signed
                         elif self.interpolation == "boltztrap2":
                             iband = self.cbm_vbm["p"]["bidx"] + i*self.cbm_vbm["p"]["included"]
-                            energy = fitted[0][iband][ik]
-                            velocity = fitted[1][iband].T[ik]
+                            energy = fitted[0][iband, ik]*13.605
+                            velocity = fitted[1][:, ik, iband].T
                             effective_mass = fitted[2][iband].T[ik]
                         else:
                             raise ValueError("")
@@ -4052,7 +4060,7 @@ if __name__ == "__main__":
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
-                          # , "interpolation": "boltztrap2"
+                          , "interpolation": "boltztrap2"
                           }
 
     ### for PbTe
@@ -4103,7 +4111,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='e',
                   loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
