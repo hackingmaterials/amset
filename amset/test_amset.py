@@ -4,6 +4,8 @@ from __future__ import unicode_literals
 from __future__ import absolute_import
 import json
 import logging
+from copy import deepcopy
+
 import numpy as np
 import os
 import unittest
@@ -65,7 +67,7 @@ class AmsetTest(unittest.TestCase):
 
 
     def test_GaAs_isotropic_E(self):
-        print('\ntesting test_GaAs_isotropic_E...')
+        print('\ntesting test_GaAs_isotropic_E parallel...')
         # w/o /sq3 factor
         # expected_mu = {'ACD': 91133.295, 'IMP': 267704.777, 'PIE': 193756.725,
         #                'POP': 13347.784, 'overall': 9408.1722, 'average': 10549.824}
@@ -95,6 +97,18 @@ class AmsetTest(unittest.TestCase):
             self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
                     expected_mu[mu], places=1)
 
+        # test series:
+        amset.parallel = False
+        print('\ntesting test_GaAs_isotropic_E serial...')
+
+        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
+        kgrid = amset.kgrid
+        self.assertAlmostEqual(mean_v[0], 32253886.41, places=1) # zeroth band
+        for mu in expected_mu.keys():
+            self.assertAlmostEqual(np.std( # test isotropic
+                amset.mobility['n'][mu][-2e15][300]), 0.00, places=1)
+            self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
+                    expected_mu[mu], places=1)
 
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
