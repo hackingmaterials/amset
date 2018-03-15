@@ -701,24 +701,47 @@ class AMSET(object):
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
             for ib in range(num_bands[tp]):
-                if not self.parallel or self.poly_bands is not None:  # The PB generator is fast enough no need for parallelization
+                if self.poly_bands is not None:
                     for ik in range(len(kpts[tp])):
-                        if self.poly_bands is None:
+                        energies[tp][ik] = self.calc_poly_energy(kpts[tp][ik], tp, ib)
+                elif self.interpolation == "boltztrap1":
+                    if not self.parallel:
+                        for ik in range(len(kpts[tp])):
                             energy, velocities[tp][ik], effective_m = calc_analytical_energy(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
-                        else:
-                            energy, velocities[tp][ik], effective_m = self.calc_poly_energy(kpts[tp][ik], tp, ib)
-                        energies[tp][ik] = energy
-                else:
-                    # print('here debug')
-                    # print(num_bands)
-                    # print(ib)
-                    # print(tp)
-                    # print(len(engre))
-                    # print(len(kpts[tp]))
-                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
-                    for ik, res in enumerate(results):
-                        energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
-                        # velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
+                    else:
+                        results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
+                        for ik, res in enumerate(results):
+                            energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
+                elif self.interpolation == "boltztrap2":
+                    (bz2_data, equivalences, lattvec, coeffs) = analytical_band_tuple
+                    fitted = fite.getBands(kp=kpts, equivalences=equivalences,
+                                               lattvec=lattvec, coeffs=coeffs)
+                    energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']+ i * num_bands['p'], :]*13.605
+
+                # if not self.parallel or self.poly_bands is not None:  # The PB generator is fast enough no need for parallelization
+                #     if self.interpolation=='boltztrap1' or self.poly_bands is not None:
+                #         for ik in range(len(kpts[tp])):
+                #             if self.poly_bands is None:
+                #                 energy, velocities[tp][ik], effective_m = calc_analytical_energy(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
+                #             else:
+                #                 energy, velocities[tp][ik], effective_m = self.calc_poly_energy(kpts[tp][ik], tp, ib)
+                #             energies[tp][ik] = energy
+                #     elif self.interpolation=='boltztrap2':
+                #         (bz2_data, equivalences, lattvec, coeffs) = analytical_band_tuple
+                #         fitted = fite.getBands(kp=kpts, equivalences=equivalences,
+                #                                lattvec=lattvec, coeffs=coeffs)
+                #         energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']+ i * num_bands['p'], :]
+                # else:
+                #     # print('here debug')
+                #     # print(num_bands)
+                #     # print(ib)
+                #     # print(tp)
+                #     # print(len(engre))
+                #     # print(len(kpts[tp]))
+                #     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
+                #     for ik, res in enumerate(results):
+                #         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
+                #         # velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
 
                 self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
 
