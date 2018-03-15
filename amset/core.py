@@ -27,11 +27,13 @@ from joblib import Parallel, delayed
 
 from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_energy, get_poly_energy
 
-from amset.utils.tools import norm, grid_norm, generate_k_mesh_axes, create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
-        fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, get_tp, \
-        remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
-        get_energy_args, calc_analytical_energy, get_bindex_bspin, \
-        get_bs_extrema, AmsetError, kpts_to_first_BZ
+from amset.utils.tools import norm, grid_norm, generate_k_mesh_axes, \
+    create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
+    fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, \
+    get_tp, \
+    remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
+    get_energy_args, calc_analytical_energy, get_bindex_bspin, \
+    get_bs_extrema, AmsetError, kpts_to_first_BZ, get_dos_boltztrap2
 
 from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
@@ -717,31 +719,8 @@ class AMSET(object):
                     fitted = fite.getBands(kp=kpts, equivalences=equivalences,
                                                lattvec=lattvec, coeffs=coeffs)
                     energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']+ i * num_bands['p'], :]*13.605
-
-                # if not self.parallel or self.poly_bands is not None:  # The PB generator is fast enough no need for parallelization
-                #     if self.interpolation=='boltztrap1' or self.poly_bands is not None:
-                #         for ik in range(len(kpts[tp])):
-                #             if self.poly_bands is None:
-                #                 energy, velocities[tp][ik], effective_m = calc_analytical_energy(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
-                #             else:
-                #                 energy, velocities[tp][ik], effective_m = self.calc_poly_energy(kpts[tp][ik], tp, ib)
-                #             energies[tp][ik] = energy
-                #     elif self.interpolation=='boltztrap2':
-                #         (bz2_data, equivalences, lattvec, coeffs) = analytical_band_tuple
-                #         fitted = fite.getBands(kp=kpts, equivalences=equivalences,
-                #                                lattvec=lattvec, coeffs=coeffs)
-                #         energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']+ i * num_bands['p'], :]
-                # else:
-                #     # print('here debug')
-                #     # print(num_bands)
-                #     # print(ib)
-                #     # print(tp)
-                #     # print(len(engre))
-                #     # print(len(kpts[tp]))
-                #     results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
-                #     for ik, res in enumerate(results):
-                #         energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
-                #         # velocities[tp][ik] = abs(res[1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
+                else:
+                    raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
 
                 self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
 
@@ -752,10 +731,6 @@ class AMSET(object):
                     # velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
                     self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
                     kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
-
-
-
-
 
         N_n = self.kgrid_array['n'].shape
 
@@ -783,18 +758,27 @@ class AMSET(object):
         # calculation of the density of states (DOS)
         if not once_called:
             if self.poly_bands is None:
-                emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
-                        self._vrun.final_structure, [
-                        self.nkdos, self.nkdos, self.nkdos],self.dos_emin,
-                        self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
-                        / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
-                        scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
-                logging.debug("dos_nbands: {} \n".format(dos_nbands))
+                if self.interpolation=="boltztrap1":
+                    emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
+                            self._vrun.final_structure, [
+                            self.nkdos, self.nkdos, self.nkdos],self.dos_emin,
+                            self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
+                            / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
+                            scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
+                    logging.debug("dos_nbands: {} \n".format(dos_nbands))
+                    self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
+                                     + self.offset_from_vrun - self.scissor/2.0
+                    self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
+                                   + self.offset_from_vrun + self.scissor / 2.0
+                elif self.interpolation=="boltztrap2":
+                    e_mesh, dos, dos_nbands = get_dos_boltztrap2(analytical_band_tuple,
+                                            self._vrun.final_structure,
+                            mesh=[self.nkdos, self.nkdos, self.nkdos],
+                            e_step=max(self.dE_min, 0.0001), vbmidx = self.cbm_vbm["p"]["bidx"],
+                                width=self.dos_bwidth, scissor=self.scissor)
+                else:
+                    raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
                 self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
-                self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
-                                 + self.offset_from_vrun - self.scissor/2.0
-                self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
-                               + self.offset_from_vrun + self.scissor / 2.0
             else:
                 logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
                 emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
@@ -843,6 +827,7 @@ class AMSET(object):
             return analytical_band_tuple, kpts, energies_sorted
         else:
             return analytical_band_tuple, kpts
+
 
 
     def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0):
