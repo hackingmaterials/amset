@@ -613,7 +613,7 @@ class AMSET(object):
                         br_dir, sgn, scissor=self.scissor)
             elif self.interpolation=="boltztrap2":
                 fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.bz2_params)
-                energy = fitted[0][self.cbm_vbm[tp]["bidx"]][0]*13.605
+                energy = fitted[0][self.cbm_vbm[tp]["bidx"]][0]*Ry_to_eV
                 effective_m = fitted[2][:, :, 0, self.cbm_vbm[tp]["bidx"]].T
             self.offset_from_vrun = energy - self.cbm_vbm0[tp]["energy"]
 
@@ -727,7 +727,7 @@ class AMSET(object):
                             energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                 elif self.interpolation == "boltztrap2":
                     fitted = fite.getBands(np.array(kpts[tp]), *self.bz2_params)
-                    energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']+ i * num_bands['p'], :]*13.605
+                    energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']+ i * num_bands['p'], :]*Ry_to_eV
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
 
@@ -786,7 +786,9 @@ class AMSET(object):
                             estep=max(self.dE_min, 0.0001), vbmidx = self.cbm_vbm["p"]["bidx"],
                                 width=self.dos_bwidth, scissor=self.scissor)
                     self.dos_start = emesh[0]
+                    self.dos_emin = emesh[0]
                     self.dos_end = emesh[-1]
+                    self.dos_emax = emesh[-1]
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
                 self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
@@ -1305,6 +1307,13 @@ class AMSET(object):
                 if dos_tp.lower() == "simple":
                     self.egrid[tp]["DOS"].append(counter / len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
+                    print('here debug')
+                    print(sum_E / counter)
+                    print(self.dos_emin)
+                    print(self.dos_emax)
+                    print(len(self.dos))
+                    print(self.get_Eidx_in_dos(sum_E / counter))
+                    print('end debug')
                     self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_E / counter)][1])
                 i = j + 1
 
@@ -1725,9 +1734,9 @@ class AMSET(object):
                             self.velocity_signed[tp][ib][ik] = velocity_signed
                         elif self.interpolation == "boltztrap2":
                             iband = self.cbm_vbm["p"]["bidx"] + i*self.cbm_vbm["p"]["included"]
-                            energy = fitted[0][iband, ik]*13.605
+                            energy = fitted[0][iband, ik]*Ry_to_eV
                             velocity = fitted[1][:, ik, iband].T
-                            effective_mass = fitted[2][iband].T[ik]
+                            effective_mass = fitted[2][:, :, ik, iband].T
                         else:
                             raise ValueError("")
 
