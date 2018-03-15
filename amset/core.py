@@ -1660,15 +1660,22 @@ class AMSET(object):
                 # WE MAKE A COPY HERE OTHERWISE THE TWO LISTS CHANGE TOGETHER
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(self.kgrid[tp]["old cartesian kpoints"][ib])
 
-                if self.parallel and self.poly_bands is None:
-                    results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
-                             engre[i * self.cbm_vbm["p"]["included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2,
-                             br_dir) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
-
                 s_orbital, p_orbital = self.get_dft_orbitals(bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib)
                 orbitals = {"s": s_orbital, "p": p_orbital}
                 fit_orbs = {orb: griddata(points=np.array(self.DFT_cartesian_kpts), values=np.array(orbitals[orb]),
                     xi=np.array(self.kgrid[tp]["old cartesian kpoints"][ib]), method='nearest') for orb in orbitals.keys()}
+
+                if self.interpolation == "boltztrap1":
+                    if self.parallel and self.poly_bands is None:
+                        results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
+                                 engre[i * self.cbm_vbm["p"]["included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2,
+                                 br_dir) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
+                elif self.interpolation == "boltztrap2":
+                    bz2_data, equivalences, lattvec, coeffs = self.bz2_params
+                    fitted = fite.getBands(kp=kpts, equivalences=equivalences,
+                                           lattvec=lattvec, coeffs=coeffs)
+                else:
+                    raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
 
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
@@ -1691,24 +1698,31 @@ class AMSET(object):
                     self.kgrid[tp]["norm(actual_k)"][ib][ik] = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
 
                     if self.poly_bands is None:
-                        if not self.parallel:
-                            energy, de, dde = get_energy(
-                                self.kgrid[tp]["kpoints"][ib][ik], engre[i * self.cbm_vbm["p"]["included"] + ib],
-                                nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                            energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-                            velocity_signed = de / hbar * A_to_m * m_to_cm * Ry_to_eV
-                            velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)  # to get v in cm/s
-                            effective_mass = hbar ** 2 / (
-                                dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                        if self.interpolation == "boltztrap1":
+                            if not self.parallel:
+                                energy, de, dde = get_energy(
+                                    self.kgrid[tp]["kpoints"][ib][ik], engre[i * self.cbm_vbm["p"]["included"] + ib],
+                                    nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+                                energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
+                                velocity_signed = de / hbar * A_to_m * m_to_cm * Ry_to_eV
+                                velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)  # to get v in cm/s
+                                effective_mass = hbar ** 2 / (
+                                    dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                            else:
+                                energy = results[ik][0] * Ry_to_eV - sgn * self.scissor / 2.0
+                                velocity_signed = results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV
+                                velocity = abs(results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
+                                effective_mass = hbar ** 2 / (
+                                    results[ik][
+                                        2] * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                            self.velocity_signed[tp][ib][ik] = velocity_signed
+                        elif self.interpolation == "boltztrap2":
+                            iband = self.cbm_vbm["p"]["bidx"] + i*self.cbm_vbm["p"]["included"]
+                            energy = fitted[0][iband][ik]
+                            velocity = fitted[1][iband].T[ik]
+                            effective_mass = fitted[2][iband].T[ik]
                         else:
-                            energy = results[ik][0] * Ry_to_eV - sgn * self.scissor / 2.0
-                            velocity_signed = results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV
-                            velocity = abs(results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                            effective_mass = hbar ** 2 / (
-                                results[ik][
-                                    2] * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
-
-                        self.velocity_signed[tp][ib][ik] = velocity_signed
+                            raise ValueError("")
 
                     else:
                         energy, velocity, effective_mass = get_poly_energy(self.kgrid[tp]["cartesian kpoints"][ib][ik],
