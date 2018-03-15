@@ -642,35 +642,36 @@ class AMSET(object):
             # TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
             # if using analytical bands: create the object, determine list of band indices, and get energy info
             if self.poly_bands0 is None:
-                logging.debug("start interpolating bands from {}".format(coeff_file))
-                analytical_bands = Analytical_bands(coeff_file=coeff_file)
-                # all_ibands supposed to start with index of last valence band then
-                # VBM-1 ... and then index of CBM then CBM+1 ...
-                self.all_ibands = []
-                # for i, tp in enumerate(["p", "n"]):
-                #     # sgn = (-1) ** (i + 1)
-                #     for ib in range(num_bands[tp]):
-                #         self.all_ibands.append(self.cbm_vbm0[tp]["bidx"] + sgn * ib)
+                if self.interpolation == 'boltztrap1':
+                    logging.debug("start interpolating bands from {}".format(coeff_file))
+                    analytical_bands = Analytical_bands(coeff_file=coeff_file)
+                    # all_ibands supposed to start with index of last valence band then
+                    # VBM-1 ... and then index of CBM then CBM+1 ...
+                    self.all_ibands = []
+                    # for i, tp in enumerate(["p", "n"]):
+                    #     # sgn = (-1) ** (i + 1)
+                    #     for ib in range(num_bands[tp]):
+                    #         self.all_ibands.append(self.cbm_vbm0[tp]["bidx"] + sgn * ib)
 
-                for ib in range(num_bands['p']):
-                    self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
-                for ib in range(num_bands['n']):
-                    self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
-
-
-                logging.debug("all_ibands: {}".format(self.all_ibands))
-
-                # # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
-                # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
-                # nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
-                # out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
-                # for nw in xrange(nwave):
-                #     for i in xrange(nstv[nw]):
-                #         out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
-                engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
-                    get_energy_args(coeff_file, self.all_ibands)
-                analytical_band_tuple = (analytical_bands, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
-            # if using poly bands, remove duplicate k points (@albalu I'm not really sure what this is doing)
+                    for ib in range(num_bands['p']):
+                        self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
+                    for ib in range(num_bands['n']):
+                        self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
+                    logging.debug("all_ibands: {}".format(self.all_ibands))
+                    # # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
+                    # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
+                    # nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
+                    # out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
+                    # for nw in xrange(nwave):
+                    #     for i in xrange(nstv[nw]):
+                    #         out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
+                    engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
+                        get_energy_args(coeff_file, self.all_ibands)
+                    analytical_band_tuple = (analytical_bands, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
+                elif self.interpolation == 'boltztrap2':
+                    analytical_band_tuple = self.bz2_params
+                else:
+                    raise ValueError('Unsupported interpolation method: "{}"'.format(self.interpolation))
             else:
                 # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
                 # these points will be used later to generate energy based on the minimum norm(k-k_i)
@@ -929,7 +930,8 @@ class AMSET(object):
             "max_normk0": self.max_normk0,
             "max_nvalleys": self.max_nvalleys,
             "max_ncpu": self.max_ncpu,
-            "pre_determined_fermi": self.pre_determined_fermi
+            "pre_determined_fermi": self.pre_determined_fermi,
+            "interpolation": self.interpolation
         }
 
         with open(os.path.join(path, "material_params.json"), "w") as fp:
@@ -1037,6 +1039,8 @@ class AMSET(object):
         self.max_nvalleys = params.get("max_nvalleys", None)
         self.fermi_kgrid_tp = params.get("fermi_kgrid_tp", "uniform")
         self.pre_determined_fermi = params.get("pre_determined_fermi")
+        self.interpolation = params.get("interpolation", "boltztrap1")
+
 
     def __getitem__(self, key):
         if key == "kgrid":
@@ -1075,6 +1079,17 @@ class AMSET(object):
 
     def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
         self._vrun = Vasprun(os.path.join(calc_dir, filename), parse_projected_eigen=True)
+        if self.interpolation == "boltztrap2":
+            import BoltzTraP2
+            import BoltzTraP2.dft
+            from BoltzTraP2 import sphere, fite
+            bz2_data = BoltzTraP2.dft.DFTData(calc_dir, derivatives=False)
+            equivalences = sphere.get_equivalences(bz2_data.atoms,
+                                            len(bz2_data.kpoints) * 10)
+            lattvec = bz2_data.get_lattvec()
+            coeffs = fite.fitde3D(bz2_data, equivalences)
+            self.bz2_params = (bz2_data, equivalences, lattvec, coeffs)
+
         self.volume = self._vrun.final_structure.volume
         logging.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
@@ -4073,6 +4088,7 @@ if __name__ == "__main__":
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
+                          , "interpolation": "boltztrap2"
                           }
 
     ### for PbTe
