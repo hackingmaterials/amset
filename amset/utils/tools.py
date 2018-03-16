@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import scipy
 from scipy.optimize import basinhopping
+import warnings
 
 from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, get_energy
 from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
@@ -11,6 +12,13 @@ from math import pi, log
 from pymatgen import Spin
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.symmetry.bandstructure import HighSymmKpath
+
+try:
+    import BoltzTraP2
+    import BoltzTraP2.dft
+    from BoltzTraP2 import sphere, fite
+except ImportError:
+    warnings.warn('BoltzTraP2 not imported, "boltztrap2" interpolation not available.')
 
 
 class AmsetError(Exception):
@@ -559,7 +567,9 @@ def insert_intermediate_kpoints(kpts, n=2):
     return new_kpts
 
 
-def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
+def get_bs_extrema(bs, coeff_file=None, bz2_params=None,
+                   interpolation="boltztrap1",
+                   nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
                     Ecut=None, nex_max=0, return_global=False, niter=5,
                    nbelow_vbm= 0, nabove_cbm=0):
     """
@@ -602,89 +612,56 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
     kpts.extend(insert_intermediate_kpoints(list(ibz.kpath['kpoints'].values()), n=10))
 
 
+    cbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
+    vbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
+    kpts.append(cbmk)
+    kpts.append(vbmk)
+
 
     # grid = {'energy': [], 'velocity': [], 'mass': [], 'normv': []}
     extrema = {'n': [], 'p': []}
-    engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(
-        coeff_file=coeff_file, ibands=ibands)
 
-    cbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
-    vbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
-    bounds = [(-0.5,0.5), (-0.5,0.5), (-0.5,0.5)]
-    func = lambda x: calc_analytical_energy(x, engre[1], nwave,
-            nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=-1, scissor=0)[0]
-    opt = basinhopping(func, x0=cbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
-    kpts.append(opt.x)
+    if interpolation=="boltztrap1":
+        engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(
+            coeff_file=coeff_file, ibands=ibands)
 
-    func = lambda x: -calc_analytical_energy(x, engre[0], nwave,
-            nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=+1, scissor=0)[0]
-    opt = basinhopping(func, x0=vbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
-    kpts.append(opt.x)
+    # TODO-AF: for now, I removed the following that only works with boltztrap1; if there is enough value, I will add support for boltztrap2 as well
+    # bounds = [(-0.5,0.5), (-0.5,0.5), (-0.5,0.5)]
+    # func = lambda x: calc_analytical_energy(x, engre[1], nwave,
+    #         nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=-1, scissor=0)[0]
+    # opt = basinhopping(func, x0=cbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
+    # kpts.append(opt.x)
+    #
+    # func = lambda x: -calc_analytical_energy(x, engre[0], nwave,
+    #         nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=+1, scissor=0)[0]
+    # opt = basinhopping(func, x0=vbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
+    # kpts.append(opt.x)
+
+
     for iband in range(len(ibands)):
         is_cb = [False, True][iband]
         tp = ['p', 'n'][iband]
-        energies = []
-        velocities = []
-        normv = []
-        masses = []
 
-######################################################################
-        # kpts_list = [np.array([ 0.,  0.,  0.]),
-        #              [-0.5, -0.5, -0.5],
-        #              [-0.5, 0.0, 0.0],
-        #              [0., -0.5, 0.],
-        #              [0., 0., -0.5],
-        #              [0.5, 0.5, 0.5],
-        #              [0.5, 0.0, 0.0],
-        #              [0., 0.5, 0.],
-        #              [0., 0., 0.5],
-        #              np.array([0., 0., 0.]),
-        #              [ 0.5,  0.,  0.5],
-        #             [0., -0.5, -0.5],
-        #              [0.5 , 0.5 , 0.],
-        #              [-0.5, 0., -0.5],
-        #              [0., 0.5, 0.5],
-        #              [-0.5, -0.5, 0.]
-        #              ]
-
-
- #        kpts_list = [ [0.0, 0.0, 0.0],
- #            [ 0.  ,  0.44,  0.44],
- # [ 0.44,  0.44  ,0.  ],
- # [ 0. ,  -0.44, -0.44],
- # [-0.44 ,-0.44,  0.  ],
- # [ 0.44 , 0.  ,  0.44],
- # [-0.44 , 0.  , -0.44],
- # [ 0. ,  -0.44 ,-0.44],
- # [-0.44 ,-0.44 , 0.  ],
- # [ 0. ,   0.44 , 0.44],
- # [ 0.44,  0.44 , 0.  ],
- # [-0.44 , 0. ,  -0.44],
- # [ 0.44 , 0. ,   0.44] ,
- #   [ 0.5,  0. ,  0.5],
- # [ 0. ,  0.5,  0.5],
- # [ 0.5 , 0.5,  0. ],
- # [-0.5 , 0.  ,-0.5],
- # [ 0. , -0.5 ,-0.5],
- # [-0.5 ,-0.5 , 0. ]     ]
- #        print('here kpts_list:')
- #        print(kpts_list)
- #        print('here the energies')
- #        for ik, kpt in enumerate(kpts_list):
- #            en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave,
- #                nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=1, scissor=0)
- #            print en
-
-
-######################################################################
-
-        for ik, kpt in enumerate(kpts):
-            en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave,
-                nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=1, scissor=0)
-            energies.append(en)
-            velocities.append(abs(v))
-            normv.append(norm(v))
-            masses.append(mass.trace() / 3)
+        if interpolation=="boltztrap1":
+            energies = []
+            velocities = []
+            normv = []
+            masses = []
+            for ik, kpt in enumerate(kpts):
+                en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave,
+                    nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=1, scissor=0)
+                energies.append(en)
+                velocities.append(abs(v))
+                normv.append(norm(v))
+                masses.append(mass.trace() / 3)
+        elif interpolation=="boltztrap2":
+            fitted = fite.getBands(np.array(kpts), *bz2_params)
+            energies = fitted[0][ibands[iband]] * Ry_to_eV
+            velocities = fitted[1][:, :, ibands[iband]].T
+            normv = [norm(v) for v in velocities]
+            masses = fitted[2][:, :, 0, ibands[iband]].T
+        else:
+            raise ValueError('Unsupported interpolation: "{}"'.format(interpolation))
         indexes = np.argsort(normv)
         energies = [energies[i] for i in indexes]
         normv = [normv[i] for i in indexes]
