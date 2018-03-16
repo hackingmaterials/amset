@@ -848,6 +848,7 @@ class AMSET(object):
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
         if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
+                    bz2_params=self.bz2_params, interpolation=self.interpolation,
                     nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
                     Ecut=self.Ecut, nex_max=20, return_global=True, niter=5,
                           nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm)
@@ -1101,6 +1102,7 @@ class AMSET(object):
 
     def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
         self._vrun = Vasprun(os.path.join(calc_dir, filename), parse_projected_eigen=True)
+        self.bz2_params = None
         if self.interpolation == "boltztrap2":
             bz2_data = BoltzTraP2.dft.DFTData(calc_dir, derivatives=False)
             equivalences = sphere.get_equivalences(bz2_data.atoms,
