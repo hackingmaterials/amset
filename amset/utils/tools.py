@@ -666,7 +666,7 @@ def get_bs_extrema(bs, coeff_file=None, bz2_params=None,
         energies = [energies[i] for i in indexes]
         normv = [normv[i] for i in indexes]
         velocities = [velocities[i] for i in indexes]
-        masses = [masses[i] for i in indexes]
+        masses = [masses[i].trace() / 3 for i in indexes]
         kpts = [np.array(kpts[i]) for i in indexes]
 
         # print('here')
