@@ -569,11 +569,12 @@ class AMSET(object):
             # for nw in xrange(nwave):
             #     for i in xrange(nstv[nw]):
             #         out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
-            engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
-                get_energy_args(coeff_file, self.all_ibands)
-            analytical_band_tuple = (
-            analytical_bands, engre, nwave, nsym, nstv, vec, vec2,
-            out_vec2, br_dir)
+            if self.interpolation == "boltztrap1":
+                engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
+                    get_energy_args(coeff_file, self.all_ibands)
+            # analytical_band_tuple = (
+            # analytical_bands, engre, nwave, nsym, nstv, vec, vec2,
+            # out_vec2, br_dir)
         # if using poly bands, remove duplicate k points (@albalu I'm not really sure what this is doing)
         else:
             # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
