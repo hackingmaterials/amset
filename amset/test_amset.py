@@ -28,7 +28,8 @@ class AmsetTest(unittest.TestCase):
                 'P_PIE': 0.052, 'scissor': 0.5818,
                 'important_points':{tp:[[0.0, 0.0, 0.0]] for tp in ['p', 'n']}}
         self.GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
-        self.GaAs_cube = os.path.join(self.GaAs_path, "fort.123_GaAs_1099kp")
+        # self.GaAs_cube = os.path.join(self.GaAs_path, "fort.123_GaAs_1099kp")
+        self.GaAs_cube = os.path.join(self.GaAs_path, "nscf-uniform/boltztrap/fort.123")
 
     def tearDown(self):
         pass
@@ -73,8 +74,8 @@ class AmsetTest(unittest.TestCase):
         #                'POP': 13347.784, 'overall': 9408.1722, 'average': 10549.824}
 
         # w/ /sq3 factor
-        expected_mu = {'ACD': 52615.832, 'IMP': 74774.641, 'PIE':111865.4976,
-                       'POP': 7572.312, 'overall':4973.4635, 'average': 5767.725}
+        expected_mu = {'ACD': 82556.6415, 'IMP': 90775.0314, 'PIE':150403.4459,
+                       'POP': 8809.1634, 'overall':5328.617, 'average': 6978.5578}
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
@@ -88,7 +89,7 @@ class AmsetTest(unittest.TestCase):
         self.assertEqual(kgrid['n']['velocity'][0].shape[0], 100)
         mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
         self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS
-        self.assertAlmostEqual(mean_v[0], 32253886.41, places=1) # zeroth band
+        self.assertAlmostEqual(mean_v[0], 38101477.83, places=1) # zeroth band
 
         # check mobility values
         for mu in expected_mu.keys():
@@ -103,7 +104,7 @@ class AmsetTest(unittest.TestCase):
 
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
         kgrid = amset.kgrid
-        self.assertAlmostEqual(mean_v[0], 32253886.41, places=1) # zeroth band
+        self.assertAlmostEqual(mean_v[0], 38101477.83, places=1) # zeroth band
         for mu in expected_mu.keys():
             self.assertAlmostEqual(np.std( # test isotropic
                 amset.mobility['n'][mu][-2e15][300]), 0.00, places=1)
@@ -112,8 +113,8 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
-        expected_mu = {'ACD': 108153.024, 'IMP': 84991.248, 'PIE': 361569.271,
-                       'POP': 12989.195, 'overall': 7993.207, 'average':9924.094}
+        expected_mu = {'ACD': 171261.976, 'IMP': 103831.729, 'PIE': 491157.858,
+                       'POP': 18705.449, 'overall': 10724.263, 'average':14091.188}
         performance_params = dict(self.performance_params)
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
@@ -133,7 +134,7 @@ class AmsetTest(unittest.TestCase):
         # avg = (amset.fermi_level[-3e13][300] + expected_fermi) / 2
         # self.assertTrue(diff / avg < 0.02)
 
-        self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.918, 3)
+        self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.955, 3)
 
         # check mobility values
         for mu in expected_mu.keys():
@@ -150,8 +151,8 @@ class AmsetTest(unittest.TestCase):
         # expected_mu = {'ACD': 83063.162, 'IMP': 245084.04, 'PIE': 194271.41,
         #                'POP': 14615.437, 'overall': 10176.876, 'average': 11149.824}
         # w/ /sq3 factor
-        expected_mu = {'ACD': 47956.539, 'IMP': 101310.7042, 'PIE': 112162.651,
-                       'POP': 5711.9015, 'overall': 4713.134, 'average': 4657.41}
+        expected_mu = {'ACD': 74871.598, 'IMP': 134463.3475, 'PIE': 150752.0427,
+                       'POP': 6866.881, 'overall': 5637.2977, 'average': 5778.573}
 
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
