@@ -1307,13 +1307,13 @@ class AMSET(object):
                 if dos_tp.lower() == "simple":
                     self.egrid[tp]["DOS"].append(counter / len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
-                    print('here debug')
-                    print(sum_E / counter)
-                    print(self.dos_emin)
-                    print(self.dos_emax)
-                    print(len(self.dos))
-                    print(self.get_Eidx_in_dos(sum_E / counter))
-                    print('end debug')
+                    # print('here debug')
+                    # print(sum_E / counter)
+                    # print(self.dos_emin)
+                    # print(self.dos_emax)
+                    # print(len(self.dos))
+                    # print(self.get_Eidx_in_dos(sum_E / counter))
+                    # print('end debug')
                     self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_E / counter)][1])
                 i = j + 1
 
@@ -1735,8 +1735,9 @@ class AMSET(object):
                         elif self.interpolation == "boltztrap2":
                             iband = self.cbm_vbm["p"]["bidx"] + i*self.cbm_vbm["p"]["included"]
                             energy = fitted[0][iband, ik]*Ry_to_eV
-                            velocity = fitted[1][:, ik, iband].T
-                            effective_mass = fitted[2][:, :, ik, iband].T
+                            velocity = abs(fitted[1][:, ik, iband].T / hbar * A_to_m * m_to_cm * Ry_to_eV)
+                            effective_mass =  hbar ** 2 / (
+                                            fitted[2][:, :, ik, iband].T * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
                         else:
                             raise ValueError("")
 
@@ -1748,6 +1749,7 @@ class AMSET(object):
 
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
+                    print('here velocity', velocity)
                     # if tp == 'n':
                     #     print("k_frac = {}".format(self.kgrid['n']["kpoints"][ib][ik]))
                     #     print("k_cart = {}".format(self.kgrid['n']["cartesian kpoints"][ib][ik]))
@@ -4088,7 +4090,7 @@ if __name__ == "__main__":
     cube_path = "../test_files/GaAs/"
     #####coeff_file = os.path.join(cube_path, "fort.123_GaAs_k23")
     # coeff_file = os.path.join(cube_path, "fort.123_GaAs_1099kp") # good results!
-    coeff_file = os.path.join(cube_path, "nscf-uniform/boltztrap/fort.123") # good results!
+    coeff_file = os.path.join(cube_path, "nscf-uniform/boltztrap/fort.123")
 
     ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_sym_23x23x23") # bad results! (because the fitting not good)
     ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_11x11x11_ISYM0") # good results
