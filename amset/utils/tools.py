@@ -753,16 +753,16 @@ def get_bs_extrema(bs, coeff_file, nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
 
 def get_dos_boltztrap2(params, st, mesh, estep, vbmidx = None, width=0.2, scissor=0.0):
     from BoltzTraP2 import fite
-    (bz2_data, equivalences, lattvec, coeffs) = params
+    (equivalences, lattvec, coeffs) = params
     ir_kpts = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
     ir_kpts = [k[0] for k in ir_kpts]
     weights = [k[1] for k in ir_kpts]
     w_sum = float(sum(weights))
     weights = [w / w_sum for w in weights]
 
-    fitted = fite.getBands(kp=ir_kpts, equivalences=equivalences,
+    fitted = fite.getBands(np.array(ir_kpts), equivalences=equivalences,
                            lattvec=lattvec, coeffs=coeffs)
-    energies = fitted[0]  # shape==(bands, nkpoints)
+    energies = fitted[0]*Ry_to_eV  # shape==(bands, nkpoints)
     nbands = energies.shape[0]
     if vbmidx:
         energies[vbmidx + 1:, :] += scissor / 2.
@@ -777,7 +777,7 @@ def get_dos_boltztrap2(params, st, mesh, estep, vbmidx = None, width=0.2, scisso
     dos = np.zeros(e_range)
 
     for ik, w in enumerate(weights):
-        for b in range(fitted):
+        for b in range(nbands):
             g = height * np.exp(
                 -((e_mesh - energies[b, ik]) / width) ** 2 / 2.)
             dos += w * g
