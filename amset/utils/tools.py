@@ -659,14 +659,14 @@ def get_bs_extrema(bs, coeff_file=None, bz2_params=None,
             energies = fitted[0][ibands[iband]] * Ry_to_eV
             velocities = fitted[1][:, :, ibands[iband]].T
             normv = [norm(v) for v in velocities]
-            masses = fitted[2][:, :, :, ibands[iband]].T
+            masses =[m.trace()/3. for m in fitted[2][:, :, :, ibands[iband]].T]
         else:
             raise ValueError('Unsupported interpolation: "{}"'.format(interpolation))
         indexes = np.argsort(normv)
         energies = [energies[i] for i in indexes]
         normv = [normv[i] for i in indexes]
         velocities = [velocities[i] for i in indexes]
-        masses = [masses[i].trace() / 3 for i in indexes]
+        masses = [masses[i] for i in indexes]
         kpts = [np.array(kpts[i]) for i in indexes]
 
         # print('here')
