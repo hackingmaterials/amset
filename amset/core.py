@@ -548,9 +548,10 @@ class AMSET(object):
 
     def update_cbm_vbm_dos(self, coeff_file):
         analytical_band_tuple = None
-        if self.poly_bands0 is None and self.interpolation=="boltztrap1":
-            logging.debug(
-                "start interpolating bands from {}".format(coeff_file))
+        if self.poly_bands0 is None:
+            if self.interpolation=="boltztrap1":
+                logging.debug(
+                    "start interpolating bands from {}".format(coeff_file))
             # analytical_bands = Analytical_bands(coeff_file=coeff_file)
 
             self.all_ibands = []
