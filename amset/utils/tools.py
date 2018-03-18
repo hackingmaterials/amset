@@ -742,8 +742,12 @@ def get_dos_boltztrap2(params, st, mesh, estep, vbmidx = None, width=0.2, scisso
     energies = fitted[0]*Ry_to_eV  # shape==(bands, nkpoints)
     nbands = energies.shape[0]
     if vbmidx:
+        ib_start = max(0, vbmidx-4)
+        ib_end = min(energies.shape[0], vbmidx+1+4)
         energies[vbmidx + 1:, :] += scissor / 2.
         energies[:vbmidx + 1, :] -= scissor / 2.
+        energies = energies[ib_start:ib_end, :]
+        nbands = ib_end - ib_start
     e_min = np.min(energies)
     e_max = np.max(energies)
     height = 1.0 / (width * np.sqrt(2 * np.pi))
