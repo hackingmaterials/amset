@@ -37,7 +37,6 @@ from amset.utils.tools import norm, grid_norm, generate_k_mesh_axes, \
 
 from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
-from scipy.optimize import basinhopping
 
 try:
     import BoltzTraP2
