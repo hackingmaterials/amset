@@ -4123,7 +4123,7 @@ if __name__ == "__main__":
 
                   # temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='e',
-                  loglevel=logging.DEBUG
+                  # loglevel=logging.DEBUG
                   )
     amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
