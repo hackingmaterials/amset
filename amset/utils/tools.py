@@ -1,7 +1,9 @@
 import logging
 import numpy as np
+import os
 import scipy
 from scipy.optimize import basinhopping
+import sys
 import warnings
 
 from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, get_energy
@@ -26,12 +28,28 @@ class AmsetError(Exception):
     Exception class for AMSET. Raised when AMSET gives an error.
     """
 
-    def __init__(self, msg):
+    def __init__(self, logger, msg):
         self.msg = msg
-        logging.error(self.msg)
+        logger.error(self.msg)
 
     def __str__(self):
         return "AmsetError : " + self.msg
+
+
+def setup_custom_logger(name, filepath, filename, level=None):
+    level = level or logging.DEBUG
+    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
+    handler = logging.FileHandler(os.path.join(filepath, filename), mode='w')
+    handler.setFormatter(formatter)
+    screen_handler = logging.StreamHandler(stream=sys.stdout)
+    screen_handler.setFormatter(formatter)
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(screen_handler)
+    logger.addHandler(handler)
+    return logger
+
 
 def remove_from_grid(grid, grid_rm_list):
     """deletes dictionaries storing properties that are no longer needed from
@@ -489,7 +507,6 @@ def get_energy_args(coeff_file, ibands):
     Returns (tuple): necessary inputs for calc_analytical_energy or get_energy
     """
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
-    logging.debug('ibands in get_energy_args: {}'.format(ibands))
     try:
         engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
             analytical_bands.get_engre(iband=ibands)
