@@ -3,7 +3,6 @@ from __future__ import absolute_import
 import gzip
 import warnings
 import time
-import logging
 import json
 from pstats import Stats
 from random import random
@@ -33,7 +32,8 @@ from amset.utils.tools import norm, grid_norm, generate_k_mesh_axes, \
     get_tp, \
     remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
     get_energy_args, calc_analytical_energy, get_bindex_bspin, \
-    get_bs_extrema, AmsetError, kpts_to_first_BZ, get_dos_boltztrap2
+    get_bs_extrema, AmsetError, kpts_to_first_BZ, get_dos_boltztrap2, \
+    setup_custom_logger
 
 from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
@@ -96,28 +96,30 @@ class AMSET(object):
             loglevel (int): e.g. logging.DEBUG
         """
 
-        logging.basicConfig(level=loglevel or logging.DEBUG, filename='amset.log')
+        # logging.basicConfig(level=loglevel or logging.DEBUG, filename='amset.log')
+        self.logger = setup_custom_logger('amset_logger', calc_dir, 'amset.log',
+                                     level=loglevel)
         self.calc_dir = calc_dir
         self.dopings = dopings or [-1e20, 1e20]
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
         self.tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
         self.temperatures = temperatures or [300.0, 600.0]
         self.debug_tp = get_tp(self.dopings[0])
-        logging.debug("""debug_tp: "{}" """.format(self.debug_tp))
+        self.logger.debug("""debug_tp: "{}" """.format(self.debug_tp))
         self.set_model_params(model_params)
-        logging.info('independent_valleys: {}'.format(self.independent_valleys))
+        self.logger.info('independent_valleys: {}'.format(self.independent_valleys))
         self.set_material_params(material_params)
         self.set_performance_params(performance_params)
         self.k_integration = k_integration
         self.e_integration = e_integration
         assert(self.k_integration != self.e_integration), "AMSET can do either k_integration or e_integration"
-        logging.info('k_integration: {}'.format(self.k_integration))
-        logging.info('e_integration: {}'.format(self.e_integration))
+        self.logger.info('k_integration: {}'.format(self.k_integration))
+        self.logger.info('e_integration: {}'.format(self.e_integration))
         self.fermi_calc_type = fermi_type
 
         self.num_cores = max(int(multiprocessing.cpu_count()/4), self.max_ncpu)
         if self.parallel:
-            logging.info("number of cpu used in parallel mode: {}".format(self.num_cores))
+            self.logger.info("number of cpu used in parallel mode: {}".format(self.num_cores))
         self.counter = 0 # a global counter just for debugging
 
 
@@ -142,7 +144,7 @@ class AMSET(object):
         kgrid_tp (str): define the density of k-point mesh.
             options: 'very coarse', 'coarse', 'fine'
         """
-        logging.info('Running on "{}" mesh for each valley'.format(kgrid_tp))
+        self.logger.info('Running on "{}" mesh for each valley'.format(kgrid_tp))
         self.read_vrun(calc_dir=self.calc_dir, filename="vasprun.xml")
         if self.poly_bands0 is not None:
             self.cbm_vbm["n"]["energy"] = self.dft_gap
@@ -151,7 +153,7 @@ class AMSET(object):
             self.poly_bands0[0][0][0]
 
         if not coeff_file:
-            logging.warning('\nRunning BoltzTraP to generate the cube file...')
+            self.logger.warning('\nRunning BoltzTraP to generate the cube file...')
             boltztrap_runner = BoltztrapRunner(bs=self.bs, nelec=self.nelec,
                     # doping=list(set([abs(d) for d in self.dopings])),
                     doping=[1e20],
@@ -159,12 +161,13 @@ class AMSET(object):
             boltztrap_runner.run(path_dir=self.calc_dir)
             # BoltztrapRunner().run(path_dir=self.calc_dir)
             coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
-            logging.warning('BoltzTraP run finished, I suggest to set the following '
+            self.logger.warning('BoltzTraP run finished, I suggest to set the following '
                             'to skip this step next time:\n{}="{}"'.format(
                 "coeff_file", os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
             ))
             if not os.path.exists(coeff_file):
-                raise AmsetError('{} does not exist! generating the cube file '
+                raise AmsetError(self.logger,
+                        '{} does not exist! generating the cube file '
                 '(i.e. fort.123) requires a modified version of BoltzTraP. '
                              'Contact {}'.format(coeff_file, __email__))
 
@@ -181,7 +184,7 @@ class AMSET(object):
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['included'] = 1
 
-        logging.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
+        self.logger.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
 
         self.ibrun = 0 # initialize as may be called in init_kgrid as debug
         self.count_mobility = [{'n': True, 'p': True} for _ in range(max(self.initial_num_bands['p'], self.initial_num_bands['n']))]
@@ -210,11 +213,11 @@ class AMSET(object):
                         self.calc_doping[doping][T]['p'] = doping
                     else:
                         self.calc_doping[doping][T]['n'] = doping
-        logging.info('fermi level = {}'.format(self.fermi_level))
+        self.logger.info('fermi level = {}'.format(self.fermi_level))
 
         # self.find_fermi_boltztrap()
 
-        logging.info('here initial number of bands:\n{}'.format(self.initial_num_bands))
+        self.logger.info('here initial number of bands:\n{}'.format(self.initial_num_bands))
 
         vibands = list(range(self.initial_num_bands['p']))
         cibands = list(range(self.initial_num_bands['n']))
@@ -233,16 +236,16 @@ class AMSET(object):
         if self.max_nbands:
             ibands_tuple = ibands_tuple[:min(len(ibands_tuple), self.max_nbands)]
 
-        logging.debug('here ibands_tuple')
-        logging.debug(ibands_tuple)
+        self.logger.debug('here ibands_tuple')
+        self.logger.debug(ibands_tuple)
 
-        logging.debug('here whether to count bands')
-        logging.debug(self.count_mobility)
+        self.logger.debug('here whether to count bands')
+        self.logger.debug(self.count_mobility)
 
 
         self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
-            logging.info('going over conduction and valence # {}'.format(self.ibrun))
+            self.logger.info('going over conduction and valence # {}'.format(self.ibrun))
             self.find_all_important_points(coeff_file, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm)
 
             # once_called = False
@@ -279,43 +282,43 @@ class AMSET(object):
                     # this ignores max_normk0 because if only a single valley, we don't want it to go over the whole BZ
                     self.max_normk = {'n': self.max_normk0 or 2,
                                       'p': self.max_normk0 or 2}
-                logging.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
-                logging.info('Current valleys:\n{}'.format(important_points))
-                logging.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
-                logging.info('max_normk:\n{}'.format(self.max_normk))
-                logging.info('important points for this band:\n{}'.format(self.important_pts))
+                self.logger.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
+                self.logger.info('Current valleys:\n{}'.format(important_points))
+                self.logger.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
+                self.logger.info('max_normk:\n{}'.format(self.max_normk))
+                self.logger.info('important points for this band:\n{}'.format(self.important_pts))
 
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
-                    logging.info('skipping this valley as it is unimportant for both n and p type...')
+                    self.logger.info('skipping this valley as it is unimportant for both n and p type...')
                     continue
 
                 kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
                 analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=once_called, return_energies=True, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, num_bands={'p': 1, 'n': 1})
 
                 if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut['n']:
-                    logging.debug('not counting conduction band {} valley {} due to off enery...'.format(self.ibrun, important_points['n'][0]))
+                    self.logger.debug('not counting conduction band {} valley {} due to off enery...'.format(self.ibrun, important_points['n'][0]))
                     # print('here debug')
                     # print(min(energies['n']))
                     # print(self.cbm_vbm['n']['energy'])
                     self.count_mobility[self.ibrun]['n'] = False
                 if self.cbm_vbm['p']['energy'] - max(energies['p']) > self.Ecut['p']:
-                    logging.debug('not counting valence band {} valley {} due to off enery...'.format(self.ibrun, important_points['p'][0]))
+                    self.logger.debug('not counting valence band {} valley {} due to off enery...'.format(self.ibrun, important_points['p'][0]))
                     # print('here debug')
                     # print(max(energies['p']))
                     # print(self.cbm_vbm['p']['energy'])
                     self.count_mobility[self.ibrun]['p'] = False
 
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
-                    logging.info('skipping this valley as it is unimportant or its energies are way off...')
+                    self.logger.info('skipping this valley as it is unimportant or its energies are way off...')
                     continue
 
                 corrupt_tps = self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
-                # logging.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
+                # self.logger.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
                 for tp in corrupt_tps:
                     self.count_mobility[self.ibrun][tp] = False
 
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
-                    logging.info('skipping this valley as it is unimportant or its energies are way off...')
+                    self.logger.info('skipping this valley as it is unimportant or its energies are way off...')
                     continue
 
                 # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
@@ -382,10 +385,10 @@ class AMSET(object):
                         f0_all = 1 / (np.exp((self.energy_array[dop_tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                         if c < 0:
                             electrons = self.integrate_over_states(f0_all, dop_tp)
-                            logging.info('k-integral of f0 above band gap at c={}, T={}: {}'.format(c, T, electrons))
+                            self.logger.info('k-integral of f0 above band gap at c={}, T={}: {}'.format(c, T, electrons))
                         if c > 0:
                             holes = self.integrate_over_states(1-f0_all, dop_tp)
-                            logging.info('k-integral of 1-f0 below band gap at c={}, T={}: {}'.format(c, T, holes))
+                            self.logger.info('k-integral of 1-f0 below band gap at c={}, T={}: {}'.format(c, T, holes))
 
                 self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
                 self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
@@ -403,7 +406,7 @@ class AMSET(object):
 
                 self.calculate_spb_transport()
 
-                logging.info('Mobility Labels: {}'.format(self.mo_labels))
+                self.logger.info('Mobility Labels: {}'.format(self.mo_labels))
                 for c in self.dopings:
                     for T in self.temperatures:
                         if self.count_mobility[self.ibrun][tp]:
@@ -466,7 +469,7 @@ class AMSET(object):
         # print('here debug mobility')
         # print(self.mobility['n'])
         # print()
-        logging.debug('here denominator:\n{}'.format(self.denominator))
+        self.logger.debug('here denominator:\n{}'.format(self.denominator))
 
         if not self.independent_valleys:
             for tp in ['p', 'n']:
@@ -504,7 +507,7 @@ class AMSET(object):
 
 
     def find_fermi_boltztrap(self):
-        logging.warning('\nRunning BoltzTraP to calculate the Fermi levels...')
+        self.logger.warning('\nRunning BoltzTraP to calculate the Fermi levels...')
         boltztrap_runner = BoltztrapRunner(bs=self.bs, nelec=self.nelec,
                 doping=list(set([abs(d) for d in self.dopings])),
                         tmax=max(self.temperatures))
@@ -540,8 +543,8 @@ class AMSET(object):
             self.k_hat_array_cartesian[tp] = normalize_array(self.kgrid_array_cartesian[tp])
             self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
 
-            # logging.info("number of original ibz {}-type k-points: {}".format(tp, len(kpts[tp])))
-            # logging.debug("time to get the ibz k-mesh: \n {}".format(time.time()-start_time))
+            # self.logger.info("number of original ibz {}-type k-points: {}".format(tp, len(kpts[tp])))
+            # self.logger.debug("time to get the ibz k-mesh: \n {}".format(time.time()-start_time))
             # start_time = time.time()
         return kpts
 
@@ -549,7 +552,7 @@ class AMSET(object):
         analytical_band_tuple = None
         if self.poly_bands0 is None:
             if self.interpolation=="boltztrap1":
-                logging.debug(
+                self.logger.debug(
                     "start interpolating bands from {}".format(coeff_file))
             # analytical_bands = Analytical_bands(coeff_file=coeff_file)
 
@@ -560,7 +563,7 @@ class AMSET(object):
                     self.all_ibands.append(self.cbm_vbm0[tp]["bidx"] + sgn * ib)
 
 
-            logging.debug("all_ibands: {}".format(self.all_ibands))
+            self.logger.debug("all_ibands: {}".format(self.all_ibands))
 
             # # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
             # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
@@ -619,7 +622,7 @@ class AMSET(object):
             self.offset_from_vrun = energy - self.cbm_vbm0[tp]["energy"]
 
 
-            logging.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
+            self.logger.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
             self.cbm_vbm0[tp]["energy"] = energy
             self.cbm_vbm0[tp]["eff_mass_xx"] = effective_m.diagonal()
 
@@ -645,7 +648,7 @@ class AMSET(object):
         num_bands = num_bands or self.num_bands
         start_time = time.time()
         # if not once_called:
-        logging.info("self.nkibz = {}".format(self.nkibz))
+        self.logger.info("self.nkibz = {}".format(self.nkibz))
 
 
         # the first part is just to update the cbm_vbm once!
@@ -657,7 +660,7 @@ class AMSET(object):
             # if using analytical bands: create the object, determine list of band indices, and get energy info
             if self.poly_bands0 is None:
                 if self.interpolation == 'boltztrap1':
-                    logging.debug("start interpolating bands from {}".format(coeff_file))
+                    self.logger.debug("start interpolating bands from {}".format(coeff_file))
                     analytical_bands = Analytical_bands(coeff_file=coeff_file)
                     # all_ibands supposed to start with index of last valence band then
                     # VBM-1 ... and then index of CBM then CBM+1 ...
@@ -671,7 +674,7 @@ class AMSET(object):
                         self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
                     for ib in range(num_bands['n']):
                         self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
-                    logging.debug("all_ibands: {}".format(self.all_ibands))
+                    self.logger.debug("all_ibands: {}".format(self.all_ibands))
                     # # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
                     # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
                     # nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
@@ -696,7 +699,7 @@ class AMSET(object):
                         self.poly_bands[ib][valley][0] = remove_duplicate_kpoints(
                             self.get_sym_eq_ks_in_first_BZ(self.poly_bands0[ib][valley][0], cartesian=True))
 
-            logging.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
+            self.logger.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
 
         # calculate only the CBM and VBM energy values - @albalu why is this separate from the other energy value calculations?
         # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
@@ -745,9 +748,9 @@ class AMSET(object):
         N_n = self.kgrid_array['n'].shape
 
         # for ib in range(self.num_bands['n']):
-        #     logging.debug('energy (type n, band {}):'.format(ib))
-        #     logging.debug(self.energy_array['n'][ib][(N_n[0] - 1) / 2, (N_n[1] - 1) / 2, :])
-        logging.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
+        #     self.logger.debug('energy (type n, band {}):'.format(ib))
+        #     self.logger.debug(self.energy_array['n'][ib][(N_n[0] - 1) / 2, (N_n[1] - 1) / 2, :])
+        self.logger.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
 
         if self.poly_bands is not None:
             all_bands_energies = {"n": [], "p": []}
@@ -775,7 +778,7 @@ class AMSET(object):
                             self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
                             / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
                             scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
-                    logging.debug("dos_nbands: {} \n".format(dos_nbands))
+                    self.logger.debug("dos_nbands: {} \n".format(dos_nbands))
                     self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
                                      + self.offset_from_vrun - self.scissor/2.0
                     self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
@@ -792,9 +795,10 @@ class AMSET(object):
                     self.dos_emax = emesh[-1]
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
-                self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
+                # self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
+                self.dos_normalization_factor = dos_nbands
             else:
-                logging.debug("here self.poly_bands: \n {}".format(self.poly_bands))
+                self.logger.debug("here self.poly_bands: \n {}".format(self.poly_bands))
                 emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
                         [self.nkdos, self.nkdos, self.nkdos], self.dos_emin,
                         self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
@@ -807,7 +811,7 @@ class AMSET(object):
                 self.dos_end = self.dos_emax
 
 
-            logging.info("DOS normalization factor: {}".format(self.dos_normalization_factor))
+            self.logger.info("DOS normalization factor: {}".format(self.dos_normalization_factor))
 
             integ = 0.0
             self.dos_start = abs(emesh - self.dos_start).argmin()
@@ -819,20 +823,20 @@ class AMSET(object):
 
             print("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
 
-            # logging.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
+            # self.logger.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
             dos = [g / integ * self.dos_normalization_factor for g in dos]
-            # logging.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
+            # self.logger.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
 
             self.dos = zip(emesh, dos)
             self.dos_emesh = np.array(emesh)
             self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
             self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
 
-            logging.info("vbm and cbm DOS index")
-            logging.info(self.vbm_dos_idx)
-            logging.info(self.cbm_dos_idx)
-            # logging.debug("full dos after normalization: \n {}".format(self.dos))
-            # logging.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
+            self.logger.info("vbm and cbm DOS index")
+            self.logger.info(self.vbm_dos_idx)
+            self.logger.info(self.cbm_dos_idx)
+            # self.logger.debug("full dos after normalization: \n {}".format(self.dos))
+            # self.logger.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
 
             self.dos = [list(a) for a in self.dos]
 
@@ -863,8 +867,8 @@ class AMSET(object):
             #     self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
             #     self.cbm_vbm[tp]['kpoint'] = new_cbm_vbm[tp]['kpoint']
 
-        logging.info(('here initial important_pts'))
-        logging.info((self.important_pts)) # for some reason the nscf uniform GaAs fitted coeffs return positive mass for valence at Gamma!
+        self.logger.info(('here initial important_pts'))
+        self.logger.info((self.important_pts)) # for some reason the nscf uniform GaAs fitted coeffs return positive mass for valence at Gamma!
 
         # for tp in ['n', 'p']:
         #     self.important_pts[tp].append(self.cbm_vbm[tp]["kpoint"])
@@ -904,7 +908,7 @@ class AMSET(object):
 
 
         #################################################################
-        logging.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
+        self.logger.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
 
 
     def write_input_files(self, path=None, dir_name="run_data"):
@@ -1028,7 +1032,7 @@ class AMSET(object):
         # and that changes the actual values
         self.gaussian_broadening = False
         self.soc = params.get("soc", False)
-        logging.info("bs_is_isotropic: {}".format(self.bs_is_isotropic))
+        self.logger.info("bs_is_isotropic: {}".format(self.bs_is_isotropic))
         self.independent_valleys = params.get('independent_valleys', False)
 
 
@@ -1041,7 +1045,7 @@ class AMSET(object):
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
         # self.Ecut = {tp: Ecut for tp in ["n", "p"]}
         for tp in ["n", "p"]:
-            logging.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
+            self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
@@ -1055,7 +1059,7 @@ class AMSET(object):
         self.BTE_iters = params.get("BTE_iters", 5)
         self.parallel = params.get("parallel", True)
         self.max_ncpu = params.get("max_ncpu", 8)
-        logging.info("parallel: {}".format(self.parallel))
+        self.logger.info("parallel: {}".format(self.parallel))
         self.max_nbands = params.get("max_nbands", None)
         self.max_normk0 = params.get("max_normk", None)
         self.max_normk = {'n': self.max_normk0, 'p': self.max_normk0}
@@ -1112,7 +1116,7 @@ class AMSET(object):
             self.bz2_params = (equivalences, lattvec, coeffs)
 
         self.volume = self._vrun.final_structure.volume
-        logging.info("unitcell volume = {} A**3".format(self.volume))
+        self.logger.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
         # print(norm(self._rec_lattice.get_cartesian_coords([0.5, 0.5, 0.5])/A_to_nm )/2  )
@@ -1135,7 +1139,7 @@ class AMSET(object):
         cbm = self.bs.get_cbm()
         vbm = self.bs.get_vbm()
 
-        logging.info("total number of bands: {}".format(self._vrun.get_band_structure().nb_bands))
+        self.logger.info("total number of bands: {}".format(self._vrun.get_band_structure().nb_bands))
 
         cbm_vbm["n"]["energy"] = cbm["energy"]
         cbm_vbm["n"]["bidx"], _ = get_bindex_bspin(cbm, is_cbm=True)
@@ -1146,14 +1150,14 @@ class AMSET(object):
         cbm_vbm["p"]["kpoint"] = self.bs.kpoints[vbm["kpoint_index"][0]].frac_coords
 
         self.dft_gap = cbm["energy"] - vbm["energy"]
-        logging.debug("DFT gap from vasprun.xml : {} eV".format(self.dft_gap))
+        self.logger.debug("DFT gap from vasprun.xml : {} eV".format(self.dft_gap))
 
         if self.soc:
             self.nelec = cbm_vbm["p"]["bidx"] + 1
         else:
             self.nelec = (cbm_vbm["p"]["bidx"] + 1) * 2
 
-        logging.debug("total number of electrons nelec: {}".format(self.nelec))
+        self.logger.debug("total number of electrons nelec: {}".format(self.nelec))
 
         bsd = self.bs.as_dict()
         if bsd["is_spin_polarized"]:
@@ -1190,7 +1194,7 @@ class AMSET(object):
         self.cbm_vbm = cbm_vbm
         self.cbm_vbm0 = deepcopy(cbm_vbm)
         self.valleys = {tp: {'band {}'.format(i): {} for i in range(self.cbm_vbm0[tp]['included']) } for tp in ['p', 'n']}
-        logging.info("original cbm_vbm:\n {}".format(cbm_vbm))
+        self.logger.info("original cbm_vbm:\n {}".format(cbm_vbm))
         self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
 
 
@@ -1333,7 +1337,7 @@ class AMSET(object):
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
 
-        logging.debug("here total number of ks from self.Efrequency for {}-type: {}".format(self.debug_tp, sum(self.Efrequency[self.debug_tp])))
+        self.logger.debug("here total number of ks from self.Efrequency for {}-type: {}".format(self.debug_tp, sum(self.Efrequency[self.debug_tp])))
 
         min_nE = 2
 
@@ -1397,7 +1401,7 @@ class AMSET(object):
                             self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
 
         self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
-        logging.debug('inverse screening length, beta is \n{}'.format(
+        self.logger.debug('inverse screening length, beta is \n{}'.format(
             self.egrid["beta"]))
         self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
         self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
@@ -1441,7 +1445,7 @@ class AMSET(object):
                 rm_idx_list_ib = list(set(rm_idx_list[tp][ib]))
                 rm_idx_list_ib.sort(reverse=True)
                 rm_idx_list[tp][ib] = rm_idx_list_ib
-                logging.debug("# of {}-type kpoints indexes with low velocity or off-energy: {}".format(tp,len(rm_idx_list_ib)))
+                self.logger.debug("# of {}-type kpoints indexes with low velocity or off-energy: {}".format(tp,len(rm_idx_list_ib)))
             for prop in rearranged_props:
                 self.kgrid[tp][prop] = np.array([np.delete(self.kgrid[tp][prop][ib], rm_idx_list[tp][ib], axis=0) \
                                                  for ib in range(self.cbm_vbm[tp]["included"])])
@@ -1564,8 +1568,8 @@ class AMSET(object):
                 if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
                     kpoints_added[tp].append(kpts[ie])
 
-        logging.info("here initial k-points for {}-type with low energy distance".format(self.debug_tp))
-        logging.info(len(kpoints_added[self.debug_tp]))
+        self.logger.info("here initial k-points for {}-type with low energy distance".format(self.debug_tp))
+        self.logger.info(len(kpoints_added[self.debug_tp]))
         # print kpoints_added[self.debug_tp]
         final_kpts_added = []
         for tp in ["n", "p"]:
@@ -1620,7 +1624,7 @@ class AMSET(object):
                 'very coarse', 'coarse', 'fine', 'very fine'
         Returns:
         """
-        # logging.debug('begin profiling init_kgrid: a "{}" grid'.format(kgrid_tp))
+        # self.logger.debug('begin profiling init_kgrid: a "{}" grid'.format(kgrid_tp))
         # start_time = time.time()
 
         corrupt_tps = []
@@ -1645,7 +1649,7 @@ class AMSET(object):
             "p": {}}
         # self.num_bands = {"n": {}, "p": {}}
         self.num_bands = {"n": 1, "p": 1}
-        # logging.debug('here the n-type kgrid :\n{}'.format(kpts['n']))
+        # self.logger.debug('here the n-type kgrid :\n{}'.format(kpts['n']))
         for tp in ["n", "p"]:
             self.num_bands[tp] = self.cbm_vbm[tp]["included"]
             self.kgrid[tp]["kpoints"] = [kpts[tp] for ib in range(self.num_bands[tp])]
@@ -1664,7 +1668,7 @@ class AMSET(object):
         self.initialize_var("kgrid", ["old cartesian kpoints", "cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["norm(k)", "norm(actual_k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
 
-        logging.debug("The DFT gap right before calculating final energy values: {}".format(self.dft_gap))
+        self.logger.debug("The DFT gap right before calculating final energy values: {}".format(self.dft_gap))
 
         for i, tp in enumerate(["p", "n"]):
             self.cbm_vbm[tp]["cartesian k"] = self._rec_lattice.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
@@ -1783,7 +1787,7 @@ class AMSET(object):
                     #         # print(self.kgrid[tp]["velocity"][ib][ik])
                     #         rm_idx_list[tp][ib].append(ik)
 
-                    # logging.info('cbm_vbm right before checking for omission: {}'.format(self.cbm_vbm))
+                    # self.logger.info('cbm_vbm right before checking for omission: {}'.format(self.cbm_vbm))
 
                     if (len(rm_idx_list[tp][ib]) + 20 < len(self.kgrid[tp]['kpoints'][ib])) and (
                             (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() \
@@ -1814,7 +1818,7 @@ class AMSET(object):
                     # # This caused some tests to break as it was changing mobility
                     # # values and making them more anisotropic since it was removing Gamma from GaAs
                     # # if self.kgrid[tp]["norm(k)"][ib][ik] < 0.0001:
-                    # #     logging.debug('HERE removed k-point {} ; cartesian: {}'.format(
+                    # #     self.logger.debug('HERE removed k-point {} ; cartesian: {}'.format(
                     # #         self.kgrid[tp]["kpoints"][ib][ik], self.kgrid[tp]["cartesian kpoints"][ib][ik]))
                     # #     rm_idx_list[tp][ib].append(ik)
 
@@ -1827,7 +1831,7 @@ class AMSET(object):
                         self.kgrid[tp]["a"][ib][ik] = 1.0  # parabolic: s-only
                         self.kgrid[tp]["c"][ib][ik] = 0.0
 
-            logging.debug("average of the {}-type group velocity in kgrid:\n {}".format(
+            self.logger.debug("average of the {}-type group velocity in kgrid:\n {}".format(
                         tp, np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
 
         rearranged_props = ["velocity",  "effective mass", "energy", "a", "c",
@@ -1835,7 +1839,7 @@ class AMSET(object):
                             "old cartesian kpoints", "kweights",
                             "norm(v)", "norm(k)", "norm(actual_k)"]
 
-        logging.debug("time to calculate E, v, m_eff at all k-points: \n {}".format(time.time()-start_time))
+        self.logger.debug("time to calculate E, v, m_eff at all k-points: \n {}".format(time.time()-start_time))
         start_time = time.time()
 
         # TODO: the following is temporary, for some reason if # of kpts in different bands are NOT the same,
@@ -1861,17 +1865,17 @@ class AMSET(object):
             # print('AFTER REMOVING')
             # print(len(self.kgrid['n']["kpoints"][ib]))
             # print(len(self.kgrid['p']["kpoints"][ib]))
-        logging.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin, self.dos_emax))
+        self.logger.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin, self.dos_emax))
 
-        logging.debug('current cbm_vbm:\n{}'.format(self.cbm_vbm))
+        self.logger.debug('current cbm_vbm:\n{}'.format(self.cbm_vbm))
         for tp in ["n", "p"]:
             for ib in range(len(self.kgrid[tp]["energy"])):
-                logging.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
+                self.logger.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
 
             if len(self.kgrid[tp]["kpoints"][0]) < 5:
                 # raise ValueError("VERY BAD {}-type k-mesh; please change the k-mesh and try again!".format(tp))
                 corrupt_tps.append(tp)
-        logging.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
+        self.logger.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
 
         # sort "energy", "kpoints", "kweights", etc based on energy in ascending order and keep track of old indexes
         e_sort_idx_2 = self.sort_vars_based_on_energy(args=rearranged_props, ascending=True)
@@ -1952,7 +1956,7 @@ class AMSET(object):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
                             E_change=0.0, forced_min_npoints=2, tolerance=self.dE_min)
                 enforced_ratio = self.nforced_scat[tp] / sum([len(points) for points in self.kgrid[tp]["X_E_ik"][ib]])
-                logging.info("enforced scattering ratio for {}-type elastic scattering at band {}:\n {}".format(
+                self.logger.info("enforced scattering ratio for {}-type elastic scattering at band {}:\n {}".format(
                         tp, ib, enforced_ratio))
                 if enforced_ratio > 0.9:
                     # TODO: this should be an exception but for now I turned to warning for testing.
@@ -1980,7 +1984,7 @@ class AMSET(object):
                     enforced_ratio = self.nforced_scat[tp] / (
                         sum([len(points) for points in self.kgrid[tp]["X_Eplus_ik"][ib]]) + \
                         sum([len(points) for points in self.kgrid[tp]["X_Eminus_ik"][ib]]))
-                    logging.info(
+                    self.logger.info(
                         "enforced scattering ratio: {}-type inelastic at band {}:\n{}".format(tp, ib, enforced_ratio))
 
                     if enforced_ratio > 0.9:
@@ -2757,8 +2761,8 @@ class AMSET(object):
                                     print()
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
 
-                        # logging.debug("relaxation time at c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["relaxation time"][c][T][ib]))
-                        # logging.debug("_all_elastic c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["_all_elastic"][c][T][ib]))
+                        # self.logger.debug("relaxation time at c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["relaxation time"][c][T][ib]))
+                        # self.logger.debug("_all_elastic c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["_all_elastic"][c][T][ib]))
                         self.kgrid[tp]["relaxation time"][c][T][ib] = 1 / self.kgrid[tp]["_all_elastic"][c][T][ib]
 
 
@@ -2784,7 +2788,7 @@ class AMSET(object):
                         first_ik = self.kgrid_to_egrid_idx[tp][ie][0][1]
                         for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                             # if norm(self.kgrid[tp][prop_name][ib][ik]) / norm(self.kgrid[tp][prop_name][first_ib][first_ik]) > 1.25 or norm(self.kgrid[tp][prop_name][ib][ik]) / norm(self.kgrid[tp][prop_name][first_ib][first_ik]) < 0.8:
-                            #     logging.debug('ERROR! Some {} values are more than 25% different at k points with the same energy.'.format(prop_name))
+                            #     self.logger.debug('ERROR! Some {} values are more than 25% different at k points with the same energy.'.format(prop_name))
                             #     print('first k: {}, current k: {}'.format(norm(self.kgrid[tp][prop_name][first_ib][first_ik]), norm(self.kgrid[tp][prop_name][ib][ik])))
                             #     print('current energy, first energy, ik, first_ik')
                             #     print(self.kgrid[tp]['energy'][ib][ik], self.kgrid[tp]['energy'][first_ib][first_ik], ik, first_ik)
@@ -2956,7 +2960,7 @@ class AMSET(object):
                     self.calc_doping[c][T]['n'] = temp_doping["n"]
                     self.calc_doping[c][T]['p'] = temp_doping["p"]
                     if relative_error < tolerance:
-                        logging.info(
+                        self.logger.info(
                             "fermi at {} 1/cm3 and {} K after {} iterations: {}".format(
                                 c, T, int(niter), fermi))
                         return fermi
@@ -2967,7 +2971,7 @@ class AMSET(object):
         relative_error, fermi, calc_doping, niter = linear_iteration(
             relative_error, fermi, calc_doping, iterations=max_iter, niter=niter)
 
-        logging.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(niter), fermi))
+        self.logger.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(niter), fermi))
         if relative_error > tolerance_loose:
             raise ValueError('The calculated concentration is not within {}%'
                              'of the given value ({}) at T={}'.format(
@@ -2988,8 +2992,8 @@ class AMSET(object):
             # TODO: the integration may need to be revised. Careful testing of IMP scattering against expt is necessary
             integral = self.integrate_over_normk(prop_list=["f0","1-f0"], tp=tp, c=c, T=T, xDOS=True)
             # integral = sum(integral)/3
-            # logging.debug('integral_over_norm_k')
-            # logging.debug(integral)
+            # self.logger.debug('integral_over_norm_k')
+            # self.logger.debug(integral)
 
             # from aMoBT ( or basically integrate_over_normk )
             beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
@@ -3094,7 +3098,7 @@ class AMSET(object):
                                 egrid[tp][key] = self.egrid[tp][key][::-1][nstart:nstart + nmax]
                         except:
                             if key not in ['mobility']:
-                                logging.warning('in to_json: cutting {} '
+                                self.logger.warning('in to_json: cutting {} '
                                                 'in egrid failed!'.format(key))
 
         with open(os.path.join(path, "egrid.json"), 'w') as fp:
@@ -3130,7 +3134,7 @@ class AMSET(object):
                                                       for b in range(self.cbm_vbm[tp]["included"])]
                             except:
                                 if key not in ['mobility']:
-                                    logging.warning('in to_json: cutting {} '
+                                    self.logger.warning('in to_json: cutting {} '
                                         'in kgrid failed!'.format(key))
 
             with open(os.path.join(path, "kgrid.json"), 'w') as fp:
@@ -3495,15 +3499,15 @@ class AMSET(object):
 
                     if self.bs_is_isotropic and not test_anisotropic:
                         if tp == get_tp(c):
-                            logging.info('calculating mobility by integrating over'
+                            self.logger.info('calculating mobility by integrating over'
                                          ' k-grid and isotropic BS assumption...')
-                            logging.debug('current valley is at {}'.format(important_points))
-                            logging.debug('the denominator is:\n{}'.format(self.denominator))
+                            self.logger.debug('current valley is at {}'.format(important_points))
+                            self.logger.debug('the denominator is:\n{}'.format(self.denominator))
                         # from equation 45 in Rode, elastic mechanisms
                         # for ib in range(self.num_bands[tp]):
-                        #     logging.info('f0 (type {}, band {}):'.format(tp, ib))
-                        #     logging.info(f0_all[ib, (N[0]-1)/2, (N[1]-1)/2, :])
-                        #     #logging.info(self.f0_array[c][T][tp][ib][(N[0]-1)/2, (N[1]-1)/2, :])
+                        #     self.logger.info('f0 (type {}, band {}):'.format(tp, ib))
+                        #     self.logger.info(f0_all[ib, (N[0]-1)/2, (N[1]-1)/2, :])
+                        #     #self.logger.info(self.f0_array[c][T][tp][ib][(N[0]-1)/2, (N[1]-1)/2, :])
 
                         for el_mech in self.elastic_scatterings:
                             nu_el = self.array_from_kgrid(el_mech, tp, c, T, denom=True)
@@ -3522,12 +3526,12 @@ class AMSET(object):
                         # from equation 45 in Rode, overall
                         g = self.array_from_kgrid("g", tp, c, T)
                         # for ib in range(self.num_bands[tp]):
-                        #     logging.info('g for overall (type {}, band {}):'.format(tp, ib))
-                        #     logging.info(g[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                        #     logging.info('norm(v) for overall (type {}, band {}):'.format(tp, ib))
-                        #     logging.info(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                        #     logging.info('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
-                        #     logging.info((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
+                        #     self.logger.info('g for overall (type {}, band {}):'.format(tp, ib))
+                        #     self.logger.info(g[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                        #     self.logger.info('norm(v) for overall (type {}, band {}):'.format(tp, ib))
+                        #     self.logger.info(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                        #     self.logger.info('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
+                        #     self.logger.info((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
                         # valley_mobility[tp]['overall'][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 # self.bs.get_kpoint_degeneracy(important_points[tp][0])
                         valley_mobility[tp]['overall'][c][T] = self.integrate_over_states(g * norm_v, tp)
 
@@ -3545,7 +3549,7 @@ class AMSET(object):
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
                     if (mu_overrall_norm == 0.0 or faulty_overall_mobility) and not test_anisotropic:
-                        logging.warning('There may be a problem with overall '
+                        self.logger.warning('There may be a problem with overall '
                                         'mobility; setting it to average...')
 
 # 20180305 backup: didn't make sense
@@ -3599,7 +3603,7 @@ class AMSET(object):
                     #     else:
                     #         denom = self.integrate_over_E(prop_list=["1 - f0"], tp=tp, c=c, T=T, xDOS=False, xvel=False,
                     #                                       weighted=False)*3*default_small_E
-                    # # logging.debug("denominator {}-type valley {}: \n{}".format(
+                    # # self.logger.debug("denominator {}-type valley {}: \n{}".format(
                     # #         tp, important_points[tp], denom))
 
                     denom = None
@@ -3893,7 +3897,8 @@ class AMSET(object):
         temp_dependent_k_props = []
         for prop in k_plots:
             if prop not in supported_k_plots:
-                raise AmsetError('No support for {} vs. k plot!'.format(prop))
+                raise AmsetError(self.logger,
+                                 'No support for {} vs. k plot!'.format(prop))
             if prop in all_temp_independent_k_props:
                 temp_independent_k_props.append(prop)
             else:
@@ -3901,7 +3906,8 @@ class AMSET(object):
         temp_dependent_E_props = []
         for prop in E_plots:
             if prop not in supported_E_plots:
-                raise AmsetError('No support for {} vs. E plot!'.format(prop))
+                raise AmsetError(self.logger,
+                                 'No support for {} vs. E plot!'.format(prop))
             if prop in all_temp_independent_E_props:
                 temp_independent_E_props.append(prop)
             else:
