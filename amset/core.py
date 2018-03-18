@@ -96,7 +96,7 @@ class AMSET(object):
             loglevel (int): e.g. logging.DEBUG
         """
 
-        logging.basicConfig(level=loglevel or logging.DEBUG)
+        logging.basicConfig(level=loglevel or logging.DEBUG, filename='amset.log')
         self.calc_dir = calc_dir
         self.dopings = dopings or [-1e20, 1e20]
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
