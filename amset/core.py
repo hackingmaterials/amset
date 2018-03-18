@@ -614,8 +614,8 @@ class AMSET(object):
                         br_dir, sgn, scissor=self.scissor)
             elif self.interpolation=="boltztrap2":
                 fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.bz2_params)
-                energy = fitted[0][self.cbm_vbm[tp]["bidx"]][0]*Ry_to_eV
-                effective_m = fitted[2][:, :, 0, self.cbm_vbm[tp]["bidx"]].T
+                energy = fitted[0][self.cbm_vbm[tp]["bidx"]-1][0]*Ry_to_eV
+                effective_m = fitted[2][:, :, 0, self.cbm_vbm[tp]["bidx"]-1].T
             self.offset_from_vrun = energy - self.cbm_vbm0[tp]["energy"]
 
 
@@ -728,7 +728,7 @@ class AMSET(object):
                             energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                 elif self.interpolation == "boltztrap2":
                     fitted = fite.getBands(np.array(kpts[tp]), *self.bz2_params)
-                    energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']+ i * num_bands['p'], :]*Ry_to_eV
+                    energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Ry_to_eV
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
 
@@ -784,7 +784,7 @@ class AMSET(object):
                     emesh, dos, dos_nbands = get_dos_boltztrap2(analytical_band_tuple,
                                             self._vrun.final_structure,
                             mesh=[self.nkdos, self.nkdos, self.nkdos],
-                            estep=max(self.dE_min, 0.0001), vbmidx = self.cbm_vbm["p"]["bidx"],
+                            estep=max(self.dE_min, 0.0001), vbmidx = self.cbm_vbm["p"]["bidx"]-1,
                                 width=self.dos_bwidth, scissor=self.scissor)
                     self.dos_start = emesh[0]
                     self.dos_emin = emesh[0]
@@ -1736,7 +1736,7 @@ class AMSET(object):
                                         2] * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                             self.velocity_signed[tp][ib][ik] = velocity_signed
                         elif self.interpolation == "boltztrap2":
-                            iband = self.cbm_vbm["p"]["bidx"] + i*self.cbm_vbm["p"]["included"]
+                            iband = self.cbm_vbm["p"]["bidx"]-1 + i*self.cbm_vbm["p"]["included"]
                             energy = fitted[0][iband, ik]*Ry_to_eV
                             velocity = abs(fitted[1][:, ik, iband].T / hbar * A_to_m * m_to_cm * Ry_to_eV)
                             effective_mass =  hbar ** 2 / (
@@ -4074,7 +4074,7 @@ if __name__ == "__main__":
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
-                          # , "interpolation": "boltztrap2"
+                          , "interpolation": "boltztrap2"
                           }
 
     ### for PbTe
