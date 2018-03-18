@@ -548,10 +548,10 @@ class AMSET(object):
 
     def update_cbm_vbm_dos(self, coeff_file):
         analytical_band_tuple = None
-        if self.poly_bands0 is None:
+        if self.poly_bands0 is None and self.interpolation=="boltztrap1":
             logging.debug(
                 "start interpolating bands from {}".format(coeff_file))
-            analytical_bands = Analytical_bands(coeff_file=coeff_file)
+            # analytical_bands = Analytical_bands(coeff_file=coeff_file)
 
             self.all_ibands = []
             for i, tp in enumerate(["p", "n"]):
@@ -4070,11 +4070,11 @@ if __name__ == "__main__":
         ]]
 
     # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
-    performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": True,
+    performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": False,
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
-                          , "interpolation": "boltztrap2"
+                          # , "interpolation": "boltztrap2"
                           }
 
     ### for PbTe
