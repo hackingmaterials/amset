@@ -51,7 +51,6 @@ def norm(v):
     return (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
 
 
-
 def outer(v1, v2):
     """returns the outer product of vectors v1 and v2. This is to be used instead of numpy.outer which is ~3x slower."""
     return np.array([[v1[0] * v2[0], v1[0] * v2[1], v1[0] * v2[2]],
@@ -59,10 +58,8 @@ def outer(v1, v2):
                      [v1[2] * v2[0], v1[2] * v2[1], v1[2] * v2[2]]])
 
 
-
 def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
     """
-
     :param kpt (list): coordinates of a given k-point in the actual cartesian coordinates and NOT fractional coordinates
     :param rotations: symmetry rotation operations
     :param translations: symmetry translational operations
@@ -260,7 +257,6 @@ def get_energy_vectorized(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_ve
         return sign * ene, dene, ddene
     else:
         return sign * ene
-
 
 
 def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.1, SPB_DOS=False, all_values=False):
@@ -554,7 +550,8 @@ class Analytical_bands(object):
             energy = get_energy(kpt,engre,nwave, nsym, nstv, vec, cbm=cbm)
             return Energy(energy,"Ry").to("eV") # This is in eV automatically
 
-        
+
+
     def get_dos_from_scratch(self,st,mesh,e_min,e_max,e_points,width=0.2, scissor=0.0, vbmidx = None):
         '''
         Args:
@@ -598,9 +595,9 @@ class Analytical_bands(object):
             for b in range(len(engre)):
                 energy = get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
                 if b >= cbm_new_idx:
-                    energy += scissor/2
+                    energy += scissor/2.
                 else:
-                    energy -= scissor/2
+                    energy -= scissor/2.
                 g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                 dos += w * g
         if vbmidx:
