@@ -3053,6 +3053,7 @@ class AMSET(object):
         amset.Efrequency0 = d['Efrequency0']
         amset.dopings = [float(dope) for dope in d['dopings']]
         amset.temperatures = [float(T) for T in d['temperatures']]
+        amset.all_types = list(set([get_tp(c) for c in amset.dopings]))
         return amset
 
 
@@ -3912,7 +3913,7 @@ class AMSET(object):
 
         for tp in carrier_types:
             x_data = {'k': self.kgrid0[tp]["norm(k)"][0],
-                      'E': [E - self.cbm_vbm[tp]["energy"] for E in self.egrid[tp]["energy"]]}
+                      'E': [E - self.cbm_vbm[tp]["energy"] for E in self.egrid0[tp]["energy"]]}
             x_axis_label = {'k': 'norm(k)', 'E': 'energy (eV)'}
 
             for c in concentrations:
