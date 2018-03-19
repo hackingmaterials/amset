@@ -96,7 +96,6 @@ class AMSET(object):
             loglevel (int): e.g. logging.DEBUG
         """
 
-        # logging.basicConfig(level=loglevel or logging.DEBUG, filename='amset.log')
         self.logger = setup_custom_logger('amset_logger', calc_dir, 'amset.log',
                                      level=loglevel)
         self.calc_dir = calc_dir
@@ -3772,14 +3771,6 @@ class AMSET(object):
                             self.egrid[other_type]["conductivity"][c][T])
                     ## since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
                     ## self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
-
-        # if valley_mobility['n']['ACD'][-3e13][300.0][0] < 0:
-        #     print('here debug')
-        #     # print(self.energy_array['n'])
-        #     print(self.kgrid['n']['energy'][0])
-        #     quit()
-
-
         return valley_mobility
 
 
