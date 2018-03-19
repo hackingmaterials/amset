@@ -599,7 +599,7 @@ def get_bs_extrema(bs, coeff_file=None, bz2_params=None,
                    interpolation="boltztrap1",
                    nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
                     Ecut=None, nex_max=0, return_global=False, niter=5,
-                   nbelow_vbm= 0, nabove_cbm=0):
+                   nbelow_vbm= 0, nabove_cbm=0, scissor=0.0):
     """
     returns a dictionary of p-type (valence) and n-type (conduction) band
         extrema k-points by looking at the 1st and 2nd derivatives of the bands
@@ -621,6 +621,7 @@ def get_bs_extrema(bs, coeff_file=None, bz2_params=None,
             global extremum
         nbelow_vbm (int): # of bands below the last valence band
         nabove_vbm (int): # of bands above the first conduction band
+        scissor (float): the amount by which the band gap is altered/scissored.
     Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
     """
     #TODO: MAJOR cleanup needed in this function; also look into parallelizing get_analytical_energy at all kpts if it's time consuming
@@ -669,6 +670,10 @@ def get_bs_extrema(bs, coeff_file=None, bz2_params=None,
     for iband in range(len(ibands)):
         is_cb = [False, True][iband]
         tp = ['p', 'n'][iband]
+        if is_cb:
+            sgn = -1.0
+        else:
+            sgn = 1.0
 
         if interpolation=="boltztrap1":
             energies = []
@@ -677,14 +682,14 @@ def get_bs_extrema(bs, coeff_file=None, bz2_params=None,
             masses = []
             for ik, kpt in enumerate(kpts):
                 en, v, mass = calc_analytical_energy(kpt, engre[iband], nwave,
-                    nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=1, scissor=0)
+                    nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=sgn, scissor=scissor)
                 energies.append(en)
                 velocities.append(abs(v))
                 normv.append(norm(v))
                 masses.append(mass.trace() / 3)
         elif interpolation=="boltztrap2":
             fitted = fite.getBands(np.array(kpts), *bz2_params)
-            energies = fitted[0][ibands[iband]-1] * Ry_to_eV
+            energies = fitted[0][ibands[iband]-1] * Ry_to_eV - sgn*scissor/2.
             velocities = fitted[1][:, :, ibands[iband]-1].T
             normv = [norm(v) for v in velocities]
             masses =[m.trace()/3. for m in fitted[2][:, :, :, ibands[iband]-1].T]
@@ -715,8 +720,8 @@ def get_bs_extrema(bs, coeff_file=None, bz2_params=None,
             actual_cbm_vbm[tp]['kpoint'] = kpts[iextrem]
             # The following is in case CBM doesn't have a zero numerical norm(v)
             closest_cbm = get_closest_k(kpts[iextrem], np.vstack((bs.get_sym_eq_kpoints(cbmk),bs.get_sym_eq_kpoints(-cbmk))))
-            if norm(np.array(kpts[iextrem]) - closest_cbm) < min_normdiff and \
-                            abs(bs.get_cbm()['energy']-extremum0) < 0.05:
+            if norm(np.array(kpts[iextrem]) - closest_cbm) < min_normdiff:
+                # and abs(bs.get_cbm()['energy']-extremum0) < 0.05: #TODO: this is not correct unless the fitted energy is calculated at cbmk (bs.get_cbm()['energy'] is dft different reference from interpolation method)
                 extrema['n'].append(cbmk)
             else:
                 extrema['n'].append(kpts[iextrem])
@@ -726,13 +731,11 @@ def get_bs_extrema(bs, coeff_file=None, bz2_params=None,
             actual_cbm_vbm[tp]['energy'] = extremum0
             actual_cbm_vbm[tp]['kpoint'] = kpts[iextrem]
             closest_vbm = get_closest_k(kpts[iextrem], np.vstack((bs.get_sym_eq_kpoints(vbmk),bs.get_sym_eq_kpoints(-vbmk))))
-            if norm(np.array(kpts[iextrem]) - closest_vbm) < min_normdiff and \
-                            abs(bs.get_vbm()['energy']-extremum0) < 0.05:
+            if norm(np.array(kpts[iextrem]) - closest_vbm) < min_normdiff:
+                # and abs(bs.get_vbm()['energy']-extremum0) < 0.05:
                 extrema['p'].append(vbmk)
             else:
                 extrema['p'].append(kpts[iextrem])
-
-
 
         if normv[0] > v_cut:
             raise ValueError('No extremum point (v<{}) found!'.format(v_cut))
