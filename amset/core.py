@@ -1757,7 +1757,7 @@ class AMSET(object):
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
                     if tp == 'n':
-                        self.logger.debug('here velocity', velocity)
+                        self.logger.debug('here velocity:\n{}'.format(velocity))
                     # if tp == 'n':
                     #     print("k_frac = {}".format(self.kgrid['n']["kpoints"][ib][ik]))
                     #     print("k_cart = {}".format(self.kgrid['n']["cartesian kpoints"][ib][ik]))
