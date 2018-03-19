@@ -1756,8 +1756,8 @@ class AMSET(object):
 
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
-                    if tp == 'n':
-                        self.logger.debug('here velocity:\n{}'.format(velocity))
+                    # if tp == 'n':
+                    #     self.logger.debug('here velocity:\n{}'.format(velocity))
                     # if tp == 'n':
                     #     print("k_frac = {}".format(self.kgrid['n']["kpoints"][ib][ik]))
                     #     print("k_cart = {}".format(self.kgrid['n']["cartesian kpoints"][ib][ik]))
@@ -4132,7 +4132,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
