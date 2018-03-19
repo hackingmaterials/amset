@@ -155,8 +155,7 @@ class AMSET(object):
             self.logger.warning('\nRunning BoltzTraP to generate the cube file...')
             boltztrap_runner = BoltztrapRunner(bs=self.bs, nelec=self.nelec,
                     # doping=list(set([abs(d) for d in self.dopings])),
-                    doping=[1e20],
-                            tmax=max(self.temperatures))
+                    doping=[1e20], tmax=max(self.temperatures))
             boltztrap_runner.run(path_dir=self.calc_dir)
             # BoltztrapRunner().run(path_dir=self.calc_dir)
             coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
@@ -616,8 +615,8 @@ class AMSET(object):
                         br_dir, sgn, scissor=self.scissor)
             elif self.interpolation=="boltztrap2":
                 fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.bz2_params)
-                energy = fitted[0][self.cbm_vbm[tp]["bidx"]-1][0]*Ry_to_eV
-                effective_m = fitted[2][:, :, 0, self.cbm_vbm[tp]["bidx"]-1].T
+                energy = fitted[0][self.cbm_vbm[tp]["bidx"]-1][0]*Ry_to_eV - sgn*self.scissor/2.
+                effective_m = fitted[2][:, :, 0, self.cbm_vbm0[tp]["bidx"]-1].T
             self.offset_from_vrun = energy - self.cbm_vbm0[tp]["energy"]
 
 
@@ -730,7 +729,7 @@ class AMSET(object):
                             energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                 elif self.interpolation == "boltztrap2":
                     fitted = fite.getBands(np.array(kpts[tp]), *self.bz2_params)
-                    energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Ry_to_eV
+                    energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Ry_to_eV - sgn*self.scissor/2.
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
 
@@ -783,7 +782,7 @@ class AMSET(object):
                     self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
                                    + self.offset_from_vrun + self.scissor / 2.0
                 elif self.interpolation=="boltztrap2":
-                    emesh, dos, dos_nbands = get_dos_boltztrap2(analytical_band_tuple,
+                    emesh, dos, dos_nbands = get_dos_boltztrap2(self.bz2_params,
                                             self._vrun.final_structure,
                             mesh=[self.nkdos, self.nkdos, self.nkdos],
                             estep=max(self.dE_min, 0.0001), vbmidx = self.cbm_vbm["p"]["bidx"]-1,
@@ -854,13 +853,15 @@ class AMSET(object):
                     bz2_params=self.bz2_params, interpolation=self.interpolation,
                     nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
                     Ecut=self.Ecut, nex_max=20, return_global=True, niter=5,
-                          nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm)
+                          nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
             # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
             if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy']:
-                self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy'] + self.scissor/2.0
+                # self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy'] + self.scissor/2.0
+                self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
                 self.cbm_vbm['n']['kpoint'] = new_cbm_vbm['n']['kpoint']
             if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p']['energy']:
-                self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy'] - self.scissor/2.0
+                # self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy'] - self.scissor/2.0
+                self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
             # for tp in ['p', 'n']:
             #     self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
@@ -1740,7 +1741,7 @@ class AMSET(object):
                             self.velocity_signed[tp][ib][ik] = velocity_signed
                         elif self.interpolation == "boltztrap2":
                             iband = self.cbm_vbm["p"]["bidx"]-1 + i*self.cbm_vbm["p"]["included"]
-                            energy = fitted[0][iband, ik]*Ry_to_eV
+                            energy = fitted[0][iband, ik]*Ry_to_eV - sgn*self.scissor/2.
                             velocity = abs(fitted[1][:, ik, iband].T / hbar * A_to_m * m_to_cm * Ry_to_eV)
                             effective_mass =  hbar ** 2 / (
                                             fitted[2][:, :, ik, iband].T * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
