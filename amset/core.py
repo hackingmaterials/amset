@@ -2568,7 +2568,8 @@ class AMSET(object):
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         #TODO: this norm(v) in the following may need a /sq3
         integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
-                (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
+                (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2)
+
         # only changing ik_prm of norm(k) to ik made S_o look more like isotropic
         # integ = self.kgrid[tp]["norm(k)"][ib][ik]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
         #         (self.kgrid[tp]["norm(v)"][ib][ik]*norm_diff**2)
