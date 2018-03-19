@@ -37,6 +37,17 @@ class AmsetError(Exception):
 
 
 def setup_custom_logger(name, filepath, filename, level=None):
+    """
+    Custom logger with both screen and file handlers. This is particularly
+    useful if there are other programs (e.g. BoltzTraP2) that call on logging
+    in which case the log results and their levels are distict and clear.
+    Args:
+        name (str): logger name to distinguish between different codes.
+        filepath (str): path to the folder where the logfile is meant to be
+        filename (str): log file filename
+        level (int): log level in logging package; example: logging.DEBUG
+    Returns: a logging instance with customized formatter and handlers
+    """
     level = level or logging.DEBUG
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
                                   datefmt='%Y-%m-%d %H:%M:%S')
