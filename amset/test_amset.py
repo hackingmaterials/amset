@@ -75,7 +75,7 @@ class AmsetTest(unittest.TestCase):
 
         # w/ /sq3 factor
         expected_mu = {'ACD': 82556.6415, 'IMP': 90775.0314, 'PIE':150403.4459,
-                       'POP': 8809.1634, 'overall':5328.617, 'average': 6978.5578}
+                       'POP': 14820.29147, 'overall':7679.0771, 'average': 10282.4611}
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
@@ -114,7 +114,7 @@ class AmsetTest(unittest.TestCase):
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
         expected_mu = {'ACD': 171261.976, 'IMP': 103831.729, 'PIE': 491157.858,
-                       'POP': 18705.449, 'overall': 10724.263, 'average':14091.188}
+                       'POP': 31422.869, 'overall': 14110.205, 'average':20271.666}
         performance_params = dict(self.performance_params)
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
@@ -152,7 +152,7 @@ class AmsetTest(unittest.TestCase):
         #                'POP': 14615.437, 'overall': 10176.876, 'average': 11149.824}
         # w/ /sq3 factor
         expected_mu = {'ACD': 74871.598, 'IMP': 134463.3475, 'PIE': 150752.0427,
-                       'POP': 6866.881, 'overall': 5637.2977, 'average': 5778.573}
+                       'POP': 11494.815, 'overall': 8593.4292, 'average': 8739.553}
 
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
