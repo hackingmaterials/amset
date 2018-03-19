@@ -4123,7 +4123,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
