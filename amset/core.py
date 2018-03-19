@@ -795,8 +795,8 @@ class AMSET(object):
                     self.dos_emax = emesh[-1]
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
-                # self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
-                self.dos_normalization_factor = dos_nbands
+                self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
+                # self.dos_normalization_factor = dos_nbands # not a big change in either mobility values
             else:
                 self.logger.debug("here self.poly_bands: \n {}".format(self.poly_bands))
                 emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
