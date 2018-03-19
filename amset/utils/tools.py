@@ -673,10 +673,10 @@ def get_bs_extrema(bs, coeff_file=None, bz2_params=None,
                 masses.append(mass.trace() / 3)
         elif interpolation=="boltztrap2":
             fitted = fite.getBands(np.array(kpts), *bz2_params)
-            energies = fitted[0][ibands[iband]] * Ry_to_eV
-            velocities = fitted[1][:, :, ibands[iband]].T
+            energies = fitted[0][ibands[iband]-1] * Ry_to_eV
+            velocities = fitted[1][:, :, ibands[iband]-1].T
             normv = [norm(v) for v in velocities]
-            masses =[m.trace()/3. for m in fitted[2][:, :, :, ibands[iband]].T]
+            masses =[m.trace()/3. for m in fitted[2][:, :, :, ibands[iband]-1].T]
         else:
             raise ValueError('Unsupported interpolation: "{}"'.format(interpolation))
         indexes = np.argsort(normv)
