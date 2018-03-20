@@ -931,7 +931,8 @@ class AMSET(object):
             "donor_charge": self.charge["n"],
             "acceptor_charge": self.charge["p"],
             "dislocations_charge": self.charge["dislocations"],
-            "important_points": self.important_pts
+            "important_points": self.important_pts,
+            "user_bandgap": self.user_bandgap
         }
         if self.W_POP:
             material_params["W_POP"] = self.W_POP / (1e12 * 2 * pi)
@@ -1006,6 +1007,7 @@ class AMSET(object):
 
         self.N_dis = params.get("N_dis", None) or 0.1  # in 1/cm**2
         self.scissor = params.get("scissor", None) or 0.0
+        self.user_bandgap = params.get("user_bandgap", None)
 
         donor_charge = params.get("donor_charge", 1.0)
         acceptor_charge = params.get("acceptor_charge", 1.0)
@@ -1151,6 +1153,12 @@ class AMSET(object):
 
         self.dft_gap = cbm["energy"] - vbm["energy"]
         self.logger.debug("DFT gap from vasprun.xml : {} eV".format(self.dft_gap))
+        if self.user_bandgap:
+            if self.scissor != 0.0:
+                self.logger.warning('"user_bandgap" is set hence previously set '
+                    '"scissor" is ignored. Continuing with scissor={}'.format(
+                        self.user_bandgap - self.dft_gap))
+            self.scissor = self.user_bandgap - self.dft_gap
 
         if self.soc:
             self.nelec = cbm_vbm["p"]["bidx"] + 1
@@ -4057,7 +4065,6 @@ if __name__ == "__main__":
     use_poly_bands = False
     add_extrema = None
     # add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
-    PRE_DETERMINED_FERMI = {-30000000000000.0: {800: 0.48104885687968513, 900: 0.48088985687968477, 1000: 0.48109215687968487, 300: 0.91309932720991627, 400: 0.80670885687968463, 500: 0.68516885687968521, 600: 0.55576885687968502, 700: 0.48798885687968518}}
     PRE_DETERMINED_FERMI = None
 
     model_params = {'bs_is_isotropic': True,
@@ -4087,7 +4094,7 @@ if __name__ == "__main__":
 
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, 'add_extrema': add_extrema
-            , "scissor": 0.5818
+            , "scissor": 0.5818, "user_bandgap": 1.54,
             # , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
             # , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p': [[0, 0, 0]]}
                        }
