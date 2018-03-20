@@ -790,7 +790,6 @@ def get_dos_boltztrap2(params, st, mesh, estep, vbmidx = None, width=0.2, scisso
 
     for ik, w in enumerate(weights):
         for b in range(nbands):
-            g = height * np.exp(
-                -((e_mesh - energies[b, ik]) / width) ** 2 / 2.)
+            g = height * np.exp(-((e_mesh - energies[b, ik]) / width) ** 2 / 2.)
             dos += w * g
     return e_mesh, dos, nbands
