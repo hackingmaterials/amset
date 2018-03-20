@@ -1166,7 +1166,6 @@ class AMSET(object):
             self.nelec = (cbm_vbm["p"]["bidx"] + 1) * 2
 
         self.logger.debug("total number of electrons nelec: {}".format(self.nelec))
-        print(cbm_vbm)
 
         bsd = self.bs.as_dict()
         if bsd["is_spin_polarized"]:
