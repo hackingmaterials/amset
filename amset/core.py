@@ -120,7 +120,7 @@ class AMSET(object):
         if self.parallel:
             self.logger.info("number of cpu used in parallel mode: {}".format(self.num_cores))
         self.counter = 0 # a global counter just for debugging
-
+        self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
 
     def run_profiled(self, coeff_file=None, kgrid_tp="coarse", write_outputs=True):
         profiler = cProfile.Profile()
@@ -594,17 +594,6 @@ class AMSET(object):
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
 
-            # just calculating the first valence and the conduction band
-            # if self.poly_bands is None:
-            #     energy, velocity, effective_m = calc_analytical_energy(
-            #             self.cbm_vbm[tp]["kpoint"],engre[i * self.cbm_vbm["p"][
-            #             "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
-            #             br_dir, sgn, scissor=self.scissor)
-            # else:
-            #     energy, velocity, effective_m = self.calc_poly_energy(
-            #             self.cbm_vbm[tp]["kpoint"], tp, 0)
-            # self.offset_from_vrun = energy - self.cbm_vbm[tp]["energy"]
-
             if self.poly_bands is not None:
                 energy, velocity, effective_m = self.calc_poly_energy(
                     self.cbm_vbm0[tp]["kpoint"], tp, 0)
@@ -617,16 +606,16 @@ class AMSET(object):
                 fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.bz2_params)
                 energy = fitted[0][self.cbm_vbm[tp]["bidx"]-1][0]*Ry_to_eV - sgn*self.scissor/2.
                 effective_m = fitted[2][:, :, 0, self.cbm_vbm0[tp]["bidx"]-1].T
-            self.offset_from_vrun = energy - self.cbm_vbm0[tp]["energy"]
+            self.offset_from_vrun[tp] = energy - self.cbm_vbm0[tp]["energy"]
 
 
-            self.logger.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun))
+            self.logger.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun[tp]))
             self.cbm_vbm0[tp]["energy"] = energy
             self.cbm_vbm0[tp]["eff_mass_xx"] = effective_m.diagonal()
 
         if self.poly_bands is None:
-            self.dos_emax += self.offset_from_vrun
-            self.dos_emin += self.offset_from_vrun
+            self.dos_emax += self.offset_from_vrun['n']
+            self.dos_emin += self.offset_from_vrun['p']
 
         # print('here debug')
         # print(self.cbm_vbm0)
@@ -778,9 +767,9 @@ class AMSET(object):
                             scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
                     self.logger.debug("dos_nbands: {} \n".format(dos_nbands))
                     self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
-                                     + self.offset_from_vrun - self.scissor/2.0
+                                     + self.offset_from_vrun['p']
                     self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
-                                   + self.offset_from_vrun + self.scissor / 2.0
+                                   + self.offset_from_vrun['n']
                 elif self.interpolation=="boltztrap2":
                     emesh, dos, dos_nbands = get_dos_boltztrap2(self.bz2_params,
                                             self._vrun.final_structure,
@@ -1169,8 +1158,8 @@ class AMSET(object):
 
         bsd = self.bs.as_dict()
         if bsd["is_spin_polarized"]:
-            self.dos_emin = min(bsd["bands"]["1"][0], bsd["bands"]["-1"][0])
-            self.dos_emax = max(bsd["bands"]["1"][-1], bsd["bands"]["-1"][-1])
+            self.dos_emin = min(min(bsd["bands"]["1"][0]), min(bsd["bands"]["-1"][0]))
+            self.dos_emax = max(max(bsd["bands"]["1"][-1]), max(bsd["bands"]["-1"][-1]))
         else:
             self.dos_emin = min(bsd["bands"]["1"][0])
             self.dos_emax = max(bsd["bands"]["1"][-1])
@@ -4082,7 +4071,7 @@ if __name__ == "__main__":
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "max_ncpu": 4
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
-                          , "interpolation": "boltztrap2"
+                          , "interpolation": "boltztrap1"
                           }
 
     ### for PbTe
@@ -4094,7 +4083,7 @@ if __name__ == "__main__":
 
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, 'add_extrema': add_extrema
-            , "scissor": 0.5818, "user_bandgap": 1.54,
+            # , "scissor": 0.5818, "user_bandgap": 1.54,
             # , 'important_points': {'n': [[0.0, 0.0, 0.0]], 'p':[[0, 0, 0]]}
             # , 'important_points': {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], 'p': [[0, 0, 0]]}
                        }
