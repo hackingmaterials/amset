@@ -74,8 +74,8 @@ class AmsetTest(unittest.TestCase):
         #                'POP': 13347.784, 'overall': 9408.1722, 'average': 10549.824}
 
         # w/ /sq3 factor
-        expected_mu = {'ACD': 82556.6415, 'IMP': 90775.0314, 'PIE':150403.4459,
-                       'POP': 14820.29147, 'overall':7679.0771, 'average': 10282.4611}
+        expected_mu = {'ACD': 82537.342, 'IMP': 92501.698, 'PIE':150420.6901,
+                       'POP': 14821.00969, 'overall':7706.194, 'average': 10304.3759}
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
