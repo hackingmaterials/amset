@@ -1166,6 +1166,7 @@ class AMSET(object):
             self.nelec = (cbm_vbm["p"]["bidx"] + 1) * 2
 
         self.logger.debug("total number of electrons nelec: {}".format(self.nelec))
+        print(cbm_vbm)
 
         bsd = self.bs.as_dict()
         if bsd["is_spin_polarized"]:
@@ -1180,7 +1181,7 @@ class AMSET(object):
             for i, tp in enumerate(["n", "p"]):
                 Ecut = self.Ecut[tp]
                 sgn = (-1) ** i
-                while abs(min(sgn * bsd["bands"]["1"][cbm_vbm[tp]["bidx"] + sgn * cbm_vbm[tp]["included"]]) -
+                while abs(min(sgn * np.array(bsd["bands"]["1"][cbm_vbm[tp]["bidx"] + sgn * cbm_vbm[tp]["included"]])) -
                                           sgn * cbm_vbm[tp]["energy"]) < Ecut:
                     cbm_vbm[tp]["included"] += 1
 
