@@ -1725,16 +1725,19 @@ class AMSET(object):
                                     nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                                 energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
                                 velocity_signed = de / hbar * A_to_m * m_to_cm * Ry_to_eV
-                                velocity = abs(de / hbar * A_to_m * m_to_cm * Ry_to_eV)  # to get v in cm/s
+                                velocity =  abs(de) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
                                 effective_mass = hbar ** 2 / (
                                     dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                             else:
                                 energy = results[ik][0] * Ry_to_eV - sgn * self.scissor / 2.0
                                 velocity_signed = results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV
-                                velocity = abs(results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
+                                # velocity = abs(results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
+                                # velocity =  abs(self._rec_lattice.get_cartesian_coords(results[ik][1])) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
+                                # velocity = abs( np.dot(results[ik][1], self._rec_lattice.inv_matrix) )   / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
+                                velocity = abs( np.dot(self._rec_lattice.matrix, results[ik][1]) )   / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
                                 effective_mass = hbar ** 2 / (
-                                    results[ik][
-                                        2] * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                                    np.dot(self._rec_lattice.matrix**2, results[ik][2]) \
+                                    * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                             self.velocity_signed[tp][ib][ik] = velocity_signed
                         elif self.interpolation == "boltztrap2":
                             iband = self.cbm_vbm["p"]["bidx"]-1 + i*self.cbm_vbm["p"]["included"]
@@ -3828,7 +3831,7 @@ class AMSET(object):
 
 
     def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'],
-             direction=['avg'], show_interactive=True, save_format='png', textsize=30, ticksize=25, path=None,
+             direction=['avg'], show_interactive=True, save_format=None, textsize=30, ticksize=25, path=None,
              margins=100, fontfamily="serif"):
         """
         plots the given k_plots and E_plots properties.
