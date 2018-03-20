@@ -1830,7 +1830,7 @@ class AMSET(object):
                         self.kgrid[tp]["c"][ib][ik] = 0.0
 
             self.logger.debug("average of the {}-type group velocity in kgrid:\n {}".format(
-                        tp, np.mean(self.kgrid[self.debug_tp]["velocity"][0], 0)))
+                        tp, np.mean(self.kgrid[tp]["velocity"][0], 0)))
 
         rearranged_props = ["velocity",  "effective mass", "energy", "a", "c",
                             "kpoints", "cartesian kpoints",
