@@ -7,6 +7,7 @@ import json
 from pstats import Stats
 from random import random
 
+from pymatgen.symmetry.bandstructure import HighSymmKpath
 from scipy.interpolate import griddata
 from pprint import pprint
 import os
@@ -31,9 +32,9 @@ from amset.utils.tools import norm, grid_norm, generate_k_mesh_axes, \
     fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, \
     get_tp, \
     remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
-    get_energy_args, calc_analytical_energy, get_bindex_bspin, \
-    get_bs_extrema, AmsetError, kpts_to_first_BZ, get_dos_boltztrap2, \
-    setup_custom_logger
+    get_energy_args, get_bindex_bspin, \
+    AmsetError, kpts_to_first_BZ, get_dos_boltztrap2, \
+    setup_custom_logger, insert_intermediate_kpoints
 
 from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
                         epsilon_0, default_small_E, dTdz, sq3
@@ -268,7 +269,7 @@ class AMSET(object):
                     for tp in ['n', 'p']:
                         min_dist = 20.0
                         for k in self.bs.get_sym_eq_kpoints(important_points[tp][0]): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
-                            new_dist = norm(self._rec_lattice.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True, threshold=0.01)) /A_to_nm )
+                            new_dist = norm(self.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True, threshold=0.01)) /A_to_nm )
                             # print('here dist')
                             # print get_closest_k(k, self.important_pts[tp][0], return_diff=True)
                             # print(self.important_pts[tp][0])
@@ -487,6 +488,217 @@ class AMSET(object):
             self.to_file()
 
 
+    def calc_analytical_energy(self, kpt, engre, nwave, nsym, nstv, vec, vec2,
+                               out_vec2,
+                               br_dir, sgn, scissor=0.0):
+        """
+        Args:
+            kpt ([1x3 array]): fractional coordinates of the k-point
+            engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir: all obtained via
+                get_energy_args
+            sgn (int): options are +1 for valence band and -1 for conduction bands
+                sgn is basically ignored (doesn't matter) if scissor==0.0
+            scissor (float): the amount by which the band gap is modified/scissored
+        Returns:
+
+        """
+        energy, de, dde = get_energy(kpt, engre, nwave, nsym, nstv, vec, vec2,
+                                     out_vec2, br_dir=br_dir)
+        energy = energy * Ry_to_eV - sgn * scissor / 2.0
+        velocity = abs(
+            self.get_cartesian_coords(de) / hbar * A_to_m * m_to_cm * Ry_to_eV)
+        effective_m = hbar ** 2 / (
+                dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+        return energy, velocity, effective_m
+
+
+    def get_bs_extrema(self, bs, coeff_file=None, bz2_params=None,
+                       interpolation="boltztrap1",
+                       nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
+                       Ecut=None, nex_max=0, return_global=False, niter=5,
+                       nbelow_vbm=0, nabove_cbm=0, scissor=0.0):
+        """
+        returns a dictionary of p-type (valence) and n-type (conduction) band
+            extrema k-points by looking at the 1st and 2nd derivatives of the bands
+        Args:
+            bs (pymatgen BandStructure object): must containt Structure and have
+                the same number of valence electrons and settings as the vasprun.xml
+                from which coeff_file is generated.
+            coeff_file (str): path to the cube file from BoltzTraP run
+            nk_ibz (int): maximum number of k-points in one direction in IBZ
+            v_cut (float): threshold under which the derivative is assumed 0 [cm/s]
+            min_normdiff (float): the minimum allowed distance norm(fractional k)
+                in extrema; this is important to avoid numerical instability errors
+            Ecut (float or dict): max energy difference with CBM/VBM allowed for
+                extrema
+            nex_max (int): max number of low-velocity kpts tested for being extrema
+            return_global (bool): in addition to the extrema, return the actual
+                CBM (global minimum) and VBM (global maximum) w/ their k-point
+            niter (int): number of iterations in basinhoopping for finding the
+                global extremum
+            nbelow_vbm (int): # of bands below the last valence band
+            nabove_vbm (int): # of bands above the first conduction band
+            scissor (float): the amount by which the band gap is altered/scissored.
+        Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
+        """
+        # TODO: MAJOR cleanup needed in this function; also look into parallelizing get_analytical_energy at all kpts if it's time consuming
+        # TODO: if decided to only include one of many symmetrically equivalent extrema, write a method to keep only one of symmetrically equivalent extrema as a representative
+        Ecut = Ecut or 10 * k_B * 300
+        if not isinstance(Ecut, dict):
+            Ecut = {'n': Ecut, 'p': Ecut}
+        actual_cbm_vbm = {'n': {}, 'p': {}}
+        vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
+        # vbm_idx = bs.get_vbm()['band_index'][Spin.up][0]
+        ibands = [1 - nbelow_vbm,
+                  2 + nabove_cbm]  # in this notation, 1 is the last valence band
+        ibands = [i + vbm_idx for i in ibands]
+        ibz = HighSymmKpath(bs.structure)
+        sg = SpacegroupAnalyzer(bs.structure)
+        kmesh = sg.get_ir_reciprocal_mesh(mesh=(nk_ibz, nk_ibz, nk_ibz))
+        kpts = [k_n_w[0] for k_n_w in kmesh]
+        kpts.extend(
+            insert_intermediate_kpoints(list(ibz.kpath['kpoints'].values()),
+                                        n=10))
+
+        cbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
+        vbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
+        kpts.append(cbmk)
+        kpts.append(vbmk)
+
+        # grid = {'energy': [], 'velocity': [], 'mass': [], 'normv': []}
+        extrema = {'n': [], 'p': []}
+
+        if interpolation == "boltztrap1":
+            engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(
+                coeff_file=coeff_file, ibands=ibands)
+
+        # TODO-AF: for now, I removed the following that only works with boltztrap1; if there is enough value, I will add support for boltztrap2 as well
+        # bounds = [(-0.5,0.5), (-0.5,0.5), (-0.5,0.5)]
+        # func = lambda x: calc_analytical_energy(x, engre[1], nwave,
+        #         nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=-1, scissor=0)[0]
+        # opt = basinhopping(func, x0=cbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
+        # kpts.append(opt.x)
+        #
+        # func = lambda x: -calc_analytical_energy(x, engre[0], nwave,
+        #         nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=+1, scissor=0)[0]
+        # opt = basinhopping(func, x0=vbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
+        # kpts.append(opt.x)
+
+        for iband in range(len(ibands)):
+            is_cb = [False, True][iband]
+            tp = ['p', 'n'][iband]
+            if is_cb:
+                sgn = -1.0
+            else:
+                sgn = 1.0
+
+            if interpolation == "boltztrap1":
+                energies = []
+                velocities = []
+                normv = []
+                masses = []
+                for ik, kpt in enumerate(kpts):
+                    en, v, mass = self.calc_analytical_energy(kpt, engre[iband],
+                                                         nwave,
+                                                         nsym, nstv, vec, vec2,
+                                                         out_vec2, br_dir,
+                                                         sgn=sgn,
+                                                         scissor=scissor)
+                    energies.append(en)
+                    velocities.append(abs(v))
+                    normv.append(norm(v))
+                    masses.append(mass.trace() / 3)
+            elif interpolation == "boltztrap2":
+                fitted = fite.getBands(np.array(kpts), *bz2_params)
+                energies = fitted[0][ibands[
+                                         iband] - 1] * Ry_to_eV - sgn * scissor / 2.
+                velocities = self.calc_analytical_energy(
+                    fitted[1][:, :, ibands[iband] - 1].T)
+                normv = [norm(v) for v in velocities]
+                masses = [m.trace() / 3. for m in
+                          fitted[2][:, :, :, ibands[iband] - 1].T]
+            else:
+                raise ValueError(
+                    'Unsupported interpolation: "{}"'.format(interpolation))
+            indexes = np.argsort(normv)
+            energies = [energies[i] for i in indexes]
+            normv = [normv[i] for i in indexes]
+            velocities = [velocities[i] for i in indexes]
+            masses = [masses[i] for i in indexes]
+            kpts = [np.array(kpts[i]) for i in indexes]
+
+            # print('here')
+            # cbmk = np.array([ 0.44,  0.44,  0.  ])
+            # print(np.vstack((bs.get_sym_eq_kpoints(cbmk),bs.get_sym_eq_kpoints(-cbmk))))
+            # cbmk = np.array([ 0.5,  0. ,  0.5])
+            # print(np.vstack((bs.get_sym_eq_kpoints(cbmk),bs.get_sym_eq_kpoints(-cbmk))))
+
+            # print('here values')
+            # print energies[:10]
+            # print normv[:10]
+            # print kpts[:10]
+            # print masses[:10]
+            if is_cb:
+                iextrem = np.argmin(energies)
+                extremum0 = energies[
+                    iextrem]  # extremum0 is numerical CBM here
+                actual_cbm_vbm[tp]['energy'] = extremum0
+                actual_cbm_vbm[tp]['kpoint'] = kpts[iextrem]
+                # The following is in case CBM doesn't have a zero numerical norm(v)
+                closest_cbm = get_closest_k(kpts[iextrem], np.vstack((
+                                                                     bs.get_sym_eq_kpoints(
+                                                                         cbmk),
+                                                                     bs.get_sym_eq_kpoints(
+                                                                         -cbmk))))
+                if norm(np.array(kpts[iextrem]) - closest_cbm) < min_normdiff:
+                    # and abs(bs.get_cbm()['energy']-extremum0) < 0.05: #TODO: this is not correct unless the fitted energy is calculated at cbmk (bs.get_cbm()['energy'] is dft different reference from interpolation method)
+                    extrema['n'].append(cbmk)
+                else:
+                    extrema['n'].append(kpts[iextrem])
+            else:
+                iextrem = np.argmax(energies)
+                extremum0 = energies[iextrem]
+                actual_cbm_vbm[tp]['energy'] = extremum0
+                actual_cbm_vbm[tp]['kpoint'] = kpts[iextrem]
+                closest_vbm = get_closest_k(kpts[iextrem], np.vstack((
+                                                                     bs.get_sym_eq_kpoints(
+                                                                         vbmk),
+                                                                     bs.get_sym_eq_kpoints(
+                                                                         -vbmk))))
+                if norm(np.array(kpts[iextrem]) - closest_vbm) < min_normdiff:
+                    # and abs(bs.get_vbm()['energy']-extremum0) < 0.05:
+                    extrema['p'].append(vbmk)
+                else:
+                    extrema['p'].append(kpts[iextrem])
+
+            if normv[0] > v_cut:
+                raise ValueError(
+                    'No extremum point (v<{}) found!'.format(v_cut))
+            for i in range(0, len(kpts[:nex_max])):
+                # if (velocities[i] > v_cut).all() :
+                if normv[i] > v_cut:
+                    break
+                else:
+                    far_enough = True
+                    for k in extrema[tp]:
+                        if norm(get_closest_k(kpts[i], np.vstack((
+                                                                 bs.get_sym_eq_kpoints(
+                                                                         k),
+                                                                 bs.get_sym_eq_kpoints(
+                                                                         -k))),
+                                              return_diff=True)) <= min_normdiff:
+                            # if norm(kpts[i] - k) <= min_normdiff:
+                            far_enough = False
+                    if far_enough \
+                            and abs(energies[i] - extremum0) < Ecut[tp] \
+                            and masses[i] * ((-1) ** (int(is_cb) + 1)) >= 0:
+                        extrema[tp].append(kpts[i])
+        if not return_global:
+            return extrema
+        else:
+            return extrema, actual_cbm_vbm
+
+
     def calculate_spb_transport(self):
         for tp in ['p', 'n']:
             for c in self.dopings:
@@ -534,7 +746,7 @@ class AMSET(object):
             for ii in range(N[0]):
                 for jj in range(N[1]):
                     for kk in range(N[2]):
-                        self.kgrid_array_cartesian[tp][ii,jj,kk,:] = self._rec_lattice.get_cartesian_coords(self.kgrid_array[tp][ii,jj,kk])   # 1/A
+                        self.kgrid_array_cartesian[tp][ii,jj,kk,:] = self.get_cartesian_coords(self.kgrid_array[tp][ii,jj,kk])   # 1/A
 
             # generate a normalized numpy array of vectors pointing in the direction of k
             self.k_hat_array[tp] = normalize_array(self.kgrid_array[tp])
@@ -598,7 +810,7 @@ class AMSET(object):
                 energy, velocity, effective_m = self.calc_poly_energy(
                     self.cbm_vbm0[tp]["kpoint"], tp, 0)
             elif self.interpolation=="boltztrap1":
-                energy, velocity, effective_m = calc_analytical_energy(
+                energy, velocity, effective_m = self.calc_analytical_energy(
                         self.cbm_vbm0[tp]["kpoint"],engre[i * self.cbm_vbm0["p"][
                         "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
                         br_dir, sgn, scissor=self.scissor)
@@ -711,7 +923,7 @@ class AMSET(object):
                 elif self.interpolation == "boltztrap1":
                     if not self.parallel:
                         for ik in range(len(kpts[tp])):
-                            energy, velocities[tp][ik], effective_m = calc_analytical_energy(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
+                            energy, velocities[tp][ik], effective_m = self.calc_analytical_energy(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
                     else:
                         results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
                         for ik, res in enumerate(results):
@@ -746,7 +958,7 @@ class AMSET(object):
                 for ib in range(1, len(self.poly_bands)):
                     for ik in range(len(kpts[tp])):
                         energy, velocity, effective_m = get_poly_energy(
-                            self._rec_lattice.get_cartesian_coords(kpts[ik]) / A_to_nm,
+                            self.get_cartesian_coords(kpts[ik]) / A_to_nm,
                             poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
                         all_bands_energies[tp].append(energy)
             if not once_called:
@@ -838,7 +1050,7 @@ class AMSET(object):
     def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0):
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
         if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
-            self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
+            self.important_pts, new_cbm_vbm = self.get_bs_extrema(self.bs, coeff_file,
                     bz2_params=self.bz2_params, interpolation=self.interpolation,
                     nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
                     Ecut=self.Ecut, nex_max=20, return_global=True, niter=5,
@@ -1110,8 +1322,15 @@ class AMSET(object):
         self.logger.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
-        # print(norm(self._rec_lattice.get_cartesian_coords([0.5, 0.5, 0.5])/A_to_nm )/2  )
-        # print(norm(self._rec_lattice.get_cartesian_coords([0.5, 0.0, 0.5])/A_to_nm )/2  )
+        # print(np.array(self._rec_lattice.matrix)/2/pi)
+        # print(np.linalg.norm(self._rec_lattice.matrix))
+        # print(self._rec_lattice.matrix)
+        # print(np.linalg.inv(self._rec_lattice.matrix))
+        #
+        # quit()
+
+        # print(norm(self.get_cartesian_coords([0.5, 0.5, 0.5])/A_to_nm )/2  )
+        # print(norm(self.get_cartesian_coords([0.5, 0.0, 0.5])/A_to_nm )/2  )
 
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
         self.rotations, _ = sg._get_symmetry()
@@ -1121,7 +1340,7 @@ class AMSET(object):
         self.lorbit = 11 if len(sum(self._vrun.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
 
         self.DFT_cartesian_kpts = np.array(
-                [self._rec_lattice.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
+                [self.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
 
 
         # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
@@ -1193,6 +1412,19 @@ class AMSET(object):
         self.valleys = {tp: {'band {}'.format(i): {} for i in range(self.cbm_vbm0[tp]['included']) } for tp in ['p', 'n']}
         self.logger.info("original cbm_vbm:\n {}".format(cbm_vbm))
         self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
+
+
+    def get_cartesian_coords(self, frac_k):
+        """
+        Transformation from fractional too cartesian. Note that this is different
+        form get_cartesian_coords method available in self._rec_lattice, that
+        one does NOT work with BolzTraP outputs
+        Args:
+            frac_k (np.ndarray): a 3-D vector in fractional (unitless)
+            coordinates or a list of such coordinates
+        Returns (np.ndarray): frac_k ransformed into cartesian coordinates
+        """
+        return np.dot(self._rec_lattice.matrix, np.array(frac_k).T).T
 
 
     def seeb_int_num(self, c, T):
@@ -1590,7 +1822,7 @@ class AMSET(object):
         fractional_ks = [np.dot(k, self.rotations[i]) for i in range(len(self.rotations))]
         fractional_ks = kpts_to_first_BZ(fractional_ks)
         if cartesian:
-            return [self._rec_lattice.get_cartesian_coords(k_frac) / A_to_nm for k_frac in fractional_ks]
+            return [self.get_cartesian_coords(k_frac) / A_to_nm for k_frac in fractional_ks]
         else:
             return fractional_ks
 
@@ -1607,7 +1839,7 @@ class AMSET(object):
             (energy(eV), velocity (cm/s), effective mass) from a parabolic band
         """
         energy, velocity, effective_m = get_poly_energy(
-            self._rec_lattice.get_cartesian_coords(xkpt) / A_to_nm,
+            self.get_cartesian_coords(xkpt) / A_to_nm,
             poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
         return energy, velocity, effective_m
 
@@ -1668,15 +1900,15 @@ class AMSET(object):
         self.logger.debug("The DFT gap right before calculating final energy values: {}".format(self.dft_gap))
 
         for i, tp in enumerate(["p", "n"]):
-            self.cbm_vbm[tp]["cartesian k"] = self._rec_lattice.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
+            self.cbm_vbm[tp]["cartesian k"] = self.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
             self.cbm_vbm[tp]["all cartesian k"] = self.get_sym_eq_ks_in_first_BZ(self.cbm_vbm[tp]["kpoint"], cartesian=True)
             self.cbm_vbm[tp]["all cartesian k"] = remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
 
-            # self.important_pts[tp] = [self._rec_lattice.get_cartesian_coords(k)/A_to_nm for k in self.important_pts[tp]]
+            # self.important_pts[tp] = [self.get_cartesian_coords(k)/A_to_nm for k in self.important_pts[tp]]
 
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
-                self.kgrid[tp]["old cartesian kpoints"][ib] = self._rec_lattice.get_cartesian_coords(
+                self.kgrid[tp]["old cartesian kpoints"][ib] = self.get_cartesian_coords(
                     self.kgrid[tp]["kpoints"][ib]) / A_to_nm
 
                 # WE MAKE A COPY HERE OTHERWISE THE TWO LISTS CHANGE TOGETHER
@@ -1705,12 +1937,12 @@ class AMSET(object):
 
                     # self.kgrid[tp]["cartesian kpoints"][ib][ik] = get_closest_k(self.kgrid[tp]["old cartesian kpoints"][ib][ik], self.important_pts[tp], return_diff=True)
                     self.kgrid[tp]["cartesian kpoints"][ib][ik] = \
-                        self._rec_lattice.get_cartesian_coords(get_closest_k(
+                        self.get_cartesian_coords(get_closest_k(
                             self.kgrid[tp]["kpoints"][ib][ik], important_points[tp], return_diff=True)) / A_to_nm
 
                     # # The following 2 lines (i.e. when the closest kpoints to equivalent extrema are calculated in fractional coordinates) would change the anisotropic test! not sure why
                     # closest_frac_k = np.array(get_closest_k(self.kgrid[tp]["kpoints"][ib][ik], self.important_pts[tp]), return_diff=True)
-                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self._rec_lattice.get_cartesian_coords(closest_frac_k) / A_to_nm
+                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.get_cartesian_coords(closest_frac_k) / A_to_nm
 
                     self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
                     # if abs(self.kgrid[tp]["norm(k)"][ib][ik] - 9.8) < 1.7:
@@ -1724,17 +1956,25 @@ class AMSET(object):
                                     self.kgrid[tp]["kpoints"][ib][ik], engre[i * self.cbm_vbm["p"]["included"] + ib],
                                     nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                                 energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-                                velocity_signed = de / hbar * A_to_m * m_to_cm * Ry_to_eV
-                                velocity =  abs(de) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
+                                velocity_signed = self.get_cartesian_coords(de) / hbar * A_to_m * m_to_cm * Ry_to_eV
+                                velocity =  abs(self.get_cartesian_coords(de)) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
                                 effective_mass = hbar ** 2 / (
                                     dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                             else:
                                 energy = results[ik][0] * Ry_to_eV - sgn * self.scissor / 2.0
-                                velocity_signed = results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV
+                                velocity_signed = self.get_cartesian_coords(results[ik][1]) / hbar * A_to_m * m_to_cm * Ry_to_eV
                                 # velocity = abs(results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                                # velocity =  abs(self._rec_lattice.get_cartesian_coords(results[ik][1])) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
+                                # velocity =  abs(self.get_cartesian_coords(results[ik][1])) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
                                 # velocity = abs( np.dot(results[ik][1], self._rec_lattice.inv_matrix) )   / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
-                                velocity = abs( np.dot(self._rec_lattice.matrix, results[ik][1]) )   / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
+                                # velocity = abs( np.dot(np.linalg.inv(self._rec_lattice.matrix), results[ik][1]) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s # anisotropic InP
+                                # velocity = abs( np.dot(results[ik][1], np.linalg.inv(self._rec_lattice.matrix)) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s # isotropic InP but GaAs v vs. E looks wrong
+
+                                velocity = abs( self.get_cartesian_coords(results[ik][1]) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: still very anisotropic
+                                # velocity = abs( np.dot(np.linalg.inv(self._rec_lattice.matrix), results[ik][1]) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: test as the units work out only if A is in the numerator!
+                                # velocity = abs( np.dot(results[ik][1], np.linalg.inv(self._rec_lattice.matrix)) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: InP isotropic but both GaAs and InP very low mobility
+                                # velocity = abs( 1.0 /( np.dot(self._rec_lattice.matrix, 1.0/results[ik][1]) ) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: results in nan (1/zero!)
+                                # velocity = abs( np.dot(self._rec_lattice.matrix, results[ik][1]) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: THIS results in isotropic InP but mobility/velocity values too high!
+
                                 effective_mass = hbar ** 2 / (
                                     np.dot(self._rec_lattice.matrix**2, results[ik][2]) \
                                     * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
@@ -2010,7 +2250,7 @@ class AMSET(object):
         # fractional_ks = [np.dot(frac_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
         fractional_ks = np.dot(frac_k, self.rotations)
         k = self.kgrid[tp]["kpoints"][ib][ik]
-        seks = [self._rec_lattice.get_cartesian_coords(frac_k) / A_to_nm for frac_k in fractional_ks]
+        seks = [self.get_cartesian_coords(frac_k) / A_to_nm for frac_k in fractional_ks]
 
         all_Xs = []
         new_X_ib_ik = []
@@ -2569,7 +2809,7 @@ class AMSET(object):
         # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
         #TODO: this norm(v) in the following may need a /sq3
         integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
-                (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2)
+                (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
 
         # only changing ik_prm of norm(k) to ik made S_o look more like isotropic
         # integ = self.kgrid[tp]["norm(k)"][ib][ik]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
@@ -3622,7 +3862,7 @@ class AMSET(object):
                             valley_mobility[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
                                     self.integrate_over_BZ(prop_list=[
                                     "/" + mu_el, "df0dk"], tp=tp, c=c,T=T,
-                                        xDOS=False, xvel=True, weighted=True) #* 1e-7 * 1e-3 * self.volume
+                                        xDOS=False, xvel=True, weighted=True)/3. #* 1e-7 * 1e-3 * self.volume
 
                         else:
                             # self.egrid[tp]["mobility"][mu_el][c][T] = \
@@ -3635,7 +3875,7 @@ class AMSET(object):
                             valley_mobility[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
                                     self.integrate_over_E(prop_list=[
                                     "/" + mu_el, "df0dk"], tp=tp, c=c, T=T,
-                                        xDOS=False, xvel=True, weighted=True)
+                                        xDOS=False, xvel=True, weighted=True)/3.
 
                     # if integrate_over_kgrid:
                     #     for mu_inel in self.inelastic_scatterings:
@@ -3662,7 +3902,7 @@ class AMSET(object):
                                     "g_" + mu_inel], tp=tp, c=c, T=T,
                                         xDOS=False, xvel=True, weighted=True)
                         mu_overall_valley = self.integrate_over_E(prop_list=["g"],
-                               tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
+                               tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)/3.
 
                     self.egrid[tp]["J_th"][c][T] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
                             xDOS=False, xvel=True, weighted=True)) * e * abs(c)  # in units of A/cm2
