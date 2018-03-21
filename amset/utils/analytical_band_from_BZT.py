@@ -636,7 +636,8 @@ class Analytical_bands(object):
 
 if __name__ == "__main__":
     # user inputs
-    cbm_bidx = 5
+    # cbm_bidx = 15 # GaAs
+    cbm_bidx = 10 # InP
     # kpts = np.array([[0.5, 0.5, 0.5]])
     kpts = np.array(
         [[-0.1, 0.19999999999999998, 0.1], [0.1, -0.19999999999999998, -0.1], [0.1, -0.1, -0.19999999999999998],
@@ -650,11 +651,15 @@ if __name__ == "__main__":
          [0.2, 0.3, 0.1], [-0.2, -0.3, -0.1], [0.3, 0.19999999999999998, 0.09999999999999998],
          [-0.3, -0.19999999999999998, -0.09999999999999998]])
 
-    kpts = [[ 0.,  0.,  0.], [ 0.42105263,  0.42105263,  0.        ]] # Si kVBM and kCBM respectively
+    # kpts = [[ 0.,  0.,  0.], [ 0.42105263,  0.42105263,  0.        ]] # Si kVBM and kCBM respectively
+    kpts = [[ 0.,  0.,  0.], [0.15, 0.15, 0.15]]
     # coeff_file = '../test_files/PbTe/fort.123'
     # coeff_file = "../test_files/GaAs/fort.123_GaAs_1099kp"
-    coeff_file = "../test_files/Si/Si_fort.123"
+    # coeff_file = "../../test_files/GaAs/fort.123_GaAs_1099kp"
+    # coeff_file = "../test_files/Si/Si_fort.123"
     # coeff_file = "/Users/alirezafaghaninia/Documents/boltztrap_examples/SnSe2/boltztrap_vdw_better_geom_dense/boltztrap/fort.123"
+    # coeff_file = "../../test_files/GaAs/nscf-uniform/boltztrap/fort.123"
+    coeff_file="/Users/alirezafaghaninia/Documents/py3/py3_codes/thermoelectrics_work/thermoelectrics_work/amset_examples/InP_mp-20351/boltztrap/fort.123"
 
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
     # read the coefficients file
@@ -662,36 +667,83 @@ if __name__ == "__main__":
     #generate the star functions only one time
     nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points,nsym,symop,nwave,br_dir=br_dir)
     out_vec2 = np.zeros((nwave,max(nstv),3,3))
-    for nw in xrange(nwave):
-        for i in xrange(nstv[nw]):
+    for nw in range(nwave):
+        for i in range(nstv[nw]):
             out_vec2[nw,i]= outer(vec2[nw,i],vec2[nw,i])
             
     # setup
-    en, den, dden = [], [], []
-    for kpt in kpts:
-        energy, de, dde = get_energy(kpt,engre[0], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
-        en.append(energy*Ry_to_eV)
-        den.append(de)
-        dden.append(dde*2*pi)
+    # en, den, dden = [], [], []
+    # for kpt in kpts:
+    #     energy, de, dde = get_energy(kpt,engre[0], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
+    #     en.append(energy*Ry_to_eV)
+    #     den.append(de)
+    #     dden.append(dde*2*pi)
 
-    print("outputs:")
-    print("Energy: {}".format(en))
-    print("1st derivate:")
-    print(den)
-    print("2nd derivative:")
-    print(dde)
-    m_tensor = hbar ** 2 /(dde*4*pi**2) / m_e / A_to_m ** 2 * e * Ry_to_eV # m_tensor: the last part is unit conversion
-    print("effective mass tensor")
-    print(m_tensor)
+    # print("outputs:")
+    # print("Energy: {}".format(en))
+    # print("1st derivate:")
+    # print(den)
+    # print("2nd derivative:")
+    # print(dde)
+    # m_tensor = hbar ** 2 /(dde*4*pi**2) / m_e / A_to_m ** 2 * e * Ry_to_eV # m_tensor: the last part is unit conversion
+    # print("effective mass tensor")
+    # print(m_tensor)
 
 
-    print("group velocity:")
-    v = de /hbar*A_to_m*m_to_cm * Ry_to_eV # to get v in units of cm/s
-    print(v)
+    # print("group velocity:")
+    # v = de /hbar*A_to_m*m_to_cm * Ry_to_eV # to get v in units of cm/s
+    # print(v)
 
-    run = Vasprun('vasprun.xml')
-    lattice_matrix = run.final_structure.lattice.reciprocal_lattice
-    st = run.structures[0]
+
+    kpt = np.array([0.1, 0.2, 0.3])
+    # vrun = Vasprun('vasprun.xml')
+    vrun = Vasprun('/Users/alirezafaghaninia/Documents/py3/py3_codes/thermoelectrics_work/thermoelectrics_work/amset_examples/InP_mp-20351/vasprun.xml')
+    _rec_lattice = vrun.final_structure.lattice.reciprocal_lattice
+    MATRIX = _rec_lattice.matrix
+    st = vrun.final_structure
+    energy, de, dde = get_energy(kpt, engre[0], nwave, nsym, nstv, vec, vec2,
+                                 out_vec2, br_dir)
+    velocity = abs(np.dot(MATRIX, de)) / hbar * A_to_m * m_to_cm * Ry_to_eV
+
+    # def get_cartesian_coords(frac_k):
+    #     return np.dot(MATRIX, frac_k)
+
+
+    print('cartesian with old transformation')
+    print(_rec_lattice.get_cartesian_coords(kpt))
+    print('velocity old cartesian transformation')
+    print(velocity)
+    print()
+    print('cartesian with new transformation')
+    print(np.dot(MATRIX, kpt))
+    print(np.dot(MATRIX, kpt.T))
+    print('velocity')
+    print(abs(_rec_lattice.get_cartesian_coords(de)) / hbar * A_to_m * m_to_cm * Ry_to_eV)
+    print(abs(_rec_lattice.get_cartesian_coords(de.T)) / hbar * A_to_m * m_to_cm * Ry_to_eV)
+
+    print('compound mass')
+    # comp_mass= hbar ** 2 / (np.dot(MATRIX, np.dot(MATRIX.T, dde))* 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV # isotropic InN mass but aniso for GaAs
+    # comp_mass= hbar ** 2 / (np.dot(MATRIX, np.dot(dde, MATRIX))* 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+    comp_mass= hbar ** 2 / (dde* 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+    print(comp_mass)
+    # print(MATRIX**2)
+    # print(np.dot(MATRIX, MATRIX.T))
+    # print(np.dot(np.dot(MATRIX, comp_mass), MATRIX))
+
+    mass=0.044
+    _, v_poly, effective_mass = get_poly_energy(_rec_lattice.get_cartesian_coords(kpt)
+        ,poly_bands=[[
+            [[0.0, 0.0, 0.0], [0.0, mass]],
+        ]],
+        type='n', ib=0,
+        bandgap=1.54)
+
+    print('poly velocity with mass={}'.format(mass))
+    print(v_poly)
+    print('poly mass')
+    print(effective_mass)
+
+    quit()
 
     kmesh = [31,31,31]
     # emesh,dos, nbands, dos_nbands = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05, vbmidx=cbm_bidx-1)
@@ -709,7 +761,7 @@ if __name__ == "__main__":
     # adding an extra valley at offest of 1 eV
     # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.25]]] , [[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [2, 0.25]]]]
 
-    emesh, dos = get_dos_from_poly_bands(st,lattice_matrix,[6,6,6],-30,30,100000,poly_bands=poly_bands, bandgap=1.54,
+    emesh, dos = get_dos_from_poly_bands(st,_rec_lattice,[6,6,6],-30,30,100000,poly_bands=poly_bands, bandgap=1.54,
                                          width=0.1, SPB_DOS=False, all_values=False)
     plot(emesh,dos)
     # show()
