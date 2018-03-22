@@ -127,7 +127,7 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
 
 
 def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
-               br_dir=None, cbm=True):
+               br_dir=None, cbm=True, lattice_matrix=None):
     ''' Compute energy for a k-point from star functions
 
         Input:
@@ -148,7 +148,7 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
             dene: 1st derivative of the electronic energy at the k-point in input
             ddene: 2nd derivative of the electronic energy at the k-point in input
     '''
-
+    lattice_matrix = lattice_matrix or np.eye(3)
     sign = -1 if cbm == False else 1
     arg = 2 * np.pi * vec.dot(xkpt)
     tempc = np.cos(arg)
@@ -636,8 +636,8 @@ class Analytical_bands(object):
 
 if __name__ == "__main__":
     # user inputs
-    # cbm_bidx = 15 # GaAs
-    cbm_bidx = 10 # InP
+    cbm_bidx = 15 # GaAs
+    # cbm_bidx = 10 # InP
     # kpts = np.array([[0.5, 0.5, 0.5]])
     kpts = np.array(
         [[-0.1, 0.19999999999999998, 0.1], [0.1, -0.19999999999999998, -0.1], [0.1, -0.1, -0.19999999999999998],
@@ -658,8 +658,8 @@ if __name__ == "__main__":
     # coeff_file = "../../test_files/GaAs/fort.123_GaAs_1099kp"
     # coeff_file = "../test_files/Si/Si_fort.123"
     # coeff_file = "/Users/alirezafaghaninia/Documents/boltztrap_examples/SnSe2/boltztrap_vdw_better_geom_dense/boltztrap/fort.123"
-    # coeff_file = "../../test_files/GaAs/nscf-uniform/boltztrap/fort.123"
-    coeff_file="/Users/alirezafaghaninia/Documents/py3/py3_codes/thermoelectrics_work/thermoelectrics_work/amset_examples/InP_mp-20351/boltztrap/fort.123"
+    coeff_file = "../../test_files/GaAs/nscf-uniform/boltztrap/fort.123"
+    # coeff_file="/Users/alirezafaghaninia/Documents/py3/py3_codes/thermoelectrics_work/thermoelectrics_work/amset_examples/InP_mp-20351/boltztrap/fort.123"
 
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
     # read the coefficients file
@@ -695,9 +695,10 @@ if __name__ == "__main__":
     # print(v)
 
 
-    kpt = np.array([0.1, 0.2, 0.3])
-    # vrun = Vasprun('vasprun.xml')
-    vrun = Vasprun('/Users/alirezafaghaninia/Documents/py3/py3_codes/thermoelectrics_work/thermoelectrics_work/amset_examples/InP_mp-20351/vasprun.xml')
+    # kpt = np.array([0.1, 0.2, 0.3])
+    kpt = np.array([0.0, 0.0, 0.0])
+    vrun = Vasprun('vasprun.xml')
+    # vrun = Vasprun('/Users/alirezafaghaninia/Documents/py3/py3_codes/thermoelectrics_work/thermoelectrics_work/amset_examples/InP_mp-20351/vasprun.xml')
     _rec_lattice = vrun.final_structure.lattice.reciprocal_lattice
     MATRIX = _rec_lattice.matrix
     st = vrun.final_structure
@@ -716,7 +717,7 @@ if __name__ == "__main__":
     print()
     print('cartesian with new transformation')
     print(np.dot(MATRIX, kpt))
-    print(np.dot(MATRIX, kpt.T))
+    print(np.dot(MATRIX, kpt.T).T)
     print('velocity')
     print(abs(_rec_lattice.get_cartesian_coords(de)) / hbar * A_to_m * m_to_cm * Ry_to_eV)
     print(abs(_rec_lattice.get_cartesian_coords(de.T)) / hbar * A_to_m * m_to_cm * Ry_to_eV)
@@ -724,13 +725,13 @@ if __name__ == "__main__":
     print('compound mass')
     # comp_mass= hbar ** 2 / (np.dot(MATRIX, np.dot(MATRIX.T, dde))* 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV # isotropic InN mass but aniso for GaAs
     # comp_mass= hbar ** 2 / (np.dot(MATRIX, np.dot(dde, MATRIX))* 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
-    comp_mass= hbar ** 2 / (dde* 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+    comp_mass= hbar ** 2 / np.dot(MATRIX, np.dot(MATRIX, dde.T).T) / m_e / A_to_m ** 2 * e * Ry_to_eV
     print(comp_mass)
     # print(MATRIX**2)
     # print(np.dot(MATRIX, MATRIX.T))
     # print(np.dot(np.dot(MATRIX, comp_mass), MATRIX))
 
-    mass=0.044
+    mass=0.065
     _, v_poly, effective_mass = get_poly_energy(_rec_lattice.get_cartesian_coords(kpt)
         ,poly_bands=[[
             [[0.0, 0.0, 0.0], [0.0, mass]],
