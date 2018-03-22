@@ -28,7 +28,7 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, cbm, matrix=None):
     engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(coeff_file, ibands)
 
     #you can use a for loop along a certain list of k-points.
-    pf = PlotlyFig(filename='Energy-bt1')
+    # pf = PlotlyFig(filename='Energy-bt1')
     plot_data =[]
     v_data = []
     trace_names = []
@@ -47,16 +47,16 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, cbm, matrix=None):
         v_data.append((en, vel))
         trace_names.append('band {}'.format(iband))
     print('boltztrap1')
-    print(plot_data)
-    print(v_data)
+    print(en[:10])
+    print(vel[:10])
     # pf.xy(plot_data, names=[n for n in trace_names])
-    pf2 = PlotlyFig(filename='Velocity-bt1')
+    # pf2 = PlotlyFig(filename='Velocity-bt1')
     # pf2.xy(v_data, names=[n for n in trace_names])
 
 
 def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
     ibands = [i-1 for i in ibands]
-    pf = PlotlyFig(filename='Energy-bt2')
+    # pf = PlotlyFig(filename='Energy-bt2')
     sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
     print(len(sym_line_kpoints))
 
@@ -103,10 +103,10 @@ def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
         names.append('band {}'.format(iband))
     print('here ibands', ibands)
     print('boltztrap2:')
-    print(plot_data)
-    print(v_data)
+    print(EE[iband, :10])
+    print(vel[:10, iband])
     # pf.xy(plot_data, names=[n for n in names])
-    pf = PlotlyFig(filename='Velocity-bt2')
+    # pf = PlotlyFig(filename='Velocity-bt2')
     # pf.xy(v_data, names=[n for n in names])
 
 
