@@ -1,5 +1,5 @@
 from amset.utils.constants import hbar, A_to_m, m_to_cm, Ry_to_eV, \
-    Hartree_to_eV
+    Hartree_to_eV, m_e, e
 from amset.utils.pymatgen_loader_for_bzt2 import PMG_Vasprun_Loader, PMG_BS_Loader
 from pymatgen import MPRester
 import numpy as np
@@ -100,6 +100,19 @@ def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
     pf = PlotlyFig(filename='Velocity-bt2')
     pf.xy(v_data, names=[n for n in names])
 
+    mass_data = []
+    mass_unit_conversion = e / Hartree_to_eV / A_to_m**2 * hbar**2 / m_e
+    for iband in ibands:
+        masses = []
+        for i in range(fitted[2].shape[2]):
+            dde = fitted[2][:, :, i, iband].trace()/3.0
+            # masses.append(1/(dde) * hbar ** 2/ m_e / A_to_m ** 2 * e * Hartree_to_eV)
+            masses.append(1/dde * mass_unit_conversion)
+        mass_data.append((np.linspace(0, EE.shape[1]), masses))
+    pf3 = PlotlyFig(filename='mass-bt2')
+    pf3.xy(mass_data, names=[n for n in names])
+    print('mass tensor at the point {} of band {}:\n{}'.format(kpts[0], iband, 1.0/fitted[2][:, :, 0, iband]* mass_unit_conversion))
+
 
 
 if __name__ == "__main__":
@@ -150,7 +163,7 @@ if __name__ == "__main__":
     # retrieve_bs_boltztrap1(coeff_file=PbTe_coeff_file, bs=bs, ibands=ibands)
     # retrieve_bs_boltztrap1(coeff_file=Si_coeff_file, bs=Si_bs, ibands=ibands, cbm=True)
 
-    retrieve_bs_boltztrap1(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands, cbm=True, matrix=dir_matrix)
+    # retrieve_bs_boltztrap1(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands, cbm=True, matrix=dir_matrix)
 
     # retrieve_bs_boltztrap1(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[11, 12, 13, 14])
     # print("Boltztrap1 total time: {}".format(time() - start_time))
