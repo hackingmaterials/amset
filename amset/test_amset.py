@@ -74,12 +74,9 @@ class AmsetTest(unittest.TestCase):
         #                'POP': 13347.784, 'overall': 9408.1722, 'average': 10549.824}
 
         # w/ /sq3 factor
-        # expected_mu = {'ACD': 82537.342, 'IMP': 92501.698, 'PIE':150420.6901,
-        #                'POP': 14821.00969, 'overall':7706.194, 'average': 10304.3759}
+        expected_mu = {'ACD': 93991.3170, 'IMP': 113505.1298, 'PIE':192754.20732,
+                       'POP': 7233.255782, 'overall':4507.76133, 'average': 6139.197481}
 
-        # w/ cartesian velocity mobility/3
-        expected_mu = {'ACD': 285609.5614, 'IMP':402837.4262, 'PIE':616440.25091,
-                       'POP': 86951.6661, 'overall':17970.5177, 'average': 52338.117}
 
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
@@ -91,12 +88,12 @@ class AmsetTest(unittest.TestCase):
         kgrid = amset.kgrid
 
         # check general characteristics of the grid
-        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 112)
+        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 64)
         mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
         self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS
         # self.assertAlmostEqual(mean_v[0], 38101477.83, places=1) # zeroth band
         # w/ cartesian velocity
-        self.assertAlmostEqual(mean_v[0], 76702428.963, places=1) # zeroth band
+        self.assertAlmostEqual(mean_v[0],  37724375.0446, places=1) # zeroth band
 
         # check mobility values
         for mu in expected_mu.keys():
@@ -120,12 +117,12 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
-        # expected_mu = {'ACD': 171261.976, 'IMP': 103831.729, 'PIE': 491157.858,
+        # expected_mu = {'ACD': 171261.976, 'IMP': 103831.729, 'PIE': 1185742.583,
         #                'POP': 31422.869, 'overall': 14110.205, 'average':20271.666}
 
         # w/ cartesian velocity and mobility/3
-        expected_mu = {'ACD': 705720.047, 'IMP': 943324.644, 'PIE': 3364329.098,
-                       'POP': 81637.536, 'overall': 45901.754, 'average':66562.048}
+        expected_mu = {'ACD': 620654.398, 'IMP': 147737.808, 'PIE': 1185742.5838,
+                       'POP': 37695.581, 'overall': 26033.42, 'average':27970.766}
         performance_params = dict(self.performance_params)
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
@@ -159,15 +156,12 @@ class AmsetTest(unittest.TestCase):
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
         # w/o /sq3 factor:
-        # expected_mu = {'ACD': 83063.162, 'IMP': 245084.04, 'PIE': 194271.41,
+        # expected_mu = {'ACD': 83063.162, 'IMP': 289240.8277, 'PIE': 193117.5001,
         #                'POP': 14615.437, 'overall': 10176.876, 'average': 11149.824}
         # w/ /sq3 factor
-        # expected_mu = {'ACD': 74871.598, 'IMP': 134463.3475, 'PIE': 150752.0427,
-        #                'POP': 11494.815, 'overall': 8593.4292, 'average': 8739.553}
+        expected_mu = {'ACD': 78610.0696, 'IMP': 289240.82771, 'PIE': 193117.5001,
+                       'POP': 7181.2256, 'overall': 5921.347294, 'average': 6226.31922}
 
-        # w/ cartesian velocity; mobility/3
-        expected_mu = {'ACD': 257166.099, 'IMP': 681176.7544, 'PIE': 617465.6588,
-                       'POP': 76413.67755, 'overall': 20994.735, 'average': 49843.5639}
 
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
