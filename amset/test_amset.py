@@ -93,7 +93,7 @@ class AmsetTest(unittest.TestCase):
         self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS
         # self.assertAlmostEqual(mean_v[0], 38101477.83, places=1) # zeroth band
         # w/ cartesian velocity
-        self.assertAlmostEqual(mean_v[0], 76702428.9632, places=1) # zeroth band
+        self.assertAlmostEqual(mean_v[0], 37724375.044629738, places=1) # zeroth band
 
         # check mobility values
         for mu in expected_mu.keys():
@@ -108,7 +108,7 @@ class AmsetTest(unittest.TestCase):
 
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
         kgrid = amset.kgrid
-        self.assertAlmostEqual(mean_v[0], 76702428.9632, places=1) # zeroth band
+        self.assertAlmostEqual(mean_v[0], 37724375.044629738, places=1) # zeroth band
         for mu in expected_mu.keys():
             self.assertAlmostEqual(np.std( # test isotropic
                 amset.mobility['n'][mu][-2e15][300]), 0.00, places=1)
