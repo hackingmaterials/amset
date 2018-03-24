@@ -36,7 +36,7 @@ class PMG_Vasprun_Loader:
         try:
             self.lattvec
         except AttributeError:
-            self.lattvec = self.atoms.get_cell().T * Angstrom
+            self.lattvec = self.atoms.get_cell().T * units.Angstrom
         return self.lattvec
     
     def bandana(self, emin=-np.inf, emax=np.inf):
@@ -83,7 +83,7 @@ class PMG_BS_Loader:
             self.dosweight = 2.0
         elif len(pmg_bs_obj.bands) == 2:
             raise BaseException("spin bs case not implemented")
-        
+
         self.lattvec = self.structure.lattice.matrix * units.Angstrom
         self.mommat = None
         self.fermi = pmg_bs_obj.efermi * units.eV
@@ -95,7 +95,7 @@ class PMG_BS_Loader:
         try:
             self.lattvec
         except AttributeError:
-            self.lattvec = self.atoms.get_cell().T * Angstrom
+            self.lattvec = self.atoms.get_cell().T * units.Angstrom
         return self.lattvec
     
     def bandana(self, emin=-np.inf, emax=np.inf):
