@@ -36,8 +36,9 @@ from amset.utils.tools import norm, grid_norm, generate_k_mesh_axes, \
     AmsetError, kpts_to_first_BZ, get_dos_boltztrap2, \
     setup_custom_logger, insert_intermediate_kpoints
 
-from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
-                        epsilon_0, default_small_E, dTdz, sq3
+from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, \
+    A_to_nm, e, k_B, \
+    epsilon_0, default_small_E, dTdz, sq3, Hartree_to_eV
 
 try:
     import BoltzTraP2
@@ -505,10 +506,12 @@ class AMSET(object):
         energy, de, dde = get_energy(kpt, engre, nwave, nsym, nstv, vec, vec2,
                                      out_vec2, br_dir=br_dir)
         energy = energy * Ry_to_eV - sgn * scissor / 2.0
-        velocity = abs(
-            self.get_cartesian_coords(de) / hbar * A_to_m * m_to_cm * Ry_to_eV)
-        effective_m = hbar ** 2 / (
-                dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+        # velocity = abs(self.get_cartesian_coords(de, reciprocal=False) / hbar * A_to_m * m_to_cm * Ry_to_eV)
+        velocity = abs(self.get_cartesian_coords(de, reciprocal=False)) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+
+        # effective_m = hbar ** 2 / (dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
+        effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
+
         return energy, velocity, effective_m
 
 
@@ -610,13 +613,11 @@ class AMSET(object):
                     masses.append(mass.trace() / 3)
             elif interpolation == "boltztrap2":
                 fitted = fite.getBands(np.array(kpts), *bz2_params)
-                energies = fitted[0][ibands[
-                                         iband] - 1] * Ry_to_eV - sgn * scissor / 2.
-                velocities = self.calc_analytical_energy(
-                    fitted[1][:, :, ibands[iband] - 1].T)
+                energies = fitted[0][ibands[iband] - 1] * Hartree_to_eV - sgn * scissor / 2.
+                velocities = fitted[1][:, :, ibands[iband] - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm
                 normv = [norm(v) for v in velocities]
-                masses = [m.trace() / 3. for m in
-                          fitted[2][:, :, :, ibands[iband] - 1].T]
+                masses = [1/(m.trace()/ 3.)* e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e \
+                          for m in fitted[2][:, :, :, ibands[iband] - 1].T]
             else:
                 raise ValueError(
                     'Unsupported interpolation: "{}"'.format(interpolation))
@@ -816,8 +817,8 @@ class AMSET(object):
                         br_dir, sgn, scissor=self.scissor)
             elif self.interpolation=="boltztrap2":
                 fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.bz2_params)
-                energy = fitted[0][self.cbm_vbm[tp]["bidx"]-1][0]*Ry_to_eV - sgn*self.scissor/2.
-                effective_m = fitted[2][:, :, 0, self.cbm_vbm0[tp]["bidx"]-1].T
+                energy = fitted[0][self.cbm_vbm[tp]["bidx"]-1][0]*Hartree_to_eV - sgn*self.scissor/2.
+                effective_m = 1/fitted[2][:, :, 0, self.cbm_vbm0[tp]["bidx"]-1].T * e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e
             self.offset_from_vrun[tp] = energy - self.cbm_vbm0[tp]["energy"]
 
 
@@ -930,7 +931,7 @@ class AMSET(object):
                             energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                 elif self.interpolation == "boltztrap2":
                     fitted = fite.getBands(np.array(kpts[tp]), *self.bz2_params)
-                    energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Ry_to_eV - sgn*self.scissor/2.
+                    energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Hartree_to_eV - sgn*self.scissor/2.
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
 
@@ -1322,6 +1323,9 @@ class AMSET(object):
         self.logger.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
+
+        # (self._vrun.lattice.matrix @ self._rec_lattice.matrix) == 2*pi*np.eye(3)
+
         # print(np.array(self._rec_lattice.matrix)/2/pi)
         # print(np.linalg.norm(self._rec_lattice.matrix))
         # print(self._rec_lattice.matrix)
@@ -1414,7 +1418,7 @@ class AMSET(object):
         self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
 
 
-    def get_cartesian_coords(self, frac_k):
+    def get_cartesian_coords(self, frac_k, reciprocal=True):
         """
         Transformation from fractional too cartesian. Note that this is different
         form get_cartesian_coords method available in self._rec_lattice, that
@@ -1422,9 +1426,14 @@ class AMSET(object):
         Args:
             frac_k (np.ndarray): a 3-D vector in fractional (unitless)
             coordinates or a list of such coordinates
+            reciprocal (bool): whether the cartesian output is in real (Angstrom)
+                or reciprocal space (1/Angstrom).
         Returns (np.ndarray): frac_k ransformed into cartesian coordinates
         """
-        return np.dot(self._rec_lattice.matrix, np.array(frac_k).T).T
+        if reciprocal:
+            return np.dot(self._rec_lattice.matrix, np.array(frac_k).T).T
+        else:
+            return np.dot(self._vrun.lattice.matrix, np.array(frac_k).T).T
 
 
     def seeb_int_num(self, c, T):
@@ -1957,9 +1966,11 @@ class AMSET(object):
                                     nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                                 energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
                                 velocity_signed = self.get_cartesian_coords(de) / hbar * A_to_m * m_to_cm * Ry_to_eV
-                                velocity =  abs(self.get_cartesian_coords(de)) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
-                                effective_mass = hbar ** 2 / (
-                                    dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                                # velocity =  abs(self.get_cartesian_coords(de, reciprocal=False)) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
+                                velocity = abs( self.get_cartesian_coords(de, reciprocal=False) ) / (hbar*2*pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+
+                                # effective_mass = hbar ** 2 / (dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                                effective_mass = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
                             else:
                                 energy = results[ik][0] * Ry_to_eV - sgn * self.scissor / 2.0
                                 velocity_signed = self.get_cartesian_coords(results[ik][1]) / hbar * A_to_m * m_to_cm * Ry_to_eV
@@ -1968,16 +1979,16 @@ class AMSET(object):
                                 # velocity = abs( np.dot(results[ik][1], self._rec_lattice.inv_matrix) )   / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
                                 # velocity = abs( np.dot(np.linalg.inv(self._rec_lattice.matrix), results[ik][1]) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s # anisotropic InP
                                 # velocity = abs( np.dot(results[ik][1], np.linalg.inv(self._rec_lattice.matrix)) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s # isotropic InP but GaAs v vs. E looks wrong
+                                velocity = abs( self.get_cartesian_coords(results[ik][1], reciprocal=False) ) / (hbar*2*pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
 
-                                velocity = abs( self.get_cartesian_coords(results[ik][1]) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: still very anisotropic
                                 # velocity = abs( np.dot(np.linalg.inv(self._rec_lattice.matrix), results[ik][1]) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: test as the units work out only if A is in the numerator!
                                 # velocity = abs( np.dot(results[ik][1], np.linalg.inv(self._rec_lattice.matrix)) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: InP isotropic but both GaAs and InP very low mobility
                                 # velocity = abs( 1.0 /( np.dot(self._rec_lattice.matrix, 1.0/results[ik][1]) ) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: results in nan (1/zero!)
                                 # velocity = abs( np.dot(self._rec_lattice.matrix, results[ik][1]) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: THIS results in isotropic InP but mobility/velocity values too high!
 
-                                effective_mass = hbar ** 2 / (
-                                    np.dot(self._rec_lattice.matrix**2, results[ik][2]) \
-                                    * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                                # effective_mass = hbar ** 2 / (np.dot(self._rec_lattice.matrix**2, results[ik][2]) * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
+                                effective_mass = 1/(results[ik][2]/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
+
                             self.velocity_signed[tp][ib][ik] = velocity_signed
                         elif self.interpolation == "boltztrap2":
                             iband = self.cbm_vbm["p"]["bidx"]-1 + i*self.cbm_vbm["p"]["included"]
@@ -3862,7 +3873,7 @@ class AMSET(object):
                             valley_mobility[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
                                     self.integrate_over_BZ(prop_list=[
                                     "/" + mu_el, "df0dk"], tp=tp, c=c,T=T,
-                                        xDOS=False, xvel=True, weighted=True)/3. #* 1e-7 * 1e-3 * self.volume
+                                        xDOS=False, xvel=True, weighted=True) #* 1e-7 * 1e-3 * self.volume
 
                         else:
                             # self.egrid[tp]["mobility"][mu_el][c][T] = \
@@ -3875,7 +3886,7 @@ class AMSET(object):
                             valley_mobility[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
                                     self.integrate_over_E(prop_list=[
                                     "/" + mu_el, "df0dk"], tp=tp, c=c, T=T,
-                                        xDOS=False, xvel=True, weighted=True)/3.
+                                        xDOS=False, xvel=True, weighted=True)
 
                     # if integrate_over_kgrid:
                     #     for mu_inel in self.inelastic_scatterings:
@@ -3902,7 +3913,7 @@ class AMSET(object):
                                     "g_" + mu_inel], tp=tp, c=c, T=T,
                                         xDOS=False, xvel=True, weighted=True)
                         mu_overall_valley = self.integrate_over_E(prop_list=["g"],
-                               tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)/3.
+                               tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
 
                     self.egrid[tp]["J_th"][c][T] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
                             xDOS=False, xvel=True, weighted=True)) * e * abs(c)  # in units of A/cm2
