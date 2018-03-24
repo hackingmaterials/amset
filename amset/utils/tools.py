@@ -7,8 +7,9 @@ import sys
 import warnings
 
 from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, get_energy
-from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
-                        epsilon_0, default_small_E, dTdz, sq3
+from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, \
+    A_to_nm, e, k_B, \
+    epsilon_0, default_small_E, dTdz, sq3, Hartree_to_eV
 from math import pi, log
 
 from pymatgen import Spin
@@ -583,9 +584,9 @@ def get_dos_boltztrap2(params, st, mesh, estep, vbmidx = None, width=0.2, scisso
     w_sum = float(sum(weights))
     weights = [w / w_sum for w in weights]
 
-    fitted = fite.getBands(np.array(ir_kpts), equivalences=equivalences,
+    energies, _, _ = fite.getBands(np.array(ir_kpts), equivalences=equivalences,
                            lattvec=lattvec, coeffs=coeffs)
-    energies = fitted[0]*Ry_to_eV  # shape==(bands, nkpoints)
+    energies *= Hartree_to_eV  # shape==(bands, nkpoints)
     nbands = energies.shape[0]
     if vbmidx:
         ib_start = max(0, vbmidx-4)
