@@ -2236,9 +2236,9 @@ class AMSET(object):
                     self.ediff_scat = {"n": [], "p": []}
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min, tolerance=0.01)
+                                E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min, tolerance=None)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min, tolerance=0.01)
+                                E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min, tolerance=None)
                     enforced_ratio = self.nforced_scat[tp] / (
                         sum([len(points) for points in self.kgrid[tp]["X_Eplus_ik"][ib]]) + \
                         sum([len(points) for points in self.kgrid[tp]["X_Eminus_ik"][ib]]))
