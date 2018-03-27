@@ -67,7 +67,7 @@ class AmsetTest(unittest.TestCase):
             self.assertTrue((diff / avg <= 0.01).all())
 
 
-    def test_GaAs_isotropic_E(self):
+    def NO_GaAs_isotropic_E(self):
         print('\ntesting test_GaAs_isotropic_E parallel...')
         # w/o /sq3 factor
         # expected_mu = {'ACD': 91133.295, 'IMP': 267704.777, 'PIE': 193756.725,
@@ -115,7 +115,7 @@ class AmsetTest(unittest.TestCase):
             self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
                     expected_mu[mu], places=1)
 
-    def NO_GaAs_isotropic_k(self):
+    def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
         # expected_mu = {'ACD': 171261.976, 'IMP': 103831.729, 'PIE': 1185742.583,
         #                'POP': 31422.869, 'overall': 14110.205, 'average':20271.666}
