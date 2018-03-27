@@ -416,8 +416,8 @@ class AMSET(object):
                                     f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                                     f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                                     # if denominator is defined as a single common denominator, += if specific to each valley, self.denominator[c][T][tp] = ...
-                                    self.denominator[c][T]['n'] += (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10)
-                                    self.denominator[c][T]['p'] += (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10)
+                                    self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
+                                    self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
                                 elif self.e_integration:
                                     self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)  * self.bs.get_kpoint_degeneracy(important_points['n'][0])
                                     self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False) * self.bs.get_kpoint_degeneracy(important_points['p'][0])
@@ -2236,9 +2236,9 @@ class AMSET(object):
                     self.ediff_scat = {"n": [], "p": []}
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min)
+                                E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min, tolerance=0.01)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min)
+                                E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min, tolerance=0.01)
                     enforced_ratio = self.nforced_scat[tp] / (
                         sum([len(points) for points in self.kgrid[tp]["X_Eplus_ik"][ib]]) + \
                         sum([len(points) for points in self.kgrid[tp]["X_Eminus_ik"][ib]]))
