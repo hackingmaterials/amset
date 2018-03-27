@@ -361,10 +361,10 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
                 S_o_th[j] += (N_POP + j + (-1) ** j * f_pm_th) * lamb_opm
 
             lamb_ipm = beta_pm * (
-                (k_pm ** 2 + k ** 2) / (2 * k * k_pm) * \
-                A_pm ** 2 * log((k_pm + k) / (abs_kdiff)) - A_pm ** 2 - c_ ** 2 * c_pm ** 2 / 3)
-            S_i[j] += (N_POP + (1 - j) + (-1) ** (1 - j) * f) * lamb_ipm * g_pm
-            S_i_th[j] += (N_POP + (1 - j) + (-1) ** (1 - j) * f_th) * lamb_ipm * g_pm_th
+                (k_pm**2 + k**2) / (2*k*k_pm) * A_pm**2 *\
+                log((k_pm + k) / (abs_kdiff)) - A_pm**2 - c_**2 * c_pm** 2 / 3.0)
+            S_i[j] += (N_POP + (1 - j) + (-1)**(1 - j) * f) * lamb_ipm * g_pm
+            S_i_th[j] += (N_POP + (1 - j) + (-1)**(1 - j) * f_th) * lamb_ipm * g_pm_th
 
         if counted > 0:
             S_i[j] /= counted
