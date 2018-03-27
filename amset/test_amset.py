@@ -153,7 +153,7 @@ class AmsetTest(unittest.TestCase):
                                    expected_mu[mu], places=1)
 
     # #TODO: since we run through several different k-meshes now for varous valleys, egrid changes hence egrid tests may be changing and ignored for now
-    def test_GaAs_anisotropic(self):
+    def NO_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
         # w/o /sq3 factor:
         # expected_mu = {'ACD': 83063.162, 'IMP': 289240.8277, 'PIE': 193117.5001,
@@ -180,7 +180,7 @@ class AmsetTest(unittest.TestCase):
                 np.mean(amset.mobility['n'][mu][-2e15][300]))
             self.assertLess(rel_diff(amset.mobility['n'][mu][-2e15][300][0], expected_mu[mu]), 0.04)
 
-    def NO_defaults(self, data_dir="run_data"):
+    def test_defaults(self, data_dir="run_data"):
         print('\ntesting test_defaults...')
         amset = AMSET(self.GaAs_path, material_params={'epsilon_s': 12.9})
         amset.write_input_files()
