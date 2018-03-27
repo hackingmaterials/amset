@@ -192,13 +192,14 @@ class AMSET(object):
         if self.pre_determined_fermi is None:
             if self.fermi_calc_type == 'k':
                 kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
+                # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
                 analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
                 self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
             elif self.fermi_calc_type == 'e':
                 kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='very coarse')
-                analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
-                self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple, delete_off_points=False)
-                self.pre_init_egrid(once_called=False, dos_tp='standard')
+                analytical_band_tuple, kpts= self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=False, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
+                # self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple, delete_off_points=False)
+                # self.pre_init_egrid(once_called=False, dos_tp='standard')
                 self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
                 for c in self.dopings:
                     for T in self.temperatures:
@@ -864,6 +865,7 @@ class AMSET(object):
                     analytical_bands = Analytical_bands(coeff_file=coeff_file)
                     # all_ibands supposed to start with index of last valence band then
                     # VBM-1 ... and then index of CBM then CBM+1 ...
+
                     self.all_ibands = []
                     # for i, tp in enumerate(["p", "n"]):
                     #     # sgn = (-1) ** (i + 1)
@@ -914,59 +916,64 @@ class AMSET(object):
         self.pos_idx = {'n': [], 'p': []}
         self.energy_array = {'n': [], 'p': []}
 
-        # calculate energies
-        for i, tp in enumerate(["p", "n"]):
-            sgn = (-1) ** i
-            for ib in range(num_bands[tp]):
-                if self.poly_bands is not None:
-                    for ik in range(len(kpts[tp])):
-                        energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
-                elif self.interpolation == "boltztrap1":
-                    if not self.parallel:
+        if return_energies:
+            # calculate energies
+            for i, tp in enumerate(["p", "n"]):
+                sgn = (-1) ** i
+                for ib in range(num_bands[tp]):
+                    if self.poly_bands is not None:
                         for ik in range(len(kpts[tp])):
-                            energy, velocities[tp][ik], effective_m = self.calc_analytical_energy(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
+                            energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
+                    elif self.interpolation == "boltztrap1":
+                        if not self.parallel:
+                            for ik in range(len(kpts[tp])):
+                                energy, velocities[tp][ik], effective_m = self.calc_analytical_energy(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
+                                energies[tp][ik] = energy
+                        else:
+                            results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
+                            for ik, res in enumerate(results):
+                                energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
+                    elif self.interpolation == "boltztrap2":
+                        fitted = fite.getBands(np.array(kpts[tp]), *self.bz2_params)
+                        energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Hartree_to_eV - sgn*self.scissor/2.
                     else:
-                        results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
-                        for ik, res in enumerate(results):
-                            energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
-                elif self.interpolation == "boltztrap2":
-                    fitted = fite.getBands(np.array(kpts[tp]), *self.bz2_params)
-                    energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Hartree_to_eV - sgn*self.scissor/2.
-                else:
-                    raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
+                        raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
 
-                self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
+                    self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
 
-                if ib == 0:      # we only include the first band to decide on order of ibz k-points
-                    e_sort_idx = np.array(energies[tp]).argsort() if tp == "n" else np.array(energies[tp]).argsort()[::-1]
-                    energies_sorted[tp] = [energies[tp][ie] for ie in e_sort_idx]
-                    energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
-                    # velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
-                    self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
-                    kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
+                    if ib == 0:      # we only include the first band to decide on order of ibz k-points
+                        e_sort_idx = np.array(energies[tp]).argsort() if tp == "n" else np.array(energies[tp]).argsort()[::-1]
+                        energies_sorted[tp] = [energies[tp][ie] for ie in e_sort_idx]
+                        energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
+                        # velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
+                        self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
+                        kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
-        N_n = self.kgrid_array['n'].shape
+            N_n = self.kgrid_array['n'].shape
 
-        # for ib in range(self.num_bands['n']):
-        #     self.logger.debug('energy (type n, band {}):'.format(ib))
-        #     self.logger.debug(self.energy_array['n'][ib][(N_n[0] - 1) / 2, (N_n[1] - 1) / 2, :])
-        self.logger.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
+            # for ib in range(self.num_bands['n']):
+            #     self.logger.debug('energy (type n, band {}):'.format(ib))
+            #     self.logger.debug(self.energy_array['n'][ib][(N_n[0] - 1) / 2, (N_n[1] - 1) / 2, :])
+            self.logger.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
 
-        if self.poly_bands is not None:
-            all_bands_energies = {"n": [], "p": []}
-            for tp in ["p", "n"]:
-                all_bands_energies[tp] = energies[tp]
-                for ib in range(1, len(self.poly_bands)):
-                    for ik in range(len(kpts[tp])):
-                        energy, velocity, effective_m = get_poly_energy(
-                            self.get_cartesian_coords(kpts[ik]) / A_to_nm,
-                            poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
-                        all_bands_energies[tp].append(energy)
-            if not once_called:
-                self.dos_emin = min(all_bands_energies["p"])
-                self.dos_emax = max(all_bands_energies["n"])
+            if self.poly_bands is not None:
+                all_bands_energies = {"n": [], "p": []}
+                for tp in ["p", "n"]:
+                    all_bands_energies[tp] = energies[tp]
+                    for ib in range(1, len(self.poly_bands)):
+                        for ik in range(len(kpts[tp])):
+                            energy, velocity, effective_m = get_poly_energy(
+                                self.get_cartesian_coords(kpts[ik]) / A_to_nm,
+                                poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+                            all_bands_energies[tp].append(energy)
+                if not once_called:
+                    self.dos_emin = min(all_bands_energies["p"])
+                    self.dos_emax = max(all_bands_energies["n"])
 
-        del e_sort_idx
+            del e_sort_idx
+            self.energy_array = {tp: np.array(self.energy_array[tp]) for tp in
+                                 ['p', 'n']}
+
 
         # calculation of the density of states (DOS)
         if not once_called:
@@ -1040,7 +1047,6 @@ class AMSET(object):
 
             self.dos = [list(a) for a in self.dos]
 
-        self.energy_array = {tp: np.array(self.energy_array[tp]) for tp in ['p', 'n']}
         if return_energies:
             return analytical_band_tuple, kpts, energies_sorted
         else:
@@ -3150,8 +3156,10 @@ class AMSET(object):
         typ = get_tp(c)
         typj = ["n", "p"].index(typ)
         fermi0 = self.cbm_vbm[typ]["energy"] + 0.01 * (-1)**typj # addition is to ensure Fermi is not exactly 0.0
-        calc_doping = (-1) ** (typj + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
-                * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ,fermi=fermi0, T=T))
+        # calc_doping = (-1) ** (typj + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
+        #         * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ,fermi=fermi0, T=T))
+        # initiate calc_doping w/o changing the sign of c
+        calc_doping = c/5.0
         fermi=fermi0
 
         dos_emesh = np.array([d[0] for d in self.dos])
