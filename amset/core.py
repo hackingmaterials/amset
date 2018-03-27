@@ -2206,7 +2206,7 @@ class AMSET(object):
                 self.ediff_scat = {"n": [], "p": []}
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                            E_change=0.0, forced_min_npoints=2, tolerance=self.dE_min)
+                            E_change=0.0, forced_min_npoints=self.nE_min, tolerance=self.dE_min)
                 enforced_ratio = self.nforced_scat[tp] / sum([len(points) for points in self.kgrid[tp]["X_E_ik"][ib]])
                 self.logger.info("enforced scattering ratio for {}-type elastic scattering at band {}:\n {}".format(
                         tp, ib, enforced_ratio))
@@ -2230,9 +2230,9 @@ class AMSET(object):
                     self.ediff_scat = {"n": [], "p": []}
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                         self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2)
+                                E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min)
                         self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=2)
+                                E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min)
                     enforced_ratio = self.nforced_scat[tp] / (
                         sum([len(points) for points in self.kgrid[tp]["X_Eplus_ik"][ib]]) + \
                         sum([len(points) for points in self.kgrid[tp]["X_Eminus_ik"][ib]]))
@@ -2334,18 +2334,18 @@ class AMSET(object):
                 #             self.nforced_scat[tp] += 1
                 #     else:
                 while ik_prm >= 0 and ik_prm < nk and len(result) - 1 < forced_min_npoints:
-                        # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
-                        for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
-                            X, ib_pmpm, ik_pmpm = X_ib_ik
-                            X_ib_ik_new = (
-                            cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm)
-                            if (X_ib_ik_new[1], X_ib_ik_new[2]) not in [(entry[1], entry[2]) for entry in result]:
-                                result.append(X_ib_ik_new)
-                            self.nforced_scat[tp] += 1
+                    # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
+                    for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
+                        X, ib_pmpm, ik_pmpm = X_ib_ik
+                        X_ib_ik_new = (
+                        cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm)
+                        if (X_ib_ik_new[1], X_ib_ik_new[2]) not in [(entry[1], entry[2]) for entry in result]:
+                            result.append(X_ib_ik_new)
+                        self.nforced_scat[tp] += 1
 
-                        self.ediff_scat[tp].append(
-                            self.kgrid[tp]["energy"][ib][ik] - self.kgrid[tp]["energy"][ib_prm][ik_prm])
-                        ik_prm += step
+                    self.ediff_scat[tp].append(
+                        self.kgrid[tp]["energy"][ib][ik] - self.kgrid[tp]["energy"][ib_prm][ik_prm])
+                    ik_prm += step
 
         result.sort(key=lambda x: x[0])
         return result
@@ -3425,13 +3425,13 @@ class AMSET(object):
                         for ib in range(self.cbm_vbm[tp]["included"]):
                             self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
                                                                  self.kgrid[tp]["electric force"][c][T][ib]) / (
-                                                                    self.kgrid[tp]["S_o"][c][T][ib] + self.gs + 1)
+                                                                    self.kgrid[tp]["S_o"][c][T][ib] + self.gs + 1.0)
                             # the following 5 lines are a hacky and dirty fix to the problem that the last (largest norm(k) of the opposite type has very large value and messes up mobility_POP
-                            means = np.mean(self.kgrid[tp]["g_POP"][c][T][ib], axis=1)
-                            g_POP_median = np.median(means)
-                            for igpop in range(len(means)):
-                                if means[igpop] > 1e10 * g_POP_median:
-                                    self.kgrid[tp]["g_POP"][c][T][ib][igpop]= 0
+                            # means = np.mean(self.kgrid[tp]["g_POP"][c][T][ib], axis=1)
+                            # g_POP_median = np.median(means)
+                            # for igpop in range(len(means)):
+                            #     if means[igpop] > 1e10 * g_POP_median:
+                            #         self.kgrid[tp]["g_POP"][c][T][ib][igpop]= 0
 
                             self.kgrid[tp]["g"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
                                                              self.kgrid[tp]["electric force"][c][
@@ -3449,10 +3449,10 @@ class AMSET(object):
                             self.kgrid[tp]["f_th"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + \
                                                                self.kgrid[tp]["g_th"][c][T][ib]
 
-                            for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                                if norm(self.kgrid[tp]["g_POP"][c][T][ib][ik]) > 1 and iter > 0:
-                                    # because only when there are no S_o/S_i scattering events, g_POP>>1 while it should be zero
-                                    self.kgrid[tp]["g_POP"][c][T][ib][ik] = [self.gs, self.gs, self.gs]
+                            # for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                            #     if norm(self.kgrid[tp]["g_POP"][c][T][ib][ik]) > 1 and iter > 0:
+                            #         # because only when there are no S_o/S_i scattering events, g_POP>>1 while it should be zero
+                            #         self.kgrid[tp]["g_POP"][c][T][ib][ik] = [self.gs, self.gs, self.gs]
 
                         avg_g_diff = np.mean(
                             [abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
