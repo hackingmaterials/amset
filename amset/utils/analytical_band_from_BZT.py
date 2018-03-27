@@ -151,34 +151,20 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
     sign = -1 if cbm == False else 1
     arg = 2 * np.pi * vec.dot(xkpt)
     tempc = np.cos(arg)
-    spwre = np.sum(tempc, axis=1) - (nsym - nstv)  # [:,np.newaxis]
-    spwre /= nstv  # [:,np.newaxis]
+    spwre = (np.sum(tempc, axis=1) - (nsym - nstv))/nstv
 
     if br_dir is not None:
-        # dene = np.zeros(3)
-        # ddene = np.zeros((3, 3))
-        # dspwre = np.zeros((nwave, 3))
-        # ddspwre = np.zeros((nwave, 3, 3))
         temps = np.sin(arg)
+        # np.newaxis adds a new dimensions so that the shape of temps (nwave,2) converts to (nwave,2,1) so that it can be projected to vec2 shape (nwave, 2, 3)
         dspwre = np.sum(vec2 * temps[:, :, np.newaxis], axis=1)
         dspwre /= nstv[:, np.newaxis]
-
-        # maybe possible a further speed up here
-        # for nw in xrange(nwave):
-        # for i in xrange(nstv[nw]):
-        # ddspwre[nw] += outer(vec2[nw,i],vec2[nw,i])*(-tempc[nw,i])
-        # ddspwre[nw] /= nstv[nw]
         out_tempc = out_vec2 * (-tempc[:, :, np.newaxis, np.newaxis])
         ddspwre = np.sum(out_tempc, axis=1) / nstv[:, np.newaxis, np.newaxis]
 
     ene = spwre.dot(engre)
     if br_dir is not None:
-        # dene = np.sum(dspwre.T * engre, axis=1)
-        # ddene = np.sum(ddspwre * engre.reshape(nwave, 1, 1) * 2, axis=0)
-
         dene = np.dot(dspwre.T, engre)
         ddene = np.dot(ddspwre.T, engre)
-
         return sign * ene, dene, ddene
     else:
         return sign * ene
