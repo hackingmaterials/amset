@@ -326,13 +326,14 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             k_pm = kgrid[tp]["norm(k)"][ib_pm][ik_pm]
             abs_kdiff = abs(k_pm - k)
             if abs_kdiff < 1e-4:
+                # for example to avoid self-scattering
                 counted -= 1
                 continue
-            # if abs(kgrid[tp]['energy'][ib_pm][ik_pm] - \
-            #                kgrid[tp]['energy'][ib][ik]) < \
-            #                         hbar * kgrid[tp]["W_POP"][ib][ik] / 2:
-            #     counted -= 1
-            #     continue
+            if abs(kgrid[tp]['energy'][ib_pm][ik_pm] - \
+                           kgrid[tp]['energy'][ib][ik]) < \
+                                    hbar * kgrid[tp]["W_POP"][ib][ik] / 2.0:
+                counted -= 1
+                continue
 
             g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
             g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
@@ -363,6 +364,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             lamb_ipm = beta_pm * (
                 (k_pm**2 + k**2) / (2*k*k_pm) * A_pm**2 *\
                 log((k_pm + k) / (abs_kdiff)) - A_pm**2 - c_**2 * c_pm** 2 / 3.0)
+            # if tp=='n' and abs(cbm_vbm[tp]['energy'] - kgrid[tp]['energy'][ib][ik]) < 0.1:
+            #     print('here S_i term at ik={}, energy= {}\n{}'.format(ik, abs(cbm_vbm[tp]['energy'] - kgrid[tp]['energy'][ib][ik]), (N_POP + (1 - j) + (-1)**(1 - j) * f) * lamb_ipm * g_pm))
             S_i[j] += (N_POP + (1 - j) + (-1)**(1 - j) * f) * lamb_ipm * g_pm
             S_i_th[j] += (N_POP + (1 - j) + (-1)**(1 - j) * f_th) * lamb_ipm * g_pm_th
 
