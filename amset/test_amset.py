@@ -107,7 +107,7 @@ class AmsetTest(unittest.TestCase):
         print('\ntesting test_GaAs_isotropic_E serial...')
 
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
-        kgrid = amset.kgrid
+        # kgrid = amset.kgrid
         self.assertAlmostEqual(mean_v[0], 37724375.044629738, places=1) # zeroth band
         for mu in expected_mu.keys():
             self.assertAlmostEqual(np.std( # test isotropic
@@ -115,15 +115,16 @@ class AmsetTest(unittest.TestCase):
             self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
                     expected_mu[mu], places=1)
 
-    def NO_GaAs_isotropic_k(self):
+    def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
         # expected_mu = {'ACD': 171261.976, 'IMP': 103831.729, 'PIE': 1185742.583,
         #                'POP': 31422.869, 'overall': 14110.205, 'average':20271.666}
 
         # w/ cartesian velocity and mobility/3
-        expected_mu = {'ACD': 620654.398, 'IMP': 147737.808, 'PIE': 1185742.5838,
-                       'POP': 37695.581, 'overall': 26033.42, 'average':27970.766}
+        expected_mu = {'ACD': 620669.64, 'IMP': 81922.068, 'PIE': 1185766.272,
+                       'POP': 37309.017, 'overall': 21473.751, 'average':24117.077}
         performance_params = dict(self.performance_params)
+        performance_params['fermi_kgrid_tp'] = 'very coarse'
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=performance_params,
@@ -142,7 +143,7 @@ class AmsetTest(unittest.TestCase):
         # avg = (amset.fermi_level[-3e13][300] + expected_fermi) / 2
         # self.assertTrue(diff / avg < 0.02)
 
-        self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.955, 3)
+        self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.7149, 3)
 
         # check mobility values
         for mu in expected_mu.keys():
