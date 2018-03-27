@@ -115,7 +115,7 @@ class AmsetTest(unittest.TestCase):
             self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
                     expected_mu[mu], places=1)
 
-    def test_GaAs_isotropic_k(self):
+    def NO_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
         # expected_mu = {'ACD': 171261.976, 'IMP': 103831.729, 'PIE': 1185742.583,
         #                'POP': 31422.869, 'overall': 14110.205, 'average':20271.666}
@@ -153,7 +153,7 @@ class AmsetTest(unittest.TestCase):
                                    expected_mu[mu], places=1)
 
     # #TODO: since we run through several different k-meshes now for varous valleys, egrid changes hence egrid tests may be changing and ignored for now
-    def NO_GaAs_anisotropic(self):
+    def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
         # w/o /sq3 factor:
         # expected_mu = {'ACD': 83063.162, 'IMP': 289240.8277, 'PIE': 193117.5001,
