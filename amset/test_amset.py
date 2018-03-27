@@ -35,7 +35,7 @@ class AmsetTest(unittest.TestCase):
         pass
 
 
-    def test_poly_bands(self):
+    def NO_poly_bands(self):
         print('\ntesting test_poly_bands...')
         mass = 0.25
         c = -2e15
@@ -67,7 +67,7 @@ class AmsetTest(unittest.TestCase):
             self.assertTrue((diff / avg <= 0.01).all())
 
 
-    def NO_GaAs_isotropic_E(self):
+    def test_GaAs_isotropic_E(self):
         print('\ntesting test_GaAs_isotropic_E parallel...')
         # w/o /sq3 factor
         # expected_mu = {'ACD': 91133.295, 'IMP': 267704.777, 'PIE': 193756.725,
