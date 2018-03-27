@@ -155,10 +155,10 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
     spwre /= nstv  # [:,np.newaxis]
 
     if br_dir is not None:
-        dene = np.zeros(3)
-        ddene = np.zeros((3, 3))
-        dspwre = np.zeros((nwave, 3))
-        ddspwre = np.zeros((nwave, 3, 3))
+        # dene = np.zeros(3)
+        # ddene = np.zeros((3, 3))
+        # dspwre = np.zeros((nwave, 3))
+        # ddspwre = np.zeros((nwave, 3, 3))
         temps = np.sin(arg)
         dspwre = np.sum(vec2 * temps[:, :, np.newaxis], axis=1)
         dspwre /= nstv[:, np.newaxis]
@@ -173,8 +173,12 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
 
     ene = spwre.dot(engre)
     if br_dir is not None:
-        dene = np.sum(dspwre.T * engre, axis=1)
-        ddene = np.sum(ddspwre * engre.reshape(nwave, 1, 1) * 2, axis=0)
+        # dene = np.sum(dspwre.T * engre, axis=1)
+        # ddene = np.sum(ddspwre * engre.reshape(nwave, 1, 1) * 2, axis=0)
+
+        dene = np.dot(dspwre.T, engre)
+        ddene = np.dot(ddspwre.T, engre)
+
         return sign * ene, dene, ddene
     else:
         return sign * ene
