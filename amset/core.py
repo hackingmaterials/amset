@@ -2553,7 +2553,7 @@ class AMSET(object):
             for j, p in enumerate(prop_list):
                 if p[0] == "/":
                     vec = np.array(self.kgrid[tp][p.split("/")[-1]][c][T][ib])
-                elif p[0] == "1":
+                elif "1 -" in p:
                     vec = np.array(self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib])
                 else:
                     vec = np.array(self.kgrid[tp][p][c][T][ib])
@@ -3251,13 +3251,20 @@ class AMSET(object):
         beta = {}
         for tp in ["n", "p"]:
             # TODO: the integration may need to be revised. Careful testing of IMP scattering against expt is necessary
-            integral = self.integrate_over_normk(prop_list=["f0","1-f0"], tp=tp, c=c, T=T, xDOS=True)
-            # integral = sum(integral)/3
-            # self.logger.debug('integral_over_norm_k')
-            # self.logger.debug(integral)
+            # integral = self.integrate_over_normk(prop_list=["f0","1-f0"], tp=tp, c=c, T=T, xDOS=True)
+            # # integral = sum(integral)/3
+            # # self.logger.debug('integral_over_norm_k')
+            # # self.logger.debug(integral)
+            # # from aMoBT ( or basically integrate_over_normk )
+            # beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
 
-            # from aMoBT ( or basically integrate_over_normk )
-            beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
+
+            #TODO: on 03/27/2018, I reverted this calculations to integrate_over_E from old commit. Did not double-checked the units
+            integral = self.integrate_over_E(prop_list=["f0","1 - f0"], tp=tp, c=c, T=T, xDOS=True, weighted=False)
+            # integral *= self.nelec
+            # beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
+            beta[tp] = (e**2 / (self.epsilon_s * epsilon_0 * k_B * T) * integral / self.volume * 1e12 / e) ** 0.5
+
         return beta
 
 
