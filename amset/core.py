@@ -774,14 +774,6 @@ class AMSET(object):
 
 
             self.logger.debug("all_ibands: {}".format(self.all_ibands))
-
-            # # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
-            # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
-            # nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
-            # out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
-            # for nw in xrange(nwave):
-            #     for i in xrange(nstv[nw]):
-            #         out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
             if self.interpolation == "boltztrap1":
                 engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
                     get_energy_args(coeff_file, self.all_ibands)
