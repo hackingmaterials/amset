@@ -472,11 +472,11 @@ class AMSET(object):
             self.to_file()
 
 
-    def interpolate_energies(self, kpt, engre, nwave, nsym, nstv, vec, vec2,
+    def interpolate_energies(self, kpts, engre, nwave, nsym, nstv, vec, vec2,
                                out_vec2, br_dir, sgn, interpolation="boltztrap1", scissor=0.0):
         """
         Args:
-            kpt ([1x3 array]): fractional coordinates of the k-point
+            kpts ([[1x3 array]]): list of fractional coordinates of k-points
             engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir: all obtained via
                 get_energy_args
             sgn (int): options are +1 for valence band and -1 for conduction bands
@@ -485,14 +485,21 @@ class AMSET(object):
         Returns:
         """
         if interpolation=="boltztrap1":
-            energy, de, dde = get_energy(kpt, engre, nwave, nsym, nstv, vec, vec2,
+            energies = []
+            velocities = []
+            masses = []
+            for kpt in kpts:
+                energy, de, dde = get_energy(kpt, engre, nwave, nsym, nstv, vec, vec2,
                                          out_vec2, br_dir=br_dir)
-            energy = energy * Ry_to_eV - sgn * scissor / 2.0
-            velocity = abs(self.get_cartesian_coords(de, reciprocal=False)) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-            effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
+                energy = energy * Ry_to_eV - sgn * scissor / 2.0
+                velocity = abs(self.get_cartesian_coords(de, reciprocal=False)) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+                effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
+                energies.append(energy)
+                velocities.append(velocity)
+                masses.append(effective_m)
         else:
             raise AmsetError('Unsupported interpolation "{}"'.format(interpolation))
-        return energy, velocity, effective_m
+        return energies, velocities, masses
 
 
     def get_bs_extrema(self, bs, coeff_file=None, interp_params=None,
@@ -576,18 +583,25 @@ class AMSET(object):
                 sgn = 1.0
 
             if interpolation == "boltztrap1":
-                energies = []
-                velocities = []
-                normv = []
-                masses = []
-                for ik, kpt in enumerate(kpts):
-                    en, v, mass = self.interpolate_energies(kpt, engre[iband],
+                # energies = []
+                # velocities = []
+                # normv = []
+                # masses = []
+                # for ik, kpt in enumerate(kpts):
+                #     en, v, mass = self.interpolate_energies(kpt, engre[iband],
+                #           nwave,nsym, nstv, vec, vec2,out_vec2, br_dir,
+                #           sgn=sgn, scissor=scissor)
+                #     energies.append(en)
+                #     velocities.append(abs(v))
+                #     normv.append(norm(v))
+                #     masses.append(mass.trace() / 3)
+
+                energies, velocities, masses = self.interpolate_energies(kpts, engre[iband],
                           nwave,nsym, nstv, vec, vec2,out_vec2, br_dir,
                           sgn=sgn, scissor=scissor)
-                    energies.append(en)
-                    velocities.append(abs(v))
-                    normv.append(norm(v))
-                    masses.append(mass.trace() / 3)
+                normv = [norm(v) for v in velocities]
+                masses = [mass.trace()/3.0 for mass in masses]
+
             elif interpolation == "boltztrap2":
                 fitted = fite.getBands(np.array(kpts), *interp_params)
                 energies = fitted[0][ibands[iband] - 1] * Hartree_to_eV - sgn * scissor / 2.
@@ -762,10 +776,12 @@ class AMSET(object):
                 energy, velocity, effective_m = self.calc_poly_energy(
                     self.cbm_vbm0[tp]["kpoint"], tp, 0)
             elif self.interpolation=="boltztrap1":
-                energy, velocity, effective_m = self.interpolate_energies(
-                        self.cbm_vbm0[tp]["kpoint"],engre[i * self.cbm_vbm0["p"][
+                fitted = self.interpolate_energies(
+                        [self.cbm_vbm0[tp]["kpoint"]],engre[i * self.cbm_vbm0["p"][
                         "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
                         br_dir, sgn, scissor=self.scissor)
+                energy = fitted[0][0]
+                effective_m = fitted[2][0]
             elif self.interpolation=="boltztrap2":
                 fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.interp_params)
                 energy = fitted[0][self.cbm_vbm[tp]["bidx"]-1][0]*Hartree_to_eV - sgn*self.scissor/2.
@@ -855,9 +871,10 @@ class AMSET(object):
                             energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                     elif self.interpolation == "boltztrap1":
                         if not self.parallel:
-                            for ik in range(len(kpts[tp])):
-                                energy, velocities[tp][ik], effective_m = self.interpolate_energies(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
-                                energies[tp][ik] = energy
+                            energies[tp], velocities[tp], _ = self.interpolate_energies(kpts[tp],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
+                            # for ik in range(len(kpts[tp])):
+                            #     energy, velocities[tp][ik], effective_m = self.interpolate_energies(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
+                            #     energies[tp][ik] = energy
                         else:
                             results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
                             for ik, res in enumerate(results):
