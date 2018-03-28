@@ -3200,39 +3200,24 @@ class AMSET(object):
                         g_old = np.array(self.kgrid[tp]["g"][c][T][0])
                         for ib in range(self.cbm_vbm[tp]["included"]):
                             self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
-                                                                 self.kgrid[tp]["electric force"][c][T][ib]) / (
-                                                                    self.kgrid[tp]["S_o"][c][T][ib] + self.gs + 1.0)
-                            # the following 5 lines are a hacky and dirty fix to the problem that the last (largest norm(k) of the opposite type has very large value and messes up mobility_POP
-                            # means = np.mean(self.kgrid[tp]["g_POP"][c][T][ib], axis=1)
-                            # g_POP_median = np.median(means)
-                            # for igpop in range(len(means)):
-                            #     if means[igpop] > 1e10 * g_POP_median:
-                            #         self.kgrid[tp]["g_POP"][c][T][ib][igpop]= 0
+                                    self.kgrid[tp]["electric force"][c][T][ib]) / (
+                                    self.kgrid[tp]["S_o"][c][T][ib] + self.gs + 1.0)
 
                             self.kgrid[tp]["g"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
-                                                             self.kgrid[tp]["electric force"][c][
-                                                                 T][ib]) / (self.kgrid[tp]["S_o"][c][T][ib] +
-                                                                            self.kgrid[tp]["_all_elastic"][c][T][ib])
+                                    self.kgrid[tp]["electric force"][c][
+                                    T][ib]) / (self.kgrid[tp]["S_o"][c][T][ib] +
+                                    self.kgrid[tp]["_all_elastic"][c][T][ib])
 
                             self.kgrid[tp]["g_th"][c][T][ib] = (self.kgrid[tp]["S_i_th"][c][T][ib] +
-                                                                self.kgrid[tp]["thermal force"][c][
-                                                                    T][ib]) / (self.kgrid[tp]["S_o_th"][c][T][ib] +
-                                                                               self.kgrid[tp]["_all_elastic"][c][T][ib])
+                                    self.kgrid[tp]["thermal force"][c][T][ib]) / (
+                                    self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
 
                             # TODO: correct these lines to reflect that f = f0 + x*g
-                            self.kgrid[tp]["f"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g"][c][T][
-                                ib]
-                            self.kgrid[tp]["f_th"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + \
-                                                               self.kgrid[tp]["g_th"][c][T][ib]
+                            self.kgrid[tp]["f"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g"][c][T][ib]
+                            self.kgrid[tp]["f_th"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g_th"][c][T][ib]
 
-                            # for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            #     if norm(self.kgrid[tp]["g_POP"][c][T][ib][ik]) > 1 and iter > 0:
-                            #         # because only when there are no S_o/S_i scattering events, g_POP>>1 while it should be zero
-                            #         self.kgrid[tp]["g_POP"][c][T][ib][ik] = [self.gs, self.gs, self.gs]
-
-                        avg_g_diff = np.mean(
-                            [abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
-                        print("Average difference in {}-type g term at c={} and T={}: {}".format(tp, c, T, avg_g_diff))
+                        avg_g_diff = np.mean([abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
+                        self.logger.info("Average difference in {}-type g term at c={} and T={}: {}".format(tp, c, T, avg_g_diff))
 
         for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
