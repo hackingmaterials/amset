@@ -474,8 +474,7 @@ class AMSET(object):
 
 
     def interpolate_energies(self, kpt, engre, nwave, nsym, nstv, vec, vec2,
-                               out_vec2,
-                               br_dir, sgn, scissor=0.0):
+                               out_vec2, br_dir, sgn, interpolation="boltztrap1", scissor=0.0):
         """
         Args:
             kpt ([1x3 array]): fractional coordinates of the k-point
@@ -487,15 +486,14 @@ class AMSET(object):
         Returns:
 
         """
-        energy, de, dde = get_energy(kpt, engre, nwave, nsym, nstv, vec, vec2,
-                                     out_vec2, br_dir=br_dir)
-        energy = energy * Ry_to_eV - sgn * scissor / 2.0
-        # velocity = abs(self.get_cartesian_coords(de, reciprocal=False) / hbar * A_to_m * m_to_cm * Ry_to_eV)
-        velocity = abs(self.get_cartesian_coords(de, reciprocal=False)) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-
-        # effective_m = hbar ** 2 / (dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
-        effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
-
+        if interpolation=="boltztrap1":
+            energy, de, dde = get_energy(kpt, engre, nwave, nsym, nstv, vec, vec2,
+                                         out_vec2, br_dir=br_dir)
+            energy = energy * Ry_to_eV - sgn * scissor / 2.0
+            velocity = abs(self.get_cartesian_coords(de, reciprocal=False)) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+            effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
+        else:
+            raise AmsetError('Unsupported interpolation "{}"'.format(interpolation))
         return energy, velocity, effective_m
 
 
