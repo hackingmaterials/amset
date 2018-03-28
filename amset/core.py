@@ -473,7 +473,7 @@ class AMSET(object):
             self.to_file()
 
 
-    def calc_analytical_energy(self, kpt, engre, nwave, nsym, nstv, vec, vec2,
+    def interpolate_energies(self, kpt, engre, nwave, nsym, nstv, vec, vec2,
                                out_vec2,
                                br_dir, sgn, scissor=0.0):
         """
@@ -561,12 +561,12 @@ class AMSET(object):
 
         # TODO-AF: for now, I removed the following that only works with boltztrap1; if there is enough value, I will add support for boltztrap2 as well
         # bounds = [(-0.5,0.5), (-0.5,0.5), (-0.5,0.5)]
-        # func = lambda x: calc_analytical_energy(x, engre[1], nwave,
+        # func = lambda x: interpolate_energies(x, engre[1], nwave,
         #         nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=-1, scissor=0)[0]
         # opt = basinhopping(func, x0=cbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
         # kpts.append(opt.x)
         #
-        # func = lambda x: -calc_analytical_energy(x, engre[0], nwave,
+        # func = lambda x: -interpolate_energies(x, engre[0], nwave,
         #         nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=+1, scissor=0)[0]
         # opt = basinhopping(func, x0=vbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
         # kpts.append(opt.x)
@@ -585,7 +585,7 @@ class AMSET(object):
                 normv = []
                 masses = []
                 for ik, kpt in enumerate(kpts):
-                    en, v, mass = self.calc_analytical_energy(kpt, engre[iband],
+                    en, v, mass = self.interpolate_energies(kpt, engre[iband],
                                                          nwave,
                                                          nsym, nstv, vec, vec2,
                                                          out_vec2, br_dir,
@@ -775,7 +775,7 @@ class AMSET(object):
                 energy, velocity, effective_m = self.calc_poly_energy(
                     self.cbm_vbm0[tp]["kpoint"], tp, 0)
             elif self.interpolation=="boltztrap1":
-                energy, velocity, effective_m = self.calc_analytical_energy(
+                energy, velocity, effective_m = self.interpolate_energies(
                         self.cbm_vbm0[tp]["kpoint"],engre[i * self.cbm_vbm0["p"][
                         "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
                         br_dir, sgn, scissor=self.scissor)
@@ -883,7 +883,7 @@ class AMSET(object):
                     elif self.interpolation == "boltztrap1":
                         if not self.parallel:
                             for ik in range(len(kpts[tp])):
-                                energy, velocities[tp][ik], effective_m = self.calc_analytical_energy(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
+                                energy, velocities[tp][ik], effective_m = self.interpolate_energies(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
                                 energies[tp][ik] = energy
                         else:
                             results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
