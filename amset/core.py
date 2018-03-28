@@ -1007,34 +1007,19 @@ class AMSET(object):
                 self.dos_start = self.dos_emin
                 self.dos_end = self.dos_emax
 
-
-            self.logger.info("DOS normalization factor: {}".format(self.dos_normalization_factor))
-
+            self.logger.debug("DOS normalization factor: {}".format(
+                                            self.dos_normalization_factor))
             integ = 0.0
             self.dos_start = abs(emesh - self.dos_start).argmin()
             self.dos_end = abs(emesh - self.dos_end).argmin()
             for idos in range(self.dos_start, self.dos_end):
-                # if emesh[idos] > self.cbm_vbm["n"]["energy"]: # we assume anything below CBM as 0 occupation
-                #     break
                 integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
-
-            print("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
-
-            # self.logger.debug("dos before normalization: \n {}".format(zip(emesh, dos)))
+            self.logger.debug("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
             dos = [g / integ * self.dos_normalization_factor for g in dos]
-            # self.logger.debug("integral of dos: {} stoped at index {} and energy {}".format(integ, idos, emesh[idos]))
-
             self.dos = zip(emesh, dos)
             self.dos_emesh = np.array(emesh)
             self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
             self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
-
-            self.logger.info("vbm and cbm DOS index")
-            self.logger.info(self.vbm_dos_idx)
-            self.logger.info(self.cbm_dos_idx)
-            # self.logger.debug("full dos after normalization: \n {}".format(self.dos))
-            # self.logger.debug("dos after normalization from vbm idx to cbm idx: \n {}".format(self.dos[self.vbm_dos_idx-10:self.cbm_dos_idx+10]))
-
             self.dos = [list(a) for a in self.dos]
 
         if return_energies:
