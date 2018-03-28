@@ -1851,27 +1851,12 @@ class AMSET(object):
                                     nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
                                 energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
                                 velocity_signed = self.get_cartesian_coords(de) / hbar * A_to_m * m_to_cm * Ry_to_eV
-                                # velocity =  abs(self.get_cartesian_coords(de, reciprocal=False)) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
                                 velocity = abs( self.get_cartesian_coords(de, reciprocal=False) ) / (hbar*2*pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-
-                                # effective_mass = hbar ** 2 / (dde * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                                 effective_mass = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
                             else:
                                 energy = results[ik][0] * Ry_to_eV - sgn * self.scissor / 2.0
                                 velocity_signed = self.get_cartesian_coords(results[ik][1]) / hbar * A_to_m * m_to_cm * Ry_to_eV
-                                # velocity = abs(results[ik][1] / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                                # velocity =  abs(self.get_cartesian_coords(results[ik][1])) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
-                                # velocity = abs( np.dot(results[ik][1], self._rec_lattice.inv_matrix) )   / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s
-                                # velocity = abs( np.dot(np.linalg.inv(self._rec_lattice.matrix), results[ik][1]) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s # anisotropic InP
-                                # velocity = abs( np.dot(results[ik][1], np.linalg.inv(self._rec_lattice.matrix)) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # to get v in cm/s # isotropic InP but GaAs v vs. E looks wrong
                                 velocity = abs( self.get_cartesian_coords(results[ik][1], reciprocal=False) ) / (hbar*2*pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-
-                                # velocity = abs( np.dot(np.linalg.inv(self._rec_lattice.matrix), results[ik][1]) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: test as the units work out only if A is in the numerator!
-                                # velocity = abs( np.dot(results[ik][1], np.linalg.inv(self._rec_lattice.matrix)) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: InP isotropic but both GaAs and InP very low mobility
-                                # velocity = abs( 1.0 /( np.dot(self._rec_lattice.matrix, 1.0/results[ik][1]) ) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: results in nan (1/zero!)
-                                # velocity = abs( np.dot(self._rec_lattice.matrix, results[ik][1]) ) / hbar * A_to_m * m_to_cm * Ry_to_eV  # 20180320: THIS results in isotropic InP but mobility/velocity values too high!
-
-                                # effective_mass = hbar ** 2 / (np.dot(self._rec_lattice.matrix**2, results[ik][2]) * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV  # m_tensor: the last part is unit conversion
                                 effective_mass = 1/(results[ik][2]/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
 
                             self.velocity_signed[tp][ib][ik] = velocity_signed
