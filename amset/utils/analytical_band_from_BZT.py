@@ -80,7 +80,7 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
             allE.append(bandgap * ["p", "n"].index(type) + sgn * (c[0] + \
                     hbar ** 2 * (distance) ** 2 / (2 * m_e * c[1]) * e * 1e18))
             if distance < min_kdist:
-                min_kdistance = distance
+                min_kdist = distance
                 coefficients = c
     eff_m = coefficients[1]
     energy = sgn * bandgap/2.0
@@ -90,7 +90,7 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
         return energy, np.array([v, v, v]), sgn*np.array(
             [[eff_m, 0.0, 0.0], [0.0, eff_m, 0.0], [0.0, 0.0, eff_m]])
     else:
-        return allE, min_kdistance
+        return allE, min_kdist
 
 
 
@@ -140,70 +140,70 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
 
 
 def get_dos_from_poly_bands(st, reclat_matrix, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.1, SPB_DOS=False, all_values=False):
-        """
-        Args:
-        st:       pmg object of crystal structure to calculate symmetries
-        mesh:     list of integers defining the k-mesh on which the dos is required
-        e_min:    starting energy (eV) of dos
-        e_max:    ending energy (eV) of dos
-        e_points: number of points of the get_dos
-        width:    width in eV of the gaussians generated for each energy
-        Returns:
-        e_mesh:   energies in eV od the DOS
-        dos:      density of states for each energy in e_mesh
-        """
-        height = 1.0 / (width * np.sqrt(2 * np.pi))
-        e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
-        e_range = len(e_mesh)
-        ir_kpts_n_weights = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
-        ir_kpts = [k[0] for k in ir_kpts_n_weights]
-        weights = [k[1] for k in ir_kpts_n_weights]
+    """
+    Args:
+    st:       pmg object of crystal structure to calculate symmetries
+    mesh:     list of integers defining the k-mesh on which the dos is required
+    e_min:    starting energy (eV) of dos
+    e_max:    ending energy (eV) of dos
+    e_points: number of points of the get_dos
+    width:    width in eV of the gaussians generated for each energy
+    Returns:
+    e_mesh:   energies in eV od the DOS
+    dos:      density of states for each energy in e_mesh
+    """
+    height = 1.0 / (width * np.sqrt(2 * np.pi))
+    e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
+    e_range = len(e_mesh)
+    ir_kpts_n_weights = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
+    ir_kpts = [k[0] for k in ir_kpts_n_weights]
+    weights = [k[1] for k in ir_kpts_n_weights]
 
-        ir_kpts = [reclat_matrix.get_cartesian_coords(k)/A_to_nm for k in ir_kpts]
+    ir_kpts = [reclat_matrix.get_cartesian_coords(k)/A_to_nm for k in ir_kpts]
 
-        w_sum = float(sum(weights))
-        dos = np.zeros(e_range)
+    w_sum = float(sum(weights))
+    dos = np.zeros(e_range)
 
-        if SPB_DOS:
-            volume = st.volume
-            for band in poly_bands:
-                for valley in band:
-                    offset = valley[-1][0] # each valley has a list of k-points (valley[0]) and [offset, m*] (valley[1]) info
-                    m_eff = valley[-1][1]
-                    degeneracy = len(valley[0])
-                    for ie, energy in enumerate(e_mesh):
-                        dos_temp = volume/(2*pi**2)*(2*m_e*m_eff/hbar**2)**1.5 * 1e-30/e**1.5
-                        if energy <= -bandgap/2.0-offset:
-                            # dos_temp *= (-energy-offset)**0.5
-                            dos_temp *= (-energy+bandgap/2.0+offset)**0.5
-                        elif energy >=bandgap/2.0+offset:
-                            # dos_temp *= (energy-bandgap-offset)**0.5
-                            dos_temp *= (energy-bandgap/2.0-offset)**0.5
-                        else:
-                            dos_temp = 0
-                        dos[ie] += dos_temp * degeneracy
-        else:
-            all_energies = []
-            all_ks = []
-            for kpt,w in zip(ir_kpts,weights):
-                for tp in ["n", "p"]:
-                    for ib in range(len(poly_bands)):
-                        if all_values:
-                            energy_list, k_dist = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap,
-                                                               all_values=all_values)
-                            all_energies += energy_list
-                            all_ks += [k_dist]*len(energy_list)
-                            for energy in energy_list:
-                                g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
-                                dos += w/w_sum * g
-                        else:
-                            energy, v, m_eff = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap, all_values=all_values)
+    if SPB_DOS:
+        volume = st.volume
+        for band in poly_bands:
+            for valley in band:
+                offset = valley[-1][0] # each valley has a list of k-points (valley[0]) and [offset, m*] (valley[1]) info
+                m_eff = valley[-1][1]
+                degeneracy = len(valley[0])
+                for ie, energy in enumerate(e_mesh):
+                    dos_temp = volume/(2*pi**2)*(2*m_e*m_eff/hbar**2)**1.5 * 1e-30/e**1.5
+                    if energy <= -bandgap/2.0-offset:
+                        # dos_temp *= (-energy-offset)**0.5
+                        dos_temp *= (-energy+bandgap/2.0+offset)**0.5
+                    elif energy >=bandgap/2.0+offset:
+                        # dos_temp *= (energy-bandgap-offset)**0.5
+                        dos_temp *= (energy-bandgap/2.0-offset)**0.5
+                    else:
+                        dos_temp = 0
+                    dos[ie] += dos_temp * degeneracy
+    else:
+        all_energies = []
+        all_ks = []
+        for kpt,w in zip(ir_kpts,weights):
+            for tp in ["n", "p"]:
+                for ib in range(len(poly_bands)):
+                    if all_values:
+                        energy_list, k_dist = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap,
+                                                           all_values=all_values)
+                        all_energies += energy_list
+                        all_ks += [k_dist]*len(energy_list)
+                        for energy in energy_list:
                             g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                             dos += w/w_sum * g
-            if all_values:
-                scatter(all_ks, all_energies)
-                show()
-        return e_mesh,dos
+                    else:
+                        energy, v, m_eff = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap, all_values=all_values)
+                        g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
+                        dos += w/w_sum * g
+        if all_values:
+            scatter(all_ks, all_energies)
+            show()
+    return e_mesh,dos
 
 
 def get_dos(energies,weights,e_min=None,e_max=None,e_points=None,width=0.2):
