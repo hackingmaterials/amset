@@ -197,12 +197,11 @@ class AMSET(object):
             if self.fermi_calc_type == 'k':
                 kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
                 # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
-                analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
+                kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
                 self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
             elif self.fermi_calc_type == 'e':
                 kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='very coarse')
-                analytical_band_tuple, kpts= self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=False, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
-                # self.init_kgrid(kpts, important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, analytical_band_tuple=analytical_band_tuple, delete_off_points=False)
+                kpts= self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=False, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
                 # self.pre_init_egrid(once_called=False, dos_tp='standard')
                 self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
                 for c in self.dopings:
@@ -291,7 +290,7 @@ class AMSET(object):
                     continue
 
                 kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
-                analytical_band_tuple, kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=once_called, return_energies=True, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, num_bands={'p': 1, 'n': 1})
+                kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=once_called, return_energies=True, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, num_bands={'p': 1, 'n': 1})
 
                 if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut['n']:
                     self.logger.debug('not counting conduction band {} valley {} due to off enery...'.format(self.ibrun, important_points['n'][0]))
@@ -304,7 +303,7 @@ class AMSET(object):
                     self.logger.info('skipping this valley as it is unimportant or its energies are way off...')
                     continue
 
-                corrupt_tps = self.init_kgrid(kpts, important_points, analytical_band_tuple, once_called=once_called)
+                corrupt_tps = self.init_kgrid(kpts, important_points, once_called=once_called)
                 # self.logger.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
                 for tp in corrupt_tps:
                     self.count_mobility[self.ibrun][tp] = False
@@ -726,7 +725,6 @@ class AMSET(object):
         return kpts
 
     def update_cbm_vbm_dos(self, coeff_file):
-        analytical_band_tuple = None
         if self.poly_bands0 is None:
             if self.interpolation=="boltztrap1":
                 self.logger.debug(
@@ -744,9 +742,6 @@ class AMSET(object):
             if self.interpolation == "boltztrap1":
                 engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
                     get_energy_args(coeff_file, self.all_ibands)
-            # analytical_band_tuple = (
-            # analytical_bands, engre, nwave, nsym, nstv, vec, vec2,
-            # out_vec2, br_dir)
         # if using poly bands, remove duplicate k points (@albalu I'm not really sure what this is doing)
         else:
             # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
@@ -803,7 +798,6 @@ class AMSET(object):
 
 
         # the first part is just to update the cbm_vbm once!
-        analytical_band_tuple = None
         # TODO for now, I get these parameters everytime which is wasteful but I only need to run this part once
         # if not once_called:
         if True: # We only need to set all_bands once
@@ -817,7 +811,6 @@ class AMSET(object):
                     # VBM-1 ... and then index of CBM then CBM+1 ...
 
                     self.all_ibands = []
-
                     for ib in range(num_bands['p']):
                         self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
                     for ib in range(num_bands['n']):
@@ -825,9 +818,9 @@ class AMSET(object):
                     self.logger.debug("all_ibands: {}".format(self.all_ibands))
                     engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
                         get_energy_args(coeff_file, self.all_ibands)
-                    analytical_band_tuple = (analytical_bands, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
+                    self.interp_params = get_energy_args(coeff_file, self.all_ibands)
                 elif self.interpolation == 'boltztrap2':
-                    analytical_band_tuple = self.interp_params
+                    pass
                 else:
                     raise ValueError('Unsupported interpolation method: "{}"'.format(self.interpolation))
             else:
@@ -972,9 +965,9 @@ class AMSET(object):
             self.dos = [list(a) for a in self.dos]
 
         if return_energies:
-            return analytical_band_tuple, kpts, energies_sorted
+            return kpts, energies_sorted
         else:
-            return analytical_band_tuple, kpts
+            return kpts
 
 
 
@@ -1721,7 +1714,7 @@ class AMSET(object):
         return energy, velocity, effective_m
 
 
-    def init_kgrid(self, kpts, important_points, analytical_band_tuple=None, once_called=False, delete_off_points=True):
+    def init_kgrid(self, kpts, important_points, once_called=False, delete_off_points=True):
         """
 
         Args:
@@ -1734,12 +1727,8 @@ class AMSET(object):
         # start_time = time.time()
 
         corrupt_tps = []
-        if analytical_band_tuple is None:
-            analytical_band_tuple = [None for _ in range(9)]
-
         if self.interpolation == "boltztrap1":
-            analytical_bands, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = analytical_band_tuple
-
+            engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = self.interp_params
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
         if self.adaptive_mesh:
