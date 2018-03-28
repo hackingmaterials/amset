@@ -729,8 +729,6 @@ class AMSET(object):
             if self.interpolation=="boltztrap1":
                 self.logger.debug(
                     "start interpolating bands from {}".format(coeff_file))
-            # analytical_bands = Analytical_bands(coeff_file=coeff_file)
-
             self.all_ibands = []
             for i, tp in enumerate(["p", "n"]):
                 sgn = (-1) ** (i + 1)
@@ -809,7 +807,6 @@ class AMSET(object):
                     analytical_bands = Analytical_bands(coeff_file=coeff_file)
                     # all_ibands supposed to start with index of last valence band then
                     # VBM-1 ... and then index of CBM then CBM+1 ...
-
                     self.all_ibands = []
                     for ib in range(num_bands['p']):
                         self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
