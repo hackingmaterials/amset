@@ -105,8 +105,6 @@ class AMSET(object):
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
         self.tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
         self.temperatures = temperatures or [300.0, 600.0]
-        self.debug_tp = get_tp(self.dopings[0])
-        self.logger.debug("""debug_tp: "{}" """.format(self.debug_tp))
         self.set_model_params(model_params)
         self.logger.info('independent_valleys: {}'.format(self.independent_valleys))
         self.set_material_params(material_params)
@@ -1581,8 +1579,6 @@ class AMSET(object):
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
 
-        self.logger.debug("here total number of ks from self.Efrequency for {}-type: {}".format(self.debug_tp, sum(self.Efrequency[self.debug_tp])))
-
         min_nE = 2
 
         if len(self.Efrequency["n"]) < min_nE or len(self.Efrequency["p"]) < min_nE:
@@ -1812,9 +1808,6 @@ class AMSET(object):
                 if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
                     kpoints_added[tp].append(kpts[ie])
 
-        self.logger.info("here initial k-points for {}-type with low energy distance".format(self.debug_tp))
-        self.logger.info(len(kpoints_added[self.debug_tp]))
-        # print kpoints_added[self.debug_tp]
         final_kpts_added = []
         for tp in ["n", "p"]:
             # final_kpts_added = []
