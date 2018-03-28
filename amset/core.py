@@ -157,7 +157,6 @@ class AMSET(object):
             self.cbm_vbm["p"]["energy"] = 0.0
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = \
             self.poly_bands0[0][0][0]
-
         if not coeff_file:
             self.logger.warning('\nRunning BoltzTraP to generate the cube file...')
             boltztrap_runner = BoltztrapRunner(bs=self.bs, nelec=self.nelec,
@@ -220,9 +219,6 @@ class AMSET(object):
                     else:
                         self.calc_doping[doping][T]['n'] = doping
         self.logger.info('fermi level = {}'.format(self.fermi_level))
-
-        # self.find_fermi_boltztrap()
-
         self.logger.info('here initial number of bands:\n{}'.format(self.initial_num_bands))
 
         vibands = list(range(self.initial_num_bands['p']))
@@ -277,10 +273,6 @@ class AMSET(object):
                         min_dist = 20.0
                         for k in self.bs.get_sym_eq_kpoints(important_points[tp][0]): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
                             new_dist = norm(self.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True, threshold=0.01)) /A_to_nm )
-                            # print('here dist')
-                            # print get_closest_k(k, self.important_pts[tp][0], return_diff=True)
-                            # print(self.important_pts[tp][0])
-                            # print(new_dist)
                             if new_dist < min_dist and new_dist > 0.01: # to avoid self-counting, 0.01 criterion added
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
@@ -303,15 +295,9 @@ class AMSET(object):
 
                 if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut['n']:
                     self.logger.debug('not counting conduction band {} valley {} due to off enery...'.format(self.ibrun, important_points['n'][0]))
-                    # print('here debug')
-                    # print(min(energies['n']))
-                    # print(self.cbm_vbm['n']['energy'])
                     self.count_mobility[self.ibrun]['n'] = False
                 if self.cbm_vbm['p']['energy'] - max(energies['p']) > self.Ecut['p']:
                     self.logger.debug('not counting valence band {} valley {} due to off enery...'.format(self.ibrun, important_points['p'][0]))
-                    # print('here debug')
-                    # print(max(energies['p']))
-                    # print(self.cbm_vbm['p']['energy'])
                     self.count_mobility[self.ibrun]['p'] = False
 
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
@@ -406,8 +392,8 @@ class AMSET(object):
                     valley_mobility = self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
                 if self.e_integration:
                     valley_mobility = self.calculate_transport_properties_with_E(important_points)
-                print('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
-                print('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
+                self.logger.info('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
+                self.logger.info('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
                 pprint(valley_mobility)
 
                 self.calculate_spb_transport()
@@ -470,11 +456,6 @@ class AMSET(object):
                     self.kgrid0 = deepcopy(self.kgrid)
                     self.egrid0 = deepcopy(self.egrid)
                     self.Efrequency0 = deepcopy(self.Efrequency)
-
-
-        # print('here debug mobility')
-        # print(self.mobility['n'])
-        # print()
         self.logger.debug('here denominator:\n{}'.format(self.denominator))
 
         if not self.independent_valleys:
@@ -486,11 +467,8 @@ class AMSET(object):
                             for band in list(self.valleys[tp].keys()):
                                 for valley_k in list(self.valleys[tp][band].keys()):
                                     self.valleys[tp][band][valley_k][mu][c][T] /= self.denominator[c][T][tp]
-
-
         print('\nFinal Mobility Values:')
         pprint(self.mobility)
-
         if write_outputs:
             self.to_file()
 
@@ -633,18 +611,6 @@ class AMSET(object):
             velocities = [velocities[i] for i in indexes]
             masses = [masses[i] for i in indexes]
             kpts = [np.array(kpts[i]) for i in indexes]
-
-            # print('here')
-            # cbmk = np.array([ 0.44,  0.44,  0.  ])
-            # print(np.vstack((bs.get_sym_eq_kpoints(cbmk),bs.get_sym_eq_kpoints(-cbmk))))
-            # cbmk = np.array([ 0.5,  0. ,  0.5])
-            # print(np.vstack((bs.get_sym_eq_kpoints(cbmk),bs.get_sym_eq_kpoints(-cbmk))))
-
-            # print('here values')
-            # print energies[:10]
-            # print normv[:10]
-            # print kpts[:10]
-            # print masses[:10]
             if is_cb:
                 iextrem = np.argmin(energies)
                 extremum0 = energies[
@@ -827,13 +793,6 @@ class AMSET(object):
         if self.poly_bands is None:
             self.dos_emax += self.offset_from_vrun['n']
             self.dos_emin += self.offset_from_vrun['p']
-
-        # print('here debug')
-        # print(self.cbm_vbm0)
-        # print(len(engre))
-        # print(self.all_ibands)
-
-
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['energy'] = self.cbm_vbm0[tp]['energy']
             self.cbm_vbm[tp]['eff_mass_xx'] = self.cbm_vbm0[tp]['eff_mass_xx']
@@ -1281,7 +1240,6 @@ class AMSET(object):
             ([float], [float]) two lists: s&p orbital scores at the band # bidx
         """
         projected = self._vrun.projected_eigenvalues
-        # print len(projected[Spin.up][0][10])
         # projected indexes : Spin; kidx; bidx; s,py,pz,px,dxy,dyz,dz2,dxz,dx2
 
         s_orbital = [0.0 for k in self.DFT_cartesian_kpts]
@@ -1311,18 +1269,6 @@ class AMSET(object):
         self.logger.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
         self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
-
-        # (self._vrun.lattice.matrix @ self._rec_lattice.matrix) == 2*pi*np.eye(3)
-
-        # print(np.array(self._rec_lattice.matrix)/2/pi)
-        # print(np.linalg.norm(self._rec_lattice.matrix))
-        # print(self._rec_lattice.matrix)
-        # print(np.linalg.inv(self._rec_lattice.matrix))
-        #
-        # quit()
-
-        # print(norm(self.get_cartesian_coords([0.5, 0.5, 0.5])/A_to_nm )/2  )
-        # print(norm(self.get_cartesian_coords([0.5, 0.0, 0.5])/A_to_nm )/2  )
 
         sg = SpacegroupAnalyzer(self._vrun.final_structure)
         self.rotations, _ = sg._get_symmetry()
@@ -1540,13 +1486,6 @@ class AMSET(object):
                 if dos_tp.lower() == "simple":
                     self.egrid[tp]["DOS"].append(counter / len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
-                    # print('here debug')
-                    # print(sum_E / counter)
-                    # print(self.dos_emin)
-                    # print(self.dos_emax)
-                    # print(len(self.dos))
-                    # print(self.get_Eidx_in_dos(sum_E / counter))
-                    # print('end debug')
                     self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_E / counter)][1])
                 i = j + 1
 
@@ -1794,9 +1733,6 @@ class AMSET(object):
 
         final_kpts_added = []
         for tp in ["n", "p"]:
-            # final_kpts_added = []
-            # TODO: in future only add the relevant k-poits for "kpoints" for each type separately
-            # print kpoints_added[tp]
             for ik in range(len(kpoints_added[tp]) - 1):
                 final_kpts_added += self.get_intermediate_kpoints_list(list(kpoints_added[tp][ik]),
                                                                        list(kpoints_added[tp][ik + 1]), nsteps)
@@ -1990,40 +1926,7 @@ class AMSET(object):
 
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
-                    # if tp == 'n':
-                    #     self.logger.debug('here velocity:\n{}'.format(velocity))
-                    # if tp == 'n':
-                    #     print("k_frac = {}".format(self.kgrid['n']["kpoints"][ib][ik]))
-                    #     print("k_cart = {}".format(self.kgrid['n']["cartesian kpoints"][ib][ik]))
-                    #     print("k_old_cart = {}".format(self.kgrid['n']["old cartesian kpoints"][ib][ik]))
-                    #     print("v = {}".format(velocity_signed))
-                    # TODO: the following enforces isotropy but it's not necessary as bs_is_isotropic is just a different formulation and isotropy from bs should be taken into account
-                    # if self.bs_is_isotropic:
-                    #     self.kgrid[tp]["velocity"][ib][ik] = [norm(velocity)/sq3 for i in range(3)]
-                    # else:
-                    #     self.kgrid[tp]["velocity"][ib][ik] = velocity
                     self.kgrid[tp]["norm(v)"][ib][ik] = norm(velocity)
-
-                    # if self.kgrid[tp]["velocity"][ib][ik][0] < self.v_min or  \
-                    #                 self.kgrid[tp]["velocity"][ib][ik][1] < self.v_min \
-                    #         or self.kgrid[tp]["velocity"][ib][ik][2] < self.v_min or \
-                    # if ((self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() or \
-                    #     abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
-                    #     and (len(rm_idx_list[tp][ib]) + 10 < len(self.kgrid[tp]['kpoints'][ib])):
-                    #     # TODO: remove this if when treating valence valleys and conduction valleys separately
-                    #     # print('here debug removing k-points')
-                    #         # print(tp)
-                    #         # print(self.ibrun)
-                    #         # print(important_points[tp])
-                    #         # print(self.count_mobility[self.ibrun])
-                    #         # print(self.kgrid[tp]["kpoints"][ib][ik])
-                    #         # print(self.kgrid[tp]["cartesian kpoints"][ib][ik])
-                    #         # print(self.kgrid[tp]["energy"][ib][ik])
-                    #         # print(self.kgrid[tp]["velocity"][ib][ik])
-                    #         rm_idx_list[tp][ib].append(ik)
-
-                    # self.logger.info('cbm_vbm right before checking for omission: {}'.format(self.cbm_vbm))
-
                     if (len(rm_idx_list[tp][ib]) + 20 < len(self.kgrid[tp]['kpoints'][ib])) and (
                             (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() \
                         or \
@@ -2031,31 +1934,7 @@ class AMSET(object):
                         or \
                             ((self.max_normk[tp]) and (self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]) and (self.poly_bands0 is None))
                     ):
-                        # if abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]:
-                        #     print('here energy diff large')
-                        #     print(self.cbm_vbm)
-                        #     self.counter += 1
-                        #     print(self.counter)
                         rm_idx_list[tp][ib].append(ik)
-
-                    #
-                    # # TODO: AF must test how large norm(k) affect ACD, IMP and POP and see if the following is necessary
-                    # # if self.max_normk0:
-                    # if (self.max_normk[tp]) and (self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]) \
-                    #         # and (len(rm_idx_list[tp][ib]) + 0 < len(self.kgrid[tp]['kpoints'][ib])) \
-                    #         and self.poly_bands0 is None: # this last part to avoid an error in test_poly_bands
-                    #     if self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]:
-                    #         print('here norm(k) too large')
-                    #         print(self.kgrid[tp]["norm(k)"][ib][ik])
-                    #         print(len(rm_idx_list[tp][ib]))
-                    #     rm_idx_list[tp][ib].append(ik)
-                    #
-                    # # This caused some tests to break as it was changing mobility
-                    # # values and making them more anisotropic since it was removing Gamma from GaAs
-                    # # if self.kgrid[tp]["norm(k)"][ib][ik] < 0.0001:
-                    # #     self.logger.debug('HERE removed k-point {} ; cartesian: {}'.format(
-                    # #         self.kgrid[tp]["kpoints"][ib][ik], self.kgrid[tp]["cartesian kpoints"][ib][ik]))
-                    # #     rm_idx_list[tp][ib].append(ik)
 
                     self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
@@ -2087,19 +1966,8 @@ class AMSET(object):
             rm_idx_list[tp] = [rm_idx_list[tp][0] for ib in range(self.cbm_vbm[tp]["included"])]
 
         self.rm_idx_list = deepcopy(rm_idx_list)   # format: [tp][ib][ik]
-        # print('sanity check...')
-        # print('ib={}'.format(ib))
-        # if len(self.kgrid['n']["kpoints"]) > 1:
-        #     print(self.kgrid['n'])
-        #     raise ValueError('ib=0 must always')
         if delete_off_points:
-            # print('BEFORE REMOVING')
-            # print(len(self.kgrid['n']["kpoints"][ib]))
-            # print(len(self.kgrid['p']["kpoints"][ib]))
             self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
-            # print('AFTER REMOVING')
-            # print(len(self.kgrid['n']["kpoints"][ib]))
-            # print(len(self.kgrid['p']["kpoints"][ib]))
         self.logger.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin, self.dos_emax))
 
         self.logger.debug('current cbm_vbm:\n{}'.format(self.cbm_vbm))
@@ -2118,12 +1986,6 @@ class AMSET(object):
         for tp in ['n', 'p']:
             for ib in range(self.num_bands[tp]):
                 self.pos_idx_2[tp][ib] = np.array(range(len(e_sort_idx_2[tp][ib])))[e_sort_idx_2[tp][ib]].argsort()
-
-        # for ib in range(self.num_bands['n']):
-        #     for ik in range(20):
-        #         print("k_frac = {}".format(self.kgrid['n']["kpoints"][ib][ik]))
-        #         print("k_cart = {}".format(self.kgrid['n']["cartesian kpoints"][ib][ik]))
-        #         print("v = {}".format((self.velocity_signed["n"][0][e_sort_idx_2["n"][0]])[ik]))
 
         # to save memory avoiding storage of variables that we don't need down the line
         for tp in ["n", "p"]:
@@ -2769,12 +2631,8 @@ class AMSET(object):
                 self.kgrid[tp]['energy'][ib][ik]) < \
                                 hbar*self.kgrid[tp]["W_POP"][ib][ik]/2:
             return 0.0
-        # elif tp=='n':
-        #     print('abs(energy_diff) = {}'.format(abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - self.kgrid[tp]['energy'][ib][ik])))
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
-        f_th = self.kgrid[tp]["f_th"][c][T][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
-        # v_prm = self.kgrid[tp]["velocity"][ib_prm][ik_prm]
         if tp == "n":
             f = self.kgrid[tp]["f"][c][T][ib][ik]
             f_prm = self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
@@ -2783,19 +2641,9 @@ class AMSET(object):
             f_prm = 1 - self.kgrid[tp]["f"][c][T][ib_prm][ik_prm]
 
         if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
-            # return np.array([0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
             return 0.0
-        fermi = self.fermi_level[c][T]
-
         N_POP = self.kgrid[tp]["N_POP"][c][T][ib][ik]
-        # N_POP = 1 / (np.exp(hbar * self.kgrid[tp]["W_POP"][ib][ik] / (k_B * T)) - 1)
-
         norm_diff = norm(k - k_prm)
-        # if tp=='n' and norm_diff < 0.1:
-        #     print('energy: {}'.format(self.kgrid[tp]['energy'][ib][ik]))
-        #     print('energy: {}'.format(self.kgrid[tp]['energy'][ib_prm][ik_prm]))
-        #     print('norm_diff: {}'.format(norm_diff))
-        #     print
         if norm_diff < 1e-4:
             return 0.0
 
@@ -2883,13 +2731,6 @@ class AMSET(object):
                                                                    ib=ib, ik=ik, c=c, T=T, sname=sname + X_E_index_name,
                                                                    g_suffix=g_suffix)
                             self.kgrid[tp][sname][c][T][ib][ik] = summation * e ** 2 * self.kgrid[tp]["W_POP"][ib][ik] / (4 * pi * hbar) * (1 / self.epsilon_inf - 1 / self.epsilon_s) / epsilon_0 * 100 / e
-
-
-                            # if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 1:
-                            #     self.kgrid[tp][sname][c][T][ib][ik] = [1, 1, 1]
-                            # if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e5:
-                            #     print tp, c, T, ik, ib, summation, self.kgrid[tp][sname][c][T][ib][ik]
-
 
 
     def s_el_eq_isotropic(self, sname, tp, c, T, ib, ik):
@@ -2980,21 +2821,12 @@ class AMSET(object):
                                                                   ib=ib, ik=ik, c=c, T=T, sname=sname, g_suffix="")
                                 self.kgrid[tp][sname][c][T][ib][ik] = abs(summation) * 2e-7 * pi / hbar
                                 if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 100 and sname not in ["DIS"]:
-                                    print("WARNING!!! here scattering {} < 1".format(sname))
-                                    # if self.kgrid[tp]["df0dk"][c][T][ib][ik][0] > 1e-32:
-                                    #     print self.kgrid[tp]["df0dk"][c][T][ib][ik]
-                                    print(self.kgrid[tp]["X_E_ik"][ib][ik])
-
+                                    self.logger.warning("Here {} rate < 1.\nX_E_ik:\n{}".format(sname, self.kgrid[tp]["X_E_ik"][ib][ik]))
                                     self.kgrid[tp][sname][c][T][ib][ik] = [1e10, 1e10, 1e10]
 
                                 if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e20:
-                                    print(self.kgrid[tp]['kpoints'][ib][ik])
-                                    print(self.kgrid[tp]['cartesian kpoints'][ib][ik])
-                                    print(self.kgrid[tp]['velocity'][ib][ik])
-                                    print("WARNING!!! TOO LARGE of scattering rate for {}:".format(sname))
-                                    print(self.kgrid[tp][sname][c][T][ib][ik])
-                                    print(self.kgrid[tp]["X_E_ik"][ib][ik])
-                                    print()
+                                    self.logger.warning('too large rate for {} at k={}, v={}:'.format(
+                                        sname, self.kgrid[tp]['kpoints'][ib][ik], self.kgrid[tp]['velocity'][ib][ik]))
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
 
                         # self.logger.debug("relaxation time at c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["relaxation time"][c][T][ib]))
@@ -3023,12 +2855,6 @@ class AMSET(object):
                         first_ib = self.kgrid_to_egrid_idx[tp][ie][0][0]
                         first_ik = self.kgrid_to_egrid_idx[tp][ie][0][1]
                         for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                            # if norm(self.kgrid[tp][prop_name][ib][ik]) / norm(self.kgrid[tp][prop_name][first_ib][first_ik]) > 1.25 or norm(self.kgrid[tp][prop_name][ib][ik]) / norm(self.kgrid[tp][prop_name][first_ib][first_ik]) < 0.8:
-                            #     self.logger.debug('ERROR! Some {} values are more than 25% different at k points with the same energy.'.format(prop_name))
-                            #     print('first k: {}, current k: {}'.format(norm(self.kgrid[tp][prop_name][first_ib][first_ik]), norm(self.kgrid[tp][prop_name][ib][ik])))
-                            #     print('current energy, first energy, ik, first_ik')
-                            #     print(self.kgrid[tp]['energy'][ib][ik], self.kgrid[tp]['energy'][first_ib][first_ik], ik, first_ik)
-                            # if self.bs_is_isotropic and prop_type == "vector":
                             if False:
                                 self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik]) / sq3
                             else:
@@ -3177,7 +3003,7 @@ class AMSET(object):
         nstep = 20
         fermi0 = fermi
 
-        print("calculating the fermi level at temperature: {} K".format(T))
+        self.logger.debug("Calculating the fermi level at T={} K".format(T))
         for i in range(15):
             if i > 0:
                 nsetps = 10
@@ -3354,7 +3180,6 @@ class AMSET(object):
         if kgrid:
             start_time = time.time()
             kgrid = deepcopy(self.kgrid)
-            print("time to copy kgrid = {} seconds".format(time.time() - start_time))
             if trimmed:
                 nmax = min([max_ndata + 1, min([len(kgrid["n"]["kpoints"][0]), len(kgrid["p"]["kpoints"][0])])])
                 for tp in ["n", "p"]:
@@ -3398,15 +3223,13 @@ class AMSET(object):
 
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.BTE_iters):
-            print("Performing iteration # {}".format(iter))
-
+            self.logger.info("Performing iteration # {}".format(iter))
             if "POP" in self.inelastic_scatterings:
                 if self.bs_is_isotropic:
                     if iter == 0:
                         self.s_inel_eq_isotropic(once_called=False)
                     else:
                         self.s_inel_eq_isotropic(once_called=True)
-
                 else:
                     for g_suffix in ["", "_th"]:
                         self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
