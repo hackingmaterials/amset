@@ -67,36 +67,30 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
         bandgap (float): the targetted band gap of the band structure
     Returns:
     """
-    # determine the sign of energy from type; e.g. p-type energies are negative with VBM=0.0
+    # The sign of energy from type; e.g. p-type energies are negative (VBM=0.0)
     kpt = np.array(kpt)
     sgn = (-1)**(["p", "n"].index(type)+1)
     band_shapes = poly_bands[ib]
-    min_kdistance = 1e32
-    energy_list = []
-    for ks, c in band_shapes: #ks are all symmetrically equivalent k-points to the extremum k that are in the first BZ
+    min_kdist = 1e32
+    allE = []
+    for ks, c in band_shapes:
+        #ks: all symmetrically equivalent k-points to the extremum k in 1st BZ
         for k in ks:
-        # distance = min([norm(kpt-k) for k in ks])
-        #     distance = norm(kpt-k)/(2*pi)
             distance = norm(kpt-k)
-            energy_list.append(bandgap * ["p", "n"].index(type) +\
-                               sgn * (c[0] + hbar ** 2 * (distance) ** 2 / (2 * m_e * c[1]) * e * 1e18))
-            # for k in ks:
-            #     distance = norm(kpt-k)
-            if distance < min_kdistance:
+            allE.append(bandgap * ["p", "n"].index(type) + sgn * (c[0] + \
+                    hbar ** 2 * (distance) ** 2 / (2 * m_e * c[1]) * e * 1e18))
+            if distance < min_kdist:
                 min_kdistance = distance
                 coefficients = c
-
     eff_m = coefficients[1]
-    # energy = bandgap*["p", "n"].index(type) # if p-type we do not add any value to the calculated energy for the band gap
     energy = sgn * bandgap/2.0
-    energy += sgn*(coefficients[0] + hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18) # last part is unit conv. to eV
-    # print hbar**2 * min_kdistance**2 / (2*m_e*eff_m) * e*1e18
-    v = hbar*min_kdistance/(m_e*eff_m) *1e11*e # last part is unit conversion to cm/s
-
+    energy += sgn*(coefficients[0] + hbar**2 * min_kdist**2 / (2*m_e*eff_m) * e*1e18) # last part is unit conv. to eV
+    v = hbar*min_kdist/(m_e*eff_m) *1e11*e #last part is unit conversion to cm/s
     if not all_values:
-        return energy, np.array([v, v, v]), sgn*np.array([[eff_m, 0.0, 0.0], [0.0, eff_m, 0.0], [0.0, 0.0, eff_m]])
+        return energy, np.array([v, v, v]), sgn*np.array(
+            [[eff_m, 0.0, 0.0], [0.0, eff_m, 0.0], [0.0, 0.0, eff_m]])
     else:
-        return energy_list, min_kdistance
+        return allE, min_kdistance
 
 
 
@@ -129,7 +123,8 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
 
     if br_dir is not None:
         temps = np.sin(arg)
-        # np.newaxis adds a new dimensions so that the shape of temps (nwave,2) converts to (nwave,2,1) so that it can be projected to vec2 shape (nwave, 2, 3)
+        # np.newaxis adds a new dimensions so that the shape of temps (nwave,2)
+        # converts to (nwave,2,1) so it can be projected to vec2 (nwave, 2, 3)
         dspwre = np.sum(vec2 * temps[:, :, np.newaxis], axis=1)
         dspwre /= nstv[:, np.newaxis]
         out_tempc = out_vec2 * (-tempc[:, :, np.newaxis, np.newaxis])
@@ -144,7 +139,7 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
         return sign * ene
 
 
-def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.1, SPB_DOS=False, all_values=False):
+def get_dos_from_poly_bands(st, reclat_matrix, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.1, SPB_DOS=False, all_values=False):
         """
         Args:
         st:       pmg object of crystal structure to calculate symmetries
@@ -159,13 +154,12 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
         """
         height = 1.0 / (width * np.sqrt(2 * np.pi))
         e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
-
         e_range = len(e_mesh)
         ir_kpts_n_weights = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
         ir_kpts = [k[0] for k in ir_kpts_n_weights]
         weights = [k[1] for k in ir_kpts_n_weights]
 
-        ir_kpts = [lattice_matrix.get_cartesian_coords(k)/A_to_nm for k in ir_kpts]
+        ir_kpts = [reclat_matrix.get_cartesian_coords(k)/A_to_nm for k in ir_kpts]
 
         w_sum = float(sum(weights))
         dos = np.zeros(e_range)
@@ -188,7 +182,6 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
                         else:
                             dos_temp = 0
                         dos[ie] += dos_temp * degeneracy
-
         else:
             all_energies = []
             all_ks = []
@@ -207,7 +200,6 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
                             energy, v, m_eff = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap, all_values=all_values)
                             g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                             dos += w/w_sum * g
-
             if all_values:
                 scatter(all_ks, all_energies)
                 show()
@@ -451,7 +443,7 @@ class Analytical_bands(object):
                 dos += w * g
         return e_mesh,dos
 
-        
+
 if __name__ == "__main__":
     # user inputs
     # cbm_bidx = 15 # GaAs
