@@ -74,7 +74,7 @@ class AmsetTest(unittest.TestCase):
         #                'POP': 13347.784, 'overall': 9408.1722, 'average': 10549.824}
 
         # w/ /sq3 factor
-        expected_mu = {'ACD': 93991.3170, 'IMP': 113505.1298, 'PIE':192754.20732,
+        expected_mu = {'ACD': 93991.3170, 'IMP': 117744.7036, 'PIE':192754.20732,
                        'POP': 7233.255782, 'overall':4507.76133, 'average': 6139.197481}
 
 
@@ -121,7 +121,7 @@ class AmsetTest(unittest.TestCase):
         #                'POP': 31422.869, 'overall': 14110.205, 'average':20271.666}
 
         # w/ cartesian velocity and mobility/3
-        expected_mu = {'ACD': 620669.64, 'IMP': 81922.068, 'PIE': 1185766.272,
+        expected_mu = {'ACD': 620669.64, 'IMP': 132463.67989, 'PIE': 1185766.272,
                        'POP': 37309.017, 'overall': 21473.751, 'average':24117.077}
         performance_params = dict(self.performance_params)
         performance_params['fermi_kgrid_tp'] = 'very coarse'
