@@ -484,7 +484,6 @@ class AMSET(object):
                 sgn is basically ignored (doesn't matter) if scissor==0.0
             scissor (float): the amount by which the band gap is modified/scissored
         Returns:
-
         """
         if interpolation=="boltztrap1":
             energy, de, dde = get_energy(kpt, engre, nwave, nsym, nstv, vec, vec2,
@@ -584,11 +583,8 @@ class AMSET(object):
                 masses = []
                 for ik, kpt in enumerate(kpts):
                     en, v, mass = self.interpolate_energies(kpt, engre[iband],
-                                                         nwave,
-                                                         nsym, nstv, vec, vec2,
-                                                         out_vec2, br_dir,
-                                                         sgn=sgn,
-                                                         scissor=scissor)
+                          nwave,nsym, nstv, vec, vec2,out_vec2, br_dir,
+                          sgn=sgn, scissor=scissor)
                     energies.append(en)
                     velocities.append(abs(v))
                     normv.append(norm(v))
@@ -821,23 +817,12 @@ class AMSET(object):
                     # VBM-1 ... and then index of CBM then CBM+1 ...
 
                     self.all_ibands = []
-                    # for i, tp in enumerate(["p", "n"]):
-                    #     # sgn = (-1) ** (i + 1)
-                    #     for ib in range(num_bands[tp]):
-                    #         self.all_ibands.append(self.cbm_vbm0[tp]["bidx"] + sgn * ib)
 
                     for ib in range(num_bands['p']):
                         self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
                     for ib in range(num_bands['n']):
                         self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
                     self.logger.debug("all_ibands: {}".format(self.all_ibands))
-                    # # @albalu what are all of these variables (in the next 5 lines)? I don't know but maybe we can lump them together
-                    # engre, latt_points, nwave, nsym, nsymop, symop, br_dir = analytical_bands.get_engre(iband=all_ibands)
-                    # nstv, vec, vec2 = analytical_bands.get_star_functions(latt_points, nsym, symop, nwave, br_dir=br_dir)
-                    # out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
-                    # for nw in xrange(nwave):
-                    #     for i in xrange(nstv[nw]):
-                    #         out_vec2[nw, i] = outer(vec2[nw, i], vec2[nw, i])
                     engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
                         get_energy_args(coeff_file, self.all_ibands)
                     analytical_band_tuple = (analytical_bands, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
