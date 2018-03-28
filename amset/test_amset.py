@@ -75,7 +75,7 @@ class AmsetTest(unittest.TestCase):
 
         # w/ /sq3 factor
         expected_mu = {'ACD': 93991.3170, 'IMP': 117744.7036, 'PIE':192754.20732,
-                       'POP': 7233.255782, 'overall':4507.76133, 'average': 6139.197481}
+                       'POP': 7236.73298, 'overall':4524.97423, 'average': 6153.69136}
 
 
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
@@ -122,7 +122,7 @@ class AmsetTest(unittest.TestCase):
 
         # w/ cartesian velocity and mobility/3
         expected_mu = {'ACD': 620669.64, 'IMP': 132463.67989, 'PIE': 1185766.272,
-                       'POP': 37309.017, 'overall': 21473.751, 'average':24117.077}
+                       'POP': 37629.492618, 'overall': 25257.715, 'average':27338.36}
         performance_params = dict(self.performance_params)
         performance_params['fermi_kgrid_tp'] = 'very coarse'
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
