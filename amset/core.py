@@ -2784,13 +2784,13 @@ class AMSET(object):
         Returns (float): the integrand for POP scattering (to be integrated
             over X)
         """
-        # if abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - \
-        #         self.kgrid[tp]['energy'][ib][ik]) < \
-        #                         hbar*self.kgrid[tp]["W_POP"][ib][ik]/2:
-        #     return 0.0
         if tp == "n" and 'minus' in sname and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]<self.cbm_vbm[tp]["energy"]:
             return 0.0
         if tp == "p" and 'plus' in sname and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]>self.cbm_vbm[tp]["energy"]:
+            return 0.0
+        if abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - \
+                self.kgrid[tp]['energy'][ib][ik]) < \
+                                hbar*self.kgrid[tp]["W_POP"][ib][ik]/2:
             return 0.0
         # elif tp=='n':
         #     print('abs(energy_diff) = {}'.format(abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - self.kgrid[tp]['energy'][ib][ik])))
