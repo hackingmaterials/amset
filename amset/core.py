@@ -3255,27 +3255,6 @@ class AMSET(object):
             v_norm_all_bands.append(self.grid_from_ordered_list(v_norm_k_ordered, tp, none_missing=True, scalar=True))
         return np.array(v_vec_all_bands), np.array(v_norm_all_bands)
 
-    # def calc_v_vec(self, tp):
-    #     # TODO: Take into account the fact that this gradient is found in three directions specified by the lattice, not
-    #     # the x, y, and z directions. It must be corrected to account for this.
-    #     energy_grid = self.array_from_kgrid('energy', tp)
-    #     # print('energy:')
-    #     # np.set_printoptions(precision=3)
-    #     # print(energy_grid[0,:,:,:,0])
-    #     N = self.kgrid_array[tp].shape
-    #     k_grid = self.kgrid_array[tp]
-    #     v_vec_result = []
-    #     for ib in range(self.num_bands[tp]):
-    #         v_vec = np.gradient(energy_grid[ib][:,:,:,0], k_grid[:,0,0,0] * self._rec_lattice.a, k_grid[0,:,0,1] * self._rec_lattice.b, k_grid[0,0,:,2] * self._rec_lattice.c)
-    #         v_vec_rearranged = np.zeros((N[0], N[1], N[2], 3))
-    #         for i in range(N[0]):
-    #             for j in range(N[1]):
-    #                 for k in range(N[2]):
-    #                     v_vec_rearranged[i,j,k,:] = np.array([v_vec[0][i,j,k], v_vec[1][i,j,k], v_vec[2][i,j,k]])
-    #         v_vec_rearranged *= A_to_m * m_to_cm / hbar
-    #         v_vec_result.append(v_vec_rearranged)
-    #     return np.array(v_vec_result)
-
 
     # turns a kgrid property into a list of grid arrays of that property for k integration
     def array_from_kgrid(self, prop_name, tp, c=None, T=None, denom=False, none_missing=False, fill=None):
