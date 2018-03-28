@@ -1335,16 +1335,8 @@ class AMSET(object):
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands0)
             self.initial_num_bands['n'] = self.initial_num_bands['p'] = len(self.poly_bands0)
-
-        # if self.max_nbands:
-        #     for tp in ['p', 'n']:
-        #         cbm_vbm[tp]["included"] = self.max_nbands
-        #         self.initial_num_bands[tp] = self.max_nbands
-
-
         cbm_vbm["p"]["bidx"] += 1
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
-
         self.cbm_vbm = cbm_vbm
         self.cbm_vbm0 = deepcopy(cbm_vbm)
         self.valleys = {tp: {'band {}'.format(i): {} for i in range(self.cbm_vbm0[tp]['included']) } for tp in ['p', 'n']}
@@ -1379,12 +1371,10 @@ class AMSET(object):
             t in ["n", "p"]}
 
 
-
     def seeb_int_denom(self, c, T):
         """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
         return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in
                 ["n", "p"]}
-
 
 
     def calculate_property(self, prop_name, prop_func, for_all_E=False):
@@ -1413,21 +1403,17 @@ class AMSET(object):
                     self.egrid[prop_name][c][T] = prop_func(c, T)
 
 
-
     def calculate_N_II(self, c, T):
         """
-        self.N_dis is a given observed 2D concentration of charged dislocations in 1/cm**2
-        :param c:
-        :param T:
-        :return:
+        Args:
+            c (float): the carrier concentration
+            T (float): the temperature in kelvin
+        Returns (float): inoized impurity (IMP) scattering concentration (N_II)
         """
-        # N_II = abs(self.egrid["calc_doping"][c][T]["n"]) * self.charge["n"] ** 2 + \
-        #        abs(self.egrid["calc_doping"][c][T]["p"]) * self.charge["p"] ** 2 + \
-        #        self.N_dis / self.volume ** (1 / 3) * 1e8 * self.charge["dislocations"] ** 2
-
         N_II = abs(self.calc_doping[c][T]["n"]) * self.charge["n"] ** 2 + \
                abs(self.calc_doping[c][T]["p"]) * self.charge["p"] ** 2 + \
                self.N_dis / self.volume ** (1 / 3) * 1e8 * self.charge["dislocations"] ** 2
+        # N_dis is a given 2D concentration of charged dislocations in 1/cm**2
         return N_II
 
 
@@ -1521,10 +1507,6 @@ class AMSET(object):
         # initialize some fileds/properties
         if not once_called:
             self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-            # for sn in self.elastic_scatterings + self.inelastic_scatterings + ["overall", "average"]:
-            #     for tp in ['n', 'p']:
-            #         self.egrid[tp]['mobility'][sn] = {c: {T: [0.0, 0.0, 0.0] for T in\
-            #                 self.temperatures} for c in self.dopings}
             for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
                 for tp in ['n', 'p']:
                     self.egrid[tp][transport] = {c: {T: 0.0 for T in\
@@ -1565,28 +1547,26 @@ class AMSET(object):
 
         self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
         self.logger.debug('inverse screening length, beta is \n{}'.format(
-            self.egrid["beta"]))
+                                                        self.egrid["beta"]))
         self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
         self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
         self.calculate_property(prop_name="Seebeck_integral_denominator", prop_func=self.seeb_int_denom)
 
 
-
     def get_Eidx_in_dos(self, E, Estep=None):
         if not Estep:
             Estep = max(self.dE_min, 0.0001)
-        return int(round((E - self.dos_emin) / Estep)) # ~faster than argmin
-        # return abs(self.dos_emesh - E).argmin()
-
+        return int(round((E - self.dos_emin) / Estep))
 
 
     def G(self, tp, ib, ik, ib_prm, ik_prm, X):
         """
         The overlap integral betweek vectors k and k'
-        :param ik (int): index of vector k in kgrid
-        :param ik_prm (int): index of vector k' in kgrid
-        :param X (float): cosine of the angle between vectors k and k'
-        :return: overlap integral
+        Args:
+            ik (int): index of vector k in kgrid
+            ik_prm (int): index of vector k' in kgrid
+            X (float): cosine of the angle between vectors k and k'
+        Returns (float): the overlap integral
         """
         a = self.kgrid[tp]["a"][ib][ik]
         c = self.kgrid[tp]["c"][ib][ik]
@@ -1594,14 +1574,13 @@ class AMSET(object):
                 X * c * self.kgrid[tp]["c"][ib_prm][ik_prm]) ** 2
 
 
-
     def remove_indexes(self, rm_idx_list, rearranged_props):
         """
         The k-points with velocity < 1 cm/s (either in valence or conduction band) are taken out as those are
             troublesome later with extreme values (e.g. too high elastic scattering rates)
-        :param rm_idx_list ([int]): the kpoint indexes that need to be removed for each property
-        :param rearranged_props ([str]): list of properties for which some indexes need to be removed
-        :return:
+        Args:
+            rm_idx_list ([int]): the kpoint indexes that need to be removed for each property
+            rearranged_props ([str]): list of properties for which some indexes need to be removed
         """
         for i, tp in enumerate(["n", "p"]):
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -1612,7 +1591,6 @@ class AMSET(object):
             for prop in rearranged_props:
                 self.kgrid[tp][prop] = np.array([np.delete(self.kgrid[tp][prop][ib], rm_idx_list[tp][ib], axis=0) \
                                                  for ib in range(self.cbm_vbm[tp]["included"])])
-
 
 
     def initialize_var(self, grid, names, val_type="scalar", initval=0.0, is_nparray=True, c_T_idx=False):
@@ -1666,12 +1644,10 @@ class AMSET(object):
                                                     self.dopings}
 
 
-
     def get_intermediate_kpoints(self, k1, k2, nsteps):
         """return a list nsteps number of k-points between k1 & k2 excluding k1 & k2 themselves. k1 & k2 are nparray"""
         dkii = (k2 - k1) / float(nsteps + 1)
         return [k1 + i * dkii for i in range(1, nsteps + 1)]
-
 
 
     def get_intermediate_kpoints_list(self, k1, k2, nsteps):
@@ -1684,7 +1660,6 @@ class AMSET(object):
         return [[k1[i] + n * dk[i] for i in range(len(k1))] for n in range(1, nsteps + 1)]
 
 
-
     @staticmethod
     def get_perturbed_ks(k):
         all_perturbed_ks = []
@@ -1694,10 +1669,8 @@ class AMSET(object):
         return all_perturbed_ks
 
 
-
     def get_ks_with_intermediate_energy(self, kpts, energies, max_Ediff=None, target_Ediff=None):
         final_kpts_added = []
-        target_Ediff = target_Ediff or self.dE_min
         for tp in ["n", "p"]:
             max_Ediff = max_Ediff or min(self.Ecut[tp], 10 * k_B * max(self.temperatures))
             if tp not in self.all_types:
@@ -1710,11 +1683,7 @@ class AMSET(object):
                 if Ediff > max_Ediff:
                     break
                 final_kpts_added += self.get_perturbed_ks(kpts[ies_sorted[idx]])
-
-                # final_kpts_added += self.get_intermediate_kpoints_list(list(kpts[ies_sorted[idx]]),
-                #                                    list(kpts[ies_sorted[idx+1]]), max(int(Ediff/target_Ediff) , 1))
         return kpts_to_first_BZ(final_kpts_added)
-
 
 
     def get_adaptive_kpoints(self, kpts, energies, adaptive_Erange, nsteps):
@@ -1730,19 +1699,16 @@ class AMSET(object):
                 Ediff = abs(energies[tp][ie] - energies[tp][ies_sorted[0]])
                 if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
                     kpoints_added[tp].append(kpts[ie])
-
         final_kpts_added = []
         for tp in ["n", "p"]:
             for ik in range(len(kpoints_added[tp]) - 1):
                 final_kpts_added += self.get_intermediate_kpoints_list(list(kpoints_added[tp][ik]),
                                                                        list(kpoints_added[tp][ik + 1]), nsteps)
-
         return kpts_to_first_BZ(final_kpts_added)
 
 
     def get_sym_eq_ks_in_first_BZ(self, k, cartesian=False):
         """
-
         :param k (numpy.array): kpoint fractional coordinates
         :param cartesian (bool): if True, the output would be in cartesian (but still reciprocal) coordinates
         :return:
