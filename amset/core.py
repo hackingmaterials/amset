@@ -115,21 +115,28 @@ class AMSET(object):
         self.logger.info('k_integration: {}'.format(self.k_integration))
         self.logger.info('e_integration: {}'.format(self.e_integration))
         self.fermi_calc_type = fermi_type
-
         self.num_cores = max(int(multiprocessing.cpu_count()/4), self.max_ncpu)
         if self.parallel:
             self.logger.info("number of cpu used in parallel mode: {}".format(self.num_cores))
         self.counter = 0 # a global counter just for debugging
         self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
 
-    def run_profiled(self, coeff_file=None, kgrid_tp="coarse", write_outputs=True):
+
+    def run_profiled(self, coeff_file=None, kgrid_tp="coarse",
+                     write_outputs=True, nfuncs=15):
+        """
+        Very similar to the run method except that it is profiled.
+        Args:
+            see args for run() method
+            nfuncs (int): only print the nfuncs most time-consuming functions
+        """
         profiler = cProfile.Profile()
         profiler.runcall(lambda: self.run(coeff_file, kgrid_tp=kgrid_tp,
-                                           write_outputs=write_outputs))
+                                               write_outputs=write_outputs))
         stats = Stats(profiler, stream=STDOUT)
         stats.strip_dirs()
         stats.sort_stats('cumulative')
-        stats.print_stats(15)  # only print the top 10 (10 slowest functions)
+        stats.print_stats(nfuncs)
 
 
     def run(self, coeff_file=None, kgrid_tp="coarse", write_outputs=True, test_k_anisotropic=False):
