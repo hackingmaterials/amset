@@ -514,7 +514,7 @@ class AMSET(object):
         return energy, velocity, effective_m
 
 
-    def get_bs_extrema(self, bs, coeff_file=None, bz2_params=None,
+    def get_bs_extrema(self, bs, coeff_file=None, interp_params=None,
                        interpolation="boltztrap1",
                        nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
                        Ecut=None, nex_max=0, return_global=False, niter=5,
@@ -611,7 +611,7 @@ class AMSET(object):
                     normv.append(norm(v))
                     masses.append(mass.trace() / 3)
             elif interpolation == "boltztrap2":
-                fitted = fite.getBands(np.array(kpts), *bz2_params)
+                fitted = fite.getBands(np.array(kpts), *interp_params)
                 energies = fitted[0][ibands[iband] - 1] * Hartree_to_eV - sgn * scissor / 2.
                 velocities = fitted[1][:, :, ibands[iband] - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm
                 normv = [norm(v) for v in velocities]
@@ -815,7 +815,7 @@ class AMSET(object):
                         "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
                         br_dir, sgn, scissor=self.scissor)
             elif self.interpolation=="boltztrap2":
-                fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.bz2_params)
+                fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.interp_params)
                 energy = fitted[0][self.cbm_vbm[tp]["bidx"]-1][0]*Hartree_to_eV - sgn*self.scissor/2.
                 effective_m = 1/fitted[2][:, :, 0, self.cbm_vbm0[tp]["bidx"]-1].T * e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e
             self.offset_from_vrun[tp] = energy - self.cbm_vbm0[tp]["energy"]
@@ -886,7 +886,7 @@ class AMSET(object):
                         get_energy_args(coeff_file, self.all_ibands)
                     analytical_band_tuple = (analytical_bands, engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
                 elif self.interpolation == 'boltztrap2':
-                    analytical_band_tuple = self.bz2_params
+                    analytical_band_tuple = self.interp_params
                 else:
                     raise ValueError('Unsupported interpolation method: "{}"'.format(self.interpolation))
             else:
@@ -932,7 +932,7 @@ class AMSET(object):
                             for ik, res in enumerate(results):
                                 energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
                     elif self.interpolation == "boltztrap2":
-                        fitted = fite.getBands(np.array(kpts[tp]), *self.bz2_params)
+                        fitted = fite.getBands(np.array(kpts[tp]), *self.interp_params)
                         energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Hartree_to_eV - sgn*self.scissor/2.
                     else:
                         raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
@@ -989,7 +989,7 @@ class AMSET(object):
                     self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
                                    + self.offset_from_vrun['n']
                 elif self.interpolation=="boltztrap2":
-                    emesh, dos, dos_nbands = get_dos_boltztrap2(self.bz2_params,
+                    emesh, dos, dos_nbands = get_dos_boltztrap2(self.interp_params,
                                             self._vrun.final_structure,
                             mesh=[self.nkdos, self.nkdos, self.nkdos],
                             estep=max(self.dE_min, 0.0001), vbmidx = self.cbm_vbm["p"]["bidx"]-1,
@@ -1056,7 +1056,7 @@ class AMSET(object):
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
         if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
             self.important_pts, new_cbm_vbm = self.get_bs_extrema(self.bs, coeff_file,
-                    bz2_params=self.bz2_params, interpolation=self.interpolation,
+                    interp_params=self.interp_params, interpolation=self.interpolation,
                     nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
                     Ecut=self.Ecut, nex_max=20, return_global=True, niter=5,
                           nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
@@ -1314,14 +1314,14 @@ class AMSET(object):
 
     def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
         self._vrun = Vasprun(os.path.join(calc_dir, filename), parse_projected_eigen=True)
-        self.bz2_params = None
+        self.interp_params = None
         if self.interpolation == "boltztrap2":
             bz2_data = BoltzTraP2.dft.DFTData(calc_dir, derivatives=False)
             equivalences = sphere.get_equivalences(bz2_data.atoms,
                                             len(bz2_data.kpoints) * 10)
             lattvec = bz2_data.get_lattvec()
             coeffs = fite.fitde3D(bz2_data, equivalences)
-            self.bz2_params = (equivalences, lattvec, coeffs)
+            self.interp_params = (equivalences, lattvec, coeffs)
 
         self.volume = self._vrun.final_structure.volume
         self.logger.info("unitcell volume = {} A**3".format(self.volume))
@@ -1933,7 +1933,7 @@ class AMSET(object):
                                  engre[i * self.cbm_vbm["p"]["included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2,
                                  br_dir) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
                 elif self.interpolation == "boltztrap2":
-                    fitted = fite.getBands(np.array(kpts[tp]), *self.bz2_params)
+                    fitted = fite.getBands(np.array(kpts[tp]), *self.interp_params)
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
 
