@@ -1,7 +1,6 @@
 # coding: utf-8
 import matplotlib
 import numpy as np
-import re
 import warnings
 
 matplotlib.use('agg')
@@ -10,20 +9,7 @@ from math import pi
 from pymatgen.core.units import Energy
 from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from scipy.constants.codata import value as _cd
-
-
-# global constants
-hbar = _cd('Planck constant in eV s')/(2*pi)
-m_e = _cd('electron mass') # in kg
-Ry_to_eV = 13.605698066
-A_to_m = 1e-10
-A_to_nm = 0.1
-m_to_cm = 100
-e = _cd('elementary charge')
-
-# TODO: the reading from a fitted band structure file and reproduction of E, dE and d2E should be optimized in speed
-# TODO: adding doc to explain each functions their inputs and outputs once Analytical_bands class is optimized.
+from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, A_to_nm, m_to_cm, e
 
 
 __author__ = "Francesco Ricci and Alireza Faghaninia"
@@ -47,12 +33,14 @@ Then, we also calculate the energy bands for each k-point in input.
 '''
 
 def norm(v):
-    """method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as numpy.linalg.norm is slower for this case"""
+    """method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as
+    numpy.linalg.norm is slower if only used for one vector"""
     return (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
 
 
 def outer(v1, v2):
-    """returns the outer product of vectors v1 and v2. This is to be used instead of numpy.outer which is ~3x slower."""
+    """returns the outer product of vectors v1 and v2. This is to be used
+    instead of numpy.outer which is ~3x slower if only used for 2 vectors."""
     return np.array([[v1[0] * v2[0], v1[0] * v2[1], v1[0] * v2[2]],
                      [v1[1] * v2[0], v1[1] * v2[1], v1[1] * v2[2]],
                      [v1[2] * v2[0], v1[2] * v2[1], v1[2] * v2[2]]])
@@ -60,23 +48,24 @@ def outer(v1, v2):
 
 def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
     """
-    :param kpt (list): coordinates of a given k-point in the actual cartesian coordinates and NOT fractional coordinates
-    :param rotations: symmetry rotation operations
-    :param translations: symmetry translational operations
-    :param poly_bands [[lists]]: each member of the first list represents a band: in each band a list of lists of lists
-        should contain a list of two-member lists: the two members are: the coordinates of extrema k-point and its
-        symmetrically equivalent points and another two members list of
-        [first member: energy offset from the main extremum (i.e. CBM/VBM), second member: the effective mass]
-        example poly_bands = [[ [[[0.5, 0.5, 0.5]], [0, 0.1]], [[[0, 0, 0]], [0.5, 0.2]]]] represents a
-        band structure with a single band; this parabolic band (hbar**2k**2/2m*) at point X
-        where k is norm(k-[0.5,0.5,0.5]) if the k-point is closer to X than Gamma. Additionally, this band has
-        another extremum at an energy level 0.5 eV above the first/main extremum/CBM. If type is "p" the band structure
-        would be a mirror image. VBM is always set to 0.0 eV and the CBM is set to the bandgap
+    Args:
+        kpt (list): coordinates of a given k-point in the actual cartesian coordinates and NOT fractional coordinates
+        rotations: symmetry rotation operations
+        translations: symmetry translational operations
+        poly_bands [[lists]]: each member of the first list represents a band: in each band a list of lists of lists
+            should contain a list of two-member lists: the two members are: the coordinates of extrema k-point and its
+            symmetrically equivalent points and another two members list of
+            [first member: energy offset from the main extremum (i.e. CBM/VBM), second member: the effective mass]
+            example poly_bands = [[ [[[0.5, 0.5, 0.5]], [0, 0.1]], [[[0, 0, 0]], [0.5, 0.2]]]] represents a
+            band structure with a single band; this parabolic band (hbar**2k**2/2m*) at point X
+            where k is norm(k-[0.5,0.5,0.5]) if the k-point is closer to X than Gamma. Additionally, this band has
+            another extremum at an energy level 0.5 eV above the first/main extremum/CBM. If type is "p" the band structure
+            would be a mirror image. VBM is always set to 0.0 eV and the CBM is set to the bandgap
 
-    :param type (str): "n" or "p"
-    :param ib (int): the band index, 0 is for the first band and maximum allowed value is len(poly_bands)-1
-    :param bandgap:
-    :return:
+        type (str): "n" or "p"
+        ib (int): the band index, 0 is for the first band and maximum allowed value is len(poly_bands)-1
+        bandgap (float): the targetted band gap of the band structure
+    Returns:
     """
     # determine the sign of energy from type; e.g. p-type energies are negative with VBM=0.0
     kpt = np.array(kpt)
@@ -97,9 +86,6 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
                 min_kdistance = distance
                 coefficients = c
 
-
-    # coefficients[0] is the constant
-    # coefficient[1] is the effective mass
     eff_m = coefficients[1]
     # energy = bandgap*["p", "n"].index(type) # if p-type we do not add any value to the calculated energy for the band gap
     energy = sgn * bandgap/2.0
@@ -111,42 +97,30 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
         return energy, np.array([v, v, v]), sgn*np.array([[eff_m, 0.0, 0.0], [0.0, eff_m, 0.0], [0.0, 0.0, eff_m]])
     else:
         return energy_list, min_kdistance
-    # de = 0
-    # dde = 0
-    # for i, c in enumerate(coefficients):
-    #     energy += c * min_kdistance**i * sgn
-    #     if i > 0:
-    #         de += i * c *min_kdistance**(i-1)
-    #         if i > 1:
-    #             dde += i * (i-1) * c * min_kdistance ** (i - 2)
-    # de = np.array([de, de, de])
-    # dde = np.array([[dde, 0.0, 0.0],
-    #                 [0.0, dde, 0.0],
-    #                 [0.0, 0.0, dde] ])
-    # return energy, de, dde
+
 
 
 def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
                br_dir=None, cbm=True):
-    ''' Compute energy for a k-point from star functions
+    '''
+    Compute energy for a k-point from star functions
+    Args:
+        xkpt: k-point coordinates as array
+        engre: matrix containing the coefficients of fitted band from get_engre() function
+        nwave: number of G vectors
+        nsym: number of symmetries
+        nstv: number of vectors in a star function
+        vec: the star vectors for each G vector and symmetry
+        vec2: dot product of star vectors with cell matrix for each G vector
+            and symmetry. Needed only to compute the derivatives of energy
+        br_dir: cell matrix. Needed only to compute the derivatives of energy
+        cbm: True if the considered band is a conduction band. False if it is a valence band
+        out_vec2: outer product of vec2 with itself. It is calculated outside to improve performances
 
-        Input:
-            xkpt: k-point coordinates as array
-            engre: matrix containing the coefficients of fitted band from get_engre() function
-            nwave: number of G vectors
-            nsym: number of symmetries
-            nstv: number of vectors in a star function
-            vec: the star vectors for each G vector and symmetry
-            vec2: dot product of star vectors with cell matrix for each G vector
-                and symmetry. Needed only to compute the derivatives of energy
-            br_dir: cell matrix. Needed only to compute the derivatives of energy
-            cbm: True if the considered band is a conduction band. False if it is a valence band
-            out_vec2: outer product of vec2 with itself. It is calculated outside to improve performances
-
-        Output:
-            ene: the electronic energy at the k-point in input
-            dene: 1st derivative of the electronic energy at the k-point in input
-            ddene: 2nd derivative of the electronic energy at the k-point in input
+    Returns:
+        ene: the electronic energy at the k-point in input
+        dene: 1st derivative of the electronic energy at the k-point in input
+        ddene: 2nd derivative of the electronic energy at the k-point in input
     '''
     sign = -1 if cbm == False else 1
     arg = 2 * np.pi * vec.dot(xkpt)
@@ -170,86 +144,8 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
         return sign * ene
 
 
-def get_energy_vectorized(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br_dir=None, cbm=True):
-    ''' Compute energy for a k-point from star functions
-        the only difference between this and get_energy is that xkpt can be
-        a list of k-points. It should work just like get_energy but because it
-        was causing circle tests (only online) to choke and run out of time, I
-        just reverted back to get_energy
-        Input:
-            xkpt: k-point coordinates as array
-            engre: matrix containing the coefficients of fitted band from get_engre() function
-            nwave: number of G vectors
-            nsym: number of symmetries
-            nstv: number of vectors in a star function
-            vec: the star vectors for each G vector and symmetry
-            vec2: dot product of star vectors with cell matrix for each G vector
-                and symmetry. Needed only to compute the derivatives of energy
-            br_dir: cell matrix. Needed only to compute the derivatives of energy
-            cbm: True if the considered band is a conduction band. False if it is a valence band
-            out_vec2: outer product of vec2 with itself. It is calculated outside to improve performances
-
-        Output:
-            ene: the electronic energy at the k-point in input
-            dene: 1st derivative of the electronic energy at the k-point in input
-            ddene: 2nd derivative of the electronic energy at the k-point in input
-    '''
-    # xkpt = np.array(xkpt)
-    if len(xkpt.shape) > 1:
-        xkpt = xkpt.T
-        nstv = np.tile(nstv, (xkpt.shape[1], 1)).T
-        nsym = np.tile(nsym, (xkpt.shape[1], 1)).T
-        # engre = np.tile(engre, (xkpt.shape[1], 1)).T
-        vec2 = np.tile(vec2.T, (xkpt.shape[1], 1, 1, 1)).T
-        out_vec2 = np.tile(out_vec2.T, (xkpt.shape[1], 1, 1, 1, 1)).T
-    # print('xkpt shape: {}'.format(xkpt.shape))
-    sign = -1 if cbm == False else 1
-    arg = 2 * np.pi * vec.dot(xkpt)
-    # print('arg shape: {}'.format(arg.shape))
-    tempc = np.cos(arg)
-    spwre = np.sum(tempc, axis=1) - (nsym - nstv)  # [:,np.newaxis]
-    # print('spwre shape: {}'.format(spwre.shape))
-    spwre /= nstv  # [:,np.newaxis]
-
-    if br_dir is not None:
-        dene = np.zeros(3)
-        ddene = np.zeros((3, 3))
-        dspwre = np.zeros((nwave, 3))
-        ddspwre = np.zeros((nwave, 3, 3))
-        temps = np.sin(arg)
-        # print('temps shape: {}'.format(temps.shape))
-        # print('vec2 shape: {}'.format(vec2.shape))
-        dspwre = np.sum(vec2 * temps[:, :, np.newaxis], axis=1)
-        # print('dspwre shape: {}'.format(dspwre.shape))
-        dspwre /= nstv[:, np.newaxis]
-
-        # print('out_vec2 shape: {}'.format(out_vec2.shape))
-        # print('tempc shape: {}'.format(tempc.shape))
-        out_tempc = out_vec2 * (-tempc[:, :, np.newaxis, np.newaxis])
-        ddspwre = np.sum(out_tempc, axis=1) / nstv[:, np.newaxis, np.newaxis]
-
-    # print('ddspwre shape: {}'.format(ddspwre.shape))
-    # print('spwre shape: {}'.format(spwre.shape))
-    # print('engre shape: {}'.format(engre.shape))
-    ene = spwre.T.dot(engre)
-    # print('ene shape: {}'.format(ene.shape))
-
-
-    if br_dir is not None:
-        # dene = np.sum(dspwre.T * engre, axis=1)
-        dene = np.dot(dspwre.T, engre)
-        # print('dene shape: {}'.format(dene.shape))
-        # ddene = np.sum(ddspwre * engre.reshape(nwave, 1, 1) * 2, axis=0)
-        ddene = np.dot(ddspwre.T, engre)
-        # print('ddene shape: {}'.format(ddene.shape))
-
-        return sign * ene, dene, ddene
-    else:
-        return sign * ene
-
-
 def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.1, SPB_DOS=False, all_values=False):
-        '''
+        """
         Args:
         st:       pmg object of crystal structure to calculate symmetries
         mesh:     list of integers defining the k-mesh on which the dos is required
@@ -260,8 +156,7 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
         Returns:
         e_mesh:   energies in eV od the DOS
         dos:      density of states for each energy in e_mesh
-        '''
-
+        """
         height = 1.0 / (width * np.sqrt(2 * np.pi))
         e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
 
@@ -269,15 +164,6 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
         ir_kpts_n_weights = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
         ir_kpts = [k[0] for k in ir_kpts_n_weights]
         weights = [k[1] for k in ir_kpts_n_weights]
-
-        # ir_kpts_base = [k for k in ir_kpts]
-        # counter = 1
-        # for x in range(1,1):
-        #     for y in range(1,1):
-        #         for z in range(1,1):
-        #             counter += 1
-        #             ir_kpts += [k+[x, y, z] for k in ir_kpts_base]
-        # weights *= counter
 
         ir_kpts = [lattice_matrix.get_cartesian_coords(k)/A_to_nm for k in ir_kpts]
 
@@ -325,25 +211,24 @@ def get_dos_from_poly_bands(st, lattice_matrix, mesh, e_min, e_max, e_points, po
             if all_values:
                 scatter(all_ks, all_energies)
                 show()
-
-
         return e_mesh,dos
 
+
 def get_dos(energies,weights,e_min=None,e_max=None,e_points=None,width=0.2):
-    '''
+    """
     Args:
-    energies: list of values in eV
-              from a previous interpolation over all the bands
-              and all the irreducible k-points
-    weights:  list of multeplicities of each energies
-    e_min:    starting energy (eV) of DOS
-    e_max:    ending energy (eV) of DOS
-    e_points: number of points of the get_dos
-    width:    width in eV of the gaussians generated for each energy
-    Returns:
-    e_mesh:   energies in eV od the DOS
-    dos:      density of states for each energy in e_mesh
-    '''
+        energies: list of values in eV
+                  from a previous interpolation over all the bands
+                  and all the irreducible k-points
+        weights:  list of multeplicities of each energies
+        e_min:    starting energy (eV) of DOS
+        e_max:    ending energy (eV) of DOS
+        e_points: number of points of the get_dos
+        width:    width in eV of the gaussians generated for each energy
+        Returns:
+        e_mesh:   energies in eV od the DOS
+        dos:      density of states for each energy in e_mesh
+    """
     if not e_min:
         e_min = min(energies)
     if not e_max:
@@ -364,30 +249,26 @@ def get_dos(energies,weights,e_min=None,e_max=None,e_points=None,width=0.2):
     return e_mesh,dos
 
 
-
 class Analytical_bands(object):
     """This class is meant to read the BoltzTraP fitted band structure coefficients and facilitate calculation of
     energy and its first and second derivatives w.r.t wave vector, k."""
-
-
     def __init__(self, coeff_file):
         self.coeff_file = coeff_file
 
 
-
     def stern(self,g,nsym,symop):
-        ''' Compute star function for a specific g vector 
-        
-            Input:
-                g: G vector in real space
-                nsym: number of symmetries
-                symop: matrixes of the symmetry operations
-            
-            Output:
-                nst: number of vectors in the star function calculated for the G vector
-                stg: star vectors
-        
-        '''
+        """
+        Compute star function for a specific g vector
+        Args:
+            g: G vector in real space
+            nsym: number of symmetries
+            symop: matrixes of the symmetry operations
+
+        Returns:
+            nst: number of vectors in the star function calculated for the G vector
+            stg: star vectors
+
+        """
 
         trial = symop[:nsym].dot(g)
         stg = np.unique(trial.view(np.dtype((np.void, trial.dtype.itemsize*trial.shape[1])))).view(trial.dtype).reshape(-1, trial.shape[1])
@@ -398,21 +279,21 @@ class Analytical_bands(object):
 
 
     def get_star_functions(self, latt_points, nsym, symop, nwave, br_dir=None):
-        ''' Compute star functions for all G vectors and symmetries 
-        
-            Input:
-                latt_points: all the G vectors
-                nsym: number of symmetries
-                symop: matrixes of the symmetry operations
-                nwave: number of G vectors
-                br_dir: cell matrix. Needed only to compute the derivatives of energy
-            
-            Output:
-                nstv: number of vectors in a star function for each G vector
-                vec: the star funcions for each G vector and symmetry
-                vec2: dot product of star vectors with cell matrix for each G vector 
-                        and symmetry. Needed only to compute the derivatives of energy
-        '''
+        """
+        Compute star functions for all G vectors and symmetries.
+        Args:
+            latt_points: all the G vectors
+            nsym: number of symmetries
+            symop: matrixes of the symmetry operations
+            nwave: number of G vectors
+            br_dir: cell matrix. Needed only to compute the derivatives of energy
+
+        Returns:
+            nstv: number of vectors in a star function for each G vector
+            vec: the star funcions for each G vector and symmetry
+            vec2: dot product of star vectors with cell matrix for each G vector
+                    and symmetry. Needed only to compute the derivatives of energy
+        """
 
         nstv = np.zeros(nwave,dtype='int')
         vec = np.zeros((nwave,nsym,3))
@@ -431,64 +312,28 @@ class Analytical_bands(object):
             return nstv, vec
 
 
-    # TODO: I copied this function outside of the class so that I can take advantage of Parallel function, remove it from here later! (it doesn't seem like it's using anything from the class anyway!)
-    # def get_energy(self, xkpt,engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None, br_dir=None,cbm=True):
-    #     ' Compute energy for a k-point from star functions '
-    #
-    #     sign = -1 if cbm == False else 1
-    #     arg = 2*np.pi*vec.dot(xkpt)
-    #     tempc=np.cos(arg)
-    #     spwre=np.sum(tempc,axis=1)-(nsym-nstv)#[:,np.newaxis]
-    #     spwre/=nstv#[:,np.newaxis]
-    #
-    #     if br_dir is not None:
-    #         dene = np.zeros(3)
-    #         ddene = np.zeros((3,3))
-    #         dspwre = np.zeros((nwave,3))
-    #         ddspwre = np.zeros((nwave,3,3))
-    #         temps=np.sin(arg)
-    #         dspwre=np.sum(vec2*temps[:,:,np.newaxis],axis=1)
-    #         dspwre /= nstv[:,np.newaxis]
-    #
-    #         #maybe possible a further speed up here
-    #         #for nw in xrange(nwave):
-    #             #for i in xrange(nstv[nw]):
-    #                 #ddspwre[nw] += outer(vec2[nw,i],vec2[nw,i])*(-tempc[nw,i])
-    #             #ddspwre[nw] /= nstv[nw]
-    #         out_tempc = out_vec2*(-tempc[:,:,np.newaxis,np.newaxis])
-    #         ddspwre = np.sum(out_tempc,axis=1)/ nstv[:,np.newaxis,np.newaxis]
-    #
-    #     ene=spwre.dot(engre)
-    #     if br_dir is not None:
-    #         dene = np.sum(dspwre.T*engre,axis=1)
-    #         ddene = np.sum(ddspwre*engre.reshape(nwave,1,1)*2,axis=0)
-    #         return sign*ene, dene, ddene
-    #     else:
-    #         return sign*ene
-
-
-
     def get_engre(self,iband=None, return_bmin=False):
-        ''' Get coefficients of interpolation from a custom output file from BoltzTraP.
-            Some other info are also read and provided as output.
-            
-            Input:
-                iband: list of indexes of the bands to fit (starting from 1). If nothing is passed
-                        nothing is done, but the indexes of all the available bands in the file is printed.
-                        The same happens if an index of a band not included is given.
-                        if "A" is given, all the coefficients available are extracted
-                return_bmin: True if the index of the first band contained in the file
-                            is returned as output. False if it is not needed
-            Output:
-                engre: matrix containing the coefficients of all the bands to fit
-                latt_points: all the G vectors
-                nwave: number of G vectors
-                nsym: number of symmetries
-                nsymop: max number of symmetries (usually 192, not used)
-                symop: matrixes of the symmetry operations
-                br_dir: cell matrix. Needed only to compute the derivatives of energy
-                bmin: the index of the first band contained in the file
-        '''
+        """
+        Get coefficients of interpolation from a custom output file from BoltzTraP.
+        Some other info are also read and provided as output.
+
+        Args:
+            iband: list of indexes of the bands to fit (starting from 1). If nothing is passed
+                    nothing is done, but the indexes of all the available bands in the file is printed.
+                    The same happens if an index of a band not included is given.
+                    if "A" is given, all the coefficients available are extracted
+            return_bmin: True if the index of the first band contained in the file
+                        is returned as output. False if it is not needed
+        Returns:
+            engre: matrix containing the coefficients of all the bands to fit
+            latt_points: all the G vectors
+            nwave: number of G vectors
+            nsym: number of symmetries
+            nsymop: max number of symmetries (usually 192, not used)
+            symop: matrixes of the symmetry operations
+            br_dir: cell matrix. Needed only to compute the derivatives of energy
+            bmin: the index of the first band contained in the file
+        """
         filename = self.coeff_file
         with open(filename) as f:
             egap, nwave, nsym, nsymop=f.readline().split()
@@ -502,15 +347,9 @@ class Analytical_bands(object):
                 if i<nwave:
                     latt_points[i]=np.fromstring(l,sep=' ')
                 elif i == nwave:
-                    # all_bands = map(float, re.findall(r'\d+\.\d+', l))
-
                     bmin, bmax = np.fromstring(l, sep=' ', dtype=int)
-
                     if iband == 'A':
                         iband = range(bmin,bmax+1)
-                        # print "bmin: {}".format(bmin)
-                        # print "bmax: {}".format(bmax)
-
                     elif iband == None:
                         print("Bands range: {}-{}".format(bmin,bmax))
                         return
@@ -528,8 +367,6 @@ class Analytical_bands(object):
         else:
             return engre, latt_points, nwave, nsym, nsymop, symop, br_dir
 
-
-
     def get_extreme(self, kpt,iband,only_energy=False,cbm=True):
         engre,latt_points,nwave, nsym, nsymop, symop, br_dir = self.get_engre(iband)
         if only_energy == False:
@@ -542,7 +379,7 @@ class Analytical_bands(object):
 
 
     def get_dos_from_scratch(self,st,mesh,e_min,e_max,e_points,width=0.2, scissor=0.0, vbmidx = None):
-        '''
+        """
         Args:
         st:       pmg object of crystal structure to calculate symmetries
         mesh:     list of integers defining the k-mesh on which the dos is required
@@ -553,9 +390,7 @@ class Analytical_bands(object):
         Returns:
         e_mesh:   energies in eV od the DOS
         dos:      density of states for each energy in e_mesh
-        '''
-
-
+        """
         height = 1.0 / (width * np.sqrt(2 * np.pi))
         e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
         e_range = len(e_mesh)
@@ -575,11 +410,7 @@ class Analytical_bands(object):
         weights = [k[1] for k in ir_kpts]
         w_sum = float(sum(weights))
         weights = [w/w_sum for w in weights]
-        #print len(ir_kpts)
         dos = np.zeros(e_range)
-        # for b in range(len(engre)):
-        #     energy = get_energy([0.0, 0.0, 0.0], engre[b], nwave, nsym, nstv, vec) * Ry_to_eV
-        #     print energy
         for kpt,w in zip(ir_kpts,weights):
             for b in range(len(engre)):
                 energy = get_energy(kpt,engre[b], nwave, nsym, nstv, vec)*Ry_to_eV
@@ -594,9 +425,8 @@ class Analytical_bands(object):
         else:
             return e_mesh,dos, len(engre)
 
-
     def get_dos_standard(self,energies,weights,e_min,e_max,e_points,width=0.2):
-        '''
+        """
         Args:
         energies: matrix (num_kpoints,num_bands) of values in eV 
                   from a previous interpolation over all the bands (num_bands)
@@ -609,7 +439,7 @@ class Analytical_bands(object):
         Returns:
         e_mesh:   energies in eV od the DOS
         dos:      density of states for each energy in e_mesh
-        '''
+        """
         height = 1.0 / (width * np.sqrt(2 * np.pi))
         e_mesh, step = np.linspace(e_min, e_max,num=e_points, endpoint=True, retstep=True)
         e_range = len(e_mesh)
@@ -620,9 +450,8 @@ class Analytical_bands(object):
                 g = height * np.exp(-((e_mesh - ene) / width) ** 2 / 2.)
                 dos += w * g
         return e_mesh,dos
+
         
-
-
 if __name__ == "__main__":
     # user inputs
     # cbm_bidx = 15 # GaAs
