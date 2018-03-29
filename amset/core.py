@@ -472,7 +472,7 @@ class AMSET(object):
             self.to_file()
 
 
-    def interpolate_energies(self, kpts, engre, nwave, nsym, nstv, vec, vec2,
+    def interpolate_bs(self, kpts, engre, nwave, nsym, nstv, vec, vec2,
                                out_vec2, br_dir, sgn, interpolation="boltztrap1", scissor=0.0):
         """
         Args:
@@ -564,12 +564,12 @@ class AMSET(object):
 
         # TODO-AF: for now, I removed the following that only works with boltztrap1; if there is enough value, I will add support for boltztrap2 as well
         # bounds = [(-0.5,0.5), (-0.5,0.5), (-0.5,0.5)]
-        # func = lambda x: interpolate_energies(x, engre[1], nwave,
+        # func = lambda x: interpolate_bs(x, engre[1], nwave,
         #         nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=-1, scissor=0)[0]
         # opt = basinhopping(func, x0=cbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
         # kpts.append(opt.x)
         #
-        # func = lambda x: -interpolate_energies(x, engre[0], nwave,
+        # func = lambda x: -interpolate_bs(x, engre[0], nwave,
         #         nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=+1, scissor=0)[0]
         # opt = basinhopping(func, x0=vbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
         # kpts.append(opt.x)
@@ -588,7 +588,7 @@ class AMSET(object):
                 # normv = []
                 # masses = []
                 # for ik, kpt in enumerate(kpts):
-                #     en, v, mass = self.interpolate_energies(kpt, engre[iband],
+                #     en, v, mass = self.interpolate_bs(kpt, engre[iband],
                 #           nwave,nsym, nstv, vec, vec2,out_vec2, br_dir,
                 #           sgn=sgn, scissor=scissor)
                 #     energies.append(en)
@@ -596,7 +596,7 @@ class AMSET(object):
                 #     normv.append(norm(v))
                 #     masses.append(mass.trace() / 3)
 
-                energies, velocities, masses = self.interpolate_energies(kpts, engre[iband],
+                energies, velocities, masses = self.interpolate_bs(kpts, engre[iband],
                           nwave,nsym, nstv, vec, vec2,out_vec2, br_dir,
                           sgn=sgn, scissor=scissor)
                 normv = [norm(v) for v in velocities]
@@ -776,7 +776,7 @@ class AMSET(object):
                 energy, velocity, effective_m = self.calc_poly_energy(
                     self.cbm_vbm0[tp]["kpoint"], tp, 0)
             elif self.interpolation=="boltztrap1":
-                fitted = self.interpolate_energies(
+                fitted = self.interpolate_bs(
                         [self.cbm_vbm0[tp]["kpoint"]],engre[i * self.cbm_vbm0["p"][
                         "included"]],nwave, nsym, nstv, vec, vec2, out_vec2,
                         br_dir, sgn, scissor=self.scissor)
@@ -871,9 +871,9 @@ class AMSET(object):
                             energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                     elif self.interpolation == "boltztrap1":
                         if not self.parallel:
-                            energies[tp], velocities[tp], _ = self.interpolate_energies(kpts[tp],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
+                            energies[tp], velocities[tp], _ = self.interpolate_bs(kpts[tp],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
                             # for ik in range(len(kpts[tp])):
-                            #     energy, velocities[tp][ik], effective_m = self.interpolate_energies(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
+                            #     energy, velocities[tp][ik], effective_m = self.interpolate_bs(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
                             #     energies[tp][ik] = energy
                         else:
                             results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
