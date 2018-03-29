@@ -506,7 +506,7 @@ class AMSET(object):
     def get_bs_extrema(self, bs, coeff_file=None, interp_params=None,
                        interpolation="boltztrap1",
                        nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
-                       Ecut=None, nex_max=0, return_global=False, niter=5,
+                       Ecut=None, nex_max=10, return_global=False, niter=5,
                        nbelow_vbm=0, nabove_cbm=0, scissor=0.0):
         """
         returns a dictionary of p-type (valence) and n-type (conduction) band
@@ -627,7 +627,7 @@ class AMSET(object):
             if normv[0] > v_cut:
                 raise ValueError(
                     'No extremum point (v<{}) found!'.format(v_cut))
-            for i in range(0, len(kpts[:nex_max])):
+            for i in range(0, nex_max):
                 # if (velocities[i] > v_cut).all() :
                 if normv[i] > v_cut:
                     break
@@ -3225,7 +3225,6 @@ class AMSET(object):
                     # if tp == 'n':
                     #     print(self.dv_grid['n'][(N[0] - 1) / 2, (N[1] - 1) / 2, :])
 
-                    print('tp =  ' + tp + ':')
                     # get quantities that are independent of mechanism
                     num_k = [len(self.kgrid[tp]["energy"][ib]) for ib in range(self.num_bands[tp])]
                     df0dk = self.array_from_kgrid('df0dk', tp, c, T)
@@ -3244,14 +3243,6 @@ class AMSET(object):
                     f0_all = 1 / (np.exp((self.energy_array[tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
 
                     np.set_printoptions(precision=3)
-                    # print('v:')
-                    # print(v[0,:3,:3,:3,:])
-                    # print('df0dk:')
-                    # print(df0dk[0,4,:,:,0])
-                    # print(df0dk[0, 4, :, :, 1])
-                    # print(df0dk[0, 4, :, :, 2])
-                    # print('electric force:')
-                    # print(self.kgrid[tp]["electric force"][c][T][0])
 
                     # TODO: the anisotropic case is not correct right now
                     if not self.bs_is_isotropic or test_anisotropic:
