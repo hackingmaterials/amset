@@ -245,7 +245,7 @@ class AMSET(object):
         self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
             self.logger.info('going over conduction and valence # {}'.format(self.ibrun))
-            self.find_all_important_points(coeff_file, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm)
+            self.find_all_important_points(coeff_file, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, interpolation=self.interpolation)
 
             # once_called = False
             max_nvalleys = max(len(self.important_pts['n']), len(self.important_pts['p']))
@@ -478,7 +478,7 @@ class AMSET(object):
                 arguments fed to the interpolation method.
             engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir: all obtained via
                 get_energy_args
-            sgn (int): options are +1 for valence band and -1 for conduction bands
+            sgn (float): options are +1 for valence band and -1 for conduction bands
                 sgn is basically ignored (doesn't matter) if scissor==0.0
             method (str): the interpolation method. Current options are
                 "boltztrap1", "boltztrap2"
@@ -558,8 +558,8 @@ class AMSET(object):
 
         extrema = {'n': [], 'p': []}
 
-        if interpolation == "boltztrap1":
-            self.interp_params = get_energy_args(coeff_file=coeff_file, ibands=ibands)
+        if interpolation == "boltztrap1" and interp_params is None:
+            interp_params = get_energy_args(coeff_file=coeff_file, ibands=ibands)
 
         for iband in range(len(ibands)):
             is_cb = [False, True][iband]
@@ -570,24 +570,12 @@ class AMSET(object):
                 sgn = 1.0
 
             if interpolation == "boltztrap1":
-                # energies = []
-                # velocities = []
-                # normv = []
-                # masses = []
-                # for ik, kpt in enumerate(kpts):
-                #     en, v, mass = self.interpolate_bs(kpt, engre[iband],
-                #           nwave,nsym, nstv, vec, vec2,out_vec2, br_dir,
-                #           sgn=sgn, scissor=scissor)
-                #     energies.append(en)
-                #     velocities.append(abs(v))
-                #     normv.append(norm(v))
-                #     masses.append(mass.trace() / 3)
-
-                energies, velocities, masses = self.interpolate_bs(kpts, interp_params=self.interp_params, iband=iband,
+                energies, velocities, masses = self.interpolate_bs(kpts, interp_params, iband=iband,
                           sgn=sgn, scissor=scissor)
                 normv = [norm(v) for v in velocities]
                 masses = [mass.trace()/3.0 for mass in masses]
 
+            #TODO: THIS BTRAP2 WILL BE WRONG BECAUE IBANDS ARE 0 & 1 BUT getBands TAKES IN THE ACTUAL IBANDS
             elif interpolation == "boltztrap2":
                 fitted = fite.getBands(np.array(kpts), *interp_params)
                 energies = fitted[0][ibands[iband] - 1] * Hartree_to_eV - sgn * scissor / 2.
@@ -606,8 +594,7 @@ class AMSET(object):
             kpts = [np.array(kpts[i]) for i in indexes]
             if is_cb:
                 iextrem = np.argmin(energies)
-                extremum0 = energies[
-                    iextrem]  # extremum0 is numerical CBM here
+                extremum0 = energies[iextrem]  # extremum0 is numerical CBM here
                 actual_cbm_vbm[tp]['energy'] = extremum0
                 actual_cbm_vbm[tp]['kpoint'] = kpts[iextrem]
                 # The following is in case CBM doesn't have a zero numerical norm(v)
@@ -963,14 +950,18 @@ class AMSET(object):
 
 
 
-    def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0):
+    def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0, interpolation="boltztrap1"):
         # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
+        if interpolation=="boltztrap1":
+            ibands = [self.cbm_vbm['p']['bidx']-nbelow_vbm,
+                      self.cbm_vbm['n']['bidx']+nabove_cbm]
+            self.interp_params = get_energy_args(coeff_file, ibands)
         if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
             self.important_pts, new_cbm_vbm = self.get_bs_extrema(self.bs, coeff_file,
-                    interp_params=self.interp_params, interpolation=self.interpolation,
+                    interp_params=self.interp_params, interpolation=interpolation,
                     nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
                     Ecut=self.Ecut, nex_max=20, return_global=True, niter=5,
-                          nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
+                    nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
             # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
             if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy']:
                 # self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy'] + self.scissor/2.0
