@@ -23,7 +23,6 @@ from monty.json import MontyEncoder, MontyDecoder
 import cProfile
 from copy import deepcopy
 import multiprocessing
-from joblib import Parallel, delayed
 
 from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_energy, get_poly_energy
 
@@ -115,9 +114,8 @@ class AMSET(object):
         self.logger.info('k_integration: {}'.format(self.k_integration))
         self.logger.info('e_integration: {}'.format(self.e_integration))
         self.fermi_calc_type = fermi_type
-        self.num_cores = max(int(multiprocessing.cpu_count()/4), self.max_ncpu)
-        if self.parallel:
-            self.logger.info("number of cpu used in parallel mode: {}".format(self.num_cores))
+        self.n_jobs = max(int(multiprocessing.cpu_count()/4), self.n_jobs)
+        self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
         self.counter = 0 # a global counter just for debugging
         self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
 
@@ -873,16 +871,7 @@ class AMSET(object):
                         for ik in range(len(kpts[tp])):
                             energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                     elif self.interpolation == "boltztrap1":
-                        if not self.parallel:
-                            energies[tp], velocities[tp], _ = self.interpolate_bs(kpts[tp], interp_params=self.interp_params, iband=i * num_bands['p'] + ib, sgn=sgn, scissor=self.scissor)
-                            # for ik in range(len(kpts[tp])):
-                            #     energy, velocities[tp][ik], effective_m = self.interpolate_bs(kpts[tp][ik],engre[i * num_bands['p'] + ib],nwave, nsym, nstv, vec, vec2,out_vec2, br_dir, sgn, scissor=self.scissor)
-                            #     energies[tp][ik] = energy
-                        else:
-                            engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = self.interp_params
-                            results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(kpts[tp][ik],engre[i * num_bands['p'] + ib], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir) for ik in range(len(kpts[tp])))
-                            for ik, res in enumerate(results):
-                                energies[tp][ik] = res[0] * Ry_to_eV - sgn * self.scissor / 2.0
+                        energies[tp], velocities[tp], _ = self.interpolate_bs(kpts[tp], interp_params=self.interp_params, iband=i * num_bands['p'] + ib, sgn=sgn, scissor=self.scissor)
                     elif self.interpolation == "boltztrap2":
                         fitted = fite.getBands(np.array(kpts[tp]), *self.interp_params)
                         energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Hartree_to_eV - sgn*self.scissor/2.
@@ -1100,7 +1089,7 @@ class AMSET(object):
             "max_nbands": self.max_nbands,
             "max_normk0": self.max_normk0,
             "max_nvalleys": self.max_nvalleys,
-            "max_ncpu": self.max_ncpu,
+            "n_jobs": self.n_jobs,
             "pre_determined_fermi": self.pre_determined_fermi,
             "interpolation": self.interpolation
         }
@@ -1202,9 +1191,7 @@ class AMSET(object):
 
         # TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.BTE_iters = params.get("BTE_iters", 5)
-        self.parallel = params.get("parallel", True)
-        self.max_ncpu = params.get("max_ncpu", 8)
-        self.logger.info("parallel: {}".format(self.parallel))
+        self.n_jobs = params.get("n_jobs", 1)
         self.max_nbands = params.get("max_nbands", None)
         self.max_normk0 = params.get("max_normk", None)
         self.max_normk = {'n': self.max_normk0, 'p': self.max_normk0}
@@ -1803,16 +1790,6 @@ class AMSET(object):
                 fit_orbs = {orb: griddata(points=np.array(self.DFT_cartesian_kpts), values=np.array(orbitals[orb]),
                     xi=np.array(self.kgrid[tp]["old cartesian kpoints"][ib]), method='nearest') for orb in orbitals.keys()}
 
-                if self.interpolation == "boltztrap1":
-                    if self.parallel and self.poly_bands is None:
-                        results = Parallel(n_jobs=self.num_cores)(delayed(get_energy)(self.kgrid[tp]["kpoints"][ib][ik],
-                                 engre[i * self.cbm_vbm["p"]["included"] + ib], nwave, nsym, nstv, vec, vec2, out_vec2,
-                                 br_dir) for ik in range(len(self.kgrid[tp]["kpoints"][ib])))
-                elif self.interpolation == "boltztrap2":
-                    fitted = fite.getBands(np.array(kpts[tp]), *self.interp_params)
-                else:
-                    raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
-
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     # min_dist_ik = np.array([norm(ki - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) for ki in self.cbm_vbm[tp]["all cartesian k"]]).argmin()
@@ -1835,22 +1812,16 @@ class AMSET(object):
 
                     if self.poly_bands is None:
                         if self.interpolation == "boltztrap1":
-                            if not self.parallel:
-                                energy, de, dde = get_energy(
-                                    self.kgrid[tp]["kpoints"][ib][ik], engre[i * self.cbm_vbm["p"]["included"] + ib],
-                                    nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                                energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-                                velocity_signed = self.get_cartesian_coords(de) / hbar * A_to_m * m_to_cm * Ry_to_eV
-                                velocity = abs( self.get_cartesian_coords(de, reciprocal=False) ) / (hbar*2*pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-                                effective_mass = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
-                            else:
-                                energy = results[ik][0] * Ry_to_eV - sgn * self.scissor / 2.0
-                                velocity_signed = self.get_cartesian_coords(results[ik][1]) / hbar * A_to_m * m_to_cm * Ry_to_eV
-                                velocity = abs( self.get_cartesian_coords(results[ik][1], reciprocal=False) ) / (hbar*2*pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-                                effective_mass = 1/(results[ik][2]/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
-
+                            energy, de, dde = get_energy(
+                                self.kgrid[tp]["kpoints"][ib][ik], engre[i * self.cbm_vbm["p"]["included"] + ib],
+                                nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
+                            energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
+                            velocity_signed = self.get_cartesian_coords(de) / hbar * A_to_m * m_to_cm * Ry_to_eV
+                            velocity = abs( self.get_cartesian_coords(de, reciprocal=False) ) / (hbar*2*pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+                            effective_mass = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
                             self.velocity_signed[tp][ib][ik] = velocity_signed
                         elif self.interpolation == "boltztrap2":
+                            fitted = fite.getBands(np.array(kpts[tp]), *self.interp_params)
                             iband = self.cbm_vbm["p"]["bidx"]-1 + i*self.cbm_vbm["p"]["included"]
                             energy = fitted[0][iband, ik]*Ry_to_eV - sgn*self.scissor/2.
                             velocity = abs(fitted[1][:, ik, iband].T / hbar * A_to_m * m_to_cm * Ry_to_eV)
@@ -2597,19 +2568,10 @@ class AMSET(object):
                     for ib in range(len(self.kgrid[tp]["kpoints"])):
                         # only when very large # of k-points are present, make sense to parallelize as this function
                         # has become fast after better energy window selection
-                        if self.parallel and len(self.kgrid[tp]["size"]) * \
-                                max(self.kgrid[tp]["size"]) > 1000000000000:
-                            # if False: Parallel should never be used here as it gets stuck or it's slower than series, perhaps since too much data (kgrid) transfer and pickling happens
-                            results = Parallel(n_jobs=self.num_cores)(
-                                delayed(calculate_Sio)(tp, c, T, ib, ik,
+                        results = [calculate_Sio(tp, c, T, ib, ik,
                                 once_called, self.kgrid, self.cbm_vbm,
                                 self.epsilon_s, self.epsilon_inf) for ik in
-                                    range(len(self.kgrid[tp]["kpoints"][ib])))
-                        else:
-                            results = [calculate_Sio(tp, c, T, ib, ik,
-                                    once_called, self.kgrid, self.cbm_vbm,
-                                    self.epsilon_s, self.epsilon_inf) for ik in
-                                    range(len(self.kgrid[tp]["kpoints"][ib]))]
+                                range(len(self.kgrid[tp]["kpoints"][ib]))]
 
                         for ik, res in enumerate(results):
                             self.kgrid[tp]["S_i"][c][T][ib][ik] = res[0]
@@ -3886,8 +3848,8 @@ if __name__ == "__main__":
         ]]
 
     # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
-    performance_params = {"dE_min": 0.0001, "nE_min": 2, "parallel": False,
-            "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "max_ncpu": 4
+    performance_params = {"dE_min": 0.0001, "nE_min": 2,
+            "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "n_jobs": 4
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
