@@ -41,8 +41,7 @@ class AmsetToolsTest(unittest.TestCase):
         self.assertTrue(isinstance(kpts_to_first_BZ(kpts_orig), list))
 
 
-    def add\
-                     (self):
+    def test_get_closest_k(self):
         kpts = np.array([[0.51, -0.5, 0.5], [0.4, 0.5, 0.51]])
         np.testing.assert_array_equal([0.4 , 0.5, 0.51],
             get_closest_k(np.array([0.5, 0.5, 0.5]), kpts, return_diff=False))
