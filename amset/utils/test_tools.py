@@ -6,7 +6,7 @@ import os
 import unittest
 
 from amset.core import AMSET
-from amset.utils.tools import kpts_to_first_BZ
+from amset.utils.tools import kpts_to_first_BZ, get_closest_k
 from pymatgen.io.vasp import Vasprun
 
 test_dir = os.path.dirname(__file__)
@@ -41,8 +41,14 @@ class AmsetToolsTest(unittest.TestCase):
         self.assertTrue(isinstance(kpts_to_first_BZ(kpts_orig), list))
 
 
-    def test_get_closest_k(self):
-        pass
+    def add\
+                     (self):
+        kpts = np.array([[0.51, -0.5, 0.5], [0.4, 0.5, 0.51]])
+        np.testing.assert_array_equal([0.4 , 0.5, 0.51],
+            get_closest_k(np.array([0.5, 0.5, 0.5]), kpts, return_diff=False))
+        np.testing.assert_array_almost_equal([0.1 , 0.0, -0.01],
+            get_closest_k(np.array([0.5, 0.5, 0.5]), kpts, return_diff=True))
+
 
 if __name__ == '__main__':
     unittest.main()
