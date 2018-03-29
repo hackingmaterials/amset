@@ -1,8 +1,6 @@
 import logging
 import numpy as np
 import os
-import scipy
-from scipy.optimize import basinhopping
 import sys
 import warnings
 
