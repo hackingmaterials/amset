@@ -419,7 +419,7 @@ def get_closest_k(kpoint, ref_ks, return_diff=False, threshold = 0.001):
         return ref_ks[min_dist_ik]
 
 
-def remove_duplicate_kpoints(kpts, dk=0.0001):
+def remove_duplicate_kpoints(kpts, dk=0.01):
     """kpts (list of list): list of coordinates of electrons
      ALWAYS return either a list or ndarray: BE CONSISTENT with the input!!!
 
@@ -454,7 +454,7 @@ def remove_duplicate_kpoints(kpts, dk=0.0001):
     # identify and remove duplicates from the list of equivalent k-points:
     for i in range(len(kpts) - 1):
         for j in range(i + 1, len(kpts)):
-            if np.allclose(pbc_diff(kpts[i], kpts[j]), [0, 0, 0], tol=dk):
+            if np.allclose(pbc_diff(kpts[i], kpts[j]), [0, 0, 0], atol=dk):
                 rm_list.append(i)
                 break
     return np.delete(kpts, rm_list, axis=0)
