@@ -42,7 +42,7 @@ class AmsetTest(unittest.TestCase):
                       performance_params=self.performance_params,
                       dopings=[c], temperatures=temperatures, k_integration=True,
                       e_integration=False, fermi_type='k',
-                      loglevel=logging.DEBUG)
+                      loglevel=logging.ERROR)
         amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
 
         # check fermi level
