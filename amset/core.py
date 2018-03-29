@@ -251,7 +251,6 @@ class AMSET(object):
             max_nvalleys = max(len(self.important_pts['n']), len(self.important_pts['p']))
             if self.max_nvalleys is not None:
                 max_nvalleys = min(max_nvalleys, self.max_nvalleys)
-
             for ivalley in range(max_nvalleys):
                 self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
                 once_called = True
@@ -281,7 +280,7 @@ class AMSET(object):
                 self.logger.info('Current valleys:\n{}'.format(important_points))
                 self.logger.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
                 self.logger.info('max_normk:\n{}'.format(self.max_normk))
-                self.logger.info('important points for this band:\n{}'.format(self.important_pts))
+                self.logger.info('important points for this band:\n{}'.format(important_points))
 
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
                     self.logger.info('skipping this valley as it is unimportant for both n and p type...')
@@ -963,11 +962,11 @@ class AMSET(object):
                     Ecut=self.Ecut, nex_max=20, return_global=True, niter=5,
                     nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
             # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
-            if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy']:
+            if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy'] and self.poly_bands0 is None:
                 # self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy'] + self.scissor/2.0
                 self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
                 self.cbm_vbm['n']['kpoint'] = new_cbm_vbm['n']['kpoint']
-            if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p']['energy']:
+            if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p']['energy'] and self.poly_bands0 is None:
                 # self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy'] - self.scissor/2.0
                 self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
