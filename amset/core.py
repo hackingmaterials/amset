@@ -2566,20 +2566,17 @@ class AMSET(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["kpoints"])):
-                        # only when very large # of k-points are present, make sense to parallelize as this function
-                        # has become fast after better energy window selection
+                        # this format helps consistency with parallelization:
                         results = [calculate_Sio(tp, c, T, ib, ik,
                                 once_called, self.kgrid, self.cbm_vbm,
                                 self.epsilon_s, self.epsilon_inf) for ik in
                                 range(len(self.kgrid[tp]["kpoints"][ib]))]
-
                         for ik, res in enumerate(results):
                             self.kgrid[tp]["S_i"][c][T][ib][ik] = res[0]
                             self.kgrid[tp]["S_i_th"][c][T][ib][ik] = res[1]
                             if not once_called:
                                 self.kgrid[tp]["S_o"][c][T][ib][ik] = res[2]
                                 self.kgrid[tp]["S_o_th"][c][T][ib][ik] = res[3]
-
 
 
     def s_inelastic(self, sname=None, g_suffix=""):
@@ -2591,9 +2588,8 @@ class AMSET(object):
                             summation = np.array([0.0, 0.0, 0.0])
                             for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
                                 summation += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name],
-                                                                   self.inel_integrand_X,
-                                                                   ib=ib, ik=ik, c=c, T=T, sname=sname + X_E_index_name,
-                                                                   g_suffix=g_suffix)
+                                    self.inel_integrand_X, ib=ib, ik=ik, c=c,
+                                    T=T, sname=sname + X_E_index_name, g_suffix=g_suffix)
                             self.kgrid[tp][sname][c][T][ib][ik] = summation * e ** 2 * self.kgrid[tp]["W_POP"][ib][ik] / (4 * pi * hbar) * (1 / self.epsilon_inf - 1 / self.epsilon_s) / epsilon_0 * 100 / e
 
 
@@ -2614,7 +2610,6 @@ class AMSET(object):
         Returns (float): scalar (since assumed isotropic) scattering rate.
         """
         v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
-        # v = self.kgrid[tp]["norm(v)"][ib][ik] # 20180307: I don't think /sq3 is necessary, iso-aniso consistency can still be established by removing all /sq3 from v/sq3
         knrm = self.kgrid[tp]["norm(k)"][ib][ik]
         par_c = self.kgrid[tp]["c"][ib][ik]
 
@@ -2648,7 +2643,6 @@ class AMSET(object):
                    / (self.egrid["beta"][c][T][tp] ** 4 * (
             1 + (4 * knrm ** 2) / (self.egrid["beta"][c][T][tp] ** 2)) ** 1.5) \
                    * 2.43146974985767e42 * 1.60217657 / 1e8;
-
         else:
             raise ValueError('The elastic scattering name "{}" is NOT supported.'.format(sname))
 
