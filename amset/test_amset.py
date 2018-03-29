@@ -6,6 +6,7 @@ import logging
 import numpy as np
 import os
 import unittest
+from copy import deepcopy
 from amset.core import AMSET
 from amset.utils.tools import rel_diff
 
@@ -22,7 +23,6 @@ class AmsetTest(unittest.TestCase):
         self.GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
                 'P_PIE': 0.052, 'scissor': 0.5818}
-                # 'important_points':{tp:[[0.0, 0.0, 0.0]] for tp in ['p', 'n']}}
         self.GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
         # self.GaAs_cube = os.path.join(self.GaAs_path, "fort.123_GaAs_1099kp")
         self.GaAs_cube = os.path.join(self.GaAs_path, "nscf-uniform/boltztrap/fort.123")
@@ -42,7 +42,7 @@ class AmsetTest(unittest.TestCase):
                       performance_params=self.performance_params,
                       dopings=[c], temperatures=temperatures, k_integration=True,
                       e_integration=False, fermi_type='k',
-                      loglevel=logging.ERROR)
+                      loglevel=logging.DEBUG)
         amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
 
         # check fermi level
@@ -66,10 +66,10 @@ class AmsetTest(unittest.TestCase):
     def test_GaAs_isotropic_E(self):
         print('\ntesting test_GaAs_isotropic_E...')
         # w/ /sq3 factor
-        expected_mu = {'ACD': 78610.06963, 'IMP': 289336.2522, 'PIE':193117.5001,
-                       'POP': 7209.6673, 'overall':5946.595, 'average': 6247.7331}
+        expected_mu = {'ACD': 93991.317, 'IMP': 117744.7036, 'PIE':192754.2073,
+                       'POP': 7236.73298, 'overall':4524.9742, 'average': 6153.69136}
 
-        performance_params = self.performance_params.copy()
+        performance_params = deepcopy(self.performance_params)
         performance_params['max_nvalleys'] = 2
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
