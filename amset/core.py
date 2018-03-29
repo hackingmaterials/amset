@@ -556,25 +556,10 @@ class AMSET(object):
         kpts.append(cbmk)
         kpts.append(vbmk)
 
-        # grid = {'energy': [], 'velocity': [], 'mass': [], 'normv': []}
         extrema = {'n': [], 'p': []}
 
         if interpolation == "boltztrap1":
-            # engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(
-            #     coeff_file=coeff_file, ibands=ibands)
             self.interp_params = get_energy_args(coeff_file=coeff_file, ibands=ibands)
-
-        # TODO-AF: for now, I removed the following that only works with boltztrap1; if there is enough value, I will add support for boltztrap2 as well
-        # bounds = [(-0.5,0.5), (-0.5,0.5), (-0.5,0.5)]
-        # func = lambda x: interpolate_bs(x, engre[1], nwave,
-        #         nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=-1, scissor=0)[0]
-        # opt = basinhopping(func, x0=cbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
-        # kpts.append(opt.x)
-        #
-        # func = lambda x: -interpolate_bs(x, engre[0], nwave,
-        #         nsym, nstv, vec, vec2, out_vec2, br_dir, sgn=+1, scissor=0)[0]
-        # opt = basinhopping(func, x0=vbmk, niter=niter, T=0.1, minimizer_kwargs={'bounds': bounds})
-        # kpts.append(opt.x)
 
         for iband in range(len(ibands)):
             is_cb = [False, True][iband]
