@@ -21,7 +21,7 @@ class AmsetTest(unittest.TestCase):
                              'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                              'inelastic_scatterings': ['POP']}
         self.performance_params = {'dE_min': 0.0001, 'nE_min': 2,
-                'parallel': False, 'BTE_iters': 5,'nkdos':29, 'max_nbands': 1,
+                'BTE_iters': 5,'nkdos':29, 'max_nbands': 1,
                 'max_normk': 2, 'Ecut': 0.4, 'fermi_kgrid_tp': 'coarse'}
         self.GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
@@ -68,11 +68,7 @@ class AmsetTest(unittest.TestCase):
 
 
     def test_GaAs_isotropic_E(self):
-        print('\ntesting test_GaAs_isotropic_E parallel...')
-        # w/o /sq3 factor
-        # expected_mu = {'ACD': 91133.295, 'IMP': 267704.777, 'PIE': 193756.725,
-        #                'POP': 13347.784, 'overall': 9408.1722, 'average': 10549.824}
-
+        print('\ntesting test_GaAs_isotropic_E...')
         # w/ /sq3 factor
         expected_mu = {'ACD': 93991.3170, 'IMP': 117744.7036, 'PIE':192754.20732,
                        'POP': 7236.73298, 'overall':4524.97423, 'average': 6153.69136}
@@ -102,18 +98,6 @@ class AmsetTest(unittest.TestCase):
             self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
                     expected_mu[mu], places=1)
 
-        # test series:
-        amset.parallel = False
-        print('\ntesting test_GaAs_isotropic_E serial...')
-
-        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
-        # kgrid = amset.kgrid
-        self.assertAlmostEqual(mean_v[0], 37724375.044629738, places=1) # zeroth band
-        for mu in expected_mu.keys():
-            self.assertAlmostEqual(np.std( # test isotropic
-                amset.mobility['n'][mu][-2e15][300]), 0.00, places=1)
-            self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
-                    expected_mu[mu], places=1)
 
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
