@@ -63,8 +63,10 @@ def setup_custom_logger(name, filepath, filename, level=None):
 
 
 def remove_from_grid(grid, grid_rm_list):
-    """deletes dictionaries storing properties that are no longer needed from
-    a given grid (i.e. kgrid or egrid)"""
+    """
+    Deletes dictionaries storing properties that are no longer needed from
+    a given grid (i.e. kgrid or egrid)
+    """
     for tp in ["n", "p"]:
         for rm in grid_rm_list:
             try:
@@ -75,7 +77,9 @@ def remove_from_grid(grid, grid_rm_list):
 
 
 def norm(v):
-    """method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as numpy.linalg.norm is slower for this case"""
+    """
+    Method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as
+    numpy.linalg.norm is slower for this case"""
     return (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
 
 
@@ -84,6 +88,15 @@ def grid_norm(grid):
 
 
 def kpts_to_first_BZ(kpts):
+    """
+    Brings a list of k-points to the 1st Brillouin Zone (BZ);
+    i.e. -0.5 <= the fractional coordinates <= 0.5
+
+    Args:
+        kpts ([3x1 list or array]): list of k-points fractional coordinates
+
+    Returns ([3x1 list or array]): list of transformed coordinates
+    """
     new_kpts = []
     for i, k in enumerate(kpts):
         for alpha in range(3):
@@ -110,11 +123,12 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
 
             else:
                 if kgrid_tp == 'extremely fine':
-                    mesh = [0.0005, 0.001, 0.0015, 0.002, 0.003, 0.004, 0.0045, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.02, 0.03,
+                    mesh = [0.0005, 0.001, 0.0015, 0.002, 0.003, 0.004, 0.0045,
+                            0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.02, 0.03,
                             0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.15, 0.25]
                 elif kgrid_tp == 'super fine':
-                    mesh = [0.0005, 0.001, 0.002, 0.003, 0.004, 0.005, 0.007, 0.01, 0.02, 0.03,
-                            0.05, 0.07, 0.1, 0.15, 0.25]
+                    mesh = [0.0005, 0.001, 0.002, 0.003, 0.004, 0.005, 0.007,
+                            0.01, 0.02, 0.03, 0.05, 0.07, 0.1, 0.15, 0.25]
                 elif kgrid_tp == 'very fine':
                     mesh = [0.001, 0.002, 0.004, 0.007, 0.01, 0.02, 0.03,
                             0.05, 0.07, 0.1, 0.15, 0.25]
@@ -130,26 +144,25 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                 elif kgrid_tp == 'test uniform':
                     mesh = np.linspace(0.001, 0.50, 7)
                 elif kgrid_tp == 'test':
-                    mesh = [0.001, 0.005, 0.01, 0.02, 0.03,
-                            0.04, 0.05, 0.06, 0.07, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5]
+                    mesh = [0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05,
+                            0.06, 0.07, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5]
                 else:
                     raise ValueError('Unsupported value for kgrid_tp: {}'.format(kgrid_tp))
                 for step in mesh:
                     points_1d[dir].append(center[dim] + step)
                     points_1d[dir].append(center[dim] - step)
-    print('included points in the mesh: {}'.format(points_1d))
 
-    # ensure all points are in "first BZ" (parallelepiped)
-    for dir in ['x', 'y', 'z']:
-        for ik1d in range(len(points_1d[dir])):
-            if points_1d[dir][ik1d] > 0.5:
-                points_1d[dir][ik1d] -= 1
-            if points_1d[dir][ik1d] < -0.5:
-                points_1d[dir][ik1d] += 1
-
-    # remove duplicates
-    for dir in ['x', 'y', 'z']:
-        points_1d[dir] = list(set(np.array(points_1d[dir]).round(decimals=14)))
+    # # ensure all points are in "first BZ" (parallelepiped)
+    # for dir in ['x', 'y', 'z']:
+    #     for ik1d in range(len(points_1d[dir])):
+    #         if points_1d[dir][ik1d] > 0.5:
+    #             points_1d[dir][ik1d] -= 1
+    #         if points_1d[dir][ik1d] < -0.5:
+    #             points_1d[dir][ik1d] += 1
+    #
+    # # remove duplicates
+    # for dir in ['x', 'y', 'z']:
+    #     points_1d[dir] = list(set(np.array(points_1d[dir]).round(decimals=14)))
 
     return points_1d
 
@@ -196,7 +209,10 @@ def normalize_array(grid):
 
 
 def f0(E, fermi, T):
-    """returns the value of Fermi-Dirac at equilibrium for E (energy), fermi [level] and T (temperature)"""
+    """
+    Returns the value of Fermi-Dirac at equilibrium for E (energy),
+    fermi [level] and T (temperature)
+    """
     exponent = (E - fermi) / (k_B * T)
     if exponent > 40:
         return 0.0
@@ -207,7 +223,9 @@ def f0(E, fermi, T):
 
 
 def df0dE(E, fermi, T):
-    """returns the energy derivative of the Fermi-Dirac equilibrium distribution"""
+    """
+    Returns the energy derivative of the Fermi-Dirac equilibrium distribution
+    """
     exponent = (E - fermi) / (k_B * T)
     if exponent > 40 or exponent < -40:  # This is necessary so at too low numbers python doesn't return NaN
         return 0.0
@@ -217,7 +235,7 @@ def df0dE(E, fermi, T):
 
 def cos_angle(v1, v2):
     """
-    returns cosine of the angle between two 3x1 or 1x3 vectors
+    Returns cosine of the angle between two 3x1 or 1x3 vectors
     """
     norm_v1, norm_v2 = norm(v1), norm(v2)
     if norm_v1 == 0 or norm_v2 == 0:
@@ -226,13 +244,15 @@ def cos_angle(v1, v2):
         return np.dot(v1, v2) / (norm_v1 * norm_v2)
 
 
-def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
+def fermi_integral(order, fermi, T, initial_energy=0):
     """
-    returns the Fermi integral (e.g. for calculating single parabolic band acoustic phonon mobility
+    Returns the Fermi integral
+    (e.g. for calculating single parabolic band acoustic phonon mobility)
+
     Args:
         order (int): the order of integral
-        fermi (float): the actual Fermi level of the band structure (not relative to CBM/VBM):
-        T (float): the temperature
+        fermi (float): absolute band structure fermi (not relative to CBM/VBM)
+        T (float): the temperature in kelvin
         initial_energy (float): the actual CBM/VBM energy in eV
         wordy (bool): whether to print out the integrals or not
     """
@@ -246,24 +266,19 @@ def fermi_integral(order, fermi, T, initial_energy=0, wordy=False):
     dE = (emesh[-1] - emesh[0]) / (nsteps - 1.0)
     for E in emesh:
         integral += dE * (E / (k_B * T)) ** order / (1. + np.exp((E - fermi) / (k_B * T)))
-
-    if wordy:
-        print("order {} fermi integral at fermi={} and {} K".format(order, fermi, T))
-        print(integral)
     return integral
 
 
 def GB(x, eta):
-    """Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function goes to the dirac-delta of x.
+    """
+    Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function
+    goes to the dirac-delta of x.
+
     Args:
         x (float): the mean value of the nomral distribution
         eta (float): the standard deviation of the normal distribution
-        """
-
+    """
     return 1 / np.pi * 1 / eta * np.exp(-(x / eta) ** 2)
-
-    ## although both expressions conserve the final transport properties, the one below doesn't conserve the scat. rates
-    # return np.exp(-(x/eta)**2)
 
 
 def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
@@ -280,8 +295,9 @@ def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, eps
 
 
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
-    """calculates and returns the in and out polar optical phonon inelastic scattering rates. This function
-        is defined outside of the AMSET class to enable parallelization.
+    """
+    Calculates the polar optical phonon "in" and "out" scattering rates.
+    This method is defined outside of the AMSET class to enable parallelization
     Args:
         tp (str): the type of the bands; "n" for the conduction and "p" for the valence bands
         c (float): the carrier concentration
@@ -521,7 +537,7 @@ def sort_angles(vecs):
 
 def rel_diff(num1, num2):
     diff = abs(num1 - num2)
-    avg = (num1 + num2) / 2
+    avg = (num1 + num2) / 2.0
     return diff / avg
 
 
