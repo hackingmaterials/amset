@@ -6,7 +6,8 @@ import os
 import unittest
 
 from amset.core import AMSET
-from amset.utils.tools import kpts_to_first_BZ, get_closest_k
+from amset.utils.tools import kpts_to_first_BZ, get_closest_k, \
+    remove_duplicate_kpoints
 from pymatgen.io.vasp import Vasprun
 
 test_dir = os.path.dirname(__file__)
@@ -47,6 +48,16 @@ class AmsetToolsTest(unittest.TestCase):
             get_closest_k(np.array([0.5, 0.5, 0.5]), kpts, return_diff=False))
         np.testing.assert_array_almost_equal([0.1 , 0.0, -0.01],
             get_closest_k(np.array([0.5, 0.5, 0.5]), kpts, return_diff=True))
+
+
+    def test_remove_duplicate_kpoints(self):
+        kpts_orig = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.00999],
+                     [0.25, 0.25, 0.25], [0.25, 0.25, 0.25],
+                     [0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, -0.5]]
+        kpts_out = [[0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5]]
+        self.assertListEqual(kpts_out, remove_duplicate_kpoints(kpts_orig))
 
 
 if __name__ == '__main__':
