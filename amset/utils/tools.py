@@ -213,13 +213,15 @@ def f0(E, fermi, T):
     Returns the value of Fermi-Dirac at equilibrium for E (energy),
     fermi [level] and T (temperature)
     """
-    exponent = (E - fermi) / (k_B * T)
-    if exponent > 40:
-        return 0.0
-    elif exponent < -40:
-        return 1.0
-    else:
-        return 1 / (1 + np.exp(exponent))
+    # exponent = (E - fermi) / (k_B * T)
+    # if exponent > 40:
+    #     return 0.0
+    # elif exponent < -40:
+    #     return 1.0
+    # else:
+    #     return 1 / (1 + np.exp(exponent))
+    return 1. / (1. + np.exp((E - fermi) / (k_B * T)))
+
 
 
 def df0dE(E, fermi, T):
