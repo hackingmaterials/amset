@@ -455,14 +455,9 @@ def remove_duplicate_kpoints(kpts, dk=0.01):
     for i in range(len(kpts) - 1):
         for j in range(i + 1, len(kpts)):
             if np.allclose(pbc_diff(kpts[i], kpts[j]), [0, 0, 0], atol=dk):
-                rm_list.append(i)
+                rm_list.append(j)
                 break
-    return np.delete(kpts, rm_list, axis=0)
-
-
-
-
-    return kpts
+    return [list(k) for k in np.delete(kpts, rm_list, axis=0)]
 
 
 def find_fermi_SPB(cbm_vbm, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=1000):
