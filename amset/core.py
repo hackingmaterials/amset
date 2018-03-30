@@ -2854,8 +2854,8 @@ class AMSET(object):
                 #         integral / (self.volume * (A_to_m * m_to_cm) ** 3))
                 # calc_doping = temp_doping["n"] + temp_doping["p"]
 
-                temp_doping["n"] = -conversion * np.sum(dos_dosmesh[self.cbm_dos_idx:] * f0(dos_dosmesh[self.cbm_dos_idx:], fermi, T) * dos_ediff[self.cbm_dos_idx:])
-                temp_doping["p"] = conversion * np.sum(dos_dosmesh[:self.vbm_dos_idx+1] * (1.-f0(dos_dosmesh[:self.vbm_dos_idx+1], fermi, T)) * dos_ediff[:self.vbm_dos_idx+1])
+                temp_doping["n"] = -conversion * np.sum(dos_dosmesh[self.cbm_dos_idx:] * f0(dos_emesh[self.cbm_dos_idx:], fermi, T) * dos_ediff[self.cbm_dos_idx:])
+                temp_doping["p"] = conversion * np.sum(dos_dosmesh[:self.vbm_dos_idx+1] * (1.-f0(dos_emesh[:self.vbm_dos_idx+1], fermi, T)) * dos_ediff[:self.vbm_dos_idx+1])
                 # calc_doping = (vb_integral - cb_integral) * conversion
                 calc_doping = temp_doping["n"] + temp_doping["p"]
 
