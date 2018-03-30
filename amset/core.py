@@ -2797,6 +2797,7 @@ class AMSET(object):
         # initiate calc_doping w/o changing the sign of c
         calc_doping = c/5.0
         fermi=fermi0
+        conversion = 1.0 / (self.volume * (A_to_m * m_to_cm) ** 3)
 
         dos_emesh = np.array([d[0] for d in self.dos])
         dos_ediff = np.array([self.dos[i + 1][0] - self.dos[i][0] for i, _ in enumerate(self.dos[:-1])] + [0.0])
@@ -2843,15 +2844,20 @@ class AMSET(object):
             for coeff in range(-nstep, nstep+1):
                 niter += 1
                 fermi = fermi0 + coeff*step
-                for j, tp in enumerate(["n", "p"]):
-                    idx_s = (1 - j) * self.cbm_dos_idx
-                    idx_e = (1 - j) * len(self.dos) + j * self.vbm_dos_idx - 1
-                    integral = np.sum(dos_dosmesh[idx_s:idx_e] * funcs[j](
-                        dos_emesh[idx_s:idx_e], fermi, T) * dos_ediff[idx_s:idx_e])
+                # for j, tp in enumerate(["n", "p"]):
+                #     idx_s = (1 - j) * self.cbm_dos_idx
+                #     idx_e = (1 - j) * len(self.dos) + j * self.vbm_dos_idx - 1
+                #     integral = np.sum(dos_dosmesh[idx_s:idx_e] * funcs[j](
+                #         dos_emesh[idx_s:idx_e], fermi, T) * dos_ediff[idx_s:idx_e])
+                #
+                #     temp_doping[tp] = (-1) ** (j + 1) * abs(
+                #         integral / (self.volume * (A_to_m * m_to_cm) ** 3))
+                # calc_doping = temp_doping["n"] + temp_doping["p"]
 
-                    temp_doping[tp] = (-1) ** (j + 1) * abs(
-                        integral / (self.volume * (A_to_m * m_to_cm) ** 3))
-                calc_doping = temp_doping["n"] + temp_doping["p"]
+                cb_integral = np.sum(dos_dosmesh[self.cbm_dos_idx:] * f0(dos_dosmesh[self.cbm_dos_idx:], fermi, T) * dos_ediff[self.cbm_dos_idx:])
+                vb_integral = np.sum(dos_dosmesh[:self.vbm_dos_idx+1] * (1-f0(dos_dosmesh[:self.vbm_dos_idx+1], fermi, T)) * dos_ediff[:self.vbm_dos_idx+1])
+                calc_doping = (vb_integral - cb_integral) * conversion
+
                 if abs(calc_doping - c) / abs(c) < relative_error:
                     relative_error = abs(calc_doping - c) / abs(c)
                     self.calc_doping[c][T]['n'] = temp_doping["n"]
