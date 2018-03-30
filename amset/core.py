@@ -2840,7 +2840,7 @@ class AMSET(object):
         self.logger.debug("Calculating the fermi level at T={} K".format(T))
         for i in range(15):
             if i > 0:
-                nsetps = 10
+                nstep = 10
             for coeff in range(-nstep, nstep+1):
                 niter += 1
                 fermi = fermi0 + coeff*step
@@ -2854,9 +2854,10 @@ class AMSET(object):
                 #         integral / (self.volume * (A_to_m * m_to_cm) ** 3))
                 # calc_doping = temp_doping["n"] + temp_doping["p"]
 
-                cb_integral = np.sum(dos_dosmesh[self.cbm_dos_idx:] * f0(dos_dosmesh[self.cbm_dos_idx:], fermi, T) * dos_ediff[self.cbm_dos_idx:])
-                vb_integral = np.sum(dos_dosmesh[:self.vbm_dos_idx+1] * (1-f0(dos_dosmesh[:self.vbm_dos_idx+1], fermi, T)) * dos_ediff[:self.vbm_dos_idx+1])
-                calc_doping = (vb_integral - cb_integral) * conversion
+                temp_doping["n"] = -conversion * np.sum(dos_dosmesh[self.cbm_dos_idx:] * f0(dos_dosmesh[self.cbm_dos_idx:], fermi, T) * dos_ediff[self.cbm_dos_idx:])
+                temp_doping["p"] = conversion * np.sum(dos_dosmesh[:self.vbm_dos_idx+1] * (1.-f0(dos_dosmesh[:self.vbm_dos_idx+1], fermi, T)) * dos_ediff[:self.vbm_dos_idx+1])
+                # calc_doping = (vb_integral - cb_integral) * conversion
+                calc_doping = temp_doping["n"] + temp_doping["p"]
 
                 if abs(calc_doping - c) / abs(c) < relative_error:
                     relative_error = abs(calc_doping - c) / abs(c)
