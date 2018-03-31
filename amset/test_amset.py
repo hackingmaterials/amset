@@ -66,8 +66,8 @@ class AmsetTest(unittest.TestCase):
     def test_GaAs_isotropic_E(self):
         print('\ntesting test_GaAs_isotropic_E...')
         # w/ /sq3 factor
-        expected_mu = {'ACD': 93991.317, 'IMP': 117744.7036, 'PIE':192754.2073,
-                       'POP': 7236.73298, 'overall':4524.9742, 'average': 6153.69136}
+        expected_mu = {'ACD': 93987.72634, 'IMP': 116929.32057, 'PIE':192757.79559,
+                       'POP': 7235.45068, 'overall':4521.95883, 'average': 6150.51121}
 
         performance_params = deepcopy(self.performance_params)
         performance_params['max_nvalleys'] = 2
