@@ -2782,9 +2782,6 @@ class AMSET(object):
         Returns:
             The fitted/calculated Fermi level
         """
-        funcs = [lambda E, fermi, T: 1 / (1 + np.exp((E - fermi) / (k_B * T))),
-                 lambda E, fermi, T: 1 - 1 / (1 + np.exp((E - fermi) / (k_B * T)))]
-
         # initialize parameters
         relative_error = self.gl
         niter = 0.0
@@ -2799,87 +2796,60 @@ class AMSET(object):
         fermi=fermi0
         conversion = 1.0 / (self.volume * (A_to_m * m_to_cm) ** 3)
 
-        dos_emesh = np.array([d[0] for d in self.dos])
-        dos_ediff = np.array([self.dos[i + 1][0] - self.dos[i][0] for i, _ in enumerate(self.dos[:-1])] + [0.0])
-        dos_dosmesh = np.array([d[1] for d in self.dos])
-
-        def linear_iteration(relative_error, fermi, calc_doping,
-                             iterations, niter):
-            tune_alpha = 1.0
-            while (relative_error > tolerance) and (niter < iterations):
-                niter += 1  # to avoid an infinite loop
-                if niter / max_iter > 0.5:  # to avoid oscillation we re-adjust alpha at each iteration
-                    tune_alpha = 1 - niter / max_iter
-                fermi += alpha * tune_alpha * (calc_doping - c) / abs(
-                    c + calc_doping) * abs(fermi)
-                if abs(
-                        fermi) < 1e-5:  # switch sign when getting really close to 0 as otherwise will never converge
-                    fermi = fermi * -1
-
-                for j, tp in enumerate(["n", "p"]):
-                    idx_s = (1 - j) * self.cbm_dos_idx
-                    idx_e = (1 - j) * len(self.dos) + j * self.vbm_dos_idx - 1
-                    integral = np.sum(dos_dosmesh[idx_s:idx_e] * funcs[j](
-                        dos_emesh[idx_s:idx_e], fermi, T) * dos_ediff[idx_s:idx_e])
-
-                    temp_doping[tp] = (-1) ** (j + 1) * abs(
-                        integral / (self.volume * (A_to_m * m_to_cm) ** 3))
-                calc_doping = temp_doping["n"] + temp_doping["p"]
-                if abs(calc_doping) < 1e-2:
-                    calc_doping = np.sign(
-                        calc_doping) * 0.01  # just so that calc_doping doesn't get stuck to zero!
-                # calculate the relative error from the desired concentration, c
-                relative_error = abs(calc_doping - c) / abs(c)
-            return relative_error, fermi, calc_doping, niter
-
-        ## start with a simple grid search with maximum 6(2nstep+1) iterations
         step = 0.1
         nstep = 20
         fermi0 = fermi
 
+        dos_e = np.array([d[0] for d in self.dos])
+        dos_de = np.array([self.dos[i + 1][0] - self.dos[i][0] for i, _ in enumerate(self.dos[:-1])] + [0.0])
+        dos_dos = np.array([d[1] for d in self.dos])
+
+        # fix energy, energy diff. and dos for integration at all fermi levels
+        es = np.repeat(dos_e.reshape((len(dos_e), 1)), 2*nstep+1, axis=1)
+        de = np.repeat(dos_de.reshape((len(dos_de), 1)), 2*nstep+1, axis=1)
+        tdos = np.repeat(dos_dos.reshape((len(dos_dos), 1)), 2*nstep+1, axis=1)
+
         self.logger.debug("Calculating the fermi level at T={} K".format(T))
         for i in range(15):
-            if i > 0:
-                nstep = 10
-            for coeff in range(-nstep, nstep+1):
-                niter += 1
-                fermi = fermi0 + coeff*step
-                # for j, tp in enumerate(["n", "p"]):
-                #     idx_s = (1 - j) * self.cbm_dos_idx
-                #     idx_e = (1 - j) * len(self.dos) + j * self.vbm_dos_idx - 1
-                #     integral = np.sum(dos_dosmesh[idx_s:idx_e] * funcs[j](
-                #         dos_emesh[idx_s:idx_e], fermi, T) * dos_ediff[idx_s:idx_e])
-                #
-                #     temp_doping[tp] = (-1) ** (j + 1) * abs(
-                #         integral / (self.volume * (A_to_m * m_to_cm) ** 3))
-                # calc_doping = temp_doping["n"] + temp_doping["p"]
+            # for coeff in range(-nstep, nstep+1):
+            #     niter += 1
+            #     fermi = fermi0 + coeff*step
+            #
+            #     temp_doping["n"] = -conversion * np.sum(dos_dos[self.cbm_dos_idx:] * f0(dos_e[self.cbm_dos_idx:], fermi, T) * dos_de[self.cbm_dos_idx:])
+            #     temp_doping["p"] = conversion * np.sum(dos_dos[:self.vbm_dos_idx+1] * (1.-f0(dos_e[:self.vbm_dos_idx+1], fermi, T)) * dos_de[:self.vbm_dos_idx+1])
+            #     # calc_doping = (vb_integral - cb_integral) * conversion
+            #     calc_doping = temp_doping["n"] + temp_doping["p"]
 
-                temp_doping["n"] = -conversion * np.sum(dos_dosmesh[self.cbm_dos_idx:] * f0(dos_emesh[self.cbm_dos_idx:], fermi, T) * dos_ediff[self.cbm_dos_idx:])
-                temp_doping["p"] = conversion * np.sum(dos_dosmesh[:self.vbm_dos_idx+1] * (1.-f0(dos_emesh[:self.vbm_dos_idx+1], fermi, T)) * dos_ediff[:self.vbm_dos_idx+1])
-                # calc_doping = (vb_integral - cb_integral) * conversion
-                calc_doping = temp_doping["n"] + temp_doping["p"]
 
-                if abs(calc_doping - c) / abs(c) < relative_error:
-                    relative_error = abs(calc_doping - c) / abs(c)
-                    self.calc_doping[c][T]['n'] = temp_doping["n"]
-                    self.calc_doping[c][T]['p'] = temp_doping["p"]
-                    if relative_error < tolerance:
-                        self.logger.info(
-                            "fermi at {} 1/cm3 and {} K after {} iterations: {}".format(
-                                c, T, int(niter), fermi))
-                        return fermi
-                    fermi0 = fermi
-            step /= 10
+                # if abs(calc_doping - c) / abs(c) < relative_error:
+                #     relative_error = abs(calc_doping - c) / abs(c)
+                #     self.calc_doping[c][T]['n'] = temp_doping["n"]
+                #     self.calc_doping[c][T]['p'] = temp_doping["p"]
+                #     if relative_error < tolerance:
+                #         self.logger.info(
+                #             "fermi at {} 1/cm3 and {} K after {} iterations: {}".format(
+                #                 c, T, int(niter), fermi))
+                #         return fermi
+                #     fermi0 = fermi
+            fermi_range = np.linspace(fermi-nstep*step, fermi+nstep*step, 2*nstep+1)
+            n_dopings = -conversion * np.sum(tdos[self.cbm_dos_idx:] * f0(es[self.cbm_dos_idx:], fermi_range, T) * de[self.cbm_dos_idx:], axis=0)
+            p_dopings = conversion * np.sum(tdos[:self.vbm_dos_idx + 1] * (1 - f0(es[:self.vbm_dos_idx + 1], fermi_range, T)) * de[:self.vbm_dos_idx + 1], axis=0)
+            relative_error = abs((n_dopings+p_dopings) - c) / abs(c)
+            current_idx = np.argmin(relative_error)
+            fermi = fermi_range[current_idx]
+            self.calc_doping[c][T]['n'] = n_dopings[current_idx]
+            self.calc_doping[c][T]['p'] = p_dopings[current_idx]
+            if relative_error[current_idx] < tolerance:
+                self.logger.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(niter), fermi))
+                return fermi
+            step /= 10.0
 
-        # adding this just in case the griddy grid search misses the  right fermi
-        relative_error, fermi, calc_doping, niter = linear_iteration(
-            relative_error, fermi, calc_doping, iterations=max_iter, niter=niter)
-
-        self.logger.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(niter), fermi))
-        if relative_error > tolerance_loose:
-            raise ValueError('The calculated concentration is not within {}%'
-                             'of the given value ({}) at T={}'.format(
-                                                tolerance_loose*100, c, T))
+        if relative_error[current_idx] > tolerance_loose:
+            raise ValueError('The calculated concentration is not within {}% of'
+            ' the given value ({}) at T={}'.format(tolerance_loose*100, c, T))
+        elif relative_error[current_idx] > tolerance:
+            self.logger.warning('Fermi calculated with a loose tolerance of {}%'
+                                ' at c={}, T={}K'.format(tolerance_loose, c, T))
         return fermi
 
 
