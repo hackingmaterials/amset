@@ -2764,41 +2764,29 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.01, tolerance_loose=0.03,
-                   alpha=0.05, max_iter=5000):
+    def find_fermi(self, c, T, tolerance=0.01, tolerance_loose=0.03):
         """
         finds the Fermi level at a given c and T at egrid (i.e. DOS)
         Args:
             c (float): The doping concentration;
-                c < 0 indicate n-tp (i.e. electrons) and c > 0 for p-tp
+                c < 0 indicate n-type (i.e. electrons) and c > 0 for p-type
             T (float): The temperature.
             tolerance (0<float<1): convergance threshold for relative error
             tolerance_loose (0<float<1): maximum relative error allowed
                 between the calculated and input c
-            alpha (float < 1): the fraction of the linear interpolation
-                towards the actual fermi at each iteration
             max_iter (int): after this many iterations the function returns
                 even if it is not converged
         Returns:
             The fitted/calculated Fermi level
         """
         # initialize parameters
-        relative_error = self.gl
-        niter = 0.0
-        temp_doping = {"n": -0.01, "p": +0.01}
-        typ = get_tp(c)
-        typj = ["n", "p"].index(typ)
-        fermi0 = self.cbm_vbm[typ]["energy"] + 0.01 * (-1)**typj # addition is to ensure Fermi is not exactly 0.0
-        # calc_doping = (-1) ** (typj + 1) / self.volume / (A_to_m * m_to_cm) ** 3 \
-        #         * abs(self.integrate_over_DOSxE_dE(func=funcs[typj], tp=typ,fermi=fermi0, T=T))
-        # initiate calc_doping w/o changing the sign of c
-        calc_doping = c/5.0
-        fermi=fermi0
-        conversion = 1.0 / (self.volume * (A_to_m * m_to_cm) ** 3)
-
         step = 0.1
         nstep = 20
-        fermi0 = fermi
+        niter = 0.0
+        relative_error = self.gl
+        typ = get_tp(c)
+        fermi = self.cbm_vbm[typ]["energy"] + 0.01 # initialize fermi non-zero
+        conversion = 1.0 / (self.volume * (A_to_m * m_to_cm) ** 3)
 
         dos_e = np.array([d[0] for d in self.dos])
         dos_de = np.array([self.dos[i + 1][0] - self.dos[i][0] for i, _ in enumerate(self.dos[:-1])] + [0.0])
@@ -2810,48 +2798,27 @@ class AMSET(object):
         tdos = np.repeat(dos_dos.reshape((len(dos_dos), 1)), 2*nstep+1, axis=1)
 
         self.logger.debug("Calculating the fermi level at T={} K".format(T))
-        for i in range(15):
-            # for coeff in range(-nstep, nstep+1):
-            #     niter += 1
-            #     fermi = fermi0 + coeff*step
-            #
-            #     temp_doping["n"] = -conversion * np.sum(dos_dos[self.cbm_dos_idx:] * f0(dos_e[self.cbm_dos_idx:], fermi, T) * dos_de[self.cbm_dos_idx:])
-            #     temp_doping["p"] = conversion * np.sum(dos_dos[:self.vbm_dos_idx+1] * (1.-f0(dos_e[:self.vbm_dos_idx+1], fermi, T)) * dos_de[:self.vbm_dos_idx+1])
-            #     # calc_doping = (vb_integral - cb_integral) * conversion
-            #     calc_doping = temp_doping["n"] + temp_doping["p"]
-
-
-                # if abs(calc_doping - c) / abs(c) < relative_error:
-                #     relative_error = abs(calc_doping - c) / abs(c)
-                #     self.calc_doping[c][T]['n'] = temp_doping["n"]
-                #     self.calc_doping[c][T]['p'] = temp_doping["p"]
-                #     if relative_error < tolerance:
-                #         self.logger.info(
-                #             "fermi at {} 1/cm3 and {} K after {} iterations: {}".format(
-                #                 c, T, int(niter), fermi))
-                #         return fermi
-                #     fermi0 = fermi
+        for i in range(20):
             fermi_range = np.linspace(fermi-nstep*step, fermi+nstep*step, 2*nstep+1)
             n_dopings = -conversion * np.sum(tdos[self.cbm_dos_idx:] * f0(es[self.cbm_dos_idx:], fermi_range, T) * de[self.cbm_dos_idx:], axis=0)
-            p_dopings = conversion * np.sum(tdos[:self.vbm_dos_idx + 1] * (1 - f0(es[:self.vbm_dos_idx + 1], fermi_range, T)) * de[:self.vbm_dos_idx + 1], axis=0)
-            relative_error = abs((n_dopings+p_dopings) - c) / abs(c)
-            current_idx = np.argmin(relative_error)
-            fermi = fermi_range[current_idx]
-            self.calc_doping[c][T]['n'] = n_dopings[current_idx]
-            self.calc_doping[c][T]['p'] = p_dopings[current_idx]
-            if relative_error[current_idx] < tolerance:
+            p_dopings = conversion * np.sum(tdos[:self.vbm_dos_idx+1] * (1 - f0(es[:self.vbm_dos_idx+1], fermi_range, T)) * de[:self.vbm_dos_idx+1], axis=0)
+            relative_error = abs((n_dopings+p_dopings - c) / c)
+            fermi_idx = np.argmin(relative_error)
+            fermi = fermi_range[fermi_idx]
+            self.calc_doping[c][T]['n'] = n_dopings[fermi_idx]
+            self.calc_doping[c][T]['p'] = p_dopings[fermi_idx]
+            if relative_error[fermi_idx] < tolerance:
                 self.logger.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(niter), fermi))
                 return fermi
             step /= 10.0
 
-        if relative_error[current_idx] > tolerance_loose:
-            raise ValueError('The calculated concentration is not within {}% of'
+        if relative_error[fermi_idx] > tolerance_loose:
+            raise AmsetError('The calculated concentration is not within {}% of'
             ' the given value ({}) at T={}'.format(tolerance_loose*100, c, T))
-        elif relative_error[current_idx] > tolerance:
+        elif relative_error[fermi_idx] > tolerance:
             self.logger.warning('Fermi calculated with a loose tolerance of {}%'
                                 ' at c={}, T={}K'.format(tolerance_loose, c, T))
         return fermi
-
 
 
     def inverse_screening_length(self, c, T):
