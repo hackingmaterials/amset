@@ -2802,7 +2802,7 @@ class AMSET(object):
             fermi_range = np.linspace(fermi-nstep*step, fermi+nstep*step, 2*nstep+1)
             n_dopings = -conversion * np.sum(tdos[self.cbm_dos_idx:] * f0(es[self.cbm_dos_idx:], fermi_range, T) * de[self.cbm_dos_idx:], axis=0)
             p_dopings = conversion * np.sum(tdos[:self.vbm_dos_idx+1] * (1 - f0(es[:self.vbm_dos_idx+1], fermi_range, T)) * de[:self.vbm_dos_idx+1], axis=0)
-            relative_error = abs((n_dopings+p_dopings - c) / c)
+            relative_error = abs((n_dopings+p_dopings)/c - 1.0)
             fermi_idx = np.argmin(relative_error)
             fermi = fermi_range[fermi_idx]
             self.calc_doping[c][T]['n'] = n_dopings[fermi_idx]
