@@ -2764,7 +2764,7 @@ class AMSET(object):
 
 
 
-    def find_fermi(self, c, T, tolerance=0.01, tolerance_loose=0.03):
+    def find_fermi(self, c, T, rtol=0.01, rtol_loose=0.03, step=0.1, nstep=50):
         """
         finds the Fermi level at a given c and T at egrid (i.e. DOS)
         Args:
@@ -2780,8 +2780,6 @@ class AMSET(object):
             The fitted/calculated Fermi level
         """
         # initialize parameters
-        step = 0.1
-        nstep = 20
         niter = 0.0
         relative_error = self.gl
         typ = get_tp(c)
@@ -2807,17 +2805,17 @@ class AMSET(object):
             fermi = fermi_range[fermi_idx]
             self.calc_doping[c][T]['n'] = n_dopings[fermi_idx]
             self.calc_doping[c][T]['p'] = p_dopings[fermi_idx]
-            if relative_error[fermi_idx] < tolerance:
+            if relative_error[fermi_idx] < rtol:
                 self.logger.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(niter), fermi))
                 return fermi
             step /= 10.0
 
-        if relative_error[fermi_idx] > tolerance_loose:
+        if relative_error[fermi_idx] > rtol_loose:
             raise AmsetError('The calculated concentration is not within {}% of'
-            ' the given value ({}) at T={}'.format(tolerance_loose*100, c, T))
-        elif relative_error[fermi_idx] > tolerance:
+            ' the given value ({}) at T={}'.format(rtol_loose*100, c, T))
+        elif relative_error[fermi_idx] > rtol:
             self.logger.warning('Fermi calculated with a loose tolerance of {}%'
-                                ' at c={}, T={}K'.format(tolerance_loose, c, T))
+                                ' at c={}, T={}K'.format(rtol_loose, c, T))
         return fermi
 
 
