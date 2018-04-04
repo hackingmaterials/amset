@@ -408,19 +408,6 @@ class AMSET(object):
                                 elif self.e_integration:
                                     self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)  * self.bs.get_kpoint_degeneracy(important_points['n'][0])
                                     self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False) * self.bs.get_kpoint_degeneracy(important_points['p'][0])
-
-                                ## with degeneracy multiplied (I think this is relevant only if all valleys are considered!
-                                # if self.k_integration:
-                                #     f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                #     f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                #     # if denominator is defined as a single common denominator, += if specific to each valley, self.denominator[c][T][tp] = ...
-                                #     self.denominator[c][T]['n'] += (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10) * self.bs.get_kpoint_degeneracy(important_points['n'][0])
-                                #     self.denominator[c][T]['p'] += (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10) *self.bs.get_kpoint_degeneracy(important_points['p'][0])
-                                # elif self.e_integration:
-                                #     self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False) * self.bs.get_kpoint_degeneracy(important_points['n'][0])
-                                #     self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)* self.bs.get_kpoint_degeneracy(important_points['p'][0])
-
-
                                 for mu in self.mo_labels:
                                     for tp in ['p', 'n']:
                                         self.mobility[tp][mu][c][T] += valley_mobility[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
@@ -508,8 +495,9 @@ class AMSET(object):
                        Ecut=None, nex_max=10, return_global=False, niter=5,
                        nbelow_vbm=0, nabove_cbm=0, scissor=0.0):
         """
-        returns a dictionary of p-type (valence) and n-type (conduction) band
+        Returns a dictionary of p-type (valence) and n-type (conduction) band
             extrema k-points by looking at the 1st and 2nd derivatives of the bands
+
         Args:
             bs (pymatgen BandStructure object): must containt Structure and have
                 the same number of valence electrons and settings as the vasprun.xml
@@ -668,20 +656,6 @@ class AMSET(object):
                                 / fermi_integral(0.5, fermi, T, energy) * e ** 0.5 * 1e4  # to cm2/V.s
 
 
-    def find_fermi_boltztrap(self):
-        self.logger.warning('\nRunning BoltzTraP to calculate the Fermi levels...')
-        boltztrap_runner = BoltztrapRunner(bs=self.bs, nelec=self.nelec,
-                doping=list(set([abs(d) for d in self.dopings])),
-                        tmax=max(self.temperatures))
-        boltztrap_runner.run(path_dir=self.calc_dir)
-        # coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
-        an = BoltztrapAnalyzer.from_files(os.path.join(self.calc_dir, 'boltztrap'))
-
-        # for c in self.dopings:
-        #     for T in self.temperatures:
-        #         for c_b in an.doping:
-
-
     def generate_kmesh(self, important_points, kgrid_tp='coarse'):
         self.kgrid_array = {}
         self.kgrid_array_cartesian = {}
@@ -782,7 +756,6 @@ class AMSET(object):
         # if not once_called:
         self.logger.info("self.nkibz = {}".format(self.nkibz))
 
-
         # the first part is just to update the cbm_vbm once!
         # TODO for now, I get these parameters everytime which is wasteful but I only need to run this part once
         # if not once_called:
@@ -823,7 +796,6 @@ class AMSET(object):
         # calculate only the CBM and VBM energy values - @albalu why is this separate from the other energy value calculations?
         # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
 
-
         # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
         start_time = time.time()
         energies = {"n": [0.0 for ik in kpts['n']], "p": [0.0 for ik in kpts['p']]}
@@ -859,13 +831,7 @@ class AMSET(object):
                         self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
                         kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
-            N_n = self.kgrid_array['n'].shape
-
-            # for ib in range(self.num_bands['n']):
-            #     self.logger.debug('energy (type n, band {}):'.format(ib))
-            #     self.logger.debug(self.energy_array['n'][ib][(N_n[0] - 1) / 2, (N_n[1] - 1) / 2, :])
             self.logger.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
-
             if self.poly_bands is not None:
                 all_bands_energies = {"n": [], "p": []}
                 for tp in ["p", "n"]:
@@ -950,7 +916,6 @@ class AMSET(object):
 
 
     def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0, interpolation="boltztrap1"):
-        # generate the k mesh in two forms: numpy array for k-integration and list for e-integration
         if interpolation=="boltztrap1":
             ibands = [self.cbm_vbm['p']['bidx']-nbelow_vbm,
                       self.cbm_vbm['n']['bidx']+nabove_cbm]
@@ -961,67 +926,24 @@ class AMSET(object):
                     nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
                     Ecut=self.Ecut, nex_max=20, return_global=True, niter=5,
                     nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
-            # self.important_pts = {'n': [self.cbm_vbm["n"]["kpoint"]], 'p': [self.cbm_vbm["p"]["kpoint"]]}
             if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy'] and self.poly_bands0 is None:
-                # self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy'] + self.scissor/2.0
                 self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
                 self.cbm_vbm['n']['kpoint'] = new_cbm_vbm['n']['kpoint']
             if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p']['energy'] and self.poly_bands0 is None:
-                # self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy'] - self.scissor/2.0
                 self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
-            # for tp in ['p', 'n']:
-            #     self.cbm_vbm[tp]['energy'] = new_cbm_vbm[tp]['energy']
-            #     self.cbm_vbm[tp]['kpoint'] = new_cbm_vbm[tp]['kpoint']
 
         self.logger.info(('here initial important_pts'))
-        self.logger.info((self.important_pts)) # for some reason the nscf uniform GaAs fitted coeffs return positive mass for valence at Gamma!
-
-        # for tp in ['n', 'p']:
-        #     self.important_pts[tp].append(self.cbm_vbm[tp]["kpoint"])
-        #     self.important_pts[tp].extend(self.add_extrema[tp])
-        # for tp in ['n', 'p']:
-        #     all_important_ks = []
-        #     for k in self.important_pts[tp]:
-        #         all_important_ks +=  list(self.bs.get_sym_eq_kpoints(k))
-        #     self.important_pts[tp] = remove_duplicate_kpoints(all_important_ks)
-
-
-        ################TEST FOR Si##########################################
-        # cbm_k = np.array([ 0.48648649,  0.48648649,  0.        ])
-        # cbm_k = np.array([ 0.42105263,  0.42105263,  0.        ])
-
-        # cbm_k = np.array([ 0.43105263 , 0.43105263,  0.001     ])
-        # self.important_pts = {
-        #     # 'n': [[ 0.42905263 , 0.42905263 , 0.001     ]],
-        #     'n': [[ -4.26549744e-01,  -4.26549744e-01,  -1.35782351e-08]],
-        #     # 'n': [[ 0.47058824,  0.47058824,  0.        ]],
-        #     'p': [[0.0, 0.0, 0.0]]}
-        #     'n': np.vstack((self.bs.get_sym_eq_kpoints(cbm_k),self.bs.get_sym_eq_kpoints(-cbm_k)))
-        # }
-        #################################################################
-
-        ################TEST FOR GaAs-L ##########################################
-        # self.important_pts = {'p': [np.array([ 0.,  0.,  0.])],
-        #                       # 'n': [np.array([-0.5,  0. ,  0. ])]}
-        #                       # 'n': [np.array([ 0.,  0.,  0.]), np.array([0.5,  0.5 ,  0.5 ]), np.array([ 0.5,  0.,  0.5])]}
-        #                     'n': [np.array([ 0.,  0.,  0.]), np.array([0.5,  0.5 ,  0.5 ])]}
-
-                              # 'n': [np.array([ 0.5,  0.5,  0.5]),
-                              #       np.array([-0.5,  0. ,  0. ]), np.array([ 0. , -0.5,  0. ]), np.array([ 0. ,  0. , -0.5])
-                              #       , np.array([0.5,  0. ,  0. ]), np.array([ 0. , 0.5,  0. ]), np.array([ 0. ,  0. , 0.5])
-                              #       ]}
-
-
-
-        #################################################################
-        self.logger.info('Here are the final extrema considered: \n {}'.format(self.important_pts))
+        self.logger.info('Here are the final extrema considered: \n {}'.format(
+                                                self.important_pts))
 
 
     def write_input_files(self, path=None, dir_name="run_data"):
-        """writes all 3 types of inputs in json files for example to
+        """
+        Writes all 3 types of inputs in json files for example to
         conveniently track what inputs had been used later or read
-        inputs from files (see from_files method)"""
+        inputs from files (see from_files method)
+        """
         if not path:
             path = os.path.join(os.getcwd(), dir_name)
             if not os.path.exists(path):
@@ -1077,17 +999,13 @@ class AMSET(object):
             json.dump(performance_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
 
 
-
     def set_material_params(self, params):
         """
         set materials parameters. This function is meant to be called after
             set_model_parameters as it may modify self.model_parameters.
         Args:
             params (dict):
-        Returns:
-
         """
-
         self.epsilon_s = params["epsilon_s"]
         self.P_PIE = params.get("P_PIE", None) or 0.15  # unitless
         E_D = params.get("E_D", None)
@@ -1319,7 +1237,10 @@ class AMSET(object):
 
 
     def seeb_int_num(self, c, T):
-        """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
+        """
+        Wrapper function to do an integration taking only the concentration,
+        c, and the temperature, T, as inputs
+        """
         fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T)) * E / (k_B * T)
         return {
             t: self.integrate_over_DOSxE_dE(func=fn, tp=t, fermi=self.fermi_level[c][T], T=T, normalize_energy=True)
@@ -1328,17 +1249,21 @@ class AMSET(object):
 
 
     def seeb_int_denom(self, c, T):
-        """wrapper function to do an integration taking only the concentration, c, and the temperature, T, as inputs"""
+        """
+        Wrapper function to do an integration taking only the concentration,
+        c, and the temperature, T, as inputs
+        """
         return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in
                 ["n", "p"]}
 
 
     def calculate_property(self, prop_name, prop_func, for_all_E=False):
         """
-        calculate the propery at all concentrations and Ts using the given function and insert it into self.egrid
-        :param prop_name:
-        :param prop_func (obj): the given function MUST takes c and T as required inputs in this order.
-        :return:
+        Calculates the propery at all concentrations and temperatures using
+        the given function and insert it into self.egrid
+        Args:
+            prop_name (str): the name of the property
+            prop_func (obj): the given function MUST takes c and T as required inputs in this order.
         """
         if for_all_E:
             for tp in ["n", "p"]:
