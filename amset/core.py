@@ -2448,10 +2448,6 @@ class AMSET(object):
         return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
                * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
 
-        # 20180307: I removed /sq3 from all elastic and inelastics: iso-aniso consistency can still be established
-        # return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-        #        * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm])
-
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
@@ -2495,17 +2491,9 @@ class AMSET(object):
         if norm_diff < 1e-4:
             return 0.0
 
-
-        # the term norm(k_prm)**2 is wrong in practice as it can be too big and originally we integrate |k'| from 0
-        #TODO: this norm(v) in the following may need a /sq3
         integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
                 (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
 
-        # only changing ik_prm of norm(k) to ik made S_o look more like isotropic
-        # integ = self.kgrid[tp]["norm(k)"][ib][ik]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
-        #         (self.kgrid[tp]["norm(v)"][ib][ik]*norm_diff**2)
-
-        # the following worked ok at superfine, the final POP and g matches with isotropic but S_i and S_o match are not good!
         if "S_i" in sname:
             integ *= X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm]
             if "minus" in sname:
@@ -2560,7 +2548,8 @@ class AMSET(object):
         by integrating over dX (X being the angle between k and k' states) for
         all band-kpoint pair.
         Args:
-            sname (str): scattering mechanism name; options: "S_i" and "S_o"
+            sname (str): scattering name: 'S_oX_Eplus_ik', 'S_oX_Eminus_ik',
+                'S_iX_Eplus_ik' or 'S_iX_Eminus_ik'
             g_suffix (str): perturbation name; options: "", "_POP" or "_th"
         """
         for tp in ["n", "p"]:
