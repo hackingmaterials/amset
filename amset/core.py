@@ -1453,10 +1453,10 @@ class AMSET(object):
 
     def init_egrid(self, once_called, dos_tp="standard"):
         """
-        :param
+        Initializes the self.egrid dict containing energy grid and relevant
+        properties such as "DOS"
+        Args:
             dos_tp (string): options are "simple", ...
-
-        :return: an updated grid that contains the field DOS
         """
         self.pre_init_egrid(once_called=once_called, dos_tp=dos_tp)
 
@@ -1551,14 +1551,14 @@ class AMSET(object):
 
     def initialize_var(self, grid, names, val_type="scalar", initval=0.0, is_nparray=True, c_T_idx=False):
         """
-        initializes a variable/key within the self.kgrid variable
-        :param grid (str): options are "kgrid" or "egrid": whether to initialize vars in self.kgrid or self.egrid
-        :param names (list): list of the names of the variables
-        :param val_type (str): options are "scalar", "vector", "matrix" or "tensor"
-        :param initval (float): the initial value (e.g. if val_type=="vector", each of the vector's elements==init_val)
-        :param is_nparray (bool): whether the final initial content is an numpy.array or not.
-        :param c_T_idx (bool): whether to define the variable at each concentration, c, and temperature, T.
-        :return:
+        Initializes a variable/key within the self.kgrid variable
+        Args:
+            grid (str): options are "kgrid" or "egrid": whether to initialize vars in self.kgrid or self.egrid
+            names (list): list of the names of the variables
+            val_type (str): options are "scalar", "vector", "matrix" or "tensor"
+            initval (float): the initial value (e.g. if val_type=="vector", each of the vector's elements==init_val)
+            is_nparray (bool): whether the final initial content is an numpy.array or not.
+            c_T_idx (bool): whether to define the variable at each concentration, c, and temperature, T.
         """
         if not isinstance(names, list):
             names = [names]
@@ -1601,14 +1601,19 @@ class AMSET(object):
 
 
     def get_intermediate_kpoints(self, k1, k2, nsteps):
-        """return a list nsteps number of k-points between k1 & k2 excluding k1 & k2 themselves. k1 & k2 are nparray"""
+        """
+        Returns a list nsteps number of k-points between k1 & k2 excluding
+        k1 & k2 themselves. k1 & k2 are nparray
+        """
         dkii = (k2 - k1) / float(nsteps + 1)
         return [k1 + i * dkii for i in range(1, nsteps + 1)]
 
 
     def get_intermediate_kpoints_list(self, k1, k2, nsteps):
-        """return a list nsteps number of k-points between k1 & k2 excluding k1 & k2 themselves. k1 & k2 are lists"""
-        # dkii = (k2 - k1) / float(nsteps + 1)
+        """
+        Returns a list nsteps number of k-points between k1 & k2 excluding
+        k1 & k2 themselves. k1 & k2 are lists
+        """
         if nsteps < 1:
             return []
         dk = [(k2[i] - k1[i]) / float(nsteps + 1) for i in range(len(k1))]
@@ -1619,7 +1624,6 @@ class AMSET(object):
     @staticmethod
     def get_perturbed_ks(k):
         all_perturbed_ks = []
-        # for p in [0.01, 0.03, 0.05]:
         for p in [0.05, 0.1]:
             all_perturbed_ks.append([k_i + p * np.sign(random() - 0.5) for k_i in k])
         return all_perturbed_ks
@@ -1665,9 +1669,11 @@ class AMSET(object):
 
     def get_sym_eq_ks_in_first_BZ(self, k, cartesian=False):
         """
-        :param k (numpy.array): kpoint fractional coordinates
-        :param cartesian (bool): if True, the output would be in cartesian (but still reciprocal) coordinates
-        :return:
+        Args:
+            k (numpy.array): kpoint fractional coordinates
+            cartesian (bool): if True, the output would be in cartesian (but still reciprocal) coordinates
+        Returns (numpy.ndarray): array containing fractional coordinates of
+            the symmetrically equivalent kpoints to k.
         """
         fractional_ks = [np.dot(k, self.rotations[i]) for i in range(len(self.rotations))]
         fractional_ks = kpts_to_first_BZ(fractional_ks)
@@ -1749,9 +1755,6 @@ class AMSET(object):
             self.cbm_vbm[tp]["cartesian k"] = self.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
             self.cbm_vbm[tp]["all cartesian k"] = self.get_sym_eq_ks_in_first_BZ(self.cbm_vbm[tp]["kpoint"], cartesian=True)
             self.cbm_vbm[tp]["all cartesian k"] = remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
-
-            # self.important_pts[tp] = [self.get_cartesian_coords(k)/A_to_nm for k in self.important_pts[tp]]
-
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
                 self.kgrid[tp]["old cartesian kpoints"][ib] = self.get_cartesian_coords(
@@ -1767,24 +1770,11 @@ class AMSET(object):
 
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                    # min_dist_ik = np.array([norm(ki - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) for ki in self.cbm_vbm[tp]["all cartesian k"]]).argmin()
-                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.kgrid[tp]["old cartesian kpoints"][ib][ik] - self.cbm_vbm[tp]["all cartesian k"][min_dist_ik]
-
-
-                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = get_closest_k(self.kgrid[tp]["old cartesian kpoints"][ib][ik], self.important_pts[tp], return_diff=True)
                     self.kgrid[tp]["cartesian kpoints"][ib][ik] = \
                         self.get_cartesian_coords(get_closest_k(
                             self.kgrid[tp]["kpoints"][ib][ik], important_points[tp], return_diff=True)) / A_to_nm
-
-                    # # The following 2 lines (i.e. when the closest kpoints to equivalent extrema are calculated in fractional coordinates) would change the anisotropic test! not sure why
-                    # closest_frac_k = np.array(get_closest_k(self.kgrid[tp]["kpoints"][ib][ik], self.important_pts[tp]), return_diff=True)
-                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.get_cartesian_coords(closest_frac_k) / A_to_nm
-
                     self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
-                    # if abs(self.kgrid[tp]["norm(k)"][ib][ik] - 9.8) < 1.7:
-                    #     self.kgrid[tp]["norm(k)"][ib][ik] = abs(self.kgrid[tp]["norm(k)"][ib][ik] - 9.8)
                     self.kgrid[tp]["norm(actual_k)"][ib][ik] = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
-
                     if self.poly_bands is None:
                         if self.interpolation == "boltztrap1":
                             energy, de, dde = get_energy(
@@ -1804,13 +1794,11 @@ class AMSET(object):
                                             fitted[2][:, :, ik, iband].T * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
                         else:
                             raise ValueError("")
-
                     else:
                         energy, velocity, effective_mass = get_poly_energy(self.kgrid[tp]["cartesian kpoints"][ib][ik],
                                                                            poly_bands=self.poly_bands,
                                                                            type=tp, ib=ib,
                                                                            bandgap=self.dft_gap + self.scissor)
-
                     self.kgrid[tp]["energy"][ib][ik] = energy
                     self.kgrid[tp]["velocity"][ib][ik] = velocity
                     self.kgrid[tp]["norm(v)"][ib][ik] = norm(velocity)
@@ -1989,7 +1977,6 @@ class AMSET(object):
 
     def unique_X_ib_ik_symmetrically_equivalent(self, tp, ib, ik):
         frac_k = self.kgrid[tp]["kpoints"][ib][ik]
-
         # fractional_ks = [np.dot(frac_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
         fractional_ks = np.dot(frac_k, self.rotations)
         k = self.kgrid[tp]["kpoints"][ib][ik]
@@ -2020,7 +2007,7 @@ class AMSET(object):
             forced_min_npoints (int): the number of k-points that are forcefully included in
                 scattering if not enough points are found
             tolerance (float): the energy tolerance for finding the k' points that are within E_change energy of E(k)
-            """
+        """
         tolerance = tolerance or self.dE_min
         E = self.kgrid[tp]["energy"][ib][ik]
         E_prm = E + E_change  # E_prm is E prime, the new energy
@@ -2049,22 +2036,13 @@ class AMSET(object):
                     ik_prm += step
 
         if E_change != 0.0:
-        # if True:
-            # If fewer than forced_min_npoints number of points were found, just return a few surroundings of the same band
             ib_prm = ib
             ik_closest_E = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
 
             for step, start in [(1, 0), (-1, -1)]:
-                # step -1 is in case we reached the end (ik_prm == nk - 1); then we choose from the lower energy k-points
-                ik_prm = ik_closest_E + start  # go up from ik_closest_E, down from ik_closest_E - 1
-
-                # the following if statement, makes GaAs POP results anisotropic which they should not be
-                # if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][ik_prm] - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) < 2*self.max_normk[tp]:
-                #     if E_change == 0.0:
-                #         if ik_prm != ik_closest_E:
-                #             result.append((cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]), ib_prm, ik_prm))
-                #             self.nforced_scat[tp] += 1
-                #     else:
+                # step -1 is in case we reached the end (ik_prm == nk - 1) when
+                #  we choose from the lower energy k-points
+                ik_prm = ik_closest_E + start  # go up from ik_closest_E
                 while ik_prm >= 0 and ik_prm < nk and len(result) - 1 < forced_min_npoints:
                     # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
                     for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
@@ -2083,7 +2061,6 @@ class AMSET(object):
         return result
 
 
-
     def s_el_eq(self, sname, tp, c, T, k, k_prm):
         """
         return the scattering rate at wave vector k at a certain concentration and temperature
@@ -2096,7 +2073,6 @@ class AMSET(object):
         k (list): list containing fractional coordinates of the k vector
         k_prm (list): list containing fractional coordinates of the k prime vector
         """
-
         norm_diff_k = norm(k - k_prm)  # the slope for PIE and IMP don't match with bs_is_isotropic
         if norm_diff_k == 0.0:
             warnings.warn("WARNING!!! same k and k' vectors as input of the elastic scattering equation")
