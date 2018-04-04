@@ -2220,15 +2220,10 @@ class AMSET(object):
         return [np.sum(func_grid[:,:,:,i] * self.dv_grid[tp]) for i in range(func_grid.shape[3])]
 
 
-    def integrate_over_normk(self, prop_list, tp, c, T, xDOS, interpolation_nsteps=None):
-        integral = self.gs
+    def integrate_over_normk(self, prop_list, tp, c, T, xDOS):
         normk_tp = "norm(k)"
-        if not interpolation_nsteps:
-            interpolation_nsteps = max(200, int(500.0 / len(self.kgrid[tp]["kpoints"][0])))
         for ib in [0]:
             normk_sorted_idx = np.argsort(self.kgrid[tp][normk_tp][ib])
-            diff = [0.0 for prop in prop_list]
-
             normk_vec = np.array(self.kgrid[tp][normk_tp][ib])
             dk_vec = np.array([
                 self.kgrid[tp][normk_tp][ib][normk_sorted_idx[j+1]] - \
@@ -2248,44 +2243,8 @@ class AMSET(object):
                     integral_vec *= np.mean(vec, axis=-1)
                 else:
                     integral_vec *= vec
-                # try:
-                #     integral_vec *= np.mean(vec, axis=1)
-                # except IndexError:
-                #     integral_vec *= vec
             integral = np.sum(integral_vec)
-            # for j, ik in enumerate(normk_sorted_idx[:-1]):
-            #     ik_next = normk_sorted_idx[j+1]
-            #     normk = self.kgrid[tp][normk_tp][ib][ik]
-            #     dk = (self.kgrid[tp][normk_tp][ib][ik_next] - normk)/interpolation_nsteps
-            #     if dk == 0.0:
-            #         continue
-            #     if xDOS:
-            #         dS = ((self.kgrid[tp][normk_tp][ib][ik_next]/pi)**2 - \
-            #              (self.kgrid[tp][normk_tp][ib][ik]/pi)**2)/interpolation_nsteps
-            #     for j, p in enumerate(prop_list):
-            #         if p[0] == "/":
-            #             diff[j] = (self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik_next] - \
-            #                             self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik]) / interpolation_nsteps
-            #         elif p[0] == "1":
-            #             diff[j] = ((1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik_next]) - \
-            #                       (1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik])) / interpolation_nsteps
-            #         else:
-            #             diff[j] = (self.kgrid[tp][p][c][T][ib][ik_next] - self.kgrid[tp][p][c][T][ib][ik]) / interpolation_nsteps
-            #
-            #     for i in range(interpolation_nsteps):
-            #         multi = dk
-            #         for j, p in enumerate(prop_list):
-            #             if p[0] == "/":
-            #                 multi /= self.kgrid[tp][p.split("/")[-1]][c][T][ib][ik] + diff[j] * i
-            #             elif "1" in p:
-            #                 multi *= 1 - self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib][ik] + diff[j] * i
-            #             else:
-            #                 multi *= self.kgrid[tp][p][c][T][ib][ik] + diff[j] * i
-            #         if xDOS:
-            #             multi *= (self.kgrid[tp][normk_tp][ib][ik]/pi)**2 + dS * i
-            #         integral += multi
         return integral
-
 
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
