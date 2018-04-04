@@ -2555,6 +2555,14 @@ class AMSET(object):
 
 
     def s_inelastic(self, sname=None, g_suffix=""):
+        """
+        Calculates the inelastic/POP scattering rate (with correct units)
+        by integrating over dX (X being the angle between k and k' states) for
+        all band-kpoint pair.
+        Args:
+            sname (str): scattering mechanism name; options: "S_i" and "S_o"
+            g_suffix (str): perturbation name; options: "", "_POP" or "_th"
+        """
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
@@ -2661,9 +2669,6 @@ class AMSET(object):
                                     self.logger.warning('too large rate for {} at k={}, v={}:'.format(
                                         sname, self.kgrid[tp]['kpoints'][ib][ik], self.kgrid[tp]['velocity'][ib][ik]))
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
-
-                        # self.logger.debug("relaxation time at c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["relaxation time"][c][T][ib]))
-                        # self.logger.debug("_all_elastic c={} and T= {}: \n {}".format(c, T, self.kgrid[tp]["_all_elastic"][c][T][ib]))
                         self.kgrid[tp]["relaxation time"][c][T][ib] = 1 / self.kgrid[tp]["_all_elastic"][c][T][ib]
 
 
