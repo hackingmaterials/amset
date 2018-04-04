@@ -2846,7 +2846,6 @@ class AMSET(object):
         return beta
 
 
-
     def to_file(self, path=None, dir_name='run_data', fname='amsetrun',
                 force_write=True):
         if not path:
@@ -2953,7 +2952,6 @@ class AMSET(object):
 
         # self.kgrid trimming
         if kgrid:
-            start_time = time.time()
             kgrid = deepcopy(self.kgrid)
             if trimmed:
                 nmax = min([max_ndata + 1, min([len(kgrid["n"]["kpoints"][0]), len(kgrid["p"]["kpoints"][0])])])
@@ -3094,8 +3092,6 @@ class AMSET(object):
 
     # return a grid of the (x,y,z) k points in the proper grid
     def grid_from_ordered_list(self, prop_list, tp, denom=False, none_missing=False, scalar=False):
-        # need:
-        # self.kgrid_array[tp]
         N = list(self.kgrid_array[tp].shape)
         if scalar:
             N[-1] = 1
@@ -3151,11 +3147,8 @@ class AMSET(object):
     def calculate_transport_properties_with_k(self, test_anisotropic, important_points):
         # calculate mobility by averaging velocity per electric field strength
         mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scatterings} for tp in ["n", "p"]}
-        mu_denom = deepcopy(mu_num)
         valley_mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
                   self.dopings} for el_mech in self.mo_labels+self.spb_labels} for tp in ["n", "p"]}
-
-        #k_hat = np.array([self.k_hat_array[tp] for ib in range(self.num_bands)])
 
         for c in self.dopings:
             for T in self.temperatures:
@@ -3163,24 +3156,12 @@ class AMSET(object):
                     if not self.count_mobility[self.ibrun][tp]:
                         continue
                     N = self.kgrid_array[tp].shape
-                    # if tp == 'n':
-                    #     print(self.dv_grid['n'][(N[0] - 1) / 2, (N[1] - 1) / 2, :])
 
                     # get quantities that are independent of mechanism
                     num_k = [len(self.kgrid[tp]["energy"][ib]) for ib in range(self.num_bands[tp])]
                     df0dk = self.array_from_kgrid('df0dk', tp, c, T)
                     v = self.array_from_kgrid('velocity', tp)
-                    # norm_v = np.array([self.grid_from_energy_list([norm(self.kgrid[tp]["velocity"][ib][ik]) / sq3 for ik in
-                    #                                       range(num_k[ib])], tp, ib) for ib in range(self.num_bands[tp])])
-                    # norm_v = np.array([self.grid_from_energy_list([self.kgrid[tp]["norm(v)"][ib][ik] for ik in
-                    #                                       range(num_k[ib])], tp, ib) for ib in range(self.num_bands[tp])])
-                    norm_v = v # 20180307: AF: I added this since we want to see the mobility in 3 main directions, in isotropic material it's the same as norm(v)/sq3
-                    #norm_v = grid_norm(v)
                     f0_removed = self.array_from_kgrid('f0', tp, c, T)
-
-                    # for ib in range(self.num_bands[tp]):
-                    #     print('energy (type {}, band {}):'.format(tp, ib))
-                    #     print(self.energy_array[tp][ib][(N[0] - 1) / 2, (N[1] - 1) / 2, :])
                     f0_all = 1 / (np.exp((self.energy_array[tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
 
                     np.set_printoptions(precision=3)
@@ -3249,10 +3230,10 @@ class AMSET(object):
                         numerator_iso = self.integrate_over_states(g * v_norm, tp) / 3 / default_small_E
 
                         if tp == 'n':
-                            print('norm_v')
-                            print(norm_v[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                            print('g*norm_v')
-                            print((g*norm_v)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                            print('v')
+                            print(v[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                            print('g*v')
+                            print((g*v)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                             print('ISOTROPIC numerator and denominator:')
                             print(numerator_iso)
                             print(denominator_iso)
@@ -3268,33 +3249,6 @@ class AMSET(object):
                         print('test integral of e^(-r) * cos^2(theta)')
                         aa = 10 / (k_0 / 2)   # in cm
                         print(self.integrate_over_k(np.exp(-aa * k_norm) * k_hat_cartesian[0, :, :, :, 2]**2 * aa**3, tp))
-                        # np.sum(np.exp(-(aa * 7.5) * k_norm) * k_hat_cartesian[0, :, :, :, 2] ** 2 * (aa * 7.5) ** 3 * self.dv_grid['n'][:, :, :], axis=(0, 1, 2))
-
-                        # from equation 44 in Rode, elastic
-                        #el_mech stands for elastic mechanism
-                        # for el_mech in self.elastic_scatterings:
-                        #     nu_el = self.array_from_kgrid(el_mech, tp, c, T, denom=True)
-                        #     # includes e in numerator because hbar is in eV units, where e = 1
-                        #     numerator = -self.integrate_over_states(v * self.k_hat_array[tp] * df0dk / nu_el, tp)
-                        #     denominator = self.integrate_over_states(f0, tp) * hbar
-                        #     # for ib in range(len(self.kgrid[tp]["energy"])):
-                        #     #     #num_kpts = len(self.kgrid[tp]["energy"][ib])
-                        #     #     # integrate numerator / norm(F) of equation 44 in Rode
-                        #     #     for dim in range(3):
-                        #     #         # TODO: add in f0 to the integral so that this works for anisotropic materials
-                        #     #         mu_num[tp][el_mech][c][T][dim] += self.integrate_over_k(v_vec[ib] * k_hat[ib] * df0dk[ib] / nu_el[ib])[dim]
-                        #     #         mu_denom[tp][el_mech][c][T][dim] += self.integrate_over_k(f0[ib])[dim]
-                        #
-                        #     # should be -e / hbar but hbar already in eV units, where e=1
-                        #     self.mobility[tp][el_mech][c][T] = numerator / denominator
-                        #
-                        # # from equation 44 in Rode, inelastic
-                        # for inel_mech in self.inelastic_scatterings:
-                        #     nu_el = self.array_from_kgrid('_all_elastic', tp, c, T, denom=True)
-                        #     S_i = 0
-                        #     S_o = 1
-                        #     self.mobility[tp][inel_mech][c][T] = self.integrate_over_states(
-                        #         v * self.k_hat_array[tp] * (-1 / hbar) * df0dk / S_o, tp)
 
                     if self.bs_is_isotropic and not test_anisotropic:
                         if tp == get_tp(c):
@@ -3302,37 +3256,20 @@ class AMSET(object):
                                          ' k-grid and isotropic BS assumption...')
                             self.logger.debug('current valley is at {}'.format(important_points))
                             self.logger.debug('the denominator is:\n{}'.format(self.denominator))
-                        # from equation 45 in Rode, elastic mechanisms
-                        # for ib in range(self.num_bands[tp]):
-                        #     self.logger.info('f0 (type {}, band {}):'.format(tp, ib))
-                        #     self.logger.info(f0_all[ib, (N[0]-1)/2, (N[1]-1)/2, :])
-                        #     #self.logger.info(self.f0_array[c][T][tp][ib][(N[0]-1)/2, (N[1]-1)/2, :])
 
                         for el_mech in self.elastic_scatterings:
                             nu_el = self.array_from_kgrid(el_mech, tp, c, T, denom=True)
                             # this line should have -e / hbar except that hbar is in units of eV*s so in those units e=1
                             g = -1 / hbar * df0dk / nu_el
-                            # print('g*norm(v) for {}:'.format(el_mech))
-                            # print((g * norm_v)[0, (N[0]-1)/2, (N[1]-1)/2, :])
-                            # valley_mobility[tp][el_mech][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
-                            valley_mobility[tp][el_mech][c][T] = self.integrate_over_states(g * norm_v, tp)
+                            valley_mobility[tp][el_mech][c][T] = self.integrate_over_states(g * v, tp)
              # from equation 45 in Rode, inelastic mechanisms
                         for inel_mech in self.inelastic_scatterings:
                             g = self.array_from_kgrid("g_"+inel_mech, tp, c, T)
-                            # valley_mobility[tp][inel_mech][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 #self.bs.get_kpoint_degeneracy(important_points[tp][0])
-                            valley_mobility[tp][inel_mech][c][T] = self.integrate_over_states(g * norm_v, tp)
+                            valley_mobility[tp][inel_mech][c][T] = self.integrate_over_states(g * v, tp)
 
                         # from equation 45 in Rode, overall
                         g = self.array_from_kgrid("g", tp, c, T)
-                        # for ib in range(self.num_bands[tp]):
-                        #     self.logger.info('g for overall (type {}, band {}):'.format(tp, ib))
-                        #     self.logger.info(g[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                        #     self.logger.info('norm(v) for overall (type {}, band {}):'.format(tp, ib))
-                        #     self.logger.info(norm_v[ib, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
-                        #     self.logger.info('g*norm(v) for overall (type {}, band {}):'.format(tp, ib))
-                        #     self.logger.info((g * norm_v)[ib, (N[0]-1)/2, (N[1]-1)/2, :])
-                        # valley_mobility[tp]['overall'][c][T] = self.integrate_over_states(g * norm_v, tp) / self.denominator[c][T][tp] * 1 # self.bs.get_kpoint_degeneracy(important_points[tp][0])
-                        valley_mobility[tp]['overall'][c][T] = self.integrate_over_states(g * norm_v, tp)
+                        valley_mobility[tp]['overall'][c][T] = self.integrate_over_states(g * v, tp)
 
 
                     # figure out average mobility
@@ -3350,27 +3287,11 @@ class AMSET(object):
                     if (mu_overrall_norm == 0.0 or faulty_overall_mobility) and not test_anisotropic:
                         self.logger.warning('There may be a problem with overall '
                                         'mobility; setting it to average...')
-
-# 20180305 backup: didn't make sense
-#                         valley_mobility[tp]['overall'][c][T] += 1 / mu_average
-#                     # else:
-#                     #     valley_mobility[tp]['overall'][c][T] += mu_overall
-
-# 20180305 update:
                         valley_mobility[tp]['overall'][c][T] = valley_mobility[tp]["average"][c][T]
-                    # else:
-                    #     valley_mobility[tp]['overall'][c][T] += mu_overall
-
-
 
                     if self.independent_valleys:
                         for mu in self.mo_labels:
                             valley_mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
-
-
-                    # print('new {}-type overall mobility at T = {}: {}'.format(tp, T, self.mobility[tp]['overall'][c][T]))
-                    # for el_mech in self.elastic_scatterings + self.inelastic_scatterings:
-                    #     print('new {}-type {} mobility at T = {}: {}'.format(tp, el_mech, T, self.mobility[tp][el_mech][c][T])
         return valley_mobility
 
 
