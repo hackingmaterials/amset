@@ -759,39 +759,38 @@ class AMSET(object):
         # the first part is just to update the cbm_vbm once!
         # TODO for now, I get these parameters everytime which is wasteful but I only need to run this part once
         # if not once_called:
-        if True: # We only need to set all_bands once
-            # TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
-            # if using analytical bands: create the object, determine list of band indices, and get energy info
-            if self.poly_bands0 is None:
-                if self.interpolation == 'boltztrap1':
-                    self.logger.debug("start interpolating bands from {}".format(coeff_file))
-                    analytical_bands = Analytical_bands(coeff_file=coeff_file)
-                    # all_ibands supposed to start with index of last valence band then
-                    # VBM-1 ... and then index of CBM then CBM+1 ...
-                    self.all_ibands = []
-                    for ib in range(num_bands['p']):
-                        self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
-                    for ib in range(num_bands['n']):
-                        self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
-                    self.logger.debug("all_ibands: {}".format(self.all_ibands))
-                    # engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
-                    #     get_energy_args(coeff_file, self.all_ibands)
-                    self.interp_params = get_energy_args(coeff_file, self.all_ibands)
-                elif self.interpolation == 'boltztrap2':
-                    pass
-                else:
-                    raise ValueError('Unsupported interpolation method: "{}"'.format(self.interpolation))
+        # TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
+        # if using analytical bands: create the object, determine list of band indices, and get energy info
+        if self.poly_bands0 is None:
+            if self.interpolation == 'boltztrap1':
+                self.logger.debug("start interpolating bands from {}".format(coeff_file))
+                analytical_bands = Analytical_bands(coeff_file=coeff_file)
+                # all_ibands supposed to start with index of last valence band then
+                # VBM-1 ... and then index of CBM then CBM+1 ...
+                self.all_ibands = []
+                for ib in range(num_bands['p']):
+                    self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
+                for ib in range(num_bands['n']):
+                    self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
+                self.logger.debug("all_ibands: {}".format(self.all_ibands))
+                # engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
+                #     get_energy_args(coeff_file, self.all_ibands)
+                self.interp_params = get_energy_args(coeff_file, self.all_ibands)
+            elif self.interpolation == 'boltztrap2':
+                pass
             else:
-                # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
-                # these points will be used later to generate energy based on the minimum norm(k-k_i)
+                raise ValueError('Unsupported interpolation method: "{}"'.format(self.interpolation))
+        else:
+            # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
+            # these points will be used later to generate energy based on the minimum norm(k-k_i)
 
-                self.poly_bands = np.array(self.poly_bands0)
-                for ib in range(len(self.poly_bands0)):
-                    for valley in range(len(self.poly_bands0[ib])):
-                        self.poly_bands[ib][valley][0] = remove_duplicate_kpoints(
-                            self.get_sym_eq_ks_in_first_BZ(self.poly_bands0[ib][valley][0], cartesian=True))
+            self.poly_bands = np.array(self.poly_bands0)
+            for ib in range(len(self.poly_bands0)):
+                for valley in range(len(self.poly_bands0[ib])):
+                    self.poly_bands[ib][valley][0] = remove_duplicate_kpoints(
+                        self.get_sym_eq_ks_in_first_BZ(self.poly_bands0[ib][valley][0], cartesian=True))
 
-            self.logger.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
+        self.logger.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
 
         # calculate only the CBM and VBM energy values - @albalu why is this separate from the other energy value calculations?
         # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
@@ -2542,10 +2541,7 @@ class AMSET(object):
                         first_ib = self.kgrid_to_egrid_idx[tp][ie][0][0]
                         first_ik = self.kgrid_to_egrid_idx[tp][ie][0][1]
                         for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                            if False:
-                                self.egrid[tp][prop_name][ie] += norm(self.kgrid[tp][prop_name][ib][ik]) / sq3
-                            else:
-                                self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
+                            self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
                         self.egrid[tp][prop_name][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
                 else:
                     raise NotImplementedError(
@@ -2562,11 +2558,7 @@ class AMSET(object):
                                 first_ik = self.kgrid_to_egrid_idx[tp][ie][0][1]
                                 for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                                     # if self.bs_is_isotropic and prop_type == "vector":
-                                    if False:
-                                        self.egrid[tp][prop_name][c][T][ie] += norm(
-                                            self.kgrid[tp][prop_name][c][T][ib][ik]) / sq3
-                                    else:
-                                        self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
+                                    self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
                                 self.egrid[tp][prop_name][c][T][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
 
                             # df0dk must be negative but we used norm for df0dk when isotropic
