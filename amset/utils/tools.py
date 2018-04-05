@@ -579,7 +579,23 @@ def insert_intermediate_kpoints(kpts, n=2):
 
 
 
-def get_dos_boltztrap2(params, st, mesh, estep, vbmidx = None, width=0.2, scissor=0.0):
+def get_dos_boltztrap2(params, st, mesh, estep=0.001, vbmidx=None,
+                       width=0.2, scissor=0.0):
+    """
+    Calculates the density of states (DOS) based on boltztrap2 interpolation.
+    Args:
+        params (list/tuple): parameters required for boltztrap2 interpolation
+        st (pymatgen Structure object): required for generating irriducible
+            brillouin zone mesh)
+        mesh (a 3x1 list or np.ndarray): the k-grid; e.g. [13, 15, 11]
+        estep (float): small energy step, the smaller better but more expensive
+        vbmidx (int): the index of the valence band maximum assuming the index
+            of the first band is 0
+        width (float): energy bandwidth/smearing parameter.
+        scissor (float): the intended change to the current band gap
+    Returns (tuple): in the same order: 1) list of enegy values 2) list of
+        densities at those energy values and 3) number of bands considered
+    """
     from BoltzTraP2 import fite
     (equivalences, lattvec, coeffs) = params
     ir_kpts = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
