@@ -468,7 +468,9 @@ def find_fermi_SPB(cbm_vbm, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0
 
 
 def get_tp(c):
-    """returns "n" for n-tp or negative carrier concentration or "p" (p-tp)."""
+    """
+    Returns "n" for n-type (electrons majority carrier, c<0) or "p" (p-type).
+    """
     if c < 0:
         return "n"
     elif c > 0:
@@ -478,6 +480,9 @@ def get_tp(c):
 
 
 def get_angle(v1, v2):
+    """
+    Returns the actual angles (in radian) between 2 vectors not its cosine.
+    """
     x = cos_angle(v1,v2)
     if x < -1:
         x = -1
@@ -487,6 +492,12 @@ def get_angle(v1, v2):
 
 
 def sort_angles(vecs):
+    """
+    Sort a list of vectors based on their pair angles using a greedy algorithm.
+    Args:
+        vecs ([nx1 list or numpy.ndarray]): list of nd vectors
+    Returns (sorted vecs, indexes of the initial vecs that result in sorted vecs):
+    """
     sorted_vecs = []
     indexes = range(len(vecs))
     final_idx = []
@@ -501,12 +512,6 @@ def sort_angles(vecs):
     vecs.extend(sorted_vecs)
     indexes.extend(final_idx)
     return np.array(vecs), indexes
-
-
-def rel_diff(num1, num2):
-    diff = abs(num1 - num2)
-    avg = (num1 + num2) / 2.0
-    return diff / avg
 
 
 def get_energy_args(coeff_file, ibands):
