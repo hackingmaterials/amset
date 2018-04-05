@@ -110,7 +110,8 @@ class AMSET(object):
         self.set_performance_params(performance_params)
         self.k_integration = k_integration
         self.e_integration = e_integration
-        assert(self.k_integration != self.e_integration), "AMSET can do either k_integration or e_integration"
+        if self.k_integration == self.e_integration:
+            raise AmsetError("AMSET can do either k_integration or e_integration")
         self.logger.info('k_integration: {}'.format(self.k_integration))
         self.logger.info('e_integration: {}'.format(self.e_integration))
         self.fermi_calc_type = fermi_type
