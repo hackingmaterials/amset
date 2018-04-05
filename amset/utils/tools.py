@@ -428,38 +428,14 @@ def get_closest_k(kpoint, ref_ks, return_diff=False, threshold = 0.001):
 
 
 def remove_duplicate_kpoints(kpts, dk=0.01):
-    """kpts (list of list): list of coordinates of electrons
-     ALWAYS return either a list or ndarray: BE CONSISTENT with the input!!!
-
-     Attention: it is better to call this method only once as calculating the norms takes time.
-     """
-    # rm_list = []
-    #
-    # kdist = [norm(k) for k in kpts]
-    # ktuple = list(zip(kdist, kpts))
-    # ktuple.sort(key=lambda x: x[0])
-    # kpts = [tup[1] for tup in ktuple]
-    #
-    # i = 0
-    # while i < len(kpts) - 1:
-    #     j = i
-    #     while j < len(kpts) - 1 and ktuple[j + 1][0] - ktuple[i][0] < dk:
-    #
-    #         # for i in range(len(kpts)-2):
-    #         # if kpts[i][0] == kpts[i+1][0] and kpts[i][1] == kpts[i+1][1] and kpts[i][2] == kpts[i+1][2]:
-    #
-    #         if (abs(kpts[i][0] - kpts[j + 1][0]) < dk or abs(kpts[i][0]) == abs(kpts[j + 1][0]) == 0.5) and \
-    #                 (abs(kpts[i][1] - kpts[j + 1][1]) < dk or abs(kpts[i][1]) == abs(kpts[j + 1][1]) == 0.5) and \
-    #                 (abs(kpts[i][2] - kpts[j + 1][2]) < dk or abs(kpts[i][2]) == abs(kpts[j + 1][2]) == 0.5):
-    #             rm_list.append(j + 1)
-    #         j += 1
-    #     i += 1
-    # kpts = np.delete(kpts, rm_list, axis=0)
-    # kpts = list(kpts)
-
-
+    """
+    Removes duplicate points from a list of k-points. Note that it is better
+    to call this method only once as calculating the norms scales poorly.
+    Args:
+        kpts ([np.ndarray or list]): list of k-point coordinates
+    Returns: kpts but with duplicate points removed.
+    """
     rm_list = []
-    # identify and remove duplicates from the list of equivalent k-points:
     for i in range(len(kpts) - 1):
         for j in range(i + 1, len(kpts)):
             if np.allclose(pbc_diff(kpts[i], kpts[j]), [0, 0, 0], atol=dk):
