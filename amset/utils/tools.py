@@ -410,14 +410,9 @@ def get_closest_k(kpoint, ref_ks, return_diff=False, threshold = 0.001):
         return_diff (bool): if True, the minimum distance is returned
     Returns (1x3 array):
     """
-    # kpoint = np.array(kpoint) # not necessary?
-    # ref_ks = np.array(ref_ks) # not necessary?
-    # print('here inputs')
-    # print(kpoint)
-    # print(ref_ks)
-    assert len(list(kpoint)) == 3
-    assert len(list(ref_ks[0])) == 3
-    assert isinstance(ref_ks[0][0], (float, list))
+    if len(list(kpoint)) != 3 or len(list(ref_ks[0])) != 3:
+        raise AmsetError('k-point coordinates must be 3-dimensional')
+    # assert isinstance(ref_ks[0][0], (float, list))
     norms = []
     for ki in ref_ks:
         norm_diff = norm(ki - kpoint)
@@ -426,11 +421,6 @@ def get_closest_k(kpoint, ref_ks, return_diff=False, threshold = 0.001):
         else:
             norms.append(1e10)
     min_dist_ik = np.array(norms).argmin()
-    # min_dist_ik = np.array([norm(ki - kpoint) for ki in ref_ks]).argmin()
-    # print('here min dist')
-    # print(min_dist_ik)
-    # print(kpoint)
-    # print(ref_ks[min_dist_ik])
     if return_diff:
         return kpoint - ref_ks[min_dist_ik]
     else:
