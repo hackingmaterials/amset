@@ -8,7 +8,6 @@ import os
 import unittest
 from copy import deepcopy
 from amset.core import AMSET
-from amset.utils.tools import rel_diff
 
 test_dir = os.path.dirname(__file__)
 
@@ -160,7 +159,7 @@ class AmsetTest(unittest.TestCase):
             self.assertLessEqual(np.std(  # GaAs band structure is isotropic
                 amset.mobility['n'][mu][-2e15][300]), 0.04*\
                 np.mean(amset.mobility['n'][mu][-2e15][300]))
-            self.assertLess(rel_diff(amset.mobility['n'][mu][-2e15][300][0], expected_mu[mu]), 0.04)
+            self.assertLess(abs(amset.mobility['n'][mu][-2e15][300][0] - expected_mu[mu])/expected_mu[mu], 0.04)
 
     def test_defaults(self, data_dir="run_data"):
         print('\ntesting test_defaults...')
