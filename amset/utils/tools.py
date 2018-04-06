@@ -4,15 +4,12 @@ import os
 import sys
 import warnings
 
-from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, get_energy
-from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, \
-    A_to_nm, e, k_B, \
-    epsilon_0, default_small_E, dTdz, sq3, Hartree_to_eV
+from amset.utils.analytical_band_from_BZT import Analytical_bands, outer
+from amset.utils.constants import hbar, m_e, e, k_B, epsilon_0, sq3, Hartree_to_eV
 from math import pi, log
 
 from pymatgen import Spin
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from pymatgen.symmetry.bandstructure import HighSymmKpath
 from pymatgen.util.coord import pbc_diff
 
 try:
@@ -20,7 +17,7 @@ try:
     import BoltzTraP2.dft
     from BoltzTraP2 import sphere, fite
 except ImportError:
-    warnings.warn('BoltzTraP2 not imported, "boltztrap2" interpolation not available.')
+    warnings.warn('BoltzTraP2 not imported; "boltztrap2" interpolation not available.')
 
 
 class AmsetError(Exception):
@@ -78,8 +75,9 @@ def remove_from_grid(grid, grid_rm_list):
 
 def norm(v):
     """
-    Method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as
-    numpy.linalg.norm is slower for this case"""
+    Quickly calculates the norm of a vector (v: 1x3 or 3x1) as np.linalg.norm
+    can be slower if called individually for each vector.
+    """
     return (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
 
 
@@ -151,19 +149,6 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                 for step in mesh:
                     points_1d[dir].append(center[dim] + step)
                     points_1d[dir].append(center[dim] - step)
-
-    # # ensure all points are in "first BZ" (parallelepiped)
-    # for dir in ['x', 'y', 'z']:
-    #     for ik1d in range(len(points_1d[dir])):
-    #         if points_1d[dir][ik1d] > 0.5:
-    #             points_1d[dir][ik1d] -= 1
-    #         if points_1d[dir][ik1d] < -0.5:
-    #             points_1d[dir][ik1d] += 1
-    #
-    # # remove duplicates
-    # for dir in ['x', 'y', 'z']:
-    #     points_1d[dir] = list(set(np.array(points_1d[dir]).round(decimals=14)))
-
     return points_1d
 
 
@@ -213,15 +198,7 @@ def f0(E, fermi, T):
     Returns the value of Fermi-Dirac at equilibrium for E (energy),
     fermi [level] and T (temperature)
     """
-    # exponent = (E - fermi) / (k_B * T)
-    # if exponent > 40:
-    #     return 0.0
-    # elif exponent < -40:
-    #     return 1.0
-    # else:
-    #     return 1 / (1 + np.exp(exponent))
     return 1. / (1. + np.exp((E - fermi) / (k_B * T)))
-
 
 
 def df0dE(E, fermi, T):
@@ -261,13 +238,11 @@ def fermi_integral(order, fermi, T, initial_energy=0):
     fermi = fermi - initial_energy
     integral = 0.
     nsteps = 100000.0
-    # TODO: 1000000 works better (converges!) but for faster testing purposes we use larger steps
-    # emesh = np.linspace(0.0, 30*k_B*T, nsteps) # We choose 20kBT instead of infinity as the fermi distribution will be 0
-    emesh = np.linspace(0.0, 30 * k_B * T,
-                        nsteps)  # We choose 20kBT instead of infinity as the fermi distribution will be 0
+    # TODO: 1e6 works better (converges!) but for faster test we use 1e5
+    emesh = np.linspace(0.0, 30 * k_B * T, nsteps)
     dE = (emesh[-1] - emesh[0]) / (nsteps - 1.0)
     for E in emesh:
-        integral += dE * (E / (k_B * T)) ** order / (1. + np.exp((E - fermi) / (k_B * T)))
+        integral += dE*(E / (k_B*T))**order / (1.+np.exp((E-fermi) / (k_B*T)))
     return integral
 
 
