@@ -444,21 +444,33 @@ def remove_duplicate_kpoints(kpts, dk=0.01):
     return [list(k) for k in np.delete(kpts, rm_list, axis=0)]
 
 
-def find_fermi_SPB(cbm_vbm, c, T, tolerance=0.001, tolerance_loose=0.03, alpha=0.02, max_iter=1000):
+def find_fermi_SPB(cbm_vbm, c, T, tolerance=0.01, alpha=0.02, max_iter=1000):
+    """
+    Not tested! Returns the fermi level based on single parabolic band (SPB)
+    assumption. Note that this function is currently not tested and not used
+    in AMSET
+    Args:
+        cbm_vbm (dict):
+        c (float):
+        T (float):
+        tolerance (float):
+        alpha (float):
+        max_iter (int):
+    Returns (float): the fermi level under SPB assumption.
+    """
     tp = get_tp(c)
     sgn = np.sign(c)
     m_eff = np.prod(cbm_vbm[tp]["eff_mass_xx"]) ** (1.0 / 3.0)
     c *= sgn
     initial_energy = cbm_vbm[tp]["energy"]
     fermi = initial_energy + 0.02
-    iter = 0
     for iter in range(max_iter):
-        calc_doping = 4 * pi * (2 * m_eff * m_e * k_B * T / hbar ** 2) ** 1.5 * fermi_integral(0.5, fermi, T,
-                                                                                               initial_energy) * 1e-6 / e ** 1.5
+        calc_doping = 4*pi* (2*m_eff*m_e*k_B*T / hbar**2)**1.5 * \
+                    fermi_integral(0.5, fermi, T,initial_energy)*1e-6 / e**1.5
         fermi += alpha * sgn * (calc_doping - c) / abs(c + calc_doping) * fermi
         relative_error = abs(calc_doping - c) / abs(c)
         if relative_error <= tolerance:
-            # This here assumes that the SPB generator set the VBM to 0.0 and CBM=  gap + scissor
+            # This here assumes that the SPB generator set the VBM to 0.0 and CBM=gap + scissor
             if sgn < 0:
                 return fermi
             else:
