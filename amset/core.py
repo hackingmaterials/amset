@@ -467,12 +467,14 @@ class AMSET(object):
                     engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir
                 and for boltztrap2:
                     (equivalences, lattvec, coeffs)
+            iband (int): the band index for which the list of energy, velocity
+                and mass is returned
             sgn (float): options are +1 for valence band and -1 for conduction bands
                 sgn is basically ignored (doesn't matter) if scissor==0.0
             method (str): the interpolation method. Current options are
                 "boltztrap1", "boltztrap2"
             scissor (float): the amount by which the band gap is modified/scissored
-        Returns:
+        Returns (tuple of energies, velocities, masses lists/np.ndarray):
         """
         if method=="boltztrap1":
             engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = interp_params
