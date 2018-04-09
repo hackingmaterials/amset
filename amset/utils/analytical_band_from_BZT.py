@@ -346,8 +346,7 @@ class Analytical_bands(object):
                         print("Bands range: {}-{}".format(bmin,bmax))
                         return
                     elif len([ib for ib in iband if ib > bmax or ib < bmin]) > 0:
-                        print("ERROR! one band is not in range : {}-{}".format(bmin,bmax))
-                        return
+                        raise ValueError("at least one band is not in range : {}-{}".format(bmin,bmax))
                     iband2 = [nwave+(b-bmin+1) for b in iband]
                 elif i in iband2:
                     engre.append(np.fromstring(l,sep=' '))
