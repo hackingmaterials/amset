@@ -495,7 +495,7 @@ def get_energy_args(coeff_file, ibands):
         engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
             analytical_bands.get_engre(iband=ibands)
     except TypeError as e:
-        raise AmsetError('try reducing Ecut to include fewer bands')
+        raise ValueError('try reducing Ecut to include fewer bands', e)
 
     nstv, vec, vec2 = analytical_bands.get_star_functions(
             latt_points, nsym, symop, nwave, br_dir=br_dir)
