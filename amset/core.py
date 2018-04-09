@@ -463,8 +463,10 @@ class AMSET(object):
             kpts ([[1x3 array]]): list of fractional coordinates of k-points
             interp_params (tuple): a tuple or list containing positional
                 arguments fed to the interpolation method.
-            engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir: all obtained via
-                get_energy_args
+                e.g. for boltztrap1:
+                    engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir
+                and for boltztrap2:
+                    (equivalences, lattvec, coeffs)
             sgn (float): options are +1 for valence band and -1 for conduction bands
                 sgn is basically ignored (doesn't matter) if scissor==0.0
             method (str): the interpolation method. Current options are
@@ -485,6 +487,11 @@ class AMSET(object):
                 energies.append(energy)
                 velocities.append(velocity)
                 masses.append(effective_m)
+        elif method=="boltztrap2":
+                fitted = fite.getBands(np.array(kpts), *interp_params)
+                energies = fitted[0][iband - 1] * Hartree_to_eV - sgn * scissor / 2.
+                velocities = fitted[1][:, :, iband - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm
+                masses = fitted[2][:, :, :, iband - 1].T* e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e
         else:
             raise AmsetError('Unsupported interpolation "{}"'.format(method))
         return energies, velocities, masses
