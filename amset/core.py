@@ -822,13 +822,16 @@ class AMSET(object):
                     if self.poly_bands is not None:
                         for ik in range(len(kpts[tp])):
                             energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
-                    elif self.interpolation == "boltztrap1":
-                        energies[tp], velocities[tp], _ = self.interpolate_bs(kpts[tp], interp_params=self.interp_params, iband=i * num_bands['p'] + ib, sgn=sgn, scissor=self.scissor)
-                    elif self.interpolation == "boltztrap2":
-                        fitted = fite.getBands(np.array(kpts[tp]), *self.interp_params)
-                        energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Hartree_to_eV - sgn*self.scissor/2.
                     else:
-                        raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
+                        iband = i * num_bands['p'] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm['p']['bidx']+ i * num_bands['p']
+                        energies[tp], velocities[tp], _ = self.interpolate_bs(kpts[tp], interp_params=self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor)
+                    # elif self.interpolation == "boltztrap1":
+                    #     energies[tp], velocities[tp], _ = self.interpolate_bs(kpts[tp], interp_params=self.interp_params, iband=i * num_bands['p'] + ib, sgn=sgn, scissor=self.scissor)
+                    # elif self.interpolation == "boltztrap2":
+                    #     fitted = fite.getBands(np.array(kpts[tp]), *self.interp_params)
+                    #     energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Hartree_to_eV - sgn*self.scissor/2.
+                    # else:
+                    #     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
 
                     self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
 
