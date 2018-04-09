@@ -722,20 +722,26 @@ class AMSET(object):
 
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1) ** i
-
+            iband = i*self.cbm_vbm0["p"]["included"] if self.interpolation=="boltztrap1" else self.cbm_vbm[tp]["bidx"]
             if self.poly_bands is not None:
-                energy, velocity, effective_m = self.calc_poly_energy(
-                    self.cbm_vbm0[tp]["kpoint"], tp, 0)
-            elif self.interpolation=="boltztrap1":
-                fitted = self.interpolate_bs([self.cbm_vbm0[tp]["kpoint"]],
-                    self.interp_params, iband=i*self.cbm_vbm0["p"]["included"],
-                        sgn=sgn, scissor=self.scissor)
-                energy = fitted[0][0]
-                effective_m = fitted[2][0]
-            elif self.interpolation=="boltztrap2":
-                fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.interp_params)
-                energy = fitted[0][self.cbm_vbm[tp]["bidx"]-1][0]*Hartree_to_eV - sgn*self.scissor/2.
-                effective_m = 1/fitted[2][:, :, 0, self.cbm_vbm0[tp]["bidx"]-1].T * e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e
+                energy, velocity, effective_m = self.calc_poly_energy(self.cbm_vbm0[tp]["kpoint"], tp, 0)
+            else:
+                energies, _, masses = self.interpolate_bs([self.cbm_vbm0[tp]["kpoint"]], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor)
+                energy = energies[0]
+                effective_m = masses[0]
+            # elif self.interpolation=="boltztrap1":
+            #     fitted = self.interpolate_bs([self.cbm_vbm0[tp]["kpoint"]],
+            #         self.interp_params, iband=i*self.cbm_vbm0["p"]["included"],
+            #             sgn=sgn, scissor=self.scissor)
+            #     energy = fitted[0][0]
+            #     effective_m = fitted[2][0]
+            # elif self.interpolation=="boltztrap2":
+            #     fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.interp_params)
+            #     energy = fitted[0][self.cbm_vbm[tp]["bidx"]-1][0]*Hartree_to_eV - sgn*self.scissor/2.
+            #     effective_m = 1/fitted[2][:, :, 0, self.cbm_vbm0[tp]["bidx"]-1].T * e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e
+
+
+
             self.offset_from_vrun[tp] = energy - self.cbm_vbm0[tp]["energy"]
 
 
