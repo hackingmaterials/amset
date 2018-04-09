@@ -566,23 +566,17 @@ class AMSET(object):
             else:
                 sgn = 1.0
 
-            if interpolation == "boltztrap1":
-                energies, velocities, masses = self.interpolate_bs(kpts, interp_params, iband=iband,
-                          sgn=sgn, scissor=scissor)
-                normv = [norm(v) for v in velocities]
-                masses = [mass.trace()/3.0 for mass in masses]
-
-            #TODO: THIS BTRAP2 WILL BE WRONG BECAUE IBANDS ARE 0 & 1 BUT getBands TAKES IN THE ACTUAL IBANDS
-            elif interpolation == "boltztrap2":
-                fitted = fite.getBands(np.array(kpts), *interp_params)
-                energies = fitted[0][ibands[iband] - 1] * Hartree_to_eV - sgn * scissor / 2.
-                velocities = fitted[1][:, :, ibands[iband] - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm
-                normv = [norm(v) for v in velocities]
-                masses = [1/(m.trace()/ 3.)* e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e \
-                          for m in fitted[2][:, :, :, ibands[iband] - 1].T]
-            else:
-                raise ValueError(
-                    'Unsupported interpolation: "{}"'.format(interpolation))
+            iband = iband if interpolation=="boltztrap1" else ibands[iband]
+            energies, velocities, masses = self.interpolate_bs(kpts, interp_params, iband=iband, sgn=sgn, method=interpolation, scissor=scissor)
+            # if interpolation == "boltztrap1":
+            #     energies, velocities, masses = self.interpolate_bs(kpts, interp_params, iband=iband, sgn=sgn, method=interpolation, scissor=scissor)
+            # elif interpolation == "boltztrap2":
+            #     energies, velocities, masses = self.interpolate_bs(kpts,
+            #         interp_params, iband=ibands[iband], sgn=sgn, method=interpolation, scissor=scissor)
+            # else:
+            #     raise ValueError('Unsupported interpolation: "{}"'.format(interpolation))
+            normv = [norm(v) for v in velocities]
+            masses = [mass.trace() / 3.0 for mass in masses]
             indexes = np.argsort(normv)
             energies = [energies[i] for i in indexes]
             normv = [normv[i] for i in indexes]
