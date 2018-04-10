@@ -15,29 +15,27 @@ from sys import stdout as STDOUT
 
 import numpy as np
 from math import log, pi
-from pymatgen.electronic_structure.boltztrap import BoltztrapRunner, \
-    BoltztrapAnalyzer
-from pymatgen.io.vasp import Vasprun, Spin, Structure
+from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
+from pymatgen.io.vasp import Vasprun, Spin
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from monty.json import MontyEncoder, MontyDecoder
 import cProfile
 from copy import deepcopy
 import multiprocessing
 
-from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, get_dos_from_poly_bands, get_energy, get_poly_energy
+from amset.utils.analytical_band_from_BZT import Analytical_bands, get_dos_from_poly_bands, get_poly_energy
 
-from amset.utils.tools import norm, grid_norm, generate_k_mesh_axes, \
+from amset.utils.tools import norm, generate_k_mesh_axes, \
     create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
-    fermi_integral, GB, calculate_Sio, calculate_Sio_list, remove_from_grid, \
-    get_tp, \
+    fermi_integral, calculate_Sio, remove_from_grid, get_tp, \
     remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
     get_energy_args, get_bindex_bspin, \
     AmsetError, kpts_to_first_BZ, get_dos_boltztrap2, \
     setup_custom_logger, insert_intermediate_kpoints, interpolate_bs
 
-from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, \
+from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, \
     A_to_nm, e, k_B, \
-    epsilon_0, default_small_E, dTdz, sq3, Hartree_to_eV
+    epsilon_0, default_small_E, dTdz, sq3
 
 try:
     import BoltzTraP2
@@ -526,13 +524,6 @@ class AMSET(object):
 
             iband = iband if interpolation=="boltztrap1" else ibands[iband]
             energies, velocities, masses = interpolate_bs(kpts, interp_params, iband=iband, sgn=sgn, method=interpolation, scissor=scissor, matrix=self._vrun.lattice.matrix)
-            # if interpolation == "boltztrap1":
-            #     energies, velocities, masses = self.interpolate_bs(kpts, interp_params, iband=iband, sgn=sgn, method=interpolation, scissor=scissor)
-            # elif interpolation == "boltztrap2":
-            #     energies, velocities, masses = self.interpolate_bs(kpts,
-            #         interp_params, iband=ibands[iband], sgn=sgn, method=interpolation, scissor=scissor)
-            # else:
-            #     raise ValueError('Unsupported interpolation: "{}"'.format(interpolation))
             normv = [norm(v) for v in velocities]
             masses = [mass.trace() / 3.0 for mass in masses]
             indexes = np.argsort(normv)
@@ -687,22 +678,8 @@ class AMSET(object):
                 energies, _, masses = interpolate_bs([self.cbm_vbm0[tp]["kpoint"]], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix)
                 energy = energies[0]
                 effective_m = masses[0]
-            # elif self.interpolation=="boltztrap1":
-            #     fitted = self.interpolate_bs([self.cbm_vbm0[tp]["kpoint"]],
-            #         self.interp_params, iband=i*self.cbm_vbm0["p"]["included"],
-            #             sgn=sgn, scissor=self.scissor)
-            #     energy = fitted[0][0]
-            #     effective_m = fitted[2][0]
-            # elif self.interpolation=="boltztrap2":
-            #     fitted = fite.getBands(np.array([self.cbm_vbm0[tp]["kpoint"]]), *self.interp_params)
-            #     energy = fitted[0][self.cbm_vbm[tp]["bidx"]-1][0]*Hartree_to_eV - sgn*self.scissor/2.
-            #     effective_m = 1/fitted[2][:, :, 0, self.cbm_vbm0[tp]["bidx"]-1].T * e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e
-
-
 
             self.offset_from_vrun[tp] = energy - self.cbm_vbm0[tp]["energy"]
-
-
             self.logger.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun[tp]))
             self.cbm_vbm0[tp]["energy"] = energy
             self.cbm_vbm0[tp]["eff_mass_xx"] = effective_m.diagonal()
@@ -783,13 +760,6 @@ class AMSET(object):
                     else:
                         iband = i * num_bands['p'] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm['p']['bidx']+ i * num_bands['p']
                         energies[tp], velocities[tp], _ = interpolate_bs(kpts[tp], interp_params=self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix)
-                    # elif self.interpolation == "boltztrap1":
-                    #     energies[tp], velocities[tp], _ = self.interpolate_bs(kpts[tp], interp_params=self.interp_params, iband=i * num_bands['p'] + ib, sgn=sgn, scissor=self.scissor)
-                    # elif self.interpolation == "boltztrap2":
-                    #     fitted = fite.getBands(np.array(kpts[tp]), *self.interp_params)
-                    #     energies[tp] = fitted[0][self.cbm_vbm['p']['bidx']-1+ i * num_bands['p'], :]*Hartree_to_eV - sgn*self.scissor/2.
-                    # else:
-                    #     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
 
                     self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
 
@@ -797,7 +767,6 @@ class AMSET(object):
                         e_sort_idx = np.array(energies[tp]).argsort() if tp == "n" else np.array(energies[tp]).argsort()[::-1]
                         energies_sorted[tp] = [energies[tp][ie] for ie in e_sort_idx]
                         energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
-                        # velocities[tp] = [velocities[tp][ie] for ie in e_sort_idx]
                         self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
                         kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
@@ -1675,26 +1644,6 @@ class AMSET(object):
                             self.kgrid[tp]["kpoints"][ib][ik], important_points[tp], return_diff=True)) / A_to_nm
                     self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
                     self.kgrid[tp]["norm(actual_k)"][ib][ik] = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
-                    # if self.poly_bands is None:
-                    #     if self.interpolation == "boltztrap1":
-                    #         energy, de, dde = get_energy(
-                    #             self.kgrid[tp]["kpoints"][ib][ik], engre[i * self.cbm_vbm["p"]["included"] + ib],
-                    #             nwave, nsym, nstv, vec, vec2, out_vec2, br_dir=br_dir)
-                    #         energy = energy * Ry_to_eV - sgn * self.scissor / 2.0
-                    #         velocity_signed = self.get_cartesian_coords(de) / hbar * A_to_m * m_to_cm * Ry_to_eV
-                    #         velocity = abs( self.get_cartesian_coords(de, reciprocal=False) ) / (hbar*2*pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-                    #         effective_mass = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
-                    #         self.velocity_signed[tp][ib][ik] = velocity_signed
-                    #     elif self.interpolation == "boltztrap2":
-                    #         fitted = fite.getBands(np.array(kpts[tp]), *self.interp_params)
-                    #         iband = self.cbm_vbm["p"]["bidx"]-1 + i*self.cbm_vbm["p"]["included"]
-                    #         energy = fitted[0][iband, ik]*Ry_to_eV - sgn*self.scissor/2.
-                    #         velocity = abs(fitted[1][:, ik, iband].T / hbar * A_to_m * m_to_cm * Ry_to_eV)
-                    #         effective_mass =  hbar ** 2 / (
-                    #                         fitted[2][:, :, ik, iband].T * 4 * pi ** 2) / m_e / A_to_m ** 2 * e * Ry_to_eV
-                    #     else:
-                    #         raise ValueError("")
-                    # else:
                     if self.poly_bands is not None:
                         self.kgrid[tp]["energy"][ib][ik], \
                                 self.kgrid[tp]["velocity"][ib][ik], \
@@ -1703,9 +1652,7 @@ class AMSET(object):
                                     self.kgrid[tp]["cartesian kpoints"][ib][ik],
                                    poly_bands=self.poly_bands, type=tp, ib=ib,
                                         bandgap=self.dft_gap + self.scissor)
-                    # self.kgrid[tp]["energy"][ib][ik] = energy
-                    # self.kgrid[tp]["velocity"][ib][ik] = velocity
-                    # self.kgrid[tp]["norm(v)"][ib][ik] = norm(velocity)
+
                     self.kgrid[tp]["norm(v)"][ib][ik] = norm(self.kgrid[tp]["velocity"][ib][ik])
                     if (len(rm_idx_list[tp][ib]) + 20 < len(self.kgrid[tp]['kpoints'][ib])) and (
                             (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() \
@@ -1715,8 +1662,6 @@ class AMSET(object):
                             ((self.max_normk[tp]) and (self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]) and (self.poly_bands0 is None))
                     ):
                         rm_idx_list[tp][ib].append(ik)
-
-                    # self.kgrid[tp]["effective mass"][ib][ik] = effective_mass
 
                     if self.poly_bands is None:
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
