@@ -4,8 +4,10 @@ import os
 import sys
 import warnings
 
-from amset.utils.analytical_band_from_BZT import Analytical_bands, outer
-from amset.utils.constants import hbar, m_e, e, k_B, epsilon_0, sq3, Hartree_to_eV
+from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, \
+    get_energy
+from amset.utils.constants import hbar, m_e, e, k_B, epsilon_0, sq3, \
+    Hartree_to_eV, Ry_to_eV, A_to_m, m_to_cm
 from math import pi, log
 
 from pymatgen import Spin
@@ -597,3 +599,50 @@ def get_dos_boltztrap2(params, st, mesh, estep=0.001, vbmidx=None,
             g = height * np.exp(-((e_mesh - energies[b, ik]) / width) ** 2 / 2.)
             dos += w * g
     return e_mesh, dos, nbands
+
+
+def interpolate_bs(kpts, interp_params, iband, sgn, method="boltztrap1", scissor=0.0, matrix=None):
+    """
+    Args:
+        kpts ([1x3 array]): list of fractional coordinates of k-points
+        interp_params (tuple): a tuple or list containing positional
+            arguments fed to the interpolation method.
+            e.g. for boltztrap1:
+                engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir
+            and for boltztrap2:
+                (equivalences, lattvec, coeffs)
+        iband (int): the band index for which the list of energy, velocity
+            and mass is returned
+        sgn (float): options are +1 for valence band and -1 for conduction bands
+            sgn is basically ignored (doesn't matter) if scissor==0.0
+        method (str): the interpolation method. Current options are
+            "boltztrap1", "boltztrap2"
+        scissor (float): the amount by which the band gap is modified/scissored
+        matrix (3x3 np.ndarray): the direct lattice matrix used to convert
+            the velocity (in fractional coordinates) to cartesian in
+            boltztrap1 method.
+    Returns (tuple of energies, velocities, masses lists/np.ndarray):
+    """
+    if matrix is None:
+        matrix = np.eye(3)
+    if method=="boltztrap1":
+        engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = interp_params
+        energies = []
+        velocities = []
+        masses = []
+        for kpt in kpts:
+            energy, de, dde = get_energy(kpt, engre[iband], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
+            energy = energy * Ry_to_eV - sgn * scissor / 2.0
+            velocity = abs(np.dot(matrix, de.T).T) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+            effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
+            energies.append(energy)
+            velocities.append(velocity)
+            masses.append(effective_m)
+    elif method=="boltztrap2":
+            fitted = fite.getBands(np.array(kpts), *interp_params)
+            energies = fitted[0][iband - 1] * Hartree_to_eV - sgn * scissor / 2.
+            velocities = fitted[1][:, :, iband - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm
+            masses = fitted[2][:, :, :, iband - 1].T* e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e
+    else:
+        raise AmsetError('Unsupported interpolation "{}"'.format(method))
+    return energies, velocities, masses
