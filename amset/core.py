@@ -33,7 +33,7 @@ from amset.utils.tools import norm, grid_norm, generate_k_mesh_axes, \
     remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
     get_energy_args, get_bindex_bspin, \
     AmsetError, kpts_to_first_BZ, get_dos_boltztrap2, \
-    setup_custom_logger, insert_intermediate_kpoints
+    setup_custom_logger, insert_intermediate_kpoints, interpolate_bs
 
 from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, \
     A_to_nm, e, k_B, \
@@ -457,54 +457,6 @@ class AMSET(object):
             self.to_file()
 
 
-    def interpolate_bs(self, kpts, interp_params, iband, sgn, method="boltztrap1", scissor=0.0, matrix=None):
-        """
-        Args:
-            kpts ([1x3 array]): list of fractional coordinates of k-points
-            interp_params (tuple): a tuple or list containing positional
-                arguments fed to the interpolation method.
-                e.g. for boltztrap1:
-                    engre, nwave, nsym, stv, vec, vec2, out_vec2, br_dir
-                and for boltztrap2:
-                    (equivalences, lattvec, coeffs)
-            iband (int): the band index for which the list of energy, velocity
-                and mass is returned
-            sgn (float): options are +1 for valence band and -1 for conduction bands
-                sgn is basically ignored (doesn't matter) if scissor==0.0
-            method (str): the interpolation method. Current options are
-                "boltztrap1", "boltztrap2"
-            scissor (float): the amount by which the band gap is modified/scissored
-            matrix (3x3 np.ndarray): the direct lattice matrix used to convert
-                the velocity (in fractional coordinates) to cartesian in
-                boltztrap1 method.
-        Returns (tuple of energies, velocities, masses lists/np.ndarray):
-        """
-        if matrix is None:
-            matrix = np.eye(3)
-        if method=="boltztrap1":
-            engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = interp_params
-            energies = []
-            velocities = []
-            masses = []
-            for kpt in kpts:
-                energy, de, dde = get_energy(kpt, engre[iband], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
-                energy = energy * Ry_to_eV - sgn * scissor / 2.0
-                # velocity = abs(self.get_cartesian_coords(de, reciprocal=False)) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-                velocity = abs(np.dot(matrix, de.T).T) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-                effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
-                energies.append(energy)
-                velocities.append(velocity)
-                masses.append(effective_m)
-        elif method=="boltztrap2":
-                fitted = fite.getBands(np.array(kpts), *interp_params)
-                energies = fitted[0][iband - 1] * Hartree_to_eV - sgn * scissor / 2.
-                velocities = fitted[1][:, :, iband - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm
-                masses = fitted[2][:, :, :, iband - 1].T* e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e
-        else:
-            raise AmsetError('Unsupported interpolation "{}"'.format(method))
-        return energies, velocities, masses
-
-
     def get_bs_extrema(self, bs, coeff_file=None, interp_params=None,
                        interpolation="boltztrap1",
                        nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
@@ -573,7 +525,7 @@ class AMSET(object):
                 sgn = 1.0
 
             iband = iband if interpolation=="boltztrap1" else ibands[iband]
-            energies, velocities, masses = self.interpolate_bs(kpts, interp_params, iband=iband, sgn=sgn, method=interpolation, scissor=scissor, matrix=self._vrun.lattice.matrix)
+            energies, velocities, masses = interpolate_bs(kpts, interp_params, iband=iband, sgn=sgn, method=interpolation, scissor=scissor, matrix=self._vrun.lattice.matrix)
             # if interpolation == "boltztrap1":
             #     energies, velocities, masses = self.interpolate_bs(kpts, interp_params, iband=iband, sgn=sgn, method=interpolation, scissor=scissor)
             # elif interpolation == "boltztrap2":
@@ -732,7 +684,7 @@ class AMSET(object):
             if self.poly_bands is not None:
                 energy, velocity, effective_m = self.calc_poly_energy(self.cbm_vbm0[tp]["kpoint"], tp, 0)
             else:
-                energies, _, masses = self.interpolate_bs([self.cbm_vbm0[tp]["kpoint"]], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix)
+                energies, _, masses = interpolate_bs([self.cbm_vbm0[tp]["kpoint"]], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix)
                 energy = energies[0]
                 effective_m = masses[0]
             # elif self.interpolation=="boltztrap1":
@@ -830,7 +782,7 @@ class AMSET(object):
                             energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                     else:
                         iband = i * num_bands['p'] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm['p']['bidx']+ i * num_bands['p']
-                        energies[tp], velocities[tp], _ = self.interpolate_bs(kpts[tp], interp_params=self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix)
+                        energies[tp], velocities[tp], _ = interpolate_bs(kpts[tp], interp_params=self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix)
                     # elif self.interpolation == "boltztrap1":
                     #     energies[tp], velocities[tp], _ = self.interpolate_bs(kpts[tp], interp_params=self.interp_params, iband=i * num_bands['p'] + ib, sgn=sgn, scissor=self.scissor)
                     # elif self.interpolation == "boltztrap2":
@@ -1715,7 +1667,7 @@ class AMSET(object):
                 self.kgrid[tp]["energy"][ib], \
                         self.kgrid[tp]["velocity"][ib], \
                         self.kgrid[tp]["effective mass"][ib] = \
-                    self.interpolate_bs(self.kgrid[tp]["kpoints"][ib], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix)
+                    interpolate_bs(self.kgrid[tp]["kpoints"][ib], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix)
 
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
