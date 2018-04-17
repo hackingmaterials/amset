@@ -610,6 +610,20 @@ class AMSET(object):
 
 
     def generate_kmesh(self, important_points, kgrid_tp='coarse'):
+        """
+        List of kpoints surrounding important points. This adaptive mesh is
+        finer closer to the "important" points or band extrema and they get
+        coarser further away.
+
+        Args:
+            important_points ({"n": [3x1 array], "p": [3x1 array]}): list of
+                important k-points for conduction ("n") and valence ("p") bands
+            kgrid_tp (str): type of kgrid or how dense it is. options are:
+                "very coarse", "coarse", "fine", "very fine", "super fine"
+        Returns ({"n": [3x1 array], "p": [3x1 array]}): list of k-points for
+            both n and p type.
+
+        """
         self.kgrid_array = {}
         self.kgrid_array_cartesian = {}
         self.k_hat_array = {}
@@ -631,10 +645,6 @@ class AMSET(object):
             self.k_hat_array[tp] = normalize_array(self.kgrid_array[tp])
             self.k_hat_array_cartesian[tp] = normalize_array(self.kgrid_array_cartesian[tp])
             self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
-
-            # self.logger.info("number of original ibz {}-type k-points: {}".format(tp, len(kpts[tp])))
-            # self.logger.debug("time to get the ibz k-mesh: \n {}".format(time.time()-start_time))
-            # start_time = time.time()
         return kpts
 
     def update_cbm_vbm_dos(self, coeff_file):
