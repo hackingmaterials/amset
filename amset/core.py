@@ -721,7 +721,6 @@ class AMSET(object):
         else:
             # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
             # these points will be used later to generate energy based on the minimum norm(k-k_i)
-
             self.poly_bands = np.array(self.poly_bands0)
             for ib in range(len(self.poly_bands0)):
                 for valley in range(len(self.poly_bands0[ib])):
@@ -729,11 +728,6 @@ class AMSET(object):
                         self.get_sym_eq_ks_in_first_BZ(self.poly_bands0[ib][valley][0], cartesian=True))
 
         self.logger.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
-
-        # calculate only the CBM and VBM energy values - @albalu why is this separate from the other energy value calculations?
-        # here we assume that the cbm and vbm k-point coordinates read from vasprun.xml are correct:
-
-        # calculate the energy at initial ibz k-points and look at the first band to decide on additional/adaptive ks
         start_time = time.time()
         energies = {"n": [0.0 for ik in kpts['n']], "p": [0.0 for ik in kpts['p']]}
         energies_sorted = {"n": [0.0 for ik in kpts['n']], "p": [0.0 for ik in kpts['p']]}
@@ -743,7 +737,6 @@ class AMSET(object):
         self.energy_array = {'n': [], 'p': []}
 
         if return_energies:
-            # calculate energies
             for i, tp in enumerate(["p", "n"]):
                 sgn = (-1) ** i
                 for ib in range(num_bands[tp]):
@@ -756,7 +749,8 @@ class AMSET(object):
 
                     self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
 
-                    if ib == 0:      # we only include the first band to decide on order of ibz k-points
+                    # we only need the 1st band energies to order k-points:
+                    if ib == 0:
                         e_sort_idx = np.array(energies[tp]).argsort() if tp == "n" else np.array(energies[tp]).argsort()[::-1]
                         energies_sorted[tp] = [energies[tp][ie] for ie in e_sort_idx]
                         energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
