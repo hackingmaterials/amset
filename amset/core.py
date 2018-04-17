@@ -297,7 +297,6 @@ class AMSET(object):
                     continue
 
                 corrupt_tps = self.init_kgrid(kpts, important_points, once_called=once_called)
-                # self.logger.debug('here new energy_arrays:\n{}'.format(self.energy_array['n']))
                 for tp in corrupt_tps:
                     self.count_mobility[self.ibrun][tp] = False
 
@@ -310,9 +309,7 @@ class AMSET(object):
                 self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
                 if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
                     warnings.warn("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
-                    # raise ValueError("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
 
-                # initialize g in the egrid
                 self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
                 self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
 
@@ -398,7 +395,6 @@ class AMSET(object):
                                 if self.k_integration:
                                     f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                                     f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                    # if denominator is defined as a single common denominator, += if specific to each valley, self.denominator[c][T][tp] = ...
                                     self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
                                     self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
                                 elif self.e_integration:
@@ -590,6 +586,13 @@ class AMSET(object):
 
 
     def calculate_spb_transport(self):
+        """
+        Using single parabolic band (SPB), calculates some elastic scattering-
+        limited mobility values named with an SPB_ prefix. For example,
+        mobility limited by acoustic phonon deformation potential (SPB_ACD)
+
+        Returns: None; results are saved inside self.mobility
+        """
         for tp in ['p', 'n']:
             for c in self.dopings:
                 for T in self.temperatures:
