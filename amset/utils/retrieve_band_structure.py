@@ -17,7 +17,8 @@ from pymatgen.io.vasp import Vasprun
 from amset.utils.analytical_band_from_BZT import get_energy
 # from pymatgen import Spin
 # from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from amset.utils.tools import get_energy_args, get_bindex_bspin, norm
+from amset.utils.tools import get_energy_args, get_bindex_bspin, norm, \
+    interpolate_bs
 
 # from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, m_to_cm, A_to_nm, e, k_B,\
 #                         epsilon_0, default_small_E, dTdz, sq3
@@ -27,43 +28,54 @@ api = MPRester("fDJKEZpxSyvsXdCt")
 
 def retrieve_bs_boltztrap1(coeff_file, bs, ibands, cbm, matrix=None):
     engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = get_energy_args(coeff_file, ibands)
-    pf = PlotlyFig(filename='Energy-bt1')
+    interp_params = get_energy_args(coeff_file, ibands)
+
+
+
+    pf = PlotlyFig(filename='plots/Energy-bt1')
     plot_data =[]
     v_data = []
     mass_data = []
     trace_names = []
     mass_unit_conversion = e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
+    Eref = 0.0
     for i, iband in enumerate(ibands):
-        en = []
-        vel = []
-        masses = []
+        # en = []
+        # vel = []
+        # masses = []
         sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
-        print(len(sym_line_kpoints))
-        for kpt in sym_line_kpoints:
-            ee, de, dde = get_energy(kpt, engre[i], nwave, nsym, nstv, vec, vec2=vec2, out_vec2=out_vec2, br_dir=br_dir, cbm=cbm)
-            en.append(ee*Ry_to_eV)
-            v = matrix.dot(de)
-            transformed_dde = dde/ 0.52917721067
-            # vel.append(norm(v) / (hbar*2*np.pi)* Ry_to_eV/ 0.52917721067 * A_to_m * m_to_cm)
-            vel.append(np.linalg.norm(v) / (hbar*2*np.pi)* Ry_to_eV/ 0.52917721067 * A_to_m * m_to_cm)
-            masses.append(1/(transformed_dde.trace()/3.0) * mass_unit_conversion)
+        # print(len(sym_line_kpoints))
+        # for kpt in sym_line_kpoints:
+        #     ee, de, dde = get_energy(kpt, engre[i], nwave, nsym, nstv, vec, vec2=vec2, out_vec2=out_vec2, br_dir=br_dir, cbm=cbm)
+        #     en.append(ee*Ry_to_eV)
+        #     v = matrix.dot(de)
+        #     transformed_dde = dde/ 0.52917721067
+        #     # vel.append(norm(v) / (hbar*2*np.pi)* Ry_to_eV/ 0.52917721067 * A_to_m * m_to_cm)
+        #     vel.append(np.linalg.norm(v) / (hbar*2*np.pi)* Ry_to_eV/ 0.52917721067 * A_to_m * m_to_cm)
+        #     masses.append(1/(transformed_dde.trace()/3.0) * mass_unit_conversion)
+
+        sgn = -1.0 if cbm else 1.0
+        en, vel, masses = interpolate_bs(sym_line_kpoints, interp_params, iband=i, sgn=sgn,
+                       method="boltztrap1", scissor=0.0, matrix=matrix)
+        vel = np.linalg.norm(vel, axis=1)
+        masses = [mass.trace()/3.0 for mass in masses]
+        if i==0:
+            Eref = max(en)
+        en = [E - Eref for E in en]
         plot_data.append((np.linspace(0, len(en)), en))
         v_data.append((en, vel))
         mass_data.append((en, masses))
         trace_names.append('band {}'.format(iband))
-    # print('boltztrap1')
-    # print(en[:10])
-    # print(vel[:10])
     pf.xy(plot_data, names=[n for n in trace_names])
-    pf2 = PlotlyFig(filename='Velocity-bt1')
+    pf2 = PlotlyFig(filename='plots/Velocity-bt1')
     pf2.xy(v_data, names=[n for n in trace_names])
-    pf3 = PlotlyFig(filename='mass-bt1')
+    pf3 = PlotlyFig(filename='plots/mass-bt1')
     pf3.xy(mass_data, names=[n for n in trace_names])
 
 
 def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
     ibands = [i-1 for i in ibands]
-    pf = PlotlyFig(filename='Energy-bt2')
+    pf = PlotlyFig(filename='plots/Energy-bt2')
     sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
 
     # bz_data = BoltzTraP2.dft.DFTData(vrun_path, derivatives=False)
@@ -104,7 +116,7 @@ def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
     # print(EE[iband, :10])
     # print(vel[:10, iband])
     pf.xy(plot_data, names=[n for n in names])
-    pf2 = PlotlyFig(filename='Velocity-bt2')
+    pf2 = PlotlyFig(filename='plots/Velocity-bt2')
     pf2.xy(v_data, names=[n for n in names])
 
     mass_data = []
@@ -116,7 +128,7 @@ def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
             # masses.append(1/(dde) * hbar ** 2/ m_e / A_to_m ** 2 * e * Hartree_to_eV)
             masses.append(1/dde * mass_unit_conversion)
         mass_data.append((EE[iband, :], masses))
-    pf3 = PlotlyFig(filename='mass-bt2')
+    pf3 = PlotlyFig(filename='plots/mass-bt2')
     pf3.xy(mass_data, names=[n for n in names])
     print('mass tensor at the point {} of band {}:\n{}'.format(kpts[0], iband, 1.0/fitted[2][:, :, 0, iband]* mass_unit_conversion))
 
