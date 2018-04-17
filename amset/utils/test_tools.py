@@ -66,7 +66,7 @@ class AmsetToolsTest(unittest.TestCase):
         dft_vbm = bs.get_vbm()['energy']
         dft_cbm = bs.get_cbm()['energy']
         dft_vb = np.array(bs.bands[vbm_bidx][vbm_idx]) - dft_vbm
-        dft_cb = np.array(bs.bands[cbm_bidx][cbm_idx]) - dft_cbm
+        dft_cb = np.array(bs.bands[cbm_bidx][cbm_idx]) - dft_vbm
         vbm_idx += 1 # in boltztrap1 interpolation the first band is 1st not 0th
         cbm_idx += 1
 
@@ -90,11 +90,20 @@ class AmsetToolsTest(unittest.TestCase):
         self.assertAlmostEqual(bs.get_band_gap()['energy'], interp_gap, 4)
         self.assertAlmostEqual(interp_gap, 0.9582, 4)
 
-        print(vb_en1 - dft_vb)
-        print(cb_en1 - dft_cb)
+        # check exact match between DFT energy and interpolated band energy
+        self.assertAlmostEqual(np.mean(vb_en1 - dft_vb), 0.0, 4)
+        self.assertAlmostEqual(np.std(vb_en1 - dft_vb), 0.0, 4)
+        self.assertAlmostEqual(np.mean(cb_en1 - dft_cb), 0.0, 4)
+        self.assertAlmostEqual(np.std(cb_en1 - dft_cb), 0.0, 4)
 
-        print(np.mean(vb_en1))
-        print(np.mean(cb_en1))
+        # check isotropy of the velocity of the interpolated band structure
+        # print(np.mean(np.abs(vb_vel1), axis=0))
+        # print(np.mean(np.abs(cb_vel1), axis=0))
+        self.assertAlmostEqual(np.mean(np.mean(np.abs(vb_vel1), axis=0)),
+                np.mean([39592892.480386, 73561072.59107, 41876022.480808]), 3)
+        self.assertAlmostEqual(np.mean(np.mean(np.abs(cb_vel1), axis=0)),
+                np.mean([75332765.341095, 80829076.06507, 92562889.628146]), 3)
+
 
         if check_bzt2:
             vb_en2, vb_ve2, vb_masses2 = interpolate_bs(kpts, interp_params2,
