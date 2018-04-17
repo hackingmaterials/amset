@@ -601,7 +601,8 @@ def get_dos_boltztrap2(params, st, mesh, estep=0.001, vbmidx=None,
     return e_mesh, dos, nbands
 
 
-def interpolate_bs(kpts, interp_params, iband, sgn, method="boltztrap1", scissor=0.0, matrix=None):
+def interpolate_bs(kpts, interp_params, iband, sgn,
+                   method="boltztrap1", scissor=0.0, matrix=None):
     """
     Args:
         kpts ([1x3 array]): list of fractional coordinates of k-points
@@ -612,7 +613,10 @@ def interpolate_bs(kpts, interp_params, iband, sgn, method="boltztrap1", scissor
             and for boltztrap2:
                 (equivalences, lattvec, coeffs)
         iband (int): the band index for which the list of energy, velocity
-            and mass is returned
+            and mass is returned. If "boltztrap2" method is used, this is the
+            actual band index while if "boltztrap1" methid is used, this is the
+            ith band among the bands that were included in the fit (i.e. when
+            get_energy_args is called)
         sgn (float): options are +1 for valence band and -1 for conduction bands
             sgn is basically ignored (doesn't matter) if scissor==0.0
         method (str): the interpolation method. Current options are
