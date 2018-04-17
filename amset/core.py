@@ -194,18 +194,16 @@ class AMSET(object):
             if self.fermi_calc_type == 'k':
                 kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
                 # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
-                kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
+                _, _ = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
                 self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
             elif self.fermi_calc_type == 'e':
                 kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='very coarse')
                 kpts= self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=False, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
-                # self.pre_init_egrid(once_called=False, dos_tp='standard')
                 self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
                 for c in self.dopings:
                     for T in self.temperatures:
                         self.fermi_level[c][T] = self.find_fermi(c, T)
         else:
-        ## uncomment the following only for quick testing if fermi_levels are known
             self.fermi_level = self.pre_determined_fermi
             self.calc_doping = {doping: {T: {'n': 0.0, 'p': 0.0} for T in list(self.fermi_level[doping].keys())} for doping in list(self.fermi_level.keys())}
             for doping in list(self.fermi_level.keys()):
@@ -230,13 +228,12 @@ class AMSET(object):
                 self.count_mobility[ivt]['p'] = False
         self.ibands_tuple = ibands_tuple
         self.count_mobility0 = deepcopy(self.count_mobility)
-        #TODO: this ibands_tuple is to treat each band (and valleys with) independently (so each time num_bands will be {'n': 1, 'p': 1} but with different band indexes
+        #each time num_bands will be {'n': 1, 'p': 1} but w/ different band idx
         if self.max_nbands:
             ibands_tuple = ibands_tuple[:min(len(ibands_tuple), self.max_nbands)]
 
         self.logger.debug('here ibands_tuple')
         self.logger.debug(ibands_tuple)
-
         self.logger.debug('here whether to count bands')
         self.logger.debug(self.count_mobility)
 
