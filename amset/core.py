@@ -647,6 +647,7 @@ class AMSET(object):
             self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
         return kpts
 
+
     def update_cbm_vbm_dos(self, coeff_file):
         if self.poly_bands0 is None:
             if self.interpolation=="boltztrap1":
@@ -713,19 +714,15 @@ class AMSET(object):
             if self.interpolation == 'boltztrap1':
                 self.logger.debug("start interpolating bands from {}".format(coeff_file))
                 analytical_bands = Analytical_bands(coeff_file=coeff_file)
-                # all_ibands supposed to start with index of last valence band then
-                # VBM-1 ... and then index of CBM then CBM+1 ...
                 self.all_ibands = []
                 for ib in range(num_bands['p']):
                     self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
                 for ib in range(num_bands['n']):
                     self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
                 self.logger.debug("all_ibands: {}".format(self.all_ibands))
-                # engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
-                #     get_energy_args(coeff_file, self.all_ibands)
                 self.interp_params = get_energy_args(coeff_file, self.all_ibands)
             elif self.interpolation == 'boltztrap2':
-                pass
+                pass # boltztrap2 params are stored once; they cover all bands
             else:
                 raise ValueError('Unsupported interpolation method: "{}"'.format(self.interpolation))
         else:
@@ -786,7 +783,6 @@ class AMSET(object):
             self.energy_array = {tp: np.array(self.energy_array[tp]) for tp in
                                  ['p', 'n']}
 
-
         # calculation of the density of states (DOS)
         if not once_called:
             if self.poly_bands is None:
@@ -815,7 +811,6 @@ class AMSET(object):
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
                 self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
-                # self.dos_normalization_factor = dos_nbands # not a big change in either mobility values
             else:
                 self.logger.debug("here self.poly_bands: \n {}".format(self.poly_bands))
                 emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
@@ -825,7 +820,6 @@ class AMSET(object):
                         bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
                         "energy"], width=self.dos_bwidth, SPB_DOS=False)
                 self.dos_normalization_factor = len(self.poly_bands) * 2 * 2
-                # it is *2 elec/band & *2 because DOS repeats in valence/conduction
                 self.dos_start = self.dos_emin
                 self.dos_end = self.dos_emax
 
@@ -848,7 +842,6 @@ class AMSET(object):
             return kpts, energies_sorted
         else:
             return kpts
-
 
 
     def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0, interpolation="boltztrap1"):
@@ -937,8 +930,9 @@ class AMSET(object):
 
     def set_material_params(self, params):
         """
-        set materials parameters. This function is meant to be called after
+        Set the material's parameters. This method is meant to be called after
             set_model_parameters as it may modify self.model_parameters.
+
         Args:
             params (dict):
         """
@@ -980,9 +974,13 @@ class AMSET(object):
 
 
     def set_model_params(self, params):
-        """function to set instant variables related to the model and the level of the theory;
-        these are set based on params (dict) set by the user or their default values"""
+        """
+        Set instant variables related to the model and the level of the theory;
+        these are set based on params (dict) set by the user or their default values
 
+        Args:
+            params (dict):
+        """
         self.bs_is_isotropic = params.get("bs_is_isotropic", True)
         self.elastic_scatterings = params.get("elastic_scatterings", ["ACD", "IMP", "PIE"])
         self.inelastic_scatterings = params.get("inelastic_scatterings", ["POP"])
@@ -990,10 +988,6 @@ class AMSET(object):
         self.poly_bands0 = params.get("poly_bands", None)
         self.poly_bands = self.poly_bands0
 
-        # TODO: self.gaussian_broadening is designed only for development version and must be False, remove it later.
-        # because if self.gaussian_broadening the mapping to egrid will be done with the help of Gaussian broadening
-        # and that changes the actual values
-        self.gaussian_broadening = False
         self.soc = params.get("soc", False)
         self.logger.info("bs_is_isotropic: {}".format(self.bs_is_isotropic))
         self.independent_valleys = params.get('independent_valleys', False)
@@ -2458,46 +2452,25 @@ class AMSET(object):
         if not c_and_T_idx:
             self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=False)
             for tp in ["n", "p"]:
-
-                if not self.gaussian_broadening:
-                    for ie, en in enumerate(self.egrid[tp]["energy"]):
-                        first_ib = self.kgrid_to_egrid_idx[tp][ie][0][0]
-                        first_ik = self.kgrid_to_egrid_idx[tp][ie][0][1]
-                        for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                            self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
-                        self.egrid[tp][prop_name][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
-                else:
-                    raise NotImplementedError(
-                        "Guassian Broadening is NOT well tested and abandanded at the begining due to inaccurate results")
+                for ie, en in enumerate(self.egrid[tp]["energy"]):
+                    for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
+                        self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
+                    self.egrid[tp][prop_name][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
         else:
             self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=True)
             for tp in ["n", "p"]:
-                if not self.gaussian_broadening:
-
-                    for c in self.dopings:
-                        for T in self.temperatures:
-                            for ie, en in enumerate(self.egrid[tp]["energy"]):
-                                first_ib = self.kgrid_to_egrid_idx[tp][ie][0][0]
-                                first_ik = self.kgrid_to_egrid_idx[tp][ie][0][1]
-                                for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                                    # if self.bs_is_isotropic and prop_type == "vector":
-                                    self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
-                                self.egrid[tp][prop_name][c][T][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
-
-                            # df0dk must be negative but we used norm for df0dk when isotropic
-                            # if prop_name in ["df0dk"] and self.bs_is_isotropic:
-                            #     self.egrid[tp][prop_name][c][T] *= -1
-                else:
-                    raise NotImplementedError(
-                        "Guassian Broadening is NOT well tested and abandanded at the begining due to inaccurate results")
-
+                for c in self.dopings:
+                    for T in self.temperatures:
+                        for ie, en in enumerate(self.egrid[tp]["energy"]):
+                            for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
+                                self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
+                            self.egrid[tp][prop_name][c][T][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
 
 
     def find_fermi_k(self, tolerance=0.001, num_bands = None):
         num_bands = num_bands or self.num_bands
         closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
         self.f0_array = {c: {T: {tp: list(range(num_bands[tp])) for tp in ['n', 'p']} for T in self.temperatures} for c in self.dopings}
-        #energy = self.array_from_kgrid('energy', 'n', fill=1000)
         for c in self.dopings:
             tp = get_tp(c)
             tol = tolerance * abs(c)
@@ -2530,7 +2503,6 @@ class AMSET(object):
                         self.f0_array[c][T][tp][ib] = 1 / (np.exp((self.energy_array[tp][ib][:,:,:,0] - e_f) / (k_B * T)) + 1)
                     self.calc_doping[c][T][tp] = self.integrate_over_states(j - np.array(self.f0_array[c][T][tp]), tp)
         return closest_energy
-
 
 
     def find_fermi(self, c, T, rtol=0.01, rtol_loose=0.03, step=0.1, nstep=50):
