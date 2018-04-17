@@ -698,14 +698,7 @@ class AMSET(object):
                          nbelow_vbm=0, nabove_cbm=0):
         num_bands = num_bands or self.num_bands
         start_time = time.time()
-        # if not once_called:
         self.logger.info("self.nkibz = {}".format(self.nkibz))
-
-        # the first part is just to update the cbm_vbm once!
-        # TODO for now, I get these parameters everytime which is wasteful but I only need to run this part once
-        # if not once_called:
-        # TODO-JF: this if setup energy calculation for SPB and actual BS it would be nice to do this in two separate functions
-        # if using analytical bands: create the object, determine list of band indices, and get energy info
         if self.poly_bands0 is None:
             if self.interpolation == 'boltztrap1':
                 self.logger.debug("start interpolating bands from {}".format(coeff_file))
