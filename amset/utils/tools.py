@@ -601,7 +601,7 @@ def get_dos_boltztrap2(params, st, mesh, estep=0.001, vbmidx=None,
     return e_mesh, dos, nbands
 
 
-def interpolate_bs(kpts, interp_params, iband, sgn,
+def interpolate_bs(kpts, interp_params, iband, sgn=None,
                    method="boltztrap1", scissor=0.0, matrix=None):
     """
     Args:
@@ -629,6 +629,11 @@ def interpolate_bs(kpts, interp_params, iband, sgn,
     """
     if matrix is None:
         matrix = np.eye(3)
+    if not sgn:
+        if scissor == 0.0:
+            sgn=0.0
+        else:
+            raise ValueError('to apply scissor "sgn" is required: -1 or +1')
     if method=="boltztrap1":
         engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = interp_params
         energies = []
