@@ -3505,10 +3505,10 @@ if __name__ == "__main__":
 
     amset.write_input_files()
     amset.to_csv()
-    # amset.plot(k_plots=['energy', 'S_o', 'S_i']\
-    #                    # +model_params['elastic_scatterings']
-    #            , E_plots=['velocity', 'df0dk'], show_interactive=True
-    #            , carrier_types=amset.all_types
-    #            , save_format=None)
+    amset.plot(k_plots=['energy', 'S_o', 'S_i']\
+                       # +model_params['elastic_scatterings']
+               , E_plots=['velocity', 'df0dk'], show_interactive=True
+               , carrier_types=amset.all_types
+               , save_format=None)
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
