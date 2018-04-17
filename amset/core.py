@@ -2512,15 +2512,14 @@ class AMSET(object):
             c (float): The doping concentration;
                 c < 0 indicate n-type (i.e. electrons) and c > 0 for p-type
             T (float): The temperature.
-            tolerance (0<float<1): convergance threshold for relative error
-            tolerance_loose (0<float<1): maximum relative error allowed
-                between the calculated and input c
-            max_iter (int): after this many iterations the function returns
-                even if it is not converged
-        Returns:
+            rtol (0<float<1): convergance threshold for relative error
+            rtol_loose (0<float<1): maximum relative error allowed between the
+                calculated and input c
+            nstep (int): number of steps to check before and after a given
+                fermi level
+        Returns (float in eV):
             The fitted/calculated Fermi level
         """
-        # initialize parameters
         niter = 0.0
         relative_error = self.gl
         typ = get_tp(c)
@@ -2565,6 +2564,7 @@ class AMSET(object):
         Args:
             c (float): the carrier concentration (to get the fermi level)
             T (float): the temperature
+
         Returns (float): the inverse screening length (beta) in 1/nm units
         """
         beta = {}
