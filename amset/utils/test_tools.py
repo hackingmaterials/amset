@@ -7,7 +7,6 @@ import unittest
 
 
 from amset.core import AMSET
-from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
 from amset.utils.tools import kpts_to_first_BZ, get_closest_k, \
     remove_duplicate_kpoints, get_energy_args, get_bindex_bspin, interpolate_bs
 from pymatgen.io.vasp import Vasprun
@@ -102,6 +101,7 @@ class AmsetToolsTest(unittest.TestCase):
                 np.mean([75332765.341095, 80829076.06507, 92562889.628146]), 3)
 
         if check_bzt2:
+            from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
             from BoltzTraP2 import sphere, fite
             bz2_data = PymatgenLoader(self.GaAs_vrun)
             equivalences = sphere.get_equivalences(bz2_data.atoms,
