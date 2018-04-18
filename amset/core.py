@@ -739,7 +739,6 @@ class AMSET(object):
         energies = {"n": [0.0 for ik in kpts['n']], "p": [0.0 for ik in kpts['p']]}
         energies_sorted = {"n": [0.0 for ik in kpts['n']], "p": [0.0 for ik in kpts['p']]}
         velocities = {"n": [[0.0, 0.0, 0.0] for ik in kpts['n']], "p": [[0.0, 0.0, 0.0] for ik in kpts['p']]}
-
         self.pos_idx = {'n': [], 'p': []}
         self.energy_array = {'n': [], 'p': []}
 
