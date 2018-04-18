@@ -117,8 +117,6 @@ class AmsetToolsTest(unittest.TestCase):
             vb_en2 -= vbm2
             cb_en2 -= vbm2
             interp_gap2 = min(cb_en2) - max(vb_en2)
-            print(np.mean(np.abs(vb_vel2), axis=0))
-            print(np.mean(np.abs(cb_vel2), axis=0))
             self.assertAlmostEqual(interp_gap1, interp_gap2, 4)
             self.assertAlmostEqual(np.mean(vb_en1 - vb_en2), 0.0, 4)
             self.assertAlmostEqual(np.std(vb_en1 - vb_en2), 0.0, 4)
