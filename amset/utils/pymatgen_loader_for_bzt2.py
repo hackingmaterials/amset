@@ -13,9 +13,8 @@ from pymatgen.io.vasp import Vasprun
 from pymatgen.io.ase import AseAtomsAdaptor
 from BoltzTraP2 import units
 
-class PMG_Vasprun_Loader:
-    def __init__(self, vasprun_file):
-        vrun = Vasprun(vasprun_file)
+class PymatgenLoader:
+    def __init__(self, vrun):
         self.kpoints = np.array(vrun.actual_kpoints)
         self.structure = vrun.final_structure
         self.atoms = AseAtomsAdaptor.get_atoms(self.structure)
@@ -31,7 +30,11 @@ class PMG_Vasprun_Loader:
         self.fermi = vrun.efermi * units.eV
         self.nelect = vrun.parameters['NELECT']
         self.UCvol = self.structure.volume * units.Angstrom**3
-        
+
+    @staticmethod
+    def from_files(vasprun_file):
+        return PymatgenLoader(Vasprun(vasprun_file))
+
     def get_lattvec(self):
         try:
             self.lattvec
@@ -46,10 +49,6 @@ class PMG_Vasprun_Loader:
         nemax = II[0][-1]
         II = np.nonzero(bandmax > emin)
         nemin = II[0][0]
-        #BoltzTraP2.misc.info("BANDANA output")
-        #for iband in range(len(self.ebands)):
-            #BoltzTraP2.misc.info(iband, bandmin[iband], bandmax[iband], (
-                #(bandmin[iband] < emax) & (bandmax[iband] > emin)))
         self.ebands = self.ebands[nemin:nemax]
         if self.mommat is not None:
             self.mommat = self.mommat[:, nemin:nemax, :]
@@ -65,7 +64,7 @@ class PMG_Vasprun_Loader:
             self.UCvol = np.abs(np.linalg.det(lattvec))
         return self.UCvol
 
-class PMG_BS_Loader:
+class BandstructureLoader:
     def __init__(self, pmg_bs_obj,structure=None,nelect=None):
         self.kpoints = np.array([kp.frac_coords for kp in pmg_bs_obj.kpoints])
         
