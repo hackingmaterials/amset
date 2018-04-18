@@ -1,4 +1,4 @@
-from amset.utils.pymatgen_loader_for_bzt2 import PMG_Vasprun_Loader, PMG_BS_Loader
+from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
 from pymatgen import MPRester
 import numpy as np
 import os
@@ -42,7 +42,9 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, cbm, matrix=None):
 def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
     pf = PlotlyFig(filename='plots/Energy-bt2')
     sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
-    bz_data = PMG_Vasprun_Loader(os.path.join(vrun_path, 'vasprun.xml'))
+    # vrun = Vasprun(os.path.join(vrun_path, 'vasprun.xml'))
+    # bz_data = PMG_Vasprun_Loader(vrun)
+    bz_data = PymatgenLoader.from_files(os.path.join(vrun_path, 'vasprun.xml'))
     equivalences = sphere.get_equivalences(bz_data.atoms, len(bz_data.kpoints) * 10)
     lattvec = bz_data.get_lattvec()
     print('lattvec:\n{}'.format(lattvec))
