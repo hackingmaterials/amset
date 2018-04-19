@@ -648,7 +648,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
                                              nstv, vec, vec2, out_vec2, br_dir)
                 results.append((energy, de, dde))
         else:
-            if n_jobs==-1:
+            if n_jobs == -1:
                 n_jobs = cpu_count()
             inputs = [(kpt, engre[iband], nwave, nsym, nstv, vec, vec2,
                                             out_vec2, br_dir) for kpt in kpts]
