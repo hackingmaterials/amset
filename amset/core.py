@@ -113,7 +113,6 @@ class AMSET(object):
         self.logger.info('k_integration: {}'.format(self.k_integration))
         self.logger.info('e_integration: {}'.format(self.e_integration))
         self.fermi_calc_type = fermi_type
-        self.n_jobs = max(int(multiprocessing.cpu_count()/4), self.n_jobs)
         self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
         self.counter = 0 # a global counter just for debugging
         self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
@@ -478,7 +477,7 @@ class AMSET(object):
             scissor (float): the amount by which the band gap is altered/scissored.
         Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
         """
-        # TODO: MAJOR cleanup needed in this function; also look into parallelizing get_analytical_energy at all kpts if it's time consuming
+        # TODO: MAJOR cleanup needed in this function
         # TODO: if decided to only include one of many symmetrically equivalent extrema, write a method to keep only one of symmetrically equivalent extrema as a representative
         Ecut = Ecut or 10 * k_B * 300
         if not isinstance(Ecut, dict):
@@ -516,7 +515,9 @@ class AMSET(object):
                 sgn = 1.0
 
             iband = iband if interpolation=="boltztrap1" else ibands[iband]
-            energies, velocities, masses = interpolate_bs(kpts, interp_params, iband=iband, sgn=sgn, method=interpolation, scissor=scissor, matrix=self._vrun.lattice.matrix)
+            energies, velocities, masses = interpolate_bs(kpts, interp_params,
+                    iband=iband, sgn=sgn, method=interpolation, scissor=scissor,
+                    matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
             normv = [norm(v) for v in velocities]
             masses = [mass.trace() / 3.0 for mass in masses]
             indexes = np.argsort(normv)
@@ -751,7 +752,11 @@ class AMSET(object):
                             energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                     else:
                         iband = i * num_bands['p'] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm['p']['bidx']+ i * num_bands['p']
-                        energies[tp], velocities[tp], _ = interpolate_bs(kpts[tp], interp_params=self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix)
+                        energies[tp], velocities[tp], _ = interpolate_bs(
+                                kpts[tp], interp_params=self.interp_params,
+                                iband=iband, sgn=sgn, method=self.interpolation,
+                                scissor=self.scissor,
+                                matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
 
                     self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
 
@@ -1013,7 +1018,7 @@ class AMSET(object):
 
         # TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.BTE_iters = params.get("BTE_iters", 5)
-        self.n_jobs = params.get("n_jobs", 1)
+        self.n_jobs = params.get("n_jobs", -1)
         self.max_nbands = params.get("max_nbands", None)
         self.max_normk0 = params.get("max_normk", None)
         self.max_normk = {'n': self.max_normk0, 'p': self.max_normk0}
@@ -1626,7 +1631,7 @@ class AMSET(object):
                 self.kgrid[tp]["energy"][ib], \
                         self.kgrid[tp]["velocity"][ib], \
                         self.kgrid[tp]["effective mass"][ib] = \
-                    interpolate_bs(self.kgrid[tp]["kpoints"][ib], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix)
+                    interpolate_bs(self.kgrid[tp]["kpoints"][ib], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
 
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
@@ -3412,7 +3417,7 @@ if __name__ == "__main__":
 
     # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
     performance_params = {"dE_min": 0.0001, "nE_min": 2,
-            "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "n_jobs": 4
+            "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "n_jobs": -1
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
@@ -3466,7 +3471,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
