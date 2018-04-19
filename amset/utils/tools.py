@@ -1,4 +1,5 @@
 import logging
+from multiprocessing import Pool, cpu_count
 import numpy as np
 import os
 import sys
@@ -601,8 +602,8 @@ def get_dos_boltztrap2(params, st, mesh, estep=0.001, vbmidx=None,
     return e_mesh, dos, nbands
 
 
-def interpolate_bs(kpts, interp_params, iband, sgn=None,
-                   method="boltztrap1", scissor=0.0, matrix=None):
+def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
+                   scissor=0.0, matrix=None, n_jobs=1):
     """
     Args:
         kpts ([1x3 array]): list of fractional coordinates of k-points
@@ -625,6 +626,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None,
         matrix (3x3 np.ndarray): the direct lattice matrix used to convert
             the velocity (in fractional coordinates) to cartesian in
             boltztrap1 method.
+        n_jobs (int): number of processes used in boltztrap1 interpolation
     Returns (tuple of energies, velocities, masses lists/np.ndarray):
     """
     if matrix is None:
@@ -633,14 +635,26 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None,
         if scissor == 0.0:
             sgn=0.0
         else:
-            raise ValueError('to apply scissor "sgn" is required: -1 or +1')
+            raise ValueError('To apply scissor "sgn" is required: -1 or +1')
     if method=="boltztrap1":
         engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = interp_params
         energies = []
         velocities = []
         masses = []
-        for kpt in kpts:
-            energy, de, dde = get_energy(kpt, engre[iband], nwave, nsym, nstv, vec, vec2, out_vec2, br_dir)
+        if n_jobs != 1:
+            results = []
+            for kpt in kpts:
+                energy, de, dde = get_energy(kpt, engre[iband], nwave, nsym,
+                                             nstv, vec, vec2, out_vec2, br_dir)
+                results.append((energy, de, dde))
+        else:
+            if n_jobs==-1:
+                n_jobs = cpu_count()
+            inputs = [(kpt, engre[iband], nwave, nsym, nstv, vec, vec2,
+                                            out_vec2, br_dir) for kpt in kpts]
+            with Pool(n_jobs if n_jobs != -1 else cpu_count()) as p:
+                results = p.starmap(get_energy, inputs)
+        for energy, de, dde in results:
             energy = energy * Ry_to_eV - sgn * scissor / 2.0
             velocity = abs(np.dot(matrix, de.T).T) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
             effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
@@ -648,10 +662,13 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None,
             velocities.append(velocity)
             masses.append(effective_m)
     elif method=="boltztrap2":
-            fitted = fite.getBands(np.array(kpts), *interp_params)
-            energies = fitted[0][iband - 1] * Hartree_to_eV - sgn * scissor / 2.
-            velocities = fitted[1][:, :, iband - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm
-            masses = fitted[2][:, :, :, iband - 1].T* e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e
+        if n_jobs == 1:
+            warnings.warn('n_jobs={}: Parallel not implemented w/ boltztrap2'
+                          .format(n_jobs))
+        fitted = fite.getBands(np.array(kpts), *interp_params)
+        energies = fitted[0][iband - 1] * Hartree_to_eV - sgn * scissor / 2.
+        velocities = fitted[1][:, :, iband - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm
+        masses = fitted[2][:, :, :, iband - 1].T* e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e
     else:
         raise AmsetError('Unsupported interpolation "{}"'.format(method))
     return energies, velocities, masses
