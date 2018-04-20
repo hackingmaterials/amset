@@ -2524,7 +2524,6 @@ class AMSET(object):
         Returns (float in eV):
             The fitted/calculated Fermi level
         """
-        niter = 0.0
         relative_error = self.gl
         typ = get_tp(c)
         fermi = self.cbm_vbm[typ]["energy"] + 0.01 # initialize fermi non-zero
@@ -2550,7 +2549,7 @@ class AMSET(object):
             self.calc_doping[c][T]['n'] = n_dopings[fermi_idx]
             self.calc_doping[c][T]['p'] = p_dopings[fermi_idx]
             if relative_error[fermi_idx] < rtol:
-                self.logger.info("fermi at {} 1/cm3 and {} K after {} iterations: {}".format(c, T, int(niter), fermi))
+                self.logger.info("fermi at {} 1/cm3 and {} K: {}".format(c, T, fermi))
                 return fermi
             step /= 10.0
 
