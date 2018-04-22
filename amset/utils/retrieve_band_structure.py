@@ -1,3 +1,5 @@
+from time import time
+
 from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
 from pymatgen import MPRester
 import numpy as np
@@ -11,7 +13,7 @@ from amset.utils.tools import get_energy_args, get_bindex_bspin, norm, \
 api = MPRester("fDJKEZpxSyvsXdCt")
 
 
-def retrieve_bs_boltztrap1(coeff_file, bs, ibands, cbm, matrix=None):
+def retrieve_bs_boltztrap1(coeff_file, bs, ibands, matrix=None):
     interp_params = get_energy_args(coeff_file, ibands)
     pf = PlotlyFig(filename='plots/Energy-bt1')
     plot_data =[]
@@ -22,7 +24,7 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, cbm, matrix=None):
     for i, iband in enumerate(ibands):
         sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
         en, vel, masses = interpolate_bs(sym_line_kpoints, interp_params, iband=i,
-                       method="boltztrap1", scissor=0.0, matrix=matrix)
+                       method="boltztrap1", scissor=0.0, matrix=matrix, n_jobs=-1)
         vel = np.linalg.norm(vel, axis=1)
         masses = [mass.trace()/3.0 for mass in masses]
         if i==0:
@@ -117,14 +119,14 @@ if __name__ == "__main__":
     # GaAs_coeff_file = os.path.join(test_dir, "GaAs/fort.123_GaAs_1099kp")
     GaAs_coeff_file = os.path.join(test_dir, "GaAs/nscf-uniform/boltztrap/fort.123")
 
-    # start_time = time()
+    start_time = time()
     # retrieve_bs_boltztrap1(coeff_file=PbTe_coeff_file, bs=bs, ibands=ibands)
     # retrieve_bs_boltztrap1(coeff_file=Si_coeff_file, bs=Si_bs, ibands=ibands, cbm=True)
 
     retrieve_bs_boltztrap1(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands, cbm=True, matrix=dir_matrix)
 
     # retrieve_bs_boltztrap1(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[11, 12, 13, 14])
-    # print("Boltztrap1 total time: {}".format(time() - start_time))
+    print("Boltztrap1 total time: {}".format(time() - start_time))
 
     # start_time = time()
 
