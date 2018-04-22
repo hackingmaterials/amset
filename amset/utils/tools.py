@@ -641,7 +641,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
         energies = []
         velocities = []
         masses = []
-        if n_jobs != 1:
+        if n_jobs == 1:
             results = []
             for kpt in kpts:
                 energy, de, dde = get_energy(kpt, engre[iband], nwave, nsym,
