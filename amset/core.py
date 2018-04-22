@@ -4,6 +4,7 @@ import gzip
 import warnings
 import time
 import json
+from multiprocessing import Pool, cpu_count
 from pstats import Stats
 from random import random
 
@@ -2310,10 +2311,19 @@ class AMSET(object):
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["kpoints"])):
                         # this format helps consistency with parallelization:
-                        results = [calculate_Sio(tp, c, T, ib, ik,
-                                once_called, self.kgrid, self.cbm_vbm,
-                                self.epsilon_s, self.epsilon_inf) for ik in
-                                range(len(self.kgrid[tp]["kpoints"][ib]))]
+                        if self.n_jobs == 1:
+                            results = [calculate_Sio(tp, c, T, ib, ik,
+                                    once_called, self.kgrid, self.cbm_vbm,
+                                    self.epsilon_s, self.epsilon_inf) for ik in
+                                    range(len(self.kgrid[tp]["kpoints"][ib]))]
+                        else:
+                            inputs = [(tp, c, T, ib, ik,
+                                    once_called, self.kgrid, self.cbm_vbm,
+                                    self.epsilon_s, self.epsilon_inf) for ik in
+                                    range(len(self.kgrid[tp]["kpoints"][ib]))]
+
+                            with Pool(self.n_jobs) as p:
+                                results = p.starmap(calculate_Sio, inputs)
                         for ik, res in enumerate(results):
                             self.kgrid[tp]["S_i"][c][T][ib][ik] = res[0]
                             self.kgrid[tp]["S_i_th"][c][T][ib][ik] = res[1]
@@ -3462,7 +3472,7 @@ if __name__ == "__main__":
 
     # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
     performance_params = {"dE_min": 0.0001, "nE_min": 2,
-            "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "n_jobs": 4
+            "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "n_jobs": -1
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
