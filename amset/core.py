@@ -2733,6 +2733,12 @@ class AMSET(object):
 
 
     def solve_BTE_iteratively(self):
+        """
+        Iteratively solve linearized/low-field Boltzmann Transport Equation
+        See equation (43) page 20 of the reference [R]
+
+        Returns (None): the results are stored in "g*" keys in kgrid and egrid
+        """
         # calculating S_o scattering rate which is not a function of g
         if "POP" in self.inelastic_scatterings and not self.bs_is_isotropic:
             for g_suffix in ["", "_th"]:
@@ -2778,7 +2784,6 @@ class AMSET(object):
         for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
-        # this code has been commented out because egrid is no longer in use, but it might still be necessary in kgrid
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
@@ -2797,17 +2802,42 @@ class AMSET(object):
         return np.array(v_vec_all_bands), np.array(v_norm_all_bands)
 
 
-    # turns a kgrid property into a list of grid arrays of that property for k integration
     def array_from_kgrid(self, prop_name, tp, c=None, T=None, denom=False, none_missing=False, fill=None):
+        """
+        turns a kgrid property into a list of grid arrays of that property for k integration
+
+        Args:
+            prop_name:
+            tp:
+            c:
+            T:
+            denom:
+            none_missing:
+            fill:
+
+        Returns:
+
+        """
         if c:
             return np.array([self.grid_from_energy_list(self.kgrid[tp][prop_name][c][T][ib], tp, ib, denom=denom, none_missing=none_missing, fill=fill) for ib in range(self.num_bands[tp])])
         else:
             return np.array([self.grid_from_energy_list(self.kgrid[tp][prop_name][ib], tp, ib, denom=denom, none_missing=none_missing, fill=fill) for ib in range(self.num_bands[tp])])
 
 
-    # takes a list that is sorted by energy and missing removed points
     def grid_from_energy_list(self, prop_list, tp, ib, denom=False, none_missing=False, fill=None):
+        """
 
+        Args:
+            prop_list: a list that is sorted by energy and missing removed points
+            tp:
+            ib:
+            denom:
+            none_missing:
+            fill:
+
+        Returns:
+
+        """
         if not fill:
             if not denom:
                 fill = 0
@@ -2834,8 +2864,17 @@ class AMSET(object):
         return self.grid_from_ordered_list(adjusted_prop_list, tp, denom=denom, none_missing=True)
 
 
-    # return a grid of the (x,y,z) k points in the proper grid
     def grid_from_ordered_list(self, prop_list, tp, denom=False, none_missing=False, scalar=False):
+        """
+        Args:
+            prop_list:
+            tp:
+            denom:
+            none_missing:
+            scalar:
+
+        Returns:  a grid of the (x,y,z) k points in the proper grid
+        """
         N = list(self.kgrid_array[tp].shape)
         if scalar:
             N[-1] = 1
@@ -2859,9 +2898,16 @@ class AMSET(object):
         return grid
 
 
-    # takes list or array of array grids
     def integrate_over_states(self, integrand_grid, tp='all'):
+        """
 
+        Args:
+            integrand_grid: list or array of array grids
+            tp:
+
+        Returns:
+
+        """
         integrand_grid = np.array(integrand_grid)
 
         if type(integrand_grid[0][0,0,0]) == list or type(integrand_grid[0][0,0,0]) == np.ndarray:
@@ -3416,7 +3462,7 @@ if __name__ == "__main__":
 
     # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
     performance_params = {"dE_min": 0.0001, "nE_min": 2,
-            "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "n_jobs": -1
+            "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "n_jobs": 4
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
