@@ -1020,6 +1020,8 @@ class AMSET(object):
         # TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
         self.BTE_iters = params.get("BTE_iters", 5)
         self.n_jobs = params.get("n_jobs", -1)
+        if self.n_jobs == -1:
+            self.n_jobs = cpu_count()
         self.max_nbands = params.get("max_nbands", None)
         self.max_normk0 = params.get("max_normk", None)
         self.max_normk = {'n': self.max_normk0, 'p': self.max_normk0}
