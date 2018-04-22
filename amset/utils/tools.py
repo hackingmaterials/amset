@@ -261,17 +261,17 @@ def GB(x, eta):
     return 1 / np.pi * 1 / eta * np.exp(-(x / eta) ** 2)
 
 
-def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
-    S_i_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
-    S_i_th_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
-    S_o_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
-    S_o_th_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
-
-    for ik in range(len(kgrid[tp]["kpoints"][ib])):
-        S_i_list[ik], S_i_th_list[ik], S_o_list[ik], S_o_th_list[ik] = \
-            calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf)
-
-    return [S_i_list, S_i_th_list, S_o_list, S_o_th_list]
+# def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
+#     S_i_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
+#     S_i_th_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
+#     S_o_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
+#     S_o_th_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
+#
+#     for ik in range(len(kgrid[tp]["kpoints"][ib])):
+#         S_i_list[ik], S_i_th_list[ik], S_o_list[ik], S_o_th_list[ik] = \
+#             calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf)
+#
+#     return [S_i_list, S_i_th_list, S_o_list, S_o_th_list]
 
 
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
@@ -648,8 +648,6 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
                                              nstv, vec, vec2, out_vec2, br_dir)
                 results.append((energy, de, dde))
         else:
-            if n_jobs == -1:
-                n_jobs = cpu_count()
             inputs = [(kpt, engre[iband], nwave, nsym, nstv, vec, vec2,
                                             out_vec2, br_dir) for kpt in kpts]
             with Pool(n_jobs if n_jobs != -1 else cpu_count()) as p:
