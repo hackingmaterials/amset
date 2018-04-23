@@ -1092,8 +1092,6 @@ class AMSET(object):
         self.DFT_cartesian_kpts = np.array(
                 [self.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
 
-
-        # Remember that python band index starts from 0 so bidx==9 refers to the 10th band in VASP
         cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
                    "p": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]}}
         cbm = self.bs.get_cbm()
@@ -1104,7 +1102,6 @@ class AMSET(object):
         cbm_vbm["n"]["energy"] = cbm["energy"]
         cbm_vbm["n"]["bidx"], _ = get_bindex_bspin(cbm, is_cbm=True)
         cbm_vbm["n"]["kpoint"] = self.bs.kpoints[cbm["kpoint_index"][0]].frac_coords
-
         cbm_vbm["p"]["energy"] = vbm["energy"]
         cbm_vbm["p"]["bidx"], _ = get_bindex_bspin(vbm, is_cbm=False)
         cbm_vbm["p"]["kpoint"] = self.bs.kpoints[vbm["kpoint_index"][0]].frac_coords
@@ -1117,14 +1114,11 @@ class AMSET(object):
                     '"scissor" is ignored. Continuing with scissor={}'.format(
                         self.user_bandgap - self.dft_gap))
             self.scissor = self.user_bandgap - self.dft_gap
-
         if self.soc:
             self.nelec = cbm_vbm["p"]["bidx"] + 1
         else:
             self.nelec = (cbm_vbm["p"]["bidx"] + 1) * 2
-
         self.logger.debug("total number of electrons nelec: {}".format(self.nelec))
-
         bsd = self.bs.as_dict()
         if bsd["is_spin_polarized"]:
             self.dos_emin = min(min(bsd["bands"]["1"][0]), min(bsd["bands"]["-1"][0]))
@@ -1132,7 +1126,6 @@ class AMSET(object):
         else:
             self.dos_emin = min(bsd["bands"]["1"][0])
             self.dos_emax = max(bsd["bands"]["1"][-1])
-
         self.initial_num_bands = {'n': None, 'p': None}
         if self.poly_bands0 is None:
             for i, tp in enumerate(["n", "p"]):
@@ -1143,7 +1136,6 @@ class AMSET(object):
                     cbm_vbm[tp]["included"] += 1
 
                 self.initial_num_bands[tp] = cbm_vbm[tp]["included"]
-
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands0)
             self.initial_num_bands['n'] = self.initial_num_bands['p'] = len(self.poly_bands0)
@@ -1243,8 +1235,7 @@ class AMSET(object):
             "p": {"energy": [], "DOS": [], "all_en_flat": [],
                   "all_ks_flat": [], "mobility": {}},
         }
-        self.kgrid_to_egrid_idx = {"n": [],
-                                   "p": []}  # list of band and k index that are mapped to each memeber of egrid
+        self.kgrid_to_egrid_idx = {"n": [], "p": []}
         self.Efrequency = {"n": [], "p": []}
         self.sym_freq = {"n": [], "p":[]}
         E_idx = {"n": [], "p": []}
@@ -1253,13 +1244,9 @@ class AMSET(object):
                 self.egrid[tp]["all_en_flat"] += list(en_vec)
                 self.egrid[tp]["all_ks_flat"] += list(self.kgrid[tp]["kpoints"][ib])
                 E_idx[tp] += [(ib, iek) for iek in range(len(en_vec))]
-
-            # get the indexes of sorted flattened energy
             ieidxs = np.argsort(self.egrid[tp]["all_en_flat"])
             self.egrid[tp]["all_en_flat"] = [self.egrid[tp]["all_en_flat"][ie] for ie in ieidxs]
             self.egrid[tp]["all_ks_flat"] = [self.egrid[tp]["all_ks_flat"][ie] for ie in ieidxs]
-
-            # sort the tuples of band and energy based on their energy
             E_idx[tp] = [E_idx[tp][ie] for ie in ieidxs]
 
         # setting up energy grid and DOS:
@@ -1287,7 +1274,6 @@ class AMSET(object):
                 self.kgrid_to_egrid_idx[tp].append(current_ib_ie_idx)
                 self.sym_freq[tp].append(sum_nksym / counter)
                 energy_counter.append(counter)
-
                 if dos_tp.lower() == "simple":
                     self.egrid[tp]["DOS"].append(counter / len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
@@ -1301,17 +1287,12 @@ class AMSET(object):
                     self.egrid[tp]["DOS"].append(self.nelec / len(self.egrid[tp]["all_en_flat"]))
                 elif dos_tp.lower() == "standard":
                     self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(self.egrid[tp]["energy"][-1])][1])
-
             self.egrid[tp]["size"] = len(self.egrid[tp]["energy"])
-
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
-
         min_nE = 2
-
         if len(self.Efrequency["n"]) < min_nE or len(self.Efrequency["p"]) < min_nE:
             raise ValueError("The final egrid have fewer than {} energy values, AMSET stops now".format(min_nE))
-
 
 
     def init_egrid(self, once_called, dos_tp="standard"):
@@ -1322,8 +1303,6 @@ class AMSET(object):
             dos_tp (string): options are "simple", ...
         """
         self.pre_init_egrid(once_called=once_called, dos_tp=dos_tp)
-
-        # initialize some fileds/properties
         if not once_called:
             self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
             for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
@@ -1335,13 +1314,9 @@ class AMSET(object):
             if self.fermi_calc_type == 'k':
                 self.egrid["calc_doping"] = self.calc_doping
             if self.fermi_calc_type == 'e':
-                # self.calc_doping = self.egrid["calc_doping"]
                 self.egrid["calc_doping"] = self.calc_doping
-                # self.calculate_property(prop_name="fermi", prop_func=self.find_fermi)
-                # self.fermi_level = self.egrid["fermi"]
                 self.egrid["fermi"] = self.fermi_level
 
-        #TODO: comment out these 3 lines and test, these were commented out in master 9/27/2017
         self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
         self.calculate_property(prop_name="f", prop_func=f0, for_all_E=True)
         self.calculate_property(prop_name="f_th", prop_func=f0, for_all_E=True)
@@ -3473,7 +3448,6 @@ if __name__ == "__main__":
             [[0.0, 0.0, 0.0], [0.0, mass]],
         ]]
 
-    # TODO: see why job fails with any k-mesh but max_normk==1 ?? -AF update 20180207: didn't return error with very coarse
     performance_params = {"dE_min": 0.0001, "nE_min": 2,
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "n_jobs": -1
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
@@ -3529,7 +3503,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
