@@ -178,8 +178,9 @@ class AMSET(object):
 
         self.mo_labels = self.elastic_scatterings + self.inelastic_scatterings + ['overall', 'average']
         self.spb_labels = ['SPB_ACD']
+        self.transport_labels = self.mo_labels + self.spb_labels + ["seebeck"]
         self.mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
-                  self.dopings} for el_mech in self.mo_labels+self.spb_labels} for tp in ["n", "p"]}
+                  self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
         self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
 
         # make the reference energy consistent w/ interpolation rather than DFT
@@ -243,6 +244,7 @@ class AMSET(object):
 
 
         self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
+        self.seeb_denom = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
             self.logger.info('going over conduction and valence # {}'.format(self.ibrun))
             self.find_all_important_points(coeff_file, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, interpolation=self.interpolation)
@@ -329,6 +331,8 @@ class AMSET(object):
                             elif self.e_integration:
                                 self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)
                                 self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                                for tp in ['n', 'p']:
+                                    self.seeb_denom[c][T][tp] = self.egrid["Seebeck_integral_denominator"][c][T][tp]
 
                 # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
                 if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
@@ -380,7 +384,6 @@ class AMSET(object):
 
                 # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
                 self.solve_BTE_iteratively()
-
                 if self.k_integration:
                     valley_transport = self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
                 if self.e_integration:
@@ -389,7 +392,8 @@ class AMSET(object):
                 self.logger.info('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
                 pprint(valley_transport)
 
-                self.calculate_spb_transport()
+                if self.ibrun==0 and ivalley==0: # 1-valley only since it's SPB
+                    self.calculate_spb_transport()
 
                 self.logger.info('Mobility Labels: {}'.format(self.mo_labels))
                 for c in self.dopings:
@@ -404,11 +408,13 @@ class AMSET(object):
                                 elif self.e_integration:
                                     self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)  * self.bs.get_kpoint_degeneracy(important_points['n'][0])
                                     self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False) * self.bs.get_kpoint_degeneracy(important_points['p'][0])
+                                    for tp in ['n', 'p']:
+                                        self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp]
                                 for mu in self.mo_labels:
                                     for tp in ['p', 'n']:
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
                             else:
-                                for mu in self.mo_labels:
+                                for mu in self.mo_labels+["seebeck"]:
                                     for tp in ['p', 'n']:
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T]
 
@@ -439,13 +445,18 @@ class AMSET(object):
 
         if not self.independent_valleys:
             for tp in ['p', 'n']:
-                for mu in self.mo_labels:
-                    for c in self.dopings:
-                        for T in self.temperatures:
+                for c in self.dopings:
+                    for T in self.temperatures:
+                        for mu in self.mo_labels:
                             self.mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
                             for band in list(self.valleys[tp].keys()):
                                 for valley_k in list(self.valleys[tp][band].keys()):
                                     self.valleys[tp][band][valley_k][mu][c][T] /= self.denominator[c][T][tp]
+                        self.mobility[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
+                        for band in list(self.valleys[tp].keys()):
+                                for valley_k in list(self.valleys[tp][band].keys()):
+                                    self.valleys[tp][band][valley_k]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
+
         print('\nFinal Mobility Values:')
         pprint(self.mobility)
         if write_outputs:
@@ -3122,9 +3133,6 @@ class AMSET(object):
                         valley_transport[tp]['overall'][c][T] = valley_transport[tp]['average'][c][T]
                     else:
                         valley_transport[tp]["overall"][c][T] = mu_overall_valley
-                    if self.independent_valleys:
-                        for mu in self.mo_labels:
-                            valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
                     self.egrid[tp]["relaxation time constant"][c][T] = self.mobility[tp]["overall"][c][T] \
                             * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
 
@@ -3139,10 +3147,8 @@ class AMSET(object):
                     # TODO: to calculate Seebeck define a separate function after ALL important_points are exhausted and the overall sum of self.mobility is evaluated!
                     # self.egrid[tp]["seebeck"][c][T] = -1e6 * k_B * (
                     valley_transport[tp]["seebeck"][c][T] = -1e6 * k_B * (
-                            self.egrid["Seebeck_integral_numerator"][c][T][tp]\
-                            /self.egrid["Seebeck_integral_denominator"][c][T][
-                            tp]-(self.fermi_level[c][T] - self.cbm_vbm[tp][
-                                                    "energy"]) / (k_B * T))
+                            self.egrid["Seebeck_integral_numerator"][c][T][tp] # /self.egrid["Seebeck_integral_denominator"][c][T][tp]
+                            -(self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T))
                     # self.egrid[tp]["TE_power_factor"][c][T] = \
                     #         self.egrid[tp]["seebeck"][c][T]** 2 * self.egrid[
                     #             tp]["conductivity"][c][T] / 1e6  # in uW/cm2K
@@ -3174,6 +3180,10 @@ class AMSET(object):
                     #         self.egrid[other_type]["conductivity"][c][T])
                     ## since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
                     ## self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
+                    if self.independent_valleys:
+                        for mu in self.mo_labels:
+                            valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
+                        valley_transport[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
         return valley_transport
 
 
