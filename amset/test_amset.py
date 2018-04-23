@@ -16,15 +16,15 @@ class AmsetTest(unittest.TestCase):
         self.model_params = {'bs_is_isotropic': True,
                              'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                              'inelastic_scatterings': ['POP']}
-        self.performance_params = {'dE_min': 0.0001, 'nE_min': 2,
+        self.performance_params = {'dE_min': 0.0001, 'nE_min': 5, "n_jobs": -1,
                 'BTE_iters': 5,'nkdos':29, 'max_nbands': 1, 'max_nvalleys': 1,
                 'max_normk': 2, 'Ecut': 0.4, 'fermi_kgrid_tp': 'coarse'}
         self.GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
                 'P_PIE': 0.052, 'scissor': 0.5818}
         self.GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
-        # self.GaAs_cube = os.path.join(self.GaAs_path, "fort.123_GaAs_1099kp")
         self.GaAs_cube = os.path.join(self.GaAs_path, "nscf-uniform/boltztrap/fort.123")
+
 
     def tearDown(self):
         pass
@@ -83,8 +83,6 @@ class AmsetTest(unittest.TestCase):
         self.assertEqual(kgrid['n']['velocity'][0].shape[0], 64)
         mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
         self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS
-        # self.assertAlmostEqual(mean_v[0], 38101477.83, places=1) # zeroth band
-        # w/ cartesian velocity
         self.assertAlmostEqual(mean_v[0], 37724375.044629738, places=1) # zeroth band
 
         # check mobility values
@@ -97,10 +95,6 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
-        # expected_mu = {'ACD': 171261.976, 'IMP': 103831.729, 'PIE': 1185742.583,
-        #                'POP': 31422.869, 'overall': 14110.205, 'average':20271.666}
-
-        # w/ cartesian velocity and mobility/3
         expected_mu = {'ACD': 620669.64, 'IMP': 132463.67989, 'PIE': 1185766.272,
                        'POP': 37629.492618, 'overall': 25257.715, 'average':27338.36}
         performance_params = dict(self.performance_params)
@@ -113,16 +107,6 @@ class AmsetTest(unittest.TestCase):
                       loglevel=logging.ERROR)
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
         mobility = amset.mobility
-
-
-        # check fermi level
-        # expected_fermi = amset.cbm_vbm['n']["energy"] - 0.2477
-        # print('expected_fermi = {}'.format(expected_fermi))
-        # print('k calculated fermi = {}'.format(amset.fermi_level[-3e13][300]))
-        # diff = abs(amset.fermi_level[-3e13][300] - expected_fermi)
-        # avg = (amset.fermi_level[-3e13][300] + expected_fermi) / 2
-        # self.assertTrue(diff / avg < 0.02)
-
         self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.7149, 3)
 
         # check mobility values
@@ -133,17 +117,10 @@ class AmsetTest(unittest.TestCase):
             self.assertAlmostEqual(mobility['n'][mu][-3e13][300][0],
                                    expected_mu[mu], places=1)
 
-    # #TODO: since we run through several different k-meshes now for varous valleys, egrid changes hence egrid tests may be changing and ignored for now
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
-        # w/o /sq3 factor:
-        # expected_mu = {'ACD': 83063.162, 'IMP': 289240.8277, 'PIE': 193117.5001,
-        #                'POP': 14615.437, 'overall': 10176.876, 'average': 11149.824}
-        # w/ /sq3 factor
         expected_mu = {'ACD': 78610.0696, 'IMP': 289240.82771, 'PIE': 193117.5001,
                        'POP': 7181.2256, 'overall': 5921.347294, 'average': 6226.31922}
-
-
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
@@ -154,6 +131,7 @@ class AmsetTest(unittest.TestCase):
                       e_integration=True, fermi_type='e',
                       loglevel=logging.ERROR)
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
+
         # check mobility values
         for mu in expected_mu.keys():
             self.assertLessEqual(np.std(  # GaAs band structure is isotropic
