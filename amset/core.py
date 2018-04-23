@@ -1411,23 +1411,21 @@ class AMSET(object):
         """
         if not isinstance(names, list):
             names = [names]
-
         if val_type.lower() in ["scalar"]:
             initial_val = initval
         elif val_type.lower() in ["vector"]:
             initial_val = [initval, initval, initval]
         elif val_type.lower() in ["tensor", "matrix"]:
-            # initial_val = [ [initval, initval, initval], [initval, initval, initval], [initval, initval, initval] ]
-            initial_val = [[initval for i in range(3)] for i in range(3)]
+            initial_val = [[initval for _ in range(3)] for _ in range(3)]
 
         for name in names:
             for tp in ["n", "p"]:
                 self[grid][tp][name] = 0.0
-                if grid in ["kgrid"]:
-                    init_content = [[initial_val for i in range(len(self[grid][tp]["kpoints"][j]))]
+                if grid == "kgrid":
+                    init_content = [[initial_val for _ in range(len(self[grid][tp]["kpoints"][j]))]
                                     for j in range(self.cbm_vbm[tp]["included"])]
-                elif grid in ["egrid"]:
-                    init_content = [initial_val for i in range(len(self[grid][tp]["energy"]))]
+                elif grid == "egrid":
+                    init_content = [initial_val for _ in self[grid][tp]["energy"]]
                 else:
                     raise TypeError('The argument "grid" must be set to either "kgrid" or "egrid"')
                 if is_nparray:
@@ -1435,7 +1433,7 @@ class AMSET(object):
                         self[grid][tp][name] = np.array(init_content)
                     else:
                         self[grid][tp][name] = {c: {T: np.array(init_content) for T in self.temperatures} for c in
-                                                self.dopings}
+                                                    self.dopings}
                 else:
                     # TODO: if not is_nparray both temperature values will be equal probably because both are equal to init_content that are a list and FOREVER they will change together. Keep is_nparray as True as it makes a copy, otherwise you are doomed! See if you can fix this later
                     if val_type not in ["scalar"] and c_T_idx:
