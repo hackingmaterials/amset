@@ -23,7 +23,7 @@ class AmsetTest(unittest.TestCase):
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
                 'P_PIE': 0.052, 'scissor': 0.5818}
         self.GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
-        self.GaAs_cube = os.path.join(self.GaAs_path, "nscf-uniform/boltztrap/fort.123")
+        self.GaAs_cube = os.path.join(self.GaAs_path, "nscf-uniform/fort.123")
 
 
     def tearDown(self):
