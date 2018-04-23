@@ -83,7 +83,8 @@ class AMSET(object):
           DOI: 10.1093/acprof:oso/9780199677214.001.0001
 
      """
-    def __init__(self, calc_dir, material_params, model_params={}, performance_params={},
+    def __init__(self, calc_dir, material_params, vasprun_file=None,
+                 model_params={}, performance_params={},
                  dopings=None, temperatures=None, k_integration=True, e_integration=False, fermi_type='k', loglevel=None):
         """
         Args:
@@ -99,6 +100,7 @@ class AMSET(object):
         self.logger = setup_custom_logger('amset_logger', calc_dir, 'amset.log',
                                      level=loglevel)
         self.calc_dir = calc_dir
+        self.vasprun_file = vasprun_file
         self.dopings = dopings or [-1e20, 1e20]
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
         self.tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
@@ -136,7 +138,8 @@ class AMSET(object):
         stats.print_stats(nfuncs)
 
 
-    def run(self, coeff_file=None, kgrid_tp="coarse", write_outputs=True, test_k_anisotropic=False):
+    def run(self, coeff_file=None, kgrid_tp="coarse",
+            write_outputs=True, test_k_anisotropic=False):
         """
         Function to run AMSET and generate the main outputs.
 
@@ -148,7 +151,7 @@ class AMSET(object):
             options: 'very coarse', 'coarse', 'fine'
         """
         self.logger.info('Running on "{}" mesh for each valley'.format(kgrid_tp))
-        self.read_vrun(calc_dir=self.calc_dir, filename="vasprun.xml")
+        self.read_vrun(vasprun_file=self.vasprun_file, filename="vasprun.xml")
         if self.poly_bands0 is not None:
             self.cbm_vbm["n"]["energy"] = self.dft_gap
             self.cbm_vbm["p"]["energy"] = 0.0
@@ -878,10 +881,9 @@ class AMSET(object):
         conveniently track what inputs had been used later or read
         inputs from files (see from_files method)
         """
-        if not path:
-            path = os.path.join(os.getcwd(), dir_name)
-            if not os.path.exists(path):
-                os.makedirs(name=path)
+        path = os.join(path or self.calc_dir, dir_name)
+        if not os.path.exists(path):
+            os.makedirs(name=path)
 
         material_params = {
             "epsilon_s": self.epsilon_s,
@@ -1064,12 +1066,14 @@ class AMSET(object):
         return s_orbital, p_orbital
 
 
-    def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
-        self._vrun = Vasprun(os.path.join(calc_dir, filename), parse_projected_eigen=True)
+    def read_vrun(self, vasprun_file=None, filename="vasprun.xml"):
+        vasprun_file = vasprun_file or os.path.join(self.calc_dir, filename)
+        self._vrun = Vasprun(vasprun_file, parse_projected_eigen=True)
         self.interp_params = None
         if self.interpolation == "boltztrap2":
             #TODO: after FR's PR is merged use PymatgenLoader imported from pymatgen here
-            bz2_data = BoltzTraP2.dft.DFTData(calc_dir, derivatives=False)
+            # bz2_data = BoltzTraP2.dft.DFTData(self._vrun, derivatives=False)
+            bz2_data = BoltzTraP2.dft.DFTData(self.calc_dir, derivatives=False)
             equivalences = sphere.get_equivalences(bz2_data.atoms,
                                             len(bz2_data.kpoints) * 10)
             lattvec = bz2_data.get_lattvec()
@@ -2589,12 +2593,9 @@ class AMSET(object):
 
     def to_file(self, path=None, dir_name='run_data', fname='amsetrun',
                 force_write=True):
-        if not path:
-            path = os.path.join(os.getcwd(), dir_name)
-            if not os.path.exists(path):
-                os.makedirs(name=path)
-        else:
-            path = os.path.join(path, dir_name)
+        path = os.join(path or self.calc_dir, dir_name)
+        if not os.path.exists(path):
+            os.makedirs(name=path)
         if not force_write:
             n = 1
             fname0 = fname
@@ -2654,10 +2655,9 @@ class AMSET(object):
             nstart (int): the initial list index of a property written to file
         Returns: egrid.json and (optional) kgrid.json file(s)
         """
-        if not path:
-            path = os.path.join(os.getcwd(), dir_name)
-            if not os.path.exists(path):
-                os.makedirs(name=path)
+        path = os.join(path or self.calc_dir, dir_name)
+        if not os.path.exists(path):
+            os.makedirs(name=path)
 
         if not max_ndata:
             max_ndata = int(self.gl)
@@ -3219,7 +3219,7 @@ class AMSET(object):
 
 
     def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'],
-             direction=['avg'], show_interactive=True, save_format=None, textsize=30, ticksize=25, path=None,
+             direction=['avg'], show_interactive=True, save_format=None, textsize=30, ticksize=25, path=None, dir_name="plots",
              margins=100, fontfamily="serif"):
         """
         plots the given k_plots and E_plots properties.
@@ -3244,6 +3244,9 @@ class AMSET(object):
             margins: (int) figrecipes plotly margins
             fontfamily: (string) plotly font
         """
+        path = os.join(path or self.calc_dir, dir_name)
+        if not os.path.exists(path):
+            os.makedirs(name=path)
         supported_k_plots = ['energy', 'df0dk', 'velocity'] + self.elastic_scatterings
         supported_E_plots = ['frequency', 'relaxation time', 'df0dk', 'velocity'] + self.elastic_scatterings
         if "POP" in self.inelastic_scatterings:
@@ -3266,11 +3269,6 @@ class AMSET(object):
         mu_list = ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings
         mu_markers = {mu: i for i, mu in enumerate(mu_list)}
         temp_markers = {T: i for i,T in enumerate(self.temperatures)}
-
-        if not path:
-            path = os.path.join(os.getcwd(), "plots")
-            if not os.path.exists(path):
-                os.makedirs(name=path)
 
         # separate temperature dependent and independent properties
         all_temp_independent_k_props = ['energy', 'velocity']
@@ -3395,10 +3393,9 @@ class AMSET(object):
         Returns (.csv file)
         """
         import csv
-        if not path:
-            path = os.path.join(os.getcwd(), dir_name)
-            if not os.path.exists(path):
-                os.makedirs(name=path)
+        path = os.join(path or self.calc_dir, dir_name)
+        if not os.path.exists(path):
+            os.makedirs(name=path)
 
         with open(os.path.join(path, csv_filename), 'w') as csvfile:
             fieldnames = ['type', 'c(cm-3)', 'T(K)', 'overall', 'average'] + \
