@@ -1040,19 +1040,19 @@ class AMSET(object):
             raise KeyError
 
 
-
     def get_dft_orbitals(self, bidx):
         """
-        the contribution from s and p orbitals at a given band for kpoints
-            that were used in the DFT run (from which vasprun.xml is read)
+        The contribution from s and p orbitals at a given band for kpoints
+        that were used in the DFT run (from which vasprun.xml is read)
+
         Args:
             bidx (idx): band index
+
         Returns:
             ([float], [float]) two lists: s&p orbital scores at the band # bidx
         """
         projected = self._vrun.projected_eigenvalues
         # projected indexes : Spin; kidx; bidx; s,py,pz,px,dxy,dyz,dz2,dxz,dx2
-
         s_orbital = [0.0 for k in self.DFT_cartesian_kpts]
         p_orbital = [0.0 for k in self.DFT_cartesian_kpts]
         for ik in range(len(self.DFT_cartesian_kpts)):
@@ -1062,7 +1062,6 @@ class AMSET(object):
             elif self.lorbit == 11:
                 p_orbital[ik] = sum(sum(projected[Spin.up][ik][bidx])[1:4])
         return s_orbital, p_orbital
-
 
 
     def read_vrun(self, calc_dir=".", filename="vasprun.xml"):
@@ -1219,6 +1218,7 @@ class AMSET(object):
         Args:
             c (float): the carrier concentration
             T (float): the temperature in kelvin
+
         Returns (float): inoized impurity (IMP) scattering concentration (N_II)
         """
         N_II = abs(self.calc_doping[c][T]["n"]) * self.charge["n"] ** 2 + \
@@ -1299,6 +1299,7 @@ class AMSET(object):
         """
         Initializes the self.egrid dict containing energy grid and relevant
         properties such as "DOS"
+
         Args:
             dos_tp (string): options are "simple", ...
         """
@@ -1348,6 +1349,16 @@ class AMSET(object):
 
 
     def get_Eidx_in_dos(self, E, Estep=None):
+        """
+        After the density of states (DOS) is initialized this function returns
+        the index of a given energy level
+
+        Args:
+            E (float): the energy level in eV
+            Estep (float): optional, the energy step used in calculating DOS
+
+        Returns (int): index of the energy level in the DOS
+        """
         if not Estep:
             Estep = max(self.dE_min, 0.0001)
         return int(round((E - self.dos_emin) / Estep))
