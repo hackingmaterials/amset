@@ -882,7 +882,7 @@ class AMSET(object):
         conveniently track what inputs had been used later or read
         inputs from files (see from_files method)
         """
-        path = os.join(path or self.calc_dir, dir_name)
+        path = os.path.join(path or self.calc_dir, dir_name)
         if not os.path.exists(path):
             os.makedirs(name=path)
 
@@ -2594,7 +2594,7 @@ class AMSET(object):
 
     def to_file(self, path=None, dir_name='run_data', fname='amsetrun',
                 force_write=True):
-        path = os.join(path or self.calc_dir, dir_name)
+        path = os.path.join(path or self.calc_dir, dir_name)
         if not os.path.exists(path):
             os.makedirs(name=path)
         if not force_write:
@@ -2656,7 +2656,7 @@ class AMSET(object):
             nstart (int): the initial list index of a property written to file
         Returns: egrid.json and (optional) kgrid.json file(s)
         """
-        path = os.join(path or self.calc_dir, dir_name)
+        path = os.path.join(path or self.calc_dir, dir_name)
         if not os.path.exists(path):
             os.makedirs(name=path)
 
@@ -3245,7 +3245,7 @@ class AMSET(object):
             margins: (int) figrecipes plotly margins
             fontfamily: (string) plotly font
         """
-        path = os.join(path or self.calc_dir, dir_name)
+        path = os.path.join(path or self.calc_dir, dir_name)
         if not os.path.exists(path):
             os.makedirs(name=path)
         supported_k_plots = ['energy', 'df0dk', 'velocity'] + self.elastic_scatterings
@@ -3394,7 +3394,7 @@ class AMSET(object):
         Returns (.csv file)
         """
         import csv
-        path = os.join(path or self.calc_dir, dir_name)
+        path = os.path.join(path or self.calc_dir, dir_name)
         if not os.path.exists(path):
             os.makedirs(name=path)
 
