@@ -1069,6 +1069,7 @@ class AMSET(object):
         self._vrun = Vasprun(os.path.join(calc_dir, filename), parse_projected_eigen=True)
         self.interp_params = None
         if self.interpolation == "boltztrap2":
+            #TODO: after FR's PR is merged use PymatgenLoader imported from pymatgen here
             bz2_data = BoltzTraP2.dft.DFTData(calc_dir, derivatives=False)
             equivalences = sphere.get_equivalences(bz2_data.atoms,
                                             len(bz2_data.kpoints) * 10)
