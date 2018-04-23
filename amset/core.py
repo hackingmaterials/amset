@@ -1001,7 +1001,7 @@ class AMSET(object):
     def set_performance_params(self, params):
         self.nkibz = params.get("nkibz", 40)
         self.dE_min = params.get("dE_min", 0.0001)
-        self.nE_min = params.get("nE_min", 2)
+        self.nE_min = params.get("nE_min", 5)
         c_factor = max(1, 3 * abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.25)
         Ecut = params.get("Ecut", c_factor * 5 * k_B * max(self.temperatures + [300]))
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
