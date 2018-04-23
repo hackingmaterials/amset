@@ -2936,7 +2936,7 @@ class AMSET(object):
         # calculate mobility by averaging velocity per electric field strength
         mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scatterings} for tp in ["n", "p"]}
         valley_mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
-                  self.dopings} for el_mech in self.mo_labels+self.spb_labels} for tp in ["n", "p"]}
+                  self.dopings} for el_mech in self.mo_labels+self.spb_labels+["seebeck"]} for tp in ["n", "p"]}
 
         for c in self.dopings:
             for T in self.temperatures:
@@ -3089,9 +3089,8 @@ class AMSET(object):
             the perturbation to electron distribution as well as group velocity
             over the energy
         """
-        integrate_over_kgrid = False
         valley_mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
-                  self.dopings} for el_mech in self.mo_labels+self.spb_labels} for tp in ["n", "p"]}
+                  self.dopings} for el_mech in self.mo_labels+self.spb_labels+["seebeck"]} for tp in ["n", "p"]}
 
         for c in self.dopings:
             for T in self.temperatures:
@@ -3138,21 +3137,22 @@ class AMSET(object):
                     #                                                     "energy"]) / (k_B * T))
 
                     # TODO: to calculate Seebeck define a separate function after ALL important_points are exhausted and the overall sum of self.mobility is evaluated!
-                    self.egrid[tp]["seebeck"][c][T] = -1e6 * k_B * (
+                    # self.egrid[tp]["seebeck"][c][T] = -1e6 * k_B * (
+                    valley_mobility[tp]["seebeck"][c][T] = -1e6 * k_B * (
                             self.egrid["Seebeck_integral_numerator"][c][T][tp]\
                             /self.egrid["Seebeck_integral_denominator"][c][T][
                             tp]-(self.fermi_level[c][T] - self.cbm_vbm[tp][
                                                     "energy"]) / (k_B * T))
-                    self.egrid[tp]["TE_power_factor"][c][T] = \
-                            self.egrid[tp]["seebeck"][c][T]** 2 * self.egrid[
-                                tp]["conductivity"][c][T] / 1e6  # in uW/cm2K
+                    # self.egrid[tp]["TE_power_factor"][c][T] = \
+                    #         self.egrid[tp]["seebeck"][c][T]** 2 * self.egrid[
+                    #             tp]["conductivity"][c][T] / 1e6  # in uW/cm2K
 
                     # when POP is not available J_th is unreliable
-                    if "POP" in self.inelastic_scatterings:
-                        self.egrid[tp]["seebeck"][c][T] = np.array([self.egrid[
-                                tp]["seebeck"][c][T] for i in range(3)])
-                        self.egrid[tp]["seebeck"][c][T] += 0.0
-                        # TODO: for now, we ignore the following until we figure out the units see why values are high!
+                    # if "POP" in self.inelastic_scatterings:
+                    #     self.egrid[tp]["seebeck"][c][T] = np.array([self.egrid[
+                    #             tp]["seebeck"][c][T] for i in range(3)])
+                    #     self.egrid[tp]["seebeck"][c][T] += 0.0
+                    #     # TODO: for now, we ignore the following until we figure out the units see why values are high!
                         # self.egrid["seebeck"][c][T][tp] += 1e6 \
                         #                 * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
 
@@ -3163,15 +3163,15 @@ class AMSET(object):
                     # print(self.egrid[tp]["J_th"][c][T] / self.egrid[tp]["conductivity"][c][T]/ dTdz * 1e6)
 
 
-                    #TODO: not sure about the following part yet specially as sometimes due to position of fermi I get very off other type mobility values! (sometimes very large)
-                    other_type = ["p", "n"][1 - j]
-                    self.egrid[tp]["seebeck"][c][T] = (
-                            self.egrid[tp]["conductivity"][c][T] * \
-                            self.egrid[tp]["seebeck"][c][T] -
-                            self.egrid[other_type]["conductivity"][c][T] * \
-                            self.egrid[other_type]["seebeck"][c][T]) / (
-                            self.egrid[tp]["conductivity"][c][T] +
-                            self.egrid[other_type]["conductivity"][c][T])
+                    # #TODO: not sure about the following part yet specially as sometimes due to position of fermi I get very off other type mobility values! (sometimes very large)
+                    # other_type = ["p", "n"][1 - j]
+                    # self.egrid[tp]["seebeck"][c][T] = (
+                    #         self.egrid[tp]["conductivity"][c][T] * \
+                    #         self.egrid[tp]["seebeck"][c][T] -
+                    #         self.egrid[other_type]["conductivity"][c][T] * \
+                    #         self.egrid[other_type]["seebeck"][c][T]) / (
+                    #         self.egrid[tp]["conductivity"][c][T] +
+                    #         self.egrid[other_type]["conductivity"][c][T])
                     ## since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
                     ## self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
         return valley_mobility
