@@ -85,7 +85,8 @@ class AMSET(object):
      """
     def __init__(self, calc_dir, material_params, vasprun_file=None,
                  model_params={}, performance_params={},
-                 dopings=None, temperatures=None, k_integration=True, e_integration=False, fermi_type='k', loglevel=None):
+                 dopings=None, temperatures=None, k_integration=False,
+                 e_integration=True, fermi_type='e', loglevel=None):
         """
         Args:
             calc_dir (str): path to the vasprun.xml (a required argument)
