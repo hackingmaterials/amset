@@ -1200,18 +1200,18 @@ class AMSET(object):
         """
         fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T)) * E / (k_B * T)
         return {
-            t: self.integrate_over_DOSxE_dE(func=fn, tp=t, fermi=self.fermi_level[c][T], T=T, normalize_energy=True)
+            t: self.integrate_func_over_E(func=fn, tp=t, fermi=self.fermi_level[c][T], T=T, normalize_energy=True)
         for
             t in ["n", "p"]}
 
+        # return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in["n", "p"]}
 
     def seeb_int_denom(self, c, T):
         """
         Wrapper function to do an integration taking only the concentration,
         c, and the temperature, T, as inputs
         """
-        return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in
-                ["n", "p"]}
+        return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in["n", "p"]}
 
 
     def calculate_property(self, prop_name, prop_func, for_all_E=False):
@@ -1961,7 +1961,7 @@ class AMSET(object):
             raise ValueError("The elastic scattering name {} is not supported!".format(sname))
 
 
-    def integrate_over_DOSxE_dE(self, func, tp, fermi, T, interpolation_nsteps=None, normalize_energy=False):
+    def integrate_func_over_E(self, func, tp, fermi, T, interpolation_nsteps=None, xDOS=True, normalize_energy=False):
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
         integral = 0.0
@@ -1971,10 +1971,13 @@ class AMSET(object):
             if normalize_energy:
                 E -= self.cbm_vbm[tp]["energy"]
                 fermi -= self.cbm_vbm[tp]["energy"]
-            dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
-            for i in range(interpolation_nsteps):
-                # integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS)*func(E + i * dE, fermi, T)*self.Efrequency[tp][ie]
-                integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
+            if xDOS:
+                dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
+                for i in range(interpolation_nsteps):
+                    integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
+            else:
+                for i in range(interpolation_nsteps):
+                    integral += dE * func(E + i * dE, fermi, T)
         return integral
         # return integral/sum(self.Efrequency[tp][:-1])
 
@@ -3080,7 +3083,9 @@ class AMSET(object):
                         # from equation 45 in Rode, overall
                         g = self.array_from_kgrid("g", tp, c, T)
                         valley_transport[tp]['overall'][c][T] = self.integrate_over_states(g * v, tp)
-
+                        g_th = self.array_from_kgrid("g", tp, c, T)
+                        valley_transport[tp]["J_th"][c][T] = self.integrate_over_states(g_th * v, tp)
+                        valley_transport[tp]["seebeck"][c][T] = self.egrid["Seebeck_integral_numerator"][c][T][tp]
 
                     # figure out average mobility
                     faulty_overall_mobility = False
@@ -3100,7 +3105,7 @@ class AMSET(object):
                         valley_transport[tp]['overall'][c][T] = valley_transport[tp]["average"][c][T]
 
                     if self.independent_valleys:
-                        for mu in self.mo_labels:
+                        for mu in self.mo_labels+["J_th"]:
                             valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
         return valley_transport
 
@@ -3490,7 +3495,7 @@ if __name__ == "__main__":
 
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052, 'add_extrema': add_extrema
-            # , "user_bandgap": 1.54,
+            , "user_bandgap": 1.54,
                        }
     input_dir = "../test_files/GaAs/nscf-uniform"
     coeff_file = os.path.join(input_dir, "fort.123")
@@ -3520,7 +3525,7 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  temperatures = [300],
+                  temperatures = [300, 600, 900],
                   # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
