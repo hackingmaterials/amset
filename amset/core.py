@@ -408,15 +408,17 @@ class AMSET(object):
                                 elif self.e_integration:
                                     self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)  * self.bs.get_kpoint_degeneracy(important_points['n'][0])
                                     self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False) * self.bs.get_kpoint_degeneracy(important_points['p'][0])
-                                    for tp in ['n', 'p']:
+                                    for tp in ['p', 'n']:
                                         self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp]
-                                for mu in self.mo_labels:
-                                    for tp in ['p', 'n']:
+                                for tp in ['p', 'n']:
+                                    for mu in self.mo_labels:
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                                    self.mobility[tp]['seebeck'][c][T] += valley_transport[tp]['seebeck'][c][T] # seeb is multiplied by DOS so no need for degeneracy
                             else:
-                                for mu in self.mo_labels+["seebeck"]:
-                                    for tp in ['p', 'n']:
+                                for tp in ['p', 'n']:
+                                    for mu in self.mo_labels:
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                                    self.mobility[tp]["seebeck"][c][T] += valley_transport[tp]["seebeck"][c][T]
 
                 if self.poly_bands0 is None:
                     for tp in ['p', 'n']:
@@ -3478,7 +3480,7 @@ if __name__ == "__main__":
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2,
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "n_jobs": -1
-                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
+                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": 2
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
                           }
