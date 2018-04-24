@@ -2956,7 +2956,7 @@ class AMSET(object):
         # calculate mobility by averaging velocity per electric field strength
         mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scatterings} for tp in ["n", "p"]}
         valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
-                  self.dopings} for el_mech in self.mo_labels+self.spb_labels+["seebeck"]} for tp in ["n", "p"]}
+                  self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
 
         for c in self.dopings:
             for T in self.temperatures:
@@ -3110,7 +3110,7 @@ class AMSET(object):
             over the energy
         """
         valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
-                  self.dopings} for el_mech in self.mo_labels+self.spb_labels+["seebeck"]} for tp in ["n", "p"]}
+                  self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
 
         for c in self.dopings:
             for T in self.temperatures:
