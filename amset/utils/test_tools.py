@@ -16,7 +16,7 @@ test_dir = os.path.dirname(__file__)
 class AmsetToolsTest(unittest.TestCase):
     def setUp(self):
         self.GaAs_path = os.path.join(test_dir, '..', '..', 'test_files', 'GaAs')
-        self.GaAs_cube = os.path.join(self.GaAs_path, "nscf-uniform/boltztrap/fort.123")
+        self.GaAs_cube = os.path.join(self.GaAs_path, "nscf-uniform/fort.123")
         self.GaAs_vrun = Vasprun(os.path.join(self.GaAs_path, "nscf-uniform", "vasprun.xml"))
 
 
