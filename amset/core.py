@@ -398,24 +398,22 @@ class AMSET(object):
                 self.logger.info('Mobility Labels: {}'.format(self.mo_labels))
                 for c in self.dopings:
                     for T in self.temperatures:
-                        if self.count_mobility[self.ibrun][tp]:
-                            if not self.independent_valleys:
-                                if self.k_integration:
-                                    f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                    f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                    self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10
-                                    self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10
-                                elif self.e_integration:
-                                    self.denominator[c][T]['n'] += 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)  * self.bs.get_kpoint_degeneracy(important_points['n'][0])
-                                    self.denominator[c][T]['p'] += 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False) * self.bs.get_kpoint_degeneracy(important_points['p'][0])
-                                    for tp in ['p', 'n']:
+                        for tp in ['p', 'n']:
+                            if self.count_mobility[self.ibrun][tp]:
+                                if not self.independent_valleys:
+                                    if self.k_integration:
+                                        f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                                        f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                                        finteg = f0_all if tp == 'n' else 1-f0p_all
+                                        self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_states(finteg, tp) + 1e-10
+                                    elif self.e_integration:
+                                        finteg = "f0" if tp=="n" else "1 - f0"
+                                        self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(prop_list=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)  * self.bs.get_kpoint_degeneracy(important_points[tp][0])
                                         self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp]
-                                for tp in ['p', 'n']:
                                     for mu in self.mo_labels:
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
                                     self.mobility[tp]['seebeck'][c][T] += valley_transport[tp]['seebeck'][c][T] # seeb is multiplied by DOS so no need for degeneracy
-                            else:
-                                for tp in ['p', 'n']:
+                                else:
                                     for mu in self.mo_labels:
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
                                     self.mobility[tp]["seebeck"][c][T] += valley_transport[tp]["seebeck"][c][T]
