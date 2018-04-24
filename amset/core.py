@@ -178,7 +178,7 @@ class AMSET(object):
 
         self.mo_labels = self.elastic_scatterings + self.inelastic_scatterings + ['overall', 'average']
         self.spb_labels = ['SPB_ACD']
-        self.transport_labels = self.mo_labels + self.spb_labels + ["seebeck"]
+        self.transport_labels = self.mo_labels + self.spb_labels + ["seebeck", "J_th"]
         self.mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
                   self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
         self.calc_doping = {c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in self.dopings}
@@ -414,9 +414,11 @@ class AMSET(object):
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
                                     self.mobility[tp]['seebeck'][c][T] += valley_transport[tp]['seebeck'][c][T] # seeb is multiplied by DOS so no need for degeneracy
                                 else:
-                                    for mu in self.mo_labels:
+                                    for mu in self.mo_labels+["J_th"]:
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
                                     self.mobility[tp]["seebeck"][c][T] += valley_transport[tp]["seebeck"][c][T]
+                                    self.mobility[tp]["J_th"][c][T] += valley_transport[tp]["J_th"][c][T]
+
 
                 if self.poly_bands0 is None:
                     for tp in ['p', 'n']:
@@ -447,7 +449,7 @@ class AMSET(object):
             for tp in ['p', 'n']:
                 for c in self.dopings:
                     for T in self.temperatures:
-                        for mu in self.mo_labels:
+                        for mu in self.mo_labels+["J_th"]:
                             self.mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
                             for band in list(self.valleys[tp].keys()):
                                 for valley_k in list(self.valleys[tp][band].keys()):
@@ -463,6 +465,7 @@ class AMSET(object):
                 for T in self.temperatures:
                     self.mobility[tp]['seebeck'][c][T] -= (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T)
                     self.mobility[tp]['seebeck'][c][T] *= -1e6 * k_B
+                    self.mobility[tp]["seebeck"][c][T] += 1e6 * self.mobility[tp]["J_th"][c][T]/(self.mobility[tp]["overall"][c][T]*e*abs(c))/dTdz
                     for band in list(self.valleys[tp].keys()):
                         for valley_k in list(self.valleys[tp][band].keys()):
                             self.valleys[tp][band][valley_k]["seebeck"][c][T] -= (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T)
@@ -3127,7 +3130,10 @@ class AMSET(object):
                         mu_overall_valley = self.integrate_over_E(prop_list=["g"],
                                tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
 
-                    self.egrid[tp]["J_th"][c][T] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
+                    # self.egrid[tp]["J_th"][c][T] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
+                    #         xDOS=False, xvel=True, weighted=True)) * e * abs(c)  # in units of A/cm2
+
+                    valley_transport[tp]["J_th"][c][T] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
                             xDOS=False, xvel=True, weighted=True)) * e * abs(c)  # in units of A/cm2
 
                     faulty_overall_mobility = False
@@ -3192,7 +3198,7 @@ class AMSET(object):
                     ## since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
                     ## self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
                     if self.independent_valleys:
-                        for mu in self.mo_labels:
+                        for mu in self.mo_labels+["J_th"]:
                             valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
                         valley_transport[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
         return valley_transport
