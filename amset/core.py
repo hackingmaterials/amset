@@ -416,7 +416,7 @@ class AMSET(object):
                             else:
                                 for mu in self.mo_labels+["seebeck"]:
                                     for tp in ['p', 'n']:
-                                        self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T]
+                                        self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
 
                 if self.poly_bands0 is None:
                     for tp in ['p', 'n']:
@@ -457,7 +457,18 @@ class AMSET(object):
                                 for valley_k in list(self.valleys[tp][band].keys()):
                                     self.valleys[tp][band][valley_k]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
 
-        print('\nFinal Mobility Values:')
+        # finalize Seebeck values:
+        for tp in ['p', 'n']:
+            for c in self.dopings:
+                for T in self.temperatures:
+                    self.mobility[tp]['seebeck'][c][T] -= (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T)
+                    self.mobility[tp]['seebeck'][c][T] *= -1e6 * k_B
+                    for band in list(self.valleys[tp].keys()):
+                        for valley_k in list(self.valleys[tp][band].keys()):
+                            self.valleys[tp][band][valley_k]["seebeck"][c][T] -= (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T)
+                            self.valleys[tp][band][valley_k]["seebeck"][c][T] *= -1e6 * k_B
+
+        print('\nFinal Transport Values:')
         pprint(self.mobility)
         if write_outputs:
             self.to_file()
@@ -882,9 +893,7 @@ class AMSET(object):
                 self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
 
-        self.logger.info(('here initial important_pts'))
-        self.logger.info('Here are the final extrema considered: \n {}'.format(
-                                                self.important_pts))
+        self.logger.info('The initial extrema:\n{}'.format(self.important_pts))
 
 
     def write_input_files(self, path=None, dir_name="run_data"):
@@ -3146,9 +3155,11 @@ class AMSET(object):
 
                     # TODO: to calculate Seebeck define a separate function after ALL important_points are exhausted and the overall sum of self.mobility is evaluated!
                     # self.egrid[tp]["seebeck"][c][T] = -1e6 * k_B * (
-                    valley_transport[tp]["seebeck"][c][T] = -1e6 * k_B * (
-                            self.egrid["Seebeck_integral_numerator"][c][T][tp] # /self.egrid["Seebeck_integral_denominator"][c][T][tp]
-                            -(self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T))
+                    #         self.egrid["Seebeck_integral_numerator"][c][T][tp]  /self.egrid["Seebeck_integral_denominator"][c][T][tp]
+                    #         -(self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T))
+
+                    valley_transport[tp]["seebeck"][c][T] = self.egrid["Seebeck_integral_numerator"][c][T][tp]
+
                     # self.egrid[tp]["TE_power_factor"][c][T] = \
                     #         self.egrid[tp]["seebeck"][c][T]** 2 * self.egrid[
                     #             tp]["conductivity"][c][T] / 1e6  # in uW/cm2K
