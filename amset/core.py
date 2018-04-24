@@ -410,7 +410,7 @@ class AMSET(object):
                                         finteg = "f0" if tp=="n" else "1 - f0"
                                         self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(prop_list=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)  * self.bs.get_kpoint_degeneracy(important_points[tp][0])
                                         self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp]
-                                    for mu in self.mo_labels:
+                                    for mu in self.mo_labels+["J_th"]:
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
                                     self.mobility[tp]['seebeck'][c][T] += valley_transport[tp]['seebeck'][c][T] # seeb is multiplied by DOS so no need for degeneracy
                                 else:
@@ -2336,7 +2336,6 @@ class AMSET(object):
                                     once_called, self.kgrid, self.cbm_vbm,
                                     self.epsilon_s, self.epsilon_inf) for ik in
                                     range(len(self.kgrid[tp]["kpoints"][ib]))]
-
                             with Pool(self.n_jobs) as p:
                                 results = p.starmap(calculate_Sio, inputs)
                         for ik, res in enumerate(results):
@@ -3484,7 +3483,7 @@ if __name__ == "__main__":
 
     performance_params = {"dE_min": 0.0001, "nE_min": 2,
             "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "n_jobs": -1
-                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": 2
+                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": None
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
                           }
