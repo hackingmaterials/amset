@@ -67,6 +67,7 @@ class AmsetTest(unittest.TestCase):
         # w/ /sq3 factor
         expected_mu = {'ACD': 93987.72634, 'IMP': 116929.32057, 'PIE':192757.79559,
                        'POP': 7235.45068, 'overall':4521.95883, 'average': 6150.51121}
+        expected_seebeck = -423.13
 
         performance_params = deepcopy(self.performance_params)
         performance_params['max_nvalleys'] = 2
@@ -91,7 +92,8 @@ class AmsetTest(unittest.TestCase):
                 amset.mobility['n'][mu][-2e15][300]), 0.00, places=1)
             self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
                     expected_mu[mu], places=1)
-
+        self.assertAlmostEqual(amset.mobility['n']['seebeck'][-2e15][300][0],
+                               expected_seebeck, places=2)
 
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
@@ -121,6 +123,7 @@ class AmsetTest(unittest.TestCase):
         print('\ntesting test_GaAs_anisotropic...')
         expected_mu = {'ACD': 78610.0696, 'IMP': 289240.82771, 'PIE': 193117.5001,
                        'POP': 7181.2256, 'overall': 5921.347294, 'average': 6226.31922}
+        expected_seebeck = -41002
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
@@ -138,6 +141,9 @@ class AmsetTest(unittest.TestCase):
                 amset.mobility['n'][mu][-2e15][300]), 0.04*\
                 np.mean(amset.mobility['n'][mu][-2e15][300]))
             self.assertLess(abs(amset.mobility['n'][mu][-2e15][300][0] - expected_mu[mu])/expected_mu[mu], 0.04)
+        self.assertAlmostEqual(amset.mobility['n']['seebeck'][-2e15][300][0],
+                               expected_seebeck, 2)
+
 
     def test_defaults(self):
         print('\ntesting test_defaults...')
