@@ -404,10 +404,11 @@ class AMSET(object):
                             if self.count_mobility[self.ibrun][tp]:
                                 if not self.independent_valleys:
                                     if self.k_integration:
-                                        f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                        f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                                        f0_all = 1. / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1.)
+                                        f0p_all = 1. / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1.)
                                         finteg = f0_all if tp == 'n' else 1-f0p_all
                                         self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_states(finteg, tp) + 1e-10
+                                        self.seeb_denom[c][T][tp] += self.integrate_over_states(finteg*(1-finteg), tp)
                                     elif self.e_integration:
                                         finteg = "f0" if tp=="n" else "1 - f0"
                                         self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(prop_list=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)  * valley_ndegen
@@ -2964,6 +2965,7 @@ class AMSET(object):
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["n", "p"]):
+                    E_array = self.array_from_kgrid('energy', tp)
                     if not self.count_mobility[self.ibrun][tp]:
                         continue
                     N = self.kgrid_array[tp].shape
@@ -3083,7 +3085,7 @@ class AMSET(object):
                         valley_transport[tp]['overall'][c][T] = self.integrate_over_states(g * v, tp)
                         g_th = self.array_from_kgrid("g", tp, c, T)
                         valley_transport[tp]["J_th"][c][T] = self.integrate_over_states(g_th * v, tp)
-                        valley_transport[tp]["seebeck"][c][T] = self.egrid["Seebeck_integral_numerator"][c][T][tp]
+                        valley_transport[tp]["seebeck"][c][T] = self.integrate_over_states(f0_all*(1-f0_all)*E_array, tp)/(k_B*T)
 
                     # figure out average mobility
                     faulty_overall_mobility = False
@@ -3105,6 +3107,7 @@ class AMSET(object):
                     if self.independent_valleys:
                         for mu in self.mo_labels+["J_th"]:
                             valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
+                        valley_transport[tp]['seebeck'][c][T] /= self.integrate_over_states(f0_all*(1-f0_all), tp)
         return valley_transport
 
 
@@ -3523,15 +3526,15 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  # temperatures = [300, 600, 900],
-                  temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
+                  temperatures = [300],
+                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
