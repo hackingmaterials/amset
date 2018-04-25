@@ -3484,8 +3484,8 @@ if __name__ == "__main__":
             [[0.0, 0.0, 0.0], [0.0, mass]],
         ]]
 
-    performance_params = {"dE_min": 0.0001, "nE_min": 2,
-            "BTE_iters": 5, "max_nbands": 1, "max_normk": 1.6, "n_jobs": -1
+    performance_params = {"dE_min": 0.0001, "nE_min": 5,
+            "BTE_iters": 7, "max_nbands": 1, "max_normk": 2, "n_jobs": -1
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": None
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
@@ -3523,15 +3523,15 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  temperatures = [300, 600, 900],
-                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
+                  # temperatures = [300, 600, 900],
+                  temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
