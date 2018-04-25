@@ -395,10 +395,12 @@ class AMSET(object):
                 if self.ibrun==0 and ivalley==0: # 1-valley only since it's SPB
                     self.calculate_spb_transport()
 
+
                 self.logger.info('Mobility Labels: {}'.format(self.mo_labels))
                 for c in self.dopings:
                     for T in self.temperatures:
                         for tp in ['p', 'n']:
+                            valley_ndegen = self.bs.get_kpoint_degeneracy(important_points[tp][0])
                             if self.count_mobility[self.ibrun][tp]:
                                 if not self.independent_valleys:
                                     if self.k_integration:
@@ -408,15 +410,15 @@ class AMSET(object):
                                         self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_states(finteg, tp) + 1e-10
                                     elif self.e_integration:
                                         finteg = "f0" if tp=="n" else "1 - f0"
-                                        self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(prop_list=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)  * self.bs.get_kpoint_degeneracy(important_points[tp][0])
-                                        self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp]
+                                        self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(prop_list=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)  * valley_ndegen
+                                        self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp] * valley_ndegen
                                     for mu in self.mo_labels+["J_th"]:
-                                        self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                                        self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * valley_ndegen
                                     self.mobility[tp]['seebeck'][c][T] += valley_transport[tp]['seebeck'][c][T] # seeb is multiplied by DOS so no need for degeneracy
                                 else:
                                     for mu in self.mo_labels+["J_th"]:
-                                        self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * self.bs.get_kpoint_degeneracy(important_points[tp][0])
-                                    self.mobility[tp]["seebeck"][c][T] += valley_transport[tp]["seebeck"][c][T]
+                                        self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * valley_ndegen
+                                    self.mobility[tp]["seebeck"][c][T] += valley_transport[tp]["seebeck"][c][T] * valley_ndegen
                                     self.mobility[tp]["J_th"][c][T] += valley_transport[tp]["J_th"][c][T]
 
 
@@ -1199,19 +1201,15 @@ class AMSET(object):
         c, and the temperature, T, as inputs
         """
         fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T)) * E / (k_B * T)
-        return {
-            t: self.integrate_func_over_E(func=fn, tp=t, fermi=self.fermi_level[c][T], T=T, normalize_energy=True)
-        for
-            t in ["n", "p"]}
+        return {t: self.integrate_func_over_E(func=fn, tp=t, fermi=self.fermi_level[c][T], T=T, normalize_energy=True, xDOS=False) for t in ["n", "p"]}
 
-        # return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in["n", "p"]}
 
     def seeb_int_denom(self, c, T):
         """
         Wrapper function to do an integration taking only the concentration,
         c, and the temperature, T, as inputs
         """
-        return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in["n", "p"]}
+        return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=False) for t in["n", "p"]}
 
 
     def calculate_property(self, prop_name, prop_func, for_all_E=False):
