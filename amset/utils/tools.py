@@ -673,7 +673,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
     return energies, velocities, masses
 
 
-def get_bs_extrema(self, bs, coeff_file=None, interp_params=None,
+def get_bs_extrema(bs, coeff_file=None, interp_params=None,
                    interpolation="boltztrap1",
                    nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
                    Ecut=None, nex_max=10, return_global=False, n_jobs=1,
