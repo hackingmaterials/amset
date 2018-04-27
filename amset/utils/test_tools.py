@@ -8,7 +8,8 @@ import unittest
 
 from amset.core import AMSET
 from amset.utils.tools import kpts_to_first_BZ, get_closest_k, \
-    remove_duplicate_kpoints, get_energy_args, get_bindex_bspin, interpolate_bs
+    remove_duplicate_kpoints, get_energy_args, get_bindex_bspin, \
+    interpolate_bs, get_bs_extrema
 from pymatgen.io.vasp import Vasprun
 
 test_dir = os.path.dirname(__file__)
@@ -25,10 +26,13 @@ class AmsetToolsTest(unittest.TestCase):
 
 
     def test_get_bs_extrema(self):
-        amset = AMSET(calc_dir='.', material_params={'epsilon_s': 12.9})
-        amset.read_vrun(vasprun_file=os.path.join(self.GaAs_path, 'nscf-uniform', 'vasprun.xml'))
-        extrema = amset.get_bs_extrema(bs=self.GaAs_vrun.get_band_structure(),
-                    coeff_file=self.GaAs_cube, nbelow_vbm=0, nabove_cbm=0)
+        # amset = AMSET(calc_dir='.', material_params={'epsilon_s': 12.9})
+        # amset.read_vrun(vasprun_file=os.path.join(self.GaAs_path, 'nscf-uniform', 'vasprun.xml'))
+        # extrema = amset.get_bs_extrema(bs=self.GaAs_vrun.get_band_structure(),
+        #             coeff_file=self.GaAs_cube, nbelow_vbm=0, nabove_cbm=0)
+        extrema = get_bs_extrema(bs=self.GaAs_vrun.get_band_structure(),
+                                       coeff_file=self.GaAs_cube, nbelow_vbm=0,
+                                       nabove_cbm=0)
         self.assertTrue(any(([.0, .0, .0] == x).all() for x in extrema['n']))
         self.assertTrue(any(([.5, .5, .5] == x).all() for x in extrema['n']))
         self.assertTrue(any(([.0, .0, .0] == x).all() for x in extrema['p']))
