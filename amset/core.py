@@ -748,7 +748,7 @@ class AMSET(object):
                       self.cbm_vbm['n']['bidx']+nabove_cbm]
             self.interp_params = get_energy_args(coeff_file, ibands)
         if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
-            self.important_pts, new_cbm_vbm = self.get_bs_extrema(self.bs, coeff_file,
+            self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
                     interp_params=self.interp_params, interpolation=interpolation,
                     nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
                     Ecut=self.Ecut, nex_max=20, return_global=True, n_jobs=self.n_jobs,
