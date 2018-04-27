@@ -4,11 +4,9 @@ import gzip
 import warnings
 import time
 import json
-from multiprocessing import Pool, cpu_count
+from multiprocessing import cpu_count
 from pstats import Stats
 from random import random
-
-from pymatgen.symmetry.bandstructure import HighSymmKpath
 from scipy.interpolate import griddata
 from pprint import pprint
 import os
@@ -22,7 +20,6 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from monty.json import MontyEncoder, MontyDecoder
 import cProfile
 from copy import deepcopy
-import multiprocessing
 
 from amset.utils.analytical_band_from_BZT import Analytical_bands, get_dos_from_poly_bands, get_poly_energy
 
@@ -30,7 +27,7 @@ from amset.utils.tools import norm, generate_k_mesh_axes, \
     create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
     fermi_integral, calculate_Sio, remove_from_grid, get_tp, \
     remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
-    get_energy_args, get_bindex_bspin, \
+    get_energy_args, get_bindex_bspin, get_bs_extrema, \
     AmsetError, kpts_to_first_BZ, get_dos_boltztrap2, \
     setup_custom_logger, insert_intermediate_kpoints, interpolate_bs
 
@@ -401,6 +398,9 @@ class AMSET(object):
                     for T in self.temperatures:
                         for tp in ['p', 'n']:
                             valley_ndegen = self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                            print('valley degeneracy for {} is {}'.format(str(important_points[tp][0]), valley_ndegen))
+                            # valley_ndegen = 1
+                            # print('overriding valley degenracy to 1...')
                             if self.count_mobility[self.ibrun][tp]:
                                 if not self.independent_valleys:
                                     if self.k_integration:
@@ -478,145 +478,6 @@ class AMSET(object):
         pprint(self.mobility)
         if write_outputs:
             self.to_file()
-
-
-    def get_bs_extrema(self, bs, coeff_file=None, interp_params=None,
-                       interpolation="boltztrap1",
-                       nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
-                       Ecut=None, nex_max=10, return_global=False, niter=5,
-                       nbelow_vbm=0, nabove_cbm=0, scissor=0.0):
-        """
-        Returns a dictionary of p-type (valence) and n-type (conduction) band
-            extrema k-points by looking at the 1st and 2nd derivatives of the bands
-
-        Args:
-            bs (pymatgen BandStructure object): must containt Structure and have
-                the same number of valence electrons and settings as the vasprun.xml
-                from which coeff_file is generated.
-            coeff_file (str): path to the cube file from BoltzTraP run
-            nk_ibz (int): maximum number of k-points in one direction in IBZ
-            v_cut (float): threshold under which the derivative is assumed 0 [cm/s]
-            min_normdiff (float): the minimum allowed distance norm(fractional k)
-                in extrema; this is important to avoid numerical instability errors
-            Ecut (float or dict): max energy difference with CBM/VBM allowed for
-                extrema
-            nex_max (int): max number of low-velocity kpts tested for being extrema
-            return_global (bool): in addition to the extrema, return the actual
-                CBM (global minimum) and VBM (global maximum) w/ their k-point
-            niter (int): number of iterations in basinhoopping for finding the
-                global extremum
-            nbelow_vbm (int): # of bands below the last valence band
-            nabove_vbm (int): # of bands above the first conduction band
-            scissor (float): the amount by which the band gap is altered/scissored.
-        Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
-        """
-        # TODO: MAJOR cleanup needed in this function
-        # TODO: if decided to only include one of many symmetrically equivalent extrema, write a method to keep only one of symmetrically equivalent extrema as a representative
-        Ecut = Ecut or 10 * k_B * 300
-        if not isinstance(Ecut, dict):
-            Ecut = {'n': Ecut, 'p': Ecut}
-        actual_cbm_vbm = {'n': {}, 'p': {}}
-        vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
-        # vbm_idx = bs.get_vbm()['band_index'][Spin.up][0]
-        ibands = [1 - nbelow_vbm,
-                  2 + nabove_cbm]  # in this notation, 1 is the last valence band
-        ibands = [i + vbm_idx for i in ibands]
-        ibz = HighSymmKpath(bs.structure)
-        sg = SpacegroupAnalyzer(bs.structure)
-        kmesh = sg.get_ir_reciprocal_mesh(mesh=(nk_ibz, nk_ibz, nk_ibz))
-        kpts = [k_n_w[0] for k_n_w in kmesh]
-        kpts.extend(
-            insert_intermediate_kpoints(list(ibz.kpath['kpoints'].values()),
-                                        n=10))
-
-        cbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
-        vbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
-        kpts.append(cbmk)
-        kpts.append(vbmk)
-
-        extrema = {'n': [], 'p': []}
-
-        if interpolation == "boltztrap1" and interp_params is None:
-            interp_params = get_energy_args(coeff_file=coeff_file, ibands=ibands)
-
-        for iband in range(len(ibands)):
-            is_cb = [False, True][iband]
-            tp = ['p', 'n'][iband]
-            if is_cb:
-                sgn = -1.0
-            else:
-                sgn = 1.0
-
-            iband = iband if interpolation=="boltztrap1" else ibands[iband]
-            energies, velocities, masses = interpolate_bs(kpts, interp_params,
-                    iband=iband, sgn=sgn, method=interpolation, scissor=scissor,
-                    matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
-            normv = [norm(v) for v in velocities]
-            masses = [mass.trace() / 3.0 for mass in masses]
-            indexes = np.argsort(normv)
-            energies = [energies[i] for i in indexes]
-            normv = [normv[i] for i in indexes]
-            velocities = [velocities[i] for i in indexes]
-            masses = [masses[i] for i in indexes]
-            kpts = [np.array(kpts[i]) for i in indexes]
-            if is_cb:
-                iextrem = np.argmin(energies)
-                extremum0 = energies[iextrem]  # extremum0 is numerical CBM here
-                actual_cbm_vbm[tp]['energy'] = extremum0
-                actual_cbm_vbm[tp]['kpoint'] = kpts[iextrem]
-                # The following is in case CBM doesn't have a zero numerical norm(v)
-                closest_cbm = get_closest_k(kpts[iextrem], np.vstack((
-                                                                     bs.get_sym_eq_kpoints(
-                                                                         cbmk),
-                                                                     bs.get_sym_eq_kpoints(
-                                                                         -cbmk))))
-                if norm(np.array(kpts[iextrem]) - closest_cbm) < min_normdiff:
-                    # and abs(bs.get_cbm()['energy']-extremum0) < 0.05: #TODO: this is not correct unless the fitted energy is calculated at cbmk (bs.get_cbm()['energy'] is dft different reference from interpolation method)
-                    extrema['n'].append(cbmk)
-                else:
-                    extrema['n'].append(kpts[iextrem])
-            else:
-                iextrem = np.argmax(energies)
-                extremum0 = energies[iextrem]
-                actual_cbm_vbm[tp]['energy'] = extremum0
-                actual_cbm_vbm[tp]['kpoint'] = kpts[iextrem]
-                closest_vbm = get_closest_k(kpts[iextrem], np.vstack((
-                                                                     bs.get_sym_eq_kpoints(
-                                                                         vbmk),
-                                                                     bs.get_sym_eq_kpoints(
-                                                                         -vbmk))))
-                if norm(np.array(kpts[iextrem]) - closest_vbm) < min_normdiff:
-                    # and abs(bs.get_vbm()['energy']-extremum0) < 0.05:
-                    extrema['p'].append(vbmk)
-                else:
-                    extrema['p'].append(kpts[iextrem])
-
-            if normv[0] > v_cut:
-                raise ValueError(
-                    'No extremum point (v<{}) found!'.format(v_cut))
-            for i in range(0, nex_max):
-                # if (velocities[i] > v_cut).all() :
-                if normv[i] > v_cut:
-                    break
-                else:
-                    far_enough = True
-                    for k in extrema[tp]:
-                        if norm(get_closest_k(kpts[i], np.vstack((
-                                                                 bs.get_sym_eq_kpoints(
-                                                                         k),
-                                                                 bs.get_sym_eq_kpoints(
-                                                                         -k))),
-                                              return_diff=True)) <= min_normdiff:
-                            # if norm(kpts[i] - k) <= min_normdiff:
-                            far_enough = False
-                    if far_enough \
-                            and abs(energies[i] - extremum0) < Ecut[tp] \
-                            and masses[i] * ((-1) ** (int(is_cb) + 1)) >= 0:
-                        extrema[tp].append(kpts[i])
-        if not return_global:
-            return extrema
-        else:
-            return extrema, actual_cbm_vbm
 
 
     def calculate_spb_transport(self):
@@ -890,7 +751,7 @@ class AMSET(object):
             self.important_pts, new_cbm_vbm = self.get_bs_extrema(self.bs, coeff_file,
                     interp_params=self.interp_params, interpolation=interpolation,
                     nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
-                    Ecut=self.Ecut, nex_max=20, return_global=True, niter=5,
+                    Ecut=self.Ecut, nex_max=20, return_global=True, n_jobs=self.n_jobs,
                     nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
             if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy'] and self.poly_bands0 is None:
                 self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
@@ -3305,8 +3166,6 @@ class AMSET(object):
         direction = list(direction)
 
         mu_list = ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings
-        mu_markers = {mu: i for i, mu in enumerate(mu_list)}
-        temp_markers = {T: i for i,T in enumerate(self.temperatures)}
 
         # separate temperature dependent and independent properties
         all_temp_independent_k_props = ['energy', 'velocity']
@@ -3402,7 +3261,6 @@ class AMSET(object):
 
                     # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
                     if mobility:
-                        # all_plots = []
                         plot_data = []
                         names = []
                         for mo in mu_list:
@@ -3492,8 +3350,8 @@ if __name__ == "__main__":
             [[0.0, 0.0, 0.0], [0.0, mass]],
         ]]
 
-    performance_params = {"dE_min": 0.0001, "nE_min": 5,
-            "BTE_iters": 7, "max_nbands": 1, "max_normk": 2, "n_jobs": -1
+    performance_params = {"dE_min": 0.0001, "nE_min": 3,
+            "BTE_iters": 5, "max_nbands": 1, "max_normk": 2, "n_jobs": -1
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": None
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
@@ -3539,7 +3397,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
