@@ -737,7 +737,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None,
         iband = iband if interpolation=="boltztrap1" else ibands[iband]
         energies, velocities, masses = interpolate_bs(kpts, interp_params,
                 iband=iband, sgn=sgn, method=interpolation, scissor=scissor,
-                matrix=bs.lattice.matrix, n_jobs=n_jobs)
+                matrix=bs.structure.lattice.matrix, n_jobs=n_jobs)
         normv = [norm(v) for v in velocities]
         masses = [mass.trace() / 3.0 for mass in masses]
         indexes = np.argsort(normv)
