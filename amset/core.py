@@ -980,8 +980,8 @@ class AMSET(object):
         self.nbands = self.bs.nb_bands
         self.lorbit = 11 if len(sum(self._vrun.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
 
-        self.DFT_cartesian_kpts = np.array(
-                [self.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
+        # self.DFT_cartesian_kpts = np.array([self.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
+        self.DFT_cartesian_kpts = np.array(self.get_cartesian_coords(self._vrun.actual_kpoints))/ A_to_nm
 
         cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
                    "p": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]}}
@@ -1045,18 +1045,19 @@ class AMSET(object):
         form get_cartesian_coords method available in self._rec_lattice, that
         one does NOT work with BolzTraP outputs
         Args:
-            frac_k (np.ndarray): a 3-D vector in fractional (unitless)
+            frac_k (np.ndarray): a 3-D vector in fractional (unitless) or a
+                list of such coordinates
             coordinates or a list of such coordinates
             reciprocal (bool): whether the cartesian output is in real (Angstrom)
                 or reciprocal space (1/Angstrom).
         Returns (np.ndarray): frac_k ransformed into cartesian coordinates
         """
         if reciprocal:
-            # return np.dot(self._rec_lattice.matrix, np.array(frac_k).T).T
-            return (np.array(frac_k), self._rec_lattice.matrix)
+            return np.dot(self._rec_lattice.matrix.T, np.array(frac_k).T).T
+            # return (np.array(frac_k), self._rec_lattice.matrix)
         else:
-            # return np.dot(self._vrun.lattice.matrix, np.array(frac_k).T).T
-            return (np.array(frac_k), self._vrun.lattice.matrix)
+            return np.dot(self._vrun.lattice.matrix.T, np.array(frac_k).T).T
+            # return (np.array(frac_k), self._vrun.lattice.matrix)
 
 
     def seeb_int_num(self, c, T):
