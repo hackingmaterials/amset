@@ -6,14 +6,14 @@ import os
 import pandas as pd
 from pymatgen.io.vasp import Vasprun, Spin
 
-dir = os.path.dirname(__file__)
+abs_dir = os.path.dirname(__file__)
 
 """
 This script helps plot the band structure with kpoint coordinates as labels to
 help easily detect the important pockets
 """
 
-vrun_file = os.path.join(dir, "../test_files/GaAs/28_electrons_line/vasprun.xml")
+vrun_file = os.path.join(abs_dir, "../test_files/GaAs/28_electrons_line/vasprun.xml")
 
 
 amset = AMSET(calc_dir='.', material_params={'epsilon_s': 12.9})
@@ -26,8 +26,10 @@ amset.read_vrun(vasprun_file=vrun_file)
 
 vrun = Vasprun(vrun_file)
 bs = vrun.get_band_structure()
+
 bsd = {}
 bsd['kpoints'] = [k.frac_coords for k in bs.kpoints]
+
 bsd['str_kpts'] = [str(k) for k in bsd['kpoints']]
 bsd['cartesian kpoints'] = [amset.get_cartesian_coords(k) for k in bsd['kpoints']]
 bsd['normk'] = np.linalg.norm(bsd['cartesian kpoints'], axis=1)
