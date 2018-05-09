@@ -28,8 +28,6 @@ class AmsetToolsTest(unittest.TestCase):
     def test_get_bs_extrema(self):
         # amset = AMSET(calc_dir='.', material_params={'epsilon_s': 12.9})
         # amset.read_vrun(vasprun_file=os.path.join(self.GaAs_path, 'nscf-uniform', 'vasprun.xml'))
-        # extrema = amset.get_bs_extrema(bs=self.GaAs_vrun.get_band_structure(),
-        #             coeff_file=self.GaAs_cube, nbelow_vbm=0, nabove_cbm=0)
         extrema = get_bs_extrema(bs=self.GaAs_vrun.get_band_structure(),
                                        coeff_file=self.GaAs_cube, nbelow_vbm=0,
                                        nabove_cbm=0)
