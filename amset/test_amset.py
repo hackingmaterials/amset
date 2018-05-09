@@ -24,7 +24,12 @@ class AmsetTest(unittest.TestCase):
                 'P_PIE': 0.052, 'scissor': 0.5818}
         self.GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
         self.GaAs_cube = os.path.join(self.GaAs_path, "nscf-uniform/fort.123")
-
+        self.InP_path = os.path.join(test_dir, '..', 'test_files', 'InP_mp-202351')
+        self.InP_params = {"epsilon_s": 14.7970, "epsilon_inf": 11.558,
+                            "W_POP": 9.2651, "C_el": 119.18,
+                            "E_D": {"n": 5.74, "p": 1.56},
+                            "P_PIE": 0.052, "user_bandgap": 1.344
+                            }
 
     def tearDown(self):
         pass
@@ -93,6 +98,28 @@ class AmsetTest(unittest.TestCase):
             self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
                     expected_mu[mu], places=1)
         self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.03)
+
+
+    def test_InP_isotropic_E(self):
+        expected_mu = {'ACD': 209039, 'IMP': 202151, 'PIE':325097,
+                       'POP': 5591, 'overall':4880, 'average': 5217}
+
+        amset = AMSET(calc_dir=self.InP_path, material_params=self.InP_params,
+                      model_params=self.model_params,
+                      performance_params=self.performance_params,
+                      dopings=[-2e15], temperatures=[300], k_integration=False,
+                      e_integration=True, fermi_type='e',
+                      loglevel=logging.DEBUG)
+        amset.run(os.path.join(self.InP_path, 'fort.123'),
+                  kgrid_tp='very coarse', write_outputs=False)
+
+        # check mobility values
+        for mu in expected_mu.keys():
+            self.assertLessEqual( # test the isotropy of transport results
+                np.std(amset.mobility['n'][mu][-2e15][300]) / \
+                np.mean(amset.mobility['n'][mu][-2e15][300]), 0.02
+            )
+            self.assertLessEqual(abs(amset.mobility['n'][mu][-2e15][300][0]/expected_mu[mu]-1),0.01)
 
 
     def test_GaAs_isotropic_k(self):
