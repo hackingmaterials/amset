@@ -1052,9 +1052,11 @@ class AMSET(object):
         Returns (np.ndarray): frac_k ransformed into cartesian coordinates
         """
         if reciprocal:
-            return np.dot(self._rec_lattice.matrix, np.array(frac_k).T).T
+            # return np.dot(self._rec_lattice.matrix, np.array(frac_k).T).T
+            return (np.array(frac_k), self._rec_lattice.matrix)
         else:
-            return np.dot(self._vrun.lattice.matrix, np.array(frac_k).T).T
+            # return np.dot(self._vrun.lattice.matrix, np.array(frac_k).T).T
+            return (np.array(frac_k), self._vrun.lattice.matrix)
 
 
     def seeb_int_num(self, c, T):
