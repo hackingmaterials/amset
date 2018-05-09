@@ -15,7 +15,7 @@ api = MPRester("fDJKEZpxSyvsXdCt")
 
 def retrieve_bs_boltztrap1(coeff_file, bs, ibands, matrix=None):
     interp_params = get_energy_args(coeff_file, ibands)
-    pf = PlotlyFig(filename='plots/Energy-bt1')
+    pf = PlotlyFig(filename='Energy-bt1')
     plot_data =[]
     v_data = []
     mass_data = []
@@ -34,15 +34,16 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, matrix=None):
         v_data.append((en, vel))
         mass_data.append((en, masses))
         trace_names.append('band {}'.format(iband))
+    print(v_data[1][1])
     pf.xy(plot_data, names=[n for n in trace_names])
-    pf2 = PlotlyFig(filename='plots/Velocity-bt1')
+    pf2 = PlotlyFig(filename='Velocity-bt1')
     pf2.xy(v_data, names=[n for n in trace_names])
-    pf3 = PlotlyFig(filename='plots/mass-bt1')
+    pf3 = PlotlyFig(filename='mass-bt1')
     pf3.xy(mass_data, names=[n for n in trace_names])
 
 
 def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
-    pf = PlotlyFig(filename='plots/Energy-bt2')
+    pf = PlotlyFig(filename='Energy-bt2')
     sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
     # vrun = Vasprun(os.path.join(vrun_path, 'vasprun.xml'))
     # bz_data = PMG_Vasprun_Loader(vrun)
@@ -68,10 +69,11 @@ def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
         v_data.append((en, np.linalg.norm(vel, axis=1)))
         mass_data.append((en, [mass.trace()/3.0 for mass in masses]))
         names.append('band {}'.format(iband+1))
+    print(v_data[1][1])
     pf.xy(plot_data, names=[n for n in names])
-    pf2 = PlotlyFig(filename='plots/Velocity-bt2')
+    pf2 = PlotlyFig(filename='Velocity-bt2')
     pf2.xy(v_data, names=[n for n in names])
-    pf3 = PlotlyFig(filename='plots/mass-bt2')
+    pf3 = PlotlyFig(filename='mass-bt2')
     pf3.xy(mass_data, names=[n for n in names])
 
 
@@ -117,13 +119,13 @@ if __name__ == "__main__":
     PbTe_coeff_file = os.path.join(test_dir, 'PbTe/fort.123')
     Si_coeff_file = os.path.join(test_dir, "Si/Si_fort.123")
     # GaAs_coeff_file = os.path.join(test_dir, "GaAs/fort.123_GaAs_1099kp")
-    GaAs_coeff_file = os.path.join(test_dir, "GaAs/nscf-uniform/boltztrap/fort.123")
+    GaAs_coeff_file = os.path.join(test_dir, "GaAs/nscf-uniform/fort.123")
 
     start_time = time()
     # retrieve_bs_boltztrap1(coeff_file=PbTe_coeff_file, bs=bs, ibands=ibands)
     # retrieve_bs_boltztrap1(coeff_file=Si_coeff_file, bs=Si_bs, ibands=ibands, cbm=True)
 
-    retrieve_bs_boltztrap1(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands, cbm=True, matrix=dir_matrix)
+    retrieve_bs_boltztrap1(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands, matrix=dir_matrix)
 
     # retrieve_bs_boltztrap1(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[11, 12, 13, 14])
     print("Boltztrap1 total time: {}".format(time() - start_time))
