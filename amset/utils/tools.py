@@ -655,7 +655,8 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
                 results = p.starmap(get_energy, inputs)
         for energy, de, dde in results:
             energy = energy * Ry_to_eV - sgn * scissor / 2.0
-            velocity = abs(np.dot(matrix, de.T).T) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+            # velocity = abs(np.dot(matrix, de.T).T) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+            velocity = abs(np.dot(de, matrix))  / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
             effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
             energies.append(energy)
             velocities.append(velocity)
@@ -738,7 +739,8 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None,
         energies, velocities, masses = interpolate_bs(kpts, interp_params,
                 iband=iband, sgn=sgn, method=interpolation, scissor=scissor,
                 matrix=bs.structure.lattice.matrix, n_jobs=n_jobs)
-        normv = [norm(v) for v in velocities]
+        # normv = [norm(v) for v in velocities]
+        normv = [min(abs(v)) for v in velocities]
         masses = [mass.trace() / 3.0 for mass in masses]
         indexes = np.argsort(normv)
         energies = [energies[i] for i in indexes]
