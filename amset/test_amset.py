@@ -109,7 +109,7 @@ class AmsetTest(unittest.TestCase):
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], k_integration=False,
                       e_integration=True, fermi_type='e',
-                      loglevel=logging.DEBUG)
+                      loglevel=logging.ERROR)
         amset.run(os.path.join(self.InP_path, 'fort.123'),
                   kgrid_tp='very coarse', write_outputs=False)
 
