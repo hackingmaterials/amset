@@ -265,9 +265,9 @@ class AMSET(object):
 
                 if self.max_normk0 is None:
                     for tp in ['n', 'p']:
-                        min_dist = 200.0
+                        min_dist = 100.0 # in 1/nm
                         for k in self.bs.get_sym_eq_kpoints(important_points[tp][0]): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
-                            new_dist = norm(self.get_cartesian_coords(get_closest_k(k, self.all_important_pts[tp], return_diff=True)) /A_to_nm )
+                            new_dist = norm(self.get_cartesian_coords(get_closest_k(k, self.all_important_pts[tp], return_diff=True, exclude_self=True)) /A_to_nm )
                             if new_dist < min_dist and new_dist > 0.01: # to avoid self-counting, 0.01 criterion added
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
@@ -3406,7 +3406,7 @@ if __name__ == "__main__":
                   k_integration=False, e_integration=True, fermi_type='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
