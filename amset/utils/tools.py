@@ -9,8 +9,8 @@ from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, \
     get_energy
 from amset.utils.constants import hbar, m_e, e, k_B, epsilon_0, sq3, \
     Hartree_to_eV, Ry_to_eV, A_to_m, m_to_cm
+from detect_peaks import detect_peaks
 from math import pi, log
-
 from pymatgen import Spin
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.symmetry.bandstructure import HighSymmKpath
@@ -670,6 +670,98 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
 
 
 def get_bs_extrema(bs, coeff_file=None, interp_params=None,
+                   interpolation="boltztrap1",line_density=30, min_normdiff=0.2,
+                   Ecut=None, return_global=False, n_jobs=-1,
+                   nbelow_vbm=0, nabove_cbm=0, scissor=0.0):
+    """
+    Returns a dictionary of p-type (valence) and n-type (conduction) band
+        extrema k-points by looking at the 1st and 2nd derivatives of the bands
+
+    Args:
+        bs (pymatgen BandStructure object): must contain Structure and have
+            the same number of valence electrons and settings as the vasprun.xml
+            from which coeff_file is generated.
+        coeff_file (str): path to the cube file from BoltzTraP run
+        line_density (int): maximum number of k-points between each two
+            consecutive high-symmetry k-points
+        v_cut (float): threshold under which the derivative is assumed 0 [cm/s]
+        min_normdiff (float): the minimum allowed distance norm(fractional k)
+            in extrema; this is important to avoid numerical instability errors
+        Ecut (float or dict): max energy difference with CBM/VBM allowed for
+            extrema. Valid examples: 0.25 or {'n': 0.5, 'p': 0.25} , ...
+        return_global (bool): in addition to the extrema, return the actual
+            CBM (global minimum) and VBM (global maximum) w/ their k-point
+        n_jobs (int): number of processors used in boltztrap1 interpolation
+        nbelow_vbm (int): # of bands below the last valence band
+        nabove_vbm (int): # of bands above the first conduction band
+        scissor (float): the amount by which the band gap is altered/scissored.
+    Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
+    """
+    # print(bs.get_sym_eq_kpoints([0.5, 0.5, 0.5]))
+    # quit()
+    Ecut = Ecut or 10 * k_B * 300
+    if not isinstance(Ecut, dict):
+        Ecut = {'n': Ecut, 'p': Ecut}
+    global_extrema = {'n': {}, 'p': {}}
+    final_extrema = {'n': [], 'p': []}
+    hsk = HighSymmKpath(bs.structure)
+    hs_kpoints, _ = hsk.get_kpoints(line_density=line_density)
+    hs_kpoints = kpts_to_first_BZ(hs_kpoints)
+    vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
+    cbm_idx, _ = get_bindex_bspin(bs.get_cbm(), is_cbm=True)
+
+    if interpolation == "boltztrap1" and interp_params is None:
+        interp_params = get_energy_args(coeff_file=coeff_file,
+                                        ibands=[vbm_idx + 1 - nbelow_vbm,
+                                                cbm_idx + 1 + nabove_cbm])
+    for iband, tp in enumerate(["p", "n"]): # hence iband == 0 or 1
+        band , _, _ = interpolate_bs(hs_kpoints, interp_params, iband=iband,
+                                      method="boltztrap1", scissor=scissor,
+                                      matrix=bs.structure.lattice.matrix,
+                                      n_jobs=n_jobs, sgn=(-1)**iband)
+        global_ext_idx = (1-iband) * np.argmax(band) + iband * np.argmin(band)
+        global_extrema[tp]['energy'] = band[global_ext_idx]
+        global_extrema[tp]['kpoint'] = hs_kpoints[global_ext_idx]
+
+        extrema_idx = detect_peaks(band, mph=None, mpd=min_normdiff,
+                               valley=iband==1)
+
+        extrema_init = []
+        for idx in extrema_idx:
+            k_localext = hs_kpoints[idx]
+            if abs(band[idx] - global_extrema[tp]['energy']) < Ecut[tp]:
+                far_enough = True
+                for kp in extrema_init:
+                    kp = np.array(kp)
+                    if norm(get_closest_k(k_localext,
+                                          np.vstack(
+                                              (bs.get_sym_eq_kpoints(-kp),
+                                               bs.get_sym_eq_kpoints(kp))),
+                                          return_diff=True)) <= min_normdiff:
+                        far_enough = False
+                if far_enough:
+                    extrema_init.append(k_localext)
+
+        # check to see if one of the actual high-symm k-points can be used
+        hisymks = list(hsk.kpath['kpoints'].values())
+        all_hisymks = []
+        for kp in hisymks:
+            all_hisymks += list(np.vstack((bs.get_sym_eq_kpoints(-kp),
+                                           bs.get_sym_eq_kpoints(kp))))
+        for k_ext_found in extrema_init:
+            kp = get_closest_k(k_ext_found, all_hisymks, return_diff=False)
+            if norm(kp - k_ext_found) < min_normdiff:
+                final_extrema[tp].append(kp)
+            else:
+                final_extrema[tp].append(k_ext_found)
+    if return_global:
+        return final_extrema, global_extrema
+    else:
+        return final_extrema
+
+
+# TODO: refactored on 05/21/2018 to get_bs_extrema; remove soon if not needed
+def get_bs_extrema_refactored(bs, coeff_file=None, interp_params=None,
                    interpolation="boltztrap1",
                    nk_ibz=17, v_cut=1e4, min_normdiff=0.05,
                    Ecut=None, nex_max=10, return_global=False, n_jobs=1,
@@ -688,7 +780,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None,
         min_normdiff (float): the minimum allowed distance norm(fractional k)
             in extrema; this is important to avoid numerical instability errors
         Ecut (float or dict): max energy difference with CBM/VBM allowed for
-            extrema
+            extrema. Valid examples: 0.25 or {'n': 0.5, 'p': 0.25} , ...
         nex_max (int): max number of low-velocity kpts tested for being extrema
         return_global (bool): in addition to the extrema, return the actual
             CBM (global minimum) and VBM (global maximum) w/ their k-point

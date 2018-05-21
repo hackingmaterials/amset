@@ -750,8 +750,7 @@ class AMSET(object):
         if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
                     interp_params=self.interp_params, interpolation=interpolation,
-                    nk_ibz=self.nkdos, v_cut=self.v_min, min_normdiff=0.1,
-                    Ecut=self.Ecut, nex_max=20, return_global=True, n_jobs=self.n_jobs,
+                    Ecut=self.Ecut, return_global=True, n_jobs=self.n_jobs,
                     nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
             if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy'] and self.poly_bands0 is None:
                 self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
@@ -3395,15 +3394,15 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  # temperatures = [300],
-                  temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
+                  temperatures = [300],
+                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
                   k_integration=False, e_integration=True, fermi_type='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
