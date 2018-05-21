@@ -10,6 +10,7 @@ from copy import deepcopy
 from amset.core import AMSET
 
 test_dir = os.path.dirname(__file__)
+LOGLEVEL = logging.ERROR
 
 class AmsetTest(unittest.TestCase):
     def setUp(self):
@@ -46,7 +47,7 @@ class AmsetTest(unittest.TestCase):
                       performance_params=self.performance_params,
                       dopings=[c], temperatures=temperatures, k_integration=True,
                       e_integration=False, fermi_type='k',
-                      loglevel=logging.ERROR)
+                      loglevel=LOGLEVEL)
         amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
 
         # check fermi level
@@ -81,7 +82,7 @@ class AmsetTest(unittest.TestCase):
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], k_integration=False,
                       e_integration=True, fermi_type='e',
-                      loglevel=logging.ERROR)
+                      loglevel=LOGLEVEL)
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
         kgrid = amset.kgrid
 
@@ -109,7 +110,7 @@ class AmsetTest(unittest.TestCase):
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], k_integration=False,
                       e_integration=True, fermi_type='e',
-                      loglevel=logging.ERROR)
+                      loglevel=LOGLEVEL)
         amset.run(os.path.join(self.InP_path, 'fort.123'),
                   kgrid_tp='very coarse', write_outputs=False)
 
@@ -133,7 +134,7 @@ class AmsetTest(unittest.TestCase):
                       performance_params=performance_params,
                       dopings=[-3e13], temperatures=[300], k_integration=True,
                       e_integration=False, fermi_type='k',
-                      loglevel=logging.ERROR)
+                      loglevel=LOGLEVEL)
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
         mobility = amset.mobility
         self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.7149, 3)
@@ -159,7 +160,7 @@ class AmsetTest(unittest.TestCase):
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], k_integration=False,
                       e_integration=True, fermi_type='e',
-                      loglevel=logging.ERROR)
+                      loglevel=LOGLEVEL)
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
 
         # check mobility values
@@ -217,7 +218,7 @@ class AmsetTest(unittest.TestCase):
     #                   performance_params=performance_params,
     #                   dopings=[-3e13], temperatures=[300], k_integration=True,
     #                   e_integration=False, fermi_type='k',
-    #                   loglevel=logging.ERROR)
+    #                   loglevel=LOGLEVEL)
     #     amset.run(self.GaAs_cube, kgrid_tp='very fine', write_outputs=False, test_k_anisotropic=True)
     #     mobility = amset.mobility
     #     kgrid = amset.kgrid
