@@ -358,7 +358,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
 
 
-def get_closest_k(kpoint, ref_ks, return_diff=False):
+def get_closest_k(kpoint, ref_ks, return_diff=False, exclude_self=False):
     """
     returns the list of difference between kpoints. If return_diff True, then
         for a given kpoint the minimum distance among distances with ref_ks is
@@ -368,11 +368,15 @@ def get_closest_k(kpoint, ref_ks, return_diff=False):
         ref_ks ([1x3 array]): list of reference k-points from which the
             distance with initial_ks are calculated
         return_diff (bool): if True, the minimum distance is returned
+        exclude_self (bool): if kpoint is already repeated in ref_ks, exclude
+            that from ref_ks
     Returns (1x3 array):
     """
     if len(list(kpoint)) != 3 or len(list(ref_ks[0])) != 3:
         raise AmsetError('k-point coordinates must be 3-dimensional')
     norms = [norm(ki-kpoint) for ki in ref_ks]
+    if exclude_self:
+        norms = [norm if norm>0.001 else 1e10 for norm in norms]
     min_dist_ik = np.array(norms).argmin()
     if return_diff:
         return kpoint - ref_ks[min_dist_ik]
