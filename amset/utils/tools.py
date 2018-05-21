@@ -716,13 +716,13 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None,
                                                 cbm_idx + 1 + nabove_cbm])
     for iband, tp in enumerate(["p", "n"]): # hence iband == 0 or 1
         band , _, _ = interpolate_bs(hs_kpoints, interp_params, iband=iband,
-                                      method="boltztrap1", scissor=scissor,
+                                      method=interpolation, scissor=scissor,
                                       matrix=bs.structure.lattice.matrix,
                                       n_jobs=n_jobs, sgn=(-1)**iband)
+
         global_ext_idx = (1-iband) * np.argmax(band) + iband * np.argmin(band)
         global_extrema[tp]['energy'] = band[global_ext_idx]
         global_extrema[tp]['kpoint'] = hs_kpoints[global_ext_idx]
-
         extrema_idx = detect_peaks(band, mph=None, mpd=min_normdiff,
                                valley=iband==1)
 
@@ -754,6 +754,17 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None,
                 final_extrema[tp].append(kp)
             else:
                 final_extrema[tp].append(k_ext_found)
+                
+        # sort the extrema based on their energy (i.e. importance)
+        subband, _, _ = interpolate_bs(final_extrema[tp], interp_params, iband=iband,
+                                    method=interpolation, scissor=scissor,
+                                    matrix=bs.structure.lattice.matrix,
+                                    n_jobs=n_jobs, sgn=(-1) ** iband)
+        sorted_idx = np.argsort(subband)
+        if iband==0:
+            sorted_idx = sorted_idx[::-1]
+        final_extrema[tp] = [final_extrema[tp][i] for i in sorted_idx]
+
     if return_global:
         return final_extrema, global_extrema
     else:
