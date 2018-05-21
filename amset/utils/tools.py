@@ -358,7 +358,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
     return [sum(S_i), sum(S_i_th), sum(S_o), sum(S_o_th)]
 
 
-def get_closest_k(kpoint, ref_ks, return_diff=False, threshold = 0.001):
+def get_closest_k(kpoint, ref_ks, return_diff=False):
     """
     returns the list of difference between kpoints. If return_diff True, then
         for a given kpoint the minimum distance among distances with ref_ks is
