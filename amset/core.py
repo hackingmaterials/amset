@@ -265,9 +265,9 @@ class AMSET(object):
 
                 if self.max_normk0 is None:
                     for tp in ['n', 'p']:
-                        min_dist = 20.0
+                        min_dist = 200.0
                         for k in self.bs.get_sym_eq_kpoints(important_points[tp][0]): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
-                            new_dist = norm(self.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True)) /A_to_nm )
+                            new_dist = norm(self.get_cartesian_coords(get_closest_k(k, self.all_important_pts[tp], return_diff=True)) /A_to_nm )
                             if new_dist < min_dist and new_dist > 0.01: # to avoid self-counting, 0.01 criterion added
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
@@ -747,8 +747,11 @@ class AMSET(object):
             ibands = [self.cbm_vbm['p']['bidx']-nbelow_vbm,
                       self.cbm_vbm['n']['bidx']+nabove_cbm]
             self.interp_params = get_energy_args(coeff_file, ibands)
-        eref = {typ: self.cbm_vbm[typ]['energy'] for typ in ['p', 'n']}
         if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
+            if self.poly_bands0 is None:
+                eref = {typ: self.cbm_vbm[typ]['energy'] for typ in ['p', 'n']}
+            else:
+                eref = None
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
                     interp_params=self.interp_params, interpolation=interpolation,
                     Ecut=self.Ecut, eref=eref, return_global=True, n_jobs=self.n_jobs,
@@ -759,7 +762,7 @@ class AMSET(object):
             if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p']['energy'] and self.poly_bands0 is None:
                 self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
-
+        self.all_important_pts = deepcopy(self.important_pts)
         self.logger.info('The initial extrema:\n{}'.format(self.important_pts))
 
 
