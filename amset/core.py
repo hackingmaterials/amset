@@ -747,10 +747,11 @@ class AMSET(object):
             ibands = [self.cbm_vbm['p']['bidx']-nbelow_vbm,
                       self.cbm_vbm['n']['bidx']+nabove_cbm]
             self.interp_params = get_energy_args(coeff_file, ibands)
+        eref = {typ: self.cbm_vbm[typ]['energy'] for typ in ['p', 'n']}
         if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
                     interp_params=self.interp_params, interpolation=interpolation,
-                    Ecut=self.Ecut, return_global=True, n_jobs=self.n_jobs,
+                    Ecut=self.Ecut, eref=eref, return_global=True, n_jobs=self.n_jobs,
                     nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
             if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy'] and self.poly_bands0 is None:
                 self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
