@@ -267,7 +267,7 @@ class AMSET(object):
                     for tp in ['n', 'p']:
                         min_dist = 20.0
                         for k in self.bs.get_sym_eq_kpoints(important_points[tp][0]): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
-                            new_dist = norm(self.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True, threshold=0.01)) /A_to_nm )
+                            new_dist = norm(self.get_cartesian_coords(get_closest_k(k, self.important_pts[tp], return_diff=True)) /A_to_nm )
                             if new_dist < min_dist and new_dist > 0.01: # to avoid self-counting, 0.01 criterion added
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
@@ -3357,7 +3357,7 @@ if __name__ == "__main__":
         ]]
 
     performance_params = {"dE_min": 0.0001, "nE_min": 3,
-            "BTE_iters": 5, "max_nbands": 1, "max_normk": 2, "n_jobs": -1
+            "BTE_iters": 5, "max_nbands": 1, "max_normk": None, "n_jobs": -1
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": None
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
