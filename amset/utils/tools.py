@@ -671,7 +671,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
 
 def get_bs_extrema(bs, coeff_file=None, interp_params=None,
                    interpolation="boltztrap1",line_density=30, min_normdiff=0.2,
-                   Ecut=None, return_global=False, n_jobs=-1,
+                   Ecut=None, eref=None, return_global=False, n_jobs=-1,
                    nbelow_vbm=0, nabove_cbm=0, scissor=0.0):
     """
     Returns a dictionary of p-type (valence) and n-type (conduction) band
@@ -689,6 +689,9 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None,
             in extrema; this is important to avoid numerical instability errors
         Ecut (float or dict): max energy difference with CBM/VBM allowed for
             extrema. Valid examples: 0.25 or {'n': 0.5, 'p': 0.25} , ...
+        eref (dict): BandStructure global VBM/CBM used as a global reference
+            energy for Ecut. Example: {'n': 6.0, 'p': 5.0}. Ignored if None in
+            which case maximum/minimum of the current valence/conduction used
         return_global (bool): in addition to the extrema, return the actual
             CBM (global minimum) and VBM (global maximum) w/ their k-point
         n_jobs (int): number of processors used in boltztrap1 interpolation
@@ -697,12 +700,16 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None,
         scissor (float): the amount by which the band gap is altered/scissored.
     Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
     """
-    # print(bs.get_sym_eq_kpoints([0.5, 0.5, 0.5]))
-    # quit()
     Ecut = Ecut or 10 * k_B * 300
     if not isinstance(Ecut, dict):
         Ecut = {'n': Ecut, 'p': Ecut}
-    global_extrema = {'n': {}, 'p': {}}
+    if eref is None:
+        global_extrema = {'n': {}, 'p': {}}
+    else:
+        cbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
+        vbmk = np.array(bs.get_vbm()['kpoint'].frac_coords)
+        global_extrema = {'n': {'energy': eref['n'], 'kpoint': cbmk},
+                          'p': {'energy': eref['p'], 'kpoint': vbmk}}
     final_extrema = {'n': [], 'p': []}
     hsk = HighSymmKpath(bs.structure)
     hs_kpoints, _ = hsk.get_kpoints(line_density=line_density)
@@ -714,15 +721,16 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None,
         interp_params = get_energy_args(coeff_file=coeff_file,
                                         ibands=[vbm_idx + 1 - nbelow_vbm,
                                                 cbm_idx + 1 + nabove_cbm])
+
     for iband, tp in enumerate(["p", "n"]): # hence iband == 0 or 1
         band , _, _ = interpolate_bs(hs_kpoints, interp_params, iband=iband,
                                       method=interpolation, scissor=scissor,
                                       matrix=bs.structure.lattice.matrix,
                                       n_jobs=n_jobs, sgn=(-1)**iband)
-
         global_ext_idx = (1-iband) * np.argmax(band) + iband * np.argmin(band)
-        global_extrema[tp]['energy'] = band[global_ext_idx]
-        global_extrema[tp]['kpoint'] = hs_kpoints[global_ext_idx]
+        if eref is None:
+            global_extrema[tp]['energy'] = band[global_ext_idx]
+            global_extrema[tp]['kpoint'] = hs_kpoints[global_ext_idx]
         extrema_idx = detect_peaks(band, mph=None, mpd=min_normdiff,
                                valley=iband==1)
 
@@ -754,7 +762,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None,
                 final_extrema[tp].append(kp)
             else:
                 final_extrema[tp].append(k_ext_found)
-                
+
         # sort the extrema based on their energy (i.e. importance)
         subband, _, _ = interpolate_bs(final_extrema[tp], interp_params, iband=iband,
                                     method=interpolation, scissor=scissor,
@@ -818,7 +826,7 @@ def get_bs_extrema_refactored(bs, coeff_file=None, interp_params=None,
     kpts = [k_n_w[0] for k_n_w in kmesh]
     kpts.extend(insert_intermediate_kpoints(list(ibz.kpath['kpoints'].values()),n=10))
     cbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
-    vbmk = np.array(bs.get_cbm()['kpoint'].frac_coords)
+    vbmk = np.array(bs.get_vbm()['kpoint'].frac_coords)
     kpts.append(cbmk)
     kpts.append(vbmk)
     extrema = {'n': [], 'p': []}
