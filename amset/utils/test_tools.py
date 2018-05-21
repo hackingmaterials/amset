@@ -32,7 +32,7 @@ class AmsetToolsTest(unittest.TestCase):
                                        coeff_file=self.GaAs_cube, nbelow_vbm=0,
                                        nabove_cbm=0)
         self.assertTrue(any(([.0, .0, .0] == x).all() for x in extrema['n']))
-        self.assertTrue(any(([.5, .5, .5] == x).all() for x in extrema['n']))
+        self.assertTrue(any(([.0, .5, .0] == x).all() for x in extrema['n']))
         self.assertTrue(any(([.0, .0, .0] == x).all() for x in extrema['p']))
 
 
