@@ -674,7 +674,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
 
 
 def get_bs_extrema(bs, coeff_file=None, interp_params=None,
-                   interpolation="boltztrap1",line_density=30, min_normdiff=0.2,
+                   interpolation="boltztrap1",line_density=30, min_normdiff=sq3/10.0,
                    Ecut=None, eref=None, return_global=False, n_jobs=-1,
                    nbelow_vbm=0, nabove_cbm=0, scissor=0.0):
     """
@@ -762,7 +762,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None,
                                            bs.get_sym_eq_kpoints(kp))))
         for k_ext_found in extrema_init:
             kp = get_closest_k(k_ext_found, all_hisymks, return_diff=False)
-            if norm(kp - k_ext_found) < min_normdiff:
+            if norm(kp - k_ext_found) < min_normdiff/2.0:
                 final_extrema[tp].append(kp)
             else:
                 final_extrema[tp].append(k_ext_found)
