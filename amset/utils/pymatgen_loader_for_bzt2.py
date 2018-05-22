@@ -25,7 +25,7 @@ class PymatgenLoader:
         elif len(vrun.eigenvalues) == 2:
             raise BaseException("spin bs case not implemented")
         
-        self.lattvec = self.structure.lattice.matrix * units.Angstrom
+        self.lattvec = self.atoms.get_cell().T * units.Angstrom
         self.mommat = None
         self.fermi = vrun.efermi * units.eV
         self.nelect = vrun.parameters['NELECT']
@@ -83,7 +83,7 @@ class BandstructureLoader:
         elif len(pmg_bs_obj.bands) == 2:
             raise BaseException("spin bs case not implemented")
 
-        self.lattvec = self.structure.lattice.matrix * units.Angstrom
+        self.lattvec = self.atoms.get_cell().T * units.Angstrom
         self.mommat = None
         self.fermi = pmg_bs_obj.efermi * units.eV
         
