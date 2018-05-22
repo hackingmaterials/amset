@@ -16,25 +16,35 @@ test_dir = os.path.dirname(__file__)
 
 class AmsetToolsTest(unittest.TestCase):
     def setUp(self):
-        self.GaAs_path = os.path.join(test_dir, '..', '..', 'test_files', 'GaAs')
-        self.GaAs_cube = os.path.join(self.GaAs_path, "nscf-uniform/fort.123")
-        self.GaAs_vrun = Vasprun(os.path.join(self.GaAs_path, "nscf-uniform", "vasprun.xml"))
+        GaAs_path = os.path.join(test_dir, '..', '..', 'test_files', 'GaAs')
+        self.GaAs_cube = os.path.join(GaAs_path, "nscf-uniform/fort.123")
+        self.GaAs_vrun = Vasprun(os.path.join(GaAs_path, "nscf-uniform", "vasprun.xml"))
+        Si_path = os.path.join(test_dir, '..', '..', 'test_files', 'Si')
+        self.Si_cube = os.path.join(Si_path, 'Si_fort.123')
+        self.Si_vrun = Vasprun(os.path.join(Si_path, 'vasprun.xml'))
 
-
-    def tearDown(self):
-        pass
+    def listalmostequal(self, list1, list2, places=3):
+        for l1, l2 in zip(list1, list2):
+            self.assertAlmostEqual(l1, l2, places=places)
 
 
     def test_get_bs_extrema(self):
-        # amset = AMSET(calc_dir='.', material_params={'epsilon_s': 12.9})
-        # amset.read_vrun(vasprun_file=os.path.join(self.GaAs_path, 'nscf-uniform', 'vasprun.xml'))
         extrema = get_bs_extrema(bs=self.GaAs_vrun.get_band_structure(),
-                                       coeff_file=self.GaAs_cube, nbelow_vbm=0,
-                                       nabove_cbm=0)
-        self.assertTrue(any(([.0, .0, .0] == x).all() for x in extrema['n']))
-        self.assertTrue(any(([.0, .5, .0] == x).all() for x in extrema['n']))
-        self.assertTrue(any(([.0, .0, .0] == x).all() for x in extrema['p']))
+                                 coeff_file=self.GaAs_cube)
+        self.listalmostequal(extrema['n'][0], [.0, .0, .0], 10)
+        self.listalmostequal(extrema['n'][1], [.0, .5, .0], 10)
+        self.listalmostequal(extrema['p'][0], [.0, .0, .0], 10)
 
+        Si_extrema = get_bs_extrema(bs=self.Si_vrun.get_band_structure(),
+                                    coeff_file=self.Si_cube,
+                                    Ecut=1.0
+                                    )
+        self.listalmostequal(Si_extrema['n'][0], [-0.41777, -0.41777, 0.], 3)
+        self.listalmostequal(Si_extrema['n'][1], [.0, .5, .0], 3)
+        self.listalmostequal(Si_extrema['n'][2], [-.269, -.269, .261], 3)
+        self.listalmostequal(Si_extrema['p'][0], [.0, .0, .0], 3)
+        # this last one doesn't show in mp-149; must look at the Fermi surface
+        self.listalmostequal(Si_extrema['p'][1], [-.2267, -.05, .0], 3)
 
     def test_kpts_to_first_BZ(self):
         kpts_orig = [[0.51, 1.00, -0.50], [1.40, -1.20, 0.49]]
