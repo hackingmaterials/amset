@@ -23,6 +23,10 @@ class AmsetToolsTest(unittest.TestCase):
         self.Si_cube = os.path.join(Si_path, 'Si_fort.123')
         self.Si_vrun = Vasprun(os.path.join(Si_path, 'vasprun.xml'))
 
+        PbTe_path = os.path.join(test_dir, '..', '..', 'test_files', 'PbTe')
+        self.PbTe_cube = os.path.join(PbTe_path, 'fort.123')
+        self.PbTe_vrun = Vasprun(os.path.join(PbTe_path, 'vasprun.xml'))
+
     def listalmostequal(self, list1, list2, places=3):
         for l1, l2 in zip(list1, list2):
             self.assertAlmostEqual(l1, l2, places=places)
@@ -45,6 +49,17 @@ class AmsetToolsTest(unittest.TestCase):
         self.listalmostequal(Si_extrema['p'][0], [.0, .0, .0], 3)
         # this last one doesn't show in mp-149; must look at the Fermi surface
         self.listalmostequal(Si_extrema['p'][1], [-.2267, -.05, .0], 3)
+
+        PbTe_extrema = get_bs_extrema(bs=self.PbTe_vrun.get_band_structure(),
+                                coeff_file=self.PbTe_cube,
+                                Ecut=1.0)
+        self.listalmostequal(PbTe_extrema['n'][0], [0. , 0.5, 0. ], 10)
+        self.listalmostequal(PbTe_extrema['n'][1], [.1852, .1852, 0.] , 3)
+        self.listalmostequal(PbTe_extrema['p'][0], [0. , 0.5, 0. ], 10)
+        self.listalmostequal(PbTe_extrema['p'][1], [.4784, -.2709,  .2278], 3)
+        self.listalmostequal(PbTe_extrema['p'][2], [.162054 , .162054, 0.], 3)
+        self.listalmostequal(PbTe_extrema['p'][3], [.47844 , -.4076, .3645], 3)
+
 
     def test_kpts_to_first_BZ(self):
         kpts_orig = [[0.51, 1.00, -0.50], [1.40, -1.20, 0.49]]
@@ -107,6 +122,8 @@ class AmsetToolsTest(unittest.TestCase):
         self.assertAlmostEqual(np.std(vb_en1 - dft_vb), 0.0, 4)
         self.assertAlmostEqual(np.mean(cb_en1 - dft_cb), 0.0, 4)
         self.assertAlmostEqual(np.std(cb_en1 - dft_cb), 0.0, 4)
+
+        # check the average velocities
         self.assertAlmostEqual(np.mean(np.mean(np.abs(vb_vel1), axis=0)),
                 np.mean([39592892.480386, 73561072.59107, 41876022.480808]), 3)
         self.assertAlmostEqual(np.mean(np.mean(np.abs(cb_vel1), axis=0)),
