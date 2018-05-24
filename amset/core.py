@@ -5,6 +5,7 @@ import warnings
 import time
 import json
 from multiprocessing import cpu_count
+from numpy import dot
 from pstats import Stats
 from random import random
 from scipy.interpolate import griddata
@@ -82,8 +83,7 @@ class AMSET(object):
      """
     def __init__(self, calc_dir, material_params, vasprun_file=None,
                  model_params={}, performance_params={},
-                 dopings=None, temperatures=None, k_integration=False,
-                 e_integration=True, fermi_type='e', loglevel=None):
+                 dopings=None, temperatures=None, integration='e', loglevel=None):
         """
         Args:
             calc_dir (str): path to the vasprun.xml (a required argument)
@@ -107,13 +107,8 @@ class AMSET(object):
         self.logger.info('independent_valleys: {}'.format(self.independent_valleys))
         self.set_material_params(material_params)
         self.set_performance_params(performance_params)
-        self.k_integration = k_integration
-        self.e_integration = e_integration
-        if self.k_integration == self.e_integration:
-            raise AmsetError("AMSET can do either k_integration or e_integration")
-        self.logger.info('k_integration: {}'.format(self.k_integration))
-        self.logger.info('e_integration: {}'.format(self.e_integration))
-        self.fermi_calc_type = fermi_type
+        self.integration = integration
+        self.logger.info('integration: {}'.format(self.integration))
         self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
         self.counter = 0 # a global counter just for debugging
         self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
@@ -193,12 +188,13 @@ class AMSET(object):
         self.count_mobility = [{'n': True, 'p': True} for _ in range(max(self.initial_num_bands['p'], self.initial_num_bands['n']))]
 
         if self.pre_determined_fermi is None:
-            if self.fermi_calc_type == 'k':
+            if self.integration == 'k':
                 kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
                 # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
                 _, _ = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
                 self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
-            elif self.fermi_calc_type == 'e':
+            elif self.integration == 'e':
+                # method 1: good for k-integration but limited to symmetric lattice vectors
                 kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='very coarse')
                 kpts= self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=False, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
                 self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
@@ -284,8 +280,6 @@ class AMSET(object):
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
                     self.logger.info('skipping this valley as it is unimportant for both n and p type...')
                     continue
-
-                kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
                 kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=once_called, return_energies=True, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, num_bands={'p': 1, 'n': 1})
 
                 if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut['n']:
@@ -320,12 +314,12 @@ class AMSET(object):
                 if self.independent_valleys:
                     for c in self.dopings:
                         for T in self.temperatures:
-                            if self.k_integration:
+                            if self.integration=='k':
                                 f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                                 f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                                 self.denominator[c][T]['n'] = (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10)
                                 self.denominator[c][T]['p'] = (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10)
-                            elif self.e_integration:
+                            elif self.integration=='e':
                                 self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)
                                 self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)
                                 for tp in ['n', 'p']:
@@ -381,10 +375,12 @@ class AMSET(object):
 
                 # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
                 self.solve_BTE_iteratively()
-                if self.k_integration:
+                if self.integration=='k':
                     valley_transport = self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
-                if self.e_integration:
+                elif self.integration=='e':
                     valley_transport = self.calculate_transport_properties_with_E(important_points)
+                else:
+                    raise AmsetError('Unsupported integration method: {}'.format(self.integration))
                 self.logger.info('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
                 self.logger.info('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
                 pprint(valley_transport)
@@ -403,13 +399,13 @@ class AMSET(object):
                             # print('overriding valley degenracy to 1...')
                             if self.count_mobility[self.ibrun][tp]:
                                 if not self.independent_valleys:
-                                    if self.k_integration:
+                                    if self.integration=='k':
                                         f0_all = 1. / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1.)
                                         f0p_all = 1. / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1.)
                                         finteg = f0_all if tp == 'n' else 1-f0p_all
                                         self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_states(finteg, tp) + 1e-10
                                         self.seeb_denom[c][T][tp] += self.integrate_over_states(finteg*(1-finteg), tp)
-                                    elif self.e_integration:
+                                    elif self.integration=='e':
                                         finteg = "f0" if tp=="n" else "1 - f0"
                                         self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(prop_list=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)  * valley_ndegen
                                         self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp] * valley_ndegen
@@ -651,7 +647,6 @@ class AMSET(object):
                                 iband=iband, sgn=sgn, method=self.interpolation,
                                 scissor=self.scissor,
                                 matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
-
                     self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
 
                     # we only need the 1st band energies to order k-points:
@@ -1055,13 +1050,17 @@ class AMSET(object):
         Returns (np.ndarray): frac_k ransformed into cartesian coordinates
         """
         if reciprocal:
-            # return np.dot(self._rec_lattice.matrix.T, np.array(frac_k).T).T
-            return np.dot(self._rec_lattice.matrix, np.array(frac_k))
+            # return np.dot(self._rec_lattice.matrix, np.array(frac_k).T).T
+            # return np.dot(self._rec_lattice.matrix, np.array(frac_k)) # was expected to work until 05/23/2018
             # return (np.array(frac_k), self._rec_lattice.matrix)
+
+            return dot(self._rec_lattice.matrix, np.array(frac_k))
         else:
-            # return np.dot(self._vrun.lattice.matrix.T, np.array(frac_k).T).T
-            return np.dot(self._vrun.lattice.matrix, np.array(frac_k))
+            # return np.dot(self._vrun.lattice.matrix, np.array(frac_k).T).T
+            # return np.dot(self._vrun.lattice.matrix, np.array(frac_k)) # was expected to work until 05/23/2018
             # return (np.array(frac_k), self._vrun.lattice.matrix)
+
+            return dot(self._vrun.lattice.matrix, np.array(frac_k))
 
 
     def seeb_int_num(self, c, T):
@@ -1207,9 +1206,9 @@ class AMSET(object):
                             self.temperatures} for c in self.dopings}
 
             # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
-            if self.fermi_calc_type == 'k':
+            if self.integration == 'k':
                 self.egrid["calc_doping"] = self.calc_doping
-            if self.fermi_calc_type == 'e':
+            elif self.integration == 'e':
                 self.egrid["calc_doping"] = self.calc_doping
                 self.egrid["fermi"] = self.fermi_level
 
@@ -1536,6 +1535,7 @@ class AMSET(object):
                     self.kgrid[tp]["norm(v)"][ib][ik] = norm(self.kgrid[tp]["velocity"][ib][ik])
                     if (len(rm_idx_list[tp][ib]) + 20 < len(self.kgrid[tp]['kpoints'][ib])) and (
                             (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() \
+                            # (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).all() \
                         or \
                             (abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
                         or \
@@ -1579,6 +1579,7 @@ class AMSET(object):
         for tp in ["n", "p"]:
             for ib in range(len(self.kgrid[tp]["energy"])):
                 self.logger.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
+                self.logger.info(self.kgrid[tp]["kpoints"][ib][:10])
 
             if len(self.kgrid[tp]["kpoints"][0]) < 5:
                 # raise ValueError("VERY BAD {}-type k-mesh; please change the k-mesh and try again!".format(tp))
@@ -3403,7 +3404,7 @@ if __name__ == "__main__":
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 
                   # temperatures = range(100, 1100, 100),
-                  k_integration=False, e_integration=True, fermi_type='e',
+                  integration='e',
                   # loglevel=logging.DEBUG
                   )
     amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
