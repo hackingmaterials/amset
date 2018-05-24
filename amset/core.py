@@ -525,7 +525,10 @@ class AMSET(object):
         for tp in ['n', 'p']:
             points_1d = generate_k_mesh_axes(important_points[tp], kgrid_tp, one_list=True)
             self.kgrid_array[tp] = create_grid(points_1d)
+            # if self.integration=='k':
             kpts[tp] = array_to_kgrid(self.kgrid_array[tp])
+            # else:
+            #     kpts[tp] = self.generate_adaptive_kmesh(important_points[tp], kgrid_tp)
             N = self.kgrid_array[tp].shape
             self.kgrid_array_cartesian[tp] = np.zeros((N[0], N[1], N[2], 3))
             for ii in range(N[0]):
@@ -539,6 +542,9 @@ class AMSET(object):
             self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
         return kpts
 
+
+    def generate_adaptive_kmesh(self, important_points, kgrid_tp):
+        return None
 
     def update_cbm_vbm_dos(self, coeff_file):
         if self.poly_bands0 is None:
@@ -1052,16 +1058,16 @@ class AMSET(object):
         """
         if reciprocal:
             # return np.dot(self._rec_lattice.matrix, np.array(frac_k).T).T
-            # return np.dot(self._rec_lattice.matrix, np.array(frac_k)) # was expected to work until 05/23/2018
+            return np.dot(self._rec_lattice.matrix, np.array(frac_k)) # was expected to work until 05/23/2018
             # return (np.array(frac_k), self._rec_lattice.matrix)
 
-            return dot(self._rec_lattice.matrix, np.array(frac_k))
+            # return dot(self._rec_lattice.matrix, np.array(frac_k))
         else:
             # return np.dot(self._vrun.lattice.matrix, np.array(frac_k).T).T
-            # return np.dot(self._vrun.lattice.matrix, np.array(frac_k)) # was expected to work until 05/23/2018
+            return np.dot(self._vrun.lattice.matrix, np.array(frac_k)) # was expected to work until 05/23/2018
             # return (np.array(frac_k), self._vrun.lattice.matrix)
 
-            return dot(self._vrun.lattice.matrix, np.array(frac_k))
+            # return dot(self._vrun.lattice.matrix, np.array(frac_k))
 
 
     def seeb_int_num(self, c, T):
