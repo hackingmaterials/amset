@@ -673,7 +673,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
 
             # velocity = abs(np.dot(matrix.T, de)) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # this results in btp1-btp2 consistency but ONLY IF matrix is None
 
-            velocity = abs(np.dot(de, matrix))  / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # thought to be working on 05/22/2018
+            velocity = abs(np.dot(matrix, de))  / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # thought to be working on 05/22/2018
             # effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e  # thought to be working on 05/22/2018
             effective_m = 1/(dde/ 0.52917721067**2*Ry_to_eV) * e / A_to_m**2 * hbar**2 / m_e
             energies.append(energy)
