@@ -145,8 +145,8 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
-        expected_mu = {'ACD': 69014.8547, 'IMP': 392456.75699, 'PIE': 166869.5511,
-                       'POP': 5912.143, 'overall': 4948.3060, 'average': 5203.62337}
+        expected_mu = {'ACD': 69014.8547, 'IMP': 392456.75699, 'PIE': 166674.769,
+                       'POP': 6599.4073, 'overall': 5608.4358, 'average': 5727.7575}
         expected_seebeck = -436.201
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
