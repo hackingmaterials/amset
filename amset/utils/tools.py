@@ -627,6 +627,13 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
         n_jobs (int): number of processes used in boltztrap1 interpolation
     Returns (tuple of energies, velocities, masses lists/np.ndarray):
     """
+
+
+    #TODO: on 05/23/2018 I override matrix to None as InP results match one to one with btp2 with matrix=None so it seems like btp1 velocity is already in direct-real space cartesian
+    # matrix = None
+
+
+
     if matrix is None:
         matrix = np.eye(3)
     if not sgn:
@@ -654,20 +661,33 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
             energy = energy * Ry_to_eV - sgn * scissor / 2.0
 
             # velocity = abs(np.dot(matrix, de.T).T) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-            velocity = abs(np.dot(matrix, de)) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-            # velocity = abs(np.dot(de, matrix))  / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-            effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e
+            # velocity = abs(np.dot(matrix, de)) / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+            # velocity = abs(np.dot(matrix.T, de)) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+
+            # velocity = abs(np.dot(np.dot(matrix.T, de), matrix)) / (matrix**2).diagonal() / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+            # velocity = abs(np.dot(np.dot(matrix.T, de), matrix)) / (matrix**2).diagonal() / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+            # velocity = abs(np.matmul(np.matmul(matrix.T, de), matrix)) / (matrix**2).diagonal() / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+            # velocity = abs(np.dot(np.dot(matrix.T, de), matrix)) / hbar * A_to_m * m_to_cm * Ry_to_eV
+
+            # velocity = np.sqrt(np.sum(matrix*de*matrix, axis=1))/ (matrix**2).diagonal() / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+
+            # velocity = abs(np.dot(matrix.T, de)) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # this results in btp1-btp2 consistency but ONLY IF matrix is None
+
+            velocity = abs(np.dot(matrix, de))  / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # thought to be working on 05/22/2018
+            # effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e  # thought to be working on 05/22/2018
+            effective_m = 1/(dde/ 0.52917721067**2*Ry_to_eV) * e / A_to_m**2 * hbar**2 / m_e
             energies.append(energy)
             velocities.append(velocity)
             masses.append(effective_m)
     elif method=="boltztrap2":
-        if n_jobs == 1:
+        if n_jobs != 1:
             warnings.warn('n_jobs={}: Parallel not implemented w/ boltztrap2'
                           .format(n_jobs))
         fitted = fite.getBands(np.array(kpts), *interp_params)
         energies = fitted[0][iband - 1] * Hartree_to_eV - sgn * scissor / 2.
-        velocities = fitted[1][:, :, iband - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm
-        masses = fitted[2][:, :, :, iband - 1].T* e / Hartree_to_eV / A_to_m**2 * hbar**2/m_e
+        # velocities = fitted[1][:, :, iband - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm # thought to be working on 05/22/2018
+        velocities = fitted[1][:, :, iband - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm / 0.52917721067
+        masses = 1/(fitted[2][:, :, :, iband - 1].T/ 0.52917721067**2*Hartree_to_eV)* e / A_to_m**2 * hbar**2/m_e
     else:
         raise AmsetError('Unsupported interpolation "{}"'.format(method))
     return energies, velocities, masses
