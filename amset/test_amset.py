@@ -161,7 +161,7 @@ class AmsetTest(unittest.TestCase):
         # check mobility values
         for mu in expected_mu.keys():
             self.assertLessEqual(np.std(  # GaAs band structure is isotropic
-                amset.mobility['n'][mu][-2e15][300]), 0.04*\
+                amset.mobility['n'][mu][-2e15][300]), 0.045*\
                 np.mean(amset.mobility['n'][mu][-2e15][300]))
             self.assertLess(abs(amset.mobility['n'][mu][-2e15][300][0] - expected_mu[mu])/expected_mu[mu], 0.04)
         self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.03)
