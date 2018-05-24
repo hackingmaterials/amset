@@ -280,6 +280,7 @@ class AMSET(object):
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
                     self.logger.info('skipping this valley as it is unimportant for both n and p type...')
                     continue
+                kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
                 kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=once_called, return_energies=True, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, num_bands={'p': 1, 'n': 1})
 
                 if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut['n']:
