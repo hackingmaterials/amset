@@ -45,8 +45,7 @@ class AmsetTest(unittest.TestCase):
         amset = AMSET(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
-                      dopings=[c], temperatures=temperatures, k_integration=True,
-                      e_integration=False, fermi_type='k',
+                      dopings=[c], temperatures=temperatures, integration='k',
                       loglevel=LOGLEVEL)
         amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
 
@@ -80,8 +79,7 @@ class AmsetTest(unittest.TestCase):
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
-                      dopings=[-2e15], temperatures=[300], k_integration=False,
-                      e_integration=True, fermi_type='e',
+                      dopings=[-2e15], temperatures=[300], integration='e',
                       loglevel=LOGLEVEL)
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
         kgrid = amset.kgrid
@@ -108,8 +106,7 @@ class AmsetTest(unittest.TestCase):
         amset = AMSET(calc_dir=self.InP_path, material_params=self.InP_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
-                      dopings=[-2e15], temperatures=[300], k_integration=False,
-                      e_integration=True, fermi_type='e',
+                      dopings=[-2e15], temperatures=[300], integration='e',
                       loglevel=LOGLEVEL)
         amset.run(os.path.join(self.InP_path, 'fort.123'),
                   kgrid_tp='very coarse', write_outputs=False)
@@ -132,8 +129,7 @@ class AmsetTest(unittest.TestCase):
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=performance_params,
-                      dopings=[-3e13], temperatures=[300], k_integration=True,
-                      e_integration=False, fermi_type='k',
+                      dopings=[-3e13], temperatures=[300], integration='k',
                       loglevel=LOGLEVEL)
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
         mobility = amset.mobility
@@ -158,8 +154,7 @@ class AmsetTest(unittest.TestCase):
                              'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                              'inelastic_scatterings': ['POP']},
                       performance_params=self.performance_params,
-                      dopings=[-2e15], temperatures=[300], k_integration=False,
-                      e_integration=True, fermi_type='e',
+                      dopings=[-2e15], temperatures=[300], integration='e',
                       loglevel=LOGLEVEL)
         amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
 
@@ -216,8 +211,7 @@ class AmsetTest(unittest.TestCase):
     #     amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
     #                   model_params=self.model_params,
     #                   performance_params=performance_params,
-    #                   dopings=[-3e13], temperatures=[300], k_integration=True,
-    #                   e_integration=False, fermi_type='k',
+    #                   dopings=[-3e13], temperatures=[300], integration='k',
     #                   loglevel=LOGLEVEL)
     #     amset.run(self.GaAs_cube, kgrid_tp='very fine', write_outputs=False, test_k_anisotropic=True)
     #     mobility = amset.mobility
