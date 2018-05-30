@@ -8,7 +8,9 @@ from matminer import PlotlyFig
 from BoltzTraP2 import sphere, fite
 from pymatgen.io.vasp import Vasprun
 from amset.utils.tools import get_energy_args, get_bindex_bspin, norm, \
-    interpolate_bs
+    interpolate_bs, create_grid, generate_k_mesh_axes, array_to_kgrid, \
+    kpts_to_first_BZ
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 api = MPRester("fDJKEZpxSyvsXdCt")
 
@@ -21,10 +23,45 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, matrix=None):
     mass_data = []
     trace_names = []
     Eref = 0.0
+
+    sg = SpacegroupAnalyzer(bs.structure)
+    nkk = 7
+    kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
+                                                 is_shift=[0, 0, 0])
+    initial_ibzkpt = [i[0] for i in kpts_and_weights]
+    vels = {iband: [] for iband in ibands}
+    sym_line_kpoints = []
+    # print(initial_ibzkpt)
+    points_1d = generate_k_mesh_axes(important_pts=[[0.0, 0.0, 0.0]], kgrid_tp='coarse')
+    kgrid_array = create_grid(points_1d)
+    kpts = array_to_kgrid(kgrid_array)
+    sym_line_kpoints = kpts
+    sym_line_kpoints = []
+    for k in kpts:
+        # sym_line_kpoints += [np.dot(matrix.T, k)] # definitely not
+        # sym_line_kpoints += [np.dot(k, matrix.T)] # definitely not
+        # sym_line_kpoints += [np.dot(matrix.T, np.dot(k, matrix))] #1
+        sym_line_kpoints += [np.dot(np.dot(matrix.T, k), matrix)] # same as #1
+        # sym_line_kpoints += [np.dot(np.dot(matrix.T, k), matrix.T)]
+        # sym_line_kpoints += [np.dot(bs.structure.lattice.reciprocal_lattice.matrix.T, k)]
+    # sym_line_kpoints = kpts_to_first_BZ(sym_line_kpoints)
+
+
+    # for k in initial_ibzkpt:
+    #     # sym_line_kpoints += [k]
+    #     sym_line_kpoints += [np.dot(matrix, k)]
+    #     # sym_line_kpoints += list(bs.get_sym_eq_kpoints(k))
+
+    print(sym_line_kpoints)
+
     for i, iband in enumerate(ibands):
-        sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
+        # sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
+
         en, vel, masses = interpolate_bs(sym_line_kpoints, interp_params, iband=i,
                        method="boltztrap1", scissor=0.0, matrix=matrix, n_jobs=-1)
+        # vels[iband] = np.array([np.dot(matrix.T, v) for v in vel])
+        vels[iband] = np.array([np.dot(np.eye(3), v) for v in vel])
+
         vel = np.linalg.norm(vel, axis=1)
         masses = [mass.trace()/3.0 for mass in masses]
         if i==0:
@@ -34,12 +71,17 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, matrix=None):
         v_data.append((en, vel))
         mass_data.append((en, masses))
         trace_names.append('band {}'.format(iband))
-    print(v_data[1][1])
-    pf.xy(plot_data, names=[n for n in trace_names])
-    pf2 = PlotlyFig(filename='Velocity-bt1')
-    pf2.xy(v_data, names=[n for n in trace_names])
-    pf3 = PlotlyFig(filename='mass-bt1')
-    pf3.xy(mass_data, names=[n for n in trace_names])
+
+    print('average p-velocity:', np.mean(vels[9], axis=0))
+    print('average n-velocity:', np.mean(vels[10], axis=0))
+    quit()
+
+    # print(v_data[1][1])
+    # pf.xy(plot_data, names=[n for n in trace_names])
+    # pf2 = PlotlyFig(filename='Velocity-bt1')
+    # pf2.xy(v_data, names=[n for n in trace_names])
+    # pf3 = PlotlyFig(filename='mass-bt1')
+    # pf3.xy(mass_data, names=[n for n in trace_names])
 
 
 def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
@@ -48,7 +90,7 @@ def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
     # vrun = Vasprun(os.path.join(vrun_path, 'vasprun.xml'))
     # bz_data = PMG_Vasprun_Loader(vrun)
     bz_data = PymatgenLoader.from_files(os.path.join(vrun_path, 'vasprun.xml'))
-    equivalences = sphere.get_equivalences(bz_data.atoms, len(bz_data.kpoints) * 10)
+    equivalences = sphere.get_equivalences(bz_data.atoms, len(bz_data.kpoints) * 5)
     lattvec = bz_data.get_lattvec()
     print('lattvec:\n{}'.format(lattvec))
     coeffs = fite.fitde3D(bz_data, equivalences)
@@ -80,64 +122,58 @@ def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
 if __name__ == "__main__":
     # user inputs
     DIR = os.path.dirname(__file__)
-    PbTe_id = 'mp-19717' # valence_idx = 9
-    Si_id = 'mp-149' # valence_idx = 4
-    GaAs_id = 'mp-2534' # valence_idx = ?
-    SnSe2_id = "mp-665"
-
     test_dir = os.path.join(DIR, '../../test_files')
 
-    # Si_bs = api.get_bandstructure_by_material_id(Si_id)
-    # vrun = Vasprun(os.path.join(test_dir, 'GaAs/28_electrons_line/vasprun.xml'))
-    vrun = Vasprun(os.path.join(test_dir, 'GaAs/nscf-uniform/vasprun.xml'))
+    # # GaAs
+    vrun_path = 'GaAs/nscf-uniform/vasprun.xml'
+    kpoints_path = 'GaAs/28_electrons_line/KPOINTS'
+    cube_path = "GaAs/nscf-uniform/fort.123"
+    #
+    #### PbTe
+    compound = 'PbTe'
+
+    #### InP
+    compound = 'InP_mp-20351'
+
+
+    vrun_path = '{}/vasprun.xml'.format(compound)
+    kpoints_path = '{}/KPOINTS'.format(compound)
+    cube_path = '{}/fort.123'.format(compound)
+
+
+    vrun = Vasprun(os.path.join(test_dir, vrun_path))
     bs = vrun.get_band_structure(
-        kpoints_filename=os.path.join(test_dir, 'GaAs/28_electrons_line/KPOINTS'), line_mode=True)
+        kpoints_filename=os.path.join(test_dir, kpoints_path), line_mode=True)
+
     rec_matrix = vrun.final_structure.lattice.reciprocal_lattice.matrix
     dir_matrix = vrun.final_structure.lattice.matrix
+
+    # all_ks = bs.get_sym_eq_kpoints(kpoint=np.dot(dir_matrix, np.array([0.1, 0.3, 0.2])), cartesian=True)
+    # print([norm(k) for k in all_ks])
+    # # print([np.dot(dir_matrix, k) for k in all_ks])
+    # # print([norm(np.dot(dir_matrix, k)) for k in all_ks])
+    # quit()
+
     st = vrun.final_structure
     print('reciprocal lattice matrix from Vasprun:\n{}'.format(rec_matrix))
     print('direct lattice matrix from Vasprun:\n{}'.format(dir_matrix))
     print('lattice constants: {}, {}, {}'.format(st.lattice.a, st.lattice.b, st.lattice.c))
 
-    InP_root = '/Users/alirezafaghaninia/Documents/py3/py3_codes/thermoelectrics_work/thermoelectrics_work/amset_examples/InP_mp-20351'
-    # bs = Vasprun(os.path.join(root, 'vasprun.xml')).get_band_structure(
-    #     kpoints_filename=os.path.join(root, 'KPOINTS'))
-    # InP_st = api.get_structure_by_material_id('mp-20351')
-    # bs.structure = InP_st
-
-    # GaAs_st = api.get_structure_by_material_id(GaAs_id)
-    #
-    # bs.structure =  GaAs_st
-    # # Si_bs.structure = api.get_structure_by_material_id(Si_id)
-    # Si_bs.structure = Vasprun(os.path.join(test_dir, "Si/vasprun.xml")).final_structure
-
     vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
-    print('vbm band index (vbm_idx): {}'.format(vbm_idx))
-    ibands = [1, 2] # in this notation, 1 is the last valence band
-    ibands = [i + vbm_idx for i in ibands]
+    cbm_idx, _ = get_bindex_bspin(bs.get_cbm(), is_cbm=True)
+    ibands = [vbm_idx+1, cbm_idx+1]
 
-    PbTe_coeff_file = os.path.join(test_dir, 'PbTe/fort.123')
-    Si_coeff_file = os.path.join(test_dir, "Si/Si_fort.123")
-    # GaAs_coeff_file = os.path.join(test_dir, "GaAs/fort.123_GaAs_1099kp")
-    GaAs_coeff_file = os.path.join(test_dir, "GaAs/nscf-uniform/fort.123")
-
+    coeff_file = os.path.join(test_dir, cube_path)
     start_time = time()
-    # retrieve_bs_boltztrap1(coeff_file=PbTe_coeff_file, bs=bs, ibands=ibands)
-    # retrieve_bs_boltztrap1(coeff_file=Si_coeff_file, bs=Si_bs, ibands=ibands, cbm=True)
-
-    retrieve_bs_boltztrap1(coeff_file=GaAs_coeff_file, bs=bs, ibands=ibands, matrix=dir_matrix)
+    retrieve_bs_boltztrap1(coeff_file=coeff_file, bs=bs, ibands=ibands, matrix=dir_matrix)
 
     # retrieve_bs_boltztrap1(coeff_file=SnSe2_coeff_file, bs=bs, ibands=[11, 12, 13, 14])
     print("Boltztrap1 total time: {}".format(time() - start_time))
 
     # start_time = time()
 
-    # retrieve_bs_boltztrap2(os.path.join(test_dir, 'GaAs'), ibands=ibands)
-    # retrieve_bs_boltztrap2(os.path.join(test_dir, 'ZnS_391_vrun'), ibands=ibands)
-    # retrieve_bs_boltztrap2(os.path.join(DIR, '../../../BoltzTraP2-18.1.2/data/Si.vasp'), ibands=[3, 4])
-    # retrieve_bs_boltztrap2(root, ibands=[2, 3])
-    # retrieve_bs_boltztrap2(InP_root, bs=bs, ibands=ibands)
-    retrieve_bs_boltztrap2(os.path.join(test_dir, 'GaAs/nscf-uniform'), bs=bs, ibands=ibands)
+    # retrieve_bs_boltztrap2(os.path.join(test_dir, 'GaAs/nscf-uniform'), bs=bs, ibands=ibands)
+    retrieve_bs_boltztrap2(os.path.join(test_dir, compound), bs=bs, ibands=ibands)
 
     # print("Boltztrap2 total time: {}".format(time() - start_time))
 
