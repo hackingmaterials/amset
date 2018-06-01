@@ -93,7 +93,7 @@ class AmsetTest(unittest.TestCase):
         # self.assertEqual(kgrid['n']['velocity'][0].shape[0], 124)
         mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
         self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS
-        self.assertAlmostEqual(mean_v[0], 30685165.478299, places=1) # zeroth band
+        self.assertAlmostEqual(mean_v[0], 144480731.0955565, places=1) # zeroth band
 
         # check mobility values
         for mu in expected_mu.keys():
