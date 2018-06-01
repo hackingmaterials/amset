@@ -1,4 +1,5 @@
 from amset.core import AMSET
+from amset.utils.constants import A_to_nm
 from amset.utils.tools import get_bindex_bspin, interpolate_bs, get_energy_args
 from matminer import PlotlyFig
 import numpy as np
@@ -17,9 +18,14 @@ the output of get_bs_extrema function.
 """
 
 # vrun_file = os.path.join(abs_dir, "../test_files/GaAs/28_electrons_line/vasprun.xml")
-vrun_file = os.path.join(abs_dir, "../test_files/GaAs/nscf-uniform/vasprun.xml")
-coeff_file = os.path.join(abs_dir, "../test_files/GaAs/nscf-uniform/fort.123")
+# vrun_file = os.path.join(abs_dir, "../test_files/GaAs/nscf-uniform/vasprun.xml")
+# coeff_file = os.path.join(abs_dir, "../test_files/GaAs/nscf-uniform/fort.123")
 
+vrun_file = os.path.join(abs_dir, "../test_files/Si/vasprun.xml")
+coeff_file = os.path.join(abs_dir, "../test_files/Si/Si_fort.123")
+
+vrun_file = os.path.join(abs_dir, "../test_files/PbTe/vasprun.xml")
+coeff_file = os.path.join(abs_dir, "../test_files/PbTe/fort.123")
 
 amset = AMSET(calc_dir='.', material_params={'epsilon_s': 12.9})
 amset.read_vrun(vasprun_file=vrun_file)
@@ -37,8 +43,8 @@ bsd['kpoints'] = hs_kpoints
 hs_kpoints = np.array(hs_kpoints)
 
 bsd['str_kpts'] = [str(k) for k in bsd['kpoints']]
-bsd['cartesian kpoints'] = [amset.get_cartesian_coords(k) for k in bsd['kpoints']]
-bsd['normk'] = np.linalg.norm(bsd['cartesian kpoints'], axis=1)
+bsd['cartesian kpoints (1/nm)'] = [amset.get_cartesian_coords(k)/A_to_nm for k in bsd['kpoints']]
+bsd['normk'] = np.linalg.norm(bsd['cartesian kpoints (1/nm)'], axis=1)
 
 cbm_idx, cbm_spin = get_bindex_bspin(bs.get_cbm(), is_cbm=True)
 vbmd = bs.get_vbm()

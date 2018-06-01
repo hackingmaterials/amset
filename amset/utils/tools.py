@@ -139,6 +139,7 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                             0.05, 0.11, 0.25]
                 elif kgrid_tp == 'coarse':
                     mesh = [0.001, 0.005, 0.01, 0.02, 0.05, 0.15]
+                    # mesh = [0.003, 0.01, 0.05, 0.15]
                 elif kgrid_tp == 'very coarse':
                     mesh = [0.001, 0.01]
                 elif kgrid_tp == 'uniform':
@@ -327,6 +328,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
             g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
             v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
+            # v_pm = kgrid[tp]["velocity"][ib_pm][ik_pm] # 3**0.5 is to treat each direction as 1D BS
             a_pm = kgrid[tp]["a"][ib_pm][ik_pm]
             c_pm = kgrid[tp]["c"][ib_pm][ik_pm]
             if tp == "n":
@@ -384,19 +386,23 @@ def get_closest_k(kpoint, ref_ks, return_diff=False, exclude_self=False):
         return ref_ks[min_dist_ik]
 
 
-def remove_duplicate_kpoints(kpts, dk=0.01):
+def remove_duplicate_kpoints(kpts, dk=0.01, periodic=True):
     """
-    Removes duplicate points from a list of k-points. Note that it is better
-    to call this method only once as calculating the norms scales poorly.
+    Removes duplicate points from a list of k-points.
     Args:
         kpts ([np.ndarray or list]): list of k-point coordinates
     Returns: kpts but with duplicate points removed.
     """
     rm_list = []
+    if periodic:
+        diff_func = pbc_diff
+    else:
+        diff_func = np.subtract
+    # identify and remove duplicates from the list of equivalent k-points:
     for i in range(len(kpts) - 1):
         for j in range(i + 1, len(kpts)):
-            if np.allclose(pbc_diff(kpts[i], kpts[j]), [0, 0, 0], atol=dk):
-                rm_list.append(j)
+            if np.allclose(diff_func(kpts[i], kpts[j]), [0, 0, 0], atol=dk):
+                rm_list.append(i)
                 break
     return [list(k) for k in np.delete(kpts, rm_list, axis=0)]
 
@@ -630,8 +636,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
 
 
     #TODO: on 05/23/2018 I override matrix to None as InP results match one to one with btp2 with matrix=None so it seems like btp1 velocity is already in direct-real space cartesian
-    # matrix = None
-
+    matrix = None
 
 
     if matrix is None:
@@ -671,9 +676,15 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
 
             # velocity = np.sqrt(np.sum(matrix*de*matrix, axis=1))/ (matrix**2).diagonal() / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
 
-            # velocity = abs(np.dot(matrix.T, de)) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # this results in btp1-btp2 consistency but ONLY IF matrix is None
 
-            velocity = abs(np.dot(matrix, de))  / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # thought to be working on 05/22/2018
+            velocity = abs(np.dot(matrix.T, de)) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # this results in btp1-btp2 consistency but ONLY IF matrix is None
+
+
+            # velocity = abs(np.dot(matrix.T, de)) / hbar  * A_to_m * m_to_cm * Ry_to_eV # 05/30/2018: just to test how GaAs coarse results change, mu values seemed too low
+
+            # velocity = abs(np.dot(matrix, de))  / (hbar * 2 * pi) / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # thought to be working on 05/22/2018
+
+
             # effective_m = 1/(dde/ 0.52917721067) * e / Ry_to_eV / A_to_m**2 * (hbar*2*np.pi)**2 / m_e  # thought to be working on 05/22/2018
             effective_m = 1/(dde/ 0.52917721067**2*Ry_to_eV) * e / A_to_m**2 * hbar**2 / m_e
             energies.append(energy)

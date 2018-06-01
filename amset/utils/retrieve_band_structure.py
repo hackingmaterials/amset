@@ -25,34 +25,39 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, matrix=None):
     Eref = 0.0
 
     sg = SpacegroupAnalyzer(bs.structure)
-    nkk = 7
+    nkk = 9
     kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
                                                  is_shift=[0, 0, 0])
     initial_ibzkpt = [i[0] for i in kpts_and_weights]
     vels = {iband: [] for iband in ibands}
     sym_line_kpoints = []
     # print(initial_ibzkpt)
-    points_1d = generate_k_mesh_axes(important_pts=[[0.0, 0.0, 0.0]], kgrid_tp='coarse')
-    kgrid_array = create_grid(points_1d)
-    kpts = array_to_kgrid(kgrid_array)
-    sym_line_kpoints = kpts
-    sym_line_kpoints = []
-    for k in kpts:
-        # sym_line_kpoints += [np.dot(matrix.T, k)] # definitely not
-        # sym_line_kpoints += [np.dot(k, matrix.T)] # definitely not
-        # sym_line_kpoints += [np.dot(matrix.T, np.dot(k, matrix))] #1
-        sym_line_kpoints += [np.dot(np.dot(matrix.T, k), matrix)] # same as #1
-        # sym_line_kpoints += [np.dot(np.dot(matrix.T, k), matrix.T)]
-        # sym_line_kpoints += [np.dot(bs.structure.lattice.reciprocal_lattice.matrix.T, k)]
+
+
+    # points_1d = generate_k_mesh_axes(important_pts=[[0.0, 0.0, 0.0]], kgrid_tp='coarse')
+    # kgrid_array = create_grid(points_1d)
+    # kpts = array_to_kgrid(kgrid_array)
+    # sym_line_kpoints = kpts
+    # sym_line_kpoints = []
+    # # sampling_transformation = matrix/np.linalg.norm(matrix) # if this is used, results in anisotropic!
+    # for k in kpts:
+    #     # sym_line_kpoints += [np.dot(matrix.T, k)] # definitely not
+    #     # sym_line_kpoints += [np.dot(k, matrix.T)] # definitely not
+    #     # sym_line_kpoints += [np.dot(matrix.T, np.dot(k, matrix))] #1
+    #     sym_line_kpoints += [np.dot(np.dot(matrix.T, k), matrix)] # same as #1, the best/ most isotropic results obtained until 5/31/2018
+    #     # sym_line_kpoints += [np.dot(np.dot(matrix.T, k), matrix.T)]
+    #     # sym_line_kpoints += [np.dot(bs.structure.lattice.reciprocal_lattice.matrix.T, k)]
     # sym_line_kpoints = kpts_to_first_BZ(sym_line_kpoints)
+    # # sym_line_kpoints = np.array(sym_line_kpoints)/5.0
 
 
-    # for k in initial_ibzkpt:
-    #     # sym_line_kpoints += [k]
-    #     sym_line_kpoints += [np.dot(matrix, k)]
-    #     # sym_line_kpoints += list(bs.get_sym_eq_kpoints(k))
+    for k in initial_ibzkpt:
+        # sym_line_kpoints += [k]
+        # sym_line_kpoints += [np.dot(matrix, k)]
+        sym_line_kpoints += list(bs.get_sym_eq_kpoints(k))
 
-    print(sym_line_kpoints)
+    sym_line_kpoints = list(np.array(sym_line_kpoints) / 13.0)
+    print(list(sym_line_kpoints)) # print(list()) shows all elements
 
     for i, iband in enumerate(ibands):
         # sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
