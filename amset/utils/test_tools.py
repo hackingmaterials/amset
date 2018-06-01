@@ -82,10 +82,12 @@ class AmsetToolsTest(unittest.TestCase):
         kpts_orig = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.00999],
                      [0.25, 0.25, 0.25], [0.25, 0.25, 0.25],
                      [0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, -0.5]]
-        kpts_out = [[0.0, 0.0, 0.0],
+        kpts_out = [[0.0, 0.0, 0.00999],
                     [0.25, 0.25, 0.25],
-                    [0.5, 0.5, 0.5]]
+                    [0.5, 0.5, -0.5]]
+        # print(remove_duplicate_kpoints(kpts_orig))
         self.assertListEqual(kpts_out, remove_duplicate_kpoints(kpts_orig))
+
 
     def test_interpolate_bs(self, check_bzt2=False):
         bs = self.GaAs_vrun.get_band_structure()
@@ -124,10 +126,18 @@ class AmsetToolsTest(unittest.TestCase):
         self.assertAlmostEqual(np.std(cb_en1 - dft_cb), 0.0, 4)
 
         # check the average velocities
-        self.assertAlmostEqual(np.mean(np.mean(np.abs(vb_vel1), axis=0)),
-                np.mean([39592892.480386, 73561072.59107, 41876022.480808]), 3)
-        self.assertAlmostEqual(np.mean(np.mean(np.abs(cb_vel1), axis=0)),
-                np.mean([75332765.341095, 80829076.06507, 92562889.628146]), 3)
+        # print(np.mean(vb_vel1, axis=0))
+        # print(np.mean(cb_vel1, axis=0))
+        self.listalmostequal(np.mean(vb_vel1, axis=0),
+                [86598555.94694826, 47697201.58018156, 91832037.80996008], 0)
+        self.listalmostequal(np.mean(cb_vel1, axis=0),
+                [111588019.4656215, 1.56670104e+08, 9.44989174e+07], 0)
+
+        # check the average velocities (06/01/2018: the following is from old uniform grid:)
+        # self.assertAlmostEqual(np.mean(np.mean(np.abs(vb_vel1), axis=0)),
+        #         np.mean([39592892.480386, 73561072.59107, 41876022.480808]), 3)
+        # self.assertAlmostEqual(np.mean(np.mean(np.abs(cb_vel1), axis=0)),
+        #         np.mean([75332765.341095, 80829076.06507, 92562889.628146]), 3)
 
         if check_bzt2:
             from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
