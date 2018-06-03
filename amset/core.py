@@ -601,7 +601,7 @@ class AMSET(object):
                 kpts[tp] = remove_duplicate_kpoints(tmp_kpts, dk=0.0009)
         else:
             kpts = {}
-            kgrid_tp_map = {'very coarse': 3,
+            kgrid_tp_map = {'very coarse': 5,
                             'coarse': 14,
                             'fine': 19,
                             'very fine': 27 #?? not sure about these numbers
