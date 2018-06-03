@@ -636,7 +636,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
 
 
     #TODO: on 05/23/2018 I override matrix to None as InP results match one to one with btp2 with matrix=None so it seems like btp1 velocity is already in direct-real space cartesian
-    matrix = None
+    # matrix = None
 
 
     if matrix is None:
@@ -677,7 +677,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
             # velocity = np.sqrt(np.sum(matrix*de*matrix, axis=1))/ (matrix**2).diagonal() / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
 
 
-            velocity = abs(np.dot(matrix.T, de)) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # this results in btp1-btp2 consistency but ONLY IF matrix is None
+            velocity = abs(np.dot(matrix/np.linalg.norm(matrix), de)) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # this results in btp1-btp2 consistency but ONLY IF matrix is None
 
 
             # velocity = abs(np.dot(matrix.T, de)) / hbar  * A_to_m * m_to_cm * Ry_to_eV # 05/30/2018: just to test how GaAs coarse results change, mu values seemed too low
@@ -697,7 +697,9 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
         fitted = fite.getBands(np.array(kpts), *interp_params)
         energies = fitted[0][iband - 1] * Hartree_to_eV - sgn * scissor / 2.
         # velocities = fitted[1][:, :, iband - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm # thought to be working on 05/22/2018
-        velocities = fitted[1][:, :, iband - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm / 0.52917721067
+        velocities = abs(np.matmul(matrix/np.linalg.norm(matrix), fitted[1][:, :, iband - 1]).T) * Hartree_to_eV / hbar * A_to_m * m_to_cm / 0.52917721067
+
+        # velocities = fitted[1][:, :, iband - 1].T * Hartree_to_eV / hbar * A_to_m * m_to_cm / 0.52917721067 # consistent with btp1 until 5/31/2018
         masses = 1/(fitted[2][:, :, :, iband - 1].T/ 0.52917721067**2*Hartree_to_eV)* e / A_to_m**2 * hbar**2/m_e
     else:
         raise AmsetError('Unsupported interpolation "{}"'.format(method))
