@@ -397,7 +397,7 @@ class AMSET(object):
                     for T in self.temperatures:
                         for tp in ['p', 'n']:
                             valley_ndegen = self.bs.get_kpoint_degeneracy(important_points[tp][0])
-                            print('valley degeneracy for {} is {}'.format(str(important_points[tp][0]), valley_ndegen))
+                            # print('valley degeneracy for {} is {}'.format(str(important_points[tp][0]), valley_ndegen))
                             # valley_ndegen = 1
                             # print('overriding valley degenracy to 1...')
                             if self.count_mobility[self.ibrun][tp]:
@@ -600,7 +600,8 @@ class AMSET(object):
                     # tmp_kpts += [k]
                 kpts[tp] = remove_duplicate_kpoints(tmp_kpts, dk=0.0009)
         else:
-            kgrid_tp_map = {'very coarse': 5,
+            kpts = {}
+            kgrid_tp_map = {'very coarse': 3,
                             'coarse': 14,
                             'fine': 19,
                             'very fine': 27 #?? not sure about these numbers
@@ -609,14 +610,24 @@ class AMSET(object):
             sg = SpacegroupAnalyzer(self.bs.structure)
             kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
                                                          is_shift=[0, 0, 0])
-            initial_ibzkpt = [i[0] for i in kpts_and_weights]
-            tmp_kpts = []
-            for k in initial_ibzkpt:
-                tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
-                # tmp_kpts += [k]
-            tmp_kpts = np.array(tmp_kpts) / 10.0
-            # kpts = {'n': tmp_kpts, 'p': tmp_kpts}
-            kpts = {tp: list(np.array(important_points[tp][0])+tmp_kpts) for tp in ['p', 'n']}
+            # initial_ibzkpt = [i[0] for i in kpts_and_weights]
+
+            initial_ibzkpt0 = np.array([i[0] for i in kpts_and_weights])/10.0
+            for tp in ['p', 'n']:
+                initial_ibzkpt = initial_ibzkpt0 + important_points[tp][0]
+                tmp_kpts = []
+                for k in initial_ibzkpt:
+                    tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
+                kpts[tp] = tmp_kpts
+
+            # tmp_kpts = []
+            # for k in initial_ibzkpt:
+            #     tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
+            #     # tmp_kpts += [k]
+            # tmp_kpts = np.array(tmp_kpts) / 10.0
+            # # kpts = {'n': tmp_kpts, 'p': tmp_kpts}
+            # kpts = {tp: list(np.array(important_points[tp][0])+tmp_kpts) for tp in ['p', 'n']}
+
 
         return kpts
 
@@ -3447,7 +3458,7 @@ if __name__ == "__main__":
 
     performance_params = {"dE_min": 0.0001, "nE_min": 3,
             "BTE_iters": 5, "max_nbands": 1, "max_normk": None, "n_jobs": -1
-                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
+                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": 2
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
                           }
