@@ -10,7 +10,7 @@ from copy import deepcopy
 from amset.core import AMSET
 
 test_dir = os.path.dirname(__file__)
-LOGLEVEL = logging.ERROR
+LOGLEVEL = logging.DEBUG
 
 class AmsetTest(unittest.TestCase):
     def setUp(self):
@@ -70,21 +70,19 @@ class AmsetTest(unittest.TestCase):
     def test_GaAs_isotropic_E(self):
         print('\ntesting test_GaAs_isotropic_E...')
         # w/ /sq3 factor
-        expected_mu = {'ACD': 103747.3693,
-                       'IMP': 12039736.3130,
-                       'PIE': 2271270.455,
-                       'POP': 2.49949842e+08,
-                       'overall':33846.6463,
-                       'average': 98365.7520}
-        expected_seebeck = -1229.196
+        expected_mu = {'ACD': 151463.352,
+                       'IMP': 4960508.91298,
+                       'PIE': 1453454.8943,
+                       'POP': 55035.1984,
+                       'overall':10879.054,
+                       'average': 38968.040}
+        expected_seebeck = -709.803
 
         performance_params = deepcopy(self.performance_params)
         performance_params['max_nvalleys'] = 1
         # TODO: 2 valleys don't work due to anisotropic velocity (in 2nd valley) while on core it does, how come?
-        # 06/02/2018 update: actually max_nvalleys=1 didn't work with  self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) most likely due to uneven removing of the points and too few k-points
+        # 06/02/2018 update: most likely due to uneven removing of the points and too few k-points
         # performance_params['max_nvalleys'] = 2
-        # performance_params['Ecut'] =  1.00
-        # performance_params['max_normk'] =  None
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=performance_params,
@@ -94,12 +92,12 @@ class AmsetTest(unittest.TestCase):
         kgrid = amset.kgrid
 
         # check general characteristics of the grid
-        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 20)
+        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 38)
         # self.assertEqual(kgrid['n']['velocity'][0].shape[0], 124)
         mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
-        # self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS after removing points
-        self.assertLessEqual(np.std(mean_v)/np.mean(mean_v), 0.1) # isotropic BS
-        self.assertAlmostEqual(mean_v[0], 81294389.937764, places=1) # zeroth band
+        self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS after removing points
+        # self.assertLessEqual(np.std(mean_v)/np.mean(mean_v), 0.1) # isotropic BS
+        self.assertAlmostEqual(mean_v[0], 83868211.783, places=1) # zeroth band
 
         # check mobility values
         for mu in expected_mu.keys():
@@ -143,12 +141,13 @@ class AmsetTest(unittest.TestCase):
 
     def test_InP_isotropic_E(self):
         print('\ntesting test_InP_isotropic_E...')
-        expected_mu = {'ACD': 230622.5945,
-                       'IMP': 15202016.613,
-                       'PIE': 2862618.9082,
-                       'POP': 755025.9173,
-                       'overall': 13734.78817,
-                       'average': 164591.2357}
+        expected_mu = {'ACD': 394845.327,
+                       'IMP': 7317582.7279,
+                       'PIE': 2114558.19227,
+                       'POP': 14968.2765,
+                       'average': 14295.8919,
+                       'overall': 11383.3514
+                       }
 
         amset = AMSET(calc_dir=self.InP_path, material_params=self.InP_params,
                       model_params=self.model_params,
@@ -162,21 +161,22 @@ class AmsetTest(unittest.TestCase):
         for mu in expected_mu.keys():
             self.assertLessEqual( # test the isotropy of transport results
                 np.std(amset.mobility['n'][mu][-2e15][300]) / \
-                np.mean(amset.mobility['n'][mu][-2e15][300]), 20000.0 # bypass InP isotropic mobility test until formulation is finalized
-                # np.mean(amset.mobility['n'][mu][-2e15][300]), 0.02
+                # np.mean(amset.mobility['n'][mu][-2e15][300]), 20000.0 # bypass InP isotropic mobility test until formulation is finalized
+                np.mean(amset.mobility['n'][mu][-2e15][300]), 0.05
             )
             self.assertLessEqual(abs(amset.mobility['n'][mu][-2e15][300][0]/expected_mu[mu]-1),0.01)
 
 
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
-        expected_mu = {'ACD': 100196.3782,
-                       'IMP': 84358603.0200,
-                       'PIE': 2821291.710,
-                       'POP': 2.49952933e+08,
-                       'overall': 31966.92843,
-                       'average': 96611.7940}
-        expected_seebeck = -1200.5822
+        expected_mu = {'ACD': 138492.4722,
+                       'IMP': 19169990.56750,
+                       'PIE': 1615423.3193,
+                       'POP': 60123.3086,
+                       'average': 40775.89809,
+                       'overall': 14877.98235,
+                       }
+        expected_seebeck = -708.2916
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
