@@ -94,7 +94,6 @@ class AmsetToolsTest(unittest.TestCase):
         vbm_idx, vbm_bidx = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
         cbm_idx, cbm_bidx = get_bindex_bspin(bs.get_cbm(), is_cbm=True)
         dft_vbm = bs.get_vbm()['energy']
-        dft_cbm = bs.get_cbm()['energy']
         dft_vb = np.array(bs.bands[vbm_bidx][vbm_idx]) - dft_vbm
         dft_cb = np.array(bs.bands[cbm_bidx][cbm_idx]) - dft_vbm
         vbm_idx += 1 # in boltztrap1 interpolation the first band is 1st not 0th
@@ -125,19 +124,11 @@ class AmsetToolsTest(unittest.TestCase):
         self.assertAlmostEqual(np.mean(cb_en1 - dft_cb), 0.0, 4)
         self.assertAlmostEqual(np.std(cb_en1 - dft_cb), 0.0, 4)
 
-        # check the average velocities
-        # print(np.mean(vb_vel1, axis=0))
-        # print(np.mean(cb_vel1, axis=0))
-        self.listalmostequal(np.mean(vb_vel1, axis=0),
-                [86598555.94694826, 47697201.58018156, 91832037.80996008], 0)
-        self.listalmostequal(np.mean(cb_vel1, axis=0),
-                [111588019.4656215, 1.56670104e+08, 9.44989174e+07], 0)
-
-        # check the average velocities (06/01/2018: the following is from old uniform grid:)
-        # self.assertAlmostEqual(np.mean(np.mean(np.abs(vb_vel1), axis=0)),
-        #         np.mean([39592892.480386, 73561072.59107, 41876022.480808]), 3)
-        # self.assertAlmostEqual(np.mean(np.mean(np.abs(cb_vel1), axis=0)),
-        #         np.mean([75332765.341095, 80829076.06507, 92562889.628146]), 3)
+        # check the average of the velocity vectors; not isotropic since not all sym. eq. kpoints are sampled
+        expected_vb_v = [36110459.736, 67090934.345, 38192774.737]
+        expected_cb_v = [68706796.0747, 73719673.252, 84421427.422]
+        self.listalmostequal(np.mean(vb_vel1, axis=0), expected_vb_v, 0)
+        self.listalmostequal(np.mean(cb_vel1, axis=0), expected_cb_v,0)
 
         if check_bzt2:
             from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
@@ -149,9 +140,9 @@ class AmsetToolsTest(unittest.TestCase):
             coeffs = fite.fitde3D(bz2_data, equivalences)
             interp_params2 = (equivalences, lattvec, coeffs)
             vb_en2, vb_vel2, vb_masses2 = interpolate_bs(kpts, interp_params2,
-                iband=vbm_idx, method="boltztrap2", scissor=0.0)
+                iband=vbm_idx, method="boltztrap2", scissor=0.0, matrix=matrix)
             cb_en2, cb_vel2, cb_masses2 = interpolate_bs(kpts, interp_params2,
-                iband=cbm_idx, method="boltztrap2", scissor=0.0)
+                iband=cbm_idx, method="boltztrap2", scissor=0.0, matrix=matrix)
             vbm2 = np.max(vb_en2)
             vb_en2 -= vbm2
             cb_en2 -= vbm2
@@ -161,11 +152,11 @@ class AmsetToolsTest(unittest.TestCase):
             self.assertAlmostEqual(np.std(vb_en1 - vb_en2), 0.0, 4)
             self.assertAlmostEqual(np.mean(cb_en1 - cb_en2), 0.0, 4)
             self.assertAlmostEqual(np.std(cb_en1 - cb_en2), 0.0, 4)
-            # TODO: see why bzt1 and bzt2 don't yield the same velocities?
-            self.assertAlmostEqual(np.mean(np.mean(np.abs(vb_vel2), axis=0)),
-                np.mean([45826024.940695, 25240296.041161, 48595465.883879]), 3)
-            self.assertAlmostEqual(np.mean(np.mean(np.abs(cb_vel2), axis=0)),
-                np.mean([59049891.844931, 82906325.107450, 50006718.777849]), 3)
+            vb_avg2 = np.mean(vb_vel2, axis=0)
+            cb_avg2 = np.mean(cb_vel2, axis=0)
+            for i in range(3):
+                self.assertLessEqual(1-abs(vb_avg2[i]/expected_vb_v[i]), 0.001)
+                self.assertLessEqual(1-abs(cb_avg2[i] / expected_cb_v[i]), 0.001)
 
 
 if __name__ == '__main__':
