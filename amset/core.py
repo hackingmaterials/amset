@@ -837,7 +837,7 @@ class AMSET(object):
             return kpts
 
 
-    def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0, interpolation="boltztrap1"):
+    def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0, interpolation="boltztrap1", ext_height=0.5):
         if interpolation=="boltztrap1":
             ibands = [self.cbm_vbm['p']['bidx']-nbelow_vbm,
                       self.cbm_vbm['n']['bidx']+nabove_cbm]
@@ -847,9 +847,10 @@ class AMSET(object):
                 eref = {typ: self.cbm_vbm[typ]['energy'] for typ in ['p', 'n']}
             else:
                 eref = None
+            Ecut = {tp: min(2.0, self.Ecut[tp]-ext_height) for tp in ['p', 'n']}
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
                     interp_params=self.interp_params, interpolation=interpolation,
-                    Ecut=self.Ecut, eref=eref, return_global=True, n_jobs=self.n_jobs,
+                    Ecut=Ecut, eref=eref, return_global=True, n_jobs=self.n_jobs,
                     nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
             if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy'] and self.poly_bands0 is None:
                 self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
@@ -3417,12 +3418,12 @@ class AMSET(object):
                 tp = get_tp(c)
                 for T in self.temperatures:
                     row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
-                    for p in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings:
+                    for p in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings + ["seebeck"]:
                         row[p] = sum(self.mobility[tp][p][c][T])/3
-                    try:
-                        row["seebeck"] = sum(self.egrid[tp]["seebeck"][c][T])/3
-                    except TypeError:
-                        row["seebeck"] = self.egrid[tp]["seebeck"][c][T]
+                    # try:
+                    #     row["seebeck"] = sum(self.egrid[tp]["seebeck"][c][T])/3
+                    # except TypeError:
+                    #     row["seebeck"] = self.egrid[tp]["seebeck"][c][T]
                     writer.writerow(row)
 
 
@@ -3469,7 +3470,7 @@ if __name__ == "__main__":
             "BTE_iters": 5, "max_nbands": 1,
                           "max_normk": None,
                           "n_jobs": -1
-                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": 2
+                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
                           }
@@ -3517,7 +3518,7 @@ if __name__ == "__main__":
                   integration='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
