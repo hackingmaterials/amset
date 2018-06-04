@@ -837,7 +837,7 @@ class AMSET(object):
             return kpts
 
 
-    def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0, interpolation="boltztrap1", ext_height=0.5):
+    def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0, interpolation="boltztrap1", ext_height=0.25):
         if interpolation=="boltztrap1":
             ibands = [self.cbm_vbm['p']['bidx']-nbelow_vbm,
                       self.cbm_vbm['n']['bidx']+nabove_cbm]
@@ -847,7 +847,7 @@ class AMSET(object):
                 eref = {typ: self.cbm_vbm[typ]['energy'] for typ in ['p', 'n']}
             else:
                 eref = None
-            Ecut = {tp: min(2.0, self.Ecut[tp]-ext_height) for tp in ['p', 'n']}
+            Ecut = {tp: min(2.0, max(self.Ecut[tp]-ext_height, ext_height)) for tp in ['p', 'n']}
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
                     interp_params=self.interp_params, interpolation=interpolation,
                     Ecut=Ecut, eref=eref, return_global=True, n_jobs=self.n_jobs,
@@ -3518,7 +3518,7 @@ if __name__ == "__main__":
                   integration='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
