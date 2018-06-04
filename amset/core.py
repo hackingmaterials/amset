@@ -613,12 +613,18 @@ class AMSET(object):
             # initial_ibzkpt = [i[0] for i in kpts_and_weights]
 
             initial_ibzkpt0 = np.array([i[0] for i in kpts_and_weights])/10.0
+            # print('initial_ibzkpt0')
+            # print(initial_ibzkpt0)
             for tp in ['p', 'n']:
                 initial_ibzkpt = initial_ibzkpt0 + important_points[tp][0]
+                # print('initial_ibzkpt')
+                # print(initial_ibzkpt)
                 tmp_kpts = []
                 for k in initial_ibzkpt:
                     tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
+                    # tmp_kpts += list(self.bs.get_sym_eq_kpoints(-k)) # I don't think there is any need for this forced-inversion
                 kpts[tp] = tmp_kpts
+                # kpts[tp] = kpts_to_first_BZ(tmp_kpts) # this may not work as it changes cartesian kpoints hence norm(k) by a lot!
 
             # tmp_kpts = []
             # for k in initial_ibzkpt:
@@ -1597,7 +1603,7 @@ class AMSET(object):
                 for ik, k in enumerate(self.kgrid[tp]['kpoints'][ib]):
                     self.kgrid[tp]["old cartesian kpoints"][ib][ik] = self.get_cartesian_coords(self.kgrid[tp]["kpoints"][ib][ik]) / A_to_nm
 
-                # WE MAKE A COPY HERE OTHERWISE THE TWO LISTS CHANGE TOGETHER
+                # WE MAKE A COPY HERE OTHERWISE THE TWO LISTS CHANGE TOGETHER (we set cartesian kpoints a few lines down here)
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(self.kgrid[tp]["old cartesian kpoints"][ib])
 
                 s_orbital, p_orbital = self.get_dft_orbitals(bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib)
@@ -1614,7 +1620,7 @@ class AMSET(object):
                 # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.get_cartesian_coords(get_closest_k(
-                            self.kgrid[tp]["kpoints"][ib][ik], important_points[tp], return_diff=True)) / A_to_nm
+                            self.kgrid[tp]["kpoints"][ib][ik], self.bs.get_sym_eq_kpoints(important_points[tp][0]), return_diff=True)) / A_to_nm
                     self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
                     self.kgrid[tp]["norm(actual_k)"][ib][ik] = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
                     if self.poly_bands is not None:
@@ -1646,7 +1652,7 @@ class AMSET(object):
                         self.kgrid[tp]["c"][ib][ik] = 0.0
 
             self.logger.debug("average of the {}-type group velocity in kgrid:\n {}".format(
-                        tp, np.mean(self.kgrid[tp]["velocity"][0], 0)))
+                        tp, np.mean(self.kgrid[tp]["velocity"][0], axis=0)))
 
         rearranged_props = ["velocity",  "effective mass", "energy", "a", "c",
                             "kpoints", "cartesian kpoints",
@@ -1664,10 +1670,13 @@ class AMSET(object):
         # TODO-AF or TODO-JF (mid-term): set the band index as a key in dictionary throughout AMSET to enable independent modification of bands information
         for tp in ["n", "p"]:
             rm_idx_list[tp] = [rm_idx_list[tp][0] for ib in range(self.cbm_vbm[tp]["included"])]
-
         self.rm_idx_list = deepcopy(rm_idx_list)   # format: [tp][ib][ik]
         if delete_off_points:
             self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
+        for tp in ['p', 'n']:
+            self.logger.debug(
+                "average of the {}-type group velocity in kgrid after removing points:\n {}".format(
+                    tp, np.mean(self.kgrid[tp]["velocity"][0], axis=0)))
         self.logger.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin, self.dos_emax))
 
         self.logger.debug('current cbm_vbm:\n{}'.format(self.cbm_vbm))
@@ -3457,7 +3466,9 @@ if __name__ == "__main__":
         ]]
 
     performance_params = {"dE_min": 0.0001, "nE_min": 3,
-            "BTE_iters": 5, "max_nbands": 1, "max_normk": None, "n_jobs": -1
+            "BTE_iters": 5, "max_nbands": 1,
+                          "max_normk": None,
+                          "n_jobs": -1
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 2
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
                           , "interpolation": "boltztrap1"
@@ -3468,6 +3479,7 @@ if __name__ == "__main__":
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
             'add_extrema': add_extrema
             , "user_bandgap": 1.54,
+            # "important_points": {'n': [[0. , 0.5, 0. ]], 'p': [[0. , 0.0, 0. ]]},
                        }
     input_dir = "../test_files/GaAs/nscf-uniform"
     coeff_file = os.path.join(input_dir, "fort.123")
@@ -3505,7 +3517,7 @@ if __name__ == "__main__":
                   integration='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='fine', write_outputs=True)
 
 
     # stats.print_callers(10)
