@@ -606,7 +606,7 @@ class AMSET(object):
                             'fine': 17,
                             'very fine': 25, #?? not sure about these numbers
                             'super fine': 30, #?? not sure about these numbers
-                            'extremely fine fine': 35 #?? not sure about these numbers
+                            'extremely fine': 35 #?? not sure about these numbers
                             }
             nkk = kgrid_tp_map[kgrid_tp]
             sg = SpacegroupAnalyzer(self.bs.structure)
