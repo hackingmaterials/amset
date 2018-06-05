@@ -389,7 +389,7 @@ class Analytical_bands(object):
 
         if vbmidx:
             engre, latt_points, nwave, nsym, nsymop, symop, br_dir, bmin = self.get_engre(iband="A", return_bmin=True)
-            cbm_new_idx = vbmidx - bmin + 1
+            cbm_new_idx = vbmidx - bmin + 1 # because now 0 is bmin and not
         else:
             engre, latt_points, nwave, nsym, nsymop, symop, br_dir = self.get_engre(iband="A")
             warnings.warn("The index of VBM / CBM is unknown; scissor is set to 0.0")
