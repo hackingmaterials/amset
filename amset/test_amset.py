@@ -70,13 +70,14 @@ class AmsetTest(unittest.TestCase):
     def test_GaAs_isotropic_E(self):
         print('\ntesting test_GaAs_isotropic_E...')
         # w/ /sq3 factor
-        expected_mu = {'ACD': 151463.352,
-                       'IMP': 4960508.91298,
-                       'PIE': 1453454.8943,
-                       'POP': 55035.1984,
-                       'overall':10879.054,
-                       'average': 38968.040}
-        expected_seebeck = -709.803
+        expected_mu = {'ACD': 148790.33582,
+                       'IMP': 768347.9251,
+                       'PIE': 551545.5370,
+                       'POP': 2122592.6560,
+                       'average': 97025.49702,
+                       'overall': 15430.772,
+                       }
+        expected_seebeck = -791.3676
 
         performance_params = deepcopy(self.performance_params)
         performance_params['max_nvalleys'] = 1
@@ -92,12 +93,12 @@ class AmsetTest(unittest.TestCase):
         kgrid = amset.kgrid
 
         # check general characteristics of the grid
-        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 38)
+        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 96)
         # self.assertEqual(kgrid['n']['velocity'][0].shape[0], 124)
         mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
         self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS after removing points
         # self.assertLessEqual(np.std(mean_v)/np.mean(mean_v), 0.1) # isotropic BS
-        self.assertAlmostEqual(mean_v[0], 83868211.783, places=1) # zeroth band
+        self.assertAlmostEqual(mean_v[0], 74392359.5944, places=1) # zeroth band
 
         # check mobility values
         for mu in expected_mu.keys():
@@ -111,14 +112,44 @@ class AmsetTest(unittest.TestCase):
         self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.03)
 
 
+    def test_GaAs_anisotropic(self):
+        print('\ntesting test_GaAs_anisotropic...')
+        expected_mu = {'ACD': 137306.4572,
+                       'IMP': 2893647.65349,
+                       'PIE': 594049.2426,
+                       'POP': 2122377.00898,
+                       'average': 102217.138,
+                       'overall': 15522.2494,
+                       }
+        expected_seebeck = -811.6924
+        amset = AMSET(calc_dir=self.GaAs_path,
+                      material_params=self.GaAs_params,
+                      model_params={'bs_is_isotropic': False,
+                             'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
+                             'inelastic_scatterings': ['POP']},
+                      performance_params=self.performance_params,
+                      dopings=[-2e15], temperatures=[300], integration='e',
+                      loglevel=LOGLEVEL)
+        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
+
+        # check mobility values
+        for mu in expected_mu.keys():
+            self.assertLessEqual(np.std(  # GaAs band structure is isotropic
+                amset.mobility['n'][mu][-2e15][300]), 0.02*\
+                np.mean(amset.mobility['n'][mu][-2e15][300]))
+            self.assertLess(abs(amset.mobility['n'][mu][-2e15][300][0] - expected_mu[mu])/expected_mu[mu], 0.02)
+        self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.02)
+
+
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
         expected_mu = {'ACD': 471762.636,
-                       'IMP': 100745.588,
+                       'IMP': 140162.602,
                        'PIE': 901763.547,
-                       'POP': 28464.278,
-                       'overall': 19136.737,
-                       'average': 20709.768}
+                       'POP': 28612.766,
+                       'average': 22068.891,
+                       'overall': 20825.984
+                       }
         performance_params = dict(self.performance_params)
         performance_params['fermi_kgrid_tp'] = 'very coarse'
         amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
@@ -141,12 +172,12 @@ class AmsetTest(unittest.TestCase):
 
     def test_InP_isotropic_E(self):
         print('\ntesting test_InP_isotropic_E...')
-        expected_mu = {'ACD': 394845.327,
-                       'IMP': 7317582.7279,
-                       'PIE': 2114558.19227,
-                       'POP': 14968.2765,
-                       'average': 14295.8919,
-                       'overall': 11383.3514
+        expected_mu = {'ACD': 509011.1231,
+                       'IMP': 1191015.0033,
+                       'PIE': 970496.2578,
+                       'POP': 51804.94659,
+                       'average': 43219.3389,
+                       'overall': 22480.44856
                        }
 
         amset = AMSET(calc_dir=self.InP_path, material_params=self.InP_params,
@@ -162,38 +193,9 @@ class AmsetTest(unittest.TestCase):
             self.assertLessEqual( # test the isotropy of transport results
                 np.std(amset.mobility['n'][mu][-2e15][300]) / \
                 # np.mean(amset.mobility['n'][mu][-2e15][300]), 20000.0 # bypass InP isotropic mobility test until formulation is finalized
-                np.mean(amset.mobility['n'][mu][-2e15][300]), 0.05
+                np.mean(amset.mobility['n'][mu][-2e15][300]), 0.03
             )
             self.assertLessEqual(abs(amset.mobility['n'][mu][-2e15][300][0]/expected_mu[mu]-1),0.01)
-
-
-    def test_GaAs_anisotropic(self):
-        print('\ntesting test_GaAs_anisotropic...')
-        expected_mu = {'ACD': 138492.4722,
-                       'IMP': 19169990.56750,
-                       'PIE': 1615423.3193,
-                       'POP': 60123.3086,
-                       'average': 40775.89809,
-                       'overall': 14877.98235,
-                       }
-        expected_seebeck = -708.2916
-        amset = AMSET(calc_dir=self.GaAs_path,
-                      material_params=self.GaAs_params,
-                      model_params={'bs_is_isotropic': False,
-                             'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
-                             'inelastic_scatterings': ['POP']},
-                      performance_params=self.performance_params,
-                      dopings=[-2e15], temperatures=[300], integration='e',
-                      loglevel=LOGLEVEL)
-        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
-
-        # check mobility values
-        for mu in expected_mu.keys():
-            self.assertLessEqual(np.std(  # GaAs band structure is isotropic
-                amset.mobility['n'][mu][-2e15][300]), 0.045*\
-                np.mean(amset.mobility['n'][mu][-2e15][300]))
-            self.assertLess(abs(amset.mobility['n'][mu][-2e15][300][0] - expected_mu[mu])/expected_mu[mu], 0.04)
-        self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.03)
 
 
     def test_defaults(self):
@@ -224,8 +226,7 @@ class AmsetTest(unittest.TestCase):
         self.assertEqual(performance_params['max_normk0'], None)
         self.assertEqual(performance_params['dE_min'], 0.0001)
         self.assertEqual(performance_params['nkdos'], 29)
-        self.assertEqual(performance_params['dos_bwidth'], 0.05)
-        self.assertEqual(performance_params['nkdos'], 29)
+        self.assertEqual(performance_params['dos_bwidth'], 0.1)
 
 
     # def test_GaAs_anisotropic_k(self):
