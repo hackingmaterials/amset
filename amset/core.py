@@ -602,7 +602,7 @@ class AMSET(object):
         else:
             kpts = {}
             kgrid_tp_map = {'very coarse': 5,
-                            'coarse': 9,
+                            'coarse': 10,
                             'fine': 17,
                             'very fine': 25, #?? not sure about these numbers
                             'super fine': 30, #?? not sure about these numbers
@@ -612,7 +612,7 @@ class AMSET(object):
             sg = SpacegroupAnalyzer(self.bs.structure)
             kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
                                                          is_shift=[0, 0, 0])
-            kpts_and_weights_init = sg.get_ir_reciprocal_mesh(mesh=(4, 4, 4),
+            kpts_and_weights_init = sg.get_ir_reciprocal_mesh(mesh=(5, 5, 5),
                                                          is_shift=[0, 0, 0])
             initial_ibzkpt_init = [i[0] for i in kpts_and_weights_init]
 
@@ -876,7 +876,7 @@ class AMSET(object):
                 self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
         self.all_important_pts = deepcopy(self.important_pts)
-        self.logger.info('The initial extrema:\n{}'.format(self.important_pts))
+        self.logger.info('Here all the initial extrema:\n{}'.format(self.important_pts))
 
 
     def write_input_files(self, path=None, dir_name="run_data"):
@@ -2341,12 +2341,28 @@ class AMSET(object):
                                     once_called, self.kgrid, self.cbm_vbm,
                                     self.epsilon_s, self.epsilon_inf) for ik in
                                     range(len(self.kgrid[tp]["kpoints"][ib]))]
+                        rlts = np.mean(np.array(results), axis=0)
+                        if len(list(rlts)) != 4:
+                            print(rlts)
+                            raise ValueError
+
                         for ik, res in enumerate(results):
                             self.kgrid[tp]["S_i"][c][T][ib][ik] = res[0]
                             self.kgrid[tp]["S_i_th"][c][T][ib][ik] = res[1]
                             if not once_called:
-                                self.kgrid[tp]["S_o"][c][T][ib][ik] = res[2]
-                                self.kgrid[tp]["S_o_th"][c][T][ib][ik] = res[3]
+                                if (res[2] < 0.1).any():
+                                    # for the even of ill-defined scattering to avoid POP mobility blowing up
+                                    self.kgrid[tp]["S_o"][c][T][ib][ik] = rlts[2]
+                                else:
+                                    self.kgrid[tp]["S_o"][c][T][ib][ik] = res[2]
+
+                                if (res[3] < 0.1).any():
+                                    self.kgrid[tp]["S_o_th"][c][T][ib][ik] = rlts[3]
+                                else:
+                                    self.kgrid[tp]["S_o_th"][c][T][ib][ik] = res[3]
+                                # self.kgrid[tp]["S_o_th"][c][T][ib][ik] = res[3]
+                                # if (self.kgrid[tp]["S_o_th"][c][T][ib][ik] < 0.1).any():
+                                #     self.kgrid[tp]["S_o_th"][c][T][ib][ik] = rlts[3]
 
 
     def s_inelastic(self, sname=None, g_suffix=""):
@@ -2363,12 +2379,16 @@ class AMSET(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
+                        cumulative = 0.0
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             summation = np.array([0.0, 0.0, 0.0])
                             for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
                                 summation += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name],
                                     self.inel_integrand_X, ib=ib, ik=ik, c=c,
                                     T=T, sname=sname + X_E_index_name, g_suffix=g_suffix)
+                            cumulative += summation
+                            if "S_o" in sname and np.min(summation) < 0.1:
+                                summation = cumulative / (ik+1) # set small S_o rates to average rate (so far) to avoid inelastic scattering blow up (division by S_o ~ 0 in POP)
                             self.kgrid[tp][sname][c][T][ib][ik] = summation * e ** 2 * self.kgrid[tp]["W_POP"][ib][ik] / (4 * pi * hbar) * (1 / self.epsilon_inf - 1 / self.epsilon_s) / epsilon_0 * 100 / e
 
 
@@ -3486,7 +3506,7 @@ if __name__ == "__main__":
             [[0.0, 0.0, 0.0], [0.0, mass]],
         ]]
 
-    performance_params = {"dE_min": 0.001, "nE_min": 4,
+    performance_params = {"dE_min": 0.0001, "nE_min": 5,
             "BTE_iters": 5, "max_nbands": 1,
                           "max_normk": None,
                           "n_jobs": -1
@@ -3539,7 +3559,7 @@ if __name__ == "__main__":
                   integration='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
 
     # stats.print_callers(10)
