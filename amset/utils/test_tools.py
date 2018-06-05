@@ -34,18 +34,17 @@ class AmsetToolsTest(unittest.TestCase):
 
     def test_get_bs_extrema(self):
         extrema = get_bs_extrema(bs=self.GaAs_vrun.get_band_structure(),
-                                 coeff_file=self.GaAs_cube, Ecut=2.0)
-
+                                 coeff_file=self.GaAs_cube, Ecut=1.0)
         # first conduction band extrema:
         self.listalmostequal(extrema['n'][0], [.0, .0, .0], 10)
         self.listalmostequal(extrema['n'][1], [.0, .5, .0], 10)
         self.listalmostequal(extrema['n'][2], [-.5, -.5, .0], 10)
-        self.assertEqual(len(extrema['n']), 6)
+        self.assertEqual(len(extrema['n']), 4)
 
         # last valence band extrema
         self.listalmostequal(extrema['p'][0], [.0, .0, .0], 10)
         self.listalmostequal(extrema['p'][1], [-.2786, -.0459, .0], 4)
-        self.assertEqual(len(extrema['p']), 3)
+        self.assertEqual(len(extrema['p']), 4)
 
         Si_extrema = get_bs_extrema(bs=self.Si_vrun.get_band_structure(),
                                     coeff_file=self.Si_cube,
