@@ -73,11 +73,11 @@ class AmsetTest(unittest.TestCase):
         expected_mu = {'ACD': 148790.33582,
                        'IMP': 768347.9251,
                        'PIE': 551545.5370,
-                       'POP': 2122592.6560,
-                       'average': 97025.49702,
-                       'overall': 15430.772,
+                       'POP': 17781.020467,
+                       'average': 15134.27376,
+                       'overall': 15301.60412,
                        }
-        expected_seebeck = -791.3676
+        expected_seebeck = -786.5066
 
         performance_params = deepcopy(self.performance_params)
         performance_params['max_nvalleys'] = 1
@@ -109,19 +109,19 @@ class AmsetTest(unittest.TestCase):
             #     amset.mobility['n'][mu][-2e15][300]), 0.00, places=1)
             self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
                     expected_mu[mu], places=1)
-        self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.03)
+        self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.04)
 
 
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
-        expected_mu = {'ACD': 137306.4572,
-                       'IMP': 2893647.65349,
-                       'PIE': 594049.2426,
-                       'POP': 2122377.00898,
-                       'average': 102217.138,
-                       'overall': 15522.2494,
+        expected_mu = {'ACD': 138307.0158,
+                       'IMP': 2906409.7881,
+                       'PIE': 597921.29666,
+                       'POP': 23685.320977,
+                       'average': 19429.902596,
+                       'overall': 21074.87649,
                        }
-        expected_seebeck = -811.6924
+        expected_seebeck = -816.407
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
@@ -135,7 +135,7 @@ class AmsetTest(unittest.TestCase):
         # check mobility values
         for mu in expected_mu.keys():
             self.assertLessEqual(np.std(  # GaAs band structure is isotropic
-                amset.mobility['n'][mu][-2e15][300]), 0.02*\
+                amset.mobility['n'][mu][-2e15][300]), 0.05*\
                 np.mean(amset.mobility['n'][mu][-2e15][300]))
             self.assertLess(abs(amset.mobility['n'][mu][-2e15][300][0] - expected_mu[mu])/expected_mu[mu], 0.02)
         self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.02)
@@ -175,9 +175,9 @@ class AmsetTest(unittest.TestCase):
         expected_mu = {'ACD': 509011.1231,
                        'IMP': 1191015.0033,
                        'PIE': 970496.2578,
-                       'POP': 51804.94659,
-                       'average': 43219.3389,
-                       'overall': 22480.44856
+                       'POP': 24142.31719,
+                       'average': 22096.684,
+                       'overall': 22268.2835
                        }
 
         amset = AMSET(calc_dir=self.InP_path, material_params=self.InP_params,
