@@ -602,17 +602,28 @@ class AMSET(object):
         else:
             kpts = {}
             kgrid_tp_map = {'very coarse': 5,
-                            'coarse': 14,
-                            'fine': 19,
-                            'very fine': 27 #?? not sure about these numbers
+                            'coarse': 9,
+                            'fine': 17,
+                            'very fine': 25, #?? not sure about these numbers
+                            'super fine': 30, #?? not sure about these numbers
+                            'extremely fine fine': 35 #?? not sure about these numbers
                             }
             nkk = kgrid_tp_map[kgrid_tp]
             sg = SpacegroupAnalyzer(self.bs.structure)
             kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
                                                          is_shift=[0, 0, 0])
+            kpts_and_weights_init = sg.get_ir_reciprocal_mesh(mesh=(4, 4, 4),
+                                                         is_shift=[0, 0, 0])
+            initial_ibzkpt_init = [i[0] for i in kpts_and_weights_init]
+
             # initial_ibzkpt = [i[0] for i in kpts_and_weights]
 
-            initial_ibzkpt0 = np.array([i[0] for i in kpts_and_weights])/10.0
+            initial_ibzkpt0 = np.array([i[0] for i in kpts_and_weights])
+
+            # this is to cover the whole BZ in an adaptive manner in case of high-mass isolated valleys
+            initial_ibzkpt0 = np.array(initial_ibzkpt_init + \
+                                       list(initial_ibzkpt0/5.0) + \
+                                       list(initial_ibzkpt0/20.0) )
             # print('initial_ibzkpt0')
             # print(initial_ibzkpt0)
             for tp in ['p', 'n']:
@@ -649,7 +660,7 @@ class AMSET(object):
                 for ib in range(self.cbm_vbm0[tp]["included"]):
                     self.all_ibands.append(self.cbm_vbm0[tp]["bidx"] + sgn * ib)
 
-
+            self.all_ibands.sort()
             self.logger.debug("all_ibands: {}".format(self.all_ibands))
             if self.interpolation == "boltztrap1":
                 # engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
@@ -709,6 +720,7 @@ class AMSET(object):
                     self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
                 for ib in range(num_bands['n']):
                     self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
+                self.all_ibands.sort()
                 self.logger.debug("all_ibands: {}".format(self.all_ibands))
                 self.interp_params = get_energy_args(coeff_file, self.all_ibands)
             elif self.interpolation == 'boltztrap2':
@@ -803,6 +815,11 @@ class AMSET(object):
                     self.dos_emax = emesh[-1]
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
+                # import pandas as pd
+                # df = pd.DataFrame.from_dict({'emesh': emesh, 'dos': dos})
+                # df.to_csv('test_dos.csv')
+                # test on 20180604:
+                # dos_nbands = self.nbands
                 self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
             else:
                 self.logger.debug("here self.poly_bands: \n {}".format(self.poly_bands))
@@ -902,6 +919,7 @@ class AMSET(object):
             "nkibz": self.nkibz,
             "dE_min": self.dE_min,
             "Ecut": self.Ecut,
+            "Ecut_max": self.Ecut_max,
             "adaptive_mesh": self.adaptive_mesh,
             "dos_bwidth": self.dos_bwidth,
             "nkdos": self.nkdos,
@@ -993,6 +1011,8 @@ class AMSET(object):
         self.nE_min = params.get("nE_min", 5)
         c_factor = max(1, 3 * abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.25)
         Ecut = params.get("Ecut", c_factor * 5 * k_B * max(self.temperatures + [300]))
+        self.Ecut_max = params.get("Ecut", 1.5) #TODO-AF: set this default Encut based on maximum energy range that the current BS covers between
+        Ecut = min(Ecut, self.Ecut_max)
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
         # self.Ecut = {tp: Ecut for tp in ["n", "p"]}
         for tp in ["n", "p"]:
@@ -1000,7 +1020,7 @@ class AMSET(object):
         self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
-                                     0.05)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
+                                     0.1)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
         self.nkdos = params.get("nkdos", 29)
         self.v_min = 1000
         self.gs = 1e-32  # a global small value (generally used for an initial non-zero value)
@@ -3466,17 +3486,18 @@ if __name__ == "__main__":
             [[0.0, 0.0, 0.0], [0.0, mass]],
         ]]
 
-    performance_params = {"dE_min": 0.0001, "nE_min": 3,
+    performance_params = {"dE_min": 0.001, "nE_min": 4,
             "BTE_iters": 5, "max_nbands": 1,
                           "max_normk": None,
                           "n_jobs": -1
                           , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
                           , "pre_determined_fermi": PRE_DETERMINED_FERMI
-                          , "interpolation": "boltztrap1"
+                          , "interpolation": "boltztrap1",
+                          "Ecut_max": 1.0
                           }
 
-    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, # experimental
-    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
+    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, # experimental
+    material_params = {"epsilon_s": 12.18, "epsilon_inf": 10.32, "W_POP": 8.16, # ab initio (lower overall mobility)
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
             'add_extrema': add_extrema
             , "user_bandgap": 1.54,
@@ -3518,7 +3539,7 @@ if __name__ == "__main__":
                   integration='e',
                   # loglevel=logging.DEBUG
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very fine', write_outputs=True)
 
 
     # stats.print_callers(10)
