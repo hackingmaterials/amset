@@ -51,16 +51,16 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, matrix=None):
     # # sym_line_kpoints = np.array(sym_line_kpoints)/5.0
 
 
-    for k in initial_ibzkpt:
-        # sym_line_kpoints += [k]
-        # sym_line_kpoints += [np.dot(matrix, k)]
-        sym_line_kpoints += list(bs.get_sym_eq_kpoints(k))
-
-    sym_line_kpoints = list(np.array(sym_line_kpoints) / 13.0)
-    print(list(sym_line_kpoints)) # print(list()) shows all elements
+    # for k in initial_ibzkpt:
+    #     # sym_line_kpoints += [k]
+    #     # sym_line_kpoints += [np.dot(matrix, k)]
+    #     sym_line_kpoints += list(bs.get_sym_eq_kpoints(k))
+    #
+    # sym_line_kpoints = list(np.array(sym_line_kpoints) / 13.0)
+    # print(list(sym_line_kpoints)) # print(list()) shows all elements
 
     for i, iband in enumerate(ibands):
-        # sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
+        sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
 
         en, vel, masses = interpolate_bs(sym_line_kpoints, interp_params, iband=i,
                        method="boltztrap1", scissor=0.0, matrix=matrix, n_jobs=-1)
@@ -77,19 +77,19 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, matrix=None):
         mass_data.append((en, masses))
         trace_names.append('band {}'.format(iband))
 
-    print('average p-velocity:', np.mean(vels[9], axis=0))
-    print('average n-velocity:', np.mean(vels[10], axis=0))
-    quit()
+    # print('average p-velocity:', np.mean(vels[9], axis=0))
+    # print('average n-velocity:', np.mean(vels[10], axis=0))
+    # quit()
 
-    # print(v_data[1][1])
-    # pf.xy(plot_data, names=[n for n in trace_names])
-    # pf2 = PlotlyFig(filename='Velocity-bt1')
-    # pf2.xy(v_data, names=[n for n in trace_names])
-    # pf3 = PlotlyFig(filename='mass-bt1')
-    # pf3.xy(mass_data, names=[n for n in trace_names])
+    print(v_data[1][1])
+    pf.xy(plot_data, names=[n for n in trace_names])
+    pf2 = PlotlyFig(filename='Velocity-bt1')
+    pf2.xy(v_data, names=[n for n in trace_names])
+    pf3 = PlotlyFig(filename='mass-bt1')
+    pf3.xy(mass_data, names=[n for n in trace_names])
 
 
-def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
+def retrieve_bs_boltztrap2(vrun_path, bs, ibands, matrix=None):
     pf = PlotlyFig(filename='Energy-bt2')
     sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
     # vrun = Vasprun(os.path.join(vrun_path, 'vasprun.xml'))
@@ -108,7 +108,8 @@ def retrieve_bs_boltztrap2(vrun_path, bs, ibands):
     eref = 0.0
     for ith, iband in enumerate(ibands):
         en, vel, masses = interpolate_bs(kpts, interp_params, iband=iband,
-                       method="boltztrap2", matrix=lattvec*0.529177)
+                       method="boltztrap2", matrix=matrix)
+                        # method = "boltztrap2", matrix = lattvec * 0.529177)
         if ith==0:
             eref = np.max(en)
         en -= eref
@@ -178,7 +179,7 @@ if __name__ == "__main__":
     # start_time = time()
 
     # retrieve_bs_boltztrap2(os.path.join(test_dir, 'GaAs/nscf-uniform'), bs=bs, ibands=ibands)
-    retrieve_bs_boltztrap2(os.path.join(test_dir, compound), bs=bs, ibands=ibands)
+    retrieve_bs_boltztrap2(os.path.join(test_dir, compound), bs=bs, ibands=ibands, matrix=dir_matrix)
 
     # print("Boltztrap2 total time: {}".format(time() - start_time))
 
