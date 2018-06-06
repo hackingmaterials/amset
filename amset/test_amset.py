@@ -114,14 +114,14 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
-        expected_mu = {'ACD': 138307.0158,
-                       'IMP': 2906409.7881,
-                       'PIE': 597921.29666,
-                       'POP': 23685.320977,
-                       'average': 19429.902596,
-                       'overall': 21074.87649,
+        expected_mu = {'ACD': 132661.8668,
+                       'IMP': 1057795.2666,
+                       'PIE': 370113.584,
+                       'POP': 16040.4553,
+                       'average': 13600.3412,
+                       'overall': 14508.6448,
                        }
-        expected_seebeck = -816.407
+        expected_seebeck = -815.16
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
@@ -130,15 +130,15 @@ class AmsetTest(unittest.TestCase):
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], integration='e',
                       loglevel=LOGLEVEL)
-        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
+        amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
 
         # check mobility values
         for mu in expected_mu.keys():
             self.assertLessEqual(np.std(  # GaAs band structure is isotropic
                 amset.mobility['n'][mu][-2e15][300]), 0.05*\
                 np.mean(amset.mobility['n'][mu][-2e15][300]))
-            self.assertLess(abs(amset.mobility['n'][mu][-2e15][300][0] - expected_mu[mu])/expected_mu[mu], 0.025)
-        self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.025)
+            self.assertLess(abs(amset.mobility['n'][mu][-2e15][300][0] - expected_mu[mu])/expected_mu[mu], 0.05)
+        self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.05)
 
 
     def test_GaAs_isotropic_k(self):
