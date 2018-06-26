@@ -26,9 +26,10 @@ except ImportError:
 
 class AmsetError(Exception):
     """
-    Exception class for AMSET. Raised when AMSET gives an error.
+    Exception class for AMSET. Raised when AMSET gives an error. The purpose
+    of this class is to be explicit about the exceptions raised specifically
+    due to AMSET input/output requirements instead of a generic ValueError, etc
     """
-
     def __init__(self, logger, msg):
         self.msg = msg
         logger.error(self.msg)
@@ -42,11 +43,13 @@ def setup_custom_logger(name, filepath, filename, level=None):
     Custom logger with both screen and file handlers. This is particularly
     useful if there are other programs (e.g. BoltzTraP2) that call on logging
     in which case the log results and their levels are distict and clear.
+
     Args:
         name (str): logger name to distinguish between different codes.
         filepath (str): path to the folder where the logfile is meant to be
         filename (str): log file filename
         level (int): log level in logging package; example: logging.DEBUG
+
     Returns: a logging instance with customized formatter and handlers
     """
     level = level or logging.DEBUG
@@ -112,7 +115,6 @@ def kpts_to_first_BZ(kpts):
 
 def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
     points_1d = {dir: [] for dir in ['x', 'y', 'z']}
-
     for center in important_pts:
         for dim, dir in enumerate(['x', 'y', 'z']):
             points_1d[dir].append(center[dim])
@@ -122,7 +124,6 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                     for i in range(nsteps - 1):
                         points_1d[dir].append(center[dim] - (i + 1) * step)
                         points_1d[dir].append(center[dim] + (i + 1) * step)
-
             else:
                 if kgrid_tp == 'extremely fine':
                     mesh = [0.0005, 0.001, 0.0015, 0.002, 0.003, 0.004, 0.0045,
@@ -263,34 +264,27 @@ def GB(x, eta):
     return 1 / np.pi * 1 / eta * np.exp(-(x / eta) ** 2)
 
 
-# def calculate_Sio_list(tp, c, T, ib, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
-#     S_i_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
-#     S_i_th_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
-#     S_o_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
-#     S_o_th_list = [0.0 for ik in kgrid[tp]["kpoints"][ib]]
-#
-#     for ik in range(len(kgrid[tp]["kpoints"][ib])):
-#         S_i_list[ik], S_i_th_list[ik], S_o_list[ik], S_o_th_list[ik] = \
-#             calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf)
-#
-#     return [S_i_list, S_i_th_list, S_o_list, S_o_th_list]
-
-
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
     """
     Calculates the polar optical phonon "in" and "out" scattering rates.
     This method is defined outside of the AMSET class to enable parallelization
+
     Args:
-        tp (str): the type of the bands; "n" for the conduction and "p" for the valence bands
-        c (float): the carrier concentration
-        T (float): the temperature
+        tp (str): type of the bands
+            options: "n" for the conduction and "p" for the valence bands
+        c (float): the carrier concentration in 1/cm3
+        T (float): the temperature in Kelvin
         ib (int): the band index
         ik (int): the k-point index
-        once_called (bool): whether this function was once called hence S_o and S_o_th calculated once or not
+        once_called (bool): whether this function was once called hence S_o and
+            S_o_th calculated once or not. Caches already calculated properties
         kgrid (dict): the main kgrid variable in AMSET (AMSET.kgrid)
-        cbm_vbm (dict): the dict containing information regarding the cbm and vbm (from AMSET.cbm_vbm)
+        cbm_vbm (dict): from AMSET.cbm_vbm, containing cbm and vbm energy
         epsilon_s (float): static dielectric constant
         epsilon_inf (float): high-frequency dielectric constant
+
+    Returns ([four 3x1 lists]):
+        the overall vectors for S_i, S_i_th, S_o, and S_o_th
     """
     S_i = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
     S_i_th = [np.array([1e-32, 1e-32, 1e-32]), np.array([1e-32, 1e-32, 1e-32])]
@@ -365,6 +359,7 @@ def get_closest_k(kpoint, ref_ks, return_diff=False, exclude_self=False):
     returns the list of difference between kpoints. If return_diff True, then
         for a given kpoint the minimum distance among distances with ref_ks is
         returned or just the reference kpoint that results if not return_diff
+
     Args:
         kpoint (1x3 array): the coordinates of the input k-point
         ref_ks ([1x3 array]): list of reference k-points from which the
@@ -372,6 +367,7 @@ def get_closest_k(kpoint, ref_ks, return_diff=False, exclude_self=False):
         return_diff (bool): if True, the minimum distance is returned
         exclude_self (bool): if kpoint is already repeated in ref_ks, exclude
             that from ref_ks
+
     Returns (1x3 array):
     """
     if len(list(kpoint)) != 3 or len(list(ref_ks[0])) != 3:
@@ -389,9 +385,12 @@ def get_closest_k(kpoint, ref_ks, return_diff=False, exclude_self=False):
 def remove_duplicate_kpoints(kpts, dk=0.01, periodic=True):
     """
     Removes duplicate points from a list of k-points.
+
     Args:
         kpts ([np.ndarray or list]): list of k-point coordinates
-    Returns: kpts but with duplicate points removed.
+
+    Returns ([np.ndarray or list]):
+        kpts but with duplicate points removed.
     """
     rm_list = []
     if periodic:
@@ -412,6 +411,7 @@ def find_fermi_SPB(cbm_vbm, c, T, tolerance=0.01, alpha=0.02, max_iter=1000):
     Not tested! Returns the fermi level based on single parabolic band (SPB)
     assumption. Note that this function is currently not tested and not used
     in AMSET
+
     Args:
         cbm_vbm (dict):
         c (float):
@@ -419,7 +419,9 @@ def find_fermi_SPB(cbm_vbm, c, T, tolerance=0.01, alpha=0.02, max_iter=1000):
         tolerance (float):
         alpha (float):
         max_iter (int):
-    Returns (float): the fermi level under SPB assumption.
+
+    Returns (float):
+        the fermi level under SPB assumption.
     """
     tp = get_tp(c)
     sgn = np.sign(c)
@@ -495,6 +497,7 @@ def get_energy_args(coeff_file, ibands):
         coeff_file (str): the address to the cube (*.123) file
         ibands ([int]): list of band numbers to be calculated; note that the
             first band index is 1 not 0
+
     Returns (tuple): necessary inputs for calc_analytical_energy or get_energy
     """
     analytical_bands = Analytical_bands(coeff_file=coeff_file)
@@ -538,9 +541,11 @@ def insert_intermediate_kpoints(kpts, n=2):
     Insert n k-points in between each two k-points from kpts and return the
         latter bigger list. This can be used for example to make a finer-mesh
         HighSymmKpath
+
     Args:
         kpts ([[float]]): list of coordinates of k-points
         n (int): the number of k-points inserted between each pair of k-points
+
     Returns ([[float]]): the final list of k-point coordinates
     """
     n += 1
@@ -558,6 +563,7 @@ def get_dos_boltztrap2(params, st, mesh, estep=0.001, vbmidx=None,
                        width=0.2, scissor=0.0):
     """
     Calculates the density of states (DOS) based on boltztrap2 interpolation.
+
     Args:
         params (list/tuple): parameters required for boltztrap2 interpolation
         st (pymatgen Structure object): required for generating irriducible
@@ -568,6 +574,7 @@ def get_dos_boltztrap2(params, st, mesh, estep=0.001, vbmidx=None,
             of the first band is 0
         width (float): energy bandwidth/smearing parameter.
         scissor (float): the intended change to the current band gap
+
     Returns (tuple): in the same order: 1) list of enegy values 2) list of
         densities at those energy values and 3) number of bands considered
     """
@@ -631,6 +638,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
             the velocity (in fractional coordinates) to cartesian in
             boltztrap1 method.
         n_jobs (int): number of processes used in boltztrap1 interpolation
+
     Returns (tuple of energies, velocities, masses lists/np.ndarray):
     """
 
