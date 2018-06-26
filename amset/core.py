@@ -230,7 +230,7 @@ class AMSET(object):
         if self.max_nbands:
             ibands_tuple = ibands_tuple[:min(len(ibands_tuple), self.max_nbands)]
 
-        self.logger.debug('here ibands_tuple')
+        self.logger.debug('here ibands_tuple: [(val. band #, cond. band #)]')
         self.logger.debug(ibands_tuple)
         self.logger.debug('here whether to count bands')
         self.logger.debug(self.count_mobility)
@@ -876,7 +876,8 @@ class AMSET(object):
                 self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
         self.all_important_pts = deepcopy(self.important_pts)
-        self.logger.info('Here all the initial extrema:\n{}'.format(self.important_pts))
+        self.logger.info('Here all the initial extrema (vallyes):\n{}'.format(
+                self.important_pts))
 
 
     def write_input_files(self, path=None, dir_name="run_data"):
