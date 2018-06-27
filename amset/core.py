@@ -2888,17 +2888,6 @@ class AMSET(object):
         for ib in range(num_bands):
             result += self.integrate_over_k(integrand_grid[ib], tp)
 
-        # if tp == 'n':
-        #     for ib in range(self.num_bands['n']):
-        #         result += self.integrate_over_k(integrand_grid[ib], tp)
-        # if tp  == 'p':
-        #     for ib in range(self.num_bands['p']):
-        #         result += self.integrate_over_k(integrand_grid[ib], tp)
-        # if tp == 'all':
-        #     for ib in range(self.num_bands['n']):
-        #         result += self.integrate_over_k(integrand_grid[ib], 'n')
-        #     for ib in range(self.num_bands['p']):
-        #         result += self.integrate_over_k(integrand_grid[ib + self.num_bands['n']], tp)
         return result
 
 
@@ -3102,53 +3091,6 @@ class AMSET(object):
                         valley_transport[tp]["overall"][c][T] = mu_overall_valley
                     self.egrid[tp]["relaxation time constant"][c][T] = self.mobility[tp]["overall"][c][T] \
                             * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
-
-                    # calculating other overall transport properties:
-                    self.egrid[tp]["conductivity"][c][T] = self.mobility[tp]["overall"][c][T] * e * abs(c)
-                    # self.egrid["seebeck"][c][T][tp] = -1e6 * k_B * (self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                    #                                                 / self.egrid["Seebeck_integral_denominator"][c][T][
-                    #                                                     tp] - (
-                    #                                                 self.egrid["fermi"][c][T] - self.cbm_vbm[tp][
-                    #                                                     "energy"]) / (k_B * T))
-
-                    # TODO: to calculate Seebeck define a separate function after ALL important_points are exhausted and the overall sum of self.mobility is evaluated!
-                    # self.egrid[tp]["seebeck"][c][T] = -1e6 * k_B * (
-                    #         self.egrid["Seebeck_integral_numerator"][c][T][tp]  /self.egrid["Seebeck_integral_denominator"][c][T][tp]
-                    #         -(self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T))
-
-                    valley_transport[tp]["seebeck"][c][T] = self.egrid["Seebeck_integral_numerator"][c][T][tp]
-
-                    # self.egrid[tp]["TE_power_factor"][c][T] = \
-                    #         self.egrid[tp]["seebeck"][c][T]** 2 * self.egrid[
-                    #             tp]["conductivity"][c][T] / 1e6  # in uW/cm2K
-
-                    # when POP is not available J_th is unreliable
-                    # if "POP" in self.inelastic_scatterings:
-                    #     self.egrid[tp]["seebeck"][c][T] = np.array([self.egrid[
-                    #             tp]["seebeck"][c][T] for i in range(3)])
-                    #     self.egrid[tp]["seebeck"][c][T] += 0.0
-                    #     # TODO: for now, we ignore the following until we figure out the units see why values are high!
-                        # self.egrid["seebeck"][c][T][tp] += 1e6 \
-                        #                 * self.egrid["J_th"][c][T][tp]/self.egrid["conductivity"][c][T][tp]/dTdz
-
-                    # print("3 {}-seebeck terms at c={} and T={}:".format(tp, c, T))
-                    # print(self.egrid["Seebeck_integral_numerator"][c][T][tp] \
-                    #       / self.egrid["Seebeck_integral_denominator"][c][T][tp] * -1e6 * k_B)
-                    # print((self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) * 1e6 * k_B / (k_B * T))
-                    # print(self.egrid[tp]["J_th"][c][T] / self.egrid[tp]["conductivity"][c][T]/ dTdz * 1e6)
-
-
-                    # #TODO: not sure about the following part yet specially as sometimes due to position of fermi I get very off other type mobility values! (sometimes very large)
-                    # other_type = ["p", "n"][1 - j]
-                    # self.egrid[tp]["seebeck"][c][T] = (
-                    #         self.egrid[tp]["conductivity"][c][T] * \
-                    #         self.egrid[tp]["seebeck"][c][T] -
-                    #         self.egrid[other_type]["conductivity"][c][T] * \
-                    #         self.egrid[other_type]["seebeck"][c][T]) / (
-                    #         self.egrid[tp]["conductivity"][c][T] +
-                    #         self.egrid[other_type]["conductivity"][c][T])
-                    ## since sigma = c_e x e x mobility_e + c_h x e x mobility_h:
-                    ## self.egrid["conductivity"][c][T][tp] += self.egrid["conductivity"][c][T][other_type]
                     if self.independent_valleys:
                         for mu in self.mo_labels+["J_th"]:
                             valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
