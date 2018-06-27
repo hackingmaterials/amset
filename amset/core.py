@@ -922,7 +922,6 @@ class AMSET(object):
             "dE_min": self.dE_min,
             "Ecut": self.Ecut,
             "Ecut_max": self.Ecut_max,
-            "adaptive_mesh": self.adaptive_mesh,
             "dos_bwidth": self.dos_bwidth,
             "nkdos": self.nkdos,
             "BTE_iters": self.BTE_iters,
@@ -1019,7 +1018,6 @@ class AMSET(object):
         # self.Ecut = {tp: Ecut for tp in ["n", "p"]}
         for tp in ["n", "p"]:
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
-        self.adaptive_mesh = params.get("adaptive_mesh", False)
 
         self.dos_bwidth = params.get("dos_bwidth",
                                      0.1)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
@@ -1533,16 +1531,7 @@ class AMSET(object):
                 'very coarse', 'coarse', 'fine', 'very fine'
         Returns:
         """
-        # self.logger.debug('begin profiling init_kgrid: a "{}" grid'.format(kgrid_tp))
-        # start_time = time.time()
-
         corrupt_tps = []
-
-        # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
-        if self.adaptive_mesh:
-            raise NotImplementedError("adaptive mesh has not yet been "
-                                      "implemented, please check back later!")
-
         # TODO: remove anything with "weight" later if ended up not using weights at all!
         kweights = {tp: [1.0 for i in kpts[tp]] for tp in ["n", "p"]}
 
