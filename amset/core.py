@@ -1147,17 +1147,9 @@ class AMSET(object):
         Returns (np.ndarray): frac_k ransformed into cartesian coordinates
         """
         if reciprocal:
-            # return np.dot(self._rec_lattice.matrix, np.array(frac_k).T).T
             return np.dot(self._rec_lattice.matrix, np.array(frac_k)) # was expected to work until 05/23/2018
-            # return (np.array(frac_k), self._rec_lattice.matrix)
-
-            # return dot(self._rec_lattice.matrix, np.array(frac_k))
         else:
-            # return np.dot(self._vrun.lattice.matrix, np.array(frac_k).T).T
             return np.dot(self._vrun.lattice.matrix, np.array(frac_k)) # was expected to work until 05/23/2018
-            # return (np.array(frac_k), self._vrun.lattice.matrix)
-
-            # return dot(self._vrun.lattice.matrix, np.array(frac_k))
 
 
     def seeb_int_num(self, c, T):
@@ -1181,6 +1173,7 @@ class AMSET(object):
         """
         Calculates the propery at all concentrations and temperatures using
         the given function and insert it into self.egrid
+
         Args:
             prop_name (str): the name of the property
             prop_func (obj): the given function MUST takes c and T as required inputs in this order.
@@ -1195,7 +1188,6 @@ class AMSET(object):
         for c in self.dopings:
             for T in self.temperatures:
                 if for_all_E:
-                    #fermi = self.egrid["fermi"][c][T]
                     fermi = self.fermi_level[c][T]
                     for tp in ["n", "p"]:
                         for ie, E in enumerate(self.egrid[tp]["energy"]):
