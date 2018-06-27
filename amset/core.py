@@ -866,7 +866,7 @@ class AMSET(object):
                 eref = None
             Ecut = {tp: min(2.0, max(self.Ecut[tp]-ext_height, ext_height)) for tp in ['p', 'n']}
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
-                    interp_params=self.interp_params, interpolation=interpolation,
+                    interp_params=self.interp_params, method=interpolation,
                     Ecut=Ecut, eref=eref, return_global=True, n_jobs=self.n_jobs,
                     nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
             if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy'] and self.poly_bands0 is None:
