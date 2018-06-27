@@ -981,8 +981,6 @@ class AMSET(object):
         acceptor_charge = params.get("acceptor_charge", 1.0)
         dislocations_charge = params.get("dislocations_charge", 1.0)
         self.charge = {"n": donor_charge, "p": acceptor_charge, "dislocations": dislocations_charge}
-        self.add_extrema = params.get('add_extrema', None)
-        self.add_extrema = self.add_extrema or {'n': [], 'p':[]}
         self.important_pts = params.get('important_points', None)
 
 
@@ -3145,6 +3143,7 @@ class AMSET(object):
              margins=100, fontfamily="serif"):
         """
         plots the given k_plots and E_plots properties.
+
         Args:
             k_plots: (list of strings) the names of the quantities to be plotted against norm(k)
                 options: 'energy', 'df0dk', 'velocity', or just string 'all' (not in a list) to plot everything
@@ -3306,9 +3305,11 @@ class AMSET(object):
 
     def to_csv(self, path=None, dir_name="run_data", csv_filename='amset_results.csv'):
         """
-        writes the calculated transport properties to a csv file.
+        Writes the calculated transport properties to a csv file.
+
         Args:
             csv_filename (str):
+
         Returns (.csv file)
         """
         import csv
@@ -3359,8 +3360,6 @@ if __name__ == "__main__":
     # setting up inputs:
     mass = 0.25
     use_poly_bands = False
-    add_extrema = None
-    # add_extrema = {'n': [[0.5, 0.5, 0.5]], 'p':[]}
     PRE_DETERMINED_FERMI = None
 
     model_params = {'bs_is_isotropic': True,
@@ -3385,8 +3384,7 @@ if __name__ == "__main__":
 
     # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, # experimental
     material_params = {"epsilon_s": 12.18, "epsilon_inf": 10.32, "W_POP": 8.16, # ab initio (lower overall mobility)
-            "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052,
-            'add_extrema': add_extrema
+            "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052
             , "user_bandgap": 1.54,
             # "important_points": {'n': [[0. , 0.5, 0. ]], 'p': [[0. , 0.0, 0. ]]},
                        }
