@@ -1537,8 +1537,6 @@ class AMSET(object):
         # start_time = time.time()
 
         corrupt_tps = []
-        if self.interpolation == "boltztrap1" and self.poly_bands0 is None:
-            engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = self.interp_params
 
         # TODO-JF (long-term): adaptive mesh is a good idea but current implementation is useless, see if you can come up with better method after talking to me
         if self.adaptive_mesh:
