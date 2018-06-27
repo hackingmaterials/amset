@@ -30,7 +30,8 @@ from amset.utils.tools import norm, generate_k_mesh_axes, \
     remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
     get_energy_args, get_bindex_bspin, get_bs_extrema, \
     AmsetError, kpts_to_first_BZ, get_dos_boltztrap2, \
-    setup_custom_logger, insert_intermediate_kpoints, interpolate_bs
+    setup_custom_logger, insert_intermediate_kpoints, interpolate_bs, \
+    get_dft_orbitals
 
 from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, \
     A_to_nm, e, k_B, \
@@ -1050,30 +1051,6 @@ class AMSET(object):
             raise KeyError
 
 
-    def get_dft_orbitals(self, bidx):
-        """
-        The contribution from s and p orbitals at a given band for kpoints
-        that were used in the DFT run (from which vasprun.xml is read)
-
-        Args:
-            bidx (idx): band index
-
-        Returns:
-            ([float], [float]) two lists: s&p orbital scores at the band # bidx
-        """
-        projected = self._vrun.projected_eigenvalues
-        # projected indexes : Spin; kidx; bidx; s,py,pz,px,dxy,dyz,dz2,dxz,dx2
-        s_orbital = [0.0 for k in self.DFT_cartesian_kpts]
-        p_orbital = [0.0 for k in self.DFT_cartesian_kpts]
-        for ik in range(len(self.DFT_cartesian_kpts)):
-            s_orbital[ik] = sum(projected[Spin.up][ik][bidx])[0]
-            if self.lorbit == 10:
-                p_orbital[ik] = sum(projected[Spin.up][ik][bidx])[1]
-            elif self.lorbit == 11:
-                p_orbital[ik] = sum(sum(projected[Spin.up][ik][bidx])[1:4])
-        return s_orbital, p_orbital
-
-
     def read_vrun(self, vasprun_file=None, filename="vasprun.xml"):
         vasprun_file = vasprun_file or os.path.join(self.calc_dir, filename)
         self._vrun = Vasprun(vasprun_file, parse_projected_eigen=True)
@@ -1628,7 +1605,10 @@ class AMSET(object):
                 # WE MAKE A COPY HERE OTHERWISE THE TWO LISTS CHANGE TOGETHER (we set cartesian kpoints a few lines down here)
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(self.kgrid[tp]["old cartesian kpoints"][ib])
 
-                s_orbital, p_orbital = self.get_dft_orbitals(bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib)
+                s_orbital, p_orbital = get_dft_orbitals(
+                    vasprun=self._vrun,
+                    bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib,
+                    lorbit=self.lorbit)
                 orbitals = {"s": s_orbital, "p": p_orbital}
                 fit_orbs = {orb: griddata(points=np.array(self.DFT_cartesian_kpts), values=np.array(orbitals[orb]),
                     xi=np.array(self.kgrid[tp]["old cartesian kpoints"][ib]), method='nearest') for orb in orbitals.keys()}
@@ -3554,7 +3534,8 @@ if __name__ == "__main__":
                   # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
-                  temperatures = [300, 600, 1000],
+                  temperatures = [300],
+                  # temperatures = [300, 600, 1000],
                   # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
 

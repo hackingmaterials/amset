@@ -672,7 +672,6 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
             energies.append(energy)
             velocities.append(velocity)
             masses.append(effective_m)
-
     elif method=="boltztrap2":
         if n_jobs != 1:
             warnings.warn('n_jobs={}: Parallel not implemented w/ boltztrap2'
@@ -795,3 +794,34 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
         return final_extrema, global_extrema
     else:
         return final_extrema
+
+
+def get_dft_orbitals(vasprun, bidx, lorbit):
+    """
+    The contribution from s and p orbitals at a given band for kpoints
+    that were used in the DFT run (from which vasprun.xml is read). This is
+    just to parse the total orbital contributions out of Vasprun depending
+    on LORBIT.
+
+    Args:
+        vasprun (pymatgen Vasprun):
+        bidx (idx): band index
+        lorbit (int): the LORBIT flag that was used when vasprun.xml generated
+
+    Returns:
+        ([float], [float]) two lists: s&p orbital scores at the band # bidx
+    """
+    projected = vasprun.projected_eigenvalues
+    nk = len(vasprun.actual_kpoints)
+    # projected indexes : Spin; kidx; bidx; s,py,pz,px,dxy,dyz,dz2,dxz,dx2
+    s_orbital = [0.0] * nk
+    p_orbital = [0.0] * nk
+    for ik in range(nk):
+        s_orbital[ik] = sum(projected[Spin.up][ik][bidx])[0]
+        if lorbit == 10:
+            p_orbital[ik] = sum(projected[Spin.up][ik][bidx])[1]
+        elif lorbit == 11:
+            p_orbital[ik] = sum(sum(projected[Spin.up][ik][bidx])[1:4])
+        else:
+            raise AmsetError('Not sure what to do with lorbit={}'.format(lorbit))
+    return s_orbital, p_orbital
