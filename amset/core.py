@@ -1350,10 +1350,12 @@ class AMSET(object):
     def G(self, tp, ib, ik, ib_prm, ik_prm, X):
         """
         The overlap integral betweek vectors k and k'
+
         Args:
             ik (int): index of vector k in kgrid
             ik_prm (int): index of vector k' in kgrid
             X (float): cosine of the angle between vectors k and k'
+
         Returns (float): the overlap integral
         """
         a = self.kgrid[tp]["a"][ib][ik]
@@ -1366,6 +1368,7 @@ class AMSET(object):
         """
         The k-points with velocity < 1 cm/s (either in valence or conduction band) are taken out as those are
             troublesome later with extreme values (e.g. too high elastic scattering rates)
+
         Args:
             rm_idx_list ([int]): the kpoint indexes that need to be removed for each property
             rearranged_props ([str]): list of properties for which some indexes need to be removed
@@ -1384,6 +1387,7 @@ class AMSET(object):
     def initialize_var(self, grid, names, val_type="scalar", initval=0.0, is_nparray=True, c_T_idx=False):
         """
         Initializes a variable/key within the self.kgrid variable
+
         Args:
             grid (str): options are "kgrid" or "egrid": whether to initialize vars in self.kgrid or self.egrid
             names (list): list of the names of the variables
@@ -1798,9 +1802,11 @@ class AMSET(object):
 
 
     def get_X_ib_ik_near_new_E(self, tp, ib, ik, E_change, forced_min_npoints=0, tolerance=None):
-        """Returns the sorted (based on angle, X) list of angle and band and k-point indexes of all the points
-            that are within tolerance of E + E_change
-            Attention!!! this function assumes self.kgrid is sorted based on the energy in ascending order.
+        """
+        Returns the sorted (based on angle, X) list of angle and band and
+        k-point indexes of all the points that are within tolerance of E + E_change
+        Attention!!! this function assumes self.kgrid is sorted based on the energy in ascending order.
+
         Args:
             tp (str): type of the band; options: "n" or "p"
             ib (int): the band index
@@ -1865,15 +1871,15 @@ class AMSET(object):
 
     def s_el_eq(self, sname, tp, c, T, k, k_prm):
         """
-        return the scattering rate at wave vector k at a certain concentration and temperature
+        Returns the scattering rate at wave vector k at a certain concentration and temperature
         for a specific elastic scattering mechanisms determined by sname
 
         Args:
-        sname (string): abbreviation of the name of the elastic scatteirng mechanisms; options: IMP, ADE, PIE, DIS
-        c (float): carrier concentration
-        T (float): the temperature
-        k (list): list containing fractional coordinates of the k vector
-        k_prm (list): list containing fractional coordinates of the k prime vector
+            sname (string): abbreviation of the name of the elastic scatteirng mechanisms; options: IMP, ADE, PIE, DIS
+            c (float): carrier concentration
+            T (float): the temperature
+            k (list): list containing fractional coordinates of the k vector
+            k_prm (list): list containing fractional coordinates of the k prime vector
         """
         norm_diff_k = norm(k - k_prm)  # the slope for PIE and IMP don't match with bs_is_isotropic
         if norm_diff_k == 0.0:
@@ -1921,20 +1927,6 @@ class AMSET(object):
                     integral += dE * func(E + i * dE, fermi, T)
         return integral
         # return integral/sum(self.Efrequency[tp][:-1])
-
-
-    # def grid_index_from_list_index(self, list_index, tp):
-    #     N = self.kgrid_array[tp].shape
-    #     count = list_index
-    #     i, j, k = (0,0,0)
-    #     while count >= N[2]*N[1]:
-    #         count -= N[2]*N[1]
-    #         i += 1
-    #     while count >= N[2]:
-    #         count -= N[2]
-    #         j += 1
-    #     k = count
-    #     return (i,j,k)
 
 
     def find_dv(self, grid):
@@ -2094,6 +2086,7 @@ class AMSET(object):
     def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None, g_suffix=""):
         """
         integrate numerically with a simple trapezoidal algorithm.
+
         Args:
             tp (str): 'n' or 'p' type
             X_E_index ([[[(float, int, int)]]]): list of (X, ib', ik') for each
@@ -2107,6 +2100,7 @@ class AMSET(object):
             sname (str): the scattering name (see options in the documentation
                 of el_integrand_X and inel_integrand_X functions
             g_suffix:
+
         Returns (float or numpy.array): the integrated value/vector
         """
         summation = 0.0
@@ -2165,6 +2159,7 @@ class AMSET(object):
         """
         returns the evaluated (float) expression inside the elastic equations
             to be integrated over angles, dX.
+
         Args:
             tp (str): "n" or "p" type
             c (float): carrier concentration/doping in cm**-3
@@ -2176,6 +2171,7 @@ class AMSET(object):
             X (float): the angle between k and k'
             sname (str): elastic scattering name: 'ACD', 'PIE', 'IMP'
             g_suffix (str): '' or '_th' (th for thermal)
+
         Returns (float): the integrand for elastic scattering integration
         """
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
@@ -2192,6 +2188,7 @@ class AMSET(object):
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
         returns the evaluated (float) expression of the S_o & S_i(g) integrals.
+
         Args:
             tp (str): "n" or "p" type
             c (float): carrier concentration/doping in cm**-3
@@ -2204,6 +2201,7 @@ class AMSET(object):
             sname (str): scattering name: 'S_oX_Eplus_ik', 'S_oX_Eminus_ik',
                 'S_iX_Eplus_ik' or 'S_iX_Eminus_ik'
             g_suffix (str): '' or '_th' (th for thermal)
+
         Returns (float): the integrand for POP scattering (to be integrated
             over X)
         """
@@ -2259,9 +2257,11 @@ class AMSET(object):
         """
         calclates the inelastic S_i and S_o scattering rates in the kgrid based
             on the isotropic formulation (integrated equations from Rode)
+
         Args:
             once_called (bool): since scattering out, S_o, needs to be
                 calculated only once (not a function of g), we use this flag
+
         Returns:
             updates values of S_i and S_o (np.array at each k-point) in kgrid
         """
@@ -2269,20 +2269,6 @@ class AMSET(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["kpoints"])):
-                        # this format helps consistency with parallelization:
-                        # if self.n_jobs == 1:
-                        #     results = [calculate_Sio(tp, c, T, ib, ik,
-                        #             once_called, self.kgrid, self.cbm_vbm,
-                        #             self.epsilon_s, self.epsilon_inf) for ik in
-                        #             range(len(self.kgrid[tp]["kpoints"][ib]))]
-                        # else:
-                        #     inputs = [(tp, c, T, ib, ik,
-                        #             once_called, self.kgrid, self.cbm_vbm,
-                        #             self.epsilon_s, self.epsilon_inf) for ik in
-                        #             range(len(self.kgrid[tp]["kpoints"][ib]))]
-                        #     with Pool(self.n_jobs) as p:
-                        #         results = p.starmap(calculate_Sio, inputs)
-
                         results = [calculate_Sio(tp, c, T, ib, ik,
                                     once_called, self.kgrid, self.cbm_vbm,
                                     self.epsilon_s, self.epsilon_inf) for ik in
@@ -2306,9 +2292,6 @@ class AMSET(object):
                                     self.kgrid[tp]["S_o_th"][c][T][ib][ik] = rlts[3]
                                 else:
                                     self.kgrid[tp]["S_o_th"][c][T][ib][ik] = res[3]
-                                # self.kgrid[tp]["S_o_th"][c][T][ib][ik] = res[3]
-                                # if (self.kgrid[tp]["S_o_th"][c][T][ib][ik] < 0.1).any():
-                                #     self.kgrid[tp]["S_o_th"][c][T][ib][ik] = rlts[3]
 
 
     def s_inelastic(self, sname=None, g_suffix=""):
@@ -2316,6 +2299,7 @@ class AMSET(object):
         Calculates the inelastic/POP scattering rate (with correct units)
         by integrating over dX (X being the angle between k and k' states) for
         all band-kpoint pair.
+
         Args:
             sname (str): scattering name: 'S_oX_Eplus_ik', 'S_oX_Eminus_ik',
                 'S_iX_Eplus_ik' or 'S_iX_Eminus_ik'
@@ -2345,6 +2329,7 @@ class AMSET(object):
         self.bs_is_isotropic==True). This assumption significantly simplifies
         the model and the integrated rates at each k/energy directly extracted
         from the literature can be used here.
+
         Args:
             sname (str): elastic scattering name: 'ACD', 'IMP', 'PIE', 'DIS'
             tp (str): 'n' or 'p' type respectively for conduction and valence
@@ -2352,6 +2337,7 @@ class AMSET(object):
             T (float): temperature
             ib (int): band index starting from 0 (0 for CBM/VBM bands)
             ik (int): k-point index
+
         Returns (float): scalar (since assumed isotropic) scattering rate.
         """
         v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
@@ -2397,8 +2383,10 @@ class AMSET(object):
     def s_elastic(self, sname):
         """
         the scattering rate equation for each elastic scattering name (sname)
+
         Args:
             sname (st): elastic scattering name: 'IMP', 'ADE', 'PIE', 'DIS'
+
         Returns:
             it directly calculates the scattering rate at each k-point at each
                 c and T (self.kgrid[tp][sname][c][T][ib][ik])
@@ -2441,10 +2429,12 @@ class AMSET(object):
         maps a propery from kgrid to egrid conserving the nomenclature.
             The mapped property w/ format: kgrid[tp][prop_name][c][T][ib][ik]
             will have the format: egrid[tp][prop_name][c][T][ie]
+
         Args:
             prop_name (string): the name of the property to be mapped. It must be available in the kgrid.
             c_and_T_idx (bool): if True, the propetry will be calculated and maped at each concentration, c, and T
             prop_type (str): options are "scalar", "vector", "tensor"
+
         Returns (float or numpy.array): egrid[tp][prop_name][c][T][ie]
         """
         if not c_and_T_idx:
@@ -2506,6 +2496,7 @@ class AMSET(object):
     def find_fermi(self, c, T, rtol=0.01, rtol_loose=0.03, step=0.1, nstep=50):
         """
         finds the Fermi level at a given c and T at egrid (i.e. DOS)
+
         Args:
             c (float): The doping concentration;
                 c < 0 indicate n-type (i.e. electrons) and c > 0 for p-type
@@ -2515,6 +2506,7 @@ class AMSET(object):
                 calculated and input c
             nstep (int): number of steps to check before and after a given
                 fermi level
+
         Returns (float in eV):
             The fitted/calculated Fermi level
         """
@@ -2566,21 +2558,8 @@ class AMSET(object):
         """
         beta = {}
         for tp in ["n", "p"]:
-            # TODO: the integration may need to be revised. Careful testing of IMP scattering against expt is necessary
-            # integral = self.integrate_over_normk(prop_list=["f0","1-f0"], tp=tp, c=c, T=T, xDOS=True)
-            # # integral = sum(integral)/3
-            # # self.logger.debug('integral_over_norm_k')
-            # # self.logger.debug(integral)
-            # # from aMoBT ( or basically integrate_over_normk )
-            # beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
-
-
-            #TODO: on 03/27/2018, I reverted this calculations to integrate_over_E from old commit. Did not double-checked the units
             integral = self.integrate_over_E(prop_list=["f0","1 - f0"], tp=tp, c=c, T=T, xDOS=True, weighted=False)
-            # integral *= self.nelec
-            # beta[tp] = (e**2 / (self.epsilon_s * epsilon_0*k_B*T) * integral * 6.241509324e27)**0.5
             beta[tp] = (e**2 / (self.epsilon_s * epsilon_0 * k_B * T) * integral / self.volume * 1e12 / e) ** 0.5
-
         return beta
 
 
