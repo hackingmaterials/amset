@@ -1507,22 +1507,6 @@ class AMSET(object):
         return kpts_to_first_BZ(final_kpts_added)
 
 
-    # def get_sym_eq_ks_in_first_BZ(self, k, cartesian=False):
-    #     """
-    #     Args:
-    #         k (numpy.array): kpoint fractional coordinates
-    #         cartesian (bool): if True, the output would be in cartesian (but still reciprocal) coordinates
-    #     Returns (numpy.ndarray): array containing fractional coordinates of
-    #         the symmetrically equivalent kpoints to k.
-    #     """
-    #     fractional_ks = [np.dot(k, self.rotations[i]) for i in range(len(self.rotations))]
-    #     fractional_ks = kpts_to_first_BZ(fractional_ks)
-    #     if cartesian:
-    #         return [self.get_cartesian_coords(k_frac) / A_to_nm for k_frac in fractional_ks]
-    #     else:
-    #         return fractional_ks
-
-
     def calc_poly_energy(self, xkpt, tp, ib):
         """
 
