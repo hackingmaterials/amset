@@ -2183,7 +2183,7 @@ class AMSET(object):
 
     def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
-        returns the evaluated (float) expression of the S_o & S_i(g) integrals.
+        Returns the evaluated (float) expression of the S_o & S_i(g) integrals.
 
         Args:
             tp (str): "n" or "p" type
@@ -2320,7 +2320,7 @@ class AMSET(object):
 
     def s_el_eq_isotropic(self, sname, tp, c, T, ib, ik):
         """
-        returns elastic scattering rate (a numpy vector) at given point
+        Returns elastic scattering rate (a numpy vector) at given point
         (i.e. k-point, c, T) in isotropic formulation (i.e. if
         self.bs_is_isotropic==True). This assumption significantly simplifies
         the model and the integrated rates at each k/energy directly extracted
@@ -2378,7 +2378,7 @@ class AMSET(object):
 
     def s_elastic(self, sname):
         """
-        the scattering rate equation for each elastic scattering name (sname)
+        The scattering rate equation for each elastic scattering name (sname)
 
         Args:
             sname (st): elastic scattering name: 'IMP', 'ADE', 'PIE', 'DIS'
@@ -2422,7 +2422,7 @@ class AMSET(object):
 
     def map_to_egrid(self, prop_name, c_and_T_idx=True, prop_type="vector"):
         """
-        maps a propery from kgrid to egrid conserving the nomenclature.
+        Maps a propery from kgrid to egrid conserving the nomenclature.
             The mapped property w/ format: kgrid[tp][prop_name][c][T][ib][ik]
             will have the format: egrid[tp][prop_name][c][T][ie]
 
@@ -2491,7 +2491,7 @@ class AMSET(object):
 
     def find_fermi(self, c, T, rtol=0.01, rtol_loose=0.03, step=0.1, nstep=50):
         """
-        finds the Fermi level at a given c and T at egrid (i.e. DOS)
+        Finds the Fermi level at a given c and T at egrid (i.e. DOS)
 
         Args:
             c (float): The doping concentration;
@@ -2614,13 +2614,15 @@ class AMSET(object):
     def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0,
                 valleys=True, path=None, dir_name="run_data"):
         """
-        writes the kgrid and egird to json files
+        Writes the kgrid and egird to json files
+
         Args:
             kgrid (bool): whether to also write kgrid to kgrid.json
             trimmed (bool): if trimmed some properties (dict keys) will be
                 removed to save space
             max_ndata (int): the maximum index from the CBM/VBM written to file
             nstart (int): the initial list index of a property written to file
+
         Returns: egrid.json and (optional) kgrid.json file(s)
         """
         path = os.path.join(path or self.calc_dir, dir_name)
@@ -2694,7 +2696,9 @@ class AMSET(object):
                 json.dump(kgrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
         if valleys:
             with open(os.path.join(path, "valleys.json"), 'w') as fp:
-                json.dump(self.valleys, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
+                json.dump(self.valleys, fp,
+                          sort_keys=True, indent=4,
+                          ensure_ascii=False, cls=MontyEncoder)
 
 
     def solve_BTE_iteratively(self):
@@ -3140,7 +3144,7 @@ class AMSET(object):
              direction=['avg'], show_interactive=True, save_format=None, textsize=30, ticksize=25, path=None, dir_name="plots",
              margins=100, fontfamily="serif"):
         """
-        plots the given k_plots and E_plots properties.
+        Plots the given k_plots and E_plots properties.
 
         Args:
             k_plots: (list of strings) the names of the quantities to be plotted against norm(k)
