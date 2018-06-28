@@ -4,6 +4,7 @@ import gzip
 import warnings
 import time
 import json
+from collections import OrderedDict
 from multiprocessing import cpu_count
 from numpy import dot
 from pstats import Stats
@@ -1127,7 +1128,7 @@ class AMSET(object):
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
         self.cbm_vbm = cbm_vbm
         self.cbm_vbm0 = deepcopy(cbm_vbm)
-        self.valleys = {tp: {'band {}'.format(i): {} for i in range(self.cbm_vbm0[tp]['included']) } for tp in ['p', 'n']}
+        self.valleys = {tp: {'band {}'.format(i): OrderedDict() for i in range(self.cbm_vbm0[tp]['included']) } for tp in ['p', 'n']}
         self.logger.info("original cbm_vbm:\n {}".format(cbm_vbm))
         self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
 
@@ -1694,6 +1695,7 @@ class AMSET(object):
 
         return corrupt_tps
 
+
     def sort_vars_based_on_energy(self, args, ascending=True):
         """sort the list of variables specified by "args" (type: [str]) in self.kgrid based on the "energy" values
         in each band for both "n"- and "p"-type bands and in ascending order by default."""
@@ -1706,7 +1708,6 @@ class AMSET(object):
                 for arg in args:
                     self.kgrid[tp][arg][ib] = np.array([self.kgrid[tp][arg][ib][ik] for ik in ikidxs[tp][ib]])
         return ikidxs
-
 
 
     def generate_angles_and_indexes_for_integration(self, avg_Ediff_tolerance=0.02):
@@ -1775,7 +1776,6 @@ class AMSET(object):
                         warnings.warn(
                             "{}-type average energy difference of the enforced scattered k-points is more than"
                             " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
-
 
 
     def unique_X_ib_ik_symmetrically_equivalent(self, tp, ib, ik):
@@ -1923,7 +1923,6 @@ class AMSET(object):
                 for i in range(interpolation_nsteps):
                     integral += dE * func(E + i * dE, fermi, T)
         return integral
-        # return integral/sum(self.Efrequency[tp][:-1])
 
 
     def find_dv(self, grid):
