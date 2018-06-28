@@ -1652,7 +1652,6 @@ class AMSET(object):
         for tp in ["n", "p"]:
             for ib in range(len(self.kgrid[tp]["energy"])):
                 self.logger.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
-                self.logger.info(self.kgrid[tp]["kpoints"][ib][:10])
 
             if len(self.kgrid[tp]["kpoints"][0]) < 5:
                 # raise ValueError("VERY BAD {}-type k-mesh; please change the k-mesh and try again!".format(tp))
@@ -3328,10 +3327,6 @@ class AMSET(object):
                     row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
                     for p in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings + ["seebeck"]:
                         row[p] = sum(self.mobility[tp][p][c][T])/3
-                    # try:
-                    #     row["seebeck"] = sum(self.egrid[tp]["seebeck"][c][T])/3
-                    # except TypeError:
-                    #     row["seebeck"] = self.egrid[tp]["seebeck"][c][T]
                     writer.writerow(row)
 
 
