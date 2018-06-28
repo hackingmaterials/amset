@@ -272,8 +272,8 @@ class AMSET(object):
                         self.max_normk[tp] = min_dist/2.0
                 if self.max_nvalleys and self.max_nvalleys==1:
                     # this ignores max_normk0 because if only a single valley, we don't want it to go over the whole BZ
-                    self.max_normk = {'n': self.max_normk0 or 2,
-                                      'p': self.max_normk0 or 2}
+                    self.max_normk = {'n': self.max_normk0 or 5,
+                                      'p': self.max_normk0 or 5}
                 self.logger.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 self.logger.info('Current valleys:\n{}'.format(important_points))
                 self.logger.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
@@ -877,7 +877,7 @@ class AMSET(object):
                 self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
         self.all_important_pts = deepcopy(self.important_pts)
-        self.logger.info('Here all the initial extrema (vallyes):\n{}'.format(
+        self.logger.info('Here all the initial extrema (valleys):\n{}'.format(
                 self.important_pts))
 
 
@@ -3360,7 +3360,6 @@ if __name__ == "__main__":
     # setting up inputs:
     mass = 0.25
     use_poly_bands = False
-    PRE_DETERMINED_FERMI = None
 
     model_params = {'bs_is_isotropic': True,
                     'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
@@ -3373,12 +3372,12 @@ if __name__ == "__main__":
         ]]
 
     performance_params = {"dE_min": 0.0001, "nE_min": 5,
-            "BTE_iters": 5, "max_nbands": 1,
+                          "BTE_iters": 5,
+                          "max_nbands": 1,
                           "max_normk": None,
-                          "n_jobs": -1
-                          , "fermi_kgrid_tp": "uniform", "max_nvalleys": 1
-                          , "pre_determined_fermi": PRE_DETERMINED_FERMI
-                          , "interpolation": "boltztrap1",
+                          "n_jobs": -1,
+                          "max_nvalleys": 1,
+                          "interpolation": "boltztrap1",
                           "Ecut_max": 1.0
                           }
 
@@ -3391,20 +3390,6 @@ if __name__ == "__main__":
     input_dir = "../test_files/GaAs/nscf-uniform"
     coeff_file = os.path.join(input_dir, "fort.123")
 
-    ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_sym_23x23x23") # bad results! (because the fitting not good)
-    ## coeff_file = os.path.join(cube_path, "fort.123_GaAs_11x11x11_ISYM0") # good results
-
-    ### For Si
-    # material_params = {"epsilon_s": 11.7, "epsilon_inf": 11.6, "W_POP": 15.23, "C_el": 190.2,
-    #                    "E_D": {"n": 6.5, "p": 6.5}, "P_PIE": 0.01, "scissor": 0.5154}
-    # cube_path = "../test_files/Si/"
-    # coeff_file = os.path.join(cube_path, "Si_fort.123")
-
-    # ## For AlCuS2
-    # cube_path = '../test_files/AlCuS2'
-    # coeff_file = None
-    # material_params = {"epsilon_s": 7.6, "epsilon_inf": 4.85, "W_POP": 12.6,
-    #                    "C_el": 110, "E_D": {"n": 9.67, "p": 3.175}, "P_PIE": 0.052, "scissor":  1.42}
     # # in terms of anisotropy at 5e19 300K BoltzTraP return sigma/tau of [8.55e17, 8.86e17, 1.08e18] for xx, yy, zz respectively
 
     amset = AMSET(calc_dir='.',
@@ -3413,25 +3398,19 @@ if __name__ == "__main__":
                   model_params=model_params,
                   performance_params=performance_params,
                   dopings = [-3e13],
-                  # dopings = [-1e20],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   # dopings = [3.32e14],
                   temperatures = [300],
                   # temperatures = [300, 600, 1000],
                   # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
                   # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
-
-                  # temperatures = range(100, 1100, 100),
                   integration='e',
-                  # loglevel=logging.DEBUG
                   )
     amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
-
-    # stats.print_callers(10)
-
     amset.write_input_files()
     amset.to_csv()
+    # amset.to_file()
     amset.plot(k_plots=['energy', 'S_o', 'S_i']\
                        # +model_params['elastic_scatterings']
                , E_plots=['velocity', 'df0dk', 'ACD'], show_interactive=True
