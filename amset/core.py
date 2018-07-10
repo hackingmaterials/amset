@@ -522,7 +522,6 @@ class AMSET(object):
         self.dv_grid = {}
         kpts = {}
         if self.integration == 'e':
-            # pass
             kpts = self.generate_adaptive_kmesh(important_points, kgrid_tp)
         for tp in ['n', 'p']:
             points_1d = generate_k_mesh_axes(important_points[tp], kgrid_tp, one_list=True)
@@ -547,47 +546,38 @@ class AMSET(object):
 
         if not ibz:
             if kgrid_tp == "fine":
-                # mesh = [[0.001, 5], [0.005, 10], [0.01, 5], [0.05, 11]]
                 mesh = np.array(
-                    [0.001, 0.002, 0.003, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1,
-                     0.25])
+                    [0.001, 0.002, 0.003, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.25])
+                nkk = 15
             elif kgrid_tp == "coarse":
-                # mesh = [[0.002, 5], [0.01, 5], [0.05, 5], [0.25, 3]]
-                # mesh = [[0.001, 2], [0.005, 2], [0.01, 2], [0.05, 2], [0.1, 2], [0.25, 2]]
                 mesh = np.array([0.001, 0.005, 0.03, 0.1])
+                nkk = 10
             elif kgrid_tp == 'very coarse':
-                # mesh = [[0.001, 2], [0.01, 2]]
                 mesh = np.array([0.001, 0.01])
+                nkk = 5
             else:
                 raise AmsetError('Unsupported kgrid_tp: {}'.format(kgrid_tp))
             # just to find a set of + or - kpoint signs when ibzkpt is generated:
-            # sg = SpacegroupAnalyzer(self.bs.structure)
-            # kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
-            #                                              is_shift=[0, 0, 0])
-            # initial_ibzkpt = [i[0] for i in kpts_and_weights]
-            # step_signs = [[np.sign(k[0]), np.sign(k[1]), np.sign(k[2])] for k in
-            #               initial_ibzkpt]
-            # step_signs = remove_duplicate_kpoints(step_signs, periodic=False)
-            # override all that for test:
-            step_signs = [[1.0, 1.0, 1.0]]
+            sg = SpacegroupAnalyzer(self.bs.structure)
+            kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
+                                                         is_shift=[0, 0, 0])
+            initial_ibzkpt = [i[0] for i in kpts_and_weights]
+            step_signs = [[np.sign(k[0]), np.sign(k[1]), np.sign(k[2])] for k in
+                          initial_ibzkpt]
+            step_signs = remove_duplicate_kpoints(step_signs, periodic=False)
+
             # actually generating the mesh seaprately for n- and p-type
             kpts = {'n': [], 'p': []}
             for tp in ["n", "p"]:
-                # for step, nsteps in mesh:
-                #     print(step, nsteps)
                 for k_extremum in important_points[tp]:
                     for kx_sign, ky_sign, kz_sign in step_signs:
                         for kx in k_extremum[0] + kx_sign*mesh:
                             for ky in k_extremum[1] + ky_sign*mesh:
                                 for kz in k_extremum[2] + kz_sign*mesh:
-                        # for kx in [k_extremum[0] + i * step*kx_sign for i in range(nsteps)]:
-                        #     for ky in [k_extremum[1] + j * step*ky_sign for j in range(nsteps)]:
-                        #         for kz in [k_extremum[2] + l * step*kz_sign for l in range(nsteps)]:
                                     kpts[tp].append(np.array([kx, ky, kz]))
                 tmp_kpts = []
                 for k in kpts[tp]:
                     tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
-                    # tmp_kpts += [k]
                 kpts[tp] = remove_duplicate_kpoints(tmp_kpts, dk=0.0009)
         else:
             kpts = {}
@@ -605,37 +595,18 @@ class AMSET(object):
             kpts_and_weights_init = sg.get_ir_reciprocal_mesh(mesh=(5, 5, 5),
                                                          is_shift=[0, 0, 0])
             initial_ibzkpt_init = [i[0] for i in kpts_and_weights_init]
-
-            # initial_ibzkpt = [i[0] for i in kpts_and_weights]
-
             initial_ibzkpt0 = np.array([i[0] for i in kpts_and_weights])
 
             # this is to cover the whole BZ in an adaptive manner in case of high-mass isolated valleys
             initial_ibzkpt0 = np.array(initial_ibzkpt_init + \
                                        list(initial_ibzkpt0/5.0) + \
                                        list(initial_ibzkpt0/20.0) )
-            # print('initial_ibzkpt0')
-            # print(initial_ibzkpt0)
             for tp in ['p', 'n']:
                 initial_ibzkpt = initial_ibzkpt0 + important_points[tp][0]
-                # print('initial_ibzkpt')
-                # print(initial_ibzkpt)
                 tmp_kpts = []
                 for k in initial_ibzkpt:
                     tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
-                    # tmp_kpts += list(self.bs.get_sym_eq_kpoints(-k)) # I don't think there is any need for this forced-inversion
                 kpts[tp] = tmp_kpts
-                # kpts[tp] = kpts_to_first_BZ(tmp_kpts) # this may not work as it changes cartesian kpoints hence norm(k) by a lot!
-
-            # tmp_kpts = []
-            # for k in initial_ibzkpt:
-            #     tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
-            #     # tmp_kpts += [k]
-            # tmp_kpts = np.array(tmp_kpts) / 10.0
-            # # kpts = {'n': tmp_kpts, 'p': tmp_kpts}
-            # kpts = {tp: list(np.array(important_points[tp][0])+tmp_kpts) for tp in ['p', 'n']}
-
-
         return kpts
 
 
