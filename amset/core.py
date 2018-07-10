@@ -397,9 +397,6 @@ class AMSET(object):
                     for T in self.temperatures:
                         for tp in ['p', 'n']:
                             valley_ndegen = self.bs.get_kpoint_degeneracy(important_points[tp][0])
-                            # print('valley degeneracy for {} is {}'.format(str(important_points[tp][0]), valley_ndegen))
-                            # valley_ndegen = 1
-                            # print('overriding valley degenracy to 1...')
                             if self.count_mobility[self.ibrun][tp]:
                                 if not self.independent_valleys:
                                     if self.integration=='k':
