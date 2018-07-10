@@ -522,7 +522,8 @@ class AMSET(object):
         self.dv_grid = {}
         kpts = {}
         if self.integration == 'e':
-            kpts = self.generate_adaptive_kmesh(important_points, kgrid_tp)
+            kpts = self.generate_adaptive_kmesh(
+                self.bs, important_points, kgrid_tp, ibz=True)
         for tp in ['n', 'p']:
             points_1d = generate_k_mesh_axes(important_points[tp], kgrid_tp, one_list=True)
             self.kgrid_array[tp] = create_grid(points_1d)
@@ -542,7 +543,7 @@ class AMSET(object):
         return kpts
 
 
-    def generate_adaptive_kmesh(self, important_points, kgrid_tp, ibz=True):
+    def generate_adaptive_kmesh(self, bs, important_points, kgrid_tp, ibz=True):
         """
         Returns a kpoint mesh surrounding the important k-points in the
         conduction (n-type) and valence bands (p-type). This mesh is adaptive,
@@ -552,6 +553,9 @@ class AMSET(object):
         the transport properties.
 
         Args:
+            bs (pymatgen.BandStructure): the bandstructure with bs.structure
+                present that are used for structural symmetry and getting the
+                symmetrically equivalent points
             important_points ({"n": [[3x1 array]], "p": [[3x1 array]]}): list
                 of fractional coordinates of extrema for n-type and p-type
             kgrid_tp (str): determines how coarse/fine the k-mesh would be.
@@ -574,7 +578,7 @@ class AMSET(object):
                             'extremely fine': 35 #?? not sure about these numbers
                             }
             nkk = kgrid_tp_map[kgrid_tp]
-            sg = SpacegroupAnalyzer(self.bs.structure)
+            sg = SpacegroupAnalyzer(bs.structure)
             kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
                                                          is_shift=[0, 0, 0])
             kpts_and_weights_init = sg.get_ir_reciprocal_mesh(mesh=(5, 5, 5),
@@ -591,7 +595,7 @@ class AMSET(object):
                 for important_point in important_points[tp]:
                     initial_ibzkpt = initial_ibzkpt0 + important_point
                     for k in initial_ibzkpt:
-                        tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
+                        tmp_kpts += list(bs.get_sym_eq_kpoints(k))
                 kpts[tp] = tmp_kpts
         else:
             if kgrid_tp == "fine":
@@ -607,7 +611,7 @@ class AMSET(object):
             else:
                 raise AmsetError('Unsupported kgrid_tp: {}'.format(kgrid_tp))
             # just to find a set of + or - kpoint signs when ibzkpt is generated:
-            sg = SpacegroupAnalyzer(self.bs.structure)
+            sg = SpacegroupAnalyzer(bs.structure)
             kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
                                                          is_shift=[0, 0, 0])
             initial_ibzkpt = [i[0] for i in kpts_and_weights]
@@ -626,7 +630,7 @@ class AMSET(object):
                                     kpts[tp].append(np.array([kx, ky, kz]))
                 tmp_kpts = []
                 for k in kpts[tp]:
-                    tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
+                    tmp_kpts += list(bs.get_sym_eq_kpoints(k))
                 kpts[tp] = remove_duplicate_kpoints(tmp_kpts, dk=0.0009)
         return kpts
 
