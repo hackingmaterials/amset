@@ -543,8 +543,36 @@ class AMSET(object):
 
 
     def generate_adaptive_kmesh(self, important_points, kgrid_tp, ibz=True):
+        
+        if ibz:
+            kpts = {}
+            kgrid_tp_map = {'very coarse': 5,
+                            'coarse': 10,
+                            'fine': 17,
+                            'very fine': 25, #?? not sure about these numbers
+                            'super fine': 30, #?? not sure about these numbers
+                            'extremely fine': 35 #?? not sure about these numbers
+                            }
+            nkk = kgrid_tp_map[kgrid_tp]
+            sg = SpacegroupAnalyzer(self.bs.structure)
+            kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
+                                                         is_shift=[0, 0, 0])
+            kpts_and_weights_init = sg.get_ir_reciprocal_mesh(mesh=(5, 5, 5),
+                                                         is_shift=[0, 0, 0])
+            initial_ibzkpt_init = [i[0] for i in kpts_and_weights_init]
+            initial_ibzkpt0 = np.array([i[0] for i in kpts_and_weights])
 
-        if not ibz:
+            # this is to cover the whole BZ in an adaptive manner in case of high-mass isolated valleys
+            initial_ibzkpt0 = np.array(initial_ibzkpt_init + \
+                                       list(initial_ibzkpt0/5.0) + \
+                                       list(initial_ibzkpt0/20.0) )
+            for tp in ['p', 'n']:
+                initial_ibzkpt = initial_ibzkpt0 + important_points[tp][0]
+                tmp_kpts = []
+                for k in initial_ibzkpt:
+                    tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
+                kpts[tp] = tmp_kpts
+        else:
             if kgrid_tp == "fine":
                 mesh = np.array(
                     [0.001, 0.002, 0.003, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.25])
@@ -579,34 +607,6 @@ class AMSET(object):
                 for k in kpts[tp]:
                     tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
                 kpts[tp] = remove_duplicate_kpoints(tmp_kpts, dk=0.0009)
-        else:
-            kpts = {}
-            kgrid_tp_map = {'very coarse': 5,
-                            'coarse': 10,
-                            'fine': 17,
-                            'very fine': 25, #?? not sure about these numbers
-                            'super fine': 30, #?? not sure about these numbers
-                            'extremely fine': 35 #?? not sure about these numbers
-                            }
-            nkk = kgrid_tp_map[kgrid_tp]
-            sg = SpacegroupAnalyzer(self.bs.structure)
-            kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
-                                                         is_shift=[0, 0, 0])
-            kpts_and_weights_init = sg.get_ir_reciprocal_mesh(mesh=(5, 5, 5),
-                                                         is_shift=[0, 0, 0])
-            initial_ibzkpt_init = [i[0] for i in kpts_and_weights_init]
-            initial_ibzkpt0 = np.array([i[0] for i in kpts_and_weights])
-
-            # this is to cover the whole BZ in an adaptive manner in case of high-mass isolated valleys
-            initial_ibzkpt0 = np.array(initial_ibzkpt_init + \
-                                       list(initial_ibzkpt0/5.0) + \
-                                       list(initial_ibzkpt0/20.0) )
-            for tp in ['p', 'n']:
-                initial_ibzkpt = initial_ibzkpt0 + important_points[tp][0]
-                tmp_kpts = []
-                for k in initial_ibzkpt:
-                    tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
-                kpts[tp] = tmp_kpts
         return kpts
 
 
