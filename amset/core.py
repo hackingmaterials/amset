@@ -521,7 +521,6 @@ class AMSET(object):
         self.k_hat_array_cartesian = {}
         self.dv_grid = {}
         kpts = {}
-        sampling_transformation = self._vrun.lattice.matrix/np.linalg.norm(self._vrun.lattice.matrix)
         if self.integration == 'e':
             # pass
             kpts = self.generate_adaptive_kmesh(important_points, kgrid_tp)
@@ -530,12 +529,6 @@ class AMSET(object):
             self.kgrid_array[tp] = create_grid(points_1d)
             if self.integration == 'k':
                 kpts[tp] = array_to_kgrid(self.kgrid_array[tp])
-
-            # TODO: the following transformation seemed to have worked for n-type InP but E-vs-k and velocity plots look strange
-            # kpts[tp] = [np.matmul(sampling_transformation, k) for k in kpts[tp]]
-            # kpts[tp] = [np.dot(sampling_transformation, k) for k in kpts[tp]] # I tried all the substitutions (i.e. mxk, kxm, kxm.T, m.Txk) and they don't seem to work
-            # kpts[tp] = [np.dot(np.dot(self._vrun.lattice.matrix.T, k), self._vrun.lattice.matrix) for k in kpts[tp]]
-
             N = self.kgrid_array[tp].shape
             self.kgrid_array_cartesian[tp] = np.zeros((N[0], N[1], N[2], 3))
             for ii in range(N[0]):
