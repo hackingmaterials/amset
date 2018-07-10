@@ -264,8 +264,6 @@ class AMSET(object):
                 if self.max_normk0 is None:
                     for tp in ['n', 'p']:
                         min_dist = 100.0 # in 1/nm
-                        # for k in self.bs.get_sym_eq_kpoints(important_points[tp][0]): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
-                        #     new_dist = norm(self.get_cartesian_coords(get_closest_k(k, self.all_important_pts[tp], return_diff=True, exclude_self=True)) /A_to_nm )
                         for k in self.bs.get_sym_eq_kpoints(self.get_cartesian_coords(important_points[tp][0]), cartesian=True): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
                             new_dist = norm(get_closest_k(k, [self.get_cartesian_coords(kp) for kp in self.all_important_pts[tp]], return_diff=True, exclude_self=True)) /A_to_nm
                             if new_dist < min_dist and new_dist > 0.01: # to avoid self-counting, 0.01 criterion added
