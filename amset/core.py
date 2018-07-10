@@ -543,7 +543,22 @@ class AMSET(object):
 
 
     def generate_adaptive_kmesh(self, important_points, kgrid_tp, ibz=True):
-        
+        """
+        Returns a kpoint mesh surrounding the important k-points in the
+        conduction (n-type) and valence bands (p-type). This mesh is adaptive,
+        meaning that the mesh is much finer closer to these "important" points
+        than it is further away. This saves tremendous computational time as
+        the points closer to the extremum are the most important ones dictating
+        the transport properties.
+
+        Args:
+            important_points:
+            kgrid_tp:
+            ibz:
+
+        Returns:
+
+        """
         if ibz:
             kpts = {}
             kgrid_tp_map = {'very coarse': 5,
@@ -567,10 +582,11 @@ class AMSET(object):
                                        list(initial_ibzkpt0/5.0) + \
                                        list(initial_ibzkpt0/20.0) )
             for tp in ['p', 'n']:
-                initial_ibzkpt = initial_ibzkpt0 + important_points[tp][0]
                 tmp_kpts = []
-                for k in initial_ibzkpt:
-                    tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
+                for important_point in important_points[tp]:
+                    initial_ibzkpt = initial_ibzkpt0 + important_point
+                    for k in initial_ibzkpt:
+                        tmp_kpts += list(self.bs.get_sym_eq_kpoints(k))
                 kpts[tp] = tmp_kpts
         else:
             if kgrid_tp == "fine":
