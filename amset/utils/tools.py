@@ -825,3 +825,95 @@ def get_dft_orbitals(vasprun, bidx, lorbit):
         else:
             raise AmsetError('Not sure what to do with lorbit={}'.format(lorbit))
     return s_orbital, p_orbital
+
+
+def generate_adaptive_kmesh(bs, important_points, kgrid_tp, ibz=True):
+    """
+    Returns a kpoint mesh surrounding the important k-points in the
+    conduction (n-type) and valence bands (p-type). This mesh is adaptive,
+    meaning that the mesh is much finer closer to these "important" points
+    than it is further away. This saves tremendous computational time as
+    the points closer to the extremum are the most important ones dictating
+    the transport properties.
+
+    Args:
+        bs (pymatgen.BandStructure): the bandstructure with bs.structure
+            present that are used for structural symmetry and getting the
+            symmetrically equivalent points
+        important_points ({"n": [[3x1 array]], "p": [[3x1 array]]}): list
+            of fractional coordinates of extrema for n-type and p-type
+        kgrid_tp (str): determines how coarse/fine the k-mesh would be.
+            options: "very coarse", "coarse", "fine", "very fine"
+        ibz (bool): whether to generate the k-mesh based on a scaled k-mesh
+            in Irreducible Brillouin Zone (True, recommended) or custom
+            intervals only in the directions (+/-) of ibz kpoints.
+
+    Returns ({"n": [[3x1 array]], "p": [[3x1 array]]}):
+        list of k-points (k-mesh) may be different for conduction or
+        valence bands.
+    """
+    if ibz:
+        kpts = {}
+        kgrid_tp_map = {'very coarse': 5,
+                        'coarse': 10,
+                        'fine': 17,
+                        'very fine': 25, #?? not sure about these numbers
+                        'super fine': 30, #?? not sure about these numbers
+                        'extremely fine': 35 #?? not sure about these numbers
+                        }
+        nkk = kgrid_tp_map[kgrid_tp]
+        sg = SpacegroupAnalyzer(bs.structure)
+        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
+                                                     is_shift=[0, 0, 0])
+        kpts_and_weights_init = sg.get_ir_reciprocal_mesh(mesh=(5, 5, 5),
+                                                     is_shift=[0, 0, 0])
+        initial_ibzkpt_init = [i[0] for i in kpts_and_weights_init]
+        initial_ibzkpt0 = np.array([i[0] for i in kpts_and_weights])
+
+        # this is to cover the whole BZ in an adaptive manner in case of high-mass isolated valleys
+        initial_ibzkpt0 = np.array(initial_ibzkpt_init + \
+                                   list(initial_ibzkpt0/5.0) + \
+                                   list(initial_ibzkpt0/20.0) )
+        for tp in ['p', 'n']:
+            tmp_kpts = []
+            for important_point in important_points[tp]:
+                initial_ibzkpt = initial_ibzkpt0 + important_point
+                for k in initial_ibzkpt:
+                    tmp_kpts += list(bs.get_sym_eq_kpoints(k))
+            kpts[tp] = tmp_kpts
+    else:
+        if kgrid_tp == "fine":
+            mesh = np.array(
+                [0.001, 0.002, 0.003, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.25])
+            nkk = 15
+        elif kgrid_tp == "coarse":
+            mesh = np.array([0.001, 0.005, 0.03, 0.1])
+            nkk = 10
+        elif kgrid_tp == 'very coarse':
+            mesh = np.array([0.001, 0.01])
+            nkk = 5
+        else:
+            raise AmsetError('Unsupported kgrid_tp: {}'.format(kgrid_tp))
+        # just to find a set of + or - kpoint signs when ibzkpt is generated:
+        sg = SpacegroupAnalyzer(bs.structure)
+        kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
+                                                     is_shift=[0, 0, 0])
+        initial_ibzkpt = [i[0] for i in kpts_and_weights]
+        step_signs = [[np.sign(k[0]), np.sign(k[1]), np.sign(k[2])] for k in
+                      initial_ibzkpt]
+        step_signs = remove_duplicate_kpoints(step_signs, periodic=False)
+
+        # actually generating the mesh seaprately for n- and p-type
+        kpts = {'n': [], 'p': []}
+        for tp in ["n", "p"]:
+            for k_extremum in important_points[tp]:
+                for kx_sign, ky_sign, kz_sign in step_signs:
+                    for kx in k_extremum[0] + kx_sign*mesh:
+                        for ky in k_extremum[1] + ky_sign*mesh:
+                            for kz in k_extremum[2] + kz_sign*mesh:
+                                kpts[tp].append(np.array([kx, ky, kz]))
+            tmp_kpts = []
+            for k in kpts[tp]:
+                tmp_kpts += list(bs.get_sym_eq_kpoints(k))
+            kpts[tp] = remove_duplicate_kpoints(tmp_kpts, dk=0.0009)
+    return kpts
