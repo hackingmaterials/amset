@@ -552,12 +552,17 @@ class AMSET(object):
         the transport properties.
 
         Args:
-            important_points:
-            kgrid_tp:
-            ibz:
+            important_points ({"n": [[3x1 array]], "p": [[3x1 array]]}): list
+                of fractional coordinates of extrema for n-type and p-type
+            kgrid_tp (str): determines how coarse/fine the k-mesh would be.
+                options: "very coarse", "coarse", "fine", "very fine"
+            ibz (bool): whether to generate the k-mesh based on a scaled k-mesh
+                in Irreducible Brillouin Zone (True, recommended) or custom
+                intervals only in the directions (+/-) of ibz kpoints.
 
-        Returns:
-
+        Returns ({"n": [[3x1 array]], "p": [[3x1 array]]}):
+            list of k-points (k-mesh) may be different for conduction or
+            valence bands.
         """
         if ibz:
             kpts = {}
