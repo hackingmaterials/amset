@@ -2995,11 +2995,11 @@ class AMSET(object):
 
     def create_plots(self, x_title, y_title, show_interactive, save_format, c, tp, file_suffix,
                      textsize, ticksize, path, margins, fontfamily, plot_data, names=None, labels=None,
-                     x_label_short='', y_label_short=None, mode='markers', y_axis_type='linear', plot_title=None):
+                     x_label_short='', y_label_short=None, mode='markers', y_axis_type='linear', title=None):
 
         from matminer.figrecipes.plot import PlotlyFig
-        if not plot_title:
-            plot_title = '{} for {}, c={}'.format(y_title, self.tp_title[tp], c)
+        if not title:
+            title = '{} for {}, c={}'.format(y_title, self.tp_title[tp], c)
         if not y_label_short:
             y_label_short = y_title
         if show_interactive:
@@ -3008,7 +3008,7 @@ class AMSET(object):
             else:
                 filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, 'html'))
             pf = PlotlyFig(x_title=x_title, y_title=y_title, y_scale=y_axis_type,
-                            title=plot_title, fontsize=textsize,
+                            title=title, fontsize=textsize,
                            mode='offline', filename=filename, ticksize=ticksize,
                             margins=margins, fontfamily=fontfamily)
             pf.xy(plot_data, names=names, labels=labels, modes=mode)
@@ -3018,7 +3018,7 @@ class AMSET(object):
             else:
                 filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, save_format))
             pf = PlotlyFig(x_title=x_title, y_title=y_title,
-                            title=plot_title, fontsize=textsize,
+                            title=title, fontsize=textsize,
                             mode='static', filename=filename, ticksize=ticksize,
                             margins=margins, fontfamily=fontfamily)
             pf.xy(plot_data, names=names, labels=labels, modes=mode)
@@ -3118,12 +3118,12 @@ class AMSET(object):
                                                'E': {'frequency': self.Efrequency0[tp]}}
                     for y_value in y_values:
                         if not vec[y_value]:
-                            plot_title = None
+                            title = None
                             if y_value == 'frequency':
-                                plot_title = 'Energy Histogram for {}, c={}'.format(self.tp_title[tp], c)
+                                title = 'Energy Histogram for {}, c={}'.format(self.tp_title[tp], c)
                             self.create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, c, tp, tp_c,
                                               textsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
-                                              x_label_short=x_value, plot_title=plot_title)
+                                              x_label_short=x_value, title=title)
 
 
                 for dir in direction:
