@@ -2993,20 +2993,21 @@ class AMSET(object):
             return sum(vec) / 3
 
 
-    def create_plots(self, x_label, y_label, show_interactive, save_format, c, tp, file_suffix,
+    def create_plots(self, x_title, y_title, show_interactive, save_format, c, tp, file_suffix,
                      textsize, ticksize, path, margins, fontfamily, plot_data, names=None, labels=None,
                      x_label_short='', y_label_short=None, mode='markers', y_axis_type='linear', plot_title=None):
+
         from matminer.figrecipes.plot import PlotlyFig
         if not plot_title:
-            plot_title = '{} for {}, c={}'.format(y_label, self.tp_title[tp], c)
+            plot_title = '{} for {}, c={}'.format(y_title, self.tp_title[tp], c)
         if not y_label_short:
-            y_label_short = y_label
+            y_label_short = y_title
         if show_interactive:
             if not x_label_short:
                 filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, 'html'))
             else:
                 filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, 'html'))
-            pf = PlotlyFig(x_title=x_label, y_title=y_label, y_scale=y_axis_type,
+            pf = PlotlyFig(x_title=x_title, y_title=y_title, y_scale=y_axis_type,
                             title=plot_title, fontsize=textsize,
                            mode='offline', filename=filename, ticksize=ticksize,
                             margins=margins, fontfamily=fontfamily)
@@ -3016,7 +3017,7 @@ class AMSET(object):
                 filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, save_format))
             else:
                 filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, save_format))
-            pf = PlotlyFig(x_title=x_label, y_title=y_label,
+            pf = PlotlyFig(x_title=x_title, y_title=y_title,
                             title=plot_title, fontsize=textsize,
                             mode='static', filename=filename, ticksize=ticksize,
                             margins=margins, fontfamily=fontfamily)
