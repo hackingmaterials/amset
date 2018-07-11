@@ -2432,6 +2432,10 @@ class AMSET(object):
 
     def inverse_screening_length(self, c, T):
         """
+        Calculates the inverse charge screening length (beta) based on Eq. 70
+        of reference [R]. Beta is used in calculation of ionized impurity (IMP)
+        scattering.
+
         Args:
             c (float): the carrier concentration (to get the fermi level)
             T (float): the temperature
@@ -2764,16 +2768,13 @@ class AMSET(object):
 
         """
         integrand_grid = np.array(integrand_grid)
-
         if type(integrand_grid[0][0,0,0]) == list or type(integrand_grid[0][0,0,0]) == np.ndarray:
             result = np.zeros(3)
         else:
             result = 0
         num_bands = integrand_grid.shape[0]
-
         for ib in range(num_bands):
             result += self.integrate_over_k(integrand_grid[ib], tp)
-
         return result
 
 
@@ -2897,7 +2898,7 @@ class AMSET(object):
                             # this line should have -e / hbar except that hbar is in units of eV*s so in those units e=1
                             g = -1 / hbar * df0dk / nu_el
                             valley_transport[tp][el_mech][c][T] = self.integrate_over_states(g * v, tp)
-             # from equation 45 in Rode, inelastic mechanisms
+                            # from equation 45 in Rode, inelastic mechanisms
                         for inel_mech in self.inelastic_scatterings:
                             g = self.array_from_kgrid("g_"+inel_mech, tp, c, T)
                             valley_transport[tp][inel_mech][c][T] = self.integrate_over_states(g * v, tp)
@@ -2936,8 +2937,7 @@ class AMSET(object):
     def calculate_transport_properties_with_E(self, important_points):
         """
         Mobility and Seebeck coefficient are calculated by integrating the
-            the perturbation to electron distribution as well as group velocity
-            over the energy
+        perturbation of electron distribution and group velocity over the energy
         """
         valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
                   self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
@@ -2956,9 +2956,6 @@ class AMSET(object):
                                 "g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
                         mu_overall_valley = self.integrate_over_E(prop_list=["g"],
                                tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
-
-                    # self.egrid[tp]["J_th"][c][T] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
-                    #         xDOS=False, xvel=True, weighted=True)) * e * abs(c)  # in units of A/cm2
 
                     valley_transport[tp]["J_th"][c][T] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
                             xDOS=False, xvel=True, weighted=True)) * e * abs(c)  # in units of A/cm2
@@ -3237,11 +3234,9 @@ class AMSET(object):
         k_z = self.kgrid_array[:, :, :, 2]
         result = self.integrate_over_k(np.cos(k_x))
         print(result)
-        #print(self.kgrid_array)
 
 
 if __name__ == "__main__":
-    # setting up inputs:
     mass = 0.25
     use_poly_bands = False
 
