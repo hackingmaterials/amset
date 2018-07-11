@@ -32,7 +32,7 @@ from amset.utils.tools import norm, generate_k_mesh_axes, \
     get_energy_args, get_bindex_bspin, get_bs_extrema, \
     AmsetError, kpts_to_first_BZ, get_dos_boltztrap2, \
     setup_custom_logger, insert_intermediate_kpoints, interpolate_bs, \
-    get_dft_orbitals, generate_adaptive_kmesh
+    get_dft_orbitals, generate_adaptive_kmesh, create_plots
 
 from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, \
     A_to_nm, e, k_B, \
@@ -2993,42 +2993,6 @@ class AMSET(object):
             return sum(vec) / 3
 
 
-    def _create_plots(self, x_title, y_title, show_interactive, save_format, c, tp, file_suffix,
-                     fontsize, ticksize, path, margins, fontfamily, plot_data, names=None, labels=None,
-                     x_label_short='', y_label_short=None, mode='markers', y_axis_type='linear', title=None):
-        """
-        A wrapper private function with args mostly consistent with
-        matminer.figrecipes.PlotlyFig but slightly better handling of plot
-        file saving (e.g. incorporating temperature and concentration in
-        the filename, etc).
-        """
-        from matminer.figrecipes.plot import PlotlyFig
-        if not title:
-            title = '{} for {}, c={}'.format(y_title, self.tp_title[tp], c)
-        if not y_label_short:
-            y_label_short = y_title
-        if show_interactive:
-            if not x_label_short:
-                filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, 'html'))
-            else:
-                filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, 'html'))
-            pf = PlotlyFig(x_title=x_title, y_title=y_title, y_scale=y_axis_type,
-                            title=title, fontsize=fontsize,
-                           mode='offline', filename=filename, ticksize=ticksize,
-                            margins=margins, fontfamily=fontfamily)
-            pf.xy(plot_data, names=names, labels=labels, modes=mode)
-        if save_format is not None:
-            if not x_label_short:
-                filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, save_format))
-            else:
-                filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, save_format))
-            pf = PlotlyFig(x_title=x_title, y_title=y_title,
-                            title=title, fontsize=fontsize,
-                            mode='static', filename=filename, ticksize=ticksize,
-                            margins=margins, fontfamily=fontfamily)
-            pf.xy(plot_data, names=names, labels=labels, modes=mode)
-
-
     def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'],
              direction=['avg'], show_interactive=True, save_format=None, fontsize=30, ticksize=25, path=None, dir_name="plots",
              margins=100, fontfamily="serif"):
@@ -3126,7 +3090,7 @@ class AMSET(object):
                             title = None
                             if y_value == 'frequency':
                                 title = 'Energy Histogram for {}, c={}'.format(self.tp_title[tp], c)
-                            self._create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, c, tp, tp_c,
+                            create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, c, tp, tp_c,
                                               fontsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
                                               x_label_short=x_value, title=title)
 
@@ -3143,7 +3107,7 @@ class AMSET(object):
                     for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
                         for y_value in y_values:
                             if vec[y_value]:
-                                self._create_plots(x_axis_label[x_value], y_value, show_interactive,
+                                create_plots(x_axis_label[x_value], y_value, show_interactive,
                                                   save_format, c, tp, tp_c_dir,
                                                   fontsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
 
@@ -3167,7 +3131,7 @@ class AMSET(object):
                             for T in self.temperatures:
                                 plot_data.append((x_data[x_value], y_data_temp_dependent[x_value][y_value][T]))
                                 names.append(str(T) + ' K')
-                            self._create_plots(x_axis_label[x_value], y_value, show_interactive,
+                            create_plots(x_axis_label[x_value], y_value, show_interactive,
                                               save_format, c, tp, tp_c_dir,
                                               fontsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
                                               x_label_short=x_value, names=names)
@@ -3185,7 +3149,7 @@ class AMSET(object):
                                     dir) for mo_value in mo_values]))
                             names.append(mo)
 
-                        self._create_plots("Temperature (K)",
+                        create_plots("Temperature (K)",
                                 "Mobility (cm2/V.s)", show_interactive,
                                 save_format, c, tp, tp_c_dir, fontsize-5,
                                 ticksize-5, path, margins,
