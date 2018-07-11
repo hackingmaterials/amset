@@ -2994,7 +2994,7 @@ class AMSET(object):
 
 
     def create_plots(self, x_title, y_title, show_interactive, save_format, c, tp, file_suffix,
-                     textsize, ticksize, path, margins, fontfamily, plot_data, names=None, labels=None,
+                     fontsize, ticksize, path, margins, fontfamily, plot_data, names=None, labels=None,
                      x_label_short='', y_label_short=None, mode='markers', y_axis_type='linear', title=None):
 
         from matminer.figrecipes.plot import PlotlyFig
@@ -3008,7 +3008,7 @@ class AMSET(object):
             else:
                 filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, 'html'))
             pf = PlotlyFig(x_title=x_title, y_title=y_title, y_scale=y_axis_type,
-                            title=title, fontsize=textsize,
+                            title=title, fontsize=fontsize,
                            mode='offline', filename=filename, ticksize=ticksize,
                             margins=margins, fontfamily=fontfamily)
             pf.xy(plot_data, names=names, labels=labels, modes=mode)
@@ -3018,14 +3018,14 @@ class AMSET(object):
             else:
                 filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, save_format))
             pf = PlotlyFig(x_title=x_title, y_title=y_title,
-                            title=title, fontsize=textsize,
+                            title=title, fontsize=fontsize,
                             mode='static', filename=filename, ticksize=ticksize,
                             margins=margins, fontfamily=fontfamily)
             pf.xy(plot_data, names=names, labels=labels, modes=mode)
 
 
     def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'],
-             direction=['avg'], show_interactive=True, save_format=None, textsize=30, ticksize=25, path=None, dir_name="plots",
+             direction=['avg'], show_interactive=True, save_format=None, fontsize=30, ticksize=25, path=None, dir_name="plots",
              margins=100, fontfamily="serif"):
         """
         Plots the given k_plots and E_plots properties.
@@ -3045,7 +3045,7 @@ class AMSET(object):
             show_interactive: (boolean) if True creates and shows interactive html plots
             save_format: (str) format for saving plots; options are 'png', 'jpeg', 'svg', 'pdf', None (None does not
                 save the plots). NOTE: plotly credentials are needed, see figrecipes documentation
-            textsize: (int) size of title and axis label text
+            fontsize: (int) size of title and axis label text
             ticksize: (int) size of axis tick label text
             path: (string) location to save plots
             margins: (int) figrecipes plotly margins
@@ -3122,7 +3122,7 @@ class AMSET(object):
                             if y_value == 'frequency':
                                 title = 'Energy Histogram for {}, c={}'.format(self.tp_title[tp], c)
                             self.create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, c, tp, tp_c,
-                                              textsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
+                                              fontsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
                                               x_label_short=x_value, title=title)
 
 
@@ -3140,7 +3140,7 @@ class AMSET(object):
                             if vec[y_value]:
                                 self.create_plots(x_axis_label[x_value], y_value, show_interactive,
                                                   save_format, c, tp, tp_c_dir,
-                                                  textsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
+                                                  fontsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
 
                     # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
                     try:
@@ -3164,7 +3164,7 @@ class AMSET(object):
                                 names.append(str(T) + ' K')
                             self.create_plots(x_axis_label[x_value], y_value, show_interactive,
                                               save_format, c, tp, tp_c_dir,
-                                              textsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
+                                              fontsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
                                               x_label_short=x_value, names=names)
 
                     # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
@@ -3182,7 +3182,7 @@ class AMSET(object):
 
                         self.create_plots("Temperature (K)",
                                 "Mobility (cm2/V.s)", show_interactive,
-                                save_format, c, tp, tp_c_dir, textsize-5,
+                                save_format, c, tp, tp_c_dir, fontsize-5,
                                 ticksize-5, path, margins,
                                 fontfamily, plot_data=plot_data, names=names, mode='lines+markers',
                                 y_label_short="mobility", y_axis_type='log')
