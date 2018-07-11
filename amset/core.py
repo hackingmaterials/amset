@@ -2993,10 +2993,9 @@ class AMSET(object):
             return sum(vec) / 3
 
 
-    def create_plots(self, x_title, y_title, show_interactive, save_format, c, tp, file_suffix,
+    def _create_plots(self, x_title, y_title, show_interactive, save_format, c, tp, file_suffix,
                      fontsize, ticksize, path, margins, fontfamily, plot_data, names=None, labels=None,
                      x_label_short='', y_label_short=None, mode='markers', y_axis_type='linear', title=None):
-
         from matminer.figrecipes.plot import PlotlyFig
         if not title:
             title = '{} for {}, c={}'.format(y_title, self.tp_title[tp], c)
@@ -3121,7 +3120,7 @@ class AMSET(object):
                             title = None
                             if y_value == 'frequency':
                                 title = 'Energy Histogram for {}, c={}'.format(self.tp_title[tp], c)
-                            self.create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, c, tp, tp_c,
+                            self._create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, c, tp, tp_c,
                                               fontsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
                                               x_label_short=x_value, title=title)
 
@@ -3138,7 +3137,7 @@ class AMSET(object):
                     for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
                         for y_value in y_values:
                             if vec[y_value]:
-                                self.create_plots(x_axis_label[x_value], y_value, show_interactive,
+                                self._create_plots(x_axis_label[x_value], y_value, show_interactive,
                                                   save_format, c, tp, tp_c_dir,
                                                   fontsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
 
@@ -3162,7 +3161,7 @@ class AMSET(object):
                             for T in self.temperatures:
                                 plot_data.append((x_data[x_value], y_data_temp_dependent[x_value][y_value][T]))
                                 names.append(str(T) + ' K')
-                            self.create_plots(x_axis_label[x_value], y_value, show_interactive,
+                            self._create_plots(x_axis_label[x_value], y_value, show_interactive,
                                               save_format, c, tp, tp_c_dir,
                                               fontsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
                                               x_label_short=x_value, names=names)
@@ -3180,7 +3179,7 @@ class AMSET(object):
                                     dir) for mo_value in mo_values]))
                             names.append(mo)
 
-                        self.create_plots("Temperature (K)",
+                        self._create_plots("Temperature (K)",
                                 "Mobility (cm2/V.s)", show_interactive,
                                 save_format, c, tp, tp_c_dir, fontsize-5,
                                 ticksize-5, path, margins,
