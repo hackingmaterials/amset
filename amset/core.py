@@ -111,6 +111,14 @@ class AMSET(object):
         self.set_performance_params(performance_params)
         self.integration = integration
         self.logger.info('integration: {}'.format(self.integration))
+        if self.integration=="k":
+            self.logger.warning(
+                "k-integration is not fully implemented! The results may be "
+                "unreliable. It also only works for structures with a symmetric"
+                " lattic constant! 'e'-integration is recommended.")
+        elif self.integration!="e":
+            raise AmsetError(self.logger, "Unsupported integration method: "
+                                          "'{}'".format(self.integration))
         self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
         self.counter = 0 # a global counter just for debugging
         self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
@@ -3248,7 +3256,7 @@ if __name__ == "__main__":
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   temperatures = [300],
                   # temperatures = [300, 600, 1000],
-                  integration='e',
+                  integration='k',
                   )
     amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
