@@ -1037,9 +1037,9 @@ class AMSET(object):
         Returns (np.ndarray): frac_k ransformed into cartesian coordinates
         """
         if reciprocal:
-            return np.dot(self._rec_lattice.matrix, np.array(frac_k)) # was expected to work until 05/23/2018
+            return np.dot(self._rec_lattice.matrix, np.array(frac_k))
         else:
-            return np.dot(self._vrun.lattice.matrix, np.array(frac_k)) # was expected to work until 05/23/2018
+            return np.dot(self._vrun.lattice.matrix, np.array(frac_k))
 
 
     def seeb_int_num(self, c, T):
@@ -1493,9 +1493,8 @@ class AMSET(object):
 
                     self.kgrid[tp]["norm(v)"][ib][ik] = norm(self.kgrid[tp]["velocity"][ib][ik])
                     if (len(rm_idx_list[tp][ib]) + 20 < len(self.kgrid[tp]['kpoints'][ib])) and (
-                            # (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() \ # older than 05/22/2018: not sure why it was .any(), all scatterings have norm(v) in their denominator and not vector v so they blow up only if ALL elements of v are low
-                            (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).all()  # if all members are small, that point should be removed otherwise scattering blows up and I get nan mobilities; if
-                            # (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any() # on 05/31/2018 I changed it back to any since now in scattering calculations "velocity" is used rather than norm(v)/sq3 as the mobility values were closer to experiment
+                            (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).all()
+                            # if all members are small, that point should be removed otherwise scattering blows up and I get nan mobilities
                         or \
                             (abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
                         or \
