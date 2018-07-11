@@ -917,3 +917,41 @@ def generate_adaptive_kmesh(bs, important_points, kgrid_tp, ibz=True):
                 tmp_kpts += list(bs.get_sym_eq_kpoints(k))
             kpts[tp] = remove_duplicate_kpoints(tmp_kpts, dk=0.0009)
     return kpts
+
+
+def create_plots(x_title, y_title, show_interactive, save_format, c, tp,
+                 file_suffix, fontsize, ticksize, path, margins, fontfamily,
+                 plot_data, names=None, labels=None, x_label_short='',
+                 y_label_short=None, mode='markers', y_axis_type='linear', title=None):
+    """
+    A wrapper private function with args mostly consistent with
+    matminer.figrecipes.PlotlyFig but slightly better handling of plot
+    file saving (e.g. incorporating temperature and concentration in
+    the filename, etc).
+    """
+    from matminer.figrecipes.plot import PlotlyFig
+    tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
+    if title is None:
+        title = '{} for {}, c={}'.format(y_title, tp_title[tp], c)
+    if y_label_short is None:
+        y_label_short = y_title
+    if show_interactive:
+        if not x_label_short:
+            filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, 'html'))
+        else:
+            filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, 'html'))
+        pf = PlotlyFig(x_title=x_title, y_title=y_title, y_scale=y_axis_type,
+                        title=title, fontsize=fontsize,
+                       mode='offline', filename=filename, ticksize=ticksize,
+                        margins=margins, fontfamily=fontfamily)
+        pf.xy(plot_data, names=names, labels=labels, modes=mode)
+    if save_format is not None:
+        if not x_label_short:
+            filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, save_format))
+        else:
+            filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, save_format))
+        pf = PlotlyFig(x_title=x_title, y_title=y_title,
+                        title=title, fontsize=fontsize,
+                        mode='static', filename=filename, ticksize=ticksize,
+                        margins=margins, fontfamily=fontfamily)
+        pf.xy(plot_data, names=names, labels=labels, modes=mode)
