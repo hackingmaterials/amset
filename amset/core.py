@@ -1581,8 +1581,10 @@ class AMSET(object):
 
 
     def sort_vars_based_on_energy(self, args, ascending=True):
-        """sort the list of variables specified by "args" (type: [str]) in self.kgrid based on the "energy" values
-        in each band for both "n"- and "p"-type bands and in ascending order by default."""
+        """
+        Sorts the list of variables specified by "args" (type: [str]) in self.kgrid based on the "energy" values
+        in each band for both "n"- and "p"-type bands and in ascending order by default.
+        """
         ikidxs = {'n': {ib: [] for ib in range(self.num_bands['n'])}, 'p': {ib: [] for ib in range(self.num_bands['p'])}}
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
@@ -1596,7 +1598,7 @@ class AMSET(object):
 
     def generate_angles_and_indexes_for_integration(self, avg_Ediff_tolerance=0.02):
         """
-        generates the indexes of k' points that have the same energy (for elastic scattering) as E(k) or
+        Generates the indexes of k' points that have the same energy (for elastic scattering) as E(k) or
         have energy equal to E(k) plus or minus of the energy of the optical phonon for inelastic scattering.
         Also, generated and stored the cosine of the angles between such points and a given input k-point
 
@@ -3272,8 +3274,6 @@ if __name__ == "__main__":
     input_dir = "../test_files/GaAs/nscf-uniform"
     coeff_file = os.path.join(input_dir, "fort.123")
 
-    # # in terms of anisotropy at 5e19 300K BoltzTraP return sigma/tau of [8.55e17, 8.86e17, 1.08e18] for xx, yy, zz respectively
-
     amset = AMSET(calc_dir='.',
                   vasprun_file=os.path.join(input_dir, "vasprun.xml"),
                   material_params=material_params,
@@ -3281,11 +3281,8 @@ if __name__ == "__main__":
                   performance_params=performance_params,
                   dopings = [-3e13],
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
-                  # dopings = [3.32e14],
                   temperatures = [300],
                   # temperatures = [300, 600, 1000],
-                  # temperatures = [300, 400, 500, 600, 700, 800, 900, 1000],
-                  # temperatures = [201.36, 238.991, 287.807, 394.157, 502.575, 596.572],
                   integration='e',
                   )
     amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
@@ -3293,8 +3290,7 @@ if __name__ == "__main__":
     amset.write_input_files()
     amset.to_csv()
     # amset.to_file()
-    amset.plot(k_plots=['energy', 'S_o', 'S_i']\
-                       # +model_params['elastic_scatterings']
+    amset.plot(k_plots=['energy', 'S_o', 'S_i']
                , E_plots=['velocity', 'df0dk', 'ACD'], show_interactive=True
                , carrier_types=amset.all_types
                , save_format=None)
