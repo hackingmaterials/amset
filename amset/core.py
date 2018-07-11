@@ -127,7 +127,8 @@ class AMSET(object):
     def run_profiled(self, coeff_file=None, kgrid_tp="coarse",
                      write_outputs=True, nfuncs=15):
         """
-        Very similar to the run method except that it is profiled.
+        Very similar to the run method except that it is time-profiled.
+
         Args:
             see args for run() method
             nfuncs (int): only print the nfuncs most time-consuming functions
