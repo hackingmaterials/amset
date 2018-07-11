@@ -2996,6 +2996,12 @@ class AMSET(object):
     def _create_plots(self, x_title, y_title, show_interactive, save_format, c, tp, file_suffix,
                      fontsize, ticksize, path, margins, fontfamily, plot_data, names=None, labels=None,
                      x_label_short='', y_label_short=None, mode='markers', y_axis_type='linear', title=None):
+        """
+        A wrapper private function with args mostly consistent with
+        matminer.figrecipes.PlotlyFig but slightly better handling of plot
+        file saving (e.g. incorporating temperature and concentration in
+        the filename, etc).
+        """
         from matminer.figrecipes.plot import PlotlyFig
         if not title:
             title = '{} for {}, c={}'.format(y_title, self.tp_title[tp], c)
