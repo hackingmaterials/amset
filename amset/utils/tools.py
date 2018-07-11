@@ -855,8 +855,8 @@ def generate_adaptive_kmesh(bs, important_points, kgrid_tp, ibz=True):
     if ibz:
         kpts = {}
         kgrid_tp_map = {'very coarse': 4,
-                        'coarse': 7,
-                        'fine': 13,
+                        'coarse': 8,
+                        'fine': 14,
                         'very fine': 19,
                         'super fine': 25,
                         'extremely fine': 33

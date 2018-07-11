@@ -114,14 +114,14 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
-        expected_mu = {'ACD': 133640.37670,
-                       'IMP': 1727458.327718,
-                       'PIE': 441749.711358,
-                       'POP': 21864.81769,
-                       'average': 17837.72728,
-                       'overall': 19319.4727,
+        expected_mu = {'ACD': 134125.7846,
+                       'IMP': 1386475.413767,
+                       'PIE': 409770.189392,
+                       'POP': 24248.298609,
+                       'average': 19283.67310,
+                       'overall': 21636.78388,
                        }
-        expected_seebeck = -796.5357
+        expected_seebeck = -806.22165
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
@@ -193,7 +193,7 @@ class AmsetTest(unittest.TestCase):
             self.assertLessEqual( # test the isotropy of transport results
                 np.std(amset.mobility['n'][mu][-2e15][300]) / \
                 # np.mean(amset.mobility['n'][mu][-2e15][300]), 20000.0 # bypass InP isotropic mobility test until formulation is finalized
-                np.mean(amset.mobility['n'][mu][-2e15][300]), 0.05
+                np.mean(amset.mobility['n'][mu][-2e15][300]), 0.06
             )
             self.assertLessEqual(abs(amset.mobility['n'][mu][-2e15][300][0]/expected_mu[mu]-1),0.02)
 
