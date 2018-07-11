@@ -937,6 +937,12 @@ class AMSET(object):
         self.fermi_kgrid_tp = params.get("fermi_kgrid_tp", "uniform")
         self.pre_determined_fermi = params.get("pre_determined_fermi")
         self.interpolation = params.get("interpolation", "boltztrap1")
+        if self.interpolation == "boltztrap2":
+            try:
+                import BoltzTraP2
+            except ImportError:
+                self.logger.error('Failed to import BoltzTraP2! '
+                                  '"boltztrap2" interpolation not available.')
 
 
     def __getitem__(self, key):
