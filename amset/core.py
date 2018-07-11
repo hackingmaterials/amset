@@ -1522,12 +1522,6 @@ class AMSET(object):
         self.logger.debug("time to calculate E, v, m_eff at all k-points: \n {}".format(time.time()-start_time))
         start_time = time.time()
 
-        # TODO: the following is temporary, for some reason if # of kpts in different bands are NOT the same,
-        # I get an error that _all_elastic is a list! so 1/self.kgrid[tp]["_all_elastic"][c][T][ib] cause error int/list!
-        # that's why I am removing indexes from the first band at all bands! this is temperary
-        # suggested solution: make the band index a key in the dictionary of kgrid rather than list index so we
-        # can treat each band independently without their dimensions required to match!
-        # TODO-AF or TODO-JF (mid-term): set the band index as a key in dictionary throughout AMSET to enable independent modification of bands information
         for tp in ["n", "p"]:
             rm_idx_list[tp] = [rm_idx_list[tp][0] for ib in range(self.cbm_vbm[tp]["included"])]
         self.rm_idx_list = deepcopy(rm_idx_list)   # format: [tp][ib][ik]
