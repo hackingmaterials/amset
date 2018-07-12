@@ -6,6 +6,8 @@ import time
 import json
 from collections import OrderedDict
 from multiprocessing import cpu_count
+
+from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
 from numpy import dot
 from pstats import Stats
 from random import random
@@ -961,9 +963,13 @@ class AMSET(object):
         if self.interpolation == "boltztrap2":
             #TODO: after FR's PR is merged use PymatgenLoader imported from pymatgen here
             # bz2_data = BoltzTraP2.dft.DFTData(self._vrun, derivatives=False)
-            bz2_data = BoltzTraP2.dft.DFTData(self.calc_dir, derivatives=False)
+            bz2_data = PymatgenLoader(self._vrun)
+            # bz2_data = BoltzTraP2.dft.DFTData(self.calc_dir, derivatives=False)
+            # equivalences = sphere.get_equivalences(bz2_data.atoms,
+            #                                 len(bz2_data.kpoints) * 10)
+            # lattvec = bz2_data.get_lattvec()
             equivalences = sphere.get_equivalences(bz2_data.atoms,
-                                            len(bz2_data.kpoints) * 10)
+                                                   len(bz2_data.kpoints) * 5)
             lattvec = bz2_data.get_lattvec()
             coeffs = fite.fitde3D(bz2_data, equivalences)
             self.interp_params = (equivalences, lattvec, coeffs)
