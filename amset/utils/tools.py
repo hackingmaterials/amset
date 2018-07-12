@@ -748,7 +748,11 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
                                         ibands=[vbm_idx + 1 - nbelow_vbm,
                                                 cbm_idx + 1 + nabove_cbm])
 
-    for iband, tp in enumerate(["p", "n"]): # hence iband == 0 or 1
+    for ip, tp in enumerate(["p", "n"]): # hence iband == 0 or 1
+        if method=="boltztrap1":
+            iband = ip
+        else:
+            iband = ip*(cbm_idx+nabove_cbm) + (1-ip)*(vbm_idx-nbelow_vbm) + 1
         band , _, _ = interpolate_bs(hs_kpoints, interp_params, iband=iband,
                                       method=method, scissor=scissor,
                                       matrix=bs.structure.lattice.matrix,
@@ -758,7 +762,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
             global_extrema[tp]['energy'] = band[global_ext_idx]
             global_extrema[tp]['kpoint'] = hs_kpoints[global_ext_idx]
         extrema_idx = detect_peaks(band, mph=None, mpd=min_normdiff,
-                               valley=iband==1)
+                               valley=ip==1)
 
         extrema_init = []
         for idx in extrema_idx:
@@ -791,7 +795,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
 
         # sort the extrema based on their energy (i.e. importance)
         print("here error!")
-        print("here interp_params", interp_params)
+        print("here interp_params", interp_params[1:])
         print("here kpts:", final_extrema[tp])
         print("len(interp_params)", len(interp_params))
         print("here iband", iband)
