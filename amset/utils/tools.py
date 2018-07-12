@@ -640,6 +640,9 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
         n_jobs (int): number of processes used in boltztrap1 interpolation
 
     Returns (tuple of energies, velocities, masses lists/np.ndarray):
+        energies ([float]): energy values at kpts for a corresponding iband
+        velocities ([3x1 array]): velocity vectors
+        masses ([3x3 matrix]): list of effective mass tensors
     """
     #TODO: effective mass is still inconsistent between btp1 and btp2 w/o any transformation used since it is not used in AMSET ok but has to be checked with the right transformation
     if matrix is None:
@@ -679,9 +682,14 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
         fitted = fite.getBands(np.array(kpts), *interp_params)
         energies = fitted[0][iband - 1] * Hartree_to_eV - sgn * scissor / 2.
         velocities = abs(np.matmul(matrix/np.linalg.norm(matrix), fitted[1][:, :, iband - 1]).T) * Hartree_to_eV / hbar * A_to_m * m_to_cm / 0.52917721067
-        masses = 1/(fitted[2][:, :, :, iband - 1].T/ 0.52917721067**2*Hartree_to_eV)* e / A_to_m**2 * hbar**2/m_e
+        try:
+            masses = 1/(fitted[2][:, :, :, iband - 1].T/ 0.52917721067**2*Hartree_to_eV)* e / A_to_m**2 * hbar**2/m_e
+        except IndexError:
+            warnings.warn("The boltztrap2 fite.getBands version does not return "
+                          " effective mass. The tensors will be all zeros.")
+            masses = np.array([np.zeros((3, 1))]*len(kpts))
     else:
-        raise AmsetError('Unsupported interpolation "{}"'.format(method))
+        raise AmsetError("Unsupported interpolation method: {}".format(method))
     return energies, velocities, masses
 
 
