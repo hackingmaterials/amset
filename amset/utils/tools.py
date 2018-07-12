@@ -679,7 +679,8 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
         if n_jobs != 1:
             warnings.warn('n_jobs={}: Parallel not implemented w/ boltztrap2'
                           .format(n_jobs))
-        fitted = fite.getBands(np.array(kpts), *interp_params, curvature=True)
+        equivalences, lattvec, coeffs = interp_params
+        fitted = fite.getBands(np.array(kpts), equivalences, lattvec, coeffs, curvature=True)
         energies = fitted[0][iband - 1] * Hartree_to_eV - sgn * scissor / 2.
         velocities = abs(np.matmul(matrix/np.linalg.norm(matrix), fitted[1][:, iband - 1, :]).T) * Hartree_to_eV / hbar * A_to_m * m_to_cm / 0.52917721067
         try:
