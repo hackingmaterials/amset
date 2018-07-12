@@ -627,9 +627,7 @@ class AMSET(object):
                 self.all_ibands.sort()
                 self.logger.debug("all_ibands: {}".format(self.all_ibands))
                 self.interp_params = get_energy_args(coeff_file, self.all_ibands)
-            elif self.interpolation == 'boltztrap2':
-                pass # boltztrap2 params are stored once; they cover all bands
-            else:
+            elif self.interpolation != 'boltztrap2':
                 raise ValueError('Unsupported interpolation method: "{}"'.format(self.interpolation))
         else:
             # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
