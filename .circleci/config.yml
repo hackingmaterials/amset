@@ -19,4 +19,4 @@ jobs:
           command: |
             source ~/tox_env/bin/activate
             tox
-          no_output_timeout: 240m
+          no_output_timeout: 90m
