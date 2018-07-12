@@ -16,6 +16,7 @@ jobs:
             pip install --upgrade pip
             pip install tox tox-pyenv
             pip install numpy
+            pip install cython
             pip install -r requirements.txt -r requirements-optional.txt
       - run:
           name: Run amset tests
