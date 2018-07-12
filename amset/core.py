@@ -7,7 +7,6 @@ import json
 from collections import OrderedDict
 from multiprocessing import cpu_count
 
-from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
 from numpy import dot
 from pstats import Stats
 from random import random
@@ -44,6 +43,7 @@ try:
     import BoltzTraP2
     import BoltzTraP2.dft
     from BoltzTraP2 import sphere, fite
+    from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
 except ImportError:
     warnings.warn('BoltzTraP2 not imported, "boltztrap2" interpolation not available.')
 
