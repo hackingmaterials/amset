@@ -15,10 +15,9 @@ jobs:
             source ~/tox_env/bin/activate
             pip install --upgrade pip
             pip install tox tox-pyenv
-            pip install --quiet numpy cython
-            pip install cmake
+            pip install --quiet numpy cython cmake
             pip install --quiet -r requirements.txt
-            pip install -r requirements-optional.txt
+            pip install --quiet -r requirements-optional.txt
       - run:
           name: Run amset tests
           command: |
