@@ -654,7 +654,8 @@ class AMSET(object):
                         for ik in range(len(kpts[tp])):
                             energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                     else:
-                        iband = i * num_bands['p'] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm['p']['bidx']+ i * num_bands['p']
+                        # iband = i * num_bands['p'] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm['p']['bidx']+ i * num_bands['p']
+                        iband = i * num_bands['p'] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm[tp]["bidx"] + (i - 1) * self.cbm_vbm["p"]["included"] + ib
                         energies[tp], velocities[tp], _ = interpolate_bs(
                                 kpts[tp], interp_params=self.interp_params,
                                 iband=iband, sgn=sgn, method=self.interpolation,
@@ -1489,7 +1490,7 @@ class AMSET(object):
                 fit_orbs = {orb: griddata(points=np.array(self.DFT_cartesian_kpts), values=np.array(orbitals[orb]),
                     xi=np.array(self.kgrid[tp]["old cartesian kpoints"][ib]), method='nearest') for orb in orbitals.keys()}
 
-                iband = i * self.cbm_vbm["p"]["included"] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm["p"]["bidx"] + i*self.cbm_vbm["p"]["included"]
+                iband = i * self.cbm_vbm["p"]["included"] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm[tp]["bidx"] + (i-1)*self.cbm_vbm["p"]["included"]+ib
                 self.kgrid[tp]["energy"][ib], \
                         self.kgrid[tp]["velocity"][ib], \
                         self.kgrid[tp]["effective mass"][ib] = \
@@ -3245,7 +3246,7 @@ if __name__ == "__main__":
                           "max_normk": None,
                           "n_jobs": -1,
                           "max_nvalleys": 1,
-                          "interpolation": "boltztrap1",
+                          "interpolation": "boltztrap2",
                           "Ecut_max": 1.0
                           }
 
