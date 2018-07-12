@@ -790,6 +790,12 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
                 final_extrema[tp].append(k_ext_found)
 
         # sort the extrema based on their energy (i.e. importance)
+        print("here error!")
+        print("here interp_params", interp_params)
+        print("here kpts:", final_extrema[tp])
+        print("len(interp_params)", len(interp_params))
+        print("here iband", iband)
+        print("method", method)
         subband, _, _ = interpolate_bs(final_extrema[tp], interp_params, iband=iband,
                                     method=method, scissor=scissor,
                                     matrix=bs.structure.lattice.matrix,
