@@ -1,2 +1,2 @@
-#matminer==0.1.6
-#BoltzTraP2==18.3.2
+matminer
+BoltzTraP2
