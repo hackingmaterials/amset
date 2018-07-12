@@ -586,8 +586,8 @@ def get_dos_boltztrap2(params, st, mesh, estep=0.001, vbmidx=None,
     w_sum = float(sum(weights))
     weights = [w / w_sum for w in weights]
 
-    energies, _, _ = fite.getBands(np.array(ir_kpts), equivalences=equivalences,
-                           lattvec=lattvec, coeffs=coeffs)
+    energies, _ = fite.getBands(np.array(ir_kpts), equivalences=equivalences,
+                                lattvec=lattvec, coeffs=coeffs)
     energies *= Hartree_to_eV  # shape==(bands, nkpoints)
     nbands = energies.shape[0]
     if vbmidx:
