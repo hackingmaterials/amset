@@ -718,11 +718,6 @@ class AMSET(object):
                     self.dos_emax = emesh[-1]
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
-                # import pandas as pd
-                # df = pd.DataFrame.from_dict({'emesh': emesh, 'dos': dos})
-                # df.to_csv('test_dos.csv')
-                # test on 20180604:
-                # dos_nbands = self.nbands
                 self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
             else:
                 self.logger.debug("here self.poly_bands: \n {}".format(self.poly_bands))
