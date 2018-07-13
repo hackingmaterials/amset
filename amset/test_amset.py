@@ -171,32 +171,31 @@ class AmsetTest(unittest.TestCase):
                                    expected_mu[mu], places=1)
 
 
-    # def test_InP_isotropic_E(self):
-    #     print('\ntesting test_InP_isotropic_E...')
-    #     expected_mu = {'ACD': 498516.442,
-    #                    'IMP': 1758214.83,
-    #                    'PIE': 1255676.861,
-    #                    'POP': 32245.836,
-    #                    'average': 29084.267,
-    #                    'overall': 29757.889
-    #                    }
-    #
-    #     amset = AMSET(calc_dir=self.InP_path, material_params=self.InP_params,
-    #                   model_params=self.model_params,
-    #                   performance_params=self.performance_params,
-    #                   dopings=[-2e15], temperatures=[300], integration='e',
-    #                   loglevel=LOGLEVEL)
-    #     amset.run(os.path.join(self.InP_path, 'fort.123'),
-    #               kgrid_tp='very coarse', write_outputs=False)
-    #
-    #     # check mobility values
-    #     for mu in expected_mu.keys():
-    #         self.assertLessEqual( # test the isotropy of transport results
-    #             np.std(amset.mobility['n'][mu][-2e15][300]) / \
-    #             # np.mean(amset.mobility['n'][mu][-2e15][300]), 20000.0 # bypass InP isotropic mobility test until formulation is finalized
-    #             np.mean(amset.mobility['n'][mu][-2e15][300]), 0.06
-    #         )
-    #         self.assertLessEqual(abs(amset.mobility['n'][mu][-2e15][300][0]/expected_mu[mu]-1),0.02)
+    def test_InP_isotropic_E(self):
+        print('\ntesting test_InP_isotropic_E...')
+        expected_mu = {'ACD': 498516.442,
+                       'IMP': 1758214.83,
+                       'PIE': 1255676.861,
+                       'POP': 32245.836,
+                       'average': 29084.267,
+                       'overall': 29757.889
+                       }
+
+        amset = AMSET(calc_dir=self.InP_path, material_params=self.InP_params,
+                      model_params=self.model_params,
+                      performance_params=self.performance_params,
+                      dopings=[-2e15], temperatures=[300], integration='e',
+                      loglevel=LOGLEVEL)
+        amset.run(os.path.join(self.InP_path, 'fort.123'),
+                  kgrid_tp='very coarse', write_outputs=False)
+
+        # check isotropy of transport and mobility values
+        for mu in expected_mu.keys():
+            self.assertLessEqual(
+                np.std(amset.mobility['n'][mu][-2e15][300]) / \
+                np.mean(amset.mobility['n'][mu][-2e15][300]), 0.06
+            )
+            self.assertLessEqual(abs(amset.mobility['n'][mu][-2e15][300][0]/expected_mu[mu]-1),0.02)
 
 
     def test_defaults(self):
