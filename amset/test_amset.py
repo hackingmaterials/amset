@@ -3,6 +3,7 @@
 from __future__ import unicode_literals, absolute_import
 import json
 import logging
+import numpy as np
 import os
 import unittest
 from amset.core import AMSET
