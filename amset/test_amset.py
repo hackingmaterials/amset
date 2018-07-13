@@ -3,6 +3,8 @@
 from __future__ import unicode_literals, absolute_import
 import json
 import logging
+from copy import deepcopy
+
 import numpy as np
 import os
 import unittest
@@ -64,53 +66,53 @@ class AmsetTest(unittest.TestCase):
             avg = (amset.mobility['n']['ACD'][c][T] + \
                    amset.mobility['n']['SPB_ACD'][c][T]) / 2
             self.assertTrue((diff / avg <= 0.01).all())
-    #
-    #
-    # def test_GaAs_isotropic_E(self):
-    #     print('\ntesting test_GaAs_isotropic_E...')
-    #     # w/ /sq3 factor
-    #     expected_mu = {'ACD': 154693.63326,
-    #                    'IMP': 1080528.7311,
-    #                    'PIE': 722700.458955,
-    #                    'POP': 31078.90643,
-    #                    'average': 24420.18755,
-    #                    'overall': 25917.14667,
-    #                    }
-    #     expected_seebeck = -777.9
-    #
-    #     performance_params = deepcopy(self.performance_params)
-    #     performance_params['max_nvalleys'] = 1
-    #     # TODO: 2 valleys don't work due to anisotropic velocity (in 2nd valley) while on core it does, how come?
-    #     # 06/02/2018 update: most likely due to uneven removing of the points and too few k-points
-    #     # performance_params['max_nvalleys'] = 2
-    #     amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
-    #                   model_params=self.model_params,
-    #                   performance_params=performance_params,
-    #                   dopings=[-2e15], temperatures=[300], integration='e',
-    #                   loglevel=LOGLEVEL)
-    #     amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
-    #     kgrid = amset.kgrid
-    #
-    #     # check general characteristics of the grid
-    #     self.assertEqual(kgrid['n']['velocity'][0].shape[0], 68)
-    #     # self.assertEqual(kgrid['n']['velocity'][0].shape[0], 124)
-    #     mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
-    #     self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS after removing points
-    #     # self.assertLessEqual(np.std(mean_v)/np.mean(mean_v), 0.1) # isotropic BS
-    #     self.assertAlmostEqual(mean_v[0], 77925517.8687799, places=1) # zeroth band
-    #
-    #     # check mobility values
-    #     for mu in expected_mu.keys():
-    #         self.assertLessEqual(np.std( # test isotropic
-    #             amset.mobility['n'][mu][-2e15][300])/np.mean(
-    #             amset.mobility['n'][mu][-2e15][300]), 0.05)
-    #         # self.assertAlmostEqual(np.std( # test isotropic
-    #         #     amset.mobility['n'][mu][-2e15][300]), 0.00, places=1)
-    #         self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
-    #                 expected_mu[mu], places=1)
-    #     self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.04)
-    #
-    #
+
+
+    def test_GaAs_isotropic_E(self):
+        print('\ntesting test_GaAs_isotropic_E...')
+        # w/ /sq3 factor
+        expected_mu = {'ACD': 154693.63326,
+                       'IMP': 1080528.7311,
+                       'PIE': 722700.458955,
+                       'POP': 31078.90643,
+                       'average': 24420.18755,
+                       'overall': 25917.14667,
+                       }
+        expected_seebeck = -777.9
+
+        performance_params = deepcopy(self.performance_params)
+        performance_params['max_nvalleys'] = 1
+        # TODO: 2 valleys don't work due to anisotropic velocity (in 2nd valley) while on core it does, how come?
+        # 06/02/2018 update: most likely due to uneven removing of the points and too few k-points
+        # performance_params['max_nvalleys'] = 2
+        amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
+                      model_params=self.model_params,
+                      performance_params=performance_params,
+                      dopings=[-2e15], temperatures=[300], integration='e',
+                      loglevel=LOGLEVEL)
+        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
+        kgrid = amset.kgrid
+
+        # check general characteristics of the grid
+        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 68)
+        # self.assertEqual(kgrid['n']['velocity'][0].shape[0], 124)
+        mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
+        self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS after removing points
+        # self.assertLessEqual(np.std(mean_v)/np.mean(mean_v), 0.1) # isotropic BS
+        self.assertAlmostEqual(mean_v[0], 77925517.8687799, places=1) # zeroth band
+
+        # check mobility values
+        for mu in expected_mu.keys():
+            self.assertLessEqual(np.std( # test isotropic
+                amset.mobility['n'][mu][-2e15][300])/np.mean(
+                amset.mobility['n'][mu][-2e15][300]), 0.05)
+            # self.assertAlmostEqual(np.std( # test isotropic
+            #     amset.mobility['n'][mu][-2e15][300]), 0.00, places=1)
+            self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
+                    expected_mu[mu], places=1)
+        self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.04)
+
+
     # def test_GaAs_anisotropic(self):
     #     print('\ntesting test_GaAs_anisotropic...')
     #     expected_mu = {'ACD': 134125.7846,
