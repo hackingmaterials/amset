@@ -10,11 +10,12 @@ jobs:
       - run:
           name: Make tox env and run tests
           command: |
-            mkdir ~/tox_env
-            python -m venv ~/tox_env
-            source ~/tox_env/bin/activate
+#            mkdir ~/tox_env
+#            python -m venv ~/tox_env
+#            source ~/tox_env/bin/activate
             pip install --upgrade pip
-            pip install tox tox-pyenv
+#            pip install tox tox-pyenv
+            pip install tox
             pip install --quiet numpy cython cmake
             pip install --quiet -r requirements.txt
             pip install --quiet -r requirements-optional.txt
