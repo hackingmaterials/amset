@@ -7,9 +7,6 @@ import os
 import unittest
 from amset.core import AMSET
 
-import matminer
-import BoltzTraP2
-
 test_dir = os.path.dirname(__file__)
 LOGLEVEL = logging.ERROR
 
@@ -37,35 +34,35 @@ class AmsetTest(unittest.TestCase):
         pass
 
 
-    # def test_poly_bands(self):
-    #     print('\ntesting test_poly_bands...')
-    #     mass = 0.25
-    #     c = -2e15
-    #     temperatures = [300]
-    #     self.model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
-    #     amset = AMSET(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
-    #                   model_params=self.model_params,
-    #                   performance_params=self.performance_params,
-    #                   dopings=[c], temperatures=temperatures, integration='k',
-    #                   loglevel=LOGLEVEL)
-    #     amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
-    #
-    #     # check fermi level
-    #     # density calculation source: http://hib.iiit-bh.ac.in/Hibiscus/docs/iiit/NBDB/FP008/597_Semiconductor%20in%20Equilibrium&pn%20junction1.pdf
-    #     # density of states source: http://web.eecs.umich.edu/~fredty/public_html/EECS320_SP12/DOS_Derivation.pdf
-    #     for T in temperatures:
-    #         N_c = 2 * (2 * np.pi * mass * 9.11e-31 * 1.3806e-23 * T / ((6.626e-34)**2))**1.5
-    #         expected_fermi_level = amset.cbm_vbm['n']["energy"] - (1.3806e-23 * T * np.log(N_c / (-c * 1e6)) * 6.242e18)
-    #
-    #         diff = abs(amset.fermi_level[c][T] - expected_fermi_level)
-    #         avg = (amset.fermi_level[c][T] + expected_fermi_level) / 2
-    #         self.assertTrue(diff / avg < 0.02)
-    #
-    #         diff = abs(np.array(amset.mobility['n']['ACD'][c][T]) - \
-    #                    np.array(amset.mobility['n']['SPB_ACD'][c][T]))
-    #         avg = (amset.mobility['n']['ACD'][c][T] + \
-    #                amset.mobility['n']['SPB_ACD'][c][T]) / 2
-    #         self.assertTrue((diff / avg <= 0.01).all())
+    def test_poly_bands(self):
+        print('\ntesting test_poly_bands...')
+        mass = 0.25
+        c = -2e15
+        temperatures = [300]
+        self.model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+        amset = AMSET(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
+                      model_params=self.model_params,
+                      performance_params=self.performance_params,
+                      dopings=[c], temperatures=temperatures, integration='k',
+                      loglevel=LOGLEVEL)
+        amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
+
+        # check fermi level
+        # density calculation source: http://hib.iiit-bh.ac.in/Hibiscus/docs/iiit/NBDB/FP008/597_Semiconductor%20in%20Equilibrium&pn%20junction1.pdf
+        # density of states source: http://web.eecs.umich.edu/~fredty/public_html/EECS320_SP12/DOS_Derivation.pdf
+        for T in temperatures:
+            N_c = 2 * (2 * np.pi * mass * 9.11e-31 * 1.3806e-23 * T / ((6.626e-34)**2))**1.5
+            expected_fermi_level = amset.cbm_vbm['n']["energy"] - (1.3806e-23 * T * np.log(N_c / (-c * 1e6)) * 6.242e18)
+
+            diff = abs(amset.fermi_level[c][T] - expected_fermi_level)
+            avg = (amset.fermi_level[c][T] + expected_fermi_level) / 2
+            self.assertTrue(diff / avg < 0.02)
+
+            diff = abs(np.array(amset.mobility['n']['ACD'][c][T]) - \
+                       np.array(amset.mobility['n']['SPB_ACD'][c][T]))
+            avg = (amset.mobility['n']['ACD'][c][T] + \
+                   amset.mobility['n']['SPB_ACD'][c][T]) / 2
+            self.assertTrue((diff / avg <= 0.01).all())
     #
     #
     # def test_GaAs_isotropic_E(self):
