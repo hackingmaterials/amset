@@ -307,7 +307,7 @@ class AMSET(object):
                     self.logger.info('skipping this valley as it is unimportant or its energies are way off...')
                     continue
 
-                corrupt_tps = self.init_kgrid(kpts, important_points, once_called=once_called)
+                corrupt_tps = self.init_kgrid(kpts, important_points)
                 for tp in corrupt_tps:
                     self.count_mobility[self.ibrun][tp] = False
 
