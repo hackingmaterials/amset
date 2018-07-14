@@ -1197,7 +1197,7 @@ class AMSET(object):
         Args:
             dos_tp (string): options are "simple", ...
         """
-        self.pre_init_egrid(once_called=once_called, dos_tp=dos_tp)
+        self.pre_init_egrid(dos_tp=dos_tp)
         if not once_called:
             self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
             for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
