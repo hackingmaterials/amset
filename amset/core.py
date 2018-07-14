@@ -1483,8 +1483,6 @@ class AMSET(object):
             self.cbm_vbm[tp]["all cartesian k"] = remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
-                # self.kgrid[tp]["old cartesian kpoints"][ib] = self.get_cartesian_coords(
-                #     self.kgrid[tp]["kpoints"][ib]) / A_to_nm
                 for ik, k in enumerate(self.kgrid[tp]['kpoints'][ib]):
                     self.kgrid[tp]["old cartesian kpoints"][ib][ik] = self.get_cartesian_coords(self.kgrid[tp]["kpoints"][ib][ik]) / A_to_nm
 
@@ -1532,14 +1530,12 @@ class AMSET(object):
                             (self.kgrid[tp]["norm(k)"][ib][ik] < 1e-3)
                     ):
                         rm_idx_list[tp][ib].append(ik)
-
                     if self.poly_bands is None:
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
                         self.kgrid[tp]["c"][ib][ik] = (1 - self.kgrid[tp]["a"][ib][ik]**2)**0.5
                     else:
                         self.kgrid[tp]["a"][ib][ik] = 1.0  # parabolic: s-only
                         self.kgrid[tp]["c"][ib][ik] = 0.0
-
             self.logger.debug("average of the {}-type group velocity in kgrid:\n {}".format(
                         tp, np.mean(self.kgrid[tp]["velocity"][0], axis=0)))
 
@@ -1552,7 +1548,7 @@ class AMSET(object):
         start_time = time.time()
 
         for tp in ["n", "p"]:
-            rm_idx_list[tp] = [rm_idx_list[tp][0] for ib in range(self.cbm_vbm[tp]["included"])]
+            rm_idx_list[tp] = [rm_idx_list[tp][0] for _ in range(self.cbm_vbm[tp]["included"])]
         self.rm_idx_list = deepcopy(rm_idx_list)   # format: [tp][ib][ik]
         if delete_off_points:
             self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
@@ -1568,7 +1564,6 @@ class AMSET(object):
                 self.logger.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
 
             if len(self.kgrid[tp]["kpoints"][0]) < 5:
-                # raise ValueError("VERY BAD {}-type k-mesh; please change the k-mesh and try again!".format(tp))
                 corrupt_tps.append(tp)
         self.logger.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
 
@@ -1695,7 +1690,6 @@ class AMSET(object):
 
     def unique_X_ib_ik_symmetrically_equivalent(self, tp, ib, ik):
         frac_k = self.kgrid[tp]["kpoints"][ib][ik]
-        # fractional_ks = [np.dot(frac_k, self.rotations[i]) + self.translations[i] for i in range(len(self.rotations))]
         fractional_ks = np.dot(frac_k, self.rotations)
         k = self.kgrid[tp]["kpoints"][ib][ik]
         seks = [self.get_cartesian_coords(frac_k) / A_to_nm for frac_k in fractional_ks]
@@ -1746,12 +1740,7 @@ class AMSET(object):
                 while ik_prm >= 0 and ik_prm < nk and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm] - E_prm) < tolerance:
                     k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
                     X_ib_ik = (cos_angle(k, k_prm), ib_prm, ik_prm)
-
-                    #TODO: the following condition make the tests fail even for GaAs and Gamma only and max_normk of 4; see why!??!
-                    # AF: Maybe because symmetrically equivalent pockets are far from each other in BZ but can/should have scattering with each other?
                     if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][ik_prm] - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) < 2*self.max_normk[tp]:
-                        # if (X_ib_ik[1], X_ib_ik[2]) not in [(entry[1], entry[2]) for entry in result]: # 2nd condition to avoid inter-band scattering
-                        # we don't need the above since we only look at one band at a time (ib=0 always)
                         result.append(X_ib_ik)
                     ik_prm += step
 
@@ -1933,7 +1922,6 @@ class AMSET(object):
 
     def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
         # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
-
         weighted = False
 
         wpower = 1
@@ -2068,7 +2056,7 @@ class AMSET(object):
 
     def el_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
         """
-        returns the evaluated (float) expression inside the elastic equations
+        Returns the evaluated (float) expression inside the elastic equations
             to be integrated over angles, dX.
 
         Args:
@@ -2742,7 +2730,6 @@ class AMSET(object):
             if type(adjusted_prop_list[0]) == np.ndarray or type(adjusted_prop_list[0]) == list:
                 if len(adjusted_prop_list[0]) == 3:
                     insert_list = True
-            #for ib in range(self.num_bands[tp]):
             for ik in self.rm_idx_list[tp][ib]:
                 adjusted_prop_list.insert(ik, fill) if not insert_list else adjusted_prop_list.insert(ik, [fill,fill,fill])
 
