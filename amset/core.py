@@ -951,23 +951,28 @@ class AMSET(object):
 
 
     def read_vrun(self, vasprun_file=None, filename="vasprun.xml"):
+        """
+        Reads the vasprun file and populates some instance variables such as
+        volume, interp_params, _vrun, etc to be used by other methods.
+
+        Args:
+            vasprun_file (str): full path to the vasprun file. If provided,
+                the filename will be ignored.
+            filename (str): if vasprun_file is None, this filename will be
+                looked for inside calc_dir to be used as the vasprun file
+
+        Returns (None):
+        """
         vasprun_file = vasprun_file or os.path.join(self.calc_dir, filename)
         self._vrun = Vasprun(vasprun_file, parse_projected_eigen=True)
         self.interp_params = None
         if self.interpolation == "boltztrap2":
-            #TODO: after FR's PR is merged use PymatgenLoader imported from pymatgen here
-            # bz2_data = BoltzTraP2.dft.DFTData(self._vrun, derivatives=False)
             bz2_data = PymatgenLoader(self._vrun)
-            # bz2_data = BoltzTraP2.dft.DFTData(self.calc_dir, derivatives=False)
-            # equivalences = sphere.get_equivalences(bz2_data.atoms,
-            #                                 len(bz2_data.kpoints) * 10)
-            # lattvec = bz2_data.get_lattvec()
             equivalences = sphere.get_equivalences(bz2_data.atoms,
                                                    len(bz2_data.kpoints) * 5)
             lattvec = bz2_data.get_lattvec()
             coeffs = fite.fitde3D(bz2_data, equivalences)
             self.interp_params = (equivalences, lattvec, coeffs)
-
         self.volume = self._vrun.final_structure.volume
         self.logger.info("unitcell volume = {} A**3".format(self.volume))
         self.density = self._vrun.final_structure.density
