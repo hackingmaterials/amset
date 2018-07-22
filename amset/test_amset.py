@@ -18,7 +18,7 @@ class AmsetTest(unittest.TestCase):
         self.model_params = {'bs_is_isotropic': True,
                              'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
                              'inelastic_scatterings': ['POP']}
-        self.performance_params = {'dE_min': 0.0001, 'nE_min': 5, "n_jobs": -1,
+        self.performance_params = {'dE_min': 0.0001, 'nE_min': 5, "n_jobs": 1,
                 'BTE_iters': 5,'nkdos':29, 'max_nbands': 1, 'max_nvalleys': 1,
                 'max_normk': 2, 'Ecut': 0.4, 'fermi_kgrid_tp': 'coarse'}
         self.GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
