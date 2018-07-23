@@ -168,32 +168,21 @@ class AMSET(object):
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['included'] = 1
         self.logger.debug("cbm_vbm after updating:\n {}".format(self.cbm_vbm))
-        if self.pre_determined_fermi is None:
-            if self.integration == 'k':
-                kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
-                # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
-                _, _ = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
-                self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
-            elif self.integration == 'e':
-                # method 1: good for k-integration but limited to symmetric lattice vectors
-                kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='very coarse')
-                kpts= self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=False, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
-                self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
-                for c in self.dopings:
-                    for T in self.temperatures:
-                        self.fermi_level[c][T] = self.find_fermi(c, T)
-        else:
-            self.fermi_level = self.pre_determined_fermi
-            self.calc_doping = {doping: {T: {'n': 0.0, 'p': 0.0} for T in list(self.fermi_level[doping].keys())} for doping in list(self.fermi_level.keys())}
-            for doping in list(self.fermi_level.keys()):
-                for T in list(self.fermi_level[doping].keys()):
-                    if doping > 0:
-                        self.calc_doping[doping][T]['p'] = doping
-                    else:
-                        self.calc_doping[doping][T]['n'] = doping
+        if self.integration == 'k':
+            kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
+            # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
+            _, _ = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
+            self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
+        elif self.integration == 'e':
+            # method 1: good for k-integration but limited to symmetric lattice vectors
+            kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='very coarse')
+            kpts= self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=False, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
+            self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
+            for c in self.dopings:
+                for T in self.temperatures:
+                    self.fermi_level[c][T] = self.find_fermi(c, T)
         self.logger.info('fermi level = {}'.format(self.fermi_level))
         self.logger.info('here initial number of bands:\n{}'.format(self.initial_num_bands))
-
         vibands = list(range(self.initial_num_bands['p']))
         cibands = list(range(self.initial_num_bands['n']))
 
@@ -231,7 +220,7 @@ class AMSET(object):
                 self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
                 once_called = True
                 important_points = {'n': None, 'p': None}
-                if ivalley == 0 and self.ibrun==0 and self.pre_determined_fermi is not None:
+                if ivalley == 0 and self.ibrun==0:
                     once_called = False
                 for tp in ['p', 'n']:
                     try:
@@ -848,7 +837,6 @@ class AMSET(object):
             "max_normk0": self.max_normk0,
             "max_nvalleys": self.max_nvalleys,
             "n_jobs": self.n_jobs,
-            "pre_determined_fermi": self.pre_determined_fermi,
             "interpolation": self.interpolation
         }
 
@@ -953,7 +941,6 @@ class AMSET(object):
         self.max_normk = {'n': self.max_normk0, 'p': self.max_normk0}
         self.max_nvalleys = params.get("max_nvalleys", None)
         self.fermi_kgrid_tp = params.get("fermi_kgrid_tp", "uniform")
-        self.pre_determined_fermi = params.get("pre_determined_fermi")
         self.interpolation = params.get("interpolation", "boltztrap1")
         if self.interpolation == "boltztrap2":
             try:
