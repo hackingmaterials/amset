@@ -155,6 +155,9 @@ class AMSET(object):
                 BoltzTraP. If None, BoltzTraP will run to generate the file.
             kgrid_tp (str): define the density of k-point mesh.
                 options: 'very coarse', 'coarse', 'fine'
+
+        Returns (None):
+            many instance variables get updated with calculated properties.
         """
         self.logger.info('Running on "{}" mesh for each valley'.format(kgrid_tp))
         self.read_vrun(vasprun_file=self.vasprun_file, filename="vasprun.xml")
