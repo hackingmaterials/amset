@@ -166,10 +166,8 @@ class AMSET(object):
         if not coeff_file:
             self.logger.warning('\nRunning BoltzTraP to generate the cube file...')
             boltztrap_runner = BoltztrapRunner(bs=self.bs, nelec=self.nelec,
-                    # doping=list(set([abs(d) for d in self.dopings])),
                     doping=[1e20], tmax=max(self.temperatures))
             boltztrap_runner.run(path_dir=self.calc_dir)
-            # BoltztrapRunner().run(path_dir=self.calc_dir)
             coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
             self.logger.warning('BoltzTraP run finished, I suggest to set the following '
                             'to skip this step next time:\n{}="{}"'.format(
