@@ -161,16 +161,10 @@ class AMSET(object):
         self._initialize_transport_vars(coeff_file=coeff_file)
         # make the reference energy consistent w/ interpolation rather than DFT
         self.update_cbm_vbm_dos(coeff_file=coeff_file)
-
         #TODO: if we use ibands_tuple, then for each couple of conduction/valence bands we only use 1 band together (i.e. always ib==0)
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['included'] = 1
-
-        self.logger.debug("cbm_vbm after recalculating their energy values:\n {}".format(self.cbm_vbm))
-
-        self.ibrun = 0 # initialize as may be called in init_kgrid as debug
-        self.count_mobility = [{'n': True, 'p': True} for _ in range(max(self.initial_num_bands['p'], self.initial_num_bands['n']))]
-
+        self.logger.debug("cbm_vbm after updating:\n {}".format(self.cbm_vbm))
         if self.pre_determined_fermi is None:
             if self.integration == 'k':
                 kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
@@ -495,19 +489,21 @@ class AMSET(object):
                                  '(i.e. fort.123) requires a modified version of BoltzTraP. '
                                  'Contact {}'.format(coeff_file, __email__))
         # initialize transport variables
-        self.mo_labels = self.elastic_scats + self.inelastic_scats + [
-            'overall', 'average']
+        self.mo_labels = self.elastic_scats + self.inelastic_scats + ['overall', 'average']
         self.spb_labels = ['SPB_ACD']
-        self.transport_labels = self.mo_labels + self.spb_labels + ["seebeck",
-                                                                    "J_th"]
-        self.mobility = {tp: {
-        el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for
-                  c in
-                  self.dopings} for el_mech in self.transport_labels} for tp in
-                         ["n", "p"]}
-        self.calc_doping = {
-        c: {T: {'n': None, 'p': None} for T in self.temperatures} for c in
-        self.dopings}
+        self.transport_labels = self.mo_labels + self.spb_labels + ["seebeck","J_th"]
+        self.mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) \
+                                            for T in self.temperatures} \
+                                        for c in self.dopings} \
+                              for el_mech in self.transport_labels} \
+                         for tp in ["n", "p"]}
+        self.calc_doping = {c: {T: {'n': None, 'p': None} \
+                                for T in self.temperatures} \
+                            for c in self.dopings}
+        self.ibrun = 0 # counter of the ibands_tuple (band-valley walker)
+        self.count_mobility = [{'n': True, 'p': True} \
+                               for _ in range(max(self.initial_num_bands['p'],
+                                                  self.initial_num_bands['n']))]
 
 
     def calculate_spb_transport(self):
