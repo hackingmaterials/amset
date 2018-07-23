@@ -16,8 +16,8 @@ LOGLEVEL = logging.ERROR
 class AmsetTest(unittest.TestCase):
     def setUp(self):
         self.model_params = {'bs_is_isotropic': True,
-                             'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
-                             'inelastic_scatterings': ['POP']}
+                             'elastic_scats': ['ACD', 'IMP', 'PIE'],
+                             'inelastic_scats': ['POP']}
         self.performance_params = {'dE_min': 0.0001, 'nE_min': 5, "n_jobs": 1,
                 'BTE_iters': 5,'nkdos':29, 'max_nbands': 1, 'max_nvalleys': 1,
                 'max_normk': 2, 'Ecut': 0.4, 'fermi_kgrid_tp': 'coarse'}
@@ -126,8 +126,8 @@ class AmsetTest(unittest.TestCase):
         amset = AMSET(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
-                             'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
-                             'inelastic_scatterings': ['POP']},
+                             'elastic_scats': ['ACD', 'IMP', 'PIE'],
+                             'inelastic_scats': ['POP']},
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], integration='e',
                       loglevel=LOGLEVEL)
@@ -219,42 +219,14 @@ class AmsetTest(unittest.TestCase):
         self.assertEqual(material_params['N_dis'], 0.1)
 
         self.assertEqual(model_params['bs_is_isotropic'], True)
-        self.assertEqual(model_params['elastic_scatterings'], ['IMP', 'PIE'])
-        self.assertEqual(model_params['inelastic_scatterings'], [])
+        self.assertEqual(model_params['elastic_scats'], ['IMP', 'PIE'])
+        self.assertEqual(model_params['inelastic_scats'], [])
 
         self.assertEqual(performance_params['max_nbands'], None)
         self.assertEqual(performance_params['max_normk0'], None)
         self.assertEqual(performance_params['dE_min'], 0.0001)
         self.assertEqual(performance_params['nkdos'], 29)
         self.assertEqual(performance_params['dos_bwidth'], 0.1)
-
-
-    # def test_GaAs_anisotropic_k(self):
-    #     print('\ntesting test_GaAs_anisotropic_k...')
-    #     # if norm(prop)/sq3 is imposed in map_to_egrid if bs_is_isotropic
-    #     # expected_mu = {'ACD': 68036.7, 'IMP': 82349394.9, 'PIE': 172180.7,
-    #     #                'POP': 10113.9, 'overall': 8173.4}
-    #
-    #     expected_mu = {'overall': 4327.095}
-    #     performance_params = dict(self.performance_params)
-    #     performance_params["max_nbands"] = 1
-    #     amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
-    #                   model_params=self.model_params,
-    #                   performance_params=performance_params,
-    #                   dopings=[-3e13], temperatures=[300], integration='k',
-    #                   loglevel=LOGLEVEL)
-    #     amset.run(self.GaAs_cube, kgrid_tp='very fine', write_outputs=False, test_k_anisotropic=True)
-    #     mobility = amset.mobility
-    #     kgrid = amset.kgrid
-    #
-    #     # check mobility values
-    #     for mu in expected_mu.keys():
-    #         diff = np.std(mobility['n'][mu][-3e13][300])
-    #         avg = np.mean(mobility['n'][mu][-3e13][300])
-    #         self.assertLess(diff / avg, 0.002)
-    #         diff = abs(mobility['n'][mu][-3e13][300][0] - expected_mu[mu])
-    #         avg = (mobility['n'][mu][-3e13][300][0] + expected_mu[mu]) / 2
-    #         self.assertTrue(diff / avg <= 0.01)
 
 
 if __name__ == '__main__':

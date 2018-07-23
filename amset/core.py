@@ -179,7 +179,7 @@ class AMSET(object):
                 '(i.e. fort.123) requires a modified version of BoltzTraP. '
                              'Contact {}'.format(coeff_file, __email__))
 
-        self.mo_labels = self.elastic_scatterings + self.inelastic_scatterings + ['overall', 'average']
+        self.mo_labels = self.elastic_scats + self.inelastic_scats + ['overall', 'average']
         self.spb_labels = ['SPB_ACD']
         self.transport_labels = self.mo_labels + self.spb_labels + ["seebeck", "J_th"]
         self.mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
@@ -338,11 +338,11 @@ class AMSET(object):
                                     self.seeb_denom[c][T][tp] = self.egrid["Seebeck_integral_denominator"][c][T][tp]
 
                 # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
-                if not self.bs_is_isotropic or "POP" in self.inelastic_scatterings:
+                if not self.bs_is_isotropic or "POP" in self.inelastic_scats:
                     self.generate_angles_and_indexes_for_integration()
 
                 # calculate all elastic scattering rates in kgrid and then map it to egrid:
-                for sname in self.elastic_scatterings:
+                for sname in self.elastic_scats:
                     self.s_elastic(sname=sname)
                     self.map_to_egrid(prop_name=sname)
 
@@ -807,8 +807,8 @@ class AMSET(object):
 
         model_params = {
             "bs_is_isotropic": self.bs_is_isotropic,
-            "elastic_scatterings": self.elastic_scatterings,
-            "inelastic_scatterings": self.inelastic_scatterings,
+            "elastic_scats": self.elastic_scats,
+            "inelastic_scats": self.inelastic_scats,
             "poly_bands": self.poly_bands
         }
 
@@ -848,8 +848,8 @@ class AMSET(object):
         self.P_PIE = params.get("P_PIE", None) or 0.15  # unitless
         E_D = params.get("E_D", None)
         self.C_el = params.get("C_el", None)
-        if (E_D is None or self.C_el is None) and 'ACD' in self.elastic_scatterings:
-            self.elastic_scatterings.pop(self.elastic_scatterings.index('ACD'))
+        if (E_D is None or self.C_el is None) and 'ACD' in self.elastic_scats:
+            self.elastic_scats.pop(self.elastic_scats.index('ACD'))
         if isinstance(E_D, dict):
             if 'n' not in E_D and 'p' not in E_D:
                 raise ValueError('Neither "n" nor "p" keys not found in E_D')
@@ -863,10 +863,10 @@ class AMSET(object):
         self.W_POP = params.get("W_POP", None)
         if self.W_POP:
             self.W_POP *= 1e12 * 2 * pi # convert to THz
-        if 'POP' in self.inelastic_scatterings:
+        if 'POP' in self.inelastic_scats:
             if self.epsilon_inf is None or self.W_POP is None:
                 warnings.warn('POP cannot be calculated w/o epsilon_inf and W_POP')
-                self.inelastic_scatterings.pop(self.inelastic_scatterings.index('POP'))
+                self.inelastic_scats.pop(self.inelastic_scats.index('POP'))
 
         self.N_dis = params.get("N_dis", None) or 0.1  # in 1/cm**2
         self.scissor = params.get("scissor", None) or 0.0
@@ -888,8 +888,8 @@ class AMSET(object):
             params (dict):
         """
         self.bs_is_isotropic = params.get("bs_is_isotropic", True)
-        self.elastic_scatterings = params.get("elastic_scatterings", ["ACD", "IMP", "PIE"])
-        self.inelastic_scatterings = params.get("inelastic_scatterings", ["POP"])
+        self.elastic_scats = params.get("elastic_scats", ["ACD", "IMP", "PIE"])
+        self.inelastic_scats = params.get("inelastic_scats", ["POP"])
 
         self.poly_bands0 = params.get("poly_bands", None)
         self.poly_bands = self.poly_bands0
@@ -1654,7 +1654,7 @@ class AMSET(object):
                                   " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
 
         # inelastic scattering
-        if "POP" in self.inelastic_scatterings:
+        if "POP" in self.inelastic_scats:
             for tp in ["n", "p"]:
                 sgn = (-1) ** (["n", "p"].index(tp))
                 for ib in range(len(self.kgrid[tp]["energy"])):
@@ -2481,8 +2481,8 @@ class AMSET(object):
         # make the output dict
         out_d = {'kgrid0': self.kgrid0, 'egrid0': self.egrid0, 'cbm_vbm': self.cbm_vbm,
                  'mobility': self.mobility, 'epsilon_s': self.epsilon_s,
-                 'elastic_scatterings': self.elastic_scatterings,
-                 'inelastic_scatterings': self.inelastic_scatterings,
+                 'elastic_scats': self.elastic_scats,
+                 'inelastic_scats': self.inelastic_scats,
                  'Efrequency0': self.Efrequency0,
                  'dopings': self.dopings, 'temperatures': self.temperatures}
 
@@ -2506,8 +2506,8 @@ class AMSET(object):
         amset.kgrid0 = d['kgrid0']
         amset.egrid0 = d['egrid0']
         amset.mobility = d['mobility']
-        amset.elastic_scatterings = d['elastic_scatterings']
-        amset.inelastic_scatterings = d['inelastic_scatterings']
+        amset.elastic_scats = d['elastic_scats']
+        amset.inelastic_scats = d['inelastic_scats']
         amset.cbm_vbm = d['cbm_vbm']
         amset.Efrequency0 = d['Efrequency0']
         amset.dopings = [float(dope) for dope in d['dopings']]
@@ -2614,14 +2614,14 @@ class AMSET(object):
         Returns (None): the results are stored in "g*" keys in kgrid and egrid
         """
         # calculating S_o scattering rate which is not a function of g
-        if "POP" in self.inelastic_scatterings and not self.bs_is_isotropic:
+        if "POP" in self.inelastic_scats and not self.bs_is_isotropic:
             for g_suffix in ["", "_th"]:
                 self.s_inelastic(sname="S_o" + g_suffix, g_suffix=g_suffix)
 
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.BTE_iters):
             self.logger.info("Performing iteration # {}".format(iter))
-            if "POP" in self.inelastic_scatterings:
+            if "POP" in self.inelastic_scats:
                 if self.bs_is_isotropic:
                     if iter == 0:
                         self.s_inel_eq_isotropic(once_called=False)
@@ -2795,7 +2795,7 @@ class AMSET(object):
     # calculates transport properties for isotropic materials
     def calculate_transport_properties_with_k(self, test_anisotropic, important_points):
         # calculate mobility by averaging velocity per electric field strength
-        mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scatterings} for tp in ["n", "p"]}
+        mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scats} for tp in ["n", "p"]}
         valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
                   self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
 
@@ -2907,13 +2907,13 @@ class AMSET(object):
                             self.logger.debug('current valley is at {}'.format(important_points))
                             self.logger.debug('the denominator is:\n{}'.format(self.denominator))
 
-                        for el_mech in self.elastic_scatterings:
+                        for el_mech in self.elastic_scats:
                             nu_el = self.array_from_kgrid(el_mech, tp, c, T, denom=True)
                             # this line should have -e / hbar except that hbar is in units of eV*s so in those units e=1
                             g = -1 / hbar * df0dk / nu_el
                             valley_transport[tp][el_mech][c][T] = self.integrate_over_states(g * v, tp)
                             # from equation 45 in Rode, inelastic mechanisms
-                        for inel_mech in self.inelastic_scatterings:
+                        for inel_mech in self.inelastic_scats:
                             g = self.array_from_kgrid("g_"+inel_mech, tp, c, T)
                             valley_transport[tp][inel_mech][c][T] = self.integrate_over_states(g * v, tp)
 
@@ -2928,7 +2928,7 @@ class AMSET(object):
                     faulty_overall_mobility = False
                     mu_overrall_norm = norm(valley_transport[tp]['overall'][c][T])
                     mu_average = np.array([0.0, 0.0, 0.0])
-                    for transport in self.elastic_scatterings + self.inelastic_scatterings:
+                    for transport in self.elastic_scats + self.inelastic_scats:
                         # averaging all mobility values via Matthiessen's rule
                         mu_average += 1 / (np.array(valley_transport[tp][transport][c][T]) + 1e-32)
                         if mu_overrall_norm > norm(valley_transport[tp][transport][c][T]):
@@ -2960,12 +2960,12 @@ class AMSET(object):
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
                     # mobility numerators
-                    for mu_el in self.elastic_scatterings:
+                    for mu_el in self.elastic_scats:
                         valley_transport[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
                             self.integrate_over_E(prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c, T=T,
                                         xDOS=False, xvel=True, weighted=True)
 
-                    for mu_inel in self.inelastic_scatterings:
+                    for mu_inel in self.inelastic_scats:
                         valley_transport[tp][mu_inel][c][T] = self.integrate_over_E(prop_list=[
                                 "g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
                         mu_overall_valley = self.integrate_over_E(prop_list=["g"],
@@ -2976,7 +2976,7 @@ class AMSET(object):
 
                     faulty_overall_mobility = False
                     temp_avg = np.array([0.0, 0.0, 0.0])
-                    for transport in self.elastic_scatterings + self.inelastic_scatterings:
+                    for transport in self.elastic_scats + self.inelastic_scats:
                         temp_avg += 1/ valley_transport[tp][transport][c][T]
                         if norm(mu_overall_valley) > norm(valley_transport[tp][transport][c][T]):
                             faulty_overall_mobility = True  # because the overall mobility should be lower than all
@@ -3037,9 +3037,9 @@ class AMSET(object):
         path = os.path.join(path or self.calc_dir, dir_name)
         if not os.path.exists(path):
             os.makedirs(name=path)
-        supported_k_plots = ['energy', 'df0dk', 'velocity'] + self.elastic_scatterings
-        supported_E_plots = ['frequency', 'relaxation time', 'df0dk', 'velocity'] + self.elastic_scatterings
-        if "POP" in self.inelastic_scatterings:
+        supported_k_plots = ['energy', 'df0dk', 'velocity'] + self.elastic_scats
+        supported_E_plots = ['frequency', 'relaxation time', 'df0dk', 'velocity'] + self.elastic_scats
+        if "POP" in self.inelastic_scats:
             supported_E_plots += ['g', 'g_POP', 'S_i', 'S_o']
             supported_k_plots += ['g', 'g_POP', 'S_i', 'S_o']
         if k_plots == 'all':
@@ -3056,7 +3056,7 @@ class AMSET(object):
         carrier_types = list(carrier_types)
         direction = list(direction)
 
-        mu_list = ["overall", "average"] + self.elastic_scatterings + self.inelastic_scatterings
+        mu_list = ["overall", "average"] + self.elastic_scats + self.inelastic_scats
 
         # separate temperature dependent and independent properties
         all_temp_independent_k_props = ['energy', 'velocity']
@@ -3188,14 +3188,14 @@ class AMSET(object):
 
         with open(os.path.join(path, csv_filename), 'w') as csvfile:
             fieldnames = ['type', 'c(cm-3)', 'T(K)', 'overall', 'average'] + \
-                         self.elastic_scatterings + self.inelastic_scatterings + ['seebeck']
+                         self.elastic_scats + self.inelastic_scats + ['seebeck']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for c in self.dopings:
                 tp = get_tp(c)
                 for T in self.temperatures:
                     row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
-                    for p in ['overall', 'average'] + self.elastic_scatterings + self.inelastic_scatterings + ["seebeck"]:
+                    for p in ['overall', 'average'] + self.elastic_scats + self.inelastic_scats + ["seebeck"]:
                         row[p] = sum(self.mobility[tp][p][c][T])/3
                     writer.writerow(row)
 
@@ -3225,8 +3225,8 @@ if __name__ == "__main__":
     use_poly_bands = False
 
     model_params = {'bs_is_isotropic': True,
-                    'elastic_scatterings': ['ACD', 'IMP', 'PIE'],
-                    'inelastic_scatterings': ['POP']
+                    'elastic_scats': ['ACD', 'IMP', 'PIE'],
+                    'inelastic_scats': ['POP']
         , 'independent_valleys': False
                     }
     if use_poly_bands:
