@@ -143,13 +143,6 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                     # mesh = [0.003, 0.01, 0.05, 0.15]
                 elif kgrid_tp == 'very coarse':
                     mesh = [0.001, 0.01]
-                elif kgrid_tp == 'uniform':
-                    mesh = np.linspace(0.001, 0.50, 15)
-                elif kgrid_tp == 'test uniform':
-                    mesh = np.linspace(0.001, 0.50, 7)
-                elif kgrid_tp == 'test':
-                    mesh = [0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05,
-                            0.06, 0.07, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5]
                 else:
                     raise ValueError('Unsupported value for kgrid_tp: {}'.format(kgrid_tp))
                 for step in mesh:
