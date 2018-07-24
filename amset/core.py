@@ -169,7 +169,7 @@ class AMSET(object):
             self.cbm_vbm[tp]['included'] = 1
         self.logger.debug("cbm_vbm after updating:\n {}".format(self.cbm_vbm))
         if self.integration == 'k':
-            kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=self.fermi_kgrid_tp)
+            kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=kgrid_tp)
             # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
             _, _ = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
             self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
@@ -940,7 +940,6 @@ class AMSET(object):
         self.max_normk0 = params.get("max_normk", None)
         self.max_normk = {'n': self.max_normk0, 'p': self.max_normk0}
         self.max_nvalleys = params.get("max_nvalleys", None)
-        self.fermi_kgrid_tp = params.get("fermi_kgrid_tp", "uniform")
         self.interpolation = params.get("interpolation", "boltztrap1")
         if self.interpolation == "boltztrap2":
             try:
