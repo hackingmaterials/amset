@@ -249,7 +249,7 @@ class AMSET(object):
                     if self.max_normk0 is None:
                         self.logger.warn('max_normk set to {} to avoid'
                                          'unlrealistic scattering'.format(kmax))
-                        
+
                 self.logger.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 self.logger.info('Current valleys:\n{}'.format(important_points))
                 self.logger.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
@@ -260,17 +260,27 @@ class AMSET(object):
                     self.logger.info('skipping this valley as it is unimportant for both n and p type...')
                     continue
                 kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
-                kpts, energies = self.get_energy_array(coeff_file, kpts, once_called=once_called, return_energies=True, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, num_bands={'p': 1, 'n': 1})
+                kpts, energies=self.get_energy_array(coeff_file, kpts,
+                                                     once_called=once_called,
+                                                     return_energies=True,
+                                                     nbelow_vbm=self.nbelow_vbm,
+                                                     nabove_cbm=self.nabove_cbm,
+                                                     num_bands={'p': 1, 'n': 1})
 
                 if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut['n']:
-                    self.logger.debug('not counting conduction band {} valley {} due to off enery...'.format(self.ibrun, important_points['n'][0]))
+                    self.logger.info('not counting conduction band {} valley\
+                     {} due to off enery...'.format(self.ibrun, important_points['n'][0]))
                     self.count_mobility[self.ibrun]['n'] = False
                 if self.cbm_vbm['p']['energy'] - max(energies['p']) > self.Ecut['p']:
-                    self.logger.debug('not counting valence band {} valley {} due to off enery...'.format(self.ibrun, important_points['p'][0]))
+                    self.logger.info('not counting valence band {} valley {} \
+                    due to off enery...'.format(self.ibrun, important_points['p'][0]))
                     self.count_mobility[self.ibrun]['p'] = False
 
-                if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
-                    self.logger.info('skipping this valley as it is unimportant or its energies are way off...')
+                if not self.count_mobility[self.ibrun]['n'] and \
+                        not self.count_mobility[self.ibrun]['p']:
+                    self.logger.info("skipping this iband as it's unimportant"
+                                     " or energies are off:\n{}".format(
+                        important_points))
                     continue
 
                 corrupt_tps = self.init_kgrid(kpts, important_points)
@@ -283,13 +293,19 @@ class AMSET(object):
 
                 # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
                 self.init_egrid(once_called=False, dos_tp="standard")
-                self.bandgap = min(self.egrid["n"]["all_en_flat"]) - max(self.egrid["p"]["all_en_flat"])
-                if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"] + self.scissor)) > k_B * 300:
-                    warnings.warn("The band gaps do NOT match! The selected k-mesh is probably too coarse.")
-
-                self.map_to_egrid("g", c_and_T_idx=True, prop_type="vector")
-                self.map_to_egrid(prop_name="velocity", c_and_T_idx=False, prop_type="vector")
-
+                self.bandgap = min(self.egrid["n"]["all_en_flat"]) \
+                               - max(self.egrid["p"]["all_en_flat"])
+                if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] \
+                                       - self.cbm_vbm["p"]["energy"] \
+                                       + self.scissor)) > k_B * 300:
+                    warnings.warn("The band gaps do NOT match! \
+                    The selected k-mesh is probably too coarse.")
+                self.map_to_egrid(prop_name="g",
+                                  c_and_T_idx=True,
+                                  prop_type="vector")
+                self.map_to_egrid(prop_name="velocity",
+                                  c_and_T_idx=False,
+                                  prop_type="vector")
 
                 if self.independent_valleys:
                     for c in self.dopings:
