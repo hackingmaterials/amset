@@ -176,7 +176,7 @@ class AMSET(object):
         elif self.integration == 'e':
             # method 1: good for k-integration but limited to symmetric lattice vectors
             kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='very coarse')
-            kpts= self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=False, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
+            self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=False, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
             self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
             for c in self.dopings:
                 for T in self.temperatures:
@@ -205,15 +205,16 @@ class AMSET(object):
         self.logger.debug('here whether to count bands')
         self.logger.debug(self.count_mobility)
 
-
         self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
         self.seeb_denom = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
             self.logger.info('going over conduction and valence # {}'.format(self.ibrun))
-            self.find_all_important_points(coeff_file, nbelow_vbm=self.nbelow_vbm, nabove_cbm=self.nabove_cbm, interpolation=self.interpolation)
-
-            # once_called = False
-            max_nvalleys = max(len(self.important_pts['n']), len(self.important_pts['p']))
+            self.find_all_important_points(coeff_file,
+                                           nbelow_vbm=self.nbelow_vbm,
+                                           nabove_cbm=self.nabove_cbm,
+                                           interpolation=self.interpolation)
+            max_nvalleys = max(len(self.important_pts['n']),
+                               len(self.important_pts['p']))
             if self.max_nvalleys is not None:
                 max_nvalleys = min(max_nvalleys, self.max_nvalleys)
             for ivalley in range(max_nvalleys):
@@ -232,15 +233,23 @@ class AMSET(object):
                 if self.max_normk0 is None:
                     for tp in ['n', 'p']:
                         min_dist = 100.0 # in 1/nm
-                        for k in self.bs.get_sym_eq_kpoints(self.get_cartesian_coords(important_points[tp][0]), cartesian=True): # we use the one and only k inside important_points[tp] since bs.get_sym_eq_kpoints return a list by itself
-                            new_dist = norm(get_closest_k(k, [self.get_cartesian_coords(kp) for kp in self.all_important_pts[tp]], return_diff=True, exclude_self=True)) /A_to_nm
-                            if new_dist < min_dist and new_dist > 0.01: # to avoid self-counting, 0.01 criterion added
+                        kc = self.get_cartesian_coords(important_points[tp][0])
+                        for k in self.bs.get_sym_eq_kpoints(kc, cartesian=True):
+                            kc_carts = [self.get_cartesian_coords(kp) for \
+                                        kp in self.all_important_pts[tp]]
+                            new_dist = 1/A_to_nm * norm(get_closest_k(
+                                k, kc_carts, return_diff=True, exclude_self=True))
+                            # to avoid self-counting, 0.01 criterion added:
+                            if new_dist < min_dist and new_dist > 0.01:
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
                 if self.max_nvalleys and self.max_nvalleys==1:
-                    # this ignores max_normk0 because if only a single valley, we don't want it to go over the whole BZ
-                    self.max_normk = {'n': self.max_normk0 or 5,
-                                      'p': self.max_normk0 or 5}
+                    kmax = self.max_normk0 or 5.0
+                    self.max_normk = {'n': kmax, 'p': kmax}
+                    if self.max_normk0 is None:
+                        self.logger.warn('max_normk set to {} to avoid'
+                                         'unlrealistic scattering'.format(kmax))
+                        
                 self.logger.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 self.logger.info('Current valleys:\n{}'.format(important_points))
                 self.logger.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
