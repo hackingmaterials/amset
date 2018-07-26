@@ -1461,16 +1461,14 @@ class AMSET(object):
 
         for i, tp in enumerate(["p", "n"]):
             self.cbm_vbm[tp]["cartesian k"] = self.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
-            # self.cbm_vbm[tp]["all cartesian k"] = self.get_sym_eq_ks_in_first_BZ(self.cbm_vbm[tp]["kpoint"], cartesian=True)
-            self.cbm_vbm[tp]["all cartesian k"] = self.bs.get_sym_eq_kpoints(self.cbm_vbm[tp]["cartesian k"], cartesian=True)
-            self.cbm_vbm[tp]["all cartesian k"] = remove_duplicate_kpoints(self.cbm_vbm[tp]["all cartesian k"])
+            self.cbm_vbm[tp]["all cartesian k"] = remove_duplicate_kpoints(
+                self.bs.get_sym_eq_kpoints(self.cbm_vbm[tp]["cartesian k"],
+                                           cartesian=True))
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
                 for ik, k in enumerate(self.kgrid[tp]['kpoints'][ib]):
-                    self.kgrid[tp]["old cartesian kpoints"][ib][ik] = self.get_cartesian_coords(self.kgrid[tp]["kpoints"][ib][ik]) / A_to_nm
-
-                # WE MAKE A COPY HERE OTHERWISE THE TWO LISTS CHANGE TOGETHER (we set cartesian kpoints a few lines down here)
-                self.kgrid[tp]["cartesian kpoints"][ib] = np.array(self.kgrid[tp]["old cartesian kpoints"][ib])
+                    self.kgrid[tp]["old cartesian kpoints"][ib][ik] = \
+                        self.get_cartesian_coords(self.kgrid[tp]["kpoints"][ib][ik]) / A_to_nm
 
                 s_orbital, p_orbital = get_dft_orbitals(
                     vasprun=self._vrun,
@@ -1486,7 +1484,8 @@ class AMSET(object):
                         self.kgrid[tp]["effective mass"][ib] = \
                     interpolate_bs(self.kgrid[tp]["kpoints"][ib], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
 
-                # TODO-JF: the general function for calculating the energy, velocity and effective mass can b
+                self.kgrid[tp]["cartesian kpoints"][ib] = np.array(
+                    self.kgrid[tp]["old cartesian kpoints"][ib]) # made a copy
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.get_cartesian_coords(get_closest_k(
                             self.kgrid[tp]["kpoints"][ib][ik], self.bs.get_sym_eq_kpoints(important_points[tp][0]), return_diff=True)) / A_to_nm
