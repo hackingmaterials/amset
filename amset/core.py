@@ -1126,7 +1126,9 @@ class AMSET(object):
         Wrapper function to do an integration taking only the concentration,
         c, and the temperature, T, as inputs
         """
-        return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=False) for t in["n", "p"]}
+        return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"],
+                                                   tp=t, c=c, T=T, xDOS=False)\
+                for t in["n", "p"]}
 
 
     def calculate_property(self, prop_name, prop_func, for_all_E=False):
@@ -1244,6 +1246,8 @@ class AMSET(object):
         properties such as "DOS"
 
         Args:
+            once_called (bool): whether init_egrid was called once before or
+                not. It is used internally for caching.
             dos_tp (string): options are "simple", ...
         """
         self.pre_init_egrid(dos_tp=dos_tp)
@@ -1270,7 +1274,6 @@ class AMSET(object):
 
         self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi,
                 T: f0(E, fermi, T) * (1 - f0(E, fermi, T)), for_all_E=True)
-
         for c in self.dopings:
             for T in self.temperatures:
                 fermi = self.fermi_level[c][T]
@@ -1278,15 +1281,18 @@ class AMSET(object):
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             E = self.kgrid[tp]["energy"][ib][ik]
-                            v = self.kgrid[tp]["velocity"][ib][ik]
-                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
+                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E,fermi,T)
 
-        self.calculate_property(prop_name="beta", prop_func=self.inverse_screening_length)
+        self.calculate_property(prop_name="beta",
+                                prop_func=self.inverse_screening_length)
         self.logger.debug('inverse screening length, beta is \n{}'.format(
                                                         self.egrid["beta"]))
-        self.calculate_property(prop_name="N_II", prop_func=self.calculate_N_II)
-        self.calculate_property(prop_name="Seebeck_integral_numerator", prop_func=self.seeb_int_num)
-        self.calculate_property(prop_name="Seebeck_integral_denominator", prop_func=self.seeb_int_denom)
+        self.calculate_property(prop_name="N_II",
+                                prop_func=self.calculate_N_II)
+        self.calculate_property(prop_name="Seebeck_integral_numerator",
+                                prop_func=self.seeb_int_num)
+        self.calculate_property(prop_name="Seebeck_integral_denominator",
+                                prop_func=self.seeb_int_denom)
 
 
     def get_Eidx_in_dos(self, E, Estep=None):
