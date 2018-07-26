@@ -727,7 +727,6 @@ class AMSET(object):
             self.energy_array = {tp: np.array(self.energy_array[tp]) for tp in
                                  ['p', 'n']}
 
-        # calculation of the density of states (DOS)
         if not once_called:
             if self.poly_bands is None:
                 if self.interpolation=="boltztrap1":
@@ -1580,8 +1579,9 @@ class AMSET(object):
 
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
-                # TODO: change how W_POP is set, user set a number or a file that can be fitted and inserted to kgrid
-                self.kgrid[tp]["W_POP"][ib] = [self.W_POP for i in range(len(self.kgrid[tp]["kpoints"][ib]))]
+                # We define W_POP in the grid this way for future W_POP(k)
+                self.kgrid[tp]["W_POP"][ib] = \
+                    [self.W_POP]*len(self.kgrid[tp]["kpoints"][ib])
                 for c in self.dopings:
                     for T in self.temperatures:
                         self.kgrid[tp]["N_POP"][c][T][ib] = np.array(
@@ -1595,7 +1595,6 @@ class AMSET(object):
 
         self.initialize_var("kgrid", ["f0", "f_plus", "f_minus", "g_plus", "g_minus"], "vector", self.gs,
                             is_nparray=True, c_T_idx=True)
-
         return corrupt_tps
 
 
