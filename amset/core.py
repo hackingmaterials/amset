@@ -935,6 +935,17 @@ class AMSET(object):
 
 
     def set_performance_params(self, params):
+        """
+        Set (or retrieve from input parameters) that are related to running
+        performance and speed and store them as corresponding instance variables
+
+        Args:
+            params (dict): must be at least {} to invoke all the default values
+                examples are {} or {'Ecut': 1.0, 'nkdos': 25}
+
+        Returns (None):
+
+        """
         self.nkibz = params.get("nkibz", 40)
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 5)
@@ -943,18 +954,13 @@ class AMSET(object):
         self.Ecut_max = params.get("Ecut", 1.5) #TODO-AF: set this default Encut based on maximum energy range that the current BS covers between
         Ecut = min(Ecut, self.Ecut_max)
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
-        # self.Ecut = {tp: Ecut for tp in ["n", "p"]}
         for tp in ["n", "p"]:
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
-
-        self.dos_bwidth = params.get("dos_bwidth",
-                                     0.1)  # in eV the bandwidth used for calculation of the total DOS (over all bands & IBZ k-points)
+        self.dos_bwidth = params.get("dos_bwidth", 0.1)
         self.nkdos = params.get("nkdos", 29)
         self.v_min = 1000
-        self.gs = 1e-32  # a global small value (generally used for an initial non-zero value)
-        self.gl = 1e32  # a global large value
-
-        # TODO: some of the current global constants should be omitted, taken as functions inputs or changed!
+        self.gs = 1e-32  # small value (e.g. used for an initial non-zero val)
+        self.gl = 1e32  # global large value
         self.BTE_iters = params.get("BTE_iters", 5)
         self.n_jobs = params.get("n_jobs", -1)
         if self.n_jobs == -1:
