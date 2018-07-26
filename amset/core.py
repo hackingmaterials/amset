@@ -875,11 +875,16 @@ class AMSET(object):
 
     def set_material_params(self, params):
         """
-        Set the material's parameters. This method is meant to be called after
-            set_model_parameters as it may modify self.model_parameters.
+        Set (or retrieve from input parameters) the material's parameters.
+        This method is meant to be called after set_model_parameters as it may
+        modify self.model_parameters.
 
         Args:
-            params (dict):
+            params (dict): some parameters such as "epsilon_s" are mandatory.
+                for example params={} is not acceptable but the following is:
+                params = {'epsilon_s': 11.111}
+
+        Returns (None):
         """
         self.epsilon_s = params["epsilon_s"]
         self.P_PIE = params.get("P_PIE", None) or 0.15  # unitless
@@ -918,11 +923,14 @@ class AMSET(object):
 
     def set_model_params(self, params):
         """
-        Set instant variables related to the model and the level of the theory;
-        these are set based on params (dict) set by the user or their default values
+        Set (or retrieve from input parameters) instance variables related to
+        the model and the level of the theory; these are set based on params
+        (dict) set by the user or their default values
 
         Args:
             params (dict):
+
+        Returns (None):
         """
         self.bs_is_isotropic = params.get("bs_is_isotropic", True)
         self.elastic_scats = params.get("elastic_scats", ["ACD", "IMP", "PIE"])
@@ -944,7 +952,6 @@ class AMSET(object):
                 examples are {} or {'Ecut': 1.0, 'nkdos': 25}
 
         Returns (None):
-
         """
         self.nkibz = params.get("nkibz", 40)
         self.dE_min = params.get("dE_min", 0.0001)
