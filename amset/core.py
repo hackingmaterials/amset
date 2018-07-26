@@ -927,10 +927,8 @@ class AMSET(object):
         self.bs_is_isotropic = params.get("bs_is_isotropic", True)
         self.elastic_scats = params.get("elastic_scats", ["ACD", "IMP", "PIE"])
         self.inelastic_scats = params.get("inelastic_scats", ["POP"])
-
         self.poly_bands0 = params.get("poly_bands", None)
         self.poly_bands = self.poly_bands0
-
         self.soc = params.get("soc", False)
         self.logger.info("bs_is_isotropic: {}".format(self.bs_is_isotropic))
         self.independent_valleys = params.get('independent_valleys', False)
@@ -1395,31 +1393,6 @@ class AMSET(object):
         dk = [(k2[i] - k1[i]) / float(nsteps + 1) for i in range(len(k1))]
         # return [k1 + i * dkii for i in range(1, nsteps + 1)]
         return [[k1[i] + n * dk[i] for i in range(len(k1))] for n in range(1, nsteps + 1)]
-
-
-    @staticmethod
-    def get_perturbed_ks(k):
-        all_perturbed_ks = []
-        for p in [0.05, 0.1]:
-            all_perturbed_ks.append([k_i + p * np.sign(random() - 0.5) for k_i in k])
-        return all_perturbed_ks
-
-
-    def get_ks_with_intermediate_energy(self, kpts, energies, max_Ediff=None, target_Ediff=None):
-        final_kpts_added = []
-        for tp in ["n", "p"]:
-            max_Ediff = max_Ediff or min(self.Ecut[tp], 10 * k_B * max(self.temperatures))
-            if tp not in self.all_types:
-                continue
-            ies_sorted = list(np.argsort(energies[tp]))
-            if tp == "p":
-                ies_sorted.reverse()
-            for idx, ie in enumerate(ies_sorted[:-1]):
-                Ediff = abs(energies[tp][ie] - energies[tp][ies_sorted[0]])
-                if Ediff > max_Ediff:
-                    break
-                final_kpts_added += self.get_perturbed_ks(kpts[ies_sorted[idx]])
-        return kpts_to_first_BZ(final_kpts_added)
 
 
     def get_adaptive_kpoints(self, kpts, energies, adaptive_Erange, nsteps):
