@@ -1035,9 +1035,7 @@ class AMSET(object):
                    "p": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]}}
         cbm = self.bs.get_cbm()
         vbm = self.bs.get_vbm()
-
         self.logger.info("total number of bands: {}".format(self._vrun.get_band_structure().nb_bands))
-
         cbm_vbm["n"]["energy"] = cbm["energy"]
         cbm_vbm["n"]["bidx"], _ = get_bindex_bspin(cbm, is_cbm=True)
         cbm_vbm["n"]["kpoint"] = self.bs.kpoints[cbm["kpoint_index"][0]].frac_coords
@@ -1408,7 +1406,6 @@ class AMSET(object):
         if nsteps < 1:
             return []
         dk = [(k2[i] - k1[i]) / float(nsteps + 1) for i in range(len(k1))]
-        # return [k1 + i * dkii for i in range(1, nsteps + 1)]
         return [[k1[i] + n * dk[i] for i in range(len(k1))] for n in range(1, nsteps + 1)]
 
 
@@ -1456,7 +1453,6 @@ class AMSET(object):
         self.kgrid = {
             "n": {},
             "p": {}}
-        # self.num_bands = {"n": {}, "p": {}}
         self.num_bands = {"n": 1, "p": 1}
         # self.logger.debug('here the n-type kgrid :\n{}'.format(kpts['n']))
         for tp in ["n", "p"]:
