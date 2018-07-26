@@ -1073,7 +1073,6 @@ class AMSET(object):
                 while abs(min(sgn * np.array(bsd["bands"]["1"][cbm_vbm[tp]["bidx"] + sgn * cbm_vbm[tp]["included"]])) -
                                           sgn * cbm_vbm[tp]["energy"]) < Ecut:
                     cbm_vbm[tp]["included"] += 1
-
                 self.initial_num_bands[tp] = cbm_vbm[tp]["included"]
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands0)
@@ -1112,8 +1111,14 @@ class AMSET(object):
         Wrapper function to do an integration taking only the concentration,
         c, and the temperature, T, as inputs
         """
-        fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T)) * E / (k_B * T)
-        return {t: self.integrate_func_over_E(func=fn, tp=t, fermi=self.fermi_level[c][T], T=T, normalize_energy=True, xDOS=False) for t in ["n", "p"]}
+        fn = lambda E, fermi, T: f0(E,fermi,T) * (1-f0(E,fermi,T)) * E/(k_B*T)
+        return {t: self.integrate_func_over_E(func=fn,
+                                              tp=t,
+                                              fermi=self.fermi_level[c][T],
+                                              T=T,
+                                              normalize_energy=True,
+                                              xDOS=False) \
+                for t in ["n", "p"]}
 
 
     def seeb_int_denom(self, c, T):
