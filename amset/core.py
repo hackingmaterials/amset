@@ -1395,27 +1395,6 @@ class AMSET(object):
         return [[k1[i] + n * dk[i] for i in range(len(k1))] for n in range(1, nsteps + 1)]
 
 
-    def get_adaptive_kpoints(self, kpts, energies, adaptive_Erange, nsteps):
-        kpoints_added = {"n": [], "p": []}
-        for tp in ["n", "p"]:
-            if tp not in self.all_types:
-                continue
-            # TODO: if this worked, change it so that if self.dopings does not involve either of the types, don't add k-points for it
-            ies_sorted = list(np.argsort(energies[tp]))
-            if tp == "p":
-                ies_sorted.reverse()
-            for ie in ies_sorted:
-                Ediff = abs(energies[tp][ie] - energies[tp][ies_sorted[0]])
-                if Ediff >= adaptive_Erange[0] and Ediff < adaptive_Erange[-1]:
-                    kpoints_added[tp].append(kpts[ie])
-        final_kpts_added = []
-        for tp in ["n", "p"]:
-            for ik in range(len(kpoints_added[tp]) - 1):
-                final_kpts_added += self.get_intermediate_kpoints_list(list(kpoints_added[tp][ik]),
-                                                                       list(kpoints_added[tp][ik + 1]), nsteps)
-        return kpts_to_first_BZ(final_kpts_added)
-
-
     def calc_poly_energy(self, xkpt, tp, ib):
         """
         Calculates parabolic or other polynomial bands at given k-point & band
