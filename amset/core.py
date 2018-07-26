@@ -1853,22 +1853,24 @@ class AMSET(object):
         return dv
 
 
-    # takes a coordinate grid in the form of a numpy array (CANNOT have missing points) and a function to integrate and
-    # finds the integral using finite differences; missing points should be input as 0 in the function
     def integrate_over_k(self, func_grid, tp):
         """
+        Takes a coordinate grid in the form of a numpy array (CANNOT have
+        missing points) and a function to integrate and finds the integral
+        using finite differences; missing points should be input as 0 in the
+        .function
+
         Args:
-            func_grid:
+            func_grid: in the interest of not prematurely optimizing, func_grid
+                must be a  perfect grid: the only deviation from
+                the cartesian coordinate system can be uniform stretches,
+                distance between adjacent planes of points as in the
+                can be any value, but no points can be missing from the next
+                plane in this case the format of fractional_grid is a 4d grid
+                the last dimension is a vector of the k point fractional coordinates
+                the dv grid is 3d and the indexes correspond to those of func_grid
 
         Returns:
-
-        in the interest of not prematurely optimizing, func_grid must be a perfect grid: the only deviation from
-        the cartesian coordinate system can be uniform stretches, as in the distance between adjacent planes of points
-        can be any value, but no points can be missing from the next plane
-
-        in this case the format of fractional_grid is a 4d grid
-        the last dimension is a vector of the k point fractional coordinates
-        the dv grid is 3d and the indexes correspond to those of func_grid
         """
         if func_grid.ndim == 3:
             return np.sum(func_grid * self.dv_grid[tp])
@@ -2260,7 +2262,6 @@ class AMSET(object):
             raise ValueError('The elastic scattering name "{}" is NOT supported.'.format(sname))
 
 
-
     def s_elastic(self, sname):
         """
         The scattering rate equation for each elastic scattering name (sname)
@@ -2273,7 +2274,6 @@ class AMSET(object):
                 c and T (self.kgrid[tp][sname][c][T][ib][ik])
         """
         sname = sname.upper()
-
         for tp in ["n", "p"]:
             self.egrid[tp][sname] = {c: {T: np.array([[0.0, 0.0, 0.0] for i in
                     range(len(self.egrid[tp]["energy"]))]) for T in
