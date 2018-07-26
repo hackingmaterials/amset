@@ -1447,16 +1447,14 @@ class AMSET(object):
             self.kgrid[tp]["kpoints"] = [kpts[tp] for ib in range(self.num_bands[tp])]
             self.kgrid[tp]["kweights"] = [kweights[tp] for ib in range(self.num_bands[tp])]
 
-        self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)", "norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
-        self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)", "norm(k)"], "scalar", 0.0, is_nparray=False)
+        self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False)
         self.velocity_signed = {tp: np.array([[[0,0,0] for ik in range(len(kpts[tp]))] for ib in range(self.num_bands[tp])]) for tp in ['n', 'p']}
-        self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=False)
 
         start_time = time.time()
-
         rm_idx_list = {"n": [[] for i in range(self.cbm_vbm["n"]["included"])],
                        "p": [[] for i in range(self.cbm_vbm["p"]["included"])]}
-        # @albalu why are these variables initialized separately from the ones above?
         self.initialize_var("kgrid", ["old cartesian kpoints", "cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
         self.initialize_var("kgrid", ["norm(k)", "norm(actual_k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.logger.debug("The DFT gap right before calculating final energy values: {}".format(self.dft_gap))
