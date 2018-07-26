@@ -292,7 +292,7 @@ class AMSET(object):
                     continue
 
                 # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
-                self.init_egrid(once_called=False, dos_tp="standard")
+                self.init_egrid(once_called=False)
                 self.bandgap = min(self.egrid["n"]["all_en_flat"]) \
                                - max(self.egrid["p"]["all_en_flat"])
                 if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] \
@@ -1173,7 +1173,7 @@ class AMSET(object):
         return N_II
 
 
-    def pre_init_egrid(self, dos_tp="standard"):
+    def pre_init_egrid(self):
         self.egrid = {
             "n": {"energy": [], "DOS": [], "all_en_flat": [],
                   "all_ks_flat": [], "mobility": {}},
@@ -1219,19 +1219,13 @@ class AMSET(object):
                 self.kgrid_to_egrid_idx[tp].append(current_ib_ie_idx)
                 self.sym_freq[tp].append(sum_nksym / counter)
                 energy_counter.append(counter)
-                if dos_tp.lower() == "simple":
-                    self.egrid[tp]["DOS"].append(counter / len(self.egrid[tp]["all_en_flat"]))
-                elif dos_tp.lower() == "standard":
-                    self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_E / counter)][1])
+                self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_E / counter)][1])
                 i = j + 1
 
             if not last_is_counted:
                 self.egrid[tp]["energy"].append(self.egrid[tp]["all_en_flat"][-1])
                 self.kgrid_to_egrid_idx[tp].append([E_idx[tp][-1]])
-                if dos_tp.lower() == "simple":
-                    self.egrid[tp]["DOS"].append(self.nelec / len(self.egrid[tp]["all_en_flat"]))
-                elif dos_tp.lower() == "standard":
-                    self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(self.egrid[tp]["energy"][-1])][1])
+                self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(self.egrid[tp]["energy"][-1])][1])
             self.egrid[tp]["size"] = len(self.egrid[tp]["energy"])
         for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
@@ -1240,7 +1234,7 @@ class AMSET(object):
             raise ValueError("The final egrid have fewer than {} energy values, AMSET stops now".format(min_nE))
 
 
-    def init_egrid(self, once_called, dos_tp="standard"):
+    def init_egrid(self, once_called):
         """
         Initializes the self.egrid dict containing energy grid and relevant
         properties such as "DOS"
@@ -1248,9 +1242,8 @@ class AMSET(object):
         Args:
             once_called (bool): whether init_egrid was called once before or
                 not. It is used internally for caching.
-            dos_tp (string): options are "simple", ...
         """
-        self.pre_init_egrid(dos_tp=dos_tp)
+        self.pre_init_egrid()
         if not once_called:
             self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
             for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
