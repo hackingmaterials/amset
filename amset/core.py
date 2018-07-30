@@ -1171,6 +1171,12 @@ class AMSET(object):
 
 
     def pre_init_egrid(self):
+        """
+        Just to initialize the energy grid (egrid) and the energy values as
+        opposed to all the variables defined in the final egrid.
+
+        Returns (None):
+        """
         self.egrid = {
             "n": {"energy": [], "DOS": [], "all_en_flat": [],
                   "all_ks_flat": [], "mobility": {}},
@@ -1234,7 +1240,8 @@ class AMSET(object):
     def init_egrid(self, once_called):
         """
         Initializes the self.egrid dict containing energy grid and relevant
-        properties such as "DOS"
+        properties such as "DOS". This must be called after pre_init_egrid so
+        that the energy values are already populated.
 
         Args:
             once_called (bool): whether init_egrid was called once before or
