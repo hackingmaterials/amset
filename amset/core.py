@@ -56,8 +56,8 @@ __status__ = "Development"
 
 
 
-class AMSET(object):
-    """ This class is used to run AMSET on a pymatgen from a VASP run (i.e. vasprun.xml). AMSET is an ab initio model
+class Amset(object):
+    """ This class is used to run Amset on a pymatgen from a VASP run (i.e. vasprun.xml). Amset is an ab initio model
     for calculating the mobility and Seebeck coefficient using Bolƒtzmann transport equation (BTE). The band structure
     in the Brilluin zone (BZ) is extracted from vasprun.xml to calculate the group velocity and transport properties
     in presence of various scattering mechanisms.
@@ -147,7 +147,7 @@ class AMSET(object):
     def run(self, coeff_file=None, kgrid_tp="coarse",
             write_outputs=True, test_k_anisotropic=False):
         """
-        Function to run AMSET and generate the main outputs.
+        Function to run Amset and generate the main outputs.
 
         Args:
             coeff_file: the path to fort.123* file containing the coefficients of
@@ -1227,7 +1227,7 @@ class AMSET(object):
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
         min_nE = 2
         if len(self.Efrequency["n"]) < min_nE or len(self.Efrequency["p"]) < min_nE:
-            raise ValueError("The final egrid have fewer than {} energy values, AMSET stops now".format(min_nE))
+            raise ValueError("The final egrid have fewer than {} energy values, Amset stops now".format(min_nE))
 
 
     def init_egrid(self, once_called):
@@ -2448,7 +2448,7 @@ class AMSET(object):
             n = 1
             fname0 = fname
             while os.path.exists(os.path.join(path, '{}.json.gz'.format(fname))):
-                warnings.warn('The file, {} exists. AMSET outputs will be '
+                warnings.warn('The file, {} exists. Amset outputs will be '
                         'written in {}'.format(fname, fname0+'_'+str(n)))
                 fname = fname0 + '_' + str(n)
                 n += 1
@@ -2477,7 +2477,7 @@ class AMSET(object):
 
         with gzip.GzipFile(os.path.join(path, filename), mode='r') as fp:
             d = json.load(fp, cls=MontyDecoder)
-        amset = AMSET(calc_dir=path, material_params={'epsilon_s': d['epsilon_s']})
+        amset = Amset(calc_dir=path, material_params={'epsilon_s': d['epsilon_s']})
         amset.kgrid0 = d['kgrid0']
         amset.egrid0 = d['egrid0']
         amset.mobility = d['mobility']
@@ -3228,7 +3228,7 @@ if __name__ == "__main__":
     input_dir = "../test_files/GaAs/nscf-uniform"
     coeff_file = os.path.join(input_dir, "fort.123")
 
-    amset = AMSET(calc_dir='.',
+    amset = Amset(calc_dir='.',
                   vasprun_file=os.path.join(input_dir, "vasprun.xml"),
                   material_params=material_params,
                   model_params=model_params,

@@ -1,4 +1,4 @@
-from amset.core import AMSET
+from amset.core import Amset
 from amset.utils.constants import A_to_nm
 from amset.utils.tools import get_bindex_bspin, interpolate_bs, get_energy_args
 from matminer import PlotlyFig
@@ -27,7 +27,7 @@ coeff_file = os.path.join(abs_dir, "../test_files/GaAs/nscf-uniform/fort.123")
 # vrun_file = os.path.join(abs_dir, "../test_files/PbTe/vasprun.xml")
 # coeff_file = os.path.join(abs_dir, "../test_files/PbTe/fort.123")
 
-amset = AMSET(calc_dir='.', material_params={'epsilon_s': 12.9})
+amset = Amset(calc_dir='.', material_params={'epsilon_s': 12.9})
 amset.read_vrun(vasprun_file=vrun_file)
 # extrema = amset.get_bs_extrema(bs=self.GaAs_vrun.get_band_structure(),
 #             coeff_file=self.GaAs_cube, nbelow_vbm=0, nabove_cbm=0)

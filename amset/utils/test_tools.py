@@ -6,7 +6,7 @@ import os
 import unittest
 
 
-from amset.core import AMSET
+from amset.core import Amset
 from amset.utils.tools import kpts_to_first_BZ, get_closest_k, \
     remove_duplicate_kpoints, get_energy_args, get_bindex_bspin, \
     interpolate_bs, get_bs_extrema

@@ -8,7 +8,7 @@ from copy import deepcopy
 import numpy as np
 import os
 import unittest
-from amset.core import AMSET
+from amset.core import Amset
 
 test_dir = os.path.dirname(__file__)
 LOGLEVEL = logging.ERROR
@@ -43,7 +43,7 @@ class AmsetTest(unittest.TestCase):
         c = -2e15
         temperatures = [300]
         self.model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
-        amset = AMSET(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
+        amset = Amset(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
                       dopings=[c], temperatures=temperatures, integration='k',
@@ -85,7 +85,7 @@ class AmsetTest(unittest.TestCase):
         # TODO: 2 valleys don't work due to anisotropic velocity (in 2nd valley) while on core it does, how come?
         # 06/02/2018 update: most likely due to uneven removing of the points and too few k-points
         # performance_params['max_nvalleys'] = 2
-        amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
+        amset = Amset(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=performance_params,
                       dopings=[-2e15], temperatures=[300], integration='e',
@@ -123,7 +123,7 @@ class AmsetTest(unittest.TestCase):
                        'overall': 21636.78388,
                        }
         expected_seebeck = -806.22165
-        amset = AMSET(calc_dir=self.GaAs_path,
+        amset = Amset(calc_dir=self.GaAs_path,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
                              'elastic_scats': ['ACD', 'IMP', 'PIE'],
@@ -153,7 +153,7 @@ class AmsetTest(unittest.TestCase):
                        }
         performance_params = dict(self.performance_params)
         performance_params['fermi_kgrid_tp'] = 'very coarse'
-        amset = AMSET(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
+        amset = Amset(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=performance_params,
                       dopings=[-3e13], temperatures=[300], integration='k',
@@ -181,7 +181,7 @@ class AmsetTest(unittest.TestCase):
                        'overall': 29757.889
                        }
 
-        amset = AMSET(calc_dir=self.InP_path, material_params=self.InP_params,
+        amset = Amset(calc_dir=self.InP_path, material_params=self.InP_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], integration='e',
@@ -202,7 +202,7 @@ class AmsetTest(unittest.TestCase):
         print('\ntesting test_defaults...')
         cal_dir = self.GaAs_path
         data_dir = os.path.join(cal_dir, "run_data")
-        amset = AMSET(cal_dir, material_params={'epsilon_s': 12.9})
+        amset = Amset(cal_dir, material_params={'epsilon_s': 12.9})
         amset.write_input_files()
         with open(os.path.join(data_dir, "material_params.json"), "r") as fp:
             material_params = json.load(fp)
