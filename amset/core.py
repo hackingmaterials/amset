@@ -316,8 +316,8 @@ class AMSET(object):
                                 self.denominator[c][T]['n'] = (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10)
                                 self.denominator[c][T]['p'] = (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10)
                             elif self.integration=='e':
-                                self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False, weighted=False)
-                                self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False, weighted=False)
+                                self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False)
+                                self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False)
                                 for tp in ['n', 'p']:
                                     self.seeb_denom[c][T][tp] = self.egrid["Seebeck_integral_denominator"][c][T][tp]
 
@@ -400,7 +400,7 @@ class AMSET(object):
                                         self.seeb_denom[c][T][tp] += self.integrate_over_states(finteg*(1-finteg), tp)
                                     elif self.integration=='e':
                                         finteg = "f0" if tp=="n" else "1 - f0"
-                                        self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(prop_list=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False, weighted=False)  * valley_ndegen
+                                        self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(prop_list=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False)  * valley_ndegen
                                         self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp] * valley_ndegen
                                     for mu in self.mo_labels+["J_th"]:
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * valley_ndegen
@@ -1916,23 +1916,14 @@ class AMSET(object):
         return integral
 
 
-    def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, weighted=False, interpolation_nsteps=None):
-        # for now I keep weighted as False, to re-enable weighting, all GaAs tests should be re-evaluated.
-        weighted = False
-
-        wpower = 1
-        if xvel:
-            wpower += 1
+    def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, interpolation_nsteps=None):
         imax_occ = len(self.Efrequency[tp][:-1])
 
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
-            # interpolation_nsteps = 1
         diff = [0.0 for prop in prop_list]
         integral = self.gs
-        # for ie in range(len(self.egrid[tp]["energy"]) - 1):
         for ie in range(imax_occ):
-
             E = self.egrid[tp]["energy"][ie]
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if xDOS:
@@ -1948,9 +1939,6 @@ class AMSET(object):
                                self.egrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ie])) / interpolation_nsteps
                 else:
                     diff[j] = (self.egrid[tp][p][c][T][ie + 1] - self.egrid[tp][p][c][T][ie]) / interpolation_nsteps
-            if weighted:
-                dweight = (self.Efrequency[tp][ie+1] / float(self.sym_freq[tp][ie+1]) - \
-                          self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie]) ) /interpolation_nsteps
             for i in range(interpolation_nsteps):
                 multi = dE
                 for j, p in enumerate(prop_list):
@@ -1964,17 +1952,8 @@ class AMSET(object):
                     multi *= self.egrid[tp]["DOS"][ie] + dS * i
                 if xvel:
                     multi *= self.egrid[tp]["velocity"][ie] + dv * i
-                if weighted:
-                    # integral += multi * self.Efrequency[tp][ie] ** wpower
-                    integral += multi * (self.Efrequency[tp][ie] / float(self.sym_freq[tp][ie]) + dweight * i)
-                else:
-                    integral += multi
-        integral = np.array(integral)
-        if weighted:
-            return integral
-            # return integral/(sum(self.Efrequency[tp][:-1]))
-        else:
-            return integral
+                integral += multi
+        return np.array(integral)
 
 
 
@@ -2455,7 +2434,7 @@ class AMSET(object):
         """
         beta = {}
         for tp in ["n", "p"]:
-            integral = self.integrate_over_E(prop_list=["f0","1 - f0"], tp=tp, c=c, T=T, xDOS=True, weighted=False)
+            integral = self.integrate_over_E(prop_list=["f0","1 - f0"], tp=tp, c=c, T=T, xDOS=True)
             beta[tp] = (e**2 / (self.epsilon_s * epsilon_0 * k_B * T) * integral / self.volume * 1e12 / e) ** 0.5
         return beta
 
@@ -2959,16 +2938,16 @@ class AMSET(object):
                     for mu_el in self.elastic_scats:
                         valley_transport[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
                             self.integrate_over_E(prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c, T=T,
-                                        xDOS=False, xvel=True, weighted=True)
+                                        xDOS=False, xvel=True)
 
                     for mu_inel in self.inelastic_scats:
                         valley_transport[tp][mu_inel][c][T] = self.integrate_over_E(prop_list=[
-                                "g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
+                                "g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False, xvel=True)
                         mu_overall_valley = self.integrate_over_E(prop_list=["g"],
-                               tp=tp, c=c, T=T, xDOS=False, xvel=True, weighted=True)
+                               tp=tp, c=c, T=T, xDOS=False, xvel=True)
 
                     valley_transport[tp]["J_th"][c][T] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
-                            xDOS=False, xvel=True, weighted=True)) * e * abs(c)  # in units of A/cm2
+                            xDOS=False, xvel=True)) * e * abs(c)  # in units of A/cm2
 
                     faulty_overall_mobility = False
                     temp_avg = np.array([0.0, 0.0, 0.0])
