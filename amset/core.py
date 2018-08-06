@@ -603,14 +603,8 @@ class AMSET(object):
             self.all_ibands.sort()
             self.logger.debug("all_ibands: {}".format(self.all_ibands))
             if self.interpolation == "boltztrap1":
-                # engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = \
-                #     get_energy_args(coeff_file, self.all_ibands)
                 self.interp_params = get_energy_args(coeff_file, self.all_ibands)
-        # if using poly bands, remove duplicate k points (@albalu I'm not really sure what this is doing)
         else:
-            # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
-            # these points will be used later to generate energy based on the minimum norm(k-k_i)
-
             self.poly_bands = np.array(self.poly_bands0)
             for ib in range(len(self.poly_bands0)):
                 for valley in range(len(self.poly_bands0[ib])):
@@ -690,7 +684,6 @@ class AMSET(object):
                         for ik in range(len(kpts[tp])):
                             energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                     else:
-                        # iband = i * num_bands['p'] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm['p']['bidx']+ i * num_bands['p']
                         iband = i * num_bands['p'] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm[tp]["bidx"] + (i - 1) * self.cbm_vbm["p"]["included"] + ib
                         energies[tp], velocities[tp], _ = interpolate_bs(
                                 kpts[tp], interp_params=self.interp_params,
