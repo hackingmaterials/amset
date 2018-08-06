@@ -5,8 +5,8 @@
 # from __future__ import division, print_function
 import numpy as np
 
-"""AMSET disclaimer. This helpful script was directly copied from the following
-link and is not a submodule of AMSET and all credits goes to Marcos Duarte
+"""Amset disclaimer. This helpful script was directly copied from the following
+link and is not a submodule of Amset and all credits goes to Marcos Duarte
 http://nbviewer.jupyter.org/github/demotu/BMC/blob/master/notebooks/DetectPeaks.ipynb
 """
 

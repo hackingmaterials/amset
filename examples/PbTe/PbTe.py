@@ -1,4 +1,4 @@
-from amset.core import AMSET
+from amset.core import Amset
 import os
 
 if __name__ == "__main__":
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     PbTe_dir = os.path.join("..", "..", "test_files", "PbTe")
     coeff_file = os.path.join(PbTe_dir, "fort.123")
 
-    AMSET = AMSET(calc_dir='.',
+    amset = Amset(calc_dir='.',
                   vasprun_file=os.path.join(PbTe_dir, "vasprun.xml"),
                   material_params=material_params,
                   model_params = model_params,
@@ -22,15 +22,15 @@ if __name__ == "__main__":
                   dopings= [-1e19, 1e19],
                   temperatures=[300, 600])
 
-    # running AMSET
-    AMSET.run(coeff_file=coeff_file, kgrid_tp="coarse")
+    # running Amset
+    amset.run(coeff_file=coeff_file, kgrid_tp="coarse")
 
     # generating files and outputs
-    AMSET.write_input_files()
-    AMSET.to_csv()
-    AMSET.plot(k_plots=['energy'], E_plots=['energy', 'velocity', 'ACD'],
+    amset.write_input_files()
+    amset.to_csv()
+    amset.plot(k_plots=['energy'], E_plots=['energy', 'velocity', 'ACD'],
                show_interactive=True,
-               carrier_types=AMSET.all_types,
+               carrier_types=amset.all_types,
                save_format=None)
-    AMSET.to_file()
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
+    amset.to_file()
+    amset.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)

@@ -26,9 +26,9 @@ except ImportError:
 
 class AmsetError(Exception):
     """
-    Exception class for AMSET. Raised when AMSET gives an error. The purpose
+    Exception class for Amset. Raised when Amset gives an error. The purpose
     of this class is to be explicit about the exceptions raised specifically
-    due to AMSET input/output requirements instead of a generic ValueError, etc
+    due to Amset input/output requirements instead of a generic ValueError, etc
     """
     def __init__(self, logger, msg):
         self.msg = msg
@@ -168,7 +168,7 @@ def array_to_kgrid(grid):
         grid (np.array): 4d numpy array, where last dimension is vectors
             in a 3d grid specifying fractional position in BZ
     Returns:
-        a list of [kx, ky, kz] k-point coordinates compatible with AMSET
+        a list of [kx, ky, kz] k-point coordinates compatible with Amset
     """
     kgrid = []
     for i in range(grid.shape[0]):
@@ -260,7 +260,7 @@ def GB(x, eta):
 def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsilon_inf):
     """
     Calculates the polar optical phonon "in" and "out" scattering rates.
-    This method is defined outside of the AMSET class to enable parallelization
+    This method is defined outside of the Amset class to enable parallelization
 
     Args:
         tp (str): type of the bands
@@ -271,8 +271,8 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
         ik (int): the k-point index
         once_called (bool): whether this function was once called hence S_o and
             S_o_th calculated once or not. Caches already calculated properties
-        kgrid (dict): the main kgrid variable in AMSET (AMSET.kgrid)
-        cbm_vbm (dict): from AMSET.cbm_vbm, containing cbm and vbm energy
+        kgrid (dict): the main kgrid variable in Amset (Amset.kgrid)
+        cbm_vbm (dict): from Amset.cbm_vbm, containing cbm and vbm energy
         epsilon_s (float): static dielectric constant
         epsilon_inf (float): high-frequency dielectric constant
 
@@ -403,7 +403,7 @@ def find_fermi_SPB(cbm_vbm, c, T, tolerance=0.01, alpha=0.02, max_iter=1000):
     """
     Not tested! Returns the fermi level based on single parabolic band (SPB)
     assumption. Note that this function is currently not tested and not used
-    in AMSET
+    in Amset
 
     Args:
         cbm_vbm (dict):
@@ -446,7 +446,7 @@ def get_tp(c):
     elif c > 0:
         return "p"
     else:
-        raise ValueError("The carrier concentration cannot be zero! AMSET stops now!")
+        raise ValueError("The carrier concentration cannot be zero! Amset stops now!")
 
 
 def get_angle(v1, v2):
@@ -637,7 +637,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
         velocities ([3x1 array]): velocity vectors
         masses ([3x3 matrix]): list of effective mass tensors
     """
-    #TODO: effective mass is still inconsistent between btp1 and btp2 w/o any transformation used since it is not used in AMSET ok but has to be checked with the right transformation
+    #TODO: effective mass is still inconsistent between btp1 and btp2 w/o any transformation used since it is not used in Amset ok but has to be checked with the right transformation
     if matrix is None:
         matrix = np.eye(3)
     if not sgn:

@@ -1,4 +1,4 @@
-from amset.core import AMSET
+from amset.core import Amset
 import logging
 import os
 
@@ -24,20 +24,20 @@ if __name__ == "__main__":
     coeff_file = os.path.join(GaAs_path, "fort.123_GaAs_k23")
 
 
-    AMSET = AMSET(calc_dir='.',
+    amset = Amset(calc_dir='.',
                   vasprun_file=os.path.join(GaAs_path, "vasprun.xml"),
                   material_params=GaAs_params,
                   model_params = model_params,
                   dopings= [-2e15],
                   temperatures=[300, 600])
 
-    # running AMSET
-    AMSET.run(coeff_file=coeff_file, kgrid_tp="very coarse")
+    # running Amset
+    amset.run(coeff_file=coeff_file, kgrid_tp="very coarse")
 
     # generating files and outputs
-    AMSET.write_input_files()
-    AMSET.to_csv()
-    AMSET.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
-               carrier_types=AMSET.all_types, save_format=None)
-    AMSET.to_file()
-    AMSET.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
+    amset.write_input_files()
+    amset.to_csv()
+    amset.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
+               carrier_types=amset.all_types, save_format=None)
+    amset.to_file()
+    amset.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
