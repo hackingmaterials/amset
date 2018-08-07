@@ -816,46 +816,11 @@ class Amset(object):
         if not os.path.exists(path):
             os.makedirs(name=path)
 
-        material_params = {
-            "epsilon_s": self.epsilon_s,
-            "epsilon_inf": self.epsilon_inf,
-            "C_el": self.C_el,
-            "P_PIE": self.P_PIE,
-            "E_D": self.E_D,
-            "N_dis": self.N_dis,
-            "scissor": self.scissor,
-            "donor_charge": self.charge["n"],
-            "acceptor_charge": self.charge["p"],
-            "dislocations_charge": self.charge["dislocations"],
-            "important_points": self.important_pts,
-            "user_bandgap": self.user_bandgap
-        }
+        material_params = self.material_params.copy()
         if self.W_POP:
             material_params["W_POP"] = self.W_POP / (1e12 * 2 * pi)
-        else:
-            material_params["W_POP"] = self.W_POP
-
-        model_params = {
-            "bs_is_isotropic": self.bs_is_isotropic,
-            "elastic_scats": self.elastic_scats,
-            "inelastic_scats": self.inelastic_scats,
-            "poly_bands": self.poly_bands
-        }
-
-        performance_params = {
-            "nkibz": self.nkibz,
-            "dE_min": self.dE_min,
-            "Ecut": self.Ecut,
-            "Ecut_max": self.Ecut_max,
-            "dos_bwidth": self.dos_bwidth,
-            "nkdos": self.nkdos,
-            "BTE_iters": self.BTE_iters,
-            "max_nbands": self.max_nbands,
-            "max_normk0": self.max_normk0,
-            "max_nvalleys": self.max_nvalleys,
-            "n_jobs": self.n_jobs,
-            "interpolation": self.interpolation
-        }
+        model_params = self.model_params
+        performance_params = self.performance_params
 
         with open(os.path.join(path, "material_params.json"), "w") as fp:
             json.dump(material_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
@@ -911,6 +876,21 @@ class Amset(object):
         dislocations_charge = params.get("dislocations_charge", 1.0)
         self.charge = {"n": donor_charge, "p": acceptor_charge, "dislocations": dislocations_charge}
         self.important_pts = params.get('important_points', None)
+        self.material_params = {
+            "epsilon_s": self.epsilon_s,
+            "epsilon_inf": self.epsilon_inf,
+            "C_el": self.C_el,
+            "P_PIE": self.P_PIE,
+            "E_D": self.E_D,
+            "N_dis": self.N_dis,
+            "scissor": self.scissor,
+            "donor_charge": self.charge["n"],
+            "acceptor_charge": self.charge["p"],
+            "dislocations_charge": self.charge["dislocations"],
+            "important_points": self.important_pts,
+            "user_bandgap": self.user_bandgap
+        }
+
 
 
     def set_model_params(self, params=None):
@@ -933,6 +913,12 @@ class Amset(object):
         self.soc = params.get("soc", False)
         self.logger.info("bs_is_isotropic: {}".format(self.bs_is_isotropic))
         self.independent_valleys = params.get('independent_valleys', False)
+        self.model_params = {
+            "bs_is_isotropic": self.bs_is_isotropic,
+            "elastic_scats": self.elastic_scats,
+            "inelastic_scats": self.inelastic_scats,
+            "poly_bands": self.poly_bands
+        }
 
 
     def set_performance_params(self, params=None):
@@ -977,6 +963,20 @@ class Amset(object):
             except ImportError:
                 self.logger.error('Failed to import BoltzTraP2! '
                                   '"boltztrap2" interpolation not available.')
+        self.performance_params = {
+            "nkibz": self.nkibz,
+            "dE_min": self.dE_min,
+            "Ecut": self.Ecut,
+            "Ecut_max": self.Ecut_max,
+            "dos_bwidth": self.dos_bwidth,
+            "nkdos": self.nkdos,
+            "BTE_iters": self.BTE_iters,
+            "max_nbands": self.max_nbands,
+            "max_normk0": self.max_normk0,
+            "max_nvalleys": self.max_nvalleys,
+            "n_jobs": self.n_jobs,
+            "interpolation": self.interpolation
+        }
 
 
     def __getitem__(self, key):
@@ -2454,7 +2454,6 @@ class Amset(object):
                         'written in {}'.format(fname, fname0+'_'+str(n)))
                 fname = fname0 + '_' + str(n)
                 n += 1
-
         out_d = self.as_dict()
 
         # write the output dict to file
@@ -2466,16 +2465,28 @@ class Amset(object):
 
 
     def as_dict(self):
+        """
+        Returns the Amset onbject and its selected variables as python
+            dictionary (dict)
 
-        # make the output dict
-        out_d = {'kgrid0': self.kgrid0, 'egrid0': self.egrid0,
+        Returns (dict):
+        """
+        out_d = {'kgrid0': self.kgrid0,
+                 'egrid0': self.egrid0,
                  'cbm_vbm': self.cbm_vbm,
-                 'mobility': self.mobility, 'epsilon_s': self.epsilon_s,
+                 'mobility': self.mobility,
                  'elastic_scats': self.elastic_scats,
                  'inelastic_scats': self.inelastic_scats,
                  'Efrequency0': self.Efrequency0,
-                 'dopings': self.dopings, 'temperatures': self.temperatures}
+                 'dopings': self.dopings,
+                 'temperatures': self.temperatures,
+                 'material_params': self.material_params,
+                 'performance_params': self.performance_params,
+                 'model_params': self.model_params,
+                 'all_types': self.all_types,
+                 }
         return out_d
+
 
     @staticmethod
     def from_file(path=None, dir_name="run_data", filename="amsetrun.json.gz"):
@@ -2488,13 +2499,16 @@ class Amset(object):
         amset = Amset(calc_dir=path, material_params={'epsilon_s': d['epsilon_s']})
         amset.kgrid0 = d['kgrid0']
         amset.egrid0 = d['egrid0']
+        amset.cbm_vbm = d['cbm_vbm']
         amset.mobility = d['mobility']
         amset.elastic_scats = d['elastic_scats']
         amset.inelastic_scats = d['inelastic_scats']
-        amset.cbm_vbm = d['cbm_vbm']
         amset.Efrequency0 = d['Efrequency0']
         amset.dopings = [float(dope) for dope in d['dopings']]
         amset.temperatures = [float(T) for T in d['temperatures']]
+        amset.material_params = d['material_params']
+        amset.performance_params = d['performance_params']
+        amset.model_params = d['model_params']
         amset.all_types = list(set([get_tp(c) for c in amset.dopings]))
         return amset
 
