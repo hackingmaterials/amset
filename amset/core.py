@@ -86,7 +86,7 @@ class Amset(object):
 
      """
     def __init__(self, calc_dir, material_params, vasprun_file=None,
-                 model_params={}, performance_params={},
+                 model_params=None, performance_params=None,
                  dopings=None, temperatures=None, integration='e', loglevel=None):
         """
         Args:
@@ -132,7 +132,7 @@ class Amset(object):
         Very similar to the run method except that it is time-profiled.
 
         Args:
-            see args for run() method
+            see args (coeff_file, kgrid_tp and write_outputs) for run() method
             nfuncs (int): only print the nfuncs most time-consuming functions
         """
         profiler = cProfile.Profile()
@@ -913,7 +913,7 @@ class Amset(object):
         self.important_pts = params.get('important_points', None)
 
 
-    def set_model_params(self, params):
+    def set_model_params(self, params=None):
         """
         Set (or retrieve from input parameters) instance variables related to
         the model and the level of the theory; these are set based on params
@@ -924,6 +924,7 @@ class Amset(object):
 
         Returns (None):
         """
+        params = params or {}
         self.bs_is_isotropic = params.get("bs_is_isotropic", True)
         self.elastic_scats = params.get("elastic_scats", ["ACD", "IMP", "PIE"])
         self.inelastic_scats = params.get("inelastic_scats", ["POP"])
@@ -934,7 +935,7 @@ class Amset(object):
         self.independent_valleys = params.get('independent_valleys', False)
 
 
-    def set_performance_params(self, params):
+    def set_performance_params(self, params=None):
         """
         Set (or retrieve from input parameters) that are related to running
         performance and speed and store them as corresponding instance variables
@@ -945,6 +946,7 @@ class Amset(object):
 
         Returns (None):
         """
+        params = params or {}
         self.nkibz = params.get("nkibz", 40)
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 5)
@@ -2453,13 +2455,7 @@ class Amset(object):
                 fname = fname0 + '_' + str(n)
                 n += 1
 
-        # make the output dict
-        out_d = {'kgrid0': self.kgrid0, 'egrid0': self.egrid0, 'cbm_vbm': self.cbm_vbm,
-                 'mobility': self.mobility, 'epsilon_s': self.epsilon_s,
-                 'elastic_scats': self.elastic_scats,
-                 'inelastic_scats': self.inelastic_scats,
-                 'Efrequency0': self.Efrequency0,
-                 'dopings': self.dopings, 'temperatures': self.temperatures}
+        out_d = self.as_dict()
 
         # write the output dict to file
         with gzip.GzipFile(os.path.join(path, '{}.json.gz'.format(fname)),
@@ -2468,6 +2464,18 @@ class Amset(object):
             json_bytes = json_str.encode('utf-8')
             fp.write(json_bytes)
 
+
+    def as_dict(self):
+
+        # make the output dict
+        out_d = {'kgrid0': self.kgrid0, 'egrid0': self.egrid0,
+                 'cbm_vbm': self.cbm_vbm,
+                 'mobility': self.mobility, 'epsilon_s': self.epsilon_s,
+                 'elastic_scats': self.elastic_scats,
+                 'inelastic_scats': self.inelastic_scats,
+                 'Efrequency0': self.Efrequency0,
+                 'dopings': self.dopings, 'temperatures': self.temperatures}
+        return out_d
 
     @staticmethod
     def from_file(path=None, dir_name="run_data", filename="amsetrun.json.gz"):
