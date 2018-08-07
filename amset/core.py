@@ -888,7 +888,8 @@ class Amset(object):
             "acceptor_charge": self.charge["p"],
             "dislocations_charge": self.charge["dislocations"],
             "important_points": self.important_pts,
-            "user_bandgap": self.user_bandgap
+            "user_bandgap": self.user_bandgap,
+            "W_POP": self.W_POP
         }
 
 
