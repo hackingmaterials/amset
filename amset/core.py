@@ -292,7 +292,13 @@ class Amset(object):
                     continue
 
                 # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
-                self.init_egrid(once_called=False)
+                corrupt_tps = self.init_egrid(once_called=False)
+                for tp in corrupt_tps:
+                    self.count_mobility[self.ibrun][tp] = False
+                if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
+                    self.logger.info('skipping this valley as it is unimportant or its energies are way off...')
+                    continue
+
                 self.bandgap = min(self.egrid["n"]["all_en_flat"]) \
                                - max(self.egrid["p"]["all_en_flat"])
                 if abs(self.bandgap - (self.cbm_vbm["n"]["energy"] \
@@ -1171,7 +1177,9 @@ class Amset(object):
         Just to initialize the energy grid (egrid) and the energy values as
         opposed to all the variables defined in the final egrid.
 
-        Returns (None):
+        Returns ([str]): keep track of which types failed; "n" or "p" type or
+            neither. Cause of failure could be that too few k-points are left
+            for that type.
         """
         self.egrid = {
             "n": {"energy": [], "DOS": [], "all_en_flat": [],
@@ -1242,8 +1250,14 @@ class Amset(object):
         Args:
             once_called (bool): whether init_egrid was called once before or
                 not. It is used internally for caching.
+
+        Returns ([str]): keep track of which types failed; "n" or "p" type or
+            neither. Cause of failure could be that too few k-points are left
+            for that type.
         """
-        self.pre_init_egrid()
+        corrupt_tps = self.pre_init_egrid()
+        if corrupt_tps["n"] and corrupt_tps["p"]:
+            return corrupt_tps
         if not once_called:
             self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
             for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
@@ -1286,6 +1300,7 @@ class Amset(object):
                                 prop_func=self.seeb_int_num)
         self.calculate_property(prop_name="Seebeck_integral_denominator",
                                 prop_func=self.seeb_int_denom)
+        return corrupt_tps
 
 
     def get_Eidx_in_dos(self, E, Estep=None):
@@ -1642,13 +1657,11 @@ class Amset(object):
                 self.logger.info("enforced scattering ratio for {}-type elastic scattering at band {}:\n {}".format(
                         tp, ib, enforced_ratio))
                 if enforced_ratio > 0.9:
-                    # TODO: this should be an exception but for now I turned to warning for testing.
                     warnings.warn("the k-grid is too coarse for an acceptable simulation of elastic scattering in {};"
                         .format(self.tp_title[tp]))
 
                 avg_Ediff = sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 1)
                 if avg_Ediff > avg_Ediff_tolerance:
-                    #TODO: change it back to ValueError as it was originally, it was switched to warning for fast debug
                     warnings.warn("{}-type average energy difference of the enforced scattered k-points is more than"
                                   " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
 
