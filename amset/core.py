@@ -1181,6 +1181,8 @@ class Amset(object):
             neither. Cause of failure could be that too few k-points are left
             for that type.
         """
+        min_nE = 2
+        corrupt_tps = []
         self.egrid = {
             "n": {"energy": [], "DOS": [], "all_en_flat": [],
                   "all_ks_flat": [], "mobility": {}},
@@ -1234,11 +1236,13 @@ class Amset(object):
                 self.kgrid_to_egrid_idx[tp].append([E_idx[tp][-1]])
                 self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(self.egrid[tp]["energy"][-1])][1])
             self.egrid[tp]["size"] = len(self.egrid[tp]["energy"])
-        for tp in ["n", "p"]:
             self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
-        min_nE = 2
-        if len(self.Efrequency["n"]) < min_nE or len(self.Efrequency["p"]) < min_nE:
-            raise ValueError("The final egrid have fewer than {} energy values, Amset stops now".format(min_nE))
+            if len(self.Efrequency[tp]) < min_nE:
+                warnings.warn("The final {}-egrid have fewer than {} energy values".format(tp, min_nE))
+                corrupt_tps.append(tp)
+        # if len(self.Efrequency["n"]) < min_nE or len(self.Efrequency["p"]) < min_nE:
+            # raise ValueError("The final egrid have fewer than {} energy values, Amset stops now".format(min_nE))
+        return corrupt_tps
 
 
     def init_egrid(self, once_called):
@@ -1256,7 +1260,7 @@ class Amset(object):
             for that type.
         """
         corrupt_tps = self.pre_init_egrid()
-        if corrupt_tps["n"] and corrupt_tps["p"]:
+        if "n" in corrupt_tps and "p" in corrupt_tps:
             return corrupt_tps
         if not once_called:
             self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
