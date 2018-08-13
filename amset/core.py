@@ -1942,7 +1942,7 @@ class Amset(object):
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
         diff = [0.0 for prop in prop_list]
-        integral = self.gs
+        integral = np.array([self.gs, self.gs, self.gs])
         for ie in range(imax_occ):
             E = self.egrid[tp]["energy"][ie]
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
@@ -2991,6 +2991,7 @@ class Amset(object):
 
                     faulty_overall_mobility = False
                     temp_avg = np.array([0.0, 0.0, 0.0])
+                    print('mu_overall_valley: ', mu_overall_valley)
                     for transport in self.elastic_scats + self.inelastic_scats:
                         temp_avg += 1/ valley_transport[tp][transport][c][T]
                         if norm(mu_overall_valley) > norm(valley_transport[tp][transport][c][T]):
