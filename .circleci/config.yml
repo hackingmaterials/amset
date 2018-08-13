@@ -10,12 +10,13 @@ jobs:
       - run:
           name: env and run tests
           command: |
-            sudo apt-get update
-            sudo apt-get install build-essential
             python3 -m venv test_env
             . test_env/bin/activate
+            sudo apt-get update
+            sudo apt-get install build-essential
+            sudo apt-get install gcc g++
             pip install --upgrade pip
-            pip install --quiet numpy cython cmake
+            pip install --quiet numpy cmake
             pip install --quiet -r requirements.txt
             pip install -r requirements-optional.txt
             python setup.py test
