@@ -14,7 +14,7 @@ jobs:
             . test_env/bin/activate
             pip install --upgrade pip
             pip install --quiet numpy cython cmake
-            pip install -r requirements.txt
-            pip install --quiet -r requirements-optional.txt
+            pip install --quiet -r requirements.txt
+            pip install -r requirements-optional.txt
             python setup.py test
           no_output_timeout: 60m
