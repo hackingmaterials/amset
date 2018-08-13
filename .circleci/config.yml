@@ -12,6 +12,7 @@ jobs:
           command: |
             python3 -m venv test_env
             . test_env/bin/activate
+            sudo apt-get install build-essential
             pip install --upgrade pip
             pip install --quiet numpy
             pip install --quiet -r requirements.txt
