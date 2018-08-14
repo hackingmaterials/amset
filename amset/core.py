@@ -967,7 +967,7 @@ class Amset(object):
         self.BTE_iters = params.get("BTE_iters", 5)
         self.n_jobs = params.get("n_jobs", -1)
         if self.n_jobs == -1:
-            self.n_jobs = min(cpu_count(), 32)
+            self.n_jobs = min(cpu_count(), 16)
         self.max_nbands = params.get("max_nbands", None)
         self.max_normk0 = params.get("max_normk", None)
         self.max_normk = {'n': self.max_normk0, 'p': self.max_normk0}
