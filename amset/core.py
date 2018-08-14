@@ -161,6 +161,9 @@ class Amset(object):
         """
         self.logger.info('Running on "{}" mesh for each valley'.format(kgrid_tp))
         self.logger.info('band interpolation="{}" method'.format(self.interpolation))
+        self.logger.info('max_nbands="{}"'.format(self.max_nbands))
+        self.logger.info('max_nvalleys="{}"'.format(self.max_nvalleys))
+        self.logger.info('max_normk="{}"'.format(self.max_normk))
         self.read_vrun(vasprun_file=self.vasprun_file, filename="vasprun.xml")
         self._initialize_transport_vars(coeff_file=coeff_file)
         # make the reference energy consistent w/ interpolation rather than DFT
