@@ -2507,7 +2507,6 @@ class Amset(object):
                  'mobility': self.mobility,
                  'elastic_scats': self.elastic_scats,
                  'inelastic_scats': self.inelastic_scats,
-                 'Efrequency0': self.Efrequency0,
                  'dopings': self.dopings,
                  'temperatures': self.temperatures,
                  'material_params': self.material_params,
@@ -2526,14 +2525,17 @@ class Amset(object):
 
         with gzip.GzipFile(os.path.join(path, filename), mode='r') as fp:
             d = json.load(fp, cls=MontyDecoder)
-        amset = Amset(calc_dir=path, material_params={'epsilon_s': d['epsilon_s']})
+        amset = Amset(calc_dir=path,
+                      material_params=d['material_params'],
+                      model_params=d['model_params'],
+                      dopings=d['dopings'],
+                      temperatures=d['temperatures'])
         amset.kgrid0 = d['kgrid0']
         amset.egrid0 = d['egrid0']
         amset.cbm_vbm = d['cbm_vbm']
         amset.mobility = d['mobility']
         amset.elastic_scats = d['elastic_scats']
         amset.inelastic_scats = d['inelastic_scats']
-        amset.Efrequency0 = d['Efrequency0']
         amset.dopings = [float(dope) for dope in d['dopings']]
         amset.temperatures = [float(T) for T in d['temperatures']]
         amset.material_params = d['material_params']
