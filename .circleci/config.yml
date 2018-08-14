@@ -19,6 +19,6 @@ jobs:
 #            sudo apt-get install -y gcc g++
 #            CFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
 #            CXXFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
-            pip install -r requirements-optional.txt
+            pip install --quiet -r requirements-optional.txt
             python setup.py test
           no_output_timeout: 60m
