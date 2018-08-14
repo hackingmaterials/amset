@@ -16,7 +16,7 @@ jobs:
             pip install --quiet numpy cython cmake
             pip install --quiet -r requirements.txt
             sudo apt-get update
-            sudo apt-get install gcc
+            sudo apt-get install gcc-8.2
             CFLAGS="-std=c++11 -stdlib=libc++"
             pip install -r requirements-optional.txt
             python setup.py test
