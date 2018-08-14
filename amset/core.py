@@ -251,7 +251,7 @@ class Amset(object):
                     kmax = self.max_normk0 or 5.0
                     self.max_normk = {'n': kmax, 'p': kmax}
                     if self.max_normk0 is None:
-                        self.logger.warn('max_normk set to {} to avoid'
+                        self.logger.warn('max_normk set to {} to avoid '
                                          'unlrealistic scattering'.format(kmax))
 
                 self.logger.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
@@ -1940,13 +1940,15 @@ class Amset(object):
         return integral
 
 
-    def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, interpolation_nsteps=None):
+    def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, interpolation_nsteps=None, return_array=False):
         imax_occ = len(self.Efrequency[tp][:-1])
 
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
-        diff = [0.0 for prop in prop_list]
-        integral = np.array([self.gs, self.gs, self.gs])
+        diff = [0.0 for _ in prop_list]
+        integral = self.gs
+        if return_array:
+            integral = np.array([self.gs, self.gs, self.gs])
         for ie in range(imax_occ):
             E = self.egrid[tp]["energy"][ie]
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
@@ -3260,7 +3262,7 @@ if __name__ == "__main__":
                           "max_normk": None,
                           "n_jobs": -1,
                           "max_nvalleys": 1,
-                          "interpolation": "boltztrap2",
+                          "interpolation": "boltztrap1",
                           "Ecut_max": 1.0
                           }
 
@@ -3282,7 +3284,7 @@ if __name__ == "__main__":
                   # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   temperatures = [300],
                   # temperatures = [300, 600, 1000],
-                  integration='k',
+                  integration='e',
                   )
     amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
 
