@@ -124,6 +124,7 @@ class Amset(object):
         self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
         self.counter = 0 # a global counter just for debugging
         self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
+        self.transport_iscalled = False
 
 
     def run_profiled(self, coeff_file=None, kgrid_tp="coarse",
@@ -261,8 +262,15 @@ class Amset(object):
                 self.logger.info('important points for this band:\n{}'.format(important_points))
 
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
-                    self.logger.info('skipping this valley as it is unimportant for both n and p type...')
-                    continue
+                    if self.ibrun==len(ibands_tuple)-1 and \
+                            ivalley==max_nvalleys-1 and \
+                            not self.transport_iscalled:
+                        raise AmsetError('Ran out of bands and valleys as there'
+                                         ' was an issue with each of them (e.g.'
+                                         ' too many off-energy points')
+                    else:
+                        self.logger.info('skipping this valley as it is unimportant for both n and p type...')
+                        continue
                 kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
                 kpts, energies=self.get_energy_array(coeff_file, kpts,
                                                      once_called=once_called,
@@ -280,12 +288,21 @@ class Amset(object):
                     due to off enery...'.format(self.ibrun, important_points['p'][0]))
                     self.count_mobility[self.ibrun]['p'] = False
 
+
+
                 if not self.count_mobility[self.ibrun]['n'] and \
                         not self.count_mobility[self.ibrun]['p']:
-                    self.logger.info("skipping this iband as it's unimportant"
-                                     " or energies are off:\n{}".format(
-                        important_points))
-                    continue
+                    if self.ibrun==len(ibands_tuple)-1 and \
+                            ivalley==max_nvalleys-1 and \
+                            not self.transport_iscalled:
+                        raise AmsetError('Ran out of bands and valleys as there'
+                                         ' was an issue with each of them (e.g.'
+                                         ' too many off-energy points')
+                    else:
+                        self.logger.info('skipping this valley as it is '
+                                         'unimportant for both n and p type...')
+                        continue
+
 
                 corrupt_tps = self.init_kgrid(kpts, important_points)
                 for tp in corrupt_tps:
@@ -2816,6 +2833,8 @@ class Amset(object):
     # calculates transport properties for isotropic materials
     def calculate_transport_properties_with_k(self, test_anisotropic, important_points):
         # calculate mobility by averaging velocity per electric field strength
+
+        self.transport_iscalled
         mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scats} for tp in ["n", "p"]}
         valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
                   self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
@@ -2974,6 +2993,7 @@ class Amset(object):
         Mobility and Seebeck coefficient are calculated by integrating the
         perturbation of electron distribution and group velocity over the energy
         """
+        self.transport_iscalled = True
         valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
                   self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
 
