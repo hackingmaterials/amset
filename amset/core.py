@@ -160,6 +160,7 @@ class Amset(object):
             many instance variables get updated with calculated properties.
         """
         self.logger.info('Running on "{}" mesh for each valley'.format(kgrid_tp))
+        self.logger.info('band interpolation="{}" method'.format(self.interpolation))
         self.read_vrun(vasprun_file=self.vasprun_file, filename="vasprun.xml")
         self._initialize_transport_vars(coeff_file=coeff_file)
         # make the reference energy consistent w/ interpolation rather than DFT
