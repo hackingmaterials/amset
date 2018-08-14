@@ -749,7 +749,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
         band , _, _ = interpolate_bs(hs_kpoints, interp_params, iband=iband,
                                       method=method, scissor=scissor,
                                       matrix=bs.structure.lattice.matrix,
-                                      n_jobs=n_jobs, sgn=(-1)**iband)
+                                      n_jobs=n_jobs, sgn=(-1)**ip)
         global_ext_idx = (1-iband) * np.argmax(band) + iband * np.argmin(band)
         if eref is None:
             global_extrema[tp]['energy'] = band[global_ext_idx]
@@ -789,7 +789,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
         subband, _, _ = interpolate_bs(final_extrema[tp], interp_params, iband=iband,
                                     method=method, scissor=scissor,
                                     matrix=bs.structure.lattice.matrix,
-                                    n_jobs=n_jobs, sgn=(-1) ** iband)
+                                    n_jobs=n_jobs, sgn=(-1) ** ip)
         sorted_idx = np.argsort(subband)
         if iband==0:
             sorted_idx = sorted_idx[::-1]
