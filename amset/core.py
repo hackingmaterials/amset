@@ -31,8 +31,8 @@ from amset.utils.tools import norm, generate_k_mesh_axes, \
     fermi_integral, calculate_Sio, remove_from_grid, get_tp, \
     remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
     get_energy_args, get_bindex_bspin, get_bs_extrema, \
-    AmsetError, kpts_to_first_BZ, get_dos_boltztrap2, \
-    setup_custom_logger, insert_intermediate_kpoints, interpolate_bs, \
+    AmsetError, get_dos_boltztrap2, \
+    setup_custom_logger, interpolate_bs, \
     get_dft_orbitals, generate_adaptive_kmesh, create_plots
 
 from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, \
@@ -385,11 +385,13 @@ class Amset(object):
                     valley_transport = self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
                 elif self.integration=='e':
                     if len(self.Efrequency['n'])<=1 or len(self.Efrequency['p'])<=1:
-                        raise AmsetError('The egrid is too small for n- or p-'
+                        raise AmsetError(self.logger,
+                                         'The egrid is too small for n- or p-'
                                          'type for e-integration of transport')
                     valley_transport = self.calculate_transport_properties_with_E(important_points)
                 else:
-                    raise AmsetError('Unsupported integration method: {}'.format(self.integration))
+                    raise AmsetError(self.logger,'Unsupported integration '
+                                    'method: {}'.format(self.integration))
                 self.logger.info('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
                 self.logger.info('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
                 pprint(valley_transport)
@@ -2441,7 +2443,8 @@ class Amset(object):
             step /= 10.0
 
         if relative_error[fermi_idx] > rtol_loose:
-            raise AmsetError('The calculated concentration is not within {}% of'
+            raise AmsetError(self.logger,
+                             'The calculated concentration is not within {}% of'
             ' the given value ({}) at T={}'.format(rtol_loose*100, c, T))
         elif relative_error[fermi_idx] > rtol:
             self.logger.warning('Fermi calculated with a loose tolerance of {}%'
