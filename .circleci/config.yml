@@ -7,13 +7,6 @@ jobs:
       - image: circleci/python:3.6.1
     steps:
       - checkout
-      - pre:
-          name: installation
-          command: |
-            sudo apt-get update
-            sudo apt-get install -y gcc g++
-            CFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
-            CXXFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
       - run:
           name: env and run tests
           command: |
@@ -22,6 +15,8 @@ jobs:
             pip install --upgrade pip
             pip install --quiet numpy cython cmake
             pip install --quiet -r requirements.txt
+            sudo apt-get update
+            sudo apt-get install -y gcc g++
             pip install -r requirements-optional.txt
             python setup.py test
           no_output_timeout: 60m
