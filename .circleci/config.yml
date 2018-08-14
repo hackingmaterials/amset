@@ -17,6 +17,8 @@ jobs:
             pip install --quiet -r requirements.txt
             apt-get update
             apt-get install -y gcc g++
+            CFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
+            CXXFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
             pip install -r requirements-optional.txt
             python setup.py test
           no_output_timeout: 60m
