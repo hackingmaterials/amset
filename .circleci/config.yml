@@ -10,10 +10,8 @@ jobs:
       - pre:
           name: installation
           command: |
-          sudo apt-get update
-          sudo apt-get install -y gcc g++
-          CFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
-          CXXFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
+            sudo apt-get update
+            sudo apt-get install -y gcc g++
       - run:
           name: env and run tests
           command: |
