@@ -4,9 +4,6 @@ from __future__ import unicode_literals, absolute_import
 import numpy as np
 import os
 import unittest
-
-
-from amset.core import Amset
 from amset.utils.tools import kpts_to_first_BZ, get_closest_k, \
     remove_duplicate_kpoints, get_energy_args, get_bindex_bspin, \
     interpolate_bs, get_bs_extrema
@@ -96,7 +93,7 @@ class AmsetToolsTest(unittest.TestCase):
         self.assertListEqual(kpts_out, remove_duplicate_kpoints(kpts_orig))
 
 
-    def test_interpolate_bs(self, check_bzt2=True):
+    def test_interpolate_bs(self, check_bzt2=False):
         bs = self.GaAs_vrun.get_band_structure()
         vbm_idx, vbm_bidx = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
         cbm_idx, cbm_bidx = get_bindex_bspin(bs.get_cbm(), is_cbm=True)
