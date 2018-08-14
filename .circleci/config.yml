@@ -15,8 +15,8 @@ jobs:
             pip install --upgrade pip
             pip install --quiet numpy cython cmake
             pip install --quiet -r requirements.txt
-            sudo apt-get update
-            sudo apt-get install gcc g++
+            apt-get update
+            apt-get install -y gcc g++
             pip install -r requirements-optional.txt
             python setup.py test
           no_output_timeout: 60m
