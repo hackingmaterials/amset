@@ -168,27 +168,44 @@ class Amset(object):
         self._initialize_transport_vars(coeff_file=coeff_file)
         # make the reference energy consistent w/ interpolation rather than DFT
         self.update_cbm_vbm_dos(coeff_file=coeff_file)
-        #TODO: if we use ibands_tuple, then for each couple of conduction/valence bands we only use 1 band together (i.e. always ib==0)
+        
+        # with ibands_tuple, for each couple of conduction/valence bands we 
+        # only use 1 band together (i.e. always ib==0)
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['included'] = 1
         self.logger.debug("cbm_vbm after updating:\n {}".format(self.cbm_vbm))
         if self.integration == 'k':
-            kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp=kgrid_tp)
+            kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 
+                                                         'p': [[0.0, 0.0, 0.0]]}, 
+                                       kgrid_tp=kgrid_tp)
             # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
-            _, _ = self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=True, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
-            self.fermi_level = self.find_fermi_k(num_bands=self.initial_num_bands)
+            _, _ = self.get_energy_array(coeff_file, kpts, 
+                                         once_called=False, 
+                                         return_energies=True, 
+                                         num_bands=self.init_nbands, 
+                                         nbelow_vbm=0, 
+                                         nabove_cbm=0)
+            self.fermi_level = self.find_fermi_k(num_bands=self.init_nbands)
         elif self.integration == 'e':
             # method 1: good for k-integration but limited to symmetric lattice vectors
-            kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, kgrid_tp='very coarse')
-            self.get_energy_array(coeff_file, kpts, once_called=False, return_energies=False, num_bands=self.initial_num_bands, nbelow_vbm=0, nabove_cbm=0)
-            self.fermi_level = {c: {T: None for T in self.temperatures} for c in self.dopings}
+            kpts = self.generate_kmesh(
+                important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, 
+                kgrid_tp='very coarse')
+            self.get_energy_array(coeff_file, kpts, 
+                                  once_called=False, 
+                                  return_energies=False, 
+                                  num_bands=self.init_nbands, 
+                                  nbelow_vbm=0, 
+                                  nabove_cbm=0)
+            self.fermi_level = {c: {T: None for T in self.temperatures} \
+                                for c in self.dopings}
             for c in self.dopings:
                 for T in self.temperatures:
                     self.fermi_level[c][T] = self.find_fermi(c, T)
         self.logger.info('fermi level = {}'.format(self.fermi_level))
-        self.logger.info('here initial number of bands:\n{}'.format(self.initial_num_bands))
-        vibands = list(range(self.initial_num_bands['p']))
-        cibands = list(range(self.initial_num_bands['n']))
+        self.logger.info('initial number of bands:\n{}'.format(self.init_nbands))
+        vibands = list(range(self.init_nbands['p']))
+        cibands = list(range(self.init_nbands['n']))
 
         if len(vibands) > len(cibands):
             ibands_tuple = list(zip(vibands, cibands+[cibands[0]]*(len(vibands)-len(cibands))))
@@ -263,7 +280,8 @@ class Amset(object):
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
                     self.logger.info('skipping this valley as it is unimportant for both n and p type...')
                     continue
-                kpts = self.generate_kmesh(important_points=important_points, kgrid_tp=kgrid_tp)
+                kpts = self.generate_kmesh(important_points=important_points,
+                                           kgrid_tp=kgrid_tp)
                 kpts, energies=self.get_energy_array(coeff_file, kpts,
                                                      once_called=once_called,
                                                      return_energies=True,
@@ -504,9 +522,12 @@ class Amset(object):
         if not coeff_file and self.interpolation == "boltztrap1":
             self.logger.warning(
                 '\nRunning BoltzTraP to generate the cube file...')
-            boltztrap_runner = BoltztrapRunner(bs=self.bs, nelec=self.nelec,
+            boltztrap_runner = BoltztrapRunner(bs=self.bs,
+                                               nelec=self.nelec,
                                                doping=[1e20],
-                                               tmax=max(self.temperatures))
+                                               tgrid = 300,
+                                               tmax=max(self.temperatures+[300]),
+                                               scissor=self.scissor)
             boltztrap_runner.run(path_dir=self.calc_dir)
             coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
             self.logger.warning(
@@ -534,8 +555,8 @@ class Amset(object):
                             for c in self.dopings}
         self.ibrun = 0 # counter of the ibands_tuple (band-valley walker)
         self.count_mobility = [{'n': True, 'p': True} \
-                               for _ in range(max(self.initial_num_bands['p'],
-                                                  self.initial_num_bands['n']))]
+                               for _ in range(max(self.init_nbands['p'],
+                                                  self.init_nbands['n']))]
 
 
     def calculate_spb_transport(self):
@@ -1073,7 +1094,7 @@ class Amset(object):
         else:
             self.dos_emin = min(bsd["bands"]["1"][0])
             self.dos_emax = max(bsd["bands"]["1"][-1])
-        self.initial_num_bands = {'n': None, 'p': None}
+        self.init_nbands = {'n': None, 'p': None}
         if self.poly_bands0 is None:
             for i, tp in enumerate(["n", "p"]):
                 Ecut = self.Ecut[tp]
@@ -1083,10 +1104,10 @@ class Amset(object):
                                 + sgn * cbm_vbm[tp]["included"]])) \
                                     - sgn * cbm_vbm[tp]["energy"]) < Ecut:
                     cbm_vbm[tp]["included"] += 1
-                self.initial_num_bands[tp] = cbm_vbm[tp]["included"]
+                self.init_nbands[tp] = cbm_vbm[tp]["included"]
         else:
             cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands0)
-            self.initial_num_bands['n'] = self.initial_num_bands['p'] = len(self.poly_bands0)
+            self.init_nbands['n'] = self.init_nbands['p'] = len(self.poly_bands0)
         cbm_vbm["p"]["bidx"] += 1
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
         self.cbm_vbm = cbm_vbm
