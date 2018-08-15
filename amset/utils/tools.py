@@ -498,7 +498,7 @@ def get_energy_args(coeff_file, ibands):
         engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
             analytical_bands.get_engre(iband=ibands)
     except TypeError as e:
-        raise ValueError('try reducing Ecut to include fewer bands', e)
+        raise ValueError('try reducing max_Ecut to include fewer bands', e)
 
     nstv, vec, vec2 = analytical_bands.get_star_functions(
             latt_points, nsym, symop, nwave, br_dir=br_dir)
@@ -663,7 +663,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
                 results = p.starmap(get_energy, inputs)
         for energy, de, dde in results:
             energy = energy * Ry_to_eV - sgn * scissor / 2.0
-            velocity = abs(np.dot(matrix/np.linalg.norm(matrix), de)) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV # this results in btp1-btp2 consistency but ONLY IF matrix is None
+            velocity = abs(np.dot(matrix/np.linalg.norm(matrix), de)) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
             effective_m = 1/(dde/ 0.52917721067**2*Ry_to_eV) * e / A_to_m**2 * hbar**2 / m_e
             energies.append(energy)
             velocities.append(velocity)
