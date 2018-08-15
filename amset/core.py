@@ -487,9 +487,13 @@ class Amset(object):
         for tp in ['p', 'n']:
             for c in self.dopings:
                 for T in self.temperatures:
-                    self.mobility[tp]['seebeck'][c][T] -= (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T)
+                    self.mobility[tp]['seebeck'][c][T] -= \
+                        (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) \
+                        / (k_B * T)
                     self.mobility[tp]['seebeck'][c][T] *= -1e6 * k_B
-                    self.mobility[tp]["seebeck"][c][T] += 1e6 * self.mobility[tp]["J_th"][c][T]/(self.mobility[tp]["overall"][c][T]*e*abs(c))/dTdz
+                    self.mobility[tp]["seebeck"][c][T] += \
+                        1e6 * self.mobility[tp]["J_th"][c][T]\
+                        /(self.mobility[tp]["overall"][c][T]*e*abs(c))/dTdz
                     for band in list(self.valleys[tp].keys()):
                         for valley_k in list(self.valleys[tp][band].keys()):
                             self.valleys[tp][band][valley_k]["seebeck"][c][T] -= (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T)
@@ -1959,15 +1963,36 @@ class Amset(object):
         return integral
 
 
-    def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False, interpolation_nsteps=None, return_array=False):
+    def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False,
+                         interpolation_nsteps=None):
+        """
+        Integrates the multiplication of prop_list in the egrid over dE where
+            E stands for energy.
+
+        Args:
+            prop_list ([str]): list of property names. These properties must
+                be available in egrid such as "g" or "df0dk" or "ACD". Note
+                that some simple math operations of properties are permitted.
+                    examples:
+                        "1 - f0"
+                        "f0x1-f0"
+                        "/ACD"
+            tp (str): "p" (valence bands) or "n" (conduction bands) type
+            c (float): the carrier concentration
+            T (float): the absolute temperature in Kelvin
+            xDOS (bool): whether to multiply the integrand by density of states
+            xvel (bool): whether to multiply the integrand by the group velocity
+            interpolation_nsteps (int): number of steps (dE) between each
+                energy levels in egrid; the higher the more accurate but slower
+
+        Returns (float): the result of the integrations
+        """
         imax_occ = len(self.Efrequency[tp][:-1])
 
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
         diff = [0.0 for _ in prop_list]
         integral = self.gs
-        if return_array:
-            integral = np.array([self.gs, self.gs, self.gs])
         for ie in range(imax_occ):
             E = self.egrid[tp]["energy"][ie]
             dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
