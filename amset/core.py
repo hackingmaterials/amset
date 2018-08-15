@@ -954,8 +954,8 @@ class Amset(object):
         self.nE_min = params.get("nE_min", 5)
         c_factor = max(1, 3 * abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.25)
         Ecut = params.get("Ecut", c_factor * 5 * k_B * max(self.temperatures + [300]))
-        self.Ecut_max = params.get("Ecut", 1.5) #TODO-AF: set this default Encut based on maximum energy range that the current BS covers between
-        Ecut = min(Ecut, self.Ecut_max)
+        self.max_Ecut = params.get("Ecut", 1.5) #TODO-AF: set this default Encut based on maximum energy range that the current BS covers between
+        Ecut = min(Ecut, self.max_Ecut)
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut/2.0 for tp in ["n", "p"]}
         for tp in ["n", "p"]:
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
@@ -983,7 +983,7 @@ class Amset(object):
             "nkibz": self.nkibz,
             "dE_min": self.dE_min,
             "Ecut": self.Ecut,
-            "Ecut_max": self.Ecut_max,
+            "max_Ecut": self.max_Ecut,
             "dos_bwidth": self.dos_bwidth,
             "nkdos": self.nkdos,
             "BTE_iters": self.BTE_iters,
@@ -1078,8 +1078,10 @@ class Amset(object):
             for i, tp in enumerate(["n", "p"]):
                 Ecut = self.Ecut[tp]
                 sgn = (-1) ** i
-                while abs(min(sgn * np.array(bsd["bands"]["1"][cbm_vbm[tp]["bidx"] + sgn * cbm_vbm[tp]["included"]])) -
-                                          sgn * cbm_vbm[tp]["energy"]) < Ecut:
+                while abs(
+                        min(sgn*np.array(bsd["bands"]["1"][cbm_vbm[tp]["bidx"]\
+                                + sgn * cbm_vbm[tp]["included"]])) \
+                                    - sgn * cbm_vbm[tp]["energy"]) < Ecut:
                     cbm_vbm[tp]["included"] += 1
                 self.initial_num_bands[tp] = cbm_vbm[tp]["included"]
         else:
@@ -3270,7 +3272,7 @@ if __name__ == "__main__":
                           "n_jobs": -1,
                           "max_nvalleys": 1,
                           "interpolation": "boltztrap1",
-                          "Ecut_max": 1.0
+                          "max_Ecut": 1.0
                           }
 
     # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, # experimental
