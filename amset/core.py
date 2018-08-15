@@ -678,7 +678,28 @@ class Amset(object):
     def get_energy_array(self, coeff_file, kpts, once_called=False,
                          return_energies=False, num_bands=None,
                          nbelow_vbm=0, nabove_cbm=0):
+        """
+        Multi-purpose function to populate energy_array instance variable as
+        well as the dos and dos_* instance variables when the function is called
+        for the first time. These are all calculated for a given k-point mesh
+        (kpts) that may be different for n-type and p-type.
 
+        Args:
+            coeff_file (str): the path to the file containing the boltztrap1
+                interpolation coefficients. Only relevant to boltztrap1
+                interpolation method.
+            kpts ({"n": [3x1 array], "p": [3x1 array]}): k-point meshes
+            once_called (bool): whether this function is called once before
+            return_energies (bool): whether to return sorted energy values
+            num_bands ({"n": int, "p": int}): number of bands for n- and p-type
+            nbelow_vbm (int): number of bands below the VBM
+            nabove_cbm (int): number of bands ablove the CBM
+
+        Returns:
+            depending on return_energies only returns back the kpts with k-point
+            coordinates sorted based on their energy value or that and also the
+            sorted energy values.
+        """
         num_bands = num_bands or self.num_bands
         start_time = time.time()
         if self.poly_bands0 is None:
