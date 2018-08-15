@@ -460,8 +460,7 @@ class Amset(object):
                                     k[i] = round(k[i], 2)
                             self.valleys[tp]['band {}'.format(self.ibrun)]['{};{};{}'.format(k[0], k[1], k[2])] = valley_transport[tp]
 
-                kgrid_rm_list = ["effective mass", "kweights",
-                                 "f_th", "S_i_th", "S_o_th"]
+                kgrid_rm_list = ["kweights", "f_th", "S_i_th", "S_o_th"]
                 self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
                 if ivalley==0 and self.ibrun==0:
                     # TODO: make it possible for the user to choose which valley(s) to plot
@@ -1106,15 +1105,19 @@ class Amset(object):
                     cbm_vbm[tp]["included"] += 1
                 self.init_nbands[tp] = cbm_vbm[tp]["included"]
         else:
-            cbm_vbm["n"]["included"] = cbm_vbm["p"]["included"] = len(self.poly_bands0)
-            self.init_nbands['n'] = self.init_nbands['p'] = len(self.poly_bands0)
+            cbm_vbm["n"]["included"] = len(self.poly_bands0)
+            cbm_vbm["p"]["included"] = len(self.poly_bands0)
+            self.init_nbands['n'] = len(self.poly_bands0)
+            self.init_nbands['p'] = len(self.poly_bands0)
         cbm_vbm["p"]["bidx"] += 1
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
         self.cbm_vbm = cbm_vbm
         self.cbm_vbm0 = deepcopy(cbm_vbm)
-        self.valleys = {tp: {'band {}'.format(i): OrderedDict() for i in range(self.cbm_vbm0[tp]['included']) } for tp in ['p', 'n']}
+        self.valleys = {tp: {'band {}'.format(i): OrderedDict() \
+                             for i in range(self.cbm_vbm0[tp]['included']) } \
+                        for tp in ['p', 'n']}
         self.logger.info("original cbm_vbm:\n {}".format(cbm_vbm))
-        self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
+        self.num_bands = {tp:self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
 
 
     def get_cartesian_coords(self, frac_k, reciprocal=True):
@@ -1516,7 +1519,6 @@ class Amset(object):
         self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)", "norm(k)"], "scalar", 0.0, is_nparray=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False)
         self.velocity_signed = {tp: np.array([[[0,0,0] for ik in range(len(kpts[tp]))] for ib in range(self.num_bands[tp])]) for tp in ['n', 'p']}
-        self.initialize_var("kgrid", ["effective mass"], "tensor", 0.0, is_nparray=False)
 
         start_time = time.time()
         rm_idx_list = {"n": [[] for i in range(self.cbm_vbm["n"]["included"])],
@@ -1546,8 +1548,7 @@ class Amset(object):
 
                 iband = i * self.cbm_vbm["p"]["included"] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm[tp]["bidx"] + (i-1)*self.cbm_vbm["p"]["included"]+ib
                 self.kgrid[tp]["energy"][ib], \
-                        self.kgrid[tp]["velocity"][ib], \
-                        self.kgrid[tp]["effective mass"][ib] = \
+                        self.kgrid[tp]["velocity"][ib], _ = \
                     interpolate_bs(self.kgrid[tp]["kpoints"][ib], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
 
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(
@@ -1559,8 +1560,7 @@ class Amset(object):
                     self.kgrid[tp]["norm(actual_k)"][ib][ik] = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
                     if self.poly_bands is not None:
                         self.kgrid[tp]["energy"][ib][ik], \
-                                self.kgrid[tp]["velocity"][ib][ik], \
-                                self.kgrid[tp]["effective mass"][ib][ik] = \
+                                self.kgrid[tp]["velocity"][ib][ik], _ = \
                                 get_poly_energy(
                                     self.kgrid[tp]["cartesian kpoints"][ib][ik],
                                    poly_bands=self.poly_bands, type=tp, ib=ib,
@@ -1587,9 +1587,8 @@ class Amset(object):
             self.logger.debug("average of the {}-type group velocity in kgrid:\n {}".format(
                         tp, np.mean(self.kgrid[tp]["velocity"][0], axis=0)))
 
-        rearranged_props = ["velocity",  "effective mass", "energy", "a", "c",
-                            "kpoints", "cartesian kpoints",
-                            "old cartesian kpoints", "kweights",
+        rearranged_props = ["velocity", "energy", "a", "c", "kpoints",
+                            "cartesian kpoints", "old cartesian kpoints", "kweights",
                             "norm(v)", "norm(k)", "norm(actual_k)"]
 
         self.logger.debug("time to calculate E, v, m_eff at all k-points: \n {}".format(time.time()-start_time))
@@ -1624,7 +1623,6 @@ class Amset(object):
 
         # to save memory avoiding storage of variables that we don't need down the line
         for tp in ["n", "p"]:
-            self.kgrid[tp].pop("effective mass", None)
             self.kgrid[tp].pop("kweights", None)
             self.kgrid[tp]["size"] = [len(self.kgrid[tp]["kpoints"][ib]) \
                                       for ib in range(len(self.kgrid[tp]["kpoints"]))]
