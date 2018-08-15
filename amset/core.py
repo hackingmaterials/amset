@@ -312,8 +312,6 @@ class Amset(object):
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
                     self.logger.info('skipping this valley as it is unimportant or its energies are way off...')
                     continue
-
-                # for now, I keep once_called as False in init_egrid until I get rid of egrid mobilities
                 corrupt_tps = self.init_egrid(once_called=False)
                 for tp in corrupt_tps:
                     self.count_mobility[self.ibrun][tp] = False
@@ -416,7 +414,6 @@ class Amset(object):
 
                 if self.ibrun==0 and ivalley==0: # 1-valley only since it's SPB
                     self.calculate_spb_transport()
-
 
                 self.logger.info('Mobility Labels: {}'.format(self.mo_labels))
                 for c in self.dopings:
@@ -681,9 +678,9 @@ class Amset(object):
     def get_energy_array(self, coeff_file, kpts, once_called=False,
                          return_energies=False, num_bands=None,
                          nbelow_vbm=0, nabove_cbm=0):
+
         num_bands = num_bands or self.num_bands
         start_time = time.time()
-        self.logger.info("self.nkibz = {}".format(self.nkibz))
         if self.poly_bands0 is None:
             if self.interpolation == 'boltztrap1':
                 self.logger.debug("start interpolating bands from {}".format(coeff_file))
@@ -973,7 +970,6 @@ class Amset(object):
         Returns (None):
         """
         params = params or {}
-        self.nkibz = params.get("nkibz", 40)
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 5)
         c_factor = max(1, 3 * abs(max([log(abs(ci)/float(1e19)) for ci in self.dopings]))**0.25)
@@ -1004,7 +1000,6 @@ class Amset(object):
                 self.logger.error('Failed to import BoltzTraP2! '
                                   '"boltztrap2" interpolation not available.')
         self.performance_params = {
-            "nkibz": self.nkibz,
             "dE_min": self.dE_min,
             "Ecut": self.Ecut,
             "max_Ecut": self.max_Ecut,
