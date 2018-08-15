@@ -230,7 +230,7 @@ class Amset(object):
         self.seeb_denom = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
             self.logger.info('going over conduction and valence # {}'.format(self.ibrun))
-            self.find_all_important_points(coeff_file,
+            self.all_important_pts = self.find_all_important_points(coeff_file,
                                            nbelow_vbm=self.nbelow_vbm,
                                            nabove_cbm=self.nabove_cbm,
                                            interpolation=self.interpolation)
@@ -845,7 +845,29 @@ class Amset(object):
             return kpts
 
 
-    def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0, interpolation="boltztrap1", ext_height=0.25):
+    def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0,
+                                  interpolation="boltztrap1", ext_height=0.25):
+        """
+        As the name suggests, given some pre-populated variables such as bs and
+        cbm_vbm and the rest of input args, it calculates the k-coordinates of
+        the band structure extrema (valence band maxima or conduction band
+        minima) at the specified bands which are the "important" points.
+
+        Args:
+            coeff_file (str): path to the coefficient file only related to
+                boltztrap1 interpolation method
+            nbelow_vbm (int): sets how many bands below the VBM is the target
+                valence band
+            nabove_cbm (int): sets how many bands above the CBM is the target
+                conduction band
+            interpolation (str): interpolation method
+            ext_height (float): the minimum energy distance of the band
+                extremum from the CBM/VBM in eV
+
+        Returns ({"n": [3x1 array], "p":[3x1 array]}):
+            list of band extrema (i.e. important k-points) for the selected
+            conduction ("n") and valence ("p") band.
+        """
         if interpolation=="boltztrap1":
             ibands = [self.cbm_vbm['p']['bidx']-nbelow_vbm,
                       self.cbm_vbm['n']['bidx']+nabove_cbm]
@@ -866,9 +888,9 @@ class Amset(object):
             if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p']['energy'] and self.poly_bands0 is None:
                 self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
-        self.all_important_pts = deepcopy(self.important_pts)
         self.logger.info('Here all the initial extrema (valleys):\n{}'.format(
                 self.important_pts))
+        return deepcopy(self.important_pts)
 
 
     def write_input_files(self, path=None, dir_name="run_data"):
