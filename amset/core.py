@@ -460,7 +460,7 @@ class Amset(object):
                                     k[i] = round(k[i], 2)
                             self.valleys[tp]['band {}'.format(self.ibrun)]['{};{};{}'.format(k[0], k[1], k[2])] = valley_transport[tp]
 
-                kgrid_rm_list = ["kweights", "f_th", "S_i_th", "S_o_th"]
+                kgrid_rm_list = ["f_th", "S_i_th", "S_o_th"]
                 self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
                 if ivalley==0 and self.ibrun==0:
                     # TODO: make it possible for the user to choose which valley(s) to plot
@@ -1502,19 +1502,13 @@ class Amset(object):
             for that type.
         """
         corrupt_tps = []
-        # TODO: remove anything with "weight" later if ended up not using weights at all!
-        kweights = {tp: [1.0 for i in kpts[tp]] for tp in ["n", "p"]}
-
-        # actual initiation of the kgrid
         self.kgrid = {
             "n": {},
             "p": {}}
         self.num_bands = {"n": 1, "p": 1}
-        # self.logger.debug('here the n-type kgrid :\n{}'.format(kpts['n']))
         for tp in ["n", "p"]:
             self.num_bands[tp] = self.cbm_vbm[tp]["included"]
             self.kgrid[tp]["kpoints"] = [kpts[tp] for ib in range(self.num_bands[tp])]
-            self.kgrid[tp]["kweights"] = [kweights[tp] for ib in range(self.num_bands[tp])]
 
         self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)", "norm(k)"], "scalar", 0.0, is_nparray=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False)
@@ -1588,7 +1582,7 @@ class Amset(object):
                         tp, np.mean(self.kgrid[tp]["velocity"][0], axis=0)))
 
         rearranged_props = ["velocity", "energy", "a", "c", "kpoints",
-                            "cartesian kpoints", "old cartesian kpoints", "kweights",
+                            "cartesian kpoints", "old cartesian kpoints",
                             "norm(v)", "norm(k)", "norm(actual_k)"]
 
         self.logger.debug("time to calculate E, v, m_eff at all k-points: \n {}".format(time.time()-start_time))
@@ -1614,7 +1608,7 @@ class Amset(object):
                 corrupt_tps.append(tp)
         self.logger.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
 
-        # sort "energy", "kpoints", "kweights", etc based on energy in ascending order and keep track of old indexes
+        # sort "energy", "kpoints", etc based on energy in ascending order and keep track of old indexes
         e_sort_idx_2 = self.sort_vars_based_on_energy(args=rearranged_props, ascending=True)
         self.pos_idx_2 = deepcopy(e_sort_idx_2)
         for tp in ['n', 'p']:
@@ -1623,7 +1617,6 @@ class Amset(object):
 
         # to save memory avoiding storage of variables that we don't need down the line
         for tp in ["n", "p"]:
-            self.kgrid[tp].pop("kweights", None)
             self.kgrid[tp]["size"] = [len(self.kgrid[tp]["kpoints"][ib]) \
                                       for ib in range(len(self.kgrid[tp]["kpoints"]))]
         self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, is_nparray=True, c_T_idx=False)
