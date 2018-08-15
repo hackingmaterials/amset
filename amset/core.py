@@ -727,9 +727,10 @@ class Amset(object):
 
         self.logger.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
         start_time = time.time()
-        energies = {"n": [0.0 for k in kpts['n']], "p": [0.0 for k in kpts['p']]}
-        energies_sorted = {"n": [0.0 for k in kpts['n']], "p": [0.0 for k in kpts['p']]}
-        velocities = {"n": [[0.0, 0.0, 0.0] for k in kpts['n']], "p": [[0.0, 0.0, 0.0] for k in kpts['p']]}
+        energies = {"n": [0.0] * len(kpts['n']), "p": [0.0] * len(kpts['p'])}
+        energies_sorted = {"n":[0.0]*len(kpts['n']), "p":[0.0]*len(kpts['p'])}
+        velocities = {"n": [[0.0, 0.0, 0.0] for _ in kpts['n']],
+                      "p": [[0.0, 0.0, 0.0] for _ in kpts['p']]}
         self.pos_idx = {'n': [], 'p': []}
         self.energy_array = {'n': [], 'p': []}
 
@@ -741,14 +742,19 @@ class Amset(object):
                         for ik in range(len(kpts[tp])):
                             energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                     else:
-                        iband = i * num_bands['p'] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm[tp]["bidx"] + (i - 1) * self.cbm_vbm["p"]["included"] + ib
+                        if self.interpolation == "boltztrap1":
+                            iband = i * num_bands['p'] + ib
+                        else:
+                            iband = ib + self.cbm_vbm[tp]["bidx"] \
+                                    + (i - 1) * self.cbm_vbm["p"]["included"]
                         energies[tp], velocities[tp], _ = interpolate_bs(
                                 kpts[tp], interp_params=self.interp_params,
                                 iband=iband, sgn=sgn, method=self.interpolation,
                                 scissor=self.scissor,
                                 matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
                     if self.integration == 'k':
-                        self.energy_array[tp].append(self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
+                        self.energy_array[tp].append(
+                            self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
 
                     # we only need the 1st band energies to order k-points:
                     if ib == 0:
@@ -758,7 +764,9 @@ class Amset(object):
                         self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
                         kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
-            self.logger.debug("time to calculate ibz energy, velocity info and store them to variables: \n {}".format(time.time()-start_time))
+            self.logger.debug("time to calculate ibz energy, velocity info "
+                              "and store them to variables: \n {}".format(
+                time.time()-start_time))
             if self.poly_bands is not None:
                 all_bands_energies = {"n": [], "p": []}
                 for tp in ["p", "n"]:
