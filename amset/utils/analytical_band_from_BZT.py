@@ -95,7 +95,7 @@ def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
 
 
 def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
-               br_dir=None, cbm=True):
+               br_dir=None, cbm=True, return_dde=True):
     '''
     Compute energy for a k-point from star functions
     Args:
@@ -110,6 +110,8 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
         br_dir: cell matrix. Needed only to compute the derivatives of energy
         cbm: True if the considered band is a conduction band. False if it is a valence band
         out_vec2: outer product of vec2 with itself. It is calculated outside to improve performances
+        return_dde (bool): if true, it also returns the second derivative of
+            energy used to calculate the effective mass for example.
 
     Returns:
         ene: the electronic energy at the k-point in input
@@ -127,14 +129,18 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
         # converts to (nwave,2,1) so it can be projected to vec2 (nwave, 2, 3)
         dspwre = np.sum(vec2 * temps[:, :, np.newaxis], axis=1)
         dspwre /= nstv[:, np.newaxis]
-        out_tempc = out_vec2 * (-tempc[:, :, np.newaxis, np.newaxis])
-        ddspwre = np.sum(out_tempc, axis=1) / nstv[:, np.newaxis, np.newaxis]
+        if return_dde:
+            out_tempc = out_vec2 * (-tempc[:, :, np.newaxis, np.newaxis])
+            ddspwre = np.sum(out_tempc, axis=1) / nstv[:, np.newaxis, np.newaxis]
 
     ene = spwre.dot(engre)
     if br_dir is not None:
         dene = np.dot(dspwre.T, engre)
-        ddene = np.dot(ddspwre.T, engre)
-        return sign * ene, dene, ddene
+        if return_dde:
+            ddene = np.dot(ddspwre.T, engre)
+            return sign * ene, dene, ddene
+        else:
+            sign * ene, dene
     else:
         return sign * ene
 
