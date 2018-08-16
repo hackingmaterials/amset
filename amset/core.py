@@ -1570,7 +1570,7 @@ class Amset(object):
         rm_idx_list = {"n": [[] for i in range(self.cbm_vbm["n"]["included"])],
                        "p": [[] for i in range(self.cbm_vbm["p"]["included"])]}
         self.initialize_var("kgrid", ["old cartesian kpoints", "cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
-        self.initialize_var("kgrid", ["norm(k)", "norm(actual_k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
         self.logger.debug("The DFT gap right before calculating final energy values: {}".format(self.dft_gap))
 
         for i, tp in enumerate(["p", "n"]):
@@ -1609,7 +1609,6 @@ class Amset(object):
                     self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.get_cartesian_coords(get_closest_k(
                             self.kgrid[tp]["kpoints"][ib][ik], self.bs.get_sym_eq_kpoints(important_points[tp][0]), return_diff=True)) / A_to_nm
                     self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
-                    self.kgrid[tp]["norm(actual_k)"][ib][ik] = norm(self.kgrid[tp]["old cartesian kpoints"][ib][ik])
                     if self.poly_bands is not None:
                         self.kgrid[tp]["energy"][ib][ik], \
                                 self.kgrid[tp]["velocity"][ib][ik], _ = \
@@ -1641,7 +1640,7 @@ class Amset(object):
 
         rearranged_props = ["velocity", "energy", "a", "c", "kpoints",
                             "cartesian kpoints", "old cartesian kpoints",
-                            "norm(v)", "norm(k)", "norm(actual_k)"]
+                            "norm(v)", "norm(k)"]
 
         self.logger.debug("time to calculate E, v, m_eff at all k-points: \n {}".format(time.time()-start_time))
         start_time = time.time()
