@@ -7,6 +7,7 @@ import json
 from collections import OrderedDict
 from multiprocessing import cpu_count
 
+from memory_profiler import profile
 from numpy import dot
 from pstats import Stats
 from random import random
@@ -144,6 +145,8 @@ class Amset(object):
         stats.print_stats(nfuncs)
 
 
+    # memory_profiler.log will be where amset is run, NOT in amset source code
+    @profile(stream=open('memory_profiler.log','w+'))
     def run(self, coeff_file=None, kgrid_tp="coarse",
             write_outputs=True, test_k_anisotropic=False):
         """
