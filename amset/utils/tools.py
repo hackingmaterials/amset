@@ -607,7 +607,7 @@ def get_dos_boltztrap2(params, st, mesh, estep=0.001, vbmidx=None,
 
 
 def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
-                   scissor=0.0, matrix=None, n_jobs=1):
+                   scissor=0.0, matrix=None, n_jobs=1, return_mass=True):
     """
     Args:
         kpts ([1x3 array]): list of fractional coordinates of k-points
@@ -631,6 +631,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
             the velocity (in fractional coordinates) to cartesian in
             boltztrap1 method.
         n_jobs (int): number of processes used in boltztrap1 interpolation
+        return_mass (bool): whether to return the effective mass values or not
 
     Returns (tuple of energies, velocities, masses lists/np.ndarray):
         energies ([float]): energy values at kpts for a corresponding iband
@@ -645,46 +646,48 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
             sgn=0.0
         else:
             raise ValueError('To apply scissor "sgn" is required: -1 or +1')
+    masses = []
     if method=="boltztrap1":
         engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = interp_params
         energies = []
         velocities = []
-        masses = []
         if n_jobs == 1:
             results = []
             for kpt in kpts:
-                energy, de, dde = get_energy(kpt, engre[iband], nwave, nsym,
-                                             nstv, vec, vec2, out_vec2, br_dir)
-                results.append((energy, de, dde))
+                result = get_energy(kpt, engre[iband], nwave, nsym,
+                                             nstv, vec, vec2, out_vec2, br_dir,
+                                             return_dde=return_mass)
+                results.append(result)
         else:
             inputs = [(kpt, engre[iband], nwave, nsym, nstv, vec, vec2,
                                             out_vec2, br_dir) for kpt in kpts]
             with Pool(n_jobs if n_jobs != -1 else cpu_count()) as p:
                 results = p.starmap(get_energy, inputs)
-        for energy, de, dde in results:
-            energy = energy * Ry_to_eV - sgn * scissor / 2.0
-            velocity = abs(np.dot(matrix/np.linalg.norm(matrix), de)) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-            effective_m = 1/(dde/ 0.52917721067**2*Ry_to_eV) * e / A_to_m**2 * hbar**2 / m_e
+        for result in results:
+            energy = result[0] * Ry_to_eV - sgn * scissor / 2.0
+            velocity = abs(np.dot(matrix/np.linalg.norm(matrix), result[1])) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+            if return_mass:
+                effective_m = 1/(result[2]/ 0.52917721067**2*Ry_to_eV) * e / A_to_m**2 * hbar**2 / m_e
+                masses.append(effective_m)
             energies.append(energy)
             velocities.append(velocity)
-            masses.append(effective_m)
     elif method=="boltztrap2":
         if n_jobs != 1:
             warnings.warn('n_jobs={}: Parallel not implemented w/ boltztrap2'
                           .format(n_jobs))
         equivalences, lattvec, coeffs = interp_params
-        fitted = fite.getBands(np.array(kpts), equivalences, lattvec, coeffs, curvature=True)
+        fitted = fite.getBands(np.array(kpts), equivalences, lattvec, coeffs,
+                               curvature=return_mass)
         energies = fitted[0][iband - 1] * Hartree_to_eV - sgn * scissor / 2.
         velocities = abs(np.matmul(matrix/np.linalg.norm(matrix), fitted[1][:, iband - 1, :]).T) * Hartree_to_eV / hbar * A_to_m * m_to_cm / 0.52917721067
-        try:
+        if return_mass:
             masses = 1/(fitted[2][:, :, iband - 1, :].T/ 0.52917721067**2*Hartree_to_eV)* e / A_to_m**2 * hbar**2/m_e
-        except IndexError:
-            warnings.warn("The boltztrap2 fite.getBands version does not return "
-                          " effective mass. The tensors will be all zeros.")
-            masses = np.array([np.zeros((3, 1))]*len(kpts))
     else:
         raise AmsetError("Unsupported interpolation method: {}".format(method))
-    return energies, velocities, masses
+    if return_mass:
+        return energies, velocities, masses
+    else:
+        return energies, velocities
 
 
 def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
