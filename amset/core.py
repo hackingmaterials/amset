@@ -750,10 +750,10 @@ class Amset(object):
                         else:
                             iband = ib + self.cbm_vbm[tp]["bidx"] \
                                     + (i - 1) * self.cbm_vbm["p"]["included"]
-                        energies[tp], velocities[tp], _ = interpolate_bs(
+                        energies[tp], velocities[tp] = interpolate_bs(
                                 kpts[tp], interp_params=self.interp_params,
                                 iband=iband, sgn=sgn, method=self.interpolation,
-                                scissor=self.scissor,
+                                scissor=self.scissor, return_mass=False,
                                 matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
                     if self.integration == 'k':
                         self.energy_array[tp].append(
@@ -1594,8 +1594,14 @@ class Amset(object):
 
                 iband = i * self.cbm_vbm["p"]["included"] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm[tp]["bidx"] + (i-1)*self.cbm_vbm["p"]["included"]+ib
                 self.kgrid[tp]["energy"][ib], \
-                        self.kgrid[tp]["velocity"][ib], _ = \
-                    interpolate_bs(self.kgrid[tp]["kpoints"][ib], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
+                        self.kgrid[tp]["velocity"][ib] = \
+                    interpolate_bs(self.kgrid[tp]["kpoints"][ib],
+                                   self.interp_params, iband=iband, sgn=sgn,
+                                   method=self.interpolation,
+                                   scissor=self.scissor,
+                                   matrix=self._vrun.lattice.matrix,
+                                   n_jobs=self.n_jobs,
+                                   return_mass=False)
 
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(
                     self.kgrid[tp]["old cartesian kpoints"][ib]) # made a copy
