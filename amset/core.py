@@ -204,6 +204,7 @@ class Amset(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     self.fermi_level[c][T] = self.find_fermi(c, T)
+        del self.dos # done w/ dos (used to populate egrid and calculate fermi)
         self.logger.info('fermi level = {}'.format(self.fermi_level))
         self.logger.info('initial number of bands:\n{}'.format(self.init_nbands))
         vibands = list(range(self.init_nbands['p']))
