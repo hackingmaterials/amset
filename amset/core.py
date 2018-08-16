@@ -1564,7 +1564,6 @@ class Amset(object):
 
         self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)", "norm(k)"], "scalar", 0.0, is_nparray=False)
         self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False)
-        self.velocity_signed = {tp: np.array([[[0,0,0] for ik in range(len(kpts[tp]))] for ib in range(self.num_bands[tp])]) for tp in ['n', 'p']}
 
         start_time = time.time()
         rm_idx_list = {"n": [[] for i in range(self.cbm_vbm["n"]["included"])],
@@ -2814,7 +2813,6 @@ class Amset(object):
         v_vec_all_bands = []
         v_norm_all_bands = []
         for ib in range(self.num_bands[tp]):
-            v_vec_k_ordered = self.velocity_signed[tp][ib][self.pos_idx[tp]]
             v_norm_k_ordered = (v_vec_k_ordered[:,0]**2 + v_vec_k_ordered[:,1]**2 + v_vec_k_ordered[:,2]**2)**0.5
             v_vec_all_bands.append(self.grid_from_ordered_list(v_vec_k_ordered, tp, none_missing=True))
             v_norm_all_bands.append(self.grid_from_ordered_list(v_norm_k_ordered, tp, none_missing=True, scalar=True))
