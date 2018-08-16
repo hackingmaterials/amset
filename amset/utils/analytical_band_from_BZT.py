@@ -140,7 +140,7 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
             ddene = np.dot(ddspwre.T, engre)
             return sign * ene, dene, ddene
         else:
-            sign * ene, dene
+            return sign * ene, dene
     else:
         return sign * ene
 
