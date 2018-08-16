@@ -1443,8 +1443,10 @@ class Amset(object):
                 rm_idx_list[tp][ib] = rm_idx_list_ib
                 self.logger.debug("# of {}-type kpoints indexes with low velocity or off-energy: {}".format(tp,len(rm_idx_list_ib)))
             for prop in rearranged_props:
-                self.kgrid[tp][prop] = np.array([np.delete(self.kgrid[tp][prop][ib], rm_idx_list[tp][ib], axis=0) \
-                                                 for ib in range(self.cbm_vbm[tp]["included"])])
+                self.kgrid[tp][prop] = \
+                    np.array([np.delete(self.kgrid[tp][prop][ib],
+                                        rm_idx_list[tp][ib], axis=0) \
+                                for ib in range(self.cbm_vbm[tp]["included"])])
 
 
     def initialize_var(self, grid, names, val_type="scalar", initval=0.0, is_nparray=True, c_T_idx=False):
@@ -1646,9 +1648,10 @@ class Amset(object):
 
         for tp in ["n", "p"]:
             rm_idx_list[tp] = [rm_idx_list[tp][0] for _ in range(self.cbm_vbm[tp]["included"])]
-        self.rm_idx_list = deepcopy(rm_idx_list)   # format: [tp][ib][ik]
+        self.rm_idx_list = deepcopy(rm_idx_list) # format: [tp][ib][ik]; instance variable only used in k-integration
         if delete_off_points:
             self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
+        del rm_idx_list
         for tp in ['p', 'n']:
             self.logger.debug(
                 "average of the {}-type group velocity in kgrid after removing points:\n {}".format(
@@ -1665,37 +1668,37 @@ class Amset(object):
         self.logger.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
 
         # sort "energy", "kpoints", etc based on energy in ascending order and keep track of old indexes
-        e_sort_idx_2 = self.sort_vars_based_on_energy(args=rearranged_props, ascending=True)
+        e_sort_idx_2 = self.sort_vars_based_on_energy(args=rearranged_props,
+                                                      ascending=True)
+
+        # k-integration stuff:
         self.pos_idx_2 = deepcopy(e_sort_idx_2)
         for tp in ['n', 'p']:
             for ib in range(self.num_bands[tp]):
-                self.pos_idx_2[tp][ib] = np.array(range(len(e_sort_idx_2[tp][ib])))[e_sort_idx_2[tp][ib]].argsort()
+                self.pos_idx_2[tp][ib] = \
+                    np.array(range(len(e_sort_idx_2[tp][ib])))[e_sort_idx_2[tp][ib]].argsort()
 
-        # to save memory avoiding storage of variables that we don't need down the line
         for tp in ["n", "p"]:
             self.kgrid[tp]["size"] = [len(self.kgrid[tp]["kpoints"][ib]) \
                                       for ib in range(len(self.kgrid[tp]["kpoints"]))]
+
         self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, is_nparray=True, c_T_idx=False)
-        self.initialize_var("kgrid", ["N_POP"], "scalar", 0.0, is_nparray=True, c_T_idx=True)
+        self.initialize_var(grid="kgrid", names=[
+                "_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th",
+                "N_POP", "g_POP", "f0", "f", "f_th", "relaxation time", "df0dk",
+                "electric force","thermal force"], val_type="vector",
+                            initval=self.gs, is_nparray=True, c_T_idx=True)
 
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
                 # We define W_POP in the grid this way for future W_POP(k)
                 self.kgrid[tp]["W_POP"][ib] = \
-                    [self.W_POP]*len(self.kgrid[tp]["kpoints"][ib])
+                    [self.W_POP] * len(self.kgrid[tp]["kpoints"][ib])
                 for c in self.dopings:
                     for T in self.temperatures:
                         self.kgrid[tp]["N_POP"][c][T][ib] = np.array(
-                            [1 / (np.exp(hbar * W_POP / (k_B * T)) - 1) for W_POP in self.kgrid[tp]["W_POP"][ib]])
-
-        self.initialize_var(grid="kgrid", names=[
-                "_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th",
-                "g_POP", "f", "f_th", "relaxation time", "df0dk",
-                "electric force","thermal force"], val_type="vector",
-                            initval=self.gs, is_nparray=True, c_T_idx=True)
-
-        self.initialize_var("kgrid", ["f0", "f_plus", "f_minus", "g_plus", "g_minus"], "vector", self.gs,
-                            is_nparray=True, c_T_idx=True)
+                            [1 / (np.exp(hbar * W_POP / (k_B * T)) - 1) for
+                             W_POP in self.kgrid[tp]["W_POP"][ib]])
         return corrupt_tps
 
 
