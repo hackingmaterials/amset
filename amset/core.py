@@ -187,7 +187,6 @@ class Amset(object):
                                          nabove_cbm=0)
             self.fermi_level = self.find_fermi_k(num_bands=self.init_nbands)
         elif self.integration == 'e':
-            # method 1: good for k-integration but limited to symmetric lattice vectors
             kpts = self.generate_kmesh(
                 important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, 
                 kgrid_tp='very coarse')
@@ -1108,7 +1107,6 @@ class Amset(object):
         self.bs.structure = self._vrun.final_structure
         self.nbands = self.bs.nb_bands
         self.lorbit = 11 if len(sum(self._vrun.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
-
         self.DFT_cartesian_kpts = np.array([self.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
 
         cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
@@ -2426,33 +2424,44 @@ class Amset(object):
         Returns (float or numpy.array): egrid[tp][prop_name][c][T][ie]
         """
         if not c_and_T_idx:
-            self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=False)
+            self.initialize_var("egrid", prop_name, prop_type, initval=self.gs,
+                                is_nparray=True, c_T_idx=False)
             for tp in ["n", "p"]:
                 for ie, en in enumerate(self.egrid[tp]["energy"]):
                     for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                        self.egrid[tp][prop_name][ie] += self.kgrid[tp][prop_name][ib][ik]
-                    self.egrid[tp][prop_name][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
+                        self.egrid[tp][prop_name][ie] += \
+                            self.kgrid[tp][prop_name][ib][ik]
+                    self.egrid[tp][prop_name][ie] /= \
+                        len(self.kgrid_to_egrid_idx[tp][ie])
         else:
-            self.initialize_var("egrid", prop_name, prop_type, initval=self.gs, is_nparray=True, c_T_idx=True)
+            self.initialize_var("egrid", prop_name, prop_type, initval=self.gs,
+                                is_nparray=True, c_T_idx=True)
             for tp in ["n", "p"]:
                 for c in self.dopings:
                     for T in self.temperatures:
                         for ie, en in enumerate(self.egrid[tp]["energy"]):
                             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
-                                self.egrid[tp][prop_name][c][T][ie] += self.kgrid[tp][prop_name][c][T][ib][ik]
-                            self.egrid[tp][prop_name][c][T][ie] /= len(self.kgrid_to_egrid_idx[tp][ie])
+                                self.egrid[tp][prop_name][c][T][ie] += \
+                                    self.kgrid[tp][prop_name][c][T][ib][ik]
+                            self.egrid[tp][prop_name][c][T][ie] /= \
+                                len(self.kgrid_to_egrid_idx[tp][ie])
 
 
     def find_fermi_k(self, tolerance=0.001, num_bands = None):
         num_bands = num_bands or self.num_bands
         closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
-        self.f0_array = {c: {T: {tp: list(range(num_bands[tp])) for tp in ['n', 'p']} for T in self.temperatures} for c in self.dopings}
+        self.f0_array = {c: {T: {tp: list(range(num_bands[tp])) \
+                                 for tp in ['n', 'p']} \
+                             for T in self.temperatures} \
+                         for c in self.dopings}
         for c in self.dopings:
             tp = get_tp(c)
             tol = tolerance * abs(c)
             for T in self.temperatures:
                 step = 0.1
-                range_of_energies = np.arange(self.cbm_vbm[tp]['energy'] - 2, self.cbm_vbm[tp]['energy'] + 2.1, step)
+                range_of_energies = np.arange(self.cbm_vbm[tp]['energy'] - 2,
+                                              self.cbm_vbm[tp]['energy'] + 2.1,
+                                              step)
                 diff = 1000 * abs(c)
                 while(diff > tol):
                     # try a number for fermi level
@@ -2504,7 +2513,8 @@ class Amset(object):
         conversion = 1.0 / (self.volume * (A_to_m * m_to_cm) ** 3)
 
         dos_e = np.array([d[0] for d in self.dos])
-        dos_de = np.array([self.dos[i + 1][0] - self.dos[i][0] for i, _ in enumerate(self.dos[:-1])] + [0.0])
+        dos_de = np.array([self.dos[i + 1][0] - self.dos[i][0] \
+                           for i, _ in enumerate(self.dos[:-1])] + [0.0])
         dos_dos = np.array([d[1] for d in self.dos])
 
         # fix energy, energy diff. and dos for integration at all fermi levels
@@ -2515,8 +2525,14 @@ class Amset(object):
         self.logger.debug("Calculating the fermi level at T={} K".format(T))
         for i in range(20):
             fermi_range = np.linspace(fermi-nstep*step, fermi+nstep*step, 2*nstep+1)
-            n_dopings = -conversion * np.sum(tdos[self.cbm_dos_idx:] * f0(es[self.cbm_dos_idx:], fermi_range, T) * de[self.cbm_dos_idx:], axis=0)
-            p_dopings = conversion * np.sum(tdos[:self.vbm_dos_idx+1] * (1 - f0(es[:self.vbm_dos_idx+1], fermi_range, T)) * de[:self.vbm_dos_idx+1], axis=0)
+            n_dopings = -conversion \
+                        * np.sum(tdos[self.cbm_dos_idx:] \
+                        * f0(es[self.cbm_dos_idx:], fermi_range, T) \
+                        * de[self.cbm_dos_idx:], axis=0)
+            p_dopings = conversion \
+                        * np.sum(tdos[:self.vbm_dos_idx+1] \
+                        * (1 - f0(es[:self.vbm_dos_idx+1], fermi_range, T)) \
+                                 * de[:self.vbm_dos_idx+1], axis=0)
             relative_error = abs((n_dopings+p_dopings)/c - 1.0)
             fermi_idx = np.argmin(relative_error)
             fermi = fermi_range[fermi_idx]
@@ -2551,8 +2567,10 @@ class Amset(object):
         """
         beta = {}
         for tp in ["n", "p"]:
-            integral = self.integrate_over_E(prop_list=["f0","1 - f0"], tp=tp, c=c, T=T, xDOS=True)
-            beta[tp] = (e**2 / (self.epsilon_s * epsilon_0 * k_B * T) * integral / self.volume * 1e12 / e) ** 0.5
+            integral = self.integrate_over_E(prop_list=["f0","1 - f0"],
+                                             tp=tp, c=c, T=T, xDOS=True)
+            beta[tp] = (e**2 / (self.epsilon_s * epsilon_0 * k_B * T) \
+                        * integral / self.volume * 1e12 / e) ** 0.5
         return beta
 
 
@@ -2630,7 +2648,7 @@ class Amset(object):
         return amset
 
 
-    def to_json(self, kgrid=True, trimmed=False, max_ndata=None, nstart=0,
+    def to_json(self, kgrid=True, trimmed=False, max_ndata=None, n0=0,
                 valleys=True, path=None, dir_name="run_data"):
         """
         Writes the kgrid and egird to json files
@@ -2640,7 +2658,7 @@ class Amset(object):
             trimmed (bool): if trimmed some properties (dict keys) will be
                 removed to save space
             max_ndata (int): the maximum index from the CBM/VBM written to file
-            nstart (int): the initial list index of a property written to file
+            n0 (int): the initial list index of a property written to file
 
         Returns: egrid.json and (optional) kgrid.json file(s)
         """
@@ -2663,15 +2681,17 @@ class Amset(object):
                         for c in self.dopings:
                             for T in self.temperatures:
                                 if tp == "n":
-                                    egrid[tp][key][c][T] = self.egrid[tp][key][c][T][nstart:nstart + nmax]
+                                    egrid[tp][key][c][T] = \
+                                        self.egrid[tp][key][c][T][n0:n0 + nmax]
                                 else:
-                                    egrid[tp][key][c][T] = self.egrid[tp][key][c][T][::-1][nstart:nstart + nmax]
+                                    egrid[tp][key][c][T] = \
+                                        self.egrid[tp][key][c][T][::-1][n0:n0+nmax]
                     except:
                         try:
                             if tp == "n":
-                                egrid[tp][key] = self.egrid[tp][key][nstart:nstart + nmax]
+                                egrid[tp][key] = self.egrid[tp][key][n0:n0 + nmax]
                             else:
-                                egrid[tp][key] = self.egrid[tp][key][::-1][nstart:nstart + nmax]
+                                egrid[tp][key] = self.egrid[tp][key][::-1][n0:n0 + nmax]
                         except:
                             if key not in ['mobility']:
                                 self.logger.warning('in to_json: cutting {} '
@@ -2693,18 +2713,18 @@ class Amset(object):
                             for c in self.dopings:
                                 for T in self.temperatures:
                                     if tp == "n":
-                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][nstart:nstart + nmax]
+                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][n0:n0 + nmax]
                                                             for b in range(self.cbm_vbm[tp]["included"])]
                                     else:
-                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][::-1][nstart:nstart + nmax]
+                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][::-1][n0:n0 + nmax]
                                                                 for b in range(self.cbm_vbm[tp]["included"])]
                         except:
                             try:
                                 if tp == "n":
-                                    kgrid[tp][key] = [self.kgrid[tp][key][b][nstart:nstart + nmax]
+                                    kgrid[tp][key] = [self.kgrid[tp][key][b][n0:n0 + nmax]
                                                   for b in range(self.cbm_vbm[tp]["included"])]
                                 else:
-                                    kgrid[tp][key] = [self.kgrid[tp][key][b][::-1][nstart:nstart + nmax]
+                                    kgrid[tp][key] = [self.kgrid[tp][key][b][::-1][n0:n0 + nmax]
                                                       for b in range(self.cbm_vbm[tp]["included"])]
                             except:
                                 if key not in ['mobility']:
@@ -3388,4 +3408,4 @@ if __name__ == "__main__":
                , carrier_types=amset.all_types
                , save_format=None)
 
-    amset.to_json(kgrid=True, trimmed=True, max_ndata=100, nstart=0)
+    amset.to_json(kgrid=True, trimmed=True, max_ndata=100, n0=0)
