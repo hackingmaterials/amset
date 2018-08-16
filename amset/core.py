@@ -1682,10 +1682,11 @@ class Amset(object):
             self.kgrid[tp]["size"] = [len(self.kgrid[tp]["kpoints"][ib]) \
                                       for ib in range(len(self.kgrid[tp]["kpoints"]))]
 
-        self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, is_nparray=True, c_T_idx=False)
+        self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, c_T_idx=False)
+        self.initialize_var("kgrid", ["N_POP"], "scalar", 0.0, c_T_idx=True)
         self.initialize_var(grid="kgrid", names=[
                 "_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th",
-                "N_POP", "g_POP", "f0", "f", "f_th", "relaxation time", "df0dk",
+                "g_POP", "f0", "f", "f_th", "relaxation time", "df0dk",
                 "electric force","thermal force"], val_type="vector",
                             initval=self.gs, is_nparray=True, c_T_idx=True)
 
