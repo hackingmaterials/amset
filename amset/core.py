@@ -403,7 +403,7 @@ class Amset(object):
                         raise AmsetError(self.logger,
                                          'The egrid is too small for n- or p-'
                                          'type for e-integration of transport')
-                    valley_transport = self.calculate_transport_properties_with_E(important_points)
+                    valley_transport = self.calculate_transport_properties_with_E()
                 else:
                     raise AmsetError(self.logger,'Unsupported integration '
                                     'method: {}'.format(self.integration))
@@ -2747,8 +2747,8 @@ class Amset(object):
 
         Returns (None): the results are stored in "g*" keys in kgrid and egrid
         """
-        # calculating S_o scattering rate which is not a function of g
         if "POP" in self.inelastic_scats and not self.bs_is_isotropic:
+            # calculating S_o scattering rate which is NOT a function of g
             for g_suffix in ["", "_th"]:
                 self.s_inelastic(sname="S_o" + g_suffix, g_suffix=g_suffix)
 
@@ -2782,14 +2782,14 @@ class Amset(object):
                                     self.kgrid[tp]["thermal force"][c][T][ib]) / (
                                     self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
 
-                            # TODO: correct these lines to reflect that f = f0 + x*g
                             self.kgrid[tp]["f"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g"][c][T][ib]
                             self.kgrid[tp]["f_th"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g_th"][c][T][ib]
 
                         avg_g_diff = np.mean([abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
                         self.logger.info("Average difference in {}-type g term at c={} and T={}: {}".format(tp, c, T, avg_g_diff))
 
-        for prop in ["electric force", "thermal force", "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
+        for prop in ["electric force", "thermal force",
+                     "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
         for tp in ["n", "p"]:
@@ -2799,6 +2799,8 @@ class Amset(object):
                         if norm(self.egrid[tp]["g_POP"][c][T][ie]) > 1:
                             self.egrid[tp]["g_POP"][c][T][ie] = [1e-5, 1e-5, 1e-5]
 
+
+    # k-integration method
     def calc_v_vec(self, tp):
         v_vec_all_bands = []
         v_norm_all_bands = []
@@ -2810,6 +2812,7 @@ class Amset(object):
         return np.array(v_vec_all_bands), np.array(v_norm_all_bands)
 
 
+    # k-integration method
     def array_from_kgrid(self, prop_name, tp, c=None, T=None, denom=False, none_missing=False, fill=None):
         """
         turns a kgrid property into a list of grid arrays of that property for k integration
@@ -2832,6 +2835,7 @@ class Amset(object):
             return np.array([self.grid_from_energy_list(self.kgrid[tp][prop_name][ib], tp, ib, denom=denom, none_missing=none_missing, fill=fill) for ib in range(self.num_bands[tp])])
 
 
+    # k-integration method
     def grid_from_energy_list(self, prop_list, tp, ib, denom=False, none_missing=False, fill=None):
         """
 
@@ -2871,6 +2875,7 @@ class Amset(object):
         return self.grid_from_ordered_list(adjusted_prop_list, tp, denom=denom, none_missing=True)
 
 
+    # k-integration method
     def grid_from_ordered_list(self, prop_list, tp, denom=False, none_missing=False, scalar=False):
         """
         Args:
@@ -2905,6 +2910,7 @@ class Amset(object):
         return grid
 
 
+    # k-integration method
     def integrate_over_states(self, integrand_grid, tp='all'):
         """
 
@@ -3082,7 +3088,7 @@ class Amset(object):
         return valley_transport
 
 
-    def calculate_transport_properties_with_E(self, important_points):
+    def calculate_transport_properties_with_E(self):
         """
         Mobility and Seebeck coefficient are calculated by integrating the
         perturbation of electron distribution and group velocity over the energy
@@ -3129,8 +3135,16 @@ class Amset(object):
         return valley_transport
 
 
-    # for plotting
     def get_scalar_output(self, vec, dir):
+        """
+        As the name suggests, it returns a scalar off a vector for plotting.
+
+        Args:
+            vec (3x1 array or list): the input vector.
+            dir (str): the direction; options are "x", "y", "z" and "avg"
+
+        Returns (float):
+        """
         if dir == 'x':
             return vec[0]
         if dir == 'y':
