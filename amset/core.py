@@ -2604,8 +2604,7 @@ class Amset(object):
 
     def as_dict(self):
         """
-        Returns the Amset onbject and its selected variables as python
-            dictionary (dict)
+        Mobility, input parameters, etc as a serializable python dictionary.\
 
         Returns (dict):
         """
@@ -2622,6 +2621,12 @@ class Amset(object):
                  'model_params': self.model_params,
                  'all_types': self.all_types,
                  }
+        for tp in ['p', 'n']:
+            for mu in out_d['mobility'][tp]:
+                for c in out_d['mobility'][tp][mu]:
+                    for T in out_d['mobility'][tp][mu][c]:
+                        out_d['mobility'][tp][mu][c][T] = \
+                                        list(out_d['mobility'][tp][mu][c][T])
         return out_d
 
 
