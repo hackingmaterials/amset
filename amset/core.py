@@ -1208,9 +1208,8 @@ class Amset(object):
         Wrapper function to do an integration taking only the concentration,
         c, and the temperature, T, as inputs
         """
-        return {t: self.gs + self.integrate_over_E(prop_list=["f0x1-f0"],
-                                                   tp=t, c=c, T=T, xDOS=False)\
-                for t in["n", "p"]}
+        return {t: self.gs + self.integrate_over_E(
+            prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=False) for t in ["n", "p"]}
 
 
     def calculate_property(self, prop_name, prop_func, for_all_E=False):
@@ -1224,11 +1223,12 @@ class Amset(object):
         """
         if for_all_E:
             for tp in ["n", "p"]:
-                self.egrid[tp][prop_name] = {
-                c: {T: [self.gs for E in self.egrid[tp]["energy"]] for T in self.temperatures}
-                for c in self.dopings}
+                self.egrid[tp][prop_name] = \
+                    {c: {T: [self.gs]*len(self.egrid[tp]["energy"]) \
+                         for T in self.temperatures} for c in self.dopings}
         else:
-            self.egrid[prop_name] = {c: {T: self.gs for T in self.temperatures} for c in self.dopings}
+            self.egrid[prop_name] = {c: {T: self.gs for T in self.temperatures
+                                         } for c in self.dopings}
         for c in self.dopings:
             for T in self.temperatures:
                 if for_all_E:
