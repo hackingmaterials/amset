@@ -1590,10 +1590,22 @@ class Amset(object):
 
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(
                     self.kgrid[tp]["old cartesian kpoints"][ib]) # made a copy
+
+                # compare to a for-loop this map reduce time and memory usage:
+                self.kgrid[tp]["cartesian kpoints"][ib] = list(
+                    map(lambda k: self.get_cartesian_coords(get_closest_k(
+                        k, self.bs.get_sym_eq_kpoints(important_points[tp][0]),
+                        return_diff=True))/ A_to_nm , self.kgrid[tp]["kpoints"][ib]))
+                # self.kgrid[tp]["norm(k)"][ib] = list(map(norm, self.kgrid[tp]["cartesian kpoints"][ib]))
+                # self.kgrid[tp]["norm(v)"][ib] = list(map(norm, self.kgrid[tp]["velocity"][ib]))
+
+                self.kgrid[tp]["norm(k)"][ib] = np.linalg.norm( self.kgrid[tp]["cartesian kpoints"][ib], axis=1)
+                self.kgrid[tp]["norm(v)"][ib] = np.linalg.norm( self.kgrid[tp]["velocity"][ib], axis=1)
+
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                    self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.get_cartesian_coords(get_closest_k(
-                            self.kgrid[tp]["kpoints"][ib][ik], self.bs.get_sym_eq_kpoints(important_points[tp][0]), return_diff=True)) / A_to_nm
-                    self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
+                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.get_cartesian_coords(get_closest_k(
+                    #         self.kgrid[tp]["kpoints"][ib][ik], self.bs.get_sym_eq_kpoints(important_points[tp][0]), return_diff=True)) / A_to_nm
+                    # self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
                     if self.poly_bands is not None:
                         self.kgrid[tp]["energy"][ib][ik], \
                                 self.kgrid[tp]["velocity"][ib][ik], _ = \
@@ -1602,7 +1614,7 @@ class Amset(object):
                                    poly_bands=self.poly_bands, type=tp, ib=ib,
                                         bandgap=self.dft_gap + self.scissor)
 
-                    self.kgrid[tp]["norm(v)"][ib][ik] = norm(self.kgrid[tp]["velocity"][ib][ik])
+                    # self.kgrid[tp]["norm(v)"][ib][ik] = norm(self.kgrid[tp]["velocity"][ib][ik])
                     if (len(rm_idx_list[tp][ib]) + 20 < len(self.kgrid[tp]['kpoints'][ib])) and (
                             (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).all()
                             # if all members are small, that point should be removed otherwise scattering blows up and I get nan mobilities
