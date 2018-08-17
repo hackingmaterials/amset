@@ -105,9 +105,11 @@ class Amset(object):
         self.calc_dir = calc_dir
         self.vasprun_file = vasprun_file
         self.dopings = dopings or [-1e20, 1e20]
+        self.dopings = [int(doping) for doping in self.dopings]
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
         self.tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
-        self.temperatures = temperatures or [300.0, 600.0]
+        self.temperatures = temperatures or [300, 600]
+        self.temperatures = [int(T) for T in self.temperatures]
         self.set_model_params(model_params)
         self.logger.info('independent_valleys: {}'.format(self.independent_valleys))
         self.set_material_params(material_params)
@@ -1247,8 +1249,8 @@ class Amset(object):
     def calculate_N_II(self, c, T):
         """
         Args:
-            c (float): the carrier concentration
-            T (float): the temperature in kelvin
+            c (int): the carrier concentration
+            T (int): the temperature in kelvin
 
         Returns (float): inoized impurity (IMP) scattering concentration (N_II)
         """
@@ -1874,8 +1876,8 @@ class Amset(object):
 
         Args:
             sname (string): abbreviation of the name of the elastic scatteirng mechanisms; options: IMP, ADE, PIE, DIS
-            c (float): carrier concentration
-            T (float): the temperature
+            c (int): carrier concentration
+            T (int): the temperature
             k (list): list containing fractional coordinates of the k vector
             k_prm (list): list containing fractional coordinates of the k prime vector
         """
@@ -2034,8 +2036,8 @@ class Amset(object):
                         "f0x1-f0"
                         "/ACD"
             tp (str): "p" (valence bands) or "n" (conduction bands) type
-            c (float): the carrier concentration
-            T (float): the absolute temperature in Kelvin
+            c (int): the carrier concentration
+            T (int): the absolute temperature in Kelvin
             xDOS (bool): whether to multiply the integrand by density of states
             xvel (bool): whether to multiply the integrand by the group velocity
             interpolation_nsteps (int): number of steps (dE) between each
