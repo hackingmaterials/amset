@@ -2627,6 +2627,9 @@ class Amset(object):
                     for T in out_d['mobility'][tp][mu][c]:
                         out_d['mobility'][tp][mu][c][T] = \
                                         list(out_d['mobility'][tp][mu][c][T])
+            for key in out_d['cbm_vbm'][tp]:
+                if isinstance(out_d['cbm_vbm'][tp][key], np.ndarray):
+                    out_d['cbm_vbm'][tp][key] = list(out_d['cbm_vbm'][tp][key])
         return out_d
 
 
