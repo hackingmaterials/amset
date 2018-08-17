@@ -527,9 +527,9 @@ class Amset(object):
                 '\nRunning BoltzTraP to generate the cube file...')
             boltztrap_runner = BoltztrapRunner(bs=self.bs,
                                                nelec=self.nelec,
-                                               doping=[1e20],
-                                               tgrid = 300,
-                                               tmax=max(self.temperatures+[300]),
+                                               doping=[1e17, 1e20],
+                                               tgrid=100,
+                                               tmax=max(self.temperatures+[900]),
                                                scissor=self.scissor)
             boltztrap_runner.run(path_dir=self.calc_dir)
             coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
