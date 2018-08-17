@@ -418,6 +418,7 @@ class Amset(object):
                     for T in self.temperatures:
                         for tp in ['p', 'n']:
                             valley_ndegen = self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                            self.logger.debug('valley_ndegen = {}'.format(valley_ndegen))
                             if self.count_mobility[self.ibrun][tp]:
                                 if not self.independent_valleys:
                                     if self.integration=='k':
@@ -1267,9 +1268,9 @@ class Amset(object):
         corrupt_tps = []
         self.egrid = {
             "n": {"energy": [], "DOS": [], "all_en_flat": [],
-                  "all_ks_flat": [], "mobility": {}},
+                  "all_ks_flat": []},
             "p": {"energy": [], "DOS": [], "all_en_flat": [],
-                  "all_ks_flat": [], "mobility": {}},
+                  "all_ks_flat": []},
         }
         self.kgrid_to_egrid_idx = {"n": [], "p": []}
         self.Efrequency = {"n": [], "p": []}
@@ -1346,10 +1347,12 @@ class Amset(object):
             return corrupt_tps
         if not once_called:
             self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
-            for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
-                for tp in ['n', 'p']:
-                    self.egrid[tp][transport] = {c: {T: 0.0 for T in\
-                            self.temperatures} for c in self.dopings}
+            for tp in ['n', 'p']:
+                self.egrid[tp]["relaxation time constant"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+            # for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
+            #     for tp in ['n', 'p']:
+            #         self.egrid[tp][transport] = {c: {T: 0.0 for T in\
+            #                 self.temperatures} for c in self.dopings}
 
             # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
             if self.integration == 'k':
@@ -3126,8 +3129,10 @@ class Amset(object):
                         mu_overall_valley = self.integrate_over_E(prop_list=["g"],
                                tp=tp, c=c, T=T, xDOS=False, xvel=True)
 
-                    valley_transport[tp]["J_th"][c][T] = (self.integrate_over_E(prop_list=["g_th"], tp=tp, c=c, T=T,
-                            xDOS=False, xvel=True)) * e * abs(c)  # in units of A/cm2
+                    valley_transport[tp]["J_th"][c][T] = abs(c)*e \
+                            *self.integrate_over_E(prop_list=["g_th"],
+                                                   tp=tp, c=c, T=T,
+                                                   xDOS=False, xvel=True) #in A/cm2
 
                     faulty_overall_mobility = False
                     temp_avg = np.array([0.0, 0.0, 0.0])
