@@ -120,6 +120,7 @@ class Amset(object):
         self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
         self.counter = 0 # a global counter just for debugging
         self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
+        self.kgrid_tp = None
 
 
     def run_profiled(self, coeff_file=None, kgrid_tp="coarse",
@@ -155,6 +156,7 @@ class Amset(object):
         Returns (None):
             many instance variables get updated with calculated properties.
         """
+        self.kgrid_tp = kgrid_tp
         self.logger.info('Running on "{}" mesh for each valley'.format(kgrid_tp))
         self.logger.info('band interpolation="{}" method'.format(self.interpolation))
         self.logger.info('max_nbands={}'.format(self.max_nbands))
@@ -2610,6 +2612,7 @@ class Amset(object):
         """
         out_d = {'kgrid0': self.kgrid0,
                  'egrid0': self.egrid0,
+                 'kgrid_tp': self.kgrid_tp,
                  'cbm_vbm': self.cbm_vbm,
                  'mobility': self.mobility,
                  'elastic_scats': self.elastic_scats,
