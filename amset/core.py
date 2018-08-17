@@ -1323,8 +1323,6 @@ class Amset(object):
             if len(self.Efrequency[tp]) < min_nE:
                 warnings.warn("The final {}-egrid have fewer than {} energy values".format(tp, min_nE))
                 corrupt_tps.append(tp)
-        # if len(self.Efrequency["n"]) < min_nE or len(self.Efrequency["p"]) < min_nE:
-            # raise ValueError("The final egrid have fewer than {} energy values, Amset stops now".format(min_nE))
         return corrupt_tps
 
 
@@ -1346,20 +1344,8 @@ class Amset(object):
         if "n" in corrupt_tps and "p" in corrupt_tps:
             return corrupt_tps
         if not once_called:
-            self.egrid["calc_doping"] = {c: {T: {"n": 0.0, "p": 0.0} for T in self.temperatures} for c in self.dopings}
             for tp in ['n', 'p']:
                 self.egrid[tp]["relaxation time constant"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
-            # for transport in ["conductivity", "J_th", "seebeck", "TE_power_factor", "relaxation time constant"]:
-            #     for tp in ['n', 'p']:
-            #         self.egrid[tp][transport] = {c: {T: 0.0 for T in\
-            #                 self.temperatures} for c in self.dopings}
-
-            # populate the egrid at all c and T with properties; they can be called via self.egrid[prop_name][c][T] later
-            if self.integration == 'k':
-                self.egrid["calc_doping"] = self.calc_doping
-            elif self.integration == 'e':
-                self.egrid["calc_doping"] = self.calc_doping
-                self.egrid["fermi"] = self.fermi_level
 
         self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
         self.calculate_property(prop_name="f", prop_func=f0, for_all_E=True)
