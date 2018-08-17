@@ -1,32 +1,25 @@
 # coding: utf-8
 from __future__ import absolute_import
+import cProfile
 import gzip
-import warnings
-import time
 import json
+import numpy as np
+import os
+import time
+import warnings
 from collections import OrderedDict
 from multiprocessing import cpu_count
-
-from memory_profiler import profile
-from numpy import dot
 from pstats import Stats
-from random import random
 from scipy.interpolate import griddata
 from pprint import pprint
-import os
 from sys import stdout as STDOUT
-
-import numpy as np
 from math import log, pi
 from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
 from pymatgen.io.vasp import Vasprun, Spin
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from monty.json import MontyEncoder, MontyDecoder
-import cProfile
 from copy import deepcopy
-
 from amset.utils.analytical_band_from_BZT import Analytical_bands, get_dos_from_poly_bands, get_poly_energy
-
 from amset.utils.tools import norm, generate_k_mesh_axes, \
     create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
     fermi_integral, calculate_Sio, remove_from_grid, get_tp, \
@@ -147,8 +140,6 @@ class Amset(object):
         stats.print_stats(nfuncs)
 
 
-    # memory_profiler.log will be where amset is run, NOT in amset source code
-    @profile(stream=open('memory_profiler.log','w+'))
     def run(self, coeff_file=None, kgrid_tp="coarse",
             write_outputs=True, test_k_anisotropic=False):
         """
