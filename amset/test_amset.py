@@ -65,7 +65,7 @@ class AmsetTest(unittest.TestCase):
                        np.array(amset.mobility['n']['SPB_ACD'][c][T]))
             avg = (amset.mobility['n']['ACD'][c][T] + \
                    amset.mobility['n']['SPB_ACD'][c][T]) / 2
-            self.assertTrue((diff / avg <= 0.02).all())
+            self.assertTrue((diff / avg <= 0.01).all())
 
 
     def test_GaAs_isotropic_E(self):

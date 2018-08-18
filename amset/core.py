@@ -1599,8 +1599,7 @@ class Amset(object):
                 # self.kgrid[tp]["norm(k)"][ib] = list(map(norm, self.kgrid[tp]["cartesian kpoints"][ib]))
                 # self.kgrid[tp]["norm(v)"][ib] = list(map(norm, self.kgrid[tp]["velocity"][ib]))
 
-                self.kgrid[tp]["norm(k)"][ib] = np.linalg.norm( self.kgrid[tp]["cartesian kpoints"][ib], axis=1)
-                self.kgrid[tp]["norm(v)"][ib] = np.linalg.norm( self.kgrid[tp]["velocity"][ib], axis=1)
+                self.kgrid[tp]["norm(k)"][ib] = np.linalg.norm(self.kgrid[tp]["cartesian kpoints"][ib], axis=1)
 
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.get_cartesian_coords(get_closest_k(
@@ -1632,9 +1631,11 @@ class Amset(object):
                     else:
                         self.kgrid[tp]["a"][ib][ik] = 1.0  # parabolic: s-only
                         self.kgrid[tp]["c"][ib][ik] = 0.0
+                self.kgrid[tp]["norm(v)"][ib] = np.linalg.norm(
+                                    self.kgrid[tp]["velocity"][ib], axis=1)
             self.logger.debug("average of the {}-type group velocity in kgrid:\n {}".format(
                         tp, np.mean(self.kgrid[tp]["velocity"][0], axis=0)))
-
+            
         rearranged_props = ["velocity", "energy", "a", "c", "kpoints",
                             "cartesian kpoints", "old cartesian kpoints",
                             "norm(v)", "norm(k)"]
