@@ -489,7 +489,7 @@ class Amset(object):
                     self.mobility[tp]['seebeck'][c][T] *= -1e6 * k_B
                     self.mobility[tp]["seebeck"][c][T] += \
                         1e6 * self.mobility[tp]["J_th"][c][T]\
-                        /(self.mobility[tp]["overall"][c][T]*e*abs(c))/dTdz
+                        /(self.mobility[tp]["overall"][c][T]*e*float(abs(c)))/dTdz
                     for band in list(self.valleys[tp].keys()):
                         for valley_k in list(self.valleys[tp][band].keys()):
                             self.valleys[tp][band][valley_k]["seebeck"][c][T] -= (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T)
@@ -544,7 +544,7 @@ class Amset(object):
         self.mo_labels = self.elastic_scats + self.inelastic_scats + ['overall', 'average']
         self.spb_labels = ['SPB_ACD']
         self.transport_labels = self.mo_labels + self.spb_labels + ["seebeck","J_th"]
-        self.mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) \
+        self.mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.], dtype='float') \
                                             for T in self.temperatures} \
                                         for c in self.dopings} \
                               for el_mech in self.transport_labels} \
@@ -1032,8 +1032,8 @@ class Amset(object):
         self.dos_bwidth = params.get("dos_bwidth", 0.1)
         self.nkdos = params.get("nkdos", 29)
         self.v_min = 1000
-        self.gs = 1e-32  # small value (e.g. used for an initial non-zero val)
-        self.gl = 1e32  # global large value
+        self.gs = float(1e-32)  # small value (e.g. used for an initial non-zero val)
+        self.gl = float(1e32)  # global large value
         self.BTE_iters = params.get("BTE_iters", 5)
         self.n_jobs = params.get("n_jobs", -1)
         if self.n_jobs == -1:
@@ -2471,7 +2471,7 @@ class Amset(object):
                 range_of_energies = np.arange(self.cbm_vbm[tp]['energy'] - 2,
                                               self.cbm_vbm[tp]['energy'] + 2.1,
                                               step)
-                diff = 1000 * abs(c)
+                diff = 1000.0 * abs(c)
                 while(diff > tol):
                     # try a number for fermi level
                     diffs = {}
@@ -3128,7 +3128,7 @@ class Amset(object):
                         mu_overall_valley = self.integrate_over_E(prop_list=["g"],
                                tp=tp, c=c, T=T, xDOS=False, xvel=True)
 
-                    valley_transport[tp]["J_th"][c][T] = abs(c)*e \
+                    valley_transport[tp]["J_th"][c][T] = float(abs(c))*e \
                             *self.integrate_over_E(prop_list=["g_th"],
                                                    tp=tp, c=c, T=T,
                                                    xDOS=False, xvel=True) #in A/cm2
