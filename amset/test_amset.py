@@ -110,7 +110,7 @@ class AmsetTest(unittest.TestCase):
             #     amset.mobility['n'][mu][-2e15][300]), 0.00, places=1)
             self.assertAlmostEqual(amset.mobility['n'][mu][-2e15][300][0],
                     expected_mu[mu], places=1)
-        self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.04)
+        self.assertLess(abs(amset.seebeck['n'][-2e15][300][0]/expected_seebeck-1), 0.04)
 
 
     def test_GaAs_anisotropic(self):
@@ -139,7 +139,7 @@ class AmsetTest(unittest.TestCase):
                 amset.mobility['n'][mu][-2e15][300]), 0.05*\
                 np.mean(amset.mobility['n'][mu][-2e15][300]))
             self.assertLess(abs(amset.mobility['n'][mu][-2e15][300][0] - expected_mu[mu])/expected_mu[mu], 0.06)
-        self.assertLess(abs(amset.mobility['n']['seebeck'][-2e15][300][0]/expected_seebeck-1), 0.06)
+        self.assertLess(abs(amset.seebeck['n'][-2e15][300][0]/expected_seebeck-1), 0.06)
 
 
     def test_GaAs_isotropic_k(self):

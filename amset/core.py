@@ -121,6 +121,7 @@ class Amset(object):
         self.counter = 0 # a global counter just for debugging
         self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
         self.kgrid_tp = None
+        self.seebeck = {'n': None, 'p': None}
 
 
     def run_profiled(self, coeff_file=None, kgrid_tp="coarse",
@@ -494,9 +495,12 @@ class Amset(object):
                         for valley_k in list(self.valleys[tp][band].keys()):
                             self.valleys[tp][band][valley_k]["seebeck"][c][T] -= (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T)
                             self.valleys[tp][band][valley_k]["seebeck"][c][T] *= -1e6 * k_B
+            self.seebeck[tp] = self.mobility[tp].pop('seebeck')
 
-        print('\nFinal Transport Values:')
+        print('\nfinal mobility values:')
         pprint(self.mobility)
+        print('\nfinal Seebeck values:')
+        pprint(self.seebeck)
         if write_outputs:
             self.to_file()
 
@@ -2617,6 +2621,7 @@ class Amset(object):
                  'kgrid_tp': self.kgrid_tp,
                  'cbm_vbm': self.cbm_vbm,
                  'mobility': self.mobility,
+                 'seebeck': self.seebeck,
                  'elastic_scats': self.elastic_scats,
                  'inelastic_scats': self.inelastic_scats,
                  'dopings': self.dopings,
@@ -2656,6 +2661,7 @@ class Amset(object):
         amset.kgrid_tp = d['kgrid_tp']
         amset.cbm_vbm = d['cbm_vbm']
         amset.mobility = d['mobility']
+        amset.seebeck = d['seebeck']
         amset.elastic_scats = d['elastic_scats']
         amset.inelastic_scats = d['inelastic_scats']
         amset.dopings = [float(dope) for dope in d['dopings']]
@@ -3356,15 +3362,16 @@ class Amset(object):
 
         with open(os.path.join(path, csv_filename), 'w') as csvfile:
             fieldnames = ['type', 'c(cm-3)', 'T(K)', 'overall', 'average'] + \
-                         self.elastic_scats + self.inelastic_scats + ['seebeck']
+                         self.elastic_scats + self.inelastic_scats + ['Seebeck (uV/K)']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for c in self.dopings:
                 tp = get_tp(c)
                 for T in self.temperatures:
                     row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
-                    for p in ['overall', 'average'] + self.elastic_scats + self.inelastic_scats + ["seebeck"]:
+                    for p in ['overall', 'average'] + self.elastic_scats + self.inelastic_scats:
                         row[p] = sum(self.mobility[tp][p][c][T])/3
+                    row['Seebeck (uV/K)'] = sum(self.seebeck[tp][c][T])/3
                     writer.writerow(row)
 
 
