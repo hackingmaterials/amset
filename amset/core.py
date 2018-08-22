@@ -2653,6 +2653,7 @@ class Amset(object):
                       temperatures=d['temperatures'])
         amset.kgrid0 = d['kgrid0']
         amset.egrid0 = d['egrid0']
+        amset.kgrid_tp = d['kgrid_tp']
         amset.cbm_vbm = d['cbm_vbm']
         amset.mobility = d['mobility']
         amset.elastic_scats = d['elastic_scats']
