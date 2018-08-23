@@ -124,26 +124,23 @@ class Amset(object):
         self.seebeck = {'n': None, 'p': None}
 
 
-    def run_profiled(self, coeff_file=None, kgrid_tp="coarse",
-                     write_outputs=True, nfuncs=15):
+    def run_profiled(self, coeff_file=None, kgrid_tp="coarse", nfuncs=15):
         """
         Very similar to the run method except that it is time-profiled.
 
         Args:
-            see args (coeff_file, kgrid_tp and write_outputs) for run() method
+            see args (coeff_file, kgrid_tp) for run() method
             nfuncs (int): only print the nfuncs most time-consuming functions
         """
         profiler = cProfile.Profile()
-        profiler.runcall(lambda: self.run(coeff_file, kgrid_tp=kgrid_tp,
-                                               write_outputs=write_outputs))
+        profiler.runcall(lambda: self.run(coeff_file, kgrid_tp=kgrid_tp))
         stats = Stats(profiler, stream=STDOUT)
         stats.strip_dirs()
         stats.sort_stats('cumulative')
         stats.print_stats(nfuncs)
 
 
-    def run(self, coeff_file=None, kgrid_tp="coarse",
-            write_outputs=True, test_k_anisotropic=False):
+    def run(self, coeff_file=None, kgrid_tp="coarse", test_k_anisotropic=False):
         """
         Function to run Amset and generate the main outputs.
 
@@ -501,8 +498,6 @@ class Amset(object):
         pprint(self.mobility)
         print('\nfinal Seebeck values:')
         pprint(self.seebeck)
-        if write_outputs:
-            self.to_file()
 
 
     def _initialize_transport_vars(self, coeff_file):
@@ -2637,6 +2632,9 @@ class Amset(object):
                     for T in out_d['mobility'][tp][mu][c]:
                         out_d['mobility'][tp][mu][c][T] = \
                                         list(out_d['mobility'][tp][mu][c][T])
+            for c in out_d['seebeck'][tp]:
+                for T in out_d['seebeck'][tp][c]:
+                    out_d['seebeck'][tp][c][T] = list(out_d['seebeck'][tp][c][T])
             for key in out_d['cbm_vbm'][tp]:
                 if isinstance(out_d['cbm_vbm'][tp][key], np.ndarray):
                     out_d['cbm_vbm'][tp][key] = list(out_d['cbm_vbm'][tp][key])
@@ -3434,16 +3432,15 @@ if __name__ == "__main__":
                   model_params=model_params,
                   performance_params=performance_params,
                   dopings = [-3e13],
-                  # dopings = [5.10E+18, 7.10E+18, 1.30E+19, 2.80E+19, 6.30E+19],
                   temperatures = [300],
-                  # temperatures = [300, 600, 1000],
                   integration='e',
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse', write_outputs=True)
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse')
 
     amset.write_input_files()
     amset.to_csv()
-    # amset.to_file()
+    amset.as_dict()
+    amset.to_file()
     amset.plot(k_plots=['energy', 'S_o', 'S_i']
                , E_plots=['velocity', 'df0dk', 'ACD'], show_interactive=True
                , carrier_types=amset.all_types
