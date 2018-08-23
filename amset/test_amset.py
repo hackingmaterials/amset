@@ -1,20 +1,22 @@
 # coding: utf-8
 
-from __future__ import unicode_literals, absolute_import
 import json
 import logging
-from copy import deepcopy
-
 import numpy as np
 import os
+import shutil
 import unittest
 from amset.core import Amset
+from copy import deepcopy
 
 test_dir = os.path.dirname(__file__)
+
 LOGLEVEL = logging.ERROR
 
 class AmsetTest(unittest.TestCase):
     def setUp(self):
+        os.makedirs(os.path.join(test_dir, 'temp_dir'), exist_ok=True)
+        self.temp_dir = os.path.join(test_dir, 'temp_dir')
         self.model_params = {'bs_is_isotropic': True,
                              'elastic_scats': ['ACD', 'IMP', 'PIE'],
                              'inelastic_scats': ['POP']}
@@ -25,8 +27,10 @@ class AmsetTest(unittest.TestCase):
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
                 'P_PIE': 0.052, 'scissor': 0.5818}
         self.GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
+        self.GaAs_vasprun = os.path.join(self.GaAs_path, 'vasprun.xml')
         self.GaAs_cube = os.path.join(self.GaAs_path, "nscf-uniform/fort.123")
         self.InP_path = os.path.join(test_dir, '..', 'test_files', 'InP_mp-20351')
+        self.InP_vasprun = os.path.join(self.InP_path, 'vasprun.xml')
         self.InP_params = {"epsilon_s": 14.7970, "epsilon_inf": 11.558,
                             "W_POP": 9.2651, "C_el": 119.18,
                             "E_D": {"n": 5.74, "p": 1.56},
@@ -34,7 +38,8 @@ class AmsetTest(unittest.TestCase):
                             }
 
     def tearDown(self):
-        pass
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
 
 
     def test_poly_bands(self):
@@ -43,12 +48,14 @@ class AmsetTest(unittest.TestCase):
         c = -2e15
         temperatures = [300]
         self.model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
-        amset = Amset(calc_dir=self.GaAs_path,material_params=self.GaAs_params,
+        amset = Amset(calc_dir=self.temp_dir,
+                      vasprun_file=self.GaAs_vasprun,
+                      material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
                       dopings=[c], temperatures=temperatures, integration='k',
                       loglevel=LOGLEVEL)
-        amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
+        amset.run(self.GaAs_cube, kgrid_tp='coarse')
 
         # check fermi level
         # density calculation source: http://hib.iiit-bh.ac.in/Hibiscus/docs/iiit/NBDB/FP008/597_Semiconductor%20in%20Equilibrium&pn%20junction1.pdf
@@ -68,7 +75,7 @@ class AmsetTest(unittest.TestCase):
             self.assertTrue((diff / avg <= 0.01).all())
 
 
-    def test_GaAs_isotropic_E(self):
+    def test_GaAs_isotropic_E_plus_serialize(self):
         print('\ntesting test_GaAs_isotropic_E...')
         # w/ /sq3 factor
         expected_mu = {'ACD': 154693.63326,
@@ -85,12 +92,14 @@ class AmsetTest(unittest.TestCase):
         # TODO: 2 valleys don't work due to anisotropic velocity (in 2nd valley) while on core it does, how come?
         # 06/02/2018 update: most likely due to uneven removing of the points and too few k-points
         # performance_params['max_nvalleys'] = 2
-        amset = Amset(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
+        amset = Amset(calc_dir=self.temp_dir,
+                      vasprun_file=self.GaAs_vasprun,
+                      material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=performance_params,
                       dopings=[-2e15], temperatures=[300], integration='e',
                       loglevel=LOGLEVEL)
-        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
+        amset.run(self.GaAs_cube, kgrid_tp='very coarse')
         kgrid = amset.kgrid
 
         # check general characteristics of the grid
@@ -112,6 +121,12 @@ class AmsetTest(unittest.TestCase):
                     expected_mu[mu], places=1)
         self.assertLess(abs(amset.seebeck['n'][-2e15][300][0]/expected_seebeck-1), 0.04)
 
+        # just testing write to file methods:
+        amset.as_dict()
+        amset.to_file()
+        amset.to_csv()
+        amset.to_json()
+
 
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
@@ -123,7 +138,8 @@ class AmsetTest(unittest.TestCase):
                        'overall': 21636.78388,
                        }
         expected_seebeck = -806.22165
-        amset = Amset(calc_dir=self.GaAs_path,
+        amset = Amset(calc_dir=self.temp_dir,
+                      vasprun_file=self.GaAs_vasprun,
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
                              'elastic_scats': ['ACD', 'IMP', 'PIE'],
@@ -131,7 +147,7 @@ class AmsetTest(unittest.TestCase):
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], integration='e',
                       loglevel=LOGLEVEL)
-        amset.run(self.GaAs_cube, kgrid_tp='coarse', write_outputs=False)
+        amset.run(self.GaAs_cube, kgrid_tp='coarse')
 
         # check mobility values
         for mu in expected_mu.keys():
@@ -153,12 +169,14 @@ class AmsetTest(unittest.TestCase):
                        }
         performance_params = dict(self.performance_params)
         performance_params['fermi_kgrid_tp'] = 'very coarse'
-        amset = Amset(calc_dir=self.GaAs_path, material_params=self.GaAs_params,
+        amset = Amset(calc_dir=self.temp_dir,
+                      vasprun_file=self.GaAs_vasprun,
+                      material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=performance_params,
                       dopings=[-3e13], temperatures=[300], integration='k',
                       loglevel=LOGLEVEL)
-        amset.run(self.GaAs_cube, kgrid_tp='very coarse', write_outputs=False)
+        amset.run(self.GaAs_cube, kgrid_tp='very coarse')
         mobility = amset.mobility
         self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.7149, 3)
 
@@ -181,13 +199,15 @@ class AmsetTest(unittest.TestCase):
                        'overall': 29757.889
                        }
 
-        amset = Amset(calc_dir=self.InP_path, material_params=self.InP_params,
+        amset = Amset(calc_dir=self.temp_dir,
+                      vasprun_file=self.InP_vasprun,
+                      material_params=self.InP_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], integration='e',
                       loglevel=LOGLEVEL)
         amset.run(os.path.join(self.InP_path, 'fort.123'),
-                  kgrid_tp='very coarse', write_outputs=False)
+                  kgrid_tp='very coarse')
 
         # check isotropy of transport and mobility values
         for mu in expected_mu.keys():
@@ -200,7 +220,7 @@ class AmsetTest(unittest.TestCase):
 
     def test_defaults(self):
         print('\ntesting test_defaults...')
-        cal_dir = self.GaAs_path
+        cal_dir = self.temp_dir
         data_dir = os.path.join(cal_dir, "run_data")
         amset = Amset(cal_dir, material_params={'epsilon_s': 12.9})
         amset.write_input_files()
