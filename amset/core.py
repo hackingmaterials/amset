@@ -576,7 +576,7 @@ class Amset(object):
                     # ACD mobility based on single parabolic band extracted from Thermoelectric Nanomaterials,
                     # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
                     self.mobility[tp]["SPB_ACD"][c][T] = 2 ** 0.5 * pi * hbar ** 4 * e * self.C_el * 1e9 / (
-                        3 * (self.cbm_vbm[tp]["eff_mass_xx"] * m_e) ** 2.5 * (k_B * T) ** 1.5 * self.E_D[tp] ** 2) \
+                        3 * (abs(self.cbm_vbm[tp]["eff_mass_xx"]+self.gs) * m_e) ** 2.5 * (k_B * T) ** 1.5 * self.E_D[tp] ** 2) \
                                 * fermi_integral(0, fermi, T, energy) \
                                 / fermi_integral(0.5, fermi, T, energy) * e ** 0.5 * 1e4  # to cm2/V.s
 
