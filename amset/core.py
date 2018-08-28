@@ -412,11 +412,11 @@ class Amset(object):
                     self.calculate_spb_transport()
 
                 self.logger.info('Mobility Labels: {}'.format(self.mo_labels))
-                for c in self.dopings:
-                    for T in self.temperatures:
-                        for tp in ['p', 'n']:
-                            valley_ndegen = self.bs.get_kpoint_degeneracy(important_points[tp][0])
-                            self.logger.debug('valley_ndegen = {}'.format(valley_ndegen))
+                for tp in ['p', 'n']:
+                    valley_ndegen = self.bs.get_kpoint_degeneracy(important_points[tp][0])
+                    self.logger.debug('valley_ndegen = {} for {}'.format(valley_ndegen, important_points[tp][0]))
+                    for c in self.dopings:
+                        for T in self.temperatures:
                             if self.count_mobility[self.ibrun][tp]:
                                 if not self.independent_valleys:
                                     if self.integration=='k':
@@ -2546,17 +2546,17 @@ class Amset(object):
             self.calc_doping[c][T]['n'] = n_dopings[fermi_idx]
             self.calc_doping[c][T]['p'] = p_dopings[fermi_idx]
             if relative_error[fermi_idx] < rtol:
-                self.logger.info("fermi at {} 1/cm3 and {} K: {}".format(c, T, fermi))
+                self.logger.info("fermi at {0:.2e} 1/cm3 and {1} K: {2:.6f}".format(c, T, fermi))
                 return fermi
             step /= 10.0
 
         if relative_error[fermi_idx] > rtol_loose:
             raise AmsetError(self.logger,
-                             'The calculated concentration is not within {}% of'
-            ' the given value ({}) at T={}'.format(rtol_loose*100, c, T))
+                             'The calculated concentration is not within {0:.2f}% of'
+            ' the given value ({1:.2e}) at T={2}'.format(rtol_loose*100, c, T))
         elif relative_error[fermi_idx] > rtol:
-            self.logger.warning('Fermi calculated with a loose tolerance of {}%'
-                                ' at c={}, T={}K'.format(rtol_loose, c, T))
+            self.logger.warning('Fermi calculated with a loose tolerance of {0:.2f}%'
+                                ' at c={1:.2e}, T={2}K'.format(rtol_loose, c, T))
         return fermi
 
 
@@ -2798,7 +2798,7 @@ class Amset(object):
                             self.kgrid[tp]["g"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
                                     self.kgrid[tp]["electric force"][c][
                                     T][ib]) / (self.kgrid[tp]["S_o"][c][T][ib] +
-                                    self.kgrid[tp]["_all_elastic"][c][T][ib])
+                                    self.kgrid[tp]["_all_elastic"][c][T][ib] + self.gs + 1.0)
 
                             self.kgrid[tp]["g_th"][c][T][ib] = (self.kgrid[tp]["S_i_th"][c][T][ib] +
                                     self.kgrid[tp]["thermal force"][c][T][ib]) / (
@@ -2808,7 +2808,7 @@ class Amset(object):
                             self.kgrid[tp]["f_th"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g_th"][c][T][ib]
 
                         avg_g_diff = np.mean([abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
-                        self.logger.info("Average difference in {}-type g term at c={} and T={}: {}".format(tp, c, T, avg_g_diff))
+                        self.logger.info("Average difference in {0}-type g term at c={1:.2e} and T={2}: {3}".format(tp, c, T, avg_g_diff))
 
         for prop in ["electric force", "thermal force",
                      "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
@@ -3434,7 +3434,7 @@ if __name__ == "__main__":
                   temperatures = [300],
                   integration='e',
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse')
+    amset.run_profiled(coeff_file, kgrid_tp='coarse')
 
     amset.write_input_files()
     amset.to_csv()
