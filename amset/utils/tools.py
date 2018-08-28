@@ -206,7 +206,7 @@ def df0dE(E, fermi, T):
     """
     exponent = (E - fermi) / (k_B * T)
     if exponent > 40 or exponent < -40:  # This is necessary so at too low numbers python doesn't return NaN
-        return 0.0
+        return 1e-32
     else:
         return -1 / (k_B * T) * np.exp((E - fermi) / (k_B * T)) / (1 + np.exp((E - fermi) / (k_B * T))) ** 2
 
@@ -303,7 +303,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             X, ib_pm, ik_pm = X_ib_ik
             k_pm = kgrid[tp]["norm(k)"][ib_pm][ik_pm]
             abs_kdiff = abs(k_pm - k)
-            if abs_kdiff < 1e-4:
+            if abs_kdiff < 1e-4 or k<1e-4 or k_pm<1e-4:
                 # avoid rate blow-up (e.g. due to self-scattering)
                 counted -= 1
                 continue
