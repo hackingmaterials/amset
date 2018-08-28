@@ -933,9 +933,15 @@ class Amset(object):
         """
         self.epsilon_s = params["epsilon_s"]
         self.P_PIE = params.get("P_PIE", None) or 0.15  # unitless
+        if self.P_PIE is None and 'PIE' in self.elastic_scats:
+            self.logger.warning('"PIE" removed from the list. It cannot be '
+                                'modeled w/o P_PIE in material_params')
+            self.elastic_scats.pop(self.elastic_scats.index('PIE'))
         E_D = params.get("E_D", None)
         self.C_el = params.get("C_el", None)
         if (E_D is None or self.C_el is None) and 'ACD' in self.elastic_scats:
+            self.logger.warning('"ACD" removed from the list. It cannot be '
+                                'modeled w/o C_el or E_D in material_params')
             self.elastic_scats.pop(self.elastic_scats.index('ACD'))
         if isinstance(E_D, dict):
             if 'n' not in E_D and 'p' not in E_D:
@@ -1613,6 +1619,8 @@ class Amset(object):
 
                     # self.kgrid[tp]["norm(v)"][ib][ik] = norm(self.kgrid[tp]["velocity"][ib][ik])
                     if (len(rm_idx_list[tp][ib]) + 20 < len(self.kgrid[tp]['kpoints'][ib])) and (
+                            # (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any()
+
                             (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).all()
                             # if all members are small, that point should be removed otherwise scattering blows up and I get nan mobilities
                         or \
@@ -1623,8 +1631,12 @@ class Amset(object):
                             (self.kgrid[tp]["norm(k)"][ib][ik] < 1e-3)
                     ):
                         rm_idx_list[tp][ib].append(ik)
+                    if (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any():
+                        self.kgrid[tp]["velocity"][ib][ik][self.kgrid[tp]["velocity"][ib][ik] < self.v_min] = self.v_min
                     if self.poly_bands is None:
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
+                        if np.isnan(self.kgrid[tp]["a"][ib][ik]):
+                            self.kgrid[tp]["a"][ib][ik] = np.mean(self.kgrid[tp]["a"][ib][:ik])
                         self.kgrid[tp]["c"][ib][ik] = (1 - self.kgrid[tp]["a"][ib][ik]**2)**0.5
                     else:
                         self.kgrid[tp]["a"][ib][ik] = 1.0  # parabolic: s-only
@@ -2798,7 +2810,7 @@ class Amset(object):
                             self.kgrid[tp]["g"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
                                     self.kgrid[tp]["electric force"][c][
                                     T][ib]) / (self.kgrid[tp]["S_o"][c][T][ib] +
-                                    self.kgrid[tp]["_all_elastic"][c][T][ib] + self.gs + 1.0)
+                                    self.kgrid[tp]["_all_elastic"][c][T][ib])
 
                             self.kgrid[tp]["g_th"][c][T][ib] = (self.kgrid[tp]["S_i_th"][c][T][ib] +
                                     self.kgrid[tp]["thermal force"][c][T][ib]) / (
