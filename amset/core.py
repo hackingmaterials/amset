@@ -154,13 +154,15 @@ class Amset(object):
         Returns (None):
             many instance variables get updated with calculated properties.
         """
+        self.read_vrun(vasprun_file=self.vasprun_file, filename="vasprun.xml")
+        self.logger.info('Running Amset on {}'.format(
+            self._vrun.final_structure.composition.reduced_formula))
         self.kgrid_tp = kgrid_tp
         self.logger.info('Running on "{}" mesh for each valley'.format(kgrid_tp))
         self.logger.info('band interpolation="{}" method'.format(self.interpolation))
         self.logger.info('max_nbands={}'.format(self.max_nbands))
         self.logger.info('max_nvalleys={}'.format(self.max_nvalleys))
         self.logger.info('max_normk={}'.format(self.max_normk))
-        self.read_vrun(vasprun_file=self.vasprun_file, filename="vasprun.xml")
         coeff_file = self._initialize_transport_vars(coeff_file=coeff_file)
         # make the reference energy consistent w/ interpolation rather than DFT
         self.update_cbm_vbm_dos(coeff_file=coeff_file)
