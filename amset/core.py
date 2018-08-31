@@ -1621,8 +1621,6 @@ class Amset(object):
 
                     # self.kgrid[tp]["norm(v)"][ib][ik] = norm(self.kgrid[tp]["velocity"][ib][ik])
                     if (len(rm_idx_list[tp][ib]) + 20 < len(self.kgrid[tp]['kpoints'][ib])) and (
-                            # (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any()
-
                             (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).all()
                             # if all members are small, that point should be removed otherwise scattering blows up and I get nan mobilities
                         or \
@@ -1633,8 +1631,6 @@ class Amset(object):
                             (self.kgrid[tp]["norm(k)"][ib][ik] < 1e-3)
                     ):
                         rm_idx_list[tp][ib].append(ik)
-                    if (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any():
-                        self.kgrid[tp]["velocity"][ib][ik][self.kgrid[tp]["velocity"][ib][ik] < self.v_min] = self.v_min
                     if self.poly_bands is None:
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
                         if np.isnan(self.kgrid[tp]["a"][ib][ik]):
