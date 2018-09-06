@@ -789,7 +789,7 @@ class Amset(object):
                                  ['p', 'n']}
 
         if not once_called:
-            dos_kmesh = Kpoints.automatic_density_by_vol(self._vrun.final_structure, kppvol=1800).kpts[0]
+            dos_kmesh = Kpoints.automatic_density_by_vol(self._vrun.final_structure, kppvol=self.dos_kdensity).kpts[0]
             self.logger.info('kmesh used for dos: {}'.format(dos_kmesh))
             if self.poly_bands is None:
                 if self.interpolation=="boltztrap1":
@@ -1041,6 +1041,7 @@ class Amset(object):
         for tp in ["n", "p"]:
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
         self.dos_bwidth = params.get("dos_bwidth", 0.1)
+        self.dos_kdensity = params.get("dos_kdensity", 1800)
         self.v_min = 1000
         self.gs = float(1e-32)  # small value (e.g. used for an initial non-zero val)
         self.gl = float(1e32)  # global large value
@@ -1064,6 +1065,7 @@ class Amset(object):
             "Ecut": self.Ecut,
             "max_Ecut": self.max_Ecut,
             "dos_bwidth": self.dos_bwidth,
+            "dos_kdensity": self.dos_kdensity,
             "BTE_iters": self.BTE_iters,
             "max_nbands": self.max_nbands,
             "max_normk0": self.max_normk0,
