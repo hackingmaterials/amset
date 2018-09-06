@@ -10,12 +10,13 @@ import warnings
 from collections import OrderedDict
 from multiprocessing import cpu_count
 from pstats import Stats
+
 from scipy.interpolate import griddata
 from pprint import pprint
 from sys import stdout as STDOUT
 from math import log, pi
 from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
-from pymatgen.io.vasp import Vasprun, Spin
+from pymatgen.io.vasp import Vasprun, Spin, Kpoints
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from monty.json import MontyEncoder, MontyDecoder
 from copy import deepcopy
@@ -178,7 +179,7 @@ class Amset(object):
                                        kgrid_tp=kgrid_tp)
             # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
             _, _ = self.get_energy_array(coeff_file, kpts, 
-                                         once_called=False, 
+                                         once_called=True,
                                          return_energies=True, 
                                          num_bands=self.init_nbands, 
                                          nbelow_vbm=0, 
@@ -199,7 +200,6 @@ class Amset(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     self.fermi_level[c][T] = self.find_fermi(c, T)
-        del self.dos # done w/ dos (used to populate egrid and calculate fermi)
         self.logger.info('fermi level = {}'.format(self.fermi_level))
         self.logger.info('initial number of bands:\n{}'.format(self.init_nbands))
         vibands = list(range(self.init_nbands['p']))
@@ -238,8 +238,8 @@ class Amset(object):
                 max_nvalleys = min(max_nvalleys, self.max_nvalleys)
             for ivalley in range(max_nvalleys):
                 self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
-                once_called = True
                 important_points = {'n': None, 'p': None}
+                once_called = True
                 if ivalley == 0 and self.ibrun==0:
                     once_called = False
                 for tp in ['p', 'n']:
@@ -310,7 +310,7 @@ class Amset(object):
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
                     self.logger.info('skipping this valley as it is unimportant or its energies are way off...')
                     continue
-                corrupt_tps = self.init_egrid(once_called=False)
+                corrupt_tps = self.init_egrid()
                 for tp in corrupt_tps:
                     self.count_mobility[self.ibrun][tp] = False
                 if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
@@ -789,11 +789,12 @@ class Amset(object):
                                  ['p', 'n']}
 
         if not once_called:
+            dos_kmesh = Kpoints.automatic_density_by_vol(self._vrun.final_structure, kppvol=1800).kpts[0]
+            self.logger.info('kmesh used for dos: {}'.format(dos_kmesh))
             if self.poly_bands is None:
                 if self.interpolation=="boltztrap1":
                     emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
-                            self._vrun.final_structure, [
-                            self.nkdos, self.nkdos, self.nkdos],self.dos_emin,
+                            self._vrun.final_structure, dos_kmesh, self.dos_emin,
                             self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
                             / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
                             scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
@@ -803,11 +804,11 @@ class Amset(object):
                     self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
                                    + self.offset_from_vrun['n']
                 elif self.interpolation=="boltztrap2":
-                    emesh, dos, dos_nbands = get_dos_boltztrap2(self.interp_params,
-                                            self._vrun.final_structure,
-                            mesh=[self.nkdos, self.nkdos, self.nkdos],
-                            estep=max(self.dE_min, 0.0001), vbmidx = self.cbm_vbm["p"]["bidx"]-1,
-                                width=self.dos_bwidth, scissor=self.scissor)
+                    emesh, dos, dos_nbands = get_dos_boltztrap2(
+                        self.interp_params, self._vrun.final_structure,
+                        mesh=dos_kmesh, estep=max(self.dE_min, 0.0001),
+                        vbmidx = self.cbm_vbm["p"]["bidx"]-1,
+                        width=self.dos_bwidth, scissor=self.scissor)
                     self.dos_start = emesh[0]
                     self.dos_emin = emesh[0]
                     self.dos_end = emesh[-1]
@@ -818,7 +819,7 @@ class Amset(object):
             else:
                 self.logger.debug("here self.poly_bands: \n {}".format(self.poly_bands))
                 emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
-                        [self.nkdos, self.nkdos, self.nkdos], self.dos_emin,
+                                                     dos_kmesh, self.dos_emin,
                         self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
                         / max(self.dE_min, 0.0001))),poly_bands=self.poly_bands,
                         bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
@@ -1025,7 +1026,7 @@ class Amset(object):
 
         Args:
             params (dict): must be at least {} to invoke all the default values
-                examples are {} or {'Ecut': 1.0, 'nkdos': 25}
+                examples are {} or {'Ecut': 1.0, 'nkdos': 29}
 
         Returns (None):
         """
@@ -1040,7 +1041,7 @@ class Amset(object):
         for tp in ["n", "p"]:
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
         self.dos_bwidth = params.get("dos_bwidth", 0.1)
-        self.nkdos = params.get("nkdos", 29)
+        self.nkdos = params.get("nkdos", 29) # 21 is converged for
         self.v_min = 1000
         self.gs = float(1e-32)  # small value (e.g. used for an initial non-zero val)
         self.gl = float(1e32)  # global large value
@@ -1332,15 +1333,11 @@ class Amset(object):
         return corrupt_tps
 
 
-    def init_egrid(self, once_called):
+    def init_egrid(self):
         """
         Initializes the self.egrid dict containing energy grid and relevant
         properties such as "DOS". This must be called after pre_init_egrid so
         that the energy values are already populated.
-
-        Args:
-            once_called (bool): whether init_egrid was called once before or
-                not. It is used internally for caching.
 
         Returns ([str]): keep track of which types failed; "n" or "p" type or
             neither. Cause of failure could be that too few k-points are left
@@ -1349,9 +1346,8 @@ class Amset(object):
         corrupt_tps = self.pre_init_egrid()
         if "n" in corrupt_tps and "p" in corrupt_tps:
             return corrupt_tps
-        if not once_called:
-            for tp in ['n', 'p']:
-                self.egrid[tp]["relaxation time constant"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+        for tp in ['n', 'p']:
+            self.egrid[tp]["relaxation time constant"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
 
         self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
         self.calculate_property(prop_name="f", prop_func=f0, for_all_E=True)
@@ -3403,6 +3399,8 @@ class Amset(object):
 
 
 if __name__ == "__main__":
+
+
     mass = 0.25
     use_poly_bands = False
 
