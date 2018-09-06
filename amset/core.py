@@ -1026,7 +1026,7 @@ class Amset(object):
 
         Args:
             params (dict): must be at least {} to invoke all the default values
-                examples are {} or {'Ecut': 1.0, 'nkdos': 29}
+                examples are {} or {'Ecut': 1.0, "max_nvalleys": 3}
 
         Returns (None):
         """
@@ -1041,7 +1041,6 @@ class Amset(object):
         for tp in ["n", "p"]:
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
         self.dos_bwidth = params.get("dos_bwidth", 0.1)
-        self.nkdos = params.get("nkdos", 29) # 21 is converged for
         self.v_min = 1000
         self.gs = float(1e-32)  # small value (e.g. used for an initial non-zero val)
         self.gl = float(1e32)  # global large value
@@ -1065,7 +1064,6 @@ class Amset(object):
             "Ecut": self.Ecut,
             "max_Ecut": self.max_Ecut,
             "dos_bwidth": self.dos_bwidth,
-            "nkdos": self.nkdos,
             "BTE_iters": self.BTE_iters,
             "max_nbands": self.max_nbands,
             "max_normk0": self.max_normk0,
