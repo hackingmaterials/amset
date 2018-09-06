@@ -240,7 +240,7 @@ class AmsetTest(unittest.TestCase):
         self.assertEqual(performance_params['max_nbands'], None)
         self.assertEqual(performance_params['max_normk0'], None)
         self.assertEqual(performance_params['dE_min'], 0.0001)
-        self.assertEqual(performance_params['nkdos'], 29)
+        self.assertEqual(performance_params['dos_kdensity'], 1800)
         self.assertEqual(performance_params['dos_bwidth'], 0.1)
 
 
