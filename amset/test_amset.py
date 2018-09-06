@@ -186,12 +186,12 @@ class AmsetTest(unittest.TestCase):
 
     def test_InP_isotropic_E(self):
         print('\ntesting test_InP_isotropic_E...')
-        expected_mu = {'ACD': 498521.845,
-                       'IMP': 1758230.225,
-                       'PIE': 1255689.036,
-                       'POP': 32246.144,
-                       'average': 29084.547,
-                       'overall': 29758.174
+        expected_mu = {'ACD': 215269.855,
+                       'IMP': 1581298.4337,
+                       'PIE': 776207.7056,
+                       'POP': 11054.1118,
+                       'average': 10306.07886,
+                       'overall': 10420.157774
                        }
 
         amset = Amset(calc_dir=self.temp_dir,
