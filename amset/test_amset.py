@@ -154,12 +154,12 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
-        expected_mu = {'ACD': 471762.636,
-                       'IMP': 140162.602,
+        expected_mu = {'ACD': 471762.63,
+                       'IMP': 142296.949,
                        'PIE': 901763.547,
-                       'POP': 28612.766,
-                       'average': 22068.891,
-                       'overall': 20825.984
+                       'POP': 28619.088,
+                       'average': 22124.912,
+                       'overall': 20897.003
                        }
         performance_params = dict(self.performance_params)
         performance_params['fermi_kgrid_tp'] = 'very coarse'
