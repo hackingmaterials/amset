@@ -77,14 +77,14 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_isotropic_E_plus_serialize(self):
         print('\ntesting test_GaAs_isotropic_E...')
-        expected_mu = {'ACD': 154695.5728,
-                       'IMP': 1080539.3355,
-                       'PIE': 722708.4095,
-                       'POP': 31079.30034,
-                       'average': 24420.49358,
-                       'overall': 25917.46826,
+        expected_mu = {'ACD': 154649.21327,
+                       'IMP': 1108707.67222,
+                       'PIE': 722564.6995,
+                       'POP': 31075.62202,
+                       'average': 24430.9291,
+                       'overall': 25936.050562,
                        }
-        expected_seebeck = -777.9
+        expected_seebeck = -639.576
 
         performance_params = deepcopy(self.performance_params)
         performance_params['max_nvalleys'] = 1
@@ -124,14 +124,14 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
-        expected_mu = {'ACD': 133656.4345,
-                       'IMP': 1382554.555,
-                       'PIE': 408566.36555,
-                       'POP': 23034.8036,
-                       'average': 18496.14504,
-                       'overall': 20589.78345,
+        expected_mu = {'ACD': 133577.746017,
+                       'IMP': 1374279.86216,
+                       'PIE': 408548.7104,
+                       'POP': 23029.41292,
+                       'average': 18489.63695,
+                       'overall': 20583.8439,
                        }
-        expected_seebeck = -805.94
+        expected_seebeck = -667.68815
         amset = Amset(calc_dir=self.temp_dir,
                       vasprun_file=self.GaAs_vasprun,
                       material_params=self.GaAs_params,
@@ -154,12 +154,12 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
-        expected_mu = {'ACD': 471762.63,
-                       'IMP': 142296.949,
+        expected_mu = {'ACD': 471762.636,
+                       'IMP': 125213.131,
                        'PIE': 901763.547,
-                       'POP': 28619.088,
-                       'average': 22124.912,
-                       'overall': 20897.003
+                       'POP': 28564.226,
+                       'average': 21633.851,
+                       'overall': 20278.202
                        }
         performance_params = dict(self.performance_params)
         performance_params['fermi_kgrid_tp'] = 'very coarse'
@@ -186,12 +186,12 @@ class AmsetTest(unittest.TestCase):
 
     def test_InP_isotropic_E(self):
         print('\ntesting test_InP_isotropic_E...')
-        expected_mu = {'ACD': 215269.855,
-                       'IMP': 1581298.4337,
-                       'PIE': 776207.7056,
-                       'POP': 11054.1118,
-                       'average': 10306.07886,
-                       'overall': 10420.157774
+        expected_mu = {'ACD': 468140.17028,
+                       'IMP': 1849784.7733,
+                       'PIE': 1200272.12050,
+                       'POP': 30486.4696,
+                       'average': 27539.6388,
+                       'overall': 28192.4642
                        }
 
         amset = Amset(calc_dir=self.temp_dir,
@@ -240,8 +240,8 @@ class AmsetTest(unittest.TestCase):
         self.assertEqual(performance_params['max_nbands'], None)
         self.assertEqual(performance_params['max_normk0'], None)
         self.assertEqual(performance_params['dE_min'], 0.0001)
-        self.assertEqual(performance_params['dos_kdensity'], 1800)
-        self.assertEqual(performance_params['dos_bwidth'], 0.1)
+        self.assertEqual(performance_params['dos_kdensity'], 5500)
+        self.assertEqual(performance_params['dos_bwidth'], 0.075)
 
 
 if __name__ == '__main__':

@@ -15,7 +15,7 @@ from scipy.interpolate import griddata
 from pprint import pprint
 from sys import stdout as STDOUT
 from math import log, pi
-from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
+from pymatgen.electronic_structure.boltztrap import BoltztrapRunner, BoltztrapAnalyzer
 from pymatgen.io.vasp import Vasprun, Spin, Kpoints
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from monty.json import MontyEncoder, MontyDecoder
@@ -197,6 +197,19 @@ class Amset(object):
                                   nabove_cbm=0)
             self.fermi_level = {c: {T: None for T in self.temperatures} \
                                 for c in self.dopings}
+
+            ## 20180906: remove; just a debug print of boltztrap fermi at 300K to compare
+            # an = BoltztrapAnalyzer.from_files(os.path.join(self.calc_dir, "boltztrap"))
+            # run_type, warning, btp_fermi, gap, doping_levels = \
+            #     BoltztrapAnalyzer.parse_outputtrans(os.path.join(self.calc_dir, "boltztrap"))
+            # print("boltztrap fermi (eref)={}".format(btp_fermi))
+            # res = an.parse_cond_and_hall(os.path.join(self.calc_dir, "boltztrap"), doping_levels=doping_levels)
+            # pn_doping_levels, mu_doping = res[5], res[6]
+            # print("boltztrap doping levels:")
+            # print(pn_doping_levels)
+            # print("boltztrap fermi levels at {}K".format(300))
+            # print({tpp: [f_+0.0 for f_ in mu_doping[tpp][300]] for tpp in ['p', 'n']})
+
             for c in self.dopings:
                 for T in self.temperatures:
                     self.fermi_level[c][T] = self.find_fermi(c, T)
@@ -527,7 +540,7 @@ class Amset(object):
                                                nelec=self.nelec,
                                                run_type='BANDS',
                                                doping=[1e20],
-                                               tgrid=100,
+                                               tgrid=300,
                                                tmax=max(self.temperatures+[300]),
                                                scissor=self.scissor)
             boltztrap_runner.run(path_dir=self.calc_dir)
@@ -816,6 +829,8 @@ class Amset(object):
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
                 self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
+                # self.dos_normalization_factor = 1
+                # self.dos_normalization_factor = self.nelec
             else:
                 self.logger.debug("here self.poly_bands: \n {}".format(self.poly_bands))
                 emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
@@ -1040,8 +1055,8 @@ class Amset(object):
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut*2./3. for tp in ["n", "p"]}
         for tp in ["n", "p"]:
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
-        self.dos_bwidth = params.get("dos_bwidth", 0.1)
-        self.dos_kdensity = params.get("dos_kdensity", 1800)
+        self.dos_bwidth = params.get("dos_bwidth", 0.075)
+        self.dos_kdensity = params.get("dos_kdensity", 5500) # with current integration even 2500, 3000 seems not converged!?
         self.v_min = 1000
         self.gs = float(1e-32)  # small value (e.g. used for an initial non-zero val)
         self.gl = float(1e32)  # global large value
@@ -1627,6 +1642,8 @@ class Amset(object):
                             (self.kgrid[tp]["norm(k)"][ib][ik] < 1e-3)
                     ):
                         rm_idx_list[tp][ib].append(ik)
+                    # if (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any():
+                    #     self.kgrid[tp]["velocity"][ib][ik][self.kgrid[tp]["velocity"][ib][ik] < self.v_min] = self.v_min
                     if self.poly_bands is None:
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
                         if np.isnan(self.kgrid[tp]["a"][ib][ik]):
@@ -2523,29 +2540,40 @@ class Amset(object):
         relative_error = self.gl
         typ = get_tp(c)
         fermi = self.cbm_vbm[typ]["energy"] + 0.01 # initialize fermi non-zero
+
         conversion = 1.0 / (self.volume * (A_to_m * m_to_cm) ** 3)
 
         dos_e = np.array([d[0] for d in self.dos])
         dos_de = np.array([self.dos[i + 1][0] - self.dos[i][0] \
                            for i, _ in enumerate(self.dos[:-1])] + [0.0])
-        dos_dos = np.array([d[1] for d in self.dos])
+        dos_dos = np.array([d[1] for d in self.dos]) # left is faster, trapezoidal makes no difference
 
         # fix energy, energy diff. and dos for integration at all fermi levels
         es = np.repeat(dos_e.reshape((len(dos_e), 1)), 2*nstep+1, axis=1)
         de = np.repeat(dos_de.reshape((len(dos_de), 1)), 2*nstep+1, axis=1)
         tdos = np.repeat(dos_dos.reshape((len(dos_dos), 1)), 2*nstep+1, axis=1)
 
+        ## 20180906: remove; just debug plot to make sure CBM/VBM recognized correctly in DOS
+        ## if not commented, make sure run_type='BOLTZ' in BoltztrapRunner
+        # import matplotlib.pyplot as plt
+        # plt.scatter(dos_e[self.vbm_dos_idx-15000: self.cbm_dos_idx+15000], dos_dos[self.vbm_dos_idx-15000: self.cbm_dos_idx+15000])
+        # plt.scatter(dos_e[self.cbm_dos_idx], 0, s=100, marker='s')
+        # plt.scatter(dos_e[self.vbm_dos_idx], 0, s=100, marker='s')
+        # plt.show()
+        # plt.savefig('test.png')
+
         self.logger.debug("Calculating the fermi level at T={} K".format(T))
+        midgap_idx = int((self.vbm_dos_idx + self.cbm_dos_idx) / 2)
         for i in range(20):
             fermi_range = np.linspace(fermi-nstep*step, fermi+nstep*step, 2*nstep+1)
             n_dopings = -conversion \
-                        * np.sum(tdos[self.cbm_dos_idx:] \
-                        * f0(es[self.cbm_dos_idx:], fermi_range, T) \
-                        * de[self.cbm_dos_idx:], axis=0)
+                        * np.sum(tdos[midgap_idx:] \
+                        * f0(es[midgap_idx:], fermi_range, T) \
+                        * de[midgap_idx:], axis=0)
             p_dopings = conversion \
-                        * np.sum(tdos[:self.vbm_dos_idx+1] \
-                        * (1 - f0(es[:self.vbm_dos_idx+1], fermi_range, T)) \
-                                 * de[:self.vbm_dos_idx+1], axis=0)
+                        * np.sum(tdos[:midgap_idx+1] \
+                        * (1 - f0(es[:midgap_idx+1], fermi_range, T)) \
+                                 * de[:midgap_idx+1], axis=0)
             relative_error = abs((n_dopings+p_dopings)/c - 1.0)
             fermi_idx = np.argmin(relative_error)
             fermi = fermi_range[fermi_idx]
@@ -3431,6 +3459,7 @@ if __name__ == "__main__":
             # "important_points": {'n': [[0. , 0.5, 0. ]], 'p': [[0. , 0.0, 0. ]]},
                        }
     input_dir = "../test_files/GaAs/nscf-uniform"
+    # coeff_file = None
     coeff_file = os.path.join(input_dir, "fort.123")
 
     amset = Amset(calc_dir='.',
@@ -3439,10 +3468,12 @@ if __name__ == "__main__":
                   model_params=model_params,
                   performance_params=performance_params,
                   dopings = [-3e13],
+                  # dopings = [-1e16, -1e17, -1e18, -1e19, -1e20, -1e21],
+                  # temperatures = [300, 600, 900],
                   temperatures = [300],
                   integration='e',
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse')
+    amset.run_profiled(coeff_file, kgrid_tp='very coarse')
 
     amset.write_input_files()
     amset.to_csv()
