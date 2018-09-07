@@ -26,7 +26,7 @@ from amset.utils.tools import norm, generate_k_mesh_axes, \
     fermi_integral, calculate_Sio, remove_from_grid, get_tp, \
     remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
     get_energy_args, get_bindex_bspin, get_bs_extrema, \
-    AmsetError, get_dos_boltztrap2, \
+    AmsetError, get_dos_boltztrap2, free_e_dos, \
     setup_custom_logger, interpolate_bs, \
     get_dft_orbitals, generate_adaptive_kmesh, create_plots
 
@@ -179,7 +179,7 @@ class Amset(object):
                                        kgrid_tp=kgrid_tp)
             # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
             _, _ = self.get_energy_array(coeff_file, kpts, 
-                                         once_called=True,
+                                         once_called=False,
                                          return_energies=True, 
                                          num_bands=self.init_nbands, 
                                          nbelow_vbm=0, 
@@ -190,7 +190,7 @@ class Amset(object):
                 important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, 
                 kgrid_tp='very coarse')
             self.get_energy_array(coeff_file, kpts, 
-                                  once_called=False, 
+                                  once_called=False,
                                   return_energies=False, 
                                   num_bands=self.init_nbands, 
                                   nbelow_vbm=0, 
@@ -253,8 +253,8 @@ class Amset(object):
                 self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
                 important_points = {'n': None, 'p': None}
                 once_called = True
-                if ivalley == 0 and self.ibrun==0:
-                    once_called = False
+                # if ivalley == 0 and self.ibrun==0:
+                #     once_called = False
                 for tp in ['p', 'n']:
                     try:
                         important_points[tp] = [self.important_pts[tp][ivalley]]
@@ -540,6 +540,7 @@ class Amset(object):
                                                nelec=self.nelec,
                                                run_type='BANDS',
                                                doping=[1e20],
+                                               # doping=list(set([abs(c) for c in self.dopings])),
                                                tgrid=300,
                                                tmax=max(self.temperatures+[300]),
                                                scissor=self.scissor)
@@ -848,14 +849,41 @@ class Amset(object):
             integ = 0.0
             self.dos_start = abs(emesh - self.dos_start).argmin()
             self.dos_end = abs(emesh - self.dos_end).argmin()
-            for idos in range(self.dos_start, self.dos_end):
-                integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
+
+
             self.logger.debug("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
-            dos = [g / integ * self.dos_normalization_factor for g in dos]
-            self.dos = zip(emesh, dos)
             self.dos_emesh = np.array(emesh)
             self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
             self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
+
+            # dos be at least spb:
+            for idx in range(self.cbm_dos_idx, self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]+2.0)):
+                dos[idx] = max(dos[idx], free_e_dos(E=self.dos_emesh[idx]-self.cbm_vbm["n"]["energy"]))
+            for idx in range(self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"]-2.0), self.vbm_dos_idx):
+                dos[idx] = max(dos[idx], free_e_dos(E=self.cbm_vbm["p"]["energy"]-self.dos_emesh[idx]))
+
+            for idos in range(self.dos_start, self.dos_end):
+                integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
+            dos = [g / integ * self.dos_normalization_factor for g in dos]
+            # new_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]+2.0)
+            # ediff = self.dos_emesh[self.cbm_dos_idx:new_idx] - self.cbm_vbm["n"]["energy"]
+            # dos[self.cbm_dos_idx:new_idx] = np.max(
+            #     [dos[self.cbm_dos_idx:new_idx],
+            #      list(map(self.free_e_dos, ediff))], axis=1)
+
+            ## just to show the effect of super low dos in ZnO and separation of CBM and DOS CBM
+            # print('here self.cbm_dos_idx before')
+            # new_idx = self.cbm_dos_idx
+            # print(new_idx)
+            # print(self.dos_emesh[new_idx])
+            # while sum(dos[new_idx:new_idx+5]) < 0.05:
+            #     new_idx += 1
+            # print('after')
+            # print(new_idx)
+            # print(self.dos_emesh[new_idx])
+            # dos[self.cbm_dos_idx:self.cbm_dos_idx+15000] = dos[new_idx:new_idx+15000]
+
+            self.dos = zip(emesh, dos)
             self.dos = [list(a) for a in self.dos]
 
         if return_energies:
@@ -1056,7 +1084,8 @@ class Amset(object):
         for tp in ["n", "p"]:
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
         self.dos_bwidth = params.get("dos_bwidth", 0.075)
-        self.dos_kdensity = params.get("dos_kdensity", 5500) # with current integration even 2500, 3000 seems not converged!?
+        self.dos_kdensity = params.get("dos_kdensity", 5500)
+        # self.dos_kdensity = params.get("dos_kdensity", 1500)
         self.v_min = 1000
         self.gs = float(1e-32)  # small value (e.g. used for an initial non-zero val)
         self.gl = float(1e32)  # global large value
