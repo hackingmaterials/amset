@@ -77,14 +77,14 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_isotropic_E_plus_serialize(self):
         print('\ntesting test_GaAs_isotropic_E...')
-        expected_mu = {'ACD': 154649.21327,
-                       'IMP': 1108707.67222,
-                       'PIE': 722564.6995,
-                       'POP': 31075.62202,
-                       'average': 24430.9291,
-                       'overall': 25936.050562,
+        expected_mu = {'ACD': 154680.02690,
+                       'IMP': 1131994.2642,
+                       'PIE': 722658.87389,
+                       'POP': 31088.555902,
+                       'average': 24450.887161,
+                       'overall': 25963.0641,
                        }
-        expected_seebeck = -639.576
+        expected_seebeck = -709.2140
 
         performance_params = deepcopy(self.performance_params)
         performance_params['max_nvalleys'] = 1
@@ -155,11 +155,11 @@ class AmsetTest(unittest.TestCase):
     def test_GaAs_isotropic_k(self):
         print('\ntesting test_GaAs_isotropic_k...')
         expected_mu = {'ACD': 471762.636,
-                       'IMP': 125213.131,
+                       'IMP': 133729.425,
                        'PIE': 901763.547,
-                       'POP': 28564.226,
-                       'average': 21633.851,
-                       'overall': 20278.202
+                       'POP': 28592.834,
+                       'average': 21891.307,
+                       'overall': 20601.582
                        }
         performance_params = dict(self.performance_params)
         performance_params['fermi_kgrid_tp'] = 'very coarse'
@@ -186,12 +186,12 @@ class AmsetTest(unittest.TestCase):
 
     def test_InP_isotropic_E(self):
         print('\ntesting test_InP_isotropic_E...')
-        expected_mu = {'ACD': 468140.17028,
-                       'IMP': 1849784.7733,
-                       'PIE': 1200272.12050,
-                       'POP': 30486.4696,
-                       'average': 27539.6388,
-                       'overall': 28192.4642
+        expected_mu = {'ACD': 503578.294633,
+                       'IMP': 1841517.000,
+                       'PIE': 1264891.76360,
+                       'POP': 32540.2336,
+                       'average': 29368.06902,
+                       'overall': 30053.96233
                        }
 
         amset = Amset(calc_dir=self.temp_dir,
