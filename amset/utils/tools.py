@@ -245,6 +245,24 @@ def fermi_integral(order, fermi, T, initial_energy=0):
     return integral
 
 
+def free_e_dos(E, m_eff=0.001):
+    """
+    The density of states (dos) of a free-electron with effective mass m_eff
+        that consequently has a parabolic band.
+    Args:
+        E (float): energy in eV relative to the CBM (or VBM for valence)
+        m_eff (float): unitless effective mass
+
+    Returns (float): the dos
+    """
+    volume = 4./3.*pi * (2*m_eff*m_e*E/(hbar**2*1e10*e))**1.5
+    return volume/(.2*pi**2)*(2*m_e*m_eff/hbar**2)**1.5*1e-30/e**1.5*E**0.5
+
+    # simplified; it was inconsistent with above, might be wrong
+    # return self.volume*8*pi*2**0.5/hbar**3 * (m_e*m_eff)**1.5 * ediff**0.5 * 1e-30/e**1.5
+    # return volume*8*pi*2**0.5/hbar**3 * (m_e*m_eff)**1.5 * ediff**0.5 * 1e-30/e**1.5
+
+
 def GB(x, eta):
     """
     Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function
