@@ -131,7 +131,7 @@ class AmsetTest(unittest.TestCase):
                        'average': 18489.63695,
                        'overall': 20583.8439,
                        }
-        expected_seebeck = -667.68815
+        expected_seebeck = -736.84500
         amset = Amset(calc_dir=self.temp_dir,
                       vasprun_file=self.GaAs_vasprun,
                       material_params=self.GaAs_params,
