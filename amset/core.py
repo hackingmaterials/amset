@@ -896,7 +896,7 @@ class Amset(object):
 
 
     def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0,
-                                  interpolation="boltztrap1", ext_height=0.25):
+                                  interpolation="boltztrap1"):
         """
         As the name suggests, given some pre-populated variables such as bs and
         cbm_vbm and the rest of input args, it calculates the k-coordinates of
@@ -911,8 +911,6 @@ class Amset(object):
             nabove_cbm (int): sets how many bands above the CBM is the target
                 conduction band
             interpolation (str): interpolation method
-            ext_height (float): the minimum energy distance of the band
-                extremum from the CBM/VBM in eV
 
         Returns ({"n": [3x1 array], "p":[3x1 array]}):
             list of band extrema (i.e. important k-points) for the selected
@@ -927,10 +925,9 @@ class Amset(object):
                 eref = {typ: self.cbm_vbm[typ]['energy'] for typ in ['p', 'n']}
             else:
                 eref = None
-            Ecut = {tp: min(2.0, max(self.Ecut[tp]-ext_height, ext_height)) for tp in ['p', 'n']}
             self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
                     interp_params=self.interp_params, method=interpolation,
-                    Ecut=Ecut, eref=eref, return_global=True, n_jobs=self.n_jobs,
+                    Ecut=self.Ecut, eref=eref, return_global=True, n_jobs=self.n_jobs,
                     nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm, scissor=self.scissor)
             if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy'] and self.poly_bands0 is None:
                 self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
