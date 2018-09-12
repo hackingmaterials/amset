@@ -419,7 +419,9 @@ class Amset(object):
                 else:
                     raise AmsetError(self.logger,'Unsupported integration '
                                     'method: {}'.format(self.integration))
-                self.logger.info('mobility of the valley {} and band (p, n) {}'.format(important_points, self.ibands_tuple[self.ibrun]))
+                self.logger.info('finished calculating the mobility of the '
+                                 'valley {} and band (p, n) {}'.format(
+                            important_points, self.ibands_tuple[self.ibrun]))
                 self.logger.info('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
                 pprint(valley_transport)
 
@@ -509,6 +511,7 @@ class Amset(object):
                             self.valleys[tp][band][valley_k]["seebeck"][c][T] *= -1e6 * k_B
             self.seebeck[tp] = self.mobility[tp].pop('seebeck')
 
+        self.logger.info('run finished.')
         print('\nfinal mobility values:')
         pprint(self.mobility)
         print('\nfinal Seebeck values:')
