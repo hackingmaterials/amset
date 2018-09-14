@@ -253,10 +253,18 @@ class Amset(object):
                                            nbelow_vbm=self.nbelow_vbm,
                                            nabove_cbm=self.nabove_cbm,
                                            interpolation=self.interpolation)
-            max_nvalleys = max(len(self.important_pts['n']),
-                               len(self.important_pts['p']))
-            if self.max_nvalleys is not None:
-                max_nvalleys = min(max_nvalleys, self.max_nvalleys)
+
+            # max_nvalleys = max(len(self.important_pts['n']),
+            #                    len(self.important_pts['p']))
+            if self.max_nvalleys['n'] is None and self.max_nvalleys['p'] is None:
+                max_nvalleys = max(len(self.important_pts['n']),
+                                   len(self.important_pts['p']))
+            else:
+                # max_nvalleys = min(max_nvalleys, max(self.max_nvalleys["n"],
+                #                                      self.max_nvalleys["p"]))
+                max_nvalleys = max(min(len(self.important_pts['n']), self.max_nvalleys["n"] or 1000),
+                                   min(len(self.important_pts['p']), self.max_nvalleys["p"] or 1000))
+
             for ivalley in range(max_nvalleys):
                 self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
                 important_points = {'n': None, 'p': None}
@@ -283,12 +291,17 @@ class Amset(object):
                             if new_dist < min_dist and new_dist > 0.01:
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
-                if self.max_nvalleys and self.max_nvalleys==1:
-                    kmax = self.max_normk0 or 5.0
-                    self.max_normk = {'n': kmax, 'p': kmax}
-                    if self.max_normk0 is None:
-                        self.logger.warn('max_normk set to {} to avoid '
-                                         'unlrealistic scattering'.format(kmax))
+                for tp in ['p', 'n']:
+                    if self.max_nvalleys[tp]==1 and self.max_normk0 is None:
+                        self.max_normk[tp] = 5.0
+                        self.logger.warn('max_normk["{}"]->{} avoiding unlrealistic'
+                                         ' scattering'.format(tp, self.max_normk[tp]))
+                # if self.max_nvalleys and self.max_nvalleys==1:
+                #     kmax = self.max_normk0 or 5.0
+                #     self.max_normk = {'n': kmax, 'p': kmax}
+                #     if self.max_normk0 is None:
+                #         self.logger.warn('max_normk set to {} to avoid '
+                #                          'unlrealistic scattering'.format(kmax))
 
                 self.logger.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 self.logger.info('Current valleys:\n{}'.format(important_points))
@@ -1106,6 +1119,8 @@ class Amset(object):
         self.max_normk0 = params.get("max_normk", None)
         self.max_normk = {'n': self.max_normk0, 'p': self.max_normk0}
         self.max_nvalleys = params.get("max_nvalleys", None)
+        if not isinstance(self.max_nvalleys, dict):
+            self.max_nvalleys = {tp:self.max_nvalleys if tp in self.all_types else 1 for tp in ['p', 'n']}
         self.interpolation = params.get("interpolation", "boltztrap1")
         if self.interpolation == "boltztrap2":
             try:
