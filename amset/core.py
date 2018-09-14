@@ -167,12 +167,20 @@ class Amset(object):
         coeff_file = self._initialize_transport_vars(coeff_file=coeff_file)
         # make the reference energy consistent w/ interpolation rather than DFT
         self.update_cbm_vbm_dos(coeff_file=coeff_file)
-        
-        # with ibands_tuple, for each couple of conduction/valence bands we 
+
+        # with ibands_tuple, for each couple of conduction/valence bands we
         # only use 1 band together (i.e. always ib==0)
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['included'] = 1
         self.logger.debug("cbm_vbm after updating:\n {}".format(self.cbm_vbm))
+        gap = self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]
+        gap_orig = self.dft_gap + self.scissor
+        if abs(gap_orig - gap) > 0.1:
+            raise AmsetError(self.logger, 'The band gap calculated based '
+                             'on the interpolation method does not match with '
+                             'the input bandgap! {}!={}'.format(gap, gap_orig))
+
+
         if self.integration == 'k':
             kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 
                                                          'p': [[0.0, 0.0, 0.0]]}, 
@@ -499,9 +507,10 @@ class Amset(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     self.mobility[tp]['seebeck'][c][T] -= \
-                        (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) \
+                        (self.fermi_level[c][T] - self.cbm_vbm0[tp]["energy"]) \
                         / (k_B * T)
                     self.mobility[tp]['seebeck'][c][T] *= -1e6 * k_B
+
                     self.mobility[tp]["seebeck"][c][T] += \
                         1e6 * self.mobility[tp]["J_th"][c][T]\
                         /(self.mobility[tp]["overall"][c][T]*e*float(abs(c)))/dTdz
@@ -543,10 +552,9 @@ class Amset(object):
                                                nelec=self.nelec,
                                                run_type='BANDS',
                                                doping=[1e20],
-                                               # doping=list(set([abs(c) for c in self.dopings])),
                                                tgrid=300,
                                                tmax=max(self.temperatures+[300]),
-                                               scissor=self.scissor)
+                                               ) # do NOT set scissor in runner
             boltztrap_runner.run(path_dir=self.calc_dir)
             coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
             self.logger.warning(
@@ -650,11 +658,12 @@ class Amset(object):
             if self.interpolation=="boltztrap1":
                 self.logger.debug(
                     "start interpolating bands from {}".format(coeff_file))
-            self.all_ibands = []
-            for i, tp in enumerate(["p", "n"]):
-                sgn = (-1) ** (i + 1)
-                for ib in range(self.cbm_vbm0[tp]["included"]):
-                    self.all_ibands.append(self.cbm_vbm0[tp]["bidx"] + sgn * ib)
+            # self.all_ibands = []
+            # for i, tp in enumerate(["p", "n"]):
+            #     sgn = (-1) ** (i + 1)
+            #     for ib in range(self.cbm_vbm0[tp]["included"]):
+            #         self.all_ibands.append(self.cbm_vbm0[tp]["bidx"] + sgn * ib)
+            self.all_ibands = [self.cbm_vbm0['p']["bidx"], self.cbm_vbm0['n']["bidx"]]
 
             self.all_ibands.sort()
             self.logger.debug("all_ibands: {}".format(self.all_ibands))
@@ -670,22 +679,23 @@ class Amset(object):
                             self.poly_bands0[ib][valley][0],
                             cartesian=True))
 
-
         for i, tp in enumerate(["p", "n"]):
-            sgn = (-1) ** i
-            iband = i*self.cbm_vbm0["p"]["included"] if self.interpolation=="boltztrap1" else self.cbm_vbm[tp]["bidx"]
+            sgn = (-1.0) ** i
+            # iband = i*self.cbm_vbm0["p"]["included"] if self.interpolation=="boltztrap1" else self.cbm_vbm0[tp]["bidx"]
+            iband = i
             if self.poly_bands is not None:
                 energy, velocity, effective_m = self.calc_poly_energy(self.cbm_vbm0[tp]["kpoint"], tp, 0)
             else:
-                energies, _, masses = interpolate_bs([self.cbm_vbm0[tp]["kpoint"]], self.interp_params, iband=iband, sgn=sgn, method=self.interpolation, scissor=self.scissor, matrix=self._vrun.lattice.matrix)
+                energies, velocities, masses = interpolate_bs(
+                    [self.cbm_vbm0[tp]["kpoint"]], self.interp_params,
+                    iband=iband, sgn=sgn, method=self.interpolation,
+                    scissor=self.scissor, matrix=self._vrun.lattice.matrix)
                 energy = energies[0]
                 effective_m = masses[0]
-
             self.offset_from_vrun[tp] = energy - self.cbm_vbm0[tp]["energy"]
             self.logger.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun[tp]))
             self.cbm_vbm0[tp]["energy"] = energy
             self.cbm_vbm0[tp]["eff_mass_xx"] = effective_m.diagonal()
-
         if self.poly_bands is None:
             self.dos_emax += self.offset_from_vrun['n']
             self.dos_emin += self.offset_from_vrun['p']
@@ -853,8 +863,6 @@ class Amset(object):
             self.dos_start = abs(emesh - self.dos_start).argmin()
             self.dos_end = abs(emesh - self.dos_end).argmin()
 
-
-            self.logger.debug("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
             self.dos_emesh = np.array(emesh)
             self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
             self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
@@ -867,6 +875,7 @@ class Amset(object):
 
             for idos in range(self.dos_start, self.dos_end):
                 integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
+            self.logger.debug("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
             dos = [g / integ * self.dos_normalization_factor for g in dos]
             # new_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]+2.0)
             # ediff = self.dos_emesh[self.cbm_dos_idx:new_idx] - self.cbm_vbm["n"]["energy"]
@@ -1007,8 +1016,8 @@ class Amset(object):
                 warnings.warn('POP cannot be calculated w/o epsilon_inf and W_POP')
                 self.inelastic_scats.pop(self.inelastic_scats.index('POP'))
 
-        self.N_dis = params.get("N_dis", None) or 0.1  # in 1/cm**2
-        self.scissor = params.get("scissor", None) or 0.0
+        self.N_dis = params.get("N_dis", 0.1)  # in 1/cm**2
+        self.scissor = params.get("scissor", 0.0)
         self.user_bandgap = params.get("user_bandgap", None)
 
         donor_charge = params.get("donor_charge", 1.0)
@@ -1184,6 +1193,7 @@ class Amset(object):
                     '"scissor" is ignored. Continuing with scissor={}'.format(
                         self.user_bandgap - self.dft_gap))
             self.scissor = self.user_bandgap - self.dft_gap
+            self.logger.info('scissor is set to {}'.format(self.scissor))
         self.nelec = self._vrun.parameters['NELECT']
         bsd = self.bs.as_dict()
         if bsd["is_spin_polarized"]:
