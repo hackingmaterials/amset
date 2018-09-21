@@ -1,20 +1,21 @@
+import importlib
 import logging
-from multiprocessing import Pool, cpu_count
 import numpy as np
 import os
 import sys
 import warnings
-
 from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, \
     get_energy
 from amset.utils.constants import hbar, m_e, e, k_B, epsilon_0, sq3, \
     Hartree_to_eV, Ry_to_eV, A_to_m, m_to_cm
 from detect_peaks import detect_peaks
 from math import pi, log
+from multiprocessing import Pool, cpu_count
 from pymatgen import Spin
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 from pymatgen.util.coord import pbc_diff
+
 
 try:
     import BoltzTraP2
@@ -53,13 +54,14 @@ def setup_custom_logger(name, filepath, filename, level=None):
     Returns: a logging instance with customized formatter and handlers
     """
     level = level or logging.DEBUG
+    logger = logging.getLogger(name)
+    importlib.reload(logging)
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
                                   datefmt='%Y-%m-%d %H:%M:%S')
     handler = logging.FileHandler(os.path.join(filepath, filename), mode='w')
     handler.setFormatter(formatter)
     screen_handler = logging.StreamHandler(stream=sys.stdout)
     screen_handler.setFormatter(formatter)
-    logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.addHandler(screen_handler)
     logger.addHandler(handler)
