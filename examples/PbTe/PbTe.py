@@ -23,14 +23,13 @@ if __name__ == "__main__":
                   temperatures=[300, 600])
 
     # running Amset
-    amset.run(coeff_file=coeff_file, kgrid_tp="coarse")
+    amset.run_profiled(coeff_file=coeff_file, kgrid_tp="coarse")
 
     # generating files and outputs
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy'], E_plots=['energy', 'velocity', 'ACD'],
+    amset.plot(k_plots=['energy'], E_plots=['all'],
                show_interactive=True,
-               carrier_types=amset.all_types,
-               save_format=None)
+               carrier_types=amset.all_types)
     amset.to_file()
-    amset.to_json(kgrid=True, trimmed=True, max_ndata=50, nstart=0)
+    amset.to_json(kgrid=True, trimmed=True, max_ndata=50, n0=0)
