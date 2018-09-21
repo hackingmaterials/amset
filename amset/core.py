@@ -308,7 +308,7 @@ class Amset(object):
                 for tp in ['p', 'n']:
                     if self.max_nvalleys[tp]==1 and self.max_normk0 is None:
                         self.max_normk[tp] = 5.0
-                        self.logger.warn('max_normk["{}"]->{} avoiding unlrealistic'
+                        self.logger.warn('max_normk["{}"] -> {} avoiding unlrealistic'
                                          ' scattering'.format(tp, self.max_normk[tp]))
                 # if self.max_nvalleys and self.max_nvalleys==1:
                 #     kmax = self.max_normk0 or 5.0
