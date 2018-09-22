@@ -41,7 +41,7 @@ class AmsetToolsTest(unittest.TestCase):
         # last valence band extrema
         self.listalmostequal(extrema['p'][0], [.0, .0, .0], 10)
         self.listalmostequal(extrema['p'][1], [-.2786, -.0459, .0], 4)
-        self.assertEqual(len(extrema['p']), 4)
+        self.assertEqual(len(extrema['p']), 3)
 
         Si_extrema = get_bs_extrema(bs=self.Si_vrun.get_band_structure(),
                                     coeff_file=self.Si_cube,
