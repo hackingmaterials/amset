@@ -711,7 +711,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
 
 
 def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
-                   line_density=30, min_normdiff=sq3/10.0,
+                   line_density=30, min_normdiff=0.21,
                    Ecut=None, eref=None, return_global=False, n_jobs=-1,
                    nbelow_vbm=0, nabove_cbm=0, scissor=0.0):
     """
@@ -728,6 +728,8 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
         v_cut (float): threshold under which the derivative is assumed 0 [cm/s]
         min_normdiff (float): the minimum allowed distance norm(fractional k)
             in extrema; this is important to avoid numerical instability errors
+            or finding peaks that are too close to each other for Amset
+            formulation to be relevant.
         Ecut (float or dict): max energy difference with CBM/VBM allowed for
             extrema. Valid examples: 0.25 or {'n': 0.5, 'p': 0.25} , ...
         eref (dict): BandStructure global VBM/CBM used as a global reference
