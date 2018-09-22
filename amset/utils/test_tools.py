@@ -62,7 +62,6 @@ class AmsetToolsTest(unittest.TestCase):
         self.listalmostequal(PbTe_extrema['p'][0], [0. , 0.5, 0. ], 10)
         self.listalmostequal(PbTe_extrema['p'][1], [.4784, -.2709,  .2278], 3)
         self.listalmostequal(PbTe_extrema['p'][2], [.162054 , .162054, 0.], 3)
-        self.listalmostequal(PbTe_extrema['p'][3], [.47844 , -.4076, .3645], 3)
 
 
     def test_kpts_to_first_BZ(self):
