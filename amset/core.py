@@ -434,10 +434,10 @@ class Amset(object):
                             f0_all = 1 / (np.exp((self.energy_array[dop_tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
                             if c < 0:
                                 electrons = self.integrate_over_states(f0_all, dop_tp)
-                                self.logger.info('k-integral of f0 above band gap at c={}, T={}: {}'.format(c, T, electrons))
+                                self.logger.info('k-integral of f0 above band gap at c={:.2e}, T={}: {}'.format(c, T, electrons))
                             if c > 0:
                                 holes = self.integrate_over_states(1-f0_all, dop_tp)
-                                self.logger.info('k-integral of 1-f0 below band gap at c={}, T={}: {}'.format(c, T, holes))
+                                self.logger.info('k-integral of 1-f0 below band gap at c={:.2e}, T={}: {}'.format(c, T, holes))
 
                 self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
                 self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
@@ -3289,8 +3289,8 @@ class Amset(object):
             return sum(vec) / 3
 
 
-    def plot(self, k_plots=[], E_plots=[], mobility=True, concentrations='all', carrier_types=['n', 'p'],
-             direction=['avg'], show_interactive=True, save_format=None, fontsize=30, ticksize=25, path=None, dir_name="plots",
+    def plot(self, k_plots=None, E_plots=None, mobility=True, concentrations='all', carrier_types=None,
+             direction=None, show_interactive=True, save_format=None, fontsize=30, ticksize=25, path=None, dir_name="plots",
              margins=100, fontfamily="serif"):
         """
         Plots the given k_plots and E_plots properties.
@@ -3316,6 +3316,10 @@ class Amset(object):
             margins: (int) figrecipes plotly margins
             fontfamily: (string) plotly font
         """
+        k_plots = k_plots or []
+        E_plots = E_plots or []
+        carrier_types = carrier_types or ['n', 'p']
+        direction = direction or ['avg']
         path = os.path.join(path or self.calc_dir, dir_name)
         if not os.path.exists(path):
             os.makedirs(name=path)
@@ -3332,8 +3336,7 @@ class Amset(object):
             concentrations = self.dopings
 
         # make copies of mutable arguments
-        k_plots = list(k_plots)
-        E_plots = list(E_plots)
+
         concentrations = list(concentrations)
         carrier_types = list(carrier_types)
         direction = list(direction)
@@ -3376,7 +3379,7 @@ class Amset(object):
             for c in concentrations:
 
                 # plots of scalar properties first
-                tp_c = tp + '_' + str(c)
+                tp_c = tp + '_' + '{:.2e}'.format(c)
                 for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
                     y_data_temp_independent = {'k': {'energy': self.kgrid0[tp]['energy'][0],
                                                      'velocity': self.kgrid0[tp]["norm(v)"][0]},
@@ -3385,7 +3388,7 @@ class Amset(object):
                         if not vec[y_value]:
                             title = None
                             if y_value == 'frequency':
-                                title = 'Energy Histogram for {}, c={}'.format(self.tp_title[tp], c)
+                                title = 'Energy Histogram for {}, c={:.2e}'.format(self.tp_title[tp], c)
                             create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, c, tp, tp_c,
                                               fontsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
                                               x_label_short=x_value, title=title)
