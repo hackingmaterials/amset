@@ -962,7 +962,7 @@ def create_plots(x_title, y_title, show_interactive, save_format, c, tp,
     from matminer.figrecipes.plot import PlotlyFig
     tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
     if title is None:
-        title = '{} for {}, c={}'.format(y_title, tp_title[tp], c)
+        title = '{} for {}, c={:.2e}'.format(y_title, tp_title[tp], c)
     if y_label_short is None:
         y_label_short = y_title
     if show_interactive:
