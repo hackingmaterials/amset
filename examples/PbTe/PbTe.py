@@ -1,3 +1,9 @@
+"""
+This example script shows how to use the vasprun.xml of PbTe to calculate the
+mobility with certain constrains such as max_nvalley=1 (i.e. only the first
+valley of the valence band is considered).
+"""
+
 from amset.core import Amset
 import os
 
@@ -19,7 +25,7 @@ if __name__ == "__main__":
                   material_params=material_params,
                   model_params = model_params,
                   performance_params={"max_nbands": 1, "max_nvalleys": 1},
-                  dopings= [-1e19, 1e19],
+                  dopings= [1e19],
                   temperatures=[300, 600])
 
     # running Amset
@@ -28,7 +34,7 @@ if __name__ == "__main__":
     # generating files and outputs
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy'], E_plots=['all'],
+    amset.plot(k_plots=['energy'], E_plots='all',
                show_interactive=True,
                carrier_types=amset.all_types)
     amset.to_file()
