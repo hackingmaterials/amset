@@ -1117,8 +1117,8 @@ class Amset(object):
         params = params or {}
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 5)
-        c_factor = max(1., max([log(abs(ci)/1e19) for ci in self.dopings]+ [1.])**0.25)
-        Ecut = params.get("Ecut", c_factor * 5 * k_B * max(self.temperatures + [300]))
+        c_factor = max(1., max([log(abs(ci)/1e19) for ci in self.dopings]+ [1.])**0.5)
+        Ecut = params.get("Ecut", c_factor * 5 * k_B * max(self.temperatures + [600]))
         self.max_Ecut = params.get("Ecut", 1.5) #TODO-AF: set this default Encut based on maximum energy range that the current BS covers between
         Ecut = min(Ecut, self.max_Ecut)
         self.Ecut = {tp: Ecut if tp in self.all_types else Ecut*2./3. for tp in ["n", "p"]}
