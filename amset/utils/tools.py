@@ -782,6 +782,13 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
         extrema_idx = detect_peaks(band, mph=None, mpd=min_normdiff,
                                valley=ip==1)
 
+        # making sure CBM & VBM are always included regardless of min_normdiff
+        extrema_energies = [band[i] for i in extrema_idx]
+        sorted_idx = np.argsort(extrema_energies)
+        if tp=='p':
+            sorted_idx = sorted_idx[::-1]
+        extrema_idx = extrema_idx[sorted_idx]
+
         extrema_init = []
         for idx in extrema_idx:
             k_localext = hs_kpoints[idx]
