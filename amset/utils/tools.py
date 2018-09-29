@@ -711,7 +711,7 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
 
 
 def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
-                   line_density=30, min_normdiff=0.21,
+                   line_density=30, min_normdiff=4.0,
                    Ecut=None, eref=None, return_global=False, n_jobs=-1,
                    nbelow_vbm=0, nabove_cbm=0, scissor=0.0):
     """
@@ -726,10 +726,10 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
         line_density (int): maximum number of k-points between each two
             consecutive high-symmetry k-points
         v_cut (float): threshold under which the derivative is assumed 0 [cm/s]
-        min_normdiff (float): the minimum allowed distance norm(fractional k)
-            in extrema; this is important to avoid numerical instability errors
-            or finding peaks that are too close to each other for Amset
-            formulation to be relevant.
+        min_normdiff (float): the minimum allowed distance
+            norm(cartesian k in 1/nm) in extrema; this is important to avoid
+            numerical instability errors or finding peaks that are too close
+            to each other for Amset formulation to be relevant.
         Ecut (float or dict): max energy difference with CBM/VBM allowed for
             extrema. Valid examples: 0.25 or {'n': 0.5, 'p': 0.25} , ...
         eref (dict): BandStructure global VBM/CBM used as a global reference
@@ -744,6 +744,12 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
 
     Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
     """
+    lattice_matrix = bs.structure.lattice.reciprocal_lattice.matrix
+    def to_cart(k):
+        """
+        convert fractional k-points to cartesian coordinates in (1/nm) units
+        """
+        return np.dot(lattice_matrix, k)*10.
     Ecut = Ecut or 10 * k_B * 300
     if not isinstance(Ecut, dict):
         Ecut = {'n': Ecut, 'p': Ecut}
@@ -756,6 +762,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
                           'p': {'energy': eref['p'], 'kpoint': vbmk}}
     final_extrema = {'n': [], 'p': []}
     hsk = HighSymmKpath(bs.structure)
+
     hs_kpoints, _ = hsk.get_kpoints(line_density=line_density)
     hs_kpoints = kpts_to_first_BZ(hs_kpoints)
     vbm_idx, _ = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
@@ -779,7 +786,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
         if eref is None:
             global_extrema[tp]['energy'] = band[global_ext_idx]
             global_extrema[tp]['kpoint'] = hs_kpoints[global_ext_idx]
-        extrema_idx = detect_peaks(band, mph=None, mpd=min_normdiff,
+        extrema_idx = detect_peaks(band, mph=None, mpd=1,
                                valley=ip==1)
 
         # making sure CBM & VBM are always included regardless of min_normdiff
@@ -796,11 +803,11 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
                 far_enough = True
                 for kp in extrema_init:
                     kp = np.array(kp)
-                    if norm(get_closest_k(k_localext,
+                    if norm(to_cart(get_closest_k(k_localext,
                                           np.vstack(
                                               (bs.get_sym_eq_kpoints(-kp),
                                                bs.get_sym_eq_kpoints(kp))),
-                                          return_diff=True)) <= min_normdiff:
+                                          return_diff=True))) <= min_normdiff:
                         far_enough = False
                 if far_enough:
                     extrema_init.append(k_localext)
@@ -813,7 +820,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
                                            bs.get_sym_eq_kpoints(kp))))
         for k_ext_found in extrema_init:
             kp = get_closest_k(k_ext_found, all_hisymks, return_diff=False)
-            if norm(kp - k_ext_found) < min_normdiff/2.0:
+            if norm(to_cart(kp - k_ext_found)) < min_normdiff/10.0:
                 final_extrema[tp].append(kp)
             else:
                 final_extrema[tp].append(k_ext_found)
