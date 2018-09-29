@@ -295,16 +295,25 @@ class Amset(object):
                 if self.max_normk0 is None:
                     for tp in ['n', 'p']:
                         min_dist = 100.0 # in 1/nm
-                        kc = self.get_cartesian_coords(important_points[tp][0])
-                        for k in self.bs.get_sym_eq_kpoints(kc, cartesian=True):
-                            kc_carts = [self.get_cartesian_coords(kp) for \
-                                        kp in self.all_important_pts[tp]]
-                            new_dist = 1/A_to_nm * norm(get_closest_k(
-                                k, kc_carts, return_diff=True, exclude_self=True))
-                            # to avoid self-counting, 0.01 criterion added:
+                        # kc = self.get_cartesian_coords(important_points[tp][0])
+                        # This for loop not only checks the distance between
+                        # different valleys but among symmetrically equivalent
+                        # k-points of the same valley so the cutoff would make sense
+                        for k in self.bs.get_sym_eq_kpoints(important_points[tp][0], cartesian=False):
+                            # kc_carts = [self.get_cartesian_coords(kp) for \
+                            #             kp in self.all_important_pts[tp]]
+                            kdiff =  get_closest_k(
+                                k, self.all_important_pts[tp], return_diff=True, exclude_self=True)
+                            new_dist = 1/A_to_nm *norm(self.get_cartesian_coords(kdiff))
+                            # to avoid self-counting, 0.1 criterion added:
                             if new_dist < min_dist and new_dist > 0.01:
                                 min_dist = new_dist
                         self.max_normk[tp] = min_dist/2.0
+                        if self.max_normk[tp] < 0.05:
+                            raise AmsetError(self.logger, "max_normk['{}']={} "
+                                "is way too low! Please check your input and if "
+                                "necessary manually enter the band extrema "
+                                "coordinates".format(tp, self.max_normk[tp]))
                 for tp in ['p', 'n']:
                     if self.max_nvalleys[tp]==1 and self.max_normk0 is None:
                         self.max_normk[tp] = 5.0
@@ -1126,7 +1135,7 @@ class Amset(object):
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
         self.dos_bwidth = params.get("dos_bwidth", 0.075)
         self.dos_kdensity = params.get("dos_kdensity", 5500)
-        # self.dos_kdensity = params.get("dos_kdensity", 1500)
+        # self.dos_kdensity = params.get("dos_kdensity", 1500) # just for rapid testing
         self.v_min = 1000
         self.gs = float(1e-32)  # small value (e.g. used for an initial non-zero val)
         self.gl = float(1e32)  # global large value
