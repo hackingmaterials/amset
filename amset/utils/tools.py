@@ -916,8 +916,9 @@ def generate_adaptive_kmesh(bs, important_points, kgrid_tp, ibz=True):
 
         # this is to cover the whole BZ in an adaptive manner in case of high-mass isolated valleys
         initial_ibzkpt0 = np.array(initial_ibzkpt_init + \
-                                   list(initial_ibzkpt0/3.0) + \
-                                   list(initial_ibzkpt0/15.0) )
+                                   list(initial_ibzkpt0/3.0) +
+                                   list(initial_ibzkpt0/9.0) + \
+                                   list(initial_ibzkpt0/19.0) )
         for tp in ['p', 'n']:
             tmp_kpts = []
             for important_point in important_points[tp]:
