@@ -77,14 +77,14 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_isotropic_E_plus_serialize(self):
         print('\ntesting test_GaAs_isotropic_E...')
-        expected_mu = {'ACD': 154680.02690,
-                       'IMP': 1131994.2642,
-                       'PIE': 722658.87389,
-                       'POP': 31088.555902,
-                       'average': 24450.887161,
-                       'overall': 25963.0641,
+        expected_mu = {'ACD': 155546.265,
+                       'IMP': 1281038.44138,
+                       'PIE': 777924.6036,
+                       'POP': 29668.5385,
+                       'average': 23696.2433,
+                       'overall': 24887.51886,
                        }
-        expected_seebeck = -709.2140
+        expected_seebeck = -721.9417
 
         performance_params = deepcopy(self.performance_params)
         performance_params['max_nvalleys'] = 1
@@ -102,10 +102,10 @@ class AmsetTest(unittest.TestCase):
         kgrid = amset.kgrid
 
         # check general characteristics of the grid
-        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 68)
+        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 90)
         mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
         self.assertAlmostEqual(np.std(mean_v), 0.00, places=2) # isotropic BS after removing points
-        self.assertAlmostEqual(mean_v[0], 77925517.8687, places=1) # zeroth band
+        self.assertAlmostEqual(mean_v[0], 82141232.06384, places=1) # zeroth band
 
         # check mobility values
         for mu in expected_mu.keys():
@@ -124,12 +124,12 @@ class AmsetTest(unittest.TestCase):
 
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
-        expected_mu = {'ACD': 133577.746017,
-                       'IMP': 1374279.86216,
-                       'PIE': 408548.7104,
-                       'POP': 23029.41292,
-                       'average': 18489.63695,
-                       'overall': 20583.8439,
+        expected_mu = {'ACD': 132513.1432,
+                       'IMP': 1537469.198278,
+                       'PIE': 421541.150873,
+                       'POP': 17575.060421,
+                       'average': 14821.8640,
+                       'overall': 15805.2140,
                        }
         expected_seebeck = -736.84500
         amset = Amset(calc_dir=self.temp_dir,
@@ -186,12 +186,12 @@ class AmsetTest(unittest.TestCase):
 
     def test_InP_isotropic_E(self):
         print('\ntesting test_InP_isotropic_E...')
-        expected_mu = {'ACD': 503578.294633,
-                       'IMP': 1841517.000,
-                       'PIE': 1264891.76360,
-                       'POP': 32540.2336,
-                       'average': 29368.06902,
-                       'overall': 30053.96233
+        expected_mu = {'ACD': 495952.86374,
+                       'IMP': 2066608.8522,
+                       'PIE': 1344563.563591,
+                       'POP': 34941.917715,
+                       'average': 31384.4998,
+                       'overall': 32195.345065
                        }
 
         amset = Amset(calc_dir=self.temp_dir,
