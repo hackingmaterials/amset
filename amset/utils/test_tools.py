@@ -1,6 +1,3 @@
-# coding: utf-8
-
-from __future__ import unicode_literals, absolute_import
 import numpy as np
 import os
 import unittest
@@ -34,34 +31,35 @@ class AmsetToolsTest(unittest.TestCase):
                                  coeff_file=self.GaAs_cube, Ecut=1.0)
         # first conduction band extrema:
         self.listalmostequal(extrema['n'][0], [.0, .0, .0], 10)
-        self.listalmostequal(extrema['n'][1], [.0, .5, .0], 10)
-        self.listalmostequal(extrema['n'][2], [-.5, -.5, .0], 10)
-        self.assertEqual(len(extrema['n']), 4)
+        self.listalmostequal(extrema['n'][1], [.5, .5, .5], 10)
+        self.listalmostequal(extrema['n'][2], [-0.4414894, -.4414894, .0], 4)
+        self.assertEqual(len(extrema['n']), 3)
 
         # last valence band extrema
         self.listalmostequal(extrema['p'][0], [.0, .0, .0], 10)
         self.listalmostequal(extrema['p'][1], [-.2786, -.0459, .0], 4)
+        self.listalmostequal(extrema['p'][2], [0.39561, 0.11702 , 0.162898], 4)
         self.assertEqual(len(extrema['p']), 3)
 
         Si_extrema = get_bs_extrema(bs=self.Si_vrun.get_band_structure(),
                                     coeff_file=self.Si_cube,
                                     Ecut=1.0
                                     )
-        self.listalmostequal(Si_extrema['n'][0], [-0.41777, -0.41777, 0.], 3)
-        self.listalmostequal(Si_extrema['n'][1], [.0, .5, .0], 3)
-        self.listalmostequal(Si_extrema['n'][2], [-.269, -.269, .261], 3)
-        self.listalmostequal(Si_extrema['p'][0], [.0, .0, .0], 3)
-        # this last one doesn't show in mp-149; must look at the Fermi surface
-        self.listalmostequal(Si_extrema['p'][1], [-.2267, -.05, .0], 3)
+        self.listalmostequal(Si_extrema['n'][0], [0.419204, 0.419204, 0.], 4)
+        self.listalmostequal(Si_extrema['n'][1], [-0.4638, -0.4638, -0.4638],4)
+        self.listalmostequal(Si_extrema['p'][0], [0.0, 0.0, 0.0], 10)
+        self.listalmostequal(Si_extrema['p'][1], [-0.226681, -0.049923, 0.], 3)
 
         PbTe_extrema = get_bs_extrema(bs=self.PbTe_vrun.get_band_structure(),
                                 coeff_file=self.PbTe_cube,
                                 Ecut=1.0)
         self.listalmostequal(PbTe_extrema['n'][0], [0. , 0.5, 0. ], 10)
-        self.listalmostequal(PbTe_extrema['n'][1], [.1852, .1852, 0.] , 3)
+        self.listalmostequal(PbTe_extrema['n'][1], [.1522, -.0431,  .1522], 4)
         self.listalmostequal(PbTe_extrema['p'][0], [0. , 0.5, 0. ], 10)
         self.listalmostequal(PbTe_extrema['p'][1], [.4784, -.2709,  .2278], 3)
         self.listalmostequal(PbTe_extrema['p'][2], [.162054 , .162054, 0.], 3)
+
+        #TODO: add the extrema tests for a few other compounds
 
 
     def test_kpts_to_first_BZ(self):
