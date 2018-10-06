@@ -13,11 +13,11 @@ class AmsetToolsTest(unittest.TestCase):
         GaAs_path = os.path.join(test_dir, '..', '..', 'test_files', 'GaAs_mp-2534')
         self.GaAs_cube = os.path.join(GaAs_path, "fort.123")
         self.GaAs_vrun = Vasprun(os.path.join(GaAs_path, "vasprun.xml"))
-        Si_path = os.path.join(test_dir, '..', '..', 'test_files', 'Si')
-        self.Si_cube = os.path.join(Si_path, 'Si_fort.123')
+        Si_path = os.path.join(test_dir, '..', '..', 'test_files', 'Si_mp-149')
+        self.Si_cube = os.path.join(Si_path, 'fort.123')
         self.Si_vrun = Vasprun(os.path.join(Si_path, 'vasprun.xml'))
 
-        PbTe_path = os.path.join(test_dir, '..', '..', 'test_files', 'PbTe')
+        PbTe_path = os.path.join(test_dir, '..', '..', 'test_files', 'PbTe_mp-19717')
         self.PbTe_cube = os.path.join(PbTe_path, 'fort.123')
         self.PbTe_vrun = Vasprun(os.path.join(PbTe_path, 'vasprun.xml'))
 
