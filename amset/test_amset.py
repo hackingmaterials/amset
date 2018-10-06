@@ -26,9 +26,9 @@ class AmsetTest(unittest.TestCase):
         self.GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
                 'P_PIE': 0.052, 'scissor': 0.5818}
-        self.GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs')
+        self.GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs_mp-2534')
         self.GaAs_vasprun = os.path.join(self.GaAs_path, 'vasprun.xml')
-        self.GaAs_cube = os.path.join(self.GaAs_path, "nscf-uniform/fort.123")
+        self.GaAs_cube = os.path.join(self.GaAs_path, 'fort.123')
         self.InP_path = os.path.join(test_dir, '..', 'test_files', 'InP_mp-20351')
         self.InP_vasprun = os.path.join(self.InP_path, 'vasprun.xml')
         self.InP_params = {"epsilon_s": 14.7970, "epsilon_inf": 11.558,
