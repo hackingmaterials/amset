@@ -6,29 +6,29 @@ from amset.utils.tools import kpts_to_first_BZ, get_closest_k, \
     interpolate_bs, get_bs_extrema
 from pymatgen.io.vasp import Vasprun
 
-test_dir = os.path.dirname(__file__)
+comps = {
+    'GaAs': 'GaAs_mp-2534',
+    'Si': 'Si_mp-149',
+    'PbTe': 'PbTe_mp-19717',
+    'InP': 'InP_mp-20351',
+    'AlCuS2': 'AlCuS2_mp-4979',
+    'In2O3': 'In2O3_mp-22598',
+}
+tdir = os.path.join(os.path.dirname(__file__), '..', '..', 'test_files')
+vruns = {c: Vasprun(os.path.join(tdir, comps[c], 'vasprun.xml')) for c in comps}
+coeff_files = {c: os.path.join(tdir, comps[c], 'fort.123') for c in comps}
 
 class AmsetToolsTest(unittest.TestCase):
     def setUp(self):
-        GaAs_path = os.path.join(test_dir, '..', '..', 'test_files', 'GaAs_mp-2534')
-        self.GaAs_cube = os.path.join(GaAs_path, "fort.123")
-        self.GaAs_vrun = Vasprun(os.path.join(GaAs_path, "vasprun.xml"))
-        Si_path = os.path.join(test_dir, '..', '..', 'test_files', 'Si_mp-149')
-        self.Si_cube = os.path.join(Si_path, 'fort.123')
-        self.Si_vrun = Vasprun(os.path.join(Si_path, 'vasprun.xml'))
-
-        PbTe_path = os.path.join(test_dir, '..', '..', 'test_files', 'PbTe_mp-19717')
-        self.PbTe_cube = os.path.join(PbTe_path, 'fort.123')
-        self.PbTe_vrun = Vasprun(os.path.join(PbTe_path, 'vasprun.xml'))
+        pass
 
     def listalmostequal(self, list1, list2, places=3):
         for l1, l2 in zip(list1, list2):
             self.assertAlmostEqual(l1, l2, places=places)
 
-
     def test_get_bs_extrema(self):
-        extrema = get_bs_extrema(bs=self.GaAs_vrun.get_band_structure(),
-                                 coeff_file=self.GaAs_cube, Ecut=1.0)
+        extrema = get_bs_extrema(bs=vruns['GaAs'].get_band_structure(),
+                                 coeff_file=coeff_files['GaAs'], Ecut=1.0)
         # first conduction band extrema:
         self.listalmostequal(extrema['n'][0], [.0, .0, .0], 10)
         self.listalmostequal(extrema['n'][1], [.5, .5, .5], 10)
@@ -41,24 +41,38 @@ class AmsetToolsTest(unittest.TestCase):
         self.listalmostequal(extrema['p'][2], [0.39561, 0.11702 , 0.162898], 4)
         self.assertEqual(len(extrema['p']), 3)
 
-        Si_extrema = get_bs_extrema(bs=self.Si_vrun.get_band_structure(),
-                                    coeff_file=self.Si_cube,
-                                    Ecut=1.0
-                                    )
+        Si_extrema = get_bs_extrema(bs=vruns['Si'].get_band_structure(),
+                                    coeff_file=coeff_files['Si'], Ecut=1.0)
         self.listalmostequal(Si_extrema['n'][0], [0.419204, 0.419204, 0.], 4)
         self.listalmostequal(Si_extrema['n'][1], [-0.4638, -0.4638, -0.4638],4)
         self.listalmostequal(Si_extrema['p'][0], [0.0, 0.0, 0.0], 10)
         self.listalmostequal(Si_extrema['p'][1], [-0.226681, -0.049923, 0.], 3)
 
-        PbTe_extrema = get_bs_extrema(bs=self.PbTe_vrun.get_band_structure(),
-                                coeff_file=self.PbTe_cube,
-                                Ecut=1.0)
+        PbTe_extrema = get_bs_extrema(bs=vruns['PbTe'].get_band_structure(),
+                                coeff_file=coeff_files['PbTe'], Ecut=1.0)
         self.listalmostequal(PbTe_extrema['n'][0], [0. , 0.5, 0. ], 10)
         self.listalmostequal(PbTe_extrema['n'][1], [.1522, -.0431,  .1522], 4)
         self.listalmostequal(PbTe_extrema['p'][0], [0. , 0.5, 0. ], 10)
         self.listalmostequal(PbTe_extrema['p'][1], [.4784, -.2709,  .2278], 3)
         self.listalmostequal(PbTe_extrema['p'][2], [.162054 , .162054, 0.], 3)
 
+        InP_extrema = get_bs_extrema(bs=vruns['InP'].get_band_structure(),
+                                coeff_file=coeff_files['InP'], Ecut=1.0)
+        self.listalmostequal(InP_extrema['n'][0], [0. , 0.0, 0. ], 10)
+        self.listalmostequal(InP_extrema['n'][1], [0. , 0.5, 0. ], 10)
+        self.listalmostequal(InP_extrema['p'][0], [0. , 0.0, 0. ], 10)
+        self.listalmostequal(InP_extrema['p'][1], [-0.3843 , -0.0325,  0.], 4)
+
+        AlCuS2_extrema = get_bs_extrema(bs=vruns['AlCuS2'].get_band_structure(),
+                                coeff_file=coeff_files['AlCuS2'], Ecut=1.0)
+        print(AlCuS2_extrema)
+
+
+        In2O3_extrema = get_bs_extrema(bs=vruns['In2O3'].get_band_structure(),
+                                coeff_file=coeff_files['In2O3'], Ecut=1.0)
+        print(In2O3_extrema)
+
+        
         #TODO: add the extrema tests for a few other compounds
 
 
@@ -91,7 +105,7 @@ class AmsetToolsTest(unittest.TestCase):
 
 
     def test_interpolate_bs(self, check_bzt2=False):
-        bs = self.GaAs_vrun.get_band_structure()
+        bs = vruns['GaAs'].get_band_structure()
         vbm_idx, vbm_bidx = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
         cbm_idx, cbm_bidx = get_bindex_bspin(bs.get_cbm(), is_cbm=True)
         dft_vbm = bs.get_vbm()['energy']
@@ -101,10 +115,10 @@ class AmsetToolsTest(unittest.TestCase):
         cbm_idx += 1
 
         kpts = [k.frac_coords for k in bs.kpoints]
-        matrix = self.GaAs_vrun.lattice.matrix
+        matrix = vruns['GaAs'].lattice.matrix
 
         # get the interpolation parameters
-        interp_params1 = get_energy_args(self.GaAs_cube, [vbm_idx, cbm_idx])
+        interp_params1 = get_energy_args(coeff_files['GaAs'], [vbm_idx, cbm_idx])
 
         # calculate and check the last valence and the first conduction bands:
         vb_en1, vb_vel1, vb_masses1 = interpolate_bs(kpts, interp_params1,
@@ -134,7 +148,7 @@ class AmsetToolsTest(unittest.TestCase):
         if check_bzt2:
             from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
             from BoltzTraP2 import sphere, fite
-            bz2_data = PymatgenLoader(self.GaAs_vrun)
+            bz2_data = PymatgenLoader(vruns['GaAs'])
             equivalences = sphere.get_equivalences(bz2_data.atoms,
                                                    len(bz2_data.kpoints) * 10)
             lattvec = bz2_data.get_lattvec()
