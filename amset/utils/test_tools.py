@@ -34,7 +34,6 @@ class AmsetToolsTest(unittest.TestCase):
         self.listalmostequal(extrema['n'][1], [.5, .5, .5], 10)
         self.listalmostequal(extrema['n'][2], [-0.4414894, -.4414894, .0], 4)
         self.assertEqual(len(extrema['n']), 3)
-
         # last valence band extrema
         self.listalmostequal(extrema['p'][0], [.0, .0, .0], 10)
         self.listalmostequal(extrema['p'][1], [-.2786, -.0459, .0], 4)
@@ -65,15 +64,20 @@ class AmsetToolsTest(unittest.TestCase):
 
         AlCuS2_extrema = get_bs_extrema(bs=vruns['AlCuS2'].get_band_structure(),
                                 coeff_file=coeff_files['AlCuS2'], Ecut=1.0)
-        print(AlCuS2_extrema)
-
+        self.listalmostequal(AlCuS2_extrema['n'][0], [0. , 0.0, 0.0 ], 10)
+        self.listalmostequal(AlCuS2_extrema['n'][1], [0. , 0.0, 0.5 ], 10)
+        self.listalmostequal(AlCuS2_extrema['n'][2], [-0.49973, -0.49973,  0.], 4)
+        self.listalmostequal(AlCuS2_extrema['n'][3], [0.49047, 0.49047, 0.49818], 4)
+        self.listalmostequal(AlCuS2_extrema['p'][0], [0. , 0.0, 0.0 ], 10)
+        self.listalmostequal(AlCuS2_extrema['p'][1], [0.28291, 0., -0.40218], 4)
+        self.listalmostequal(AlCuS2_extrema['p'][2], [-0.25765, 0.25148, 0.], 4)
+        self.listalmostequal(AlCuS2_extrema['p'][3], [-0.49973, -0.49973, 0.], 4)
 
         In2O3_extrema = get_bs_extrema(bs=vruns['In2O3'].get_band_structure(),
                                 coeff_file=coeff_files['In2O3'], Ecut=1.0)
-        print(In2O3_extrema)
-
-        
-        #TODO: add the extrema tests for a few other compounds
+        self.listalmostequal(In2O3_extrema['n'][0], [0. , 0.0, 0.0 ], 10)
+        self.listalmostequal(In2O3_extrema['p'][0], [0. , 0.09631, 0.0 ], 4)
+        self.listalmostequal(In2O3_extrema['p'][1], [0.30498, 0.30498, 0.18299], 4)
 
 
     def test_kpts_to_first_BZ(self):
