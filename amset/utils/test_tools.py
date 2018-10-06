@@ -10,9 +10,9 @@ test_dir = os.path.dirname(__file__)
 
 class AmsetToolsTest(unittest.TestCase):
     def setUp(self):
-        GaAs_path = os.path.join(test_dir, '..', '..', 'test_files', 'GaAs')
-        self.GaAs_cube = os.path.join(GaAs_path, "nscf-uniform/fort.123")
-        self.GaAs_vrun = Vasprun(os.path.join(GaAs_path, "nscf-uniform", "vasprun.xml"))
+        GaAs_path = os.path.join(test_dir, '..', '..', 'test_files', 'GaAs_mp-2534')
+        self.GaAs_cube = os.path.join(GaAs_path, "fort.123")
+        self.GaAs_vrun = Vasprun(os.path.join(GaAs_path, "vasprun.xml"))
         Si_path = os.path.join(test_dir, '..', '..', 'test_files', 'Si')
         self.Si_cube = os.path.join(Si_path, 'Si_fort.123')
         self.Si_vrun = Vasprun(os.path.join(Si_path, 'vasprun.xml'))
