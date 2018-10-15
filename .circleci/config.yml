@@ -10,18 +10,21 @@ jobs:
       - run:
           name: env and run tests
           command: |
+          # making sure gcc and g++ are updated for boltztrap2 installation
             sudo apt-get install gcc
             sudo apt-get install g++
-            which gcc
             export CC=/usr/bin/gcc
             export CXX=/usr/bin/g++
+            export CFLAGS="-std=c++11"
+
+          # making python3 environment and installing the dependencies
             python3 -m venv test_env
             . test_env/bin/activate
             pip install --upgrade pip
             pip install --quiet numpy cython cmake
             pip install --quiet -r requirements.txt
             pip install --quiet -r requirements-optional.txt
-            export CFLAGS="-std=c++11"
-            pip install BoltzTraP2
+
+          # run the tests
             python setup.py test
           no_output_timeout: 90m
