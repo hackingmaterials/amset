@@ -11,7 +11,8 @@ jobs:
           name: env and run tests
           command: |
             sudo apt-get install gcc
-            gcc --version
+            sudo apt-get install g++
+            g++ --version
             python3 -m venv test_env
             . test_env/bin/activate
             pip install --upgrade pip
