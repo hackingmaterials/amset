@@ -16,6 +16,8 @@ jobs:
             pip install --quiet numpy cython cmake
             pip install --quiet -r requirements.txt
             pip install --quiet -r requirements-optional.txt
+            CFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
+            CXXFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
             pip install BoltzTraP2
             python setup.py test
           no_output_timeout: 90m
