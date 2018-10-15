@@ -12,15 +12,16 @@ jobs:
           command: |
             sudo apt-get install gcc
             sudo apt-get install g++
-            g++ --version
+            which gcc
+            export CC=/usr/bin/gcc
+            export CXX=/usr/bin/g++
             python3 -m venv test_env
             . test_env/bin/activate
             pip install --upgrade pip
             pip install --quiet numpy cython cmake
             pip install --quiet -r requirements.txt
             pip install --quiet -r requirements-optional.txt
-            CFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
-            CXXFLAGS="-std=c++11 -stdlib=libc++ -Weverything"
+            export CFLAGS="-std=c++11"
             pip install BoltzTraP2
             python setup.py test
           no_output_timeout: 90m
