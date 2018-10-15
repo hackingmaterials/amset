@@ -108,7 +108,7 @@ class AmsetToolsTest(unittest.TestCase):
         self.assertListEqual(kpts_out, remove_duplicate_kpoints(kpts_orig))
 
 
-    def test_interpolate_bs(self, check_bzt2=False):
+    def test_interpolate_bs(self, check_bzt2=True):
         bs = vruns['GaAs'].get_band_structure()
         vbm_idx, vbm_bidx = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
         cbm_idx, cbm_bidx = get_bindex_bspin(bs.get_cbm(), is_cbm=True)
