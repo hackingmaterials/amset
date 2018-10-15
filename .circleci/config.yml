@@ -8,7 +8,7 @@ jobs:
     steps:
       - checkout
       - run:
-          name: dependencies in py3 env: gcc and g++ for boltztrap2 & run tests
+          name: dependencies in py3 env gcc g++ for boltztrap2 and run tests
           command: |
             sudo apt-get install gcc
             sudo apt-get install g++
