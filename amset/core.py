@@ -1,26 +1,13 @@
 # coding: utf-8
 from __future__ import absolute_import
 import cProfile
-import gzip
 import json
 import numpy as np
 import os
 import time
 import warnings
-from collections import OrderedDict
-from multiprocessing import cpu_count
-from pstats import Stats
-
-from scipy.interpolate import griddata
-from pprint import pprint
-from sys import stdout as STDOUT
-from math import log, pi
-from pymatgen.electronic_structure.boltztrap import BoltztrapRunner, BoltztrapAnalyzer
-from pymatgen.io.vasp import Vasprun, Spin, Kpoints
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from monty.json import MontyEncoder, MontyDecoder
-from copy import deepcopy
-from amset.utils.analytical_band_from_BZT import Analytical_bands, get_dos_from_poly_bands, get_poly_energy
+from amset.utils.analytical_band_from_BZT import Analytical_bands, \
+        get_dos_from_poly_bands, get_poly_energy
 from amset.utils.tools import norm, generate_k_mesh_axes, \
     create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
     fermi_integral, calculate_Sio, remove_from_grid, get_tp, \
@@ -29,10 +16,22 @@ from amset.utils.tools import norm, generate_k_mesh_axes, \
     AmsetError, get_dos_boltztrap2, free_e_dos, \
     setup_custom_logger, interpolate_bs, \
     get_dft_orbitals, generate_adaptive_kmesh, create_plots
-
 from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, \
     A_to_nm, e, k_B, \
     epsilon_0, default_small_E, dTdz, sq3
+from collections import OrderedDict
+from copy import deepcopy
+from math import log, pi
+from monty.json import MontyEncoder, MontyDecoder
+from monty.serialization import dumpfn, loadfn
+from multiprocessing import cpu_count
+from pprint import pprint
+from pstats import Stats
+from pymatgen.electronic_structure.boltztrap import BoltztrapRunner, BoltztrapAnalyzer
+from pymatgen.io.vasp import Vasprun, Spin, Kpoints
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from scipy.interpolate import griddata
+from sys import stdout as STDOUT
 
 try:
     import BoltzTraP2
@@ -2705,19 +2704,12 @@ class Amset(object):
         if not force_write:
             n = 1
             fname0 = fname
-            while os.path.exists(os.path.join(path, '{}.json.gz'.format(fname))):
+            while os.path.exists(os.path.join(path, '{}.json'.format(fname))):
                 warnings.warn('The file, {} exists. Amset outputs will be '
                         'written in {}'.format(fname, fname0+'_'+str(n)))
                 fname = fname0 + '_' + str(n)
                 n += 1
-        out_d = self.as_dict()
-
-        # write the output dict to file
-        with gzip.GzipFile(os.path.join(path, '{}.json.gz'.format(fname)),
-                           mode='w') as fp:
-            json_str = json.dumps(out_d, cls=MontyEncoder)
-            json_bytes = json_str.encode('utf-8')
-            fp.write(json_bytes)
+        dumpfn(self.as_dict(), os.path.join(path, '{}.json'.format(fname)))
 
 
     def as_dict(self):
@@ -2740,6 +2732,7 @@ class Amset(object):
                  'performance_params': self.performance_params,
                  'model_params': self.model_params,
                  'all_types': self.all_types,
+                 'Efrequency0': self.Efrequency0,
                  }
         for tp in ['p', 'n']:
             for mu in out_d['mobility'][tp]:
@@ -2757,13 +2750,12 @@ class Amset(object):
 
 
     @staticmethod
-    def from_file(path=None, dir_name="run_data", filename="amsetrun.json.gz"):
+    def from_file(path=None, dir_name="run_data", filename="amsetrun.json"):
+        #TODO: add compression (.gz at the end of filename), had some issues implementing it
         #TODO: make this better, maybe organize these class attributes a bit?
         if not path:
             path = os.path.join(os.getcwd(), dir_name)
-
-        with gzip.GzipFile(os.path.join(path, filename), mode='r') as fp:
-            d = json.load(fp, cls=MontyDecoder)
+        d = loadfn(os.path.join(path, filename))
         amset = Amset(calc_dir=path,
                       material_params=d['material_params'],
                       model_params=d['model_params'],
@@ -2783,6 +2775,7 @@ class Amset(object):
         amset.performance_params = d['performance_params']
         amset.model_params = d['model_params']
         amset.all_types = list(set([get_tp(c) for c in amset.dopings]))
+        amset.Efrequency0 = d['Efrequency0']
         return amset
 
 
@@ -3332,8 +3325,8 @@ class Amset(object):
         supported_k_plots = ['energy', 'df0dk', 'velocity'] + self.elastic_scats
         supported_E_plots = ['frequency', 'relaxation time', 'df0dk', 'velocity'] + self.elastic_scats
         if "POP" in self.inelastic_scats:
-            supported_E_plots += ['g', 'g_POP', 'S_i', 'S_o']
-            supported_k_plots += ['g', 'g_POP', 'S_i', 'S_o']
+            supported_E_plots += ['g', 'g_POP', 'g_th', 'S_i', 'S_o']
+            supported_k_plots += ['g', 'g_POP', 'g_th', 'S_i', 'S_o']
         if k_plots == 'all':
             k_plots = supported_k_plots
         if E_plots == 'all':
@@ -3416,16 +3409,18 @@ class Amset(object):
                                                   save_format, c, tp, tp_c_dir,
                                                   fontsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
 
+
+##########TODO: change the following to c&T instead of just T for cases where we have vs. c properties ###########################
                     # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
                     try:
-                        y_data_temp_dependent = {'k': {prop: {T: [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][prop][c][T][0]]
+                        y_data_temp_dependent = {'k': {prop: {(c, T): [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][prop][c][T][0]]
                                                                 for T in self.temperatures} for prop in temp_dependent_k_props},
-                                                'E': {prop: {T: [self.get_scalar_output(p, dir) for p in self.egrid0[tp][prop][c][T]]
+                                                'E': {prop: {(c, T): [self.get_scalar_output(p, dir) for p in self.egrid0[tp][prop][c][T]]
                                                                 for T in self.temperatures} for prop in temp_dependent_E_props}}
                     except KeyError: # for when from_file is called
-                        y_data_temp_dependent = {'k': {prop: {T: [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][prop][str(c)][str(int(T))][0]]
+                        y_data_temp_dependent = {'k': {prop: {(c, T): [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][prop][str(c)][str(int(T))][0]]
                                                                 for T in self.temperatures} for prop in temp_dependent_k_props},
-                                                'E': {prop: {T: [self.get_scalar_output(p, dir) for p in self.egrid0[tp][prop][str(c)][str(int(T))]]
+                                                'E': {prop: {(c, T): [self.get_scalar_output(p, dir) for p in self.egrid0[tp][prop][str(c)][str(int(T))]]
                                                                 for T in self.temperatures} for prop in temp_dependent_E_props}}
 
                     # temperature dependent k and E plots
@@ -3434,8 +3429,8 @@ class Amset(object):
                             plot_data = []
                             names = []
                             for T in self.temperatures:
-                                plot_data.append((x_data[x_value], y_data_temp_dependent[x_value][y_value][T]))
-                                names.append(str(T) + ' K')
+                                plot_data.append((x_data[x_value], y_data_temp_dependent[x_value][y_value][(c, T)]))
+                                names.append('c={0:.1e}, T={1} K'.format(c, T))
                             create_plots(x_axis_label[x_value], y_value, show_interactive,
                                               save_format, c, tp, tp_c_dir,
                                               fontsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
@@ -3449,7 +3444,7 @@ class Amset(object):
                             try:
                                 mo_values = [self.mobility[tp][mo][c][T] for T in self.temperatures]
                             except KeyError: # for when from_file is called
-                                mo_values = [self.mobility[tp][mo][str(c)][str(int(T))] for T in self.temperatures]
+                                mo_values = [self.mobility[tp][mo][str(int(c))][str(int(T))] for T in self.temperatures]
                             plot_data.append((self.temperatures, [self.get_scalar_output(mo_value,
                                     dir) for mo_value in mo_values]))
                             names.append(mo)
@@ -3544,7 +3539,7 @@ if __name__ == "__main__":
             , "user_bandgap": 1.54,
             # "important_points": {'n': [[0. , 0.5, 0. ]], 'p': [[0. , 0.0, 0. ]]},
                        }
-    input_dir = "../test_files/GaAs/nscf-uniform"
+    input_dir = "../test_files/GaAs_mp-2534"
     # coeff_file = None
     coeff_file = os.path.join(input_dir, "fort.123")
 
@@ -3556,7 +3551,7 @@ if __name__ == "__main__":
                   dopings = [-3e13],
                   # dopings = [-1e16, -1e17, -1e18, -1e19, -1e20, -1e21],
                   # temperatures = [300, 600, 900],
-                  temperatures = [300],
+                  temperatures = [300, 600],
                   integration='e',
                   )
     amset.run_profiled(coeff_file, kgrid_tp='very coarse')
@@ -3565,7 +3560,7 @@ if __name__ == "__main__":
     amset.to_csv()
     amset.as_dict()
     amset.to_file()
-    amset.plot(k_plots=['energy', 'S_o', 'S_i']
+    amset.plot(k_plots=['energy']
                , E_plots=['velocity', 'df0dk', 'ACD'], show_interactive=True
                , carrier_types=amset.all_types
                , save_format=None)
