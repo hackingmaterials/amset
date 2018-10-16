@@ -18,6 +18,8 @@ tdir = os.path.join(os.path.dirname(__file__), '..', '..', 'test_files')
 vruns = {c: Vasprun(os.path.join(tdir, comps[c], 'vasprun.xml')) for c in comps}
 coeff_files = {c: os.path.join(tdir, comps[c], 'fort.123') for c in comps}
 
+CHECK_BOLTZTRAP2 = True
+
 class AmsetToolsTest(unittest.TestCase):
     def setUp(self):
         pass
@@ -108,7 +110,7 @@ class AmsetToolsTest(unittest.TestCase):
         self.assertListEqual(kpts_out, remove_duplicate_kpoints(kpts_orig))
 
 
-    def test_interpolate_bs(self, check_bzt2=True):
+    def test_interpolate_bs(self):
         bs = vruns['GaAs'].get_band_structure()
         vbm_idx, vbm_bidx = get_bindex_bspin(bs.get_vbm(), is_cbm=False)
         cbm_idx, cbm_bidx = get_bindex_bspin(bs.get_cbm(), is_cbm=True)
@@ -149,12 +151,12 @@ class AmsetToolsTest(unittest.TestCase):
         self.listalmostequal(np.mean(vb_vel1, axis=0), expected_vb_v, 0)
         self.listalmostequal(np.mean(cb_vel1, axis=0), expected_cb_v,0)
 
-        if check_bzt2:
+        if CHECK_BOLTZTRAP2:
             from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
             from BoltzTraP2 import sphere, fite
             bz2_data = PymatgenLoader(vruns['GaAs'])
-            equivalences = sphere.get_equivalences(bz2_data.atoms,
-                                                   len(bz2_data.kpoints) * 10)
+            equivalences = sphere.get_equivalences(atoms=bz2_data.atoms,
+                                nkpt=len(bz2_data.kpoints) * 10, magmom=None)
             lattvec = bz2_data.get_lattvec()
             coeffs = fite.fitde3D(bz2_data, equivalences)
             interp_params2 = (equivalences, lattvec, coeffs)

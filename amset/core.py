@@ -1198,8 +1198,8 @@ class Amset(object):
         self.interp_params = None
         if self.interpolation == "boltztrap2":
             bz2_data = PymatgenLoader(self._vrun)
-            equivalences = sphere.get_equivalences(bz2_data.atoms,
-                                                   len(bz2_data.kpoints) * 5)
+            equivalences = sphere.get_equivalences(atoms=bz2_data.atoms,
+                        nkpt=len(bz2_data.kpoints) * 5, magmom=None)
             lattvec = bz2_data.get_lattvec()
             coeffs = fite.fitde3D(bz2_data, equivalences)
             self.interp_params = (equivalences, lattvec, coeffs)
