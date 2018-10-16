@@ -8,7 +8,7 @@ from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, \
     get_energy
 from amset.utils.constants import hbar, m_e, e, k_B, epsilon_0, sq3, \
     Hartree_to_eV, Ry_to_eV, A_to_m, m_to_cm
-from detect_peaks import detect_peaks
+from amset.utils.detect_peaks import detect_peaks
 from math import pi, log
 from multiprocessing import Pool, cpu_count
 from pymatgen import Spin
