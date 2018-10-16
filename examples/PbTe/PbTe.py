@@ -17,7 +17,7 @@ if __name__ == "__main__":
                        "W_POP": 10.0,
                        "C_el": 128.8,
                        "E_D": {"n": 4.0, "p": 4.0}}
-    PbTe_dir = os.path.join("..", "..", "test_files", "PbTe")
+    PbTe_dir = os.path.join("..", "..", "test_files", "PbTe_mp-19717")
     coeff_file = os.path.join(PbTe_dir, "fort.123")
 
     amset = Amset(calc_dir='.',
