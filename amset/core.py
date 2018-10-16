@@ -398,8 +398,8 @@ class Amset(object):
                                 self.denominator[c][T]['n'] = (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10)
                                 self.denominator[c][T]['p'] = (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10)
                             elif self.integration=='e':
-                                self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(prop_list=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False)
-                                self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(prop_list=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False)
+                                self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(props=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False)
+                                self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(props=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False)
                                 for tp in ['n', 'p']:
                                     self.seeb_denom[c][T][tp] = self.egrid["Seebeck_integral_denominator"][c][T][tp]
 
@@ -489,7 +489,7 @@ class Amset(object):
                                         self.seeb_denom[c][T][tp] += self.integrate_over_states(finteg*(1-finteg), tp)
                                     elif self.integration=='e':
                                         finteg = "f0" if tp=="n" else "1 - f0"
-                                        self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(prop_list=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False)  * valley_ndegen
+                                        self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(props=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False)  * valley_ndegen
                                         self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp] * valley_ndegen
                                     for mu in self.mo_labels+["J_th"]:
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * valley_ndegen
@@ -1313,7 +1313,7 @@ class Amset(object):
         c, and the temperature, T, as inputs
         """
         return {t: self.gs + self.integrate_over_E(
-            prop_list=["f0x1-f0"], tp=t, c=c, T=T, xDOS=False) for t in ["n", "p"]}
+            props=["f0x1-f0"], tp=t, c=c, T=T, xDOS=False) for t in ["n", "p"]}
 
 
     def calculate_property(self, prop_name, prop_func, for_all_E=False):
@@ -2092,7 +2092,7 @@ class Amset(object):
         return [np.sum(func_grid[:,:,:,i] * self.dv_grid[tp]) for i in range(func_grid.shape[3])]
 
 
-    def integrate_over_normk(self, prop_list, tp, c, T, xDOS):
+    def integrate_over_normk(self, props, tp, c, T, xDOS):
         normk_tp = "norm(k)"
         for ib in [0]:
             normk_sorted_idx = np.argsort(self.kgrid[tp][normk_tp][ib])
@@ -2104,7 +2104,7 @@ class Amset(object):
             integral_vec = normk_vec * dk_vec
             if xDOS:
                 integral_vec *= normk_vec**2/pi
-            for j, p in enumerate(prop_list):
+            for j, p in enumerate(props):
                 if p[0] == "/":
                     vec = np.array(self.kgrid[tp][p.split("/")[-1]][c][T][ib])
                 elif "1 -" in p:
@@ -2119,14 +2119,14 @@ class Amset(object):
         return integral
 
 
-    def integrate_over_E(self, prop_list, tp, c, T, xDOS=False, xvel=False,
+    def integrate_over_E(self, props, tp, c, T, xDOS=False, xvel=False,
                          interpolation_nsteps=None):
         """
-        Integrates the multiplication of prop_list in the egrid over dE where
+        Integrates the multiplication of props in the egrid over dE where
             E stands for energy.
 
         Args:
-            prop_list ([str]): list of property names. These properties must
+            props ([str]): list of property names. These properties must
                 be available in egrid such as "g" or "df0dk" or "ACD". Note
                 that some simple math operations of properties are permitted.
                     examples:
@@ -2147,7 +2147,7 @@ class Amset(object):
 
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
-        diff = [0.0 for _ in prop_list]
+        diff = [0.0 for _ in props]
         integral = self.gs
         for ie in range(imax_occ):
             E = self.egrid[tp]["energy"][ie]
@@ -2156,7 +2156,7 @@ class Amset(object):
                 dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
             if xvel:
                 dv = (self.egrid[tp]["velocity"][ie + 1] - self.egrid[tp]["velocity"][ie]) / interpolation_nsteps
-            for j, p in enumerate(prop_list):
+            for j, p in enumerate(props):
                 if "/" in p:
                     diff[j] = (self.egrid[tp][p.split("/")[-1]][c][T][ie + 1] -
                                self.egrid[tp][p.split("/")[-1]][c][T][ie]) / interpolation_nsteps
@@ -2167,7 +2167,7 @@ class Amset(object):
                     diff[j] = (self.egrid[tp][p][c][T][ie + 1] - self.egrid[tp][p][c][T][ie]) / interpolation_nsteps
             for i in range(interpolation_nsteps):
                 multi = dE
-                for j, p in enumerate(prop_list):
+                for j, p in enumerate(props):
                     if p[0] == "/":
                         multi /= self.egrid[tp][p.split("/")[-1]][c][T][ie] + diff[j] * i
                     elif "1 -" in p:
@@ -2690,7 +2690,7 @@ class Amset(object):
         """
         beta = {}
         for tp in ["n", "p"]:
-            integral = self.integrate_over_E(prop_list=["f0","1 - f0"],
+            integral = self.integrate_over_E(props=["f0","1 - f0"],
                                              tp=tp, c=c, T=T, xDOS=True)
             beta[tp] = (e**2 / (self.epsilon_s * epsilon_0 * k_B * T) \
                         * integral / self.volume * 1e12 / e) ** 0.5
@@ -2974,11 +2974,11 @@ class Amset(object):
 
 
     # k-integration method
-    def grid_from_energy_list(self, prop_list, tp, ib, denom=False, none_missing=False, fill=None):
+    def grid_from_energy_list(self, props, tp, ib, denom=False, none_missing=False, fill=None):
         """
 
         Args:
-            prop_list: a list that is sorted by energy and missing removed points
+            props: a list that is sorted by energy and missing removed points
             tp:
             ib:
             denom:
@@ -2993,31 +2993,31 @@ class Amset(object):
                 fill = 0
             if denom:
                 fill = 1
-        adjusted_prop_list = list(prop_list)
+        adjusted_props = list(props)
         # step 0 is reverse second sort
-        adjusted_prop_list = np.array(adjusted_prop_list)[self.pos_idx_2[tp][ib]]
-        adjusted_prop_list = [adjusted_prop_list[i] for i in range(adjusted_prop_list.shape[0])]
+        adjusted_props = np.array(adjusted_props)[self.pos_idx_2[tp][ib]]
+        adjusted_props = [adjusted_props[i] for i in range(adjusted_props.shape[0])]
 
         # reverse what has been done: step 1 is add new points back
         if not none_missing:
             insert_list = False
-            if type(adjusted_prop_list[0]) == np.ndarray or type(adjusted_prop_list[0]) == list:
-                if len(adjusted_prop_list[0]) == 3:
+            if type(adjusted_props[0]) == np.ndarray or type(adjusted_props[0]) == list:
+                if len(adjusted_props[0]) == 3:
                     insert_list = True
             for ik in self.rm_idx_list[tp][ib]:
-                adjusted_prop_list.insert(ik, fill) if not insert_list else adjusted_prop_list.insert(ik, [fill,fill,fill])
+                adjusted_props.insert(ik, fill) if not insert_list else adjusted_props.insert(ik, [fill,fill,fill])
 
         # step 2 is reorder based on first sort
-        adjusted_prop_list = np.array(adjusted_prop_list)[self.pos_idx[tp]]
+        adjusted_props = np.array(adjusted_props)[self.pos_idx[tp]]
         # then call grid_from_ordered_list
-        return self.grid_from_ordered_list(adjusted_prop_list, tp, denom=denom, none_missing=True)
+        return self.grid_from_ordered_list(adjusted_props, tp, denom=denom, none_missing=True)
 
 
     # k-integration method
-    def grid_from_ordered_list(self, prop_list, tp, denom=False, none_missing=False, scalar=False):
+    def grid_from_ordered_list(self, props, tp, denom=False, none_missing=False, scalar=False):
         """
         Args:
-            prop_list:
+            props:
             tp:
             denom:
             none_missing:
@@ -3029,7 +3029,7 @@ class Amset(object):
         if scalar:
             N[-1] = 1
         grid = np.zeros(N)
-        adjusted_prop_list = list(prop_list)
+        adjusted_props = list(props)
 
         # put zeros back into spots of missing indexes
         # self.rm_idx_list format: [tp][ib][ik]
@@ -3037,14 +3037,14 @@ class Amset(object):
             for ib in range(self.num_bands[tp]):
                 for ik in self.rm_idx_list[tp][ib]:
                     if not denom:
-                        adjusted_prop_list.insert(ik, 0)
+                        adjusted_props.insert(ik, 0)
                     if denom:
-                        adjusted_prop_list.insert(ik, 1)
+                        adjusted_props.insert(ik, 1)
 
         for i in range(N[0]):
             for j in range(N[1]):
                 for k in range(N[2]):
-                    grid[i,j,k] = adjusted_prop_list[i*N[1]*N[2] + j*N[2] + k]
+                    grid[i,j,k] = adjusted_props[i*N[1]*N[2] + j*N[2] + k]
         return grid
 
 
@@ -3240,17 +3240,17 @@ class Amset(object):
                     # mobility numerators
                     for mu_el in self.elastic_scats:
                         valley_transport[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
-                            self.integrate_over_E(prop_list=["/" + mu_el, "df0dk"], tp=tp, c=c, T=T,
+                            self.integrate_over_E(props=["/" + mu_el, "df0dk"], tp=tp, c=c, T=T,
                                         xDOS=False, xvel=True)
 
                     for mu_inel in self.inelastic_scats:
-                        valley_transport[tp][mu_inel][c][T] = self.integrate_over_E(prop_list=[
+                        valley_transport[tp][mu_inel][c][T] = self.integrate_over_E(props=[
                                 "g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False, xvel=True)
-                        mu_overall_valley = self.integrate_over_E(prop_list=["g"],
+                        mu_overall_valley = self.integrate_over_E(props=["g"],
                                tp=tp, c=c, T=T, xDOS=False, xvel=True)
 
                     valley_transport[tp]["J_th"][c][T] = float(abs(c))*e \
-                            *self.integrate_over_E(prop_list=["g_th"],
+                            *self.integrate_over_E(props=["g_th"],
                                                    tp=tp, c=c, T=T,
                                                    xDOS=False, xvel=True) #in A/cm2
 
