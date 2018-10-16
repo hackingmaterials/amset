@@ -1301,13 +1301,10 @@ class Amset(object):
         c, and the temperature, T, as inputs
         """
         fn = lambda E, fermi, T: f0(E,fermi,T) * (1-f0(E,fermi,T)) * E/(k_B*T)
-        return {t: self.integrate_func_over_E(func=fn,
-                                              tp=t,
+        return {t: self.integrate_func_over_E(func=fn, tp=t, T=T,
                                               fermi=self.fermi_level[c][T],
-                                              T=T,
                                               normalize_energy=True,
-                                              xDOS=False) \
-                for t in ["n", "p"]}
+                                              xDOS=False) for t in ["n", "p"]}
 
 
     def seeb_int_denom(self, c, T):
