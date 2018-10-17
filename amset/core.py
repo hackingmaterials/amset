@@ -3451,6 +3451,7 @@ class Amset(object):
                 for c in concentrations:
                     plot_data = []
                     names = []
+                    mo_mags = []
                     for mo in mu_list:
                         try:
                             mo_values = [self.mobility[tp][mo][c][T] for T in self.temperatures]
@@ -3459,13 +3460,18 @@ class Amset(object):
                         plot_data.append((self.temperatures, [self.get_scalar_output(mo_value,
                                 dir) for mo_value in mo_values]))
                         names.append(mo)
+                        mo_mags.append(np.log10(abs(1+np.mean(mo_values))))
 
+                    scale = None
+                    if np.max(mo_mags) - np.min(mo_mags) > 2:
+                        scale = 'log'
                     create_plots("Temperature (K)",
-                            "Mobility (cm2/V.s)", show_interactive,
-                            save_format, tp, tp_dir, fontsize-5,
-                            ticksize-5, path, margins,
-                            fontfamily, plot_data=plot_data, names=names, mode='lines+markers',
-                            y_label_short="mobility", y_axis_type='log')
+                                 "Mobility (cm2/V.s)",
+                                 show_interactive, save_format, tp, tp_dir,
+                                 fontsize-5, ticksize-5, path, margins,
+                                 fontfamily, plot_data=plot_data, names=names,
+                                 mode='lines+markers', y_label_short="mobility",
+                                 y_axis_type=scale, title="{0}-type mobility at c={1:.2e}".format(tp, c))
 
 
 
