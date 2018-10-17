@@ -3288,8 +3288,10 @@ class Amset(object):
             return sum(vec) / 3
 
 
-    def plot(self, k_plots=None, E_plots=None, mobility=True, concentrations='all', carrier_types=None,
-             direction=None, show_interactive=True, save_format=None, fontsize=30, ticksize=25, path=None, dir_name="plots",
+    def plot(self, k_plots=None, E_plots=None, mobility=True,
+             concentrations='all', temperatures='all', carrier_types=None,
+             direction=None, show_interactive=True, save_format=None,
+             fontsize=30, ticksize=25, path=None, dir_name="plots",
              margins=100, fontfamily="serif"):
         """
         Plots the given k_plots and E_plots properties.
@@ -3301,8 +3303,9 @@ class Amset(object):
                 options: 'frequency', 'relaxation time', '_all_elastic', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
                 'g_POP', 'g_th', 'S_i', 'S_o', or just string 'all' (not in a list) to plot everything
             mobility: (boolean) if True, create a mobility against temperature plot
-            concentrations: (list of strings) a list of carrier concentrations, or the string 'all' to plot the
+            concentrations: ([float]): carrier concentrations, or the string 'all' to plot the
                 results of calculations done with all input concentrations
+            temperatures: ([int]): temperatures to be included in the plots
             carrier_types: (list of strings) select carrier types to plot data for - ['n'], ['p'], or ['n', 'p']
             direction: (list of strings) options to include in list are 'x', 'y', 'z', 'avg'; determines which
                 components of vector quantities are plotted
@@ -3333,10 +3336,11 @@ class Amset(object):
             E_plots = supported_E_plots
         if concentrations == 'all':
             concentrations = self.dopings
+        if temperatures == 'all':
+            temperatures = self.temperatures
 
         # make copies of mutable arguments
-
-        concentrations = list(concentrations)
+        concentrations = [int(c) for c in concentrations]
         carrier_types = list(carrier_types)
         direction = list(direction)
 
@@ -3375,22 +3379,20 @@ class Amset(object):
                       'E': [E - self.cbm_vbm[tp]["energy"] for E in self.egrid0[tp]["energy"]]}
             x_axis_label = {'k': 'norm(k)', 'E': 'energy (eV)'}
 
-            for c in concentrations:
 
-                # plots of scalar properties first
-                tp_c = tp + '_' + '{:.2e}'.format(c)
-                for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
-                    y_data_temp_independent = {'k': {'energy': self.kgrid0[tp]['energy'][0],
-                                                     'velocity': self.kgrid0[tp]["norm(v)"][0]},
-                                               'E': {'frequency': self.Efrequency0[tp]}}
-                    for y_value in y_values:
-                        if not vec[y_value]:
-                            title = None
-                            if y_value == 'frequency':
-                                title = 'Energy Histogram for {}, c={:.2e}'.format(self.tp_title[tp], c)
-                            create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, c, tp, tp_c,
-                                              fontsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
-                                              x_label_short=x_value, title=title)
+            # plots of scalar properties first
+            for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
+                y_data_temp_independent = {'k': {'energy': self.kgrid0[tp]['energy'][0],
+                                                 'velocity': self.kgrid0[tp]["norm(v)"][0]},
+                                           'E': {'frequency': self.Efrequency0[tp]}}
+                for y_value in y_values:
+                    if not vec[y_value]:
+                        title = None
+                        if y_value == 'frequency':
+                            title = 'Energy Histogram for {}'.format(self.tp_title[tp])
+                        create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, tp, tp,
+                                          fontsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
+                                          x_label_short=x_value, title=title)
 
 
                 for dir in direction:
@@ -3399,62 +3401,71 @@ class Amset(object):
                                                'E': {'frequency': self.Efrequency0[tp],
                                                      'velocity': [self.get_scalar_output(p, dir) for p in self.egrid0[tp]['velocity']]}}
 
-                    tp_c_dir = tp_c + '_' + dir
+                    tp_dir = tp + '_' + dir
 
                     # temperature independent k and E plots: energy(k), velocity(k), histogram(E), velocity(E)
                     for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
                         for y_value in y_values:
                             if vec[y_value]:
                                 create_plots(x_axis_label[x_value], y_value, show_interactive,
-                                                  save_format, c, tp, tp_c_dir,
+                                                  save_format, tp, tp_dir,
                                                   fontsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
 
+            # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
+            try:
+                y_data_temp_dependent = {'k': {kp: {} for kp in temp_dependent_k_props},
+                                        'E': {ep: {} for ep in temp_dependent_E_props}}
+                for c in concentrations:
+                    for T in temperatures:
+                        for kprop in temp_dependent_k_props:
+                            y_data_temp_dependent['k'][kprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][kprop][c][T][0]]
+                        for eprop in temp_dependent_E_props:
+                            y_data_temp_dependent['E'][eprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.egrid0[tp][eprop][c][T]]
 
-##########TODO: change the following to c&T instead of just T for cases where we have vs. c properties ###########################
-                    # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
-                    try:
-                        y_data_temp_dependent = {'k': {prop: {(c, T): [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][prop][c][T][0]]
-                                                                for T in self.temperatures} for prop in temp_dependent_k_props},
-                                                'E': {prop: {(c, T): [self.get_scalar_output(p, dir) for p in self.egrid0[tp][prop][c][T]]
-                                                                for T in self.temperatures} for prop in temp_dependent_E_props}}
-                    except KeyError: # for when from_file is called
-                        y_data_temp_dependent = {'k': {prop: {(c, T): [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][prop][str(c)][str(int(T))][0]]
-                                                                for T in self.temperatures} for prop in temp_dependent_k_props},
-                                                'E': {prop: {(c, T): [self.get_scalar_output(p, dir) for p in self.egrid0[tp][prop][str(c)][str(int(T))]]
-                                                                for T in self.temperatures} for prop in temp_dependent_E_props}}
+            except KeyError: # for when from_file is called
+                y_data_temp_dependent = {'k': {kp: {} for kp in temp_dependent_k_props},
+                                        'E': {ep: {} for ep in temp_dependent_E_props}}
+                for c in concentrations:
+                    for T in temperatures:
+                        for kprop in temp_dependent_k_props:
+                            y_data_temp_dependent['k'][kprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][kprop][str(c)][str(int(T))][0]]
+                        for eprop in temp_dependent_E_props:
+                            y_data_temp_dependent['E'][eprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.egrid0[tp][eprop][str(c)][str(int(T))]]
 
-                    # temperature dependent k and E plots
-                    for x_value, y_values in [('k', temp_dependent_k_props), ('E', temp_dependent_E_props)]:
-                        for y_value in y_values:
-                            plot_data = []
-                            names = []
-                            for T in self.temperatures:
-                                plot_data.append((x_data[x_value], y_data_temp_dependent[x_value][y_value][(c, T)]))
-                                names.append('c={0:.1e}, T={1} K'.format(c, T))
-                            create_plots(x_axis_label[x_value], y_value, show_interactive,
-                                              save_format, c, tp, tp_c_dir,
-                                              fontsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
-                                              x_label_short=x_value, names=names)
+            # temperature dependent k and E plots
+            for x_value, y_values in [('k', temp_dependent_k_props), ('E', temp_dependent_E_props)]:
+                for y_value in y_values:
+                    plot_data = []
+                    names = []
+                    for c in concentrations:
+                        for T in temperatures:
+                            plot_data.append((x_data[x_value], y_data_temp_dependent[x_value][y_value][(c, T)]))
+                            names.append('c={0:.1e}, T={1} K'.format(c, T))
+                    create_plots(x_axis_label[x_value], y_value, show_interactive,
+                                      save_format, tp, tp_dir,
+                                      fontsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
+                                      x_label_short=x_value, names=names)
 
-                    # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
-                    if mobility:
-                        plot_data = []
-                        names = []
-                        for mo in mu_list:
-                            try:
-                                mo_values = [self.mobility[tp][mo][c][T] for T in self.temperatures]
-                            except KeyError: # for when from_file is called
-                                mo_values = [self.mobility[tp][mo][str(int(c))][str(int(T))] for T in self.temperatures]
-                            plot_data.append((self.temperatures, [self.get_scalar_output(mo_value,
-                                    dir) for mo_value in mo_values]))
-                            names.append(mo)
+            # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
+            if mobility:
+                for c in concentrations:
+                    plot_data = []
+                    names = []
+                    for mo in mu_list:
+                        try:
+                            mo_values = [self.mobility[tp][mo][c][T] for T in self.temperatures]
+                        except KeyError: # for when from_file is called
+                            mo_values = [self.mobility[tp][mo][str(int(c))][str(int(T))] for T in self.temperatures]
+                        plot_data.append((self.temperatures, [self.get_scalar_output(mo_value,
+                                dir) for mo_value in mo_values]))
+                        names.append(mo)
 
-                        create_plots("Temperature (K)",
-                                "Mobility (cm2/V.s)", show_interactive,
-                                save_format, c, tp, tp_c_dir, fontsize-5,
-                                ticksize-5, path, margins,
-                                fontfamily, plot_data=plot_data, names=names, mode='lines+markers',
-                                y_label_short="mobility", y_axis_type='log')
+                    create_plots("Temperature (K)",
+                            "Mobility (cm2/V.s)", show_interactive,
+                            save_format, tp, tp_dir, fontsize-5,
+                            ticksize-5, path, margins,
+                            fontfamily, plot_data=plot_data, names=names, mode='lines+markers',
+                            y_label_short="mobility", y_axis_type='log')
 
 
 
