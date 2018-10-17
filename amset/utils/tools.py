@@ -964,7 +964,7 @@ def generate_adaptive_kmesh(bs, important_points, kgrid_tp, ibz=True):
     return kpts
 
 
-def create_plots(x_title, y_title, show_interactive, save_format, c, tp,
+def create_plots(x_title, y_title, show_interactive, save_format, tp,
                  file_suffix, fontsize, ticksize, path, margins, fontfamily,
                  plot_data, names=None, labels=None, x_label_short='',
                  y_label_short=None, mode='markers', y_axis_type='linear', title=None):
@@ -977,7 +977,7 @@ def create_plots(x_title, y_title, show_interactive, save_format, c, tp,
     from matminer.figrecipes.plot import PlotlyFig
     tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
     if title is None:
-        title = '{} for {}, c={:.2e}'.format(y_title, tp_title[tp], c)
+        title = '{} for {}'.format(y_title, tp_title[tp])
     if y_label_short is None:
         y_label_short = y_title
     if show_interactive:
