@@ -2332,7 +2332,7 @@ class Amset(object):
                 (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
 
         if "S_i" in sname:
-            integ *= X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm]
+            integ *= X * norm(self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm])/sq3
             if "minus" in sname:
                 integ *= (1 - f) * N_POP + f * (1 + N_POP)
             elif "plus" in sname:
@@ -2393,7 +2393,7 @@ class Amset(object):
                                     self.kgrid[tp]["S_o_th"][c][T][ib][ik] = res[3]
 
 
-    def s_inelastic(self, sname=None, g_suffix=""):
+    def s_inelastic(self, sname, g_suffix=""):
         """
         Calculates the inelastic/POP scattering rate (with correct units)
         by integrating over dX (X being the angle between k and k' states) for
