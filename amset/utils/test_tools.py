@@ -33,14 +33,12 @@ class AmsetToolsTest(unittest.TestCase):
                                  coeff_file=coeff_files['GaAs'], Ecut=1.0)
         # first conduction band extrema:
         self.listalmostequal(extrema['n'][0], [.0, .0, .0], 10)
-        self.listalmostequal(extrema['n'][1], [.5, .5, .5], 10)
-        self.listalmostequal(extrema['n'][2], [-0.4414894, -.4414894, .0], 4)
-        self.assertEqual(len(extrema['n']), 3)
+        self.listalmostequal(extrema['n'][1], [.0, -0.4701101, .0], 4)
+        self.assertEqual(len(extrema['n']), 2)
         # last valence band extrema
         self.listalmostequal(extrema['p'][0], [.0, .0, .0], 10)
-        self.listalmostequal(extrema['p'][1], [-.2786, -.0459, .0], 4)
-        self.listalmostequal(extrema['p'][2], [0.39561, 0.11702 , 0.162898], 4)
-        self.assertEqual(len(extrema['p']), 3)
+        self.listalmostequal(extrema['p'][1], [-0.31693, -0.04371,  0.], 4)
+        self.assertEqual(len(extrema['p']), 2)
 
         Si_extrema = get_bs_extrema(bs=vruns['Si'].get_band_structure(),
                                     coeff_file=coeff_files['Si'], Ecut=1.0)
@@ -137,7 +135,7 @@ class AmsetToolsTest(unittest.TestCase):
         cb_en1 -= vbm
         interp_gap1 = min(cb_en1) - max(vb_en1)
         self.assertAlmostEqual(bs.get_band_gap()['energy'], interp_gap1, 4)
-        self.assertAlmostEqual(interp_gap1, 0.9582, 4)
+        self.assertAlmostEqual(interp_gap1, 0.1899, 4)
 
         # check exact match between DFT energy and interpolated band energy
         self.assertAlmostEqual(np.mean(vb_en1 - dft_vb), 0.0, 4)
@@ -146,8 +144,8 @@ class AmsetToolsTest(unittest.TestCase):
         self.assertAlmostEqual(np.std(cb_en1 - dft_cb), 0.0, 4)
 
         # check the average of the velocity vectors; not isotropic since not all sym. eq. kpoints are sampled
-        expected_vb_v = [36110459.736, 67090934.345, 38192774.737]
-        expected_cb_v = [68706796.0747, 73719673.252, 84421427.422]
+        expected_vb_v = [37199316.52376, 64230953.3495545, 30966751.7547101]
+        expected_cb_v = [63838832.347664, 78291298.7589355, 69109280.002242]
         self.listalmostequal(np.mean(vb_vel1, axis=0), expected_vb_v, 0)
         self.listalmostequal(np.mean(cb_vel1, axis=0), expected_cb_v,0)
 
