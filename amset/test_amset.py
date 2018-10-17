@@ -153,9 +153,8 @@ class AmsetTest(unittest.TestCase):
             self.assertLessEqual(np.std(  # GaAs band structure is isotropic
                 amset.mobility['n'][mu][-2e15][300]), 0.05*\
                 np.mean(amset.mobility['n'][mu][-2e15][300]))
-            ## with denser k-mesh the difference is lower (<5% rather than 11)
-            self.assertLess(abs(amset.mobility['n'][mu][-2e15][300][0] - expected_mu[mu])/expected_mu[mu], 0.11)
-        self.assertLess(abs(amset.seebeck['n'][-2e15][300][0]/expected_seebeck-1), 0.11)
+            self.assertLess(abs(amset.mobility['n'][mu][-2e15][300][0] - expected_mu[mu])/expected_mu[mu], 0.06)
+        self.assertLess(abs(amset.seebeck['n'][-2e15][300][0]/expected_seebeck-1), 0.06)
 
 
     def test_GaAs_isotropic_k(self):
