@@ -3395,21 +3395,21 @@ class Amset(object):
                                           x_label_short=x_value, title=title)
 
 
-                for dir in direction:
-                    y_data_temp_independent = {'k': {'energy': self.kgrid0[tp]['energy'][0],
-                                                     'velocity': self.kgrid0[tp]["norm(v)"][0]},
-                                               'E': {'frequency': self.Efrequency0[tp],
-                                                     'velocity': [self.get_scalar_output(p, dir) for p in self.egrid0[tp]['velocity']]}}
+            for dir in direction:
+                y_data_temp_independent = {'k': {'energy': self.kgrid0[tp]['energy'][0],
+                                                 'velocity': self.kgrid0[tp]["norm(v)"][0]},
+                                           'E': {'frequency': self.Efrequency0[tp],
+                                                 'velocity': [self.get_scalar_output(p, dir) for p in self.egrid0[tp]['velocity']]}}
 
-                    tp_dir = tp + '_' + dir
+                tp_dir = tp + '_' + dir
 
-                    # temperature independent k and E plots: energy(k), velocity(k), histogram(E), velocity(E)
-                    for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
-                        for y_value in y_values:
-                            if vec[y_value]:
-                                create_plots(x_axis_label[x_value], y_value, show_interactive,
-                                                  save_format, tp, tp_dir,
-                                                  fontsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
+                # temperature independent k and E plots: energy(k), velocity(k), histogram(E), velocity(E)
+                for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
+                    for y_value in y_values:
+                        if vec[y_value]:
+                            create_plots(x_axis_label[x_value], y_value, show_interactive,
+                                              save_format, tp, tp_dir,
+                                              fontsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
 
             # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
             try:
