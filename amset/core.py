@@ -416,6 +416,9 @@ class Amset(object):
 
                 for c in self.dopings:
                     for T in self.temperatures:
+                        seeb_integ = \
+                        self.egrid["Seebeck_integral_numerator"][c][T][tp] / \
+                        self.egrid["Seebeck_integral_denominator"][c][T][tp]
                         fermi = self.fermi_level[c][T]
                         for tp in ["n", "p"]:
                             fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
@@ -428,15 +431,12 @@ class Amset(object):
                                     self.kgrid[tp]["electric force"][c][T][ib][ik] = \
                                         -1 * self.kgrid[tp]["df0dk"][c][T][ib][ik] * \
                                         default_small_E / hbar  # in 1/s
-
                                     E_norm = E - self.cbm_vbm[tp]["energy"]
                                     self.kgrid[tp]["thermal force"][c][T][ib][ik] = \
                                         - v * f0(E_norm, fermi_norm, T) * (1 - f0(
-                                        E_norm, fermi_norm, T)) * (E_norm / (k_B * T)-\
-                                        self.egrid["Seebeck_integral_numerator"][c][
-                                            T][tp] / self.egrid[
-                                                "Seebeck_integral_denominator"][c][
-                                                T][tp]) * dTdz / T
+                                        E_norm, fermi_norm, T)) * dTdz / T * (
+                                                E_norm / (k_B * T) - seeb_integ
+                                        )
                         if self.integration=='k':
                             dop_tp = get_tp(c)
                             f0_all = 1 / (np.exp((self.energy_array[dop_tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
@@ -546,7 +546,6 @@ class Amset(object):
                         (self.fermi_level[c][T] - self.cbm_vbm0[tp]["energy"]) \
                         / (k_B * T)
                     self.mobility[tp]['seebeck'][c][T] *= -1e6 * k_B
-
                     self.mobility[tp]["seebeck"][c][T] += \
                         1e6 * self.mobility[tp]["J_th"][c][T]\
                         /(self.mobility[tp]["overall"][c][T]*e*float(abs(c)))/dTdz
@@ -2913,6 +2912,25 @@ class Amset(object):
                             self.kgrid[tp]["g_th"][c][T][ib] = (self.kgrid[tp]["S_i_th"][c][T][ib] +
                                     self.kgrid[tp]["thermal force"][c][T][ib]) / (
                                     self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
+
+                            # self.kgrid[tp]["g_POP"][c][T][ib] = np.tile(np.linalg.norm(
+                            #     (self.kgrid[tp]["S_i"][c][T][ib] +
+                            #         self.kgrid[tp]["electric force"][c][T][ib]) / (
+                            #         self.kgrid[tp]["S_o"][c][T][ib] + self.gs + 1.0),
+                            #     axis=1)/sq3, (3, 1)).T
+                            #
+                            # self.kgrid[tp]["g"][c][T][ib] = np.tile(np.linalg.norm(
+                            #     (self.kgrid[tp]["S_i"][c][T][ib] +
+                            #         self.kgrid[tp]["electric force"][c][
+                            #         T][ib]) / (self.kgrid[tp]["S_o"][c][T][ib] +
+                            #         self.kgrid[tp]["_all_elastic"][c][T][ib]),
+                            #     axis=1)/sq3, (3, 1)).T
+                            #
+                            # self.kgrid[tp]["g_th"][c][T][ib] = np.tile(np.linalg.norm(
+                            #     (self.kgrid[tp]["S_i_th"][c][T][ib] +
+                            #         self.kgrid[tp]["thermal force"][c][T][ib]) / (
+                            #         self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib]),
+                            #     axis=1)/sq3, (3, 1)).T
 
                             self.kgrid[tp]["f"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g"][c][T][ib]
                             self.kgrid[tp]["f_th"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g_th"][c][T][ib]
