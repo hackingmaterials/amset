@@ -53,9 +53,9 @@ def setup_custom_logger(name, filepath, filename, level=None):
 
     Returns: a logging instance with customized formatter and handlers
     """
+    importlib.reload(logging)
     level = level or logging.DEBUG
     logger = logging.getLogger(name)
-    importlib.reload(logging)
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
                                   datefmt='%Y-%m-%d %H:%M:%S')
     handler = logging.FileHandler(os.path.join(filepath, filename), mode='w')
