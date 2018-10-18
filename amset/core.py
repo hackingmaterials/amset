@@ -25,7 +25,7 @@ from math import log, pi
 from monty.json import MontyEncoder, MontyDecoder
 from monty.serialization import dumpfn, loadfn
 from multiprocessing import cpu_count
-from pprint import pprint
+from pprint import pprint, pformat
 from pstats import Stats
 from pymatgen.electronic_structure.boltztrap import BoltztrapRunner, BoltztrapAnalyzer
 from pymatgen.io.vasp import Vasprun, Spin, Kpoints
@@ -234,6 +234,7 @@ class Amset(object):
                     self.fermi_level[c][T] = self.find_fermi(c, T)
         self.logger.info('fermi level = {}'.format(self.fermi_level))
         self.logger.info('initial number of bands:\n{}'.format(self.init_nbands))
+        self.logger.debug('here is the calculated dopings"\n{}'.format(self.calc_doping))
         vibands = list(range(self.init_nbands['p']))
         cibands = list(range(self.init_nbands['n']))
 
@@ -497,8 +498,7 @@ class Amset(object):
                                 else:
                                     for mu in self.mo_labels+["J_th"]:
                                         self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * valley_ndegen
-                                    self.mobility[tp]["seebeck"][c][T] += valley_transport[tp]["seebeck"][c][T] * valley_ndegen
-                                    self.mobility[tp]["J_th"][c][T] += valley_transport[tp]["J_th"][c][T]
+                                    self.mobility[tp]["seebeck"][c][T] += valley_transport[tp]["seebeck"][c][T]
 
 
                 if self.poly_bands0 is None:
@@ -540,22 +540,33 @@ class Amset(object):
                                     self.valleys[tp][band][valley_k]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
 
         # finalize Seebeck values:
+        sigma = {tp: {c: {T: 0.0 for T in self.temperatures} for c in self.dopings} for tp in ['p', 'n']}
         for tp in ['p', 'n']:
             for c in self.dopings:
                 for T in self.temperatures:
+                    self.logger.debug('3 terms of {0}-type seebeck at c={1:.2e}, T={2}'.format(tp, c, T))
+                    self.logger.debug('seebeck integral: {}'.format(str(self.mobility[tp]['seebeck'][c][T]*(-1e6) * k_B)))
                     self.mobility[tp]['seebeck'][c][T] -= \
                         (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) \
                         / (k_B * T)
-                    self.mobility[tp]['seebeck'][c][T] *= -1e6 * k_B
-                    self.mobility[tp]["seebeck"][c][T] += \
-                        1e6 * self.mobility[tp]["J_th"][c][T]\
-                        /(self.mobility[tp]["overall"][c][T]*e*float(abs(c)))/dTdz
+                    self.logger.debug('Fermi level w.r.t. the CBM/VBM: {}'.format(str((self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"])/(k_B * T)*(-1e6) * k_B)))
+                    self.mobility[tp]['seebeck'][c][T] *= (-1e6) * k_B
+                    self.mobility[tp]["seebeck"][c][T] -= 0 # TODO: J_th term is too large, see why
+                        # 1e6 * self.mobility[tp]["J_th"][c][T]\
+                        # /(self.mobility[tp]["overall"][c][T]*e*float(1+abs(self.calc_doping[c][T][tp])))/dTdz
+                    self.logger.debug('J_th term: {}'.format(str(1e6 * self.mobility[tp]["J_th"][c][T]/(self.mobility[tp]["overall"][c][T]*e*float(1+abs(self.calc_doping[c][T][tp])))/dTdz)))
                     for band in list(self.valleys[tp].keys()):
                         for valley_k in list(self.valleys[tp][band].keys()):
                             self.valleys[tp][band][valley_k]["seebeck"][c][T] -= (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T)
-                            self.valleys[tp][band][valley_k]["seebeck"][c][T] *= -1e6 * k_B
+                            self.valleys[tp][band][valley_k]["seebeck"][c][T] *= (-1e6) * k_B
             self.seebeck[tp] = self.mobility[tp].pop('seebeck')
+            sigma[tp][c][T] = sum(self.mobility[tp]['overall'][c][T])/3. * e * abs(self.calc_doping[c][T][tp])
 
+        self.logger.debug('here is the conductivity, sigma:\n{}'.format(sigma))
+        # seebeck = deepcopy(self.seebeck)
+        # for c in self.dopings:
+        #     for T in self.temperatures:
+        #         self.seebeck['n'][c][T] = (sigma['n'][c][T]*seebeck['n'][c][T] - sigma['p'][c][T]*seebeck['p'][c][T])/(sigma['n'][c][T]+sigma['p'][c][T])
         self.logger.info('run finished.')
         print('\nfinal mobility values:')
         pprint(self.mobility)
@@ -879,8 +890,6 @@ class Amset(object):
                 else:
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
                 self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
-                # self.dos_normalization_factor = 1
-                # self.dos_normalization_factor = self.nelec
             else:
                 self.logger.debug("here self.poly_bands: \n {}".format(self.poly_bands))
                 emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
@@ -912,6 +921,7 @@ class Amset(object):
             for idos in range(self.dos_start, self.dos_end):
                 integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
             self.logger.debug("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
+
             dos = [g / integ * self.dos_normalization_factor for g in dos]
             # new_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]+2.0)
             # ediff = self.dos_emesh[self.cbm_dos_idx:new_idx] - self.cbm_vbm["n"]["energy"]
@@ -1302,7 +1312,7 @@ class Amset(object):
         return {t: self.integrate_func_over_E(func=fn, tp=t, T=T,
                                               fermi=self.fermi_level[c][T],
                                               normalize_energy=True,
-                                              xDOS=False) for t in ["n", "p"]}
+                                              xDOS=True) for t in ["n", "p"]}
 
 
     def seeb_int_denom(self, c, T):
@@ -1311,7 +1321,7 @@ class Amset(object):
         c, and the temperature, T, as inputs
         """
         return {t: self.gs + self.integrate_over_E(
-            props=["f0x1-f0"], tp=t, c=c, T=T, xDOS=False) for t in ["n", "p"]}
+            props=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in ["n", "p"]}
 
 
     def calculate_property(self, prop_name, prop_func, for_all_E=False):
@@ -1488,8 +1498,8 @@ class Amset(object):
         """
         if not Estep:
             Estep = max(self.dE_min, 0.0001)
-        return int(round((E - self.dos_emin) / Estep))
-
+        calculated_index =  int(round((E - self.dos_emin) / Estep))
+        return min(calculated_index, len(self.dos_emesh)-1)
 
     def G(self, tp, ib, ik, ib_prm, ik_prm, X):
         """
@@ -2008,12 +2018,13 @@ class Amset(object):
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
         integral = 0.0
+        if normalize_energy:
+            fermi -= self.cbm_vbm[tp]["energy"]
         for ie in range(len(self.egrid[tp]["energy"]) - 1):
             E = self.egrid[tp]["energy"][ie]
             dE = (self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if normalize_energy:
                 E -= self.cbm_vbm[tp]["energy"]
-                fermi -= self.cbm_vbm[tp]["energy"]
             if xDOS:
                 dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
                 for i in range(interpolation_nsteps):
@@ -2633,14 +2644,21 @@ class Amset(object):
         de = np.repeat(dos_de.reshape((len(dos_de), 1)), 2*nstep+1, axis=1)
         tdos = np.repeat(dos_dos.reshape((len(dos_dos), 1)), 2*nstep+1, axis=1)
 
-        ## 20180906: remove; just debug plot to make sure CBM/VBM recognized correctly in DOS
-        ## if not commented, make sure run_type='BOLTZ' in BoltztrapRunner
-        # import matplotlib.pyplot as plt
-        # plt.scatter(dos_e[self.vbm_dos_idx-15000: self.cbm_dos_idx+15000], dos_dos[self.vbm_dos_idx-15000: self.cbm_dos_idx+15000])
-        # plt.scatter(dos_e[self.cbm_dos_idx], 0, s=100, marker='s')
-        # plt.scatter(dos_e[self.vbm_dos_idx], 0, s=100, marker='s')
-        # plt.show()
-        # plt.savefig('test.png')
+        ## debug plot to make sure CBM/VBM recognized correctly in DOS
+        PLOT_CALCULATED_DOS = False
+        if PLOT_CALCULATED_DOS:
+            ## if not commented, make sure run_type='BOLTZ' in BoltztrapRunner
+            self.logger.debug('PLOT_CALCULATED_DOS is set to True, if '
+                              'interpolation=boltztrap1, make sure to set '
+                              'run_type="BOLTZ" when running BoltztrapRunner')
+            import matplotlib.pyplot as plt
+            start_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"]-1.)
+            end_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]+1.)
+            plt.scatter(dos_e[start_idx: end_idx], dos_dos[start_idx: end_idx])
+            plt.scatter(dos_e[self.cbm_dos_idx], 0, s=100, marker='s')
+            plt.scatter(dos_e[self.vbm_dos_idx], 0, s=100, marker='s')
+            plt.show()
+            plt.savefig(os.path.join(self.calc_dir, 'test_bsdos.png'))
 
         self.logger.debug("Calculating the fermi level at T={} K".format(T))
         midgap_idx = int((self.vbm_dos_idx + self.cbm_dos_idx) / 2)
@@ -2659,6 +2677,9 @@ class Amset(object):
             fermi = fermi_range[fermi_idx]
             self.calc_doping[c][T]['n'] = n_dopings[fermi_idx]
             self.calc_doping[c][T]['p'] = p_dopings[fermi_idx]
+            for tp in ['p', 'n']:
+                if np.isnan(self.calc_doping[c][T][tp]):
+                    self.calc_doping[c][T][tp] = 10
             if relative_error[fermi_idx] < rtol:
                 self.logger.info("fermi at {0:.2e} 1/cm3 and {1} K: {2:.6f}".format(c, T, fermi))
                 return fermi
@@ -2912,25 +2933,6 @@ class Amset(object):
                             self.kgrid[tp]["g_th"][c][T][ib] = (self.kgrid[tp]["S_i_th"][c][T][ib] +
                                     self.kgrid[tp]["thermal force"][c][T][ib]) / (
                                     self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
-
-                            # self.kgrid[tp]["g_POP"][c][T][ib] = np.tile(np.linalg.norm(
-                            #     (self.kgrid[tp]["S_i"][c][T][ib] +
-                            #         self.kgrid[tp]["electric force"][c][T][ib]) / (
-                            #         self.kgrid[tp]["S_o"][c][T][ib] + self.gs + 1.0),
-                            #     axis=1)/sq3, (3, 1)).T
-                            #
-                            # self.kgrid[tp]["g"][c][T][ib] = np.tile(np.linalg.norm(
-                            #     (self.kgrid[tp]["S_i"][c][T][ib] +
-                            #         self.kgrid[tp]["electric force"][c][
-                            #         T][ib]) / (self.kgrid[tp]["S_o"][c][T][ib] +
-                            #         self.kgrid[tp]["_all_elastic"][c][T][ib]),
-                            #     axis=1)/sq3, (3, 1)).T
-                            #
-                            # self.kgrid[tp]["g_th"][c][T][ib] = np.tile(np.linalg.norm(
-                            #     (self.kgrid[tp]["S_i_th"][c][T][ib] +
-                            #         self.kgrid[tp]["thermal force"][c][T][ib]) / (
-                            #         self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib]),
-                            #     axis=1)/sq3, (3, 1)).T
 
                             self.kgrid[tp]["f"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g"][c][T][ib]
                             self.kgrid[tp]["f_th"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g_th"][c][T][ib]
@@ -3260,7 +3262,7 @@ class Amset(object):
                         mu_overall_valley = self.integrate_over_E(props=["g"],
                                tp=tp, c=c, T=T, xDOS=False, xvel=True)
 
-                    valley_transport[tp]["J_th"][c][T] = float(abs(c))*e \
+                    valley_transport[tp]["J_th"][c][T] = float(abs(self.calc_doping[c][T][tp]))*e \
                             *self.integrate_over_E(props=["g_th"],
                                                    tp=tp, c=c, T=T,
                                                    xDOS=False, xvel=True) #in A/cm2
@@ -3283,6 +3285,8 @@ class Amset(object):
                         for mu in self.mo_labels+["J_th"]:
                             valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
                         valley_transport[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
+                    else:
+                        valley_transport[tp]["seebeck"][c][T] = self.egrid["Seebeck_integral_numerator"][c][T][tp]
         return valley_transport
 
 
