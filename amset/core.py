@@ -433,10 +433,11 @@ class Amset(object):
                                         default_small_E / hbar  # in 1/s
                                     E_norm = E - self.cbm_vbm[tp]["energy"]
                                     self.kgrid[tp]["thermal force"][c][T][ib][ik] = \
-                                        - v * f0(E_norm, fermi_norm, T) * (1 - f0(
+                                        -v * f0(E_norm, fermi_norm, T) * (1 - f0(
                                         E_norm, fermi_norm, T)) * dTdz / T * (
                                                 E_norm / (k_B * T) - seeb_integ
                                         )
+                        # - norm(v)/sq3 * f0(E_norm, fermi_norm, T) * (1 - f0(
                         if self.integration=='k':
                             dop_tp = get_tp(c)
                             f0_all = 1 / (np.exp((self.energy_array[dop_tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
@@ -543,7 +544,7 @@ class Amset(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     self.mobility[tp]['seebeck'][c][T] -= \
-                        (self.fermi_level[c][T] - self.cbm_vbm0[tp]["energy"]) \
+                        (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) \
                         / (k_B * T)
                     self.mobility[tp]['seebeck'][c][T] *= -1e6 * k_B
                     self.mobility[tp]["seebeck"][c][T] += \
@@ -716,8 +717,7 @@ class Amset(object):
 
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1.0) ** i
-            # iband = i*self.cbm_vbm0["p"]["included"] if self.interpolation=="boltztrap1" else self.cbm_vbm0[tp]["bidx"]
-            iband = i
+            iband = i if self.interpolation=="boltztrap1" else self.cbm_vbm0[tp]["bidx"]
             if self.poly_bands is not None:
                 energy, velocity, effective_m = self.calc_poly_energy(self.cbm_vbm0[tp]["kpoint"], tp, 0)
             else:
