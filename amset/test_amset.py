@@ -81,8 +81,8 @@ class AmsetTest(unittest.TestCase):
             self.assertTrue((diff / avg <= 0.025).all())
 
 
-    def test_GaAs_isotropic_E_plus_serialize(self):
-        print('\ntesting test_GaAs_isotropic_E...')
+    def test_GaAs_isotropic_E_plus_serialize_deserialize(self):
+        print('\ntesting test_GaAs_isotropic_E_plus_serialize_deserialize...')
         expected_mu = {'ACD': 459623.2946,
                        'IMP': 2932848.2466,
                        'PIE': 2142320.5897,
@@ -90,7 +90,7 @@ class AmsetTest(unittest.TestCase):
                        'average': 15570.668,
                        'overall': 15750.11293,
                        }
-        expected_seebeck = -968.77840
+        expected_seebeck = -1013.54825
         performance_params = deepcopy(self.performance_params)
         performance_params['max_nvalleys'] = 1
         amset = Amset(calc_dir=self.temp_dir,
@@ -136,7 +136,7 @@ class AmsetTest(unittest.TestCase):
                        'average': 28320.0974264,
                        'overall': 29528.9179,
                        }
-        expected_seebeck = -809.72568
+        expected_seebeck = -1026.62730
         amset = Amset(calc_dir=self.temp_dir,
                       vasprun_file=self.GaAs_vasprun,
                       material_params=self.GaAs_params,
