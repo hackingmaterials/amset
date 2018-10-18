@@ -177,7 +177,9 @@ class AmsetTest(unittest.TestCase):
                       loglevel=LOGLEVEL)
         amset.run(self.GaAs_cube, kgrid_tp='very coarse')
         mobility = amset.mobility
-        self.assertAlmostEqual(amset.fermi_level[-3e13][300], 0.038091, 3)
+        self.assertAlmostEqual( # compare with normalized fermi w.r.t. the CBM
+            amset.fermi_level[-3e13][300]-amset.cbm_vbm["n"]["energy"],
+            -0.3429418, 3)
 
         # check mobility values
         for mu in expected_mu.keys():
