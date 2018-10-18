@@ -217,18 +217,6 @@ class Amset(object):
             self.fermi_level = {c: {T: None for T in self.temperatures} \
                                 for c in self.dopings}
 
-            ## 20180906: remove; just a debug print of boltztrap fermi at 300K to compare
-            # an = BoltztrapAnalyzer.from_files(os.path.join(self.calc_dir, "boltztrap"))
-            # run_type, warning, btp_fermi, gap, doping_levels = \
-            #     BoltztrapAnalyzer.parse_outputtrans(os.path.join(self.calc_dir, "boltztrap"))
-            # print("boltztrap fermi (eref)={}".format(btp_fermi))
-            # res = an.parse_cond_and_hall(os.path.join(self.calc_dir, "boltztrap"), doping_levels=doping_levels)
-            # pn_doping_levels, mu_doping = res[5], res[6]
-            # print("boltztrap doping levels:")
-            # print(pn_doping_levels)
-            # print("boltztrap fermi levels at {}K".format(300))
-            # print({tpp: [f_+0.0 for f_ in mu_doping[tpp][300]] for tpp in ['p', 'n']})
-
             for c in self.dopings:
                 for T in self.temperatures:
                     self.fermi_level[c][T] = self.find_fermi(c, T)
@@ -319,13 +307,6 @@ class Amset(object):
                         self.max_normk[tp] = 5.0
                         self.logger.warn('max_normk["{}"] -> {} avoiding unlrealistic'
                                          ' scattering'.format(tp, self.max_normk[tp]))
-                # if self.max_nvalleys and self.max_nvalleys==1:
-                #     kmax = self.max_normk0 or 5.0
-                #     self.max_normk = {'n': kmax, 'p': kmax}
-                #     if self.max_normk0 is None:
-                #         self.logger.warn('max_normk set to {} to avoid '
-                #                          'unlrealistic scattering'.format(kmax))
-
                 self.logger.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
                 self.logger.info('Current valleys:\n{}'.format(important_points))
                 self.logger.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
@@ -469,7 +450,9 @@ class Amset(object):
                                  'valley {} and band (p, n) {}'.format(
                             important_points, self.ibands_tuple[self.ibrun]))
                 self.logger.info('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
-                pprint(valley_transport)
+                self.logger.info('transport properties of the current valley'
+                                 '\n{}'.format(pformat(valley_transport)))
+                # pprint(valley_transport)
 
                 if self.ibrun==0 and ivalley==0: # 1-valley only since it's SPB
                     self.calculate_spb_transport()
@@ -568,10 +551,10 @@ class Amset(object):
         #     for T in self.temperatures:
         #         self.seebeck['n'][c][T] = (sigma['n'][c][T]*seebeck['n'][c][T] - sigma['p'][c][T]*seebeck['p'][c][T])/(sigma['n'][c][T]+sigma['p'][c][T])
         self.logger.info('run finished.')
-        print('\nfinal mobility values:')
-        pprint(self.mobility)
-        print('\nfinal Seebeck values:')
-        pprint(self.seebeck)
+        self.logger.info('\nfinal mobility:\n{}'.format(pformat(self.mobility)))
+        # pprint(self.mobility)
+        self.logger.info('\nfinal Seebeck:\n{}'.format(pformat(self.seebeck)))
+        # pprint(self.seebeck)
 
 
     def _initialize_transport_vars(self, coeff_file):
