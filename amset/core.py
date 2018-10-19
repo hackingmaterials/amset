@@ -534,9 +534,9 @@ class Amset(object):
                         / (k_B * T)
                     self.logger.debug('Fermi level w.r.t. the CBM/VBM: {}'.format(str((self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"])/(k_B * T)*(-1e6) * k_B)))
                     self.mobility[tp]['seebeck'][c][T] *= (-1e6) * k_B
-                    self.mobility[tp]["seebeck"][c][T] -= 0 # TODO: J_th term is too large, see why
-                        # 1e6 * self.mobility[tp]["J_th"][c][T]\
-                        # /(self.mobility[tp]["overall"][c][T]*e*float(1+abs(self.calc_doping[c][T][tp])))/dTdz
+                    self.mobility[tp]["seebeck"][c][T] -= 0 # TODO: J_th term is too large, see why (e.g. in SnS)
+                    # self.mobility[tp]["seebeck"][c][T] += 1e6 * self.mobility[tp]["J_th"][c][T]\
+                    #     /(self.mobility[tp]["overall"][c][T]*e*float(1+abs(self.calc_doping[c][T][tp])))/dTdz
                     self.logger.debug('J_th term: {}'.format(str(1e6 * self.mobility[tp]["J_th"][c][T]/(self.mobility[tp]["overall"][c][T]*e*float(1+abs(self.calc_doping[c][T][tp])))/dTdz)))
                     for band in list(self.valleys[tp].keys()):
                         for valley_k in list(self.valleys[tp][band].keys()):
@@ -3245,10 +3245,15 @@ class Amset(object):
                         mu_overall_valley = self.integrate_over_E(props=["g"],
                                tp=tp, c=c, T=T, xDOS=False, xvel=True)
 
-                    valley_transport[tp]["J_th"][c][T] = float(abs(self.calc_doping[c][T][tp]))*e \
-                            *self.integrate_over_E(props=["g_th"],
+                    # valley_transport[tp]["J_th"][c][T] = float(abs(self.calc_doping[c][T][tp]))*e \
+                    #         *self.integrate_over_E(props=["g_th"],
+                    #                                tp=tp, c=c, T=T,
+                    #                                xDOS=False, xvel=True) #in A/cm2
+
+                    # TODO: make sure that units of J_th is correct and at the end (after we divide by the denominator), we arrive at A/cm2
+                    valley_transport[tp]["J_th"][c][T] = self.integrate_over_E(props=["g_th"],
                                                    tp=tp, c=c, T=T,
-                                                   xDOS=False, xvel=True) #in A/cm2
+                                                   xDOS=False, xvel=True)
 
                     faulty_overall_mobility = False
                     temp_avg = np.array([0.0, 0.0, 0.0])
