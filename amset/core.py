@@ -2305,6 +2305,7 @@ class Amset(object):
                 self.kgrid[tp]['energy'][ib][ik]) < \
                                 hbar*self.kgrid[tp]["W_POP"][ib][ik]/2:
             return 0.0
+
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
         if tp == "n":
@@ -2325,7 +2326,7 @@ class Amset(object):
                 (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
 
         if "S_i" in sname:
-            integ *= X * norm(self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm])/sq3
+            integ *= X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm]
             if "minus" in sname:
                 integ *= (1 - f) * N_POP + f * (1 + N_POP)
             elif "plus" in sname:
@@ -2386,31 +2387,18 @@ class Amset(object):
                                     self.kgrid[tp]["S_o_th"][c][T][ib][ik] = res[3]
 
 
-    def s_inelastic(self, sname, g_suffix=""):
-        """
-        Calculates the inelastic/POP scattering rate (with correct units)
-        by integrating over dX (X being the angle between k and k' states) for
-        all band-kpoint pair.
-
-        Args:
-            sname (str): scattering name: 'S_oX_Eplus_ik', 'S_oX_Eminus_ik',
-                'S_iX_Eplus_ik' or 'S_iX_Eminus_ik'
-            g_suffix (str): perturbation name; options: "", "_POP" or "_th"
-        """
+    def s_inelastic(self, sname=None, g_suffix=""):
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
-                        cumulative = 0.0
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             summation = np.array([0.0, 0.0, 0.0])
                             for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
                                 summation += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name],
-                                    self.inel_integrand_X, ib=ib, ik=ik, c=c,
-                                    T=T, sname=sname + X_E_index_name, g_suffix=g_suffix)
-                            cumulative += summation
-                            if "S_o" in sname and np.min(summation) < 0.1:
-                                summation = cumulative / (ik+1) # set small S_o rates to average rate (so far) to avoid inelastic scattering blow up (division by S_o ~ 0 in POP)
+                                                                   self.inel_integrand_X,
+                                                                   ib=ib, ik=ik, c=c, T=T, sname=sname + X_E_index_name,
+                                                                   g_suffix=g_suffix)
                             self.kgrid[tp][sname][c][T][ib][ik] = summation * e ** 2 * self.kgrid[tp]["W_POP"][ib][ik] / (4 * pi * hbar) * (1 / self.epsilon_inf - 1 / self.epsilon_s) / epsilon_0 * 100 / e
 
 
