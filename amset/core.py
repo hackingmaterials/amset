@@ -338,14 +338,10 @@ class Amset(object):
                                            nabove_cbm=self.nabove_cbm,
                                            interpolation=self.interpolation)
 
-            # max_nvalleys = max(len(self.important_pts['n']),
-            #                    len(self.important_pts['p']))
             if self.max_nvalleys['n'] is None and self.max_nvalleys['p'] is None:
                 max_nvalleys = max(len(self.important_pts['n']),
                                    len(self.important_pts['p']))
             else:
-                # max_nvalleys = min(max_nvalleys, max(self.max_nvalleys["n"],
-                #                                      self.max_nvalleys["p"]))
                 max_nvalleys = max(min(len(self.important_pts['n']), self.max_nvalleys["n"] or 1000),
                                    min(len(self.important_pts['p']), self.max_nvalleys["p"] or 1000))
 
@@ -354,8 +350,6 @@ class Amset(object):
                 self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
                 important_points = {'n': None, 'p': None}
                 once_called = True
-                # if ivalley == 0 and self.ibrun==0:
-                #     once_called = False
                 for tp in ['p', 'n']:
                     try:
                         important_points[tp] = [self.important_pts[tp][ivalley]]
@@ -366,13 +360,10 @@ class Amset(object):
                 if self.max_normk0 is None:
                     for tp in ['n', 'p']:
                         min_dist = 100.0 # in 1/nm
-                        # kc = self.get_cartesian_coords(important_points[tp][0])
                         # This for loop not only checks the distance between
                         # different valleys but among symmetrically equivalent
                         # k-points of the same valley so the cutoff would make sense
                         for k in self.bs.get_sym_eq_kpoints(important_points[tp][0], cartesian=False):
-                            # kc_carts = [self.get_cartesian_coords(kp) for \
-                            #             kp in self.all_important_pts[tp]]
                             kdiff =  get_closest_k(
                                 k, self.all_important_pts[tp], return_diff=True, exclude_self=True)
                             new_dist = 1/A_to_nm *norm(self.get_cartesian_coords(kdiff))
