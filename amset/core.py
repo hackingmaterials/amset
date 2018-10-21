@@ -235,7 +235,9 @@ class Amset(object):
 
     def run(self, coeff_file=None, kgrid_tp="coarse", test_k_anisotropic=False):
         """
-        Function to run Amset and generate the main outputs.
+        Function to run Amset and log the main outputs, populate the two main
+            grid variables: k-points grid (kgrid) and energy grid (egrid) and
+            class attributes such as Amset.mobility and Amset.seebeck.
 
         Args:
             coeff_file: the path to fort.123* file containing the coefficients of
