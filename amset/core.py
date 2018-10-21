@@ -177,8 +177,8 @@ class Amset(object):
                  model_params=None, performance_params=None,
                  dopings=None, temperatures=None, integration='e',
                  loglevel=None, timeout=48):
-        self.logger = setup_custom_logger('amset_logger', calc_dir, 'amset.log',
-                                     level=loglevel)
+        self.logger = setup_custom_logger(
+                'amset_logger', calc_dir, 'amset.log', level=loglevel)
         self.calc_dir = calc_dir
         self.vasprun_file = vasprun_file or self.calc_dir
         self.dopings = dopings or [-1e20, 1e20]
@@ -212,7 +212,8 @@ class Amset(object):
 
     def run_profiled(self, coeff_file=None, kgrid_tp="coarse", nfuncs=15):
         """
-        Very similar to the run method except that it is time-profiled.
+        Very similar to the run method except that it is time-profiled: it 
+            shows the total and per-call time elapsed in running each function.
 
         Args:
             see args (coeff_file, kgrid_tp) for run() method
@@ -226,10 +227,11 @@ class Amset(object):
         stats.print_stats(nfuncs)
 
 
-    def check_timeout(self):
+    def _check_timeout(self):
         if time.time() - self.start_time > self.timeout:
             raise AmsetError(self.logger, 'The calculations exceeded the '
                         'timeout of {:.4f} hours'.format(self.timeout/3600.0))
+
 
     def run(self, coeff_file=None, kgrid_tp="coarse", test_k_anisotropic=False):
         """
@@ -270,7 +272,7 @@ class Amset(object):
                              'on the interpolation method does not match with '
                              'the input bandgap! {}!={}'.format(gap, gap_orig))
 
-        self.check_timeout()
+        self._check_timeout()
         if self.integration == 'k':
             kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]],
                                                          'p': [[0.0, 0.0, 0.0]]},
@@ -327,7 +329,7 @@ class Amset(object):
         self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
         self.seeb_denom = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
-            self.check_timeout()
+            self._check_timeout()
             self.logger.info('going over conduction and valence # {}'.format(self.ibrun))
             self.all_important_pts = self.find_all_important_points(coeff_file,
                                            nbelow_vbm=self.nbelow_vbm,
@@ -346,7 +348,7 @@ class Amset(object):
                                    min(len(self.important_pts['p']), self.max_nvalleys["p"] or 1000))
 
             for ivalley in range(max_nvalleys):
-                self.check_timeout()
+                self._check_timeout()
                 self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
                 important_points = {'n': None, 'p': None}
                 once_called = True
@@ -403,7 +405,7 @@ class Amset(object):
                                                      nbelow_vbm=self.nbelow_vbm,
                                                      nabove_cbm=self.nabove_cbm,
                                                      num_bands={'p': 1, 'n': 1})
-                self.check_timeout()
+                self._check_timeout()
 
                 if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut['n']:
                     self.logger.info('not counting conduction band {} valley\
@@ -890,7 +892,7 @@ class Amset(object):
                                 iband=iband, sgn=sgn, method=self.interpolation,
                                 scissor=self.scissor, return_mass=False,
                                 matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
-                        self.check_timeout()
+                        self._check_timeout()
                     if self.integration == 'k':
                         self.energy_array[tp].append(
                             self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
@@ -2955,7 +2957,7 @@ class Amset(object):
 
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.BTE_iters):
-            self.check_timeout()
+            self._check_timeout()
             self.logger.info("Performing iteration # {}".format(iter))
             if "POP" in self.inelastic_scats:
                 if self.bs_is_isotropic:
