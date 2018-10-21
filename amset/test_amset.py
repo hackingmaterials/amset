@@ -11,7 +11,7 @@ from copy import deepcopy
 
 test_dir = os.path.dirname(__file__)
 
-LOGLEVEL = logging.DEBUG
+LOGLEVEL = logging.ERROR
 
 class AmsetTest(unittest.TestCase):
     def setUp(self):
