@@ -11,7 +11,7 @@ from copy import deepcopy
 
 test_dir = os.path.dirname(__file__)
 
-LOGLEVEL = logging.ERROR
+LOGLEVEL = logging.DEBUG
 
 class AmsetTest(unittest.TestCase):
     def setUp(self):
@@ -44,13 +44,13 @@ class AmsetTest(unittest.TestCase):
             shutil.rmtree(self.temp_dir)
 
 
-    def test_poly_bands(self):
-        print('\ntesting test_poly_bands...')
+    def test_parabolic_bands(self):
+        print('\ntesting test_parabolic_bands...')
         mass = 0.25
         c = -2e15
         temperatures = [300]
         model_params = deepcopy(self.model_params)
-        model_params['poly_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
+        model_params['parabolic_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
         amset = Amset(calc_dir=self.temp_dir,
                       vasprun_file=self.GaAs_vasprun,
                       material_params=self.GaAs_params,
