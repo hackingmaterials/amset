@@ -970,7 +970,6 @@ class Amset(object):
             integ = 0.0
             self.dos_start = abs(emesh - self.dos_start).argmin()
             self.dos_end = abs(emesh - self.dos_end).argmin()
-
             self.dos_emesh = np.array(emesh)
             self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
             self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
@@ -980,30 +979,10 @@ class Amset(object):
                 dos[idx] = max(dos[idx], free_e_dos(E=self.dos_emesh[idx]-self.cbm_vbm["n"]["energy"]))
             for idx in range(self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"]-2.0), self.vbm_dos_idx):
                 dos[idx] = max(dos[idx], free_e_dos(E=self.cbm_vbm["p"]["energy"]-self.dos_emesh[idx]))
-
             for idos in range(self.dos_start, self.dos_end):
                 integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
             self.logger.debug("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
-
             dos = [g / integ * self.dos_normalization_factor for g in dos]
-            # new_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]+2.0)
-            # ediff = self.dos_emesh[self.cbm_dos_idx:new_idx] - self.cbm_vbm["n"]["energy"]
-            # dos[self.cbm_dos_idx:new_idx] = np.max(
-            #     [dos[self.cbm_dos_idx:new_idx],
-            #      list(map(self.free_e_dos, ediff))], axis=1)
-
-            ## just to show the effect of super low dos in ZnO and separation of CBM and DOS CBM
-            # print('here self.cbm_dos_idx before')
-            # new_idx = self.cbm_dos_idx
-            # print(new_idx)
-            # print(self.dos_emesh[new_idx])
-            # while sum(dos[new_idx:new_idx+5]) < 0.05:
-            #     new_idx += 1
-            # print('after')
-            # print(new_idx)
-            # print(self.dos_emesh[new_idx])
-            # dos[self.cbm_dos_idx:self.cbm_dos_idx+15000] = dos[new_idx:new_idx+15000]
-
             self.dos = zip(emesh, dos)
             self.dos = [list(a) for a in self.dos]
 
@@ -1063,9 +1042,16 @@ class Amset(object):
 
     def write_input_files(self, path=None, dir_name="run_data"):
         """
-        Writes all 3 types of inputs in json files for example to
-        conveniently track what inputs had been used later or read
-        inputs from files (see from_files method)
+        Writes all 3 types of inputs in json files for example to conveniently
+        track what inputs had been used later or read inputs from files (see
+        from_files method)
+
+        Args:
+            path (str): the final path to write the input files
+            dir_name (str): the name of the folder where the input files are
+                written; ignored if path is set.
+
+        Returns (None):
         """
         path = os.path.join(path or self.calc_dir, dir_name)
         if not os.path.exists(path):
@@ -1368,8 +1354,17 @@ class Amset(object):
 
     def seeb_int_num(self, c, T):
         """
-        Wrapper function to do an integration taking only the concentration,
-        c, and the temperature, T, as inputs
+        Returns the numerator of the integral term in eq (52) of [R] for
+        calculation of the Seebeck coefficient.
+
+        *This is a wrapper function used as an input to calculate_property.
+
+        Args:
+            c (int): the carrier concentration <0 for electrons, >0 for holes
+            T (int): temperature in Kelvin
+
+        Returns (dict: {"n": float, "p": float}): Seebeck integral numerator
+            integrated over the energy scale (egrid).
         """
         fn = lambda E, fermi, T: f0(E,fermi,T) * (1-f0(E,fermi,T)) * E/(k_B*T)
         return {t: self.integrate_func_over_E(func=fn, tp=t, T=T,
@@ -1380,8 +1375,17 @@ class Amset(object):
 
     def seeb_int_denom(self, c, T):
         """
-        Wrapper function to do an integration taking only the concentration,
-        c, and the temperature, T, as inputs
+        Returns the denominator of the integral term in eq (52) of [R] for
+        calculation of the Seebeck coefficient.
+
+        *This is a wrapper function used as an input to calculate_property.
+
+        Args:
+            c (int): the carrier concentration <0 for electrons, >0 for holes
+            T (int): temperature in Kelvin
+
+        Returns (dict: {"n": float, "p": float}): Seebeck integral denominator
+            integrated over the energy scale (egrid).
         """
         return {t: self.gs + self.integrate_over_E(
             props=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in ["n", "p"]}
@@ -1394,7 +1398,11 @@ class Amset(object):
 
         Args:
             prop_name (str): the name of the property
-            prop_func (obj): the given function MUST takes c and T as required inputs in this order.
+            prop_func (obj): the given function MUST takes c and T as required
+                inputs in this order.
+
+        Returns (None):
+            populates the prop_name in egrid.
         """
         if for_all_E:
             for tp in ["n", "p"]:
@@ -1417,6 +1425,8 @@ class Amset(object):
 
     def calculate_N_II(self, c, T):
         """
+        Returns the total simulated ionoized impurity concentration.
+
         Args:
             c (int): the carrier concentration
             T (int): the temperature in kelvin
@@ -1563,6 +1573,7 @@ class Amset(object):
             Estep = max(self.dE_min, 0.0001)
         calculated_index =  int(round((E - self.dos_emin) / Estep))
         return min(calculated_index, len(self.dos_emesh)-1)
+
 
     def G(self, tp, ib, ik, ib_prm, ik_prm, X):
         """
@@ -1744,10 +1755,15 @@ class Amset(object):
                     bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib,
                     lorbit=self.lorbit)
                 orbitals = {"s": s_orbital, "p": p_orbital}
-                fit_orbs = {orb: griddata(points=np.array(self.DFT_cartesian_kpts), values=np.array(orbitals[orb]),
-                    xi=np.array(self.kgrid[tp]["old cartesian kpoints"][ib]), method='nearest') for orb in orbitals.keys()}
+                fit_orbs = {orb: griddata(points=np.array(self.DFT_cartesian_kpts),
+                                          values=np.array(orbitals[orb]),
+                    xi=np.array(self.kgrid[tp]["old cartesian kpoints"][ib]),
+                                          method='nearest') for orb in orbitals.keys()}
 
-                iband = i * self.cbm_vbm["p"]["included"] + ib if self.interpolation=="boltztrap1" else self.cbm_vbm[tp]["bidx"] + (i-1)*self.cbm_vbm["p"]["included"]+ib
+                if self.interpolation == "boltztrap1":
+                    iband = i * self.cbm_vbm["p"]["included"] + ib
+                else:
+                    iband = self.cbm_vbm[tp]["bidx"] + (i-1)*self.cbm_vbm["p"]["included"]+ib
                 self.kgrid[tp]["energy"][ib], \
                         self.kgrid[tp]["velocity"][ib] = \
                     interpolate_bs(self.kgrid[tp]["kpoints"][ib],
@@ -1766,15 +1782,11 @@ class Amset(object):
                     map(lambda k: self.get_cartesian_coords(get_closest_k(
                         k, self.bs.get_sym_eq_kpoints(important_points[tp][0]),
                         return_diff=True))/ A_to_nm , self.kgrid[tp]["kpoints"][ib]))
-                # self.kgrid[tp]["norm(k)"][ib] = list(map(norm, self.kgrid[tp]["cartesian kpoints"][ib]))
-                # self.kgrid[tp]["norm(v)"][ib] = list(map(norm, self.kgrid[tp]["velocity"][ib]))
+
 
                 self.kgrid[tp]["norm(k)"][ib] = np.linalg.norm(self.kgrid[tp]["cartesian kpoints"][ib], axis=1)
 
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                    # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.get_cartesian_coords(get_closest_k(
-                    #         self.kgrid[tp]["kpoints"][ib][ik], self.bs.get_sym_eq_kpoints(important_points[tp][0]), return_diff=True)) / A_to_nm
-                    # self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
                     if self.parabolic_bands is not None:
                         self.kgrid[tp]["energy"][ib][ik], \
                                 self.kgrid[tp]["velocity"][ib][ik], _ = \
@@ -1795,8 +1807,6 @@ class Amset(object):
                             (self.kgrid[tp]["norm(k)"][ib][ik] < 1e-3)
                     ):
                         rm_idx_list[tp][ib].append(ik)
-                    # if (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any():
-                    #     self.kgrid[tp]["velocity"][ib][ik][self.kgrid[tp]["velocity"][ib][ik] < self.v_min] = self.v_min
                     if self.parabolic_bands is None:
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
                         if np.isnan(self.kgrid[tp]["a"][ib][ik]):
