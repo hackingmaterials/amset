@@ -626,9 +626,7 @@ class Amset(object):
         #         self.seebeck['n'][c][T] = (sigma['n'][c][T]*seebeck['n'][c][T] - sigma['p'][c][T]*seebeck['p'][c][T])/(sigma['n'][c][T]+sigma['p'][c][T])
         self.logger.info('run finished.')
         self.logger.info('\nfinal mobility:\n{}'.format(pformat(self.mobility)))
-        # pprint(self.mobility)
         self.logger.info('\nfinal Seebeck:\n{}'.format(pformat(self.seebeck)))
-        # pprint(self.seebeck)
 
 
     def _initialize_transport_vars(self, coeff_file):
@@ -757,16 +755,24 @@ class Amset(object):
         return kpts
 
 
-    def update_cbm_vbm_dos(self, coeff_file):
+    def update_cbm_vbm_dos(self, coeff_file=None):
+        """
+        Updates the energy and mass values of the CBM/VBM (in cbm_vbm var) and
+        dos limits according to the iterpolation method and the references used
+
+        Args:
+            coeff_file (str): path to the boltztrap1 .123 coefficient file;
+                ignored if interpolation is not boltztrap1
+
+        Returns (None):
+            updates cbm_vbm and some other class attributes such as
+            offset_from_vbm which is the energy difference between the DFT
+            calculations reference energy and the interpolation method.
+        """
         if self.parabolic_bands0 is None:
             if self.interpolation=="boltztrap1":
                 self.logger.debug(
                     "start interpolating bands from {}".format(coeff_file))
-            # self.all_ibands = []
-            # for i, tp in enumerate(["p", "n"]):
-            #     sgn = (-1) ** (i + 1)
-            #     for ib in range(self.cbm_vbm0[tp]["included"]):
-            #         self.all_ibands.append(self.cbm_vbm0[tp]["bidx"] + sgn * ib)
             self.all_ibands = [self.cbm_vbm0['p']["bidx"], self.cbm_vbm0['n']["bidx"]]
 
             self.all_ibands.sort()
