@@ -7,7 +7,7 @@ import os
 import time
 import warnings
 from amset.utils.analytical_band_from_BZT import Analytical_bands, \
-        get_dos_from_poly_bands, get_poly_energy
+        get_dos_from_parabolic_bands, get_poly_energy
 from amset.utils.tools import norm, generate_k_mesh_axes, \
     create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
     fermi_integral, calculate_Sio, remove_from_grid, get_tp, \
@@ -120,11 +120,12 @@ class Amset(object):
                 be include; for example: ["ACD", "IMP", "PIE"]
             "inelastic_scats" ([str]): list of inelastic scattering mechanisms
                 to be included; for example: ["POP"]
-            "poly_bands" (None or list): to simulate a band structure with a
+            "parabolic_bands" (None or list): to simulate a band structure with a
                 polynomial. For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]]
                 denotes a single parabolic band, with a single extremum at
                 Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
-                has an effective mass of 0.09
+                has an effective mass of 0.09. Coordinates are fractional. For
+                more information see the docs for get_poly_energy function.
         performance_params (dict): parameters related to convergence, speed, etc.
         dopings ([float]): list of input carrier concentrations; c<0 for
             electrons and c>0 for holes
@@ -541,7 +542,7 @@ class Amset(object):
                                     self.mobility[tp]["seebeck"][c][T] += valley_transport[tp]["seebeck"][c][T]
 
 
-                if self.poly_bands0 is None:
+                if self.parabolic_bands0 is None:
                     for tp in ['p', 'n']:
                         if self.count_mobility[self.ibrun][tp]:
                             k = important_points[tp][0]
@@ -627,11 +628,11 @@ class Amset(object):
         Returns (str): instance variables get updated/created and returns
             coeff_file (if it was None and updated in this function)
         """
-        if self.poly_bands0 is not None:
+        if self.parabolic_bands0 is not None:
             self.cbm_vbm["n"]["energy"] = self.dft_gap
             self.cbm_vbm["p"]["energy"] = 0.0
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = \
-                self.poly_bands0[0][0][0]
+                self.parabolic_bands0[0][0][0]
         if not coeff_file and self.interpolation == "boltztrap1":
             self.logger.warning(
                 '\nRunning BoltzTraP to generate the cube file...')
@@ -741,7 +742,7 @@ class Amset(object):
 
 
     def update_cbm_vbm_dos(self, coeff_file):
-        if self.poly_bands0 is None:
+        if self.parabolic_bands0 is None:
             if self.interpolation=="boltztrap1":
                 self.logger.debug(
                     "start interpolating bands from {}".format(coeff_file))
@@ -757,19 +758,19 @@ class Amset(object):
             if self.interpolation == "boltztrap1":
                 self.interp_params = get_energy_args(coeff_file, self.all_ibands)
         else:
-            self.poly_bands = np.array(self.poly_bands0)
-            for ib in range(len(self.poly_bands0)):
-                for valley in range(len(self.poly_bands0[ib])):
-                    self.poly_bands[ib][valley][
+            self.parabolic_bands = np.array(self.parabolic_bands0)
+            for ib in range(len(self.parabolic_bands0)):
+                for valley in range(len(self.parabolic_bands0[ib])):
+                    self.parabolic_bands[ib][valley][
                         0] = remove_duplicate_kpoints(
                         self.bs.get_sym_eq_kpoints(
-                            self.poly_bands0[ib][valley][0],
+                            self.parabolic_bands0[ib][valley][0],
                             cartesian=True))
 
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1.0) ** i
             iband = i if self.interpolation=="boltztrap1" else self.cbm_vbm0[tp]["bidx"]
-            if self.poly_bands is not None:
+            if self.parabolic_bands is not None:
                 energy, velocity, effective_m = self.calc_poly_energy(self.cbm_vbm0[tp]["kpoint"], tp, 0)
             else:
                 energies, velocities, masses = interpolate_bs(
@@ -782,7 +783,7 @@ class Amset(object):
             self.logger.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun[tp]))
             self.cbm_vbm0[tp]["energy"] = energy
             self.cbm_vbm0[tp]["eff_mass_xx"] = effective_m.diagonal()
-        if self.poly_bands is None:
+        if self.parabolic_bands is None:
             self.dos_emax += self.offset_from_vrun['n']
             self.dos_emin += self.offset_from_vrun['p']
         for tp in ['p', 'n']:
@@ -818,7 +819,7 @@ class Amset(object):
         """
         num_bands = num_bands or self.num_bands
         start_time = time.time()
-        if self.poly_bands0 is None:
+        if self.parabolic_bands0 is None:
             if self.interpolation == 'boltztrap1':
                 self.logger.debug("start interpolating bands from {}".format(coeff_file))
                 analytical_bands = Analytical_bands(coeff_file=coeff_file)
@@ -833,13 +834,13 @@ class Amset(object):
             elif self.interpolation != 'boltztrap2':
                 raise ValueError('Unsupported interpolation method: "{}"'.format(self.interpolation))
         else:
-            # first modify the self.poly_bands to include all symmetrically equivalent k-points (k_i)
+            # first modify the self.parabolic_bands to include all symmetrically equivalent k-points (k_i)
             # these points will be used later to generate energy based on the minimum norm(k-k_i)
-            self.poly_bands = np.array(self.poly_bands0)
-            for ib in range(len(self.poly_bands0)):
-                for valley in range(len(self.poly_bands0[ib])):
-                    self.poly_bands[ib][valley][0] = remove_duplicate_kpoints(
-                        self.bs.get_sym_eq_kpoints(self.poly_bands0[ib][valley][0], cartesian=True))
+            self.parabolic_bands = np.array(self.parabolic_bands0)
+            for ib in range(len(self.parabolic_bands0)):
+                for valley in range(len(self.parabolic_bands0[ib])):
+                    self.parabolic_bands[ib][valley][0] = remove_duplicate_kpoints(
+                        self.bs.get_sym_eq_kpoints(self.parabolic_bands0[ib][valley][0], cartesian=True))
 
         self.logger.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
         start_time = time.time()
@@ -854,7 +855,7 @@ class Amset(object):
             for i, tp in enumerate(["p", "n"]):
                 sgn = (-1) ** i
                 for ib in range(num_bands[tp]):
-                    if self.poly_bands is not None:
+                    if self.parabolic_bands is not None:
                         for ik in range(len(kpts[tp])):
                             energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
                     else:
@@ -884,15 +885,15 @@ class Amset(object):
             self.logger.debug("time to calculate ibz energy, velocity info "
                               "and store them to variables: \n {}".format(
                 time.time()-start_time))
-            if self.poly_bands is not None:
+            if self.parabolic_bands is not None:
                 all_bands_energies = {"n": [], "p": []}
                 for tp in ["p", "n"]:
                     all_bands_energies[tp] = energies[tp]
-                    for ib in range(1, len(self.poly_bands)):
+                    for ib in range(1, len(self.parabolic_bands)):
                         for ik in range(len(kpts[tp])):
                             energy, velocity, effective_m = get_poly_energy(
                                 self.get_cartesian_coords(kpts[ik]) / A_to_nm,
-                                poly_bands=self.poly_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+                                parabolic_bands=self.parabolic_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
                             all_bands_energies[tp].append(energy)
                 if not once_called:
                     self.dos_emin = min(all_bands_energies["p"])
@@ -905,7 +906,7 @@ class Amset(object):
         if not once_called:
             dos_kmesh = Kpoints.automatic_density_by_vol(self._vrun.final_structure, kppvol=self.dos_kdensity).kpts[0]
             self.logger.info('kmesh used for dos: {}'.format(dos_kmesh))
-            if self.poly_bands is None:
+            if self.parabolic_bands is None:
                 if self.interpolation=="boltztrap1":
                     emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
                             self._vrun.final_structure, dos_kmesh, self.dos_emin,
@@ -931,14 +932,14 @@ class Amset(object):
                     raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
                 self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
             else:
-                self.logger.debug("here self.poly_bands: \n {}".format(self.poly_bands))
-                emesh, dos = get_dos_from_poly_bands(self._vrun.final_structure, self._rec_lattice,
+                self.logger.debug("here self.parabolic_bands: \n {}".format(self.parabolic_bands))
+                emesh, dos = get_dos_from_parabolic_bands(self._vrun.final_structure, self._rec_lattice,
                                                      dos_kmesh, self.dos_emin,
                         self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
-                        / max(self.dE_min, 0.0001))),poly_bands=self.poly_bands,
+                        / max(self.dE_min, 0.0001))),parabolic_bands=self.parabolic_bands,
                         bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
                         "energy"], width=self.dos_bwidth, SPB_DOS=False)
-                self.dos_normalization_factor = len(self.poly_bands) * 2 * 2
+                self.dos_normalization_factor = len(self.parabolic_bands) * 2 * 2
                 self.dos_start = self.dos_emin
                 self.dos_end = self.dos_emax
 
@@ -1018,7 +1019,7 @@ class Amset(object):
                       self.cbm_vbm['n']['bidx']+nabove_cbm]
             self.interp_params = get_energy_args(coeff_file, ibands)
         if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
-            if self.poly_bands0 is None:
+            if self.parabolic_bands0 is None:
                 eref = {typ: self.cbm_vbm[typ]['energy'] for typ in ['p', 'n']}
             else:
                 eref = None
@@ -1027,10 +1028,10 @@ class Amset(object):
                     Ecut=self.Ecut, eref=eref, return_global=True, n_jobs=self.n_jobs,
                     nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm,
                     scissor=self.scissor, **kwargs)
-            if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy'] and self.poly_bands0 is None:
+            if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy'] and self.parabolic_bands0 is None:
                 self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
                 self.cbm_vbm['n']['kpoint'] = new_cbm_vbm['n']['kpoint']
-            if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p']['energy'] and self.poly_bands0 is None:
+            if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p']['energy'] and self.parabolic_bands0 is None:
                 self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
         self.logger.info('Here all the initial extrema (valleys):\n{}'.format(
@@ -1147,8 +1148,8 @@ class Amset(object):
         self.bs_is_isotropic = params.get("bs_is_isotropic", True)
         self.elastic_scats = params.get("elastic_scats", ["ACD", "IMP", "PIE"])
         self.inelastic_scats = params.get("inelastic_scats", ["POP"])
-        self.poly_bands0 = params.get("poly_bands", None)
-        self.poly_bands = self.poly_bands0
+        self.parabolic_bands0 = params.get("parabolic_bands", None)
+        self.parabolic_bands = self.parabolic_bands0
         self.soc = params.get("soc", False)
         self.logger.info("bs_is_isotropic: {}".format(self.bs_is_isotropic))
         self.independent_valleys = params.get('independent_valleys', False)
@@ -1156,7 +1157,7 @@ class Amset(object):
             "bs_is_isotropic": self.bs_is_isotropic,
             "elastic_scats": self.elastic_scats,
             "inelastic_scats": self.inelastic_scats,
-            "poly_bands": self.poly_bands
+            "parabolic_bands": self.parabolic_bands
         }
 
 
@@ -1297,7 +1298,7 @@ class Amset(object):
             self.dos_emin = min(bsd["bands"]["1"][0])
             self.dos_emax = max(bsd["bands"]["1"][-1])
         self.init_nbands = {'n': None, 'p': None}
-        if self.poly_bands0 is None:
+        if self.parabolic_bands0 is None:
             for i, tp in enumerate(["n", "p"]):
                 Ecut = self.Ecut[tp]
                 sgn = (-1) ** i
@@ -1308,10 +1309,10 @@ class Amset(object):
                     cbm_vbm[tp]["included"] += 1
                 self.init_nbands[tp] = cbm_vbm[tp]["included"]
         else:
-            cbm_vbm["n"]["included"] = len(self.poly_bands0)
-            cbm_vbm["p"]["included"] = len(self.poly_bands0)
-            self.init_nbands['n'] = len(self.poly_bands0)
-            self.init_nbands['p'] = len(self.poly_bands0)
+            cbm_vbm["n"]["included"] = len(self.parabolic_bands0)
+            cbm_vbm["p"]["included"] = len(self.parabolic_bands0)
+            self.init_nbands['n'] = len(self.parabolic_bands0)
+            self.init_nbands['p'] = len(self.parabolic_bands0)
         cbm_vbm["p"]["bidx"] += 1
         cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
         self.cbm_vbm = cbm_vbm
@@ -1663,7 +1664,7 @@ class Amset(object):
             (energy(eV), velocity (cm/s), effective mass) from a parabolic band
         """
         energy, velocity, effective_m = get_poly_energy(
-            self.get_cartesian_coords(xkpt)/A_to_nm, poly_bands=self.poly_bands,
+            self.get_cartesian_coords(xkpt)/A_to_nm, parabolic_bands=self.parabolic_bands,
             type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
         return energy, velocity, effective_m
 
@@ -1752,12 +1753,12 @@ class Amset(object):
                     # self.kgrid[tp]["cartesian kpoints"][ib][ik] = self.get_cartesian_coords(get_closest_k(
                     #         self.kgrid[tp]["kpoints"][ib][ik], self.bs.get_sym_eq_kpoints(important_points[tp][0]), return_diff=True)) / A_to_nm
                     # self.kgrid[tp]["norm(k)"][ib][ik] = norm(self.kgrid[tp]["cartesian kpoints"][ib][ik])
-                    if self.poly_bands is not None:
+                    if self.parabolic_bands is not None:
                         self.kgrid[tp]["energy"][ib][ik], \
                                 self.kgrid[tp]["velocity"][ib][ik], _ = \
                                 get_poly_energy(
                                     self.kgrid[tp]["cartesian kpoints"][ib][ik],
-                                   poly_bands=self.poly_bands, type=tp, ib=ib,
+                                   parabolic_bands=self.parabolic_bands, type=tp, ib=ib,
                                         bandgap=self.dft_gap + self.scissor)
 
                     # self.kgrid[tp]["norm(v)"][ib][ik] = norm(self.kgrid[tp]["velocity"][ib][ik])
@@ -1767,14 +1768,14 @@ class Amset(object):
                         or \
                             (abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
                         or \
-                            ((self.max_normk[tp]) and (self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]) and (self.poly_bands0 is None))
+                            ((self.max_normk[tp]) and (self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]) and (self.parabolic_bands0 is None))
                         or \
                             (self.kgrid[tp]["norm(k)"][ib][ik] < 1e-3)
                     ):
                         rm_idx_list[tp][ib].append(ik)
                     # if (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).any():
                     #     self.kgrid[tp]["velocity"][ib][ik][self.kgrid[tp]["velocity"][ib][ik] < self.v_min] = self.v_min
-                    if self.poly_bands is None:
+                    if self.parabolic_bands is None:
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
                         if np.isnan(self.kgrid[tp]["a"][ib][ik]):
                             self.kgrid[tp]["a"][ib][ik] = np.mean(self.kgrid[tp]["a"][ib][:ik])
@@ -3583,15 +3584,15 @@ if __name__ == "__main__":
 
 
     mass = 0.25
-    use_poly_bands = False
+    use_parabolic_bands = False
 
     model_params = {'bs_is_isotropic': True,
                     'elastic_scats': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scats': ['POP']
         , 'independent_valleys': False
                     }
-    if use_poly_bands:
-        model_params["poly_bands"] = [[
+    if use_parabolic_bands:
+        model_params["parabolic_bands"] = [[
             [[0.0, 0.0, 0.0], [0.0, mass]],
         ]]
 

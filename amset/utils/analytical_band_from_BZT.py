@@ -46,31 +46,31 @@ def outer(v1, v2):
                      [v1[2] * v2[0], v1[2] * v2[1], v1[2] * v2[2]]])
 
 
-def get_poly_energy(kpt, poly_bands, type, ib=0, bandgap=1, all_values = False):
+def get_poly_energy(kpt, parabolic_bands, type, ib=0, bandgap=1, all_values = False):
     """
     Args:
         kpt (list): coordinates of a given k-point in the actual cartesian coordinates and NOT fractional coordinates
         rotations: symmetry rotation operations
         translations: symmetry translational operations
-        poly_bands [[lists]]: each member of the first list represents a band: in each band a list of lists of lists
+        parabolic_bands [[lists]]: each member of the first list represents a band: in each band a list of lists of lists
             should contain a list of two-member lists: the two members are: the coordinates of extrema k-point and its
             symmetrically equivalent points and another two members list of
             [first member: energy offset from the main extremum (i.e. CBM/VBM), second member: the effective mass]
-            example poly_bands = [[ [[[0.5, 0.5, 0.5]], [0, 0.1]], [[[0, 0, 0]], [0.5, 0.2]]]] represents a
+            example parabolic_bands = [[ [[[0.5, 0.5, 0.5]], [0, 0.1]], [[[0, 0, 0]], [0.5, 0.2]]]] represents a
             band structure with a single band; this parabolic band (hbar**2k**2/2m*) at point X
             where k is norm(k-[0.5,0.5,0.5]) if the k-point is closer to X than Gamma. Additionally, this band has
             another extremum at an energy level 0.5 eV above the first/main extremum/CBM. If type is "p" the band structure
             would be a mirror image. VBM is always set to 0.0 eV and the CBM is set to the bandgap
 
         type (str): "n" or "p"
-        ib (int): the band index, 0 is for the first band and maximum allowed value is len(poly_bands)-1
+        ib (int): the band index, 0 is for the first band and maximum allowed value is len(parabolic_bands)-1
         bandgap (float): the targetted band gap of the band structure
     Returns:
     """
     # The sign of energy from type; e.g. p-type energies are negative (VBM=0.0)
     kpt = np.array(kpt)
     sgn = (-1)**(["p", "n"].index(type)+1)
-    band_shapes = poly_bands[ib]
+    band_shapes = parabolic_bands[ib]
     min_kdist = 1e32
     allE = []
     for ks, c in band_shapes:
@@ -145,7 +145,7 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
         return sign * ene
 
 
-def get_dos_from_poly_bands(st, reclat_matrix, mesh, e_min, e_max, e_points, poly_bands, bandgap, width=0.1, SPB_DOS=False, all_values=False):
+def get_dos_from_parabolic_bands(st, reclat_matrix, mesh, e_min, e_max, e_points, parabolic_bands, bandgap, width=0.1, SPB_DOS=False, all_values=False):
     """
     Args:
     st:       pmg object of crystal structure to calculate symmetries
@@ -172,7 +172,7 @@ def get_dos_from_poly_bands(st, reclat_matrix, mesh, e_min, e_max, e_points, pol
 
     if SPB_DOS:
         volume = st.volume
-        for band in poly_bands:
+        for band in parabolic_bands:
             for valley in band:
                 offset = valley[-1][0] # each valley has a list of k-points (valley[0]) and [offset, m*] (valley[1]) info
                 m_eff = valley[-1][1]
@@ -193,9 +193,9 @@ def get_dos_from_poly_bands(st, reclat_matrix, mesh, e_min, e_max, e_points, pol
         all_ks = []
         for kpt,w in zip(ir_kpts,weights):
             for tp in ["n", "p"]:
-                for ib in range(len(poly_bands)):
+                for ib in range(len(parabolic_bands)):
                     if all_values:
-                        energy_list, k_dist = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap,
+                        energy_list, k_dist = get_poly_energy(kpt, parabolic_bands, tp, ib=ib, bandgap=bandgap,
                                                            all_values=all_values)
                         all_energies += energy_list
                         all_ks += [k_dist]*len(energy_list)
@@ -203,7 +203,7 @@ def get_dos_from_poly_bands(st, reclat_matrix, mesh, e_min, e_max, e_points, pol
                             g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                             dos += w/w_sum * g
                     else:
-                        energy, v, m_eff = get_poly_energy(kpt, poly_bands, tp, ib=ib, bandgap=bandgap, all_values=all_values)
+                        energy, v, m_eff = get_poly_energy(kpt, parabolic_bands, tp, ib=ib, bandgap=bandgap, all_values=all_values)
                         g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                         dos += w/w_sum * g
         if all_values:
@@ -553,7 +553,7 @@ if __name__ == "__main__":
 
     mass=0.065
     _, v_poly, effective_mass = get_poly_energy(_rec_lattice.get_cartesian_coords(kpt)
-        ,poly_bands=[[
+        ,parabolic_bands=[[
             [[0.0, 0.0, 0.0], [0.0, mass]],
         ]],
         type='n', ib=0,
@@ -571,18 +571,18 @@ if __name__ == "__main__":
     emesh,dos, nbands = analytical_bands.get_dos_from_scratch(st,kmesh,-13,20,1000, width=0.05)
     plot(emesh, dos)
 
-    # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.1]]]]
+    # parabolic_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.1]]]]
 
     # Gamma and X
-    # poly_bands = [[[[np.array([ 0.,  0.,  0.])], [1.0, 2.2]]], [[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.1]]]]
+    # parabolic_bands = [[[[np.array([ 0.,  0.,  0.])], [1.0, 2.2]]], [[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.1]]]]
 
     # Gamma centered
-    poly_bands = [[[[np.array([ 0.,  0.,  0.])], [0.0, 0.2]]]]
+    parabolic_bands = [[[[np.array([ 0.,  0.,  0.])], [0.0, 0.2]]]]
 
     # adding an extra valley at offest of 1 eV
-    # poly_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.25]]] , [[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [2, 0.25]]]]
+    # parabolic_bands = [[[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [0.0, 0.25]]] , [[[np.array([ 0.        ,  8.28692586,  0.        ]), np.array([ 0.        , -8.28692586,  0.        ]), np.array([ 3.90649442,  2.76230862,  6.7662466 ]), np.array([-3.90649442, -2.76230862, -6.7662466 ]), np.array([-3.90649442, -2.76230862,  6.7662466 ]), np.array([ 3.90649442,  2.76230862, -6.7662466 ]), np.array([-7.81298883,  2.76230862,  0.        ]), np.array([ 7.81298883, -2.76230862,  0.        ])], [2, 0.25]]]]
 
-    emesh, dos = get_dos_from_poly_bands(st,_rec_lattice,[6,6,6],-30,30,100000,poly_bands=poly_bands, bandgap=1.54,
+    emesh, dos = get_dos_from_parabolic_bands(st,_rec_lattice,[6,6,6],-30,30,100000,parabolic_bands=parabolic_bands, bandgap=1.54,
                                          width=0.1, SPB_DOS=False, all_values=False)
     plot(emesh,dos)
     # show()
