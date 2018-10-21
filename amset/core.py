@@ -51,7 +51,7 @@ __status__ = "Development"
 
 
 class Amset(object):
-    """ This class is used to run Amset on a pymatgen from a VASP run (i.e. vasprun.xml). Amset is an ab initio model
+    """ Runs Amset on a pymatgen from a VASP run (i.e. vasprun.xml). Amset is an ab initio model
     for calculating the mobility and Seebeck coefficient using Bolƒtzmann transport equation (BTE). The band structure
     in the Brilluin zone (BZ) is extracted from vasprun.xml to calculate the group velocity and transport properties
     in presence of various scattering mechanisms.
@@ -63,39 +63,53 @@ class Amset(object):
      more information, see references [R, A]).
 
      you can control the level of theory via various inputs. For example, by assuming that the band structure is
-     isotropic at the surrounding point of each k-point (i.e. bs_is_isotropic == True), once can significantly reduce
-     the computational effort needed for accurate numerical integration of the scatterings.
+     isotropic at the surrounding point of each k-point (i.e. bs_is_isotropic == True), one can significantly reduce
+     the computational effort otherwise needed for accurate numerical integration of the scatterings.
 
-    * a small comment on the structure of this code: the calculations are done and stred in two main dictionary type
+    * a small comment on the structure of this code: the calculations are done and stored in two main dictionary type
     variable called kgrid and egrid. kgrid contains all calculations that are done in k-space meaning that for each
     k-point and each band that is included there is a number/vector/property stored. On the other hand, the egrid
     is everything in energy scale hence we have number/vector/property stored at each energy point.
 
-     References:
-         [R]: D. L. Rode, Low-Field Electron Transport, Elsevier, 1975, vol. 10., DOI: 10.1016/S0080-8784(08)60331-2
-         [A]: A. Faghaninia, C. S. Lo and J. W. Ager, Phys. Rev. B, "Ab initio electronic transport model with explicit
-          solution to the linearized Boltzmann transport equation" 2015, 91(23), 5100., DOI: 10.1103/PhysRevB.91.235123
-         [Q]: B. K. Ridley, Quantum Processes in Semiconductors, oxford university press, Oxford, 5th edn., 2013.
-          DOI: 10.1093/acprof:oso/9780199677214.001.0001
+    References:
+        [R]: D. L. Rode, Low-Field Electron Transport, Elsevier, 1975, vol. 10.,
+            DOI: 10.1016/S0080-8784(08)60331-2
+        [A]: A. Faghaninia, C. S. Lo and J. W. Ager, Phys. Rev. B, "Ab initio
+            electronic transport model with explicit solution to the linearized
+            Boltzmann transport equation" 2015, 91(23), 5100.,
+            DOI: 10.1103/PhysRevB.91.235123
+        [Q]: B. K. Ridley, Quantum Processes in Semiconductors, oxford
+            university press, Oxford, 5th edn., 2013.
+            DOI: 10.1093/acprof:oso/9780199677214.001.0001
 
+    Args:
+        calc_dir (str): path to the vasprun.xml (a required argument)
+        material_params (dict): parameters related to the material (a required argument)
+        model_params (dict): parameters related to the model used and the level of theory
+        performance_params (dict): parameters related to convergence, speed, etc.
+        dopings ([float]): list of input carrier concentrations; c<0 for
+            electrons and c>0 for holes
+        temperatures ([float]): input temperatures (T) in Kelvin.
+        integration (str): 'e' or 'k'. Currently only e or integration of
+            properties in the energy-scale is supported
+        loglevel (int): e.g. logging.DEBUG; set logging.ERROR to turn off
+            the logging
+        timeout (float): timeout in hours. If Amset takes longer than this,
+            the calculations will stop. However, if transport properties
+            are already calculated, the postprocessing (e.g. write to file)
+            might violate this timeout.
+
+    Returns (None): results are accessible through various methods such as the
+        logged result (on the screen or the logfile), or through the following
+        methods:
+            to_csv: transport properties at different c&T
      """
     def __init__(self, calc_dir, material_params, vasprun_file=None,
                  model_params=None, performance_params=None,
                  dopings=None, temperatures=None, integration='e',
                  loglevel=None, timeout=48):
         """
-        Args:
-            calc_dir (str): path to the vasprun.xml (a required argument)
-            material_params (dict): parameters related to the material (a required argument)
-            model_params (dict): parameters related to the model used and the level of theory
-            performance_params (dict): parameters related to convergence, speed, etc.
-            dopings ([float]): list of input carrier concentrations; c<0 for electrons and c>0 for holes
-            temperatures ([float]): list of input temperatures
-            loglevel (int): e.g. logging.DEBUG
-            timeout (float): timeout in hours. If Amset takes longer than this,
-                the calculations will stop. However, if transport properties
-                are already calculated, the postprocessing (e.g. write to file)
-                might violate this timeout.
+
         """
 
         self.logger = setup_custom_logger('amset_logger', calc_dir, 'amset.log',
