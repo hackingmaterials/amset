@@ -1886,8 +1886,18 @@ class Amset(object):
 
     def sort_vars_based_on_energy(self, args, ascending=True):
         """
-        Sorts the list of variables specified by "args" (type: [str]) in self.kgrid based on the "energy" values
-        in each band for both "n"- and "p"-type bands and in ascending order by default.
+        Sorts the list of variables specified by args based on their "energy"
+        values in each band for both "n"- and "p"-type bands and in ascending
+        order by default.
+
+        Args:
+            args ([str]): list of arguments in self.kgrid.
+            ascending (bool): whether to sort in ascending order (default)
+
+        Returns ([int]):
+            after actually modifying the args to be sorted based on energy, it
+                also returns the indexes in the order that results in sorted
+                energy.
         """
         ikidxs = {'n': {ib: [] for ib in range(self.num_bands['n'])}, 'p': {ib: [] for ib in range(self.num_bands['p'])}}
         for tp in ["n", "p"]:
@@ -1967,6 +1977,19 @@ class Amset(object):
 
 
     def unique_X_ib_ik_symmetrically_equivalent(self, tp, ib, ik):
+        """
+        Given indexes of a k-point in "n"-tp or "p"-tp grid, it returns a list
+            of unique and symmetricall equivalent k-points.
+
+        Args:
+            tp (str): options are "n" for conduction bands and "p" for valence
+            ib (int): band index (0 for the last valence/first conduction band)
+            ik (int): k-point index in the kgrid
+
+        Returns ([1x3 numpy.ndarray]):
+            a list of k-points symmetrically equivalent to the original sorted
+                on the cosine of the angle between them and the original point
+        """
         frac_k = self.kgrid[tp]["kpoints"][ib][ik]
         fractional_ks = np.dot(frac_k, self.rotations)
         k = self.kgrid[tp]["kpoints"][ib][ik]
