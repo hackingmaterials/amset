@@ -2491,6 +2491,18 @@ class Amset(object):
 
 
     def s_inelastic(self, sname=None, g_suffix=""):
+        """
+        For the anisotropic formulation, sets the inelastic scattering rates,
+        S_o and S_i, in the kgrid.
+
+        Args:
+            sname (str): scattering name; current options are "S_o" and "S_i"
+            g_suffix (str): this suffix determines which phenomena is the
+                perturbation to the electronic distribution (g) come from.
+                Current options are "" (overall, electric) and "_th" (thermal)
+
+        Returns (None):
+        """
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
@@ -2524,7 +2536,6 @@ class Amset(object):
         Returns (float): scalar (since assumed isotropic) scattering rate.
         """
         v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
-        # v = self.kgrid[tp]["velocity"][ib][ik]  # because of isotropic assumption, we treat the BS as 1D
         knrm = self.kgrid[tp]["norm(k)"][ib][ik]
         par_c = self.kgrid[tp]["c"][ib][ik]
 
@@ -2534,7 +2545,6 @@ class Amset(object):
                    * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * e * 1e20
 
         elif sname.upper() == "IMP":
-            # double-checked the units and equation on 5/12/2017
             # The following is a variation of Dingle's theory available in [R]
             beta = self.egrid["beta"][c][T][tp]
             B_II = (4 * knrm ** 2 / beta ** 2) / (1 + 4 * knrm ** 2 / beta ** 2) + 8 * (beta ** 2 + 2 * knrm ** 2) / (
