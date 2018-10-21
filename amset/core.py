@@ -1664,26 +1664,6 @@ class Amset(object):
                                                     self.dopings}
 
 
-    def get_intermediate_kpoints(self, k1, k2, nsteps):
-        """
-        Returns a list nsteps number of k-points between k1 & k2 excluding
-        k1 & k2 themselves. k1 & k2 are nparray
-        """
-        dkii = (k2 - k1) / float(nsteps + 1)
-        return [k1 + i * dkii for i in range(1, nsteps + 1)]
-
-
-    def get_intermediate_kpoints_list(self, k1, k2, nsteps):
-        """
-        Returns a list nsteps number of k-points between k1 & k2 excluding
-        k1 & k2 themselves. k1 & k2 are lists
-        """
-        if nsteps < 1:
-            return []
-        dk = [(k2[i] - k1[i]) / float(nsteps + 1) for i in range(len(k1))]
-        return [[k1[i] + n * dk[i] for i in range(len(k1))] for n in range(1, nsteps + 1)]
-
-
     def calc_poly_energy(self, xkpt, tp, ib):
         """
         Calculates parabolic or other polynomial bands at given k-point & band
@@ -2621,15 +2601,17 @@ class Amset(object):
     def map_to_egrid(self, prop_name, c_and_T_idx=True, prop_type="vector"):
         """
         Maps a propery from kgrid to egrid conserving the nomenclature.
-            The mapped property w/ format: kgrid[tp][prop_name][c][T][ib][ik]
-            will have the format: egrid[tp][prop_name][c][T][ie]
+        The mapped property w/ format: kgrid[tp][prop_name][c][T][ib][ik]
+        will have the format: egrid[tp][prop_name][c][T][ie]
 
         Args:
-            prop_name (string): the name of the property to be mapped. It must be available in the kgrid.
-            c_and_T_idx (bool): if True, the propetry will be calculated and maped at each concentration, c, and T
+            prop_name (string): the name of the property to be mapped. It must
+                be available in the kgrid.
+            c_and_T_idx (bool): if True, the propetry will be calculated and
+                mapped at each concentration, c, and T
             prop_type (str): options are "scalar", "vector", "tensor"
 
-        Returns (float or numpy.array): egrid[tp][prop_name][c][T][ie]
+        Returns (None): sets egrid[tp][prop_name][c][T] as floats or np.ndarray
         """
         if not c_and_T_idx:
             self.initialize_var("egrid", prop_name, prop_type, initval=self.gs,
@@ -2656,6 +2638,16 @@ class Amset(object):
 
 
     def find_fermi_k(self, tolerance=0.001, num_bands = None):
+        """
+        *** a method used only by "k"-integration method.
+
+        Args:
+            tolerance:
+            num_bands:
+
+        Returns:
+
+        """
         num_bands = num_bands or self.num_bands
         closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
         self.f0_array = {c: {T: {tp: list(range(num_bands[tp])) \
