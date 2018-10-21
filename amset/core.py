@@ -120,13 +120,34 @@ class Amset(object):
                 be include; for example: ["ACD", "IMP", "PIE"]
             "inelastic_scats" ([str]): list of inelastic scattering mechanisms
                 to be included; for example: ["POP"]
-            "parabolic_bands" (None or list): to simulate a band structure with a
-                polynomial. For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]]
-                denotes a single parabolic band, with a single extremum at
+            "parabolic_bands" (None or list): None is recommended; otherwise set
+                to simulate a band structure with one or multiple parabolic
+                bands; For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]] denotes
+                a single parabolic band, with a single extremum at
                 Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
                 has an effective mass of 0.09. Coordinates are fractional. For
                 more information see the docs for get_poly_energy function.
-        performance_params (dict): parameters related to convergence, speed, etc.
+        performance_params (dict): parameters related to convergence, speed,
+            etc; the options are:
+            "dE_min" (float): minimum energy difference differentiated in the
+                energy grid (egrid); essentially the resolution of the egrid
+            "Ecut" (float or {"n": float, "p": float}): energy cutoff from the
+                CBM/VBM beyond which the band structure is ignored.
+            "dos_bwidth" (float): the bandwidth (in eV) used for calculating
+                the density of states (DOS)
+            "dos_kdensity" (int > 100): the uniform k-point density for DOS
+            "BTE_iters" (int>3): the number of iterations in solving the
+                linearized Boltzmann Transport Equation (BTE)
+            "max_nbands" (None, int>=1): the maximum number of bands included;
+                set None for autmatic determination bands on the Ecut.
+            "max_normk0" (float): the cutoff in reciprocal space from a given
+                extremum in units of 1/nm
+            "max_nvalleys (None or int>=1): the maximum number of valleys
+                included in each band. Set to None for automatic setting.
+            "n_jobs" (int>=1): the number of jobs in parallelization. Currently,
+                it is only relevant to interpolation method of "boltztrap1"
+            "interpolation" (str): the band structure interpolation method.
+                Current options are "boltztrap1" and "boltztrap2".
         dopings ([float]): list of input carrier concentrations; c<0 for
             electrons and c>0 for holes
         temperatures ([float]): input temperatures (T) in Kelvin.
@@ -251,26 +272,26 @@ class Amset(object):
 
         self.check_timeout()
         if self.integration == 'k':
-            kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]], 
-                                                         'p': [[0.0, 0.0, 0.0]]}, 
+            kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]],
+                                                         'p': [[0.0, 0.0, 0.0]]},
                                        kgrid_tp=kgrid_tp)
             # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
-            _, _ = self.get_energy_array(coeff_file, kpts, 
+            _, _ = self.get_energy_array(coeff_file, kpts,
                                          once_called=False,
-                                         return_energies=True, 
-                                         num_bands=self.init_nbands, 
-                                         nbelow_vbm=0, 
+                                         return_energies=True,
+                                         num_bands=self.init_nbands,
+                                         nbelow_vbm=0,
                                          nabove_cbm=0)
             self.fermi_level = self.find_fermi_k(num_bands=self.init_nbands)
         elif self.integration == 'e':
             kpts = self.generate_kmesh(
-                important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]}, 
+                important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]},
                 kgrid_tp='very coarse')
-            self.get_energy_array(coeff_file, kpts, 
+            self.get_energy_array(coeff_file, kpts,
                                   once_called=False,
-                                  return_energies=False, 
-                                  num_bands=self.init_nbands, 
-                                  nbelow_vbm=0, 
+                                  return_energies=False,
+                                  num_bands=self.init_nbands,
+                                  nbelow_vbm=0,
                                   nabove_cbm=0)
             self.fermi_level = {c: {T: None for T in self.temperatures} \
                                 for c in self.dopings}
@@ -1787,7 +1808,7 @@ class Amset(object):
                                     self.kgrid[tp]["velocity"][ib], axis=1)
             self.logger.debug("average of the {}-type group velocity in kgrid:\n {}".format(
                         tp, np.mean(self.kgrid[tp]["velocity"][0], axis=0)))
-            
+
         rearranged_props = ["velocity", "energy", "a", "c", "kpoints",
                             "cartesian kpoints", "old cartesian kpoints",
                             "norm(v)", "norm(k)"]
