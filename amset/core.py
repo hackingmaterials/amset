@@ -83,9 +83,48 @@ class Amset(object):
             DOI: 10.1093/acprof:oso/9780199677214.001.0001
 
     Args:
-        calc_dir (str): path to the vasprun.xml (a required argument)
-        material_params (dict): parameters related to the material (a required argument)
-        model_params (dict): parameters related to the model used and the level of theory
+        calc_dir (str): where Amset will be running (e.g. path to the vasprun.xml)
+        material_params (dict, required): material parameters; current options:
+            "epsilon_s" (float>0, required): static dielectric constant
+            "epsilon_inf" (float>0): high-frequency dielectric constant
+            "C_el" (float>0): average elastic constant in GPa only used by ACD
+            "P_PIE" (float>0): piezoelectric coefficient only used by PIE
+            "E_D" (float>0 or {"n": float, "p": float}): CBM/VBM acoustic phonon
+                deformation potential constant in eV; only used by ACD
+            "N_dis" (float>0): charged linear discloation concentration only
+                used by DIS. Units: 1/cm2 (# of dislocations in unit thickness)
+            "user_bandgap" (float): the target band gap set artificially.
+            "scissor" (float): amount of artificial change to the electronic
+                band gap in eV; ignored if user_bandgap is set.
+            "donor_charge" (int): the charge of the shallow donors (e.g. 2)
+                defaults to 1
+            "acceptor_charge" (int): the charge of the shallow acceptors
+                defaults to 1
+            "dislocations_charge" (int): absolute value of the charge of the
+                linear dislocations; defaults to 1
+            "important_points" (dict): the important band extrema dominating the
+                transport; defaults to None to automatically find those points.
+                examples: None or {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+                                   'p': [[0.0, 0.0, 0.0]]}
+            "W_POP" (float): Longitudinal polar optical phonon frequency in THz
+                at the k-point where the CBM/VBM is located
+            example of material_params: {"epsilon_s": 10.3, "user_bandgap": 1.}
+        vasprun_file (str): path the vasprun.xml; is set to calc_dir by default
+        model_params (dict): parameters related to the model and the formulation
+            "bs_is_isotropic" (bool): whether to use isotropic band formulation
+                note that True is recommended as it is much faster than the
+                anisotropic formulation while still captures some anisotropy.
+                However, some details of anisotropic band may be lost in which
+                case set to False.
+            "elastic_scats" ([str]): list of elastic scattering mechanisms to
+                be include; for example: ["ACD", "IMP", "PIE"]
+            "inelastic_scats" ([str]): list of inelastic scattering mechanisms
+                to be included; for example: ["POP"]
+            "poly_bands" (None or list): to simulate a band structure with a
+                polynomial. For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]]
+                denotes a single parabolic band, with a single extremum at
+                Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
+                has an effective mass of 0.09
         performance_params (dict): parameters related to convergence, speed, etc.
         dopings ([float]): list of input carrier concentrations; c<0 for
             electrons and c>0 for holes
@@ -107,7 +146,8 @@ class Amset(object):
             Amset.to_json(): details of relaxation time, scattering rates, group
                 velocities, etc in both kgrid and egrid
             Amset.to_file(): writes everything to a json file to be used again
-                multiple times (e.g. for plotting). More complete than to_json
+                later (via Amset.from_file() e.g. for plotting). to_file is
+                more complete than to_json and is readable by from_file
             Amset.plot(): convenience function to plot the mobilities, energy,
                 perturbation function, scattering rates, etc.
      """
@@ -115,14 +155,10 @@ class Amset(object):
                  model_params=None, performance_params=None,
                  dopings=None, temperatures=None, integration='e',
                  loglevel=None, timeout=48):
-        """
-
-        """
-
         self.logger = setup_custom_logger('amset_logger', calc_dir, 'amset.log',
                                      level=loglevel)
         self.calc_dir = calc_dir
-        self.vasprun_file = vasprun_file
+        self.vasprun_file = vasprun_file or self.calc_dir
         self.dopings = dopings or [-1e20, 1e20]
         self.dopings = [int(doping) for doping in self.dopings]
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
