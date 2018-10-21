@@ -2540,12 +2540,12 @@ class Amset(object):
         par_c = self.kgrid[tp]["c"][ib][ik]
 
         if sname.upper() == "ACD":
-            # The following two lines are from Rode's chapter (page 38)
+            # The following two lines are from [R]: page 38, eq. (112)
             return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) / (3 * pi * hbar ** 2 * self.C_el * 1e9 * v) \
                    * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * e * 1e20
 
         elif sname.upper() == "IMP":
-            # The following is a variation of Dingle's theory available in [R]
+            # The following is a variation of Dingle's theory; see eq. (90) in [R]
             beta = self.egrid["beta"][c][T][tp]
             B_II = (4 * knrm ** 2 / beta ** 2) / (1 + 4 * knrm ** 2 / beta ** 2) + 8 * (beta ** 2 + 2 * knrm ** 2) / (
             beta ** 2 + 4 * knrm ** 2) * par_c ** 2 + \
@@ -2558,11 +2558,13 @@ class Amset(object):
                 knrm ** 2) * (D_II * log(1 + 4 * knrm ** 2 / beta ** 2) - B_II) * 3.89564386e27)
 
         elif sname.upper() == "PIE":
+            # equation (108) of the reference [R]
             return (e ** 2 * k_B * T * self.P_PIE ** 2) / (
                 6 * pi * hbar ** 2 * self.epsilon_s * epsilon_0 * v) * (
                        3 - 6 * par_c ** 2 + 4 * par_c ** 4) * 100 / e
 
         elif sname.upper() == "DIS":
+            # See table 1 of the reference [A]
             return (self.N_dis * e ** 4 * knrm) / (
             hbar ** 2 * epsilon_0 ** 2 * self.epsilon_s ** 2 * (self._vrun.lattice.c * A_to_nm) ** 2 * v) \
                    / (self.egrid["beta"][c][T][tp] ** 4 * (
@@ -2585,13 +2587,14 @@ class Amset(object):
         """
         sname = sname.upper()
         for tp in ["n", "p"]:
-            self.egrid[tp][sname] = {c: {T: np.array([[0.0, 0.0, 0.0] for i in
-                    range(len(self.egrid[tp]["energy"]))]) for T in
-                    self.temperatures} for c in self.dopings}
-            self.kgrid[tp][sname] = {c: {T: np.array([[[0.0, 0.0, 0.0] for i in
-                    range(len(self.kgrid[tp]["kpoints"][j]))]
-                    for j in range(self.cbm_vbm[tp]["included"])]) for T in
-                    self.temperatures} for c in self.dopings}
+            self.initialize_var("egrid", sname, "vector", 0.0, c_T_idx=True)
+            self.initialize_var("kgrid", sname, "vector", 0.0, c_T_idx=True)
+
+            # self.egrid[tp][sname] = {c: {T: np.array([[0.0, 0.0, 0.0] for _ in range(len(self.egrid[tp]["energy"]))]) for T in self.temperatures} for c in self.dopings}
+            # self.kgrid[tp][sname] = {c: {T: np.array([[[0.0, 0.0, 0.0] for i in
+            #         range(len(self.kgrid[tp]["kpoints"][j]))]
+            #         for j in range(self.cbm_vbm[tp]["included"])]) for T in
+            #         self.temperatures} for c in self.dopings}
             for c in self.dopings:
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
