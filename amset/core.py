@@ -102,7 +102,14 @@ class Amset(object):
     Returns (None): results are accessible through various methods such as the
         logged result (on the screen or the logfile), or through the following
         methods:
-            to_csv: transport properties at different c&T
+            Amset.to_csv(): transport properties at different c&T
+            Amset.as_dict(): most commonly used attributes as python dictionary
+            Amset.to_json(): details of relaxation time, scattering rates, group
+                velocities, etc in both kgrid and egrid
+            Amset.to_file(): writes everything to a json file to be used again
+                multiple times (e.g. for plotting). More complete than to_json
+            Amset.plot(): convenience function to plot the mobilities, energy,
+                perturbation function, scattering rates, etc.
      """
     def __init__(self, calc_dir, material_params, vasprun_file=None,
                  model_params=None, performance_params=None,
