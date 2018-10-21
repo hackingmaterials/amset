@@ -2012,7 +2012,9 @@ class Amset(object):
         """
         Returns the sorted (based on angle, X) list of angle and band and
         k-point indexes of all the points that are within tolerance of E + E_change
-        Attention!!! this function assumes self.kgrid is sorted based on the energy in ascending order.
+
+        **Attention! this function assumes self.kgrid is sorted based on the
+            energy in ascending order.
 
         Args:
             tp (str): type of the band; options: "n" or "p"
@@ -2111,6 +2113,21 @@ class Amset(object):
 
 
     def integrate_func_over_E(self, func, tp, fermi, T, interpolation_nsteps=None, xDOS=True, normalize_energy=False):
+        """
+        Integrates a single function (func) over the egrid.
+        Args:
+            func (object): a function object
+            tp (str): options are "n" or "p"
+            fermi (float): the fermi level
+            T (int): the temperature in Kelvin
+            interpolation_nsteps (None or int): the resolution of integration
+            xDOS (bool): whether to multiply each energy value by its density
+                of states (DOS)
+            normalize_energy (bool): whether to set the CBM/VBM as the reference
+
+        Returns (float):
+            The integral value of func, integrated over the egrid.
+        """
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
         integral = 0.0
@@ -2195,33 +2212,6 @@ class Amset(object):
         if func_grid.ndim == 3:
             return np.sum(func_grid * self.dv_grid[tp])
         return [np.sum(func_grid[:,:,:,i] * self.dv_grid[tp]) for i in range(func_grid.shape[3])]
-
-
-    def integrate_over_normk(self, props, tp, c, T, xDOS):
-        normk_tp = "norm(k)"
-        for ib in [0]:
-            normk_sorted_idx = np.argsort(self.kgrid[tp][normk_tp][ib])
-            normk_vec = np.array(self.kgrid[tp][normk_tp][ib])
-            dk_vec = np.array([
-                self.kgrid[tp][normk_tp][ib][normk_sorted_idx[j+1]] - \
-                self.kgrid[tp][normk_tp][ib][normk_sorted_idx[j]]
-                        for j in range(len(normk_sorted_idx)-1)] + [0.0])
-            integral_vec = normk_vec * dk_vec
-            if xDOS:
-                integral_vec *= normk_vec**2/pi
-            for j, p in enumerate(props):
-                if p[0] == "/":
-                    vec = np.array(self.kgrid[tp][p.split("/")[-1]][c][T][ib])
-                elif "1 -" in p:
-                    vec = np.array(self.kgrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ib])
-                else:
-                    vec = np.array(self.kgrid[tp][p][c][T][ib])
-                if len(vec.shape) > 1:
-                    integral_vec *= np.mean(vec, axis=-1)
-                else:
-                    integral_vec *= vec
-            integral = np.sum(integral_vec)
-        return integral
 
 
     def integrate_over_E(self, props, tp, c, T, xDOS=False, xvel=False,
