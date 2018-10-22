@@ -2642,6 +2642,8 @@ class Amset(object):
             rtol (0<float<1): convergance threshold for relative error
             rtol_loose (0<float<1): maximum relative error allowed between the
                 calculated and input c
+            step (float): initial step size in eV. (-step*nstep,step*nstep) is
+                the initial energy range around the fermi level initial guess
             nstep (int): number of steps to check before and after a given
                 fermi level
 
@@ -2754,7 +2756,7 @@ class Amset(object):
 
     def as_dict(self):
         """
-        Mobility, input parameters, etc as a serializable python dictionary.\
+        Mobility, input parameters, etc as a serializable python dictionary.
 
         Returns (dict):
         """
@@ -2791,6 +2793,21 @@ class Amset(object):
 
     @staticmethod
     def from_file(path=None, dir_name="run_data", filename="amsetrun.json"):
+        """
+        Load an Amset instance from a json file written by the Amset.to_file()
+        method. This way, for example, the class attributes such as .mobility
+        can be directly accessed or the plot() method can be called.
+
+        Args:
+            path (str): path to the folder containing the saved json file.
+            dir_name (str): the name of the folder containing the save json
+                file (ignored if path is already set).
+            filename (str): the name of the json file used to save Amset
+                via the Amset.to_file() method.
+
+        Returns (instantiated Amset class): some of the most important (not all)
+            attributes will be populated.
+        """
         #TODO: add compression (.gz at the end of filename), had some issues implementing it
         #TODO: make this better, maybe organize these class attributes a bit?
         if not path:
