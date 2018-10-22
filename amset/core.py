@@ -2566,15 +2566,9 @@ class Amset(object):
                 c and T (self.kgrid[tp][sname][c][T][ib][ik])
         """
         sname = sname.upper()
+        self.initialize_var("egrid", sname, "vector", 0.0, c_T_idx=True)
+        self.initialize_var("kgrid", sname, "vector", 0.0, c_T_idx=True)
         for tp in ["n", "p"]:
-            self.initialize_var("egrid", sname, "vector", 0.0, c_T_idx=True)
-            self.initialize_var("kgrid", sname, "vector", 0.0, c_T_idx=True)
-
-            # self.egrid[tp][sname] = {c: {T: np.array([[0.0, 0.0, 0.0] for _ in range(len(self.egrid[tp]["energy"]))]) for T in self.temperatures} for c in self.dopings}
-            # self.kgrid[tp][sname] = {c: {T: np.array([[[0.0, 0.0, 0.0] for i in
-            #         range(len(self.kgrid[tp]["kpoints"][j]))]
-            #         for j in range(self.cbm_vbm[tp]["included"])]) for T in
-            #         self.temperatures} for c in self.dopings}
             for c in self.dopings:
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
@@ -2635,59 +2629,6 @@ class Amset(object):
                                     self.kgrid[tp][prop_name][c][T][ib][ik]
                             self.egrid[tp][prop_name][c][T][ie] /= \
                                 len(self.kgrid_to_egrid_idx[tp][ie])
-
-
-    def find_fermi_k(self, tolerance=0.001, num_bands = None):
-        """
-        *** a method used only by "k"-integration method.
-
-        Args:
-            tolerance:
-            num_bands:
-
-        Returns:
-
-        """
-        num_bands = num_bands or self.num_bands
-        closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
-        self.f0_array = {c: {T: {tp: list(range(num_bands[tp])) \
-                                 for tp in ['n', 'p']} \
-                             for T in self.temperatures} \
-                         for c in self.dopings}
-        for c in self.dopings:
-            tp = get_tp(c)
-            tol = tolerance * abs(c)
-            for T in self.temperatures:
-                step = 0.1
-                range_of_energies = np.arange(self.cbm_vbm[tp]['energy'] - 2,
-                                              self.cbm_vbm[tp]['energy'] + 2.1,
-                                              step)
-                diff = 1000.0 * abs(c)
-                while(diff > tol):
-                    # try a number for fermi level
-                    diffs = {}
-                    for e_f in range_of_energies:
-                        # calculate distribution in both conduction and valence bands
-                        f_con = 1 / (np.exp((self.energy_array['n'] - e_f) / (k_B * T)) + 1)
-                        f_val = 1 / (np.exp((self.energy_array['p'] - e_f) / (k_B * T)) + 1)
-                        # density of states in k space is V/8pi^3 per spin, but total states per real volume per k volume is 2/8pi^3
-                        dens_of_states = 1 / (4*np.pi**3)
-                        # see if it is close to concentration
-                        n_concentration = self.integrate_over_states(f_con * dens_of_states, 'n')[0]
-                        p_concentration = self.integrate_over_states((1 - f_val) * dens_of_states, 'p')[0]
-                        diffs[e_f] = abs((p_concentration - n_concentration) - c)
-                    # compare all the numbers and zoom in on the closest
-                    closest_energy[c][T] = min(diffs, key=diffs.get)
-                    range_of_energies = np.arange(closest_energy[c][T] - step, closest_energy[c][T] + step, step / 10)
-                    step /= 10
-                    diff = diffs[closest_energy[c][T]]
-                # find the calculated concentrations (dopings) of each type at the determined fermi level
-                e_f = closest_energy[c][T]
-                for j, tp in enumerate(['n', 'p']):
-                    for ib in list(range(num_bands[tp])):
-                        self.f0_array[c][T][tp][ib] = 1 / (np.exp((self.energy_array[tp][ib][:,:,:,0] - e_f) / (k_B * T)) + 1)
-                    self.calc_doping[c][T][tp] = self.integrate_over_states(j - np.array(self.f0_array[c][T][tp]), tp)
-        return closest_energy
 
 
     def find_fermi(self, c, T, rtol=0.01, rtol_loose=0.03, step=0.1, nstep=50):
@@ -3031,8 +2972,71 @@ class Amset(object):
                             self.egrid[tp]["g_POP"][c][T][ie] = [1e-5, 1e-5, 1e-5]
 
 
-    # k-integration method
+
+
+    def find_fermi_k(self, tolerance=0.001, num_bands = None):
+        """
+        *** a method used only by "k"-integration method.
+
+        Args:
+            tolerance:
+            num_bands:
+
+        Returns:
+
+        """
+        num_bands = num_bands or self.num_bands
+        closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
+        self.f0_array = {c: {T: {tp: list(range(num_bands[tp])) \
+                                 for tp in ['n', 'p']} \
+                             for T in self.temperatures} \
+                         for c in self.dopings}
+        for c in self.dopings:
+            tp = get_tp(c)
+            tol = tolerance * abs(c)
+            for T in self.temperatures:
+                step = 0.1
+                range_of_energies = np.arange(self.cbm_vbm[tp]['energy'] - 2,
+                                              self.cbm_vbm[tp]['energy'] + 2.1,
+                                              step)
+                diff = 1000.0 * abs(c)
+                while(diff > tol):
+                    # try a number for fermi level
+                    diffs = {}
+                    for e_f in range_of_energies:
+                        # calculate distribution in both conduction and valence bands
+                        f_con = 1 / (np.exp((self.energy_array['n'] - e_f) / (k_B * T)) + 1)
+                        f_val = 1 / (np.exp((self.energy_array['p'] - e_f) / (k_B * T)) + 1)
+                        # density of states in k space is V/8pi^3 per spin, but total states per real volume per k volume is 2/8pi^3
+                        dens_of_states = 1 / (4*np.pi**3)
+                        # see if it is close to concentration
+                        n_concentration = self.integrate_over_states(f_con * dens_of_states, 'n')[0]
+                        p_concentration = self.integrate_over_states((1 - f_val) * dens_of_states, 'p')[0]
+                        diffs[e_f] = abs((p_concentration - n_concentration) - c)
+                    # compare all the numbers and zoom in on the closest
+                    closest_energy[c][T] = min(diffs, key=diffs.get)
+                    range_of_energies = np.arange(closest_energy[c][T] - step, closest_energy[c][T] + step, step / 10)
+                    step /= 10
+                    diff = diffs[closest_energy[c][T]]
+                # find the calculated concentrations (dopings) of each type at the determined fermi level
+                e_f = closest_energy[c][T]
+                for j, tp in enumerate(['n', 'p']):
+                    for ib in list(range(num_bands[tp])):
+                        self.f0_array[c][T][tp][ib] = 1 / (np.exp((self.energy_array[tp][ib][:,:,:,0] - e_f) / (k_B * T)) + 1)
+                    self.calc_doping[c][T][tp] = self.integrate_over_states(j - np.array(self.f0_array[c][T][tp]), tp)
+        return closest_energy
+
+
     def calc_v_vec(self, tp):
+        """
+                *** a method used only by "k"-integration method.
+
+        Args:
+            tp:
+
+        Returns:
+
+        """
         v_vec_all_bands = []
         v_norm_all_bands = []
         for ib in range(self.num_bands[tp]):
@@ -3042,9 +3046,10 @@ class Amset(object):
         return np.array(v_vec_all_bands), np.array(v_norm_all_bands)
 
 
-    # k-integration method
     def array_from_kgrid(self, prop_name, tp, c=None, T=None, denom=False, none_missing=False, fill=None):
         """
+                *** a method used only by "k"-integration method.
+
         turns a kgrid property into a list of grid arrays of that property for k integration
 
         Args:
@@ -3065,9 +3070,9 @@ class Amset(object):
             return np.array([self.grid_from_energy_list(self.kgrid[tp][prop_name][ib], tp, ib, denom=denom, none_missing=none_missing, fill=fill) for ib in range(self.num_bands[tp])])
 
 
-    # k-integration method
     def grid_from_energy_list(self, props, tp, ib, denom=False, none_missing=False, fill=None):
         """
+        *** a method used only by "k"-integration method.
 
         Args:
             props: a list that is sorted by energy and missing removed points
@@ -3105,9 +3110,10 @@ class Amset(object):
         return self.grid_from_ordered_list(adjusted_props, tp, denom=denom, none_missing=True)
 
 
-    # k-integration method
     def grid_from_ordered_list(self, props, tp, denom=False, none_missing=False, scalar=False):
         """
+                *** a method used only by "k"-integration method.
+
         Args:
             props:
             tp:
@@ -3140,9 +3146,9 @@ class Amset(object):
         return grid
 
 
-    # k-integration method
     def integrate_over_states(self, integrand_grid, tp='all'):
         """
+        *** a method used only by "k"-integration method.
 
         Args:
             integrand_grid: list or array of array grids
@@ -3162,8 +3168,19 @@ class Amset(object):
         return result
 
 
-    # calculates transport properties for isotropic materials
     def calculate_transport_properties_with_k(self, test_anisotropic, important_points):
+        """
+                *** a method used only by "k"-integration method.
+        Calculates transport properties for isotropic materials with integration
+            over the k-points rather than energy
+
+        Args:
+            test_anisotropic:
+            important_points:
+
+        Returns:
+
+        """
         # calculate mobility by averaging velocity per electric field strength
         mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scats} for tp in ["n", "p"]}
         valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
@@ -3653,7 +3670,8 @@ if __name__ == "__main__":
                           "n_jobs": -1,
                           "max_nvalleys": 1,
                           "interpolation": "boltztrap1",
-                          "max_Ecut": 1.0
+                          "max_Ecut": 1.0,
+                          "dos_kdensity": 300
                           }
 
     # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, # experimental
