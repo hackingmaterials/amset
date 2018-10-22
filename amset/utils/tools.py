@@ -5,9 +5,9 @@ import os
 import sys
 import warnings
 from amset.utils.analytical_band_from_BZT import Analytical_bands, outer, \
-    get_energy
+            get_energy
 from amset.utils.constants import hbar, m_e, e, k_B, epsilon_0, sq3, \
-    Hartree_to_eV, Ry_to_eV, A_to_m, m_to_cm
+            Hartree_to_eV, Ry_to_eV, A_to_m, m_to_cm
 from amset.utils.detect_peaks import detect_peaks
 from math import pi, log
 from multiprocessing import Pool, cpu_count
@@ -91,6 +91,15 @@ def norm(v):
 
 
 def grid_norm(grid):
+    """
+            *** a method used only by "k"-integration method.
+
+    Args:
+        grid:
+
+    Returns:
+
+    """
     return (grid[:,:,:,0]**2 + grid[:,:,:,1]**2 + grid[:,:,:,2]**2) ** 0.5
 
 
@@ -116,6 +125,17 @@ def kpts_to_first_BZ(kpts):
 
 
 def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
+    """
+                *** a method used only by "k"-integration method.
+
+    Args:
+        important_pts:
+        kgrid_tp:
+        one_list:
+
+    Returns:
+
+    """
     points_1d = {dir: [] for dir in ['x', 'y', 'z']}
     for center in important_pts:
         for dim, dir in enumerate(['x', 'y', 'z']):
@@ -154,6 +174,15 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
 
 
 def create_grid(points_1d):
+    """
+                *** a method used only by "k"-integration method.
+
+    Args:
+        points_1d:
+
+    Returns:
+
+    """
     for dir in ['x', 'y', 'z']:
         points_1d[dir].sort()
     grid = np.zeros((len(points_1d['x']), len(points_1d['y']), len(points_1d['z']), 3))
@@ -166,6 +195,8 @@ def create_grid(points_1d):
 
 def array_to_kgrid(grid):
     """
+                *** a method used only by "k"-integration method.
+
     Args:
         grid (np.array): 4d numpy array, where last dimension is vectors
             in a 3d grid specifying fractional position in BZ
@@ -181,6 +212,15 @@ def array_to_kgrid(grid):
 
 
 def normalize_array(grid):
+    """
+                *** a method used only by "k"-integration method.
+
+    Args:
+        grid:
+
+    Returns:
+
+    """
     N = grid.shape
     norm_grid = np.zeros(N)
     for i in range(N[0]):
@@ -196,8 +236,15 @@ def normalize_array(grid):
 
 def f0(E, fermi, T):
     """
-    Returns the value of Fermi-Dirac at equilibrium for E (energy),
-    fermi [level] and T (temperature)
+    Returns the value of Fermi-Dirac distribution at equilibrium.
+
+    Args:
+        E (float): energy in eV
+        fermi (float): the Fermi level with the same reference as E (in eV)
+        T (float): the absolute temperature in Kelvin.
+
+    Returns (0<float<1):
+        The occupation calculated by Fermi dirac
     """
     return 1. / (1. + np.exp((E - fermi) / (k_B * T)))
 
@@ -205,6 +252,10 @@ def f0(E, fermi, T):
 def df0dE(E, fermi, T):
     """
     Returns the energy derivative of the Fermi-Dirac equilibrium distribution
+
+    Args: see Args for f0(E, fermi, T)
+
+    Returns (float<0): the energy derivative of the Fermi-Dirac distribution.
     """
     exponent = (E - fermi) / (k_B * T)
     if exponent > 40 or exponent < -40:  # This is necessary so at too low numbers python doesn't return NaN
@@ -222,6 +273,18 @@ def cos_angle(v1, v2):
         return 1.0  # In case of the two points are the origin, we assume 0 degree; i.e. no scattering: 1-X==0
     else:
         return np.dot(v1, v2) / (norm_v1 * norm_v2)
+
+
+def get_angle(v1, v2):
+    """
+    Returns the actual angles (in radian) between 2 vectors not its cosine.
+    """
+    x = cos_angle(v1,v2)
+    if x < -1:
+        x = -1 # just to avoid consequence of numerical instability.
+    elif x > 1:
+        x = 1
+    return np.arccos(x)
 
 
 def fermi_integral(order, fermi, T, initial_energy=0):
@@ -251,6 +314,7 @@ def free_e_dos(E, m_eff=0.001):
     """
     The density of states (dos) of a free-electron with effective mass m_eff
         that consequently has a parabolic band.
+
     Args:
         E (float): energy in eV relative to the CBM (or VBM for valence)
         m_eff (float): unitless effective mass
@@ -259,10 +323,6 @@ def free_e_dos(E, m_eff=0.001):
     """
     volume = 4./3.*pi * (2*m_eff*m_e*E/(hbar**2*1e10*e))**1.5
     return volume/(.2*pi**2)*(2*m_e*m_eff/hbar**2)**1.5*1e-30/e**1.5*E**0.5
-
-    # simplified; it was inconsistent with above, might be wrong
-    # return self.volume*8*pi*2**0.5/hbar**3 * (m_e*m_eff)**1.5 * ediff**0.5 * 1e-30/e**1.5
-    # return volume*8*pi*2**0.5/hbar**3 * (m_e*m_eff)**1.5 * ediff**0.5 * 1e-30/e**1.5
 
 
 def GB(x, eta):
@@ -335,7 +395,6 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
             g_pm = kgrid[tp]["g"][c][T][ib_pm][ik_pm]
             g_pm_th = kgrid[tp]["g_th"][c][T][ib_pm][ik_pm]
             v_pm = kgrid[tp]["norm(v)"][ib_pm][ik_pm] / sq3  # 3**0.5 is to treat each direction as 1D BS
-            # v_pm = kgrid[tp]["velocity"][ib_pm][ik_pm] # 3**0.5 is to treat each direction as 1D BS
             a_pm = kgrid[tp]["a"][ib_pm][ik_pm]
             c_pm = kgrid[tp]["c"][ib_pm][ik_pm]
             if tp == "n":
@@ -369,7 +428,7 @@ def calculate_Sio(tp, c, T, ib, ik, once_called, kgrid, cbm_vbm, epsilon_s, epsi
 
 def get_closest_k(kpoint, ref_ks, return_diff=False, exclude_self=False):
     """
-    returns the list of difference between kpoints. If return_diff True, then
+    Returns the list of difference between kpoints. If return_diff True, then
         for a given kpoint the minimum distance among distances with ref_ks is
         returned or just the reference kpoint that results if not return_diff
 
@@ -410,7 +469,6 @@ def remove_duplicate_kpoints(kpts, dk=0.01, periodic=True):
         diff_func = pbc_diff
     else:
         diff_func = np.subtract
-    # identify and remove duplicates from the list of equivalent k-points:
     for i in range(len(kpts) - 1):
         for j in range(i + 1, len(kpts)):
             if np.allclose(diff_func(kpts[i], kpts[j]), [0, 0, 0], atol=dk):
@@ -469,24 +527,15 @@ def get_tp(c):
         raise ValueError("The carrier concentration cannot be zero! Amset stops now!")
 
 
-def get_angle(v1, v2):
-    """
-    Returns the actual angles (in radian) between 2 vectors not its cosine.
-    """
-    x = cos_angle(v1,v2)
-    if x < -1:
-        x = -1
-    elif x > 1:
-        x = 1
-    return np.arccos(x)
-
-
 def sort_angles(vecs):
     """
     Sort a list of vectors based on their pair angles using a greedy algorithm.
+
     Args:
         vecs ([nx1 list or numpy.ndarray]): list of nd vectors
-    Returns (sorted vecs, indexes of the initial vecs that result in sorted vecs):
+
+    Returns (tuple): sorted vecs, indexes of the initial vectors in the order
+        that results in sorted vectors.
     """
     sorted_vecs = []
     indexes = range(len(vecs))
