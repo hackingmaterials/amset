@@ -2787,8 +2787,8 @@ class Amset(object):
                         avg_g_diff = np.mean([abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
                         self.logger.info("Average difference in {0}-type g term at c={1:.2e} and T={2}: {3}".format(tp, c, T, avg_g_diff))
 
-        for prop in ["electric force", "thermal force",
-                     "g", "g_POP", "g_th", "S_i", "S_o", "S_i_th", "S_o_th"]:
+        for prop in ["electric force", "thermal force", "g", "g_POP", "g_th",
+                     "S_i", "S_o", "S_i_th", "S_o_th"]:
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
         for tp in ["n", "p"]:
@@ -2849,6 +2849,7 @@ class Amset(object):
                         valley_transport[tp]["seebeck"][c][T] = self.egrid["Seebeck_integral_numerator"][c][T][tp]
         return valley_transport
 
+
     def as_dict(self):
         """
         Mobility, input parameters, etc as a serializable python dictionary.
@@ -2886,8 +2887,23 @@ class Amset(object):
                     out_d['cbm_vbm'][tp][key] = list(out_d['cbm_vbm'][tp][key])
         return out_d
 
+
     def to_file(self, path=None, dir_name='run_data', fname='amsetrun',
                 force_write=True):
+        """
+        Serializes everything calculated into a json file. Readable by the
+        Amset.from_file() method for post-processing (e.g. plotting).
+
+        Args:
+            path (str): the full path to the folder where .json file is saved
+            dir_name (str): the folder where .json file is saved
+            fname (str): the json file where data is saved; no .json needed!
+            force_write (bool): whether to overwrite the previous file if it
+                exists. If set to False, a new file with _n suffix is created
+                where n is 1, 2, 3, ....
+
+        Returns (None):
+        """
         path = os.path.join(path or self.calc_dir, dir_name)
         if not os.path.exists(path):
             os.makedirs(name=path)
@@ -2901,6 +2917,7 @@ class Amset(object):
                 fname = fname0 + '_' + str(n)
                 n += 1
         dumpfn(self.as_dict(), os.path.join(path, '{}.json'.format(fname)))
+
 
     @staticmethod
     def from_file(path=None, dir_name="run_data", filename="amsetrun.json"):
@@ -3056,22 +3073,27 @@ class Amset(object):
                 json.dump(self.valleys, fp,
                           sort_keys=True, indent=4,
                           ensure_ascii=False, cls=MontyEncoder)
-                
+
 
     def to_csv(self, path=None, dir_name="run_data", csv_filename='amset_results.csv'):
         """
-        Writes the calculated transport properties to a csv file.
+        Writes the calculated transport properties to a csv file. These
+        properties are overall mobility and those values calculated assuming
+        only one scattering mechanism is limiting the mobility. Seebeck
+        coefficient is also reported all at any given combination of carrier
+        concentration, c, or temperature, T.
 
         Args:
-            csv_filename (str):
+            path (str): full path to the folder where the .csv file is saved
+            dir_name (str): folder where .csv is saved; ignored if path is set
+            csv_filename (str): the name of the .csv file
 
-        Returns (.csv file)
+        Returns (None):
         """
         import csv
         path = os.path.join(path or self.calc_dir, dir_name)
         if not os.path.exists(path):
             os.makedirs(name=path)
-
         with open(os.path.join(path, csv_filename), 'w') as csvfile:
             fieldnames = ['type', 'c(cm-3)', 'T(K)', 'overall', 'average'] + \
                          self.elastic_scats + self.inelastic_scats + ['Seebeck (uV/K)']
