@@ -2738,196 +2738,6 @@ class Amset(object):
         return beta
 
 
-    def to_file(self, path=None, dir_name='run_data', fname='amsetrun',
-                force_write=True):
-        path = os.path.join(path or self.calc_dir, dir_name)
-        if not os.path.exists(path):
-            os.makedirs(name=path)
-        if not force_write:
-            n = 1
-            fname0 = fname
-            while os.path.exists(os.path.join(path, '{}.json'.format(fname))):
-                warnings.warn('The file, {} exists. Amset outputs will be '
-                        'written in {}'.format(fname, fname0+'_'+str(n)))
-                fname = fname0 + '_' + str(n)
-                n += 1
-        dumpfn(self.as_dict(), os.path.join(path, '{}.json'.format(fname)))
-
-
-    def as_dict(self):
-        """
-        Mobility, input parameters, etc as a serializable python dictionary.
-
-        Returns (dict):
-        """
-        out_d = {'kgrid0': self.kgrid0,
-                 'egrid0': self.egrid0,
-                 'kgrid_tp': self.kgrid_tp,
-                 'cbm_vbm': self.cbm_vbm,
-                 'mobility': self.mobility,
-                 'seebeck': self.seebeck,
-                 'elastic_scats': self.elastic_scats,
-                 'inelastic_scats': self.inelastic_scats,
-                 'dopings': self.dopings,
-                 'temperatures': self.temperatures,
-                 'material_params': self.material_params,
-                 'performance_params': self.performance_params,
-                 'model_params': self.model_params,
-                 'all_types': self.all_types,
-                 'Efrequency0': self.Efrequency0,
-                 }
-        for tp in ['p', 'n']:
-            for mu in out_d['mobility'][tp]:
-                for c in out_d['mobility'][tp][mu]:
-                    for T in out_d['mobility'][tp][mu][c]:
-                        out_d['mobility'][tp][mu][c][T] = \
-                                        list(out_d['mobility'][tp][mu][c][T])
-            for c in out_d['seebeck'][tp]:
-                for T in out_d['seebeck'][tp][c]:
-                    out_d['seebeck'][tp][c][T] = list(out_d['seebeck'][tp][c][T])
-            for key in out_d['cbm_vbm'][tp]:
-                if isinstance(out_d['cbm_vbm'][tp][key], np.ndarray):
-                    out_d['cbm_vbm'][tp][key] = list(out_d['cbm_vbm'][tp][key])
-        return out_d
-
-
-    @staticmethod
-    def from_file(path=None, dir_name="run_data", filename="amsetrun.json"):
-        """
-        Load an Amset instance from a json file written by the Amset.to_file()
-        method. This way, for example, the class attributes such as .mobility
-        can be directly accessed or the plot() method can be called.
-
-        Args:
-            path (str): path to the folder containing the saved json file.
-            dir_name (str): the name of the folder containing the save json
-                file (ignored if path is already set).
-            filename (str): the name of the json file used to save Amset
-                via the Amset.to_file() method.
-
-        Returns (instantiated Amset class): some of the most important (not all)
-            attributes will be populated.
-        """
-        #TODO: add compression (.gz at the end of filename), had some issues implementing it
-        #TODO: make this better, maybe organize these class attributes a bit?
-        if not path:
-            path = os.path.join(os.getcwd(), dir_name)
-        d = loadfn(os.path.join(path, filename))
-        amset = Amset(calc_dir=path,
-                      material_params=d['material_params'],
-                      model_params=d['model_params'],
-                      dopings=d['dopings'],
-                      temperatures=d['temperatures'])
-        amset.kgrid0 = d['kgrid0']
-        amset.egrid0 = d['egrid0']
-        amset.kgrid_tp = d['kgrid_tp']
-        amset.cbm_vbm = d['cbm_vbm']
-        amset.mobility = d['mobility']
-        amset.seebeck = d['seebeck']
-        amset.elastic_scats = d['elastic_scats']
-        amset.inelastic_scats = d['inelastic_scats']
-        amset.dopings = [float(dope) for dope in d['dopings']]
-        amset.temperatures = [float(T) for T in d['temperatures']]
-        amset.material_params = d['material_params']
-        amset.performance_params = d['performance_params']
-        amset.model_params = d['model_params']
-        amset.all_types = list(set([get_tp(c) for c in amset.dopings]))
-        amset.Efrequency0 = d['Efrequency0']
-        return amset
-
-
-    def to_json(self, kgrid=True, trimmed=False, max_ndata=None, n0=0,
-                valleys=True, path=None, dir_name="run_data"):
-        """
-        Writes the kgrid and egird to json files
-
-        Args:
-            kgrid (bool): whether to also write kgrid to kgrid.json
-            trimmed (bool): if trimmed some properties (dict keys) will be
-                removed to save space
-            max_ndata (int): the maximum index from the CBM/VBM written to file
-            n0 (int): the initial list index of a property written to file
-
-        Returns: egrid.json and (optional) kgrid.json file(s)
-        """
-        path = os.path.join(path or self.calc_dir, dir_name)
-        if not os.path.exists(path):
-            os.makedirs(name=path)
-
-        if not max_ndata:
-            max_ndata = int(self.gl)
-        egrid = deepcopy(self.egrid)
-        if trimmed:
-            nmax = int(min([max_ndata + 1, min([len(egrid["n"]["energy"]),
-                                                len(egrid["p"]["energy"])])]))
-            for tp in ["n", "p"]:
-                for key in egrid[tp]:
-                    if key in ['size', 'J_th', 'relaxation time constant',
-                               'conductivity', 'seebeck', 'TE_power_factor']:
-                        continue
-                    try:
-                        for c in self.dopings:
-                            for T in self.temperatures:
-                                if tp == "n":
-                                    egrid[tp][key][c][T] = \
-                                        self.egrid[tp][key][c][T][n0:n0 + nmax]
-                                else:
-                                    egrid[tp][key][c][T] = \
-                                        self.egrid[tp][key][c][T][::-1][n0:n0+nmax]
-                    except:
-                        try:
-                            if tp == "n":
-                                egrid[tp][key] = self.egrid[tp][key][n0:n0 + nmax]
-                            else:
-                                egrid[tp][key] = self.egrid[tp][key][::-1][n0:n0 + nmax]
-                        except:
-                            if key not in ['mobility']:
-                                self.logger.warning('in to_json: cutting {} '
-                                                'in egrid failed!'.format(key))
-
-        with open(os.path.join(path, "egrid.json"), 'w') as fp:
-            json.dump(egrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
-
-        # self.kgrid trimming
-        if kgrid:
-            kgrid = deepcopy(self.kgrid)
-            if trimmed:
-                nmax = min([max_ndata + 1, min([len(kgrid["n"]["kpoints"][0]), len(kgrid["p"]["kpoints"][0])])])
-                for tp in ["n", "p"]:
-                    for key in kgrid[tp]:
-                        if key in ["size"]:
-                            continue
-                        try:
-                            for c in self.dopings:
-                                for T in self.temperatures:
-                                    if tp == "n":
-                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][n0:n0 + nmax]
-                                                            for b in range(self.cbm_vbm[tp]["included"])]
-                                    else:
-                                        kgrid[tp][key][c][T] = [self.kgrid[tp][key][c][T][b][::-1][n0:n0 + nmax]
-                                                                for b in range(self.cbm_vbm[tp]["included"])]
-                        except:
-                            try:
-                                if tp == "n":
-                                    kgrid[tp][key] = [self.kgrid[tp][key][b][n0:n0 + nmax]
-                                                  for b in range(self.cbm_vbm[tp]["included"])]
-                                else:
-                                    kgrid[tp][key] = [self.kgrid[tp][key][b][::-1][n0:n0 + nmax]
-                                                      for b in range(self.cbm_vbm[tp]["included"])]
-                            except:
-                                if key not in ['mobility']:
-                                    self.logger.warning('in to_json: cutting {} '
-                                        'in kgrid failed!'.format(key))
-
-            with open(os.path.join(path, "kgrid.json"), 'w') as fp:
-                json.dump(kgrid, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
-        if valleys:
-            with open(os.path.join(path, "valleys.json"), 'w') as fp:
-                json.dump(self.valleys, fp,
-                          sort_keys=True, indent=4,
-                          ensure_ascii=False, cls=MontyEncoder)
-
-
     def solve_BTE_iteratively(self):
         """
         Iteratively solve linearized/low-field Boltzmann Transport Equation
@@ -2989,6 +2799,481 @@ class Amset(object):
                             self.egrid[tp]["g_POP"][c][T][ie] = [1e-5, 1e-5, 1e-5]
 
 
+    def calculate_transport_properties_with_E(self):
+        """
+        Mobility and Seebeck coefficient are calculated by integrating the
+        perturbation of electron distribution and group velocity over the energy
+        """
+        valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
+                  self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
+
+        for c in self.dopings:
+            for T in self.temperatures:
+                for j, tp in enumerate(["p", "n"]):
+                    # mobility numerators
+                    for mu_el in self.elastic_scats:
+                        valley_transport[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
+                            self.integrate_over_E(props=["/" + mu_el, "df0dk"], tp=tp, c=c, T=T,
+                                        xDOS=False, xvel=True)
+
+                    for mu_inel in self.inelastic_scats:
+                        valley_transport[tp][mu_inel][c][T] = self.integrate_over_E(props=[
+                                "g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False, xvel=True)
+                        mu_overall_valley = self.integrate_over_E(props=["g"],
+                               tp=tp, c=c, T=T, xDOS=False, xvel=True)
+
+                    # TODO: make sure that units of J_th is correct and at the end (after we divide by the denominator), we arrive at A/cm2
+                    valley_transport[tp]["J_th"][c][T] = self.integrate_over_E(props=["g_th"],
+                                                   tp=tp, c=c, T=T,
+                                                   xDOS=False, xvel=True)
+
+                    faulty_overall_mobility = False
+                    temp_avg = np.array([0.0, 0.0, 0.0])
+                    for transport in self.elastic_scats + self.inelastic_scats:
+                        temp_avg += 1/ valley_transport[tp][transport][c][T]
+                        if norm(mu_overall_valley) > norm(valley_transport[tp][transport][c][T]):
+                            faulty_overall_mobility = True  # because the overall mobility should be lower than all
+                    valley_transport[tp]['average'][c][T] = 1 / temp_avg
+
+                    if norm(mu_overall_valley) == 0.0 or faulty_overall_mobility:
+                        valley_transport[tp]['overall'][c][T] = valley_transport[tp]['average'][c][T]
+                    else:
+                        valley_transport[tp]["overall"][c][T] = mu_overall_valley
+                    self.egrid[tp]["relaxation time constant"][c][T] = self.mobility[tp]["overall"][c][T] \
+                            * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
+                    if self.independent_valleys:
+                        for mu in self.mo_labels+["J_th"]:
+                            valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
+                        valley_transport[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
+                    else:
+                        valley_transport[tp]["seebeck"][c][T] = self.egrid["Seebeck_integral_numerator"][c][T][tp]
+        return valley_transport
+
+    def as_dict(self):
+        """
+        Mobility, input parameters, etc as a serializable python dictionary.
+
+        Returns (dict):
+        """
+        out_d = {'kgrid0': self.kgrid0,
+                 'egrid0': self.egrid0,
+                 'kgrid_tp': self.kgrid_tp,
+                 'cbm_vbm': self.cbm_vbm,
+                 'mobility': self.mobility,
+                 'seebeck': self.seebeck,
+                 'elastic_scats': self.elastic_scats,
+                 'inelastic_scats': self.inelastic_scats,
+                 'dopings': self.dopings,
+                 'temperatures': self.temperatures,
+                 'material_params': self.material_params,
+                 'performance_params': self.performance_params,
+                 'model_params': self.model_params,
+                 'all_types': self.all_types,
+                 'Efrequency0': self.Efrequency0,
+                 }
+        for tp in ['p', 'n']:
+            for mu in out_d['mobility'][tp]:
+                for c in out_d['mobility'][tp][mu]:
+                    for T in out_d['mobility'][tp][mu][c]:
+                        out_d['mobility'][tp][mu][c][T] = \
+                            list(out_d['mobility'][tp][mu][c][T])
+            for c in out_d['seebeck'][tp]:
+                for T in out_d['seebeck'][tp][c]:
+                    out_d['seebeck'][tp][c][T] = list(
+                        out_d['seebeck'][tp][c][T])
+            for key in out_d['cbm_vbm'][tp]:
+                if isinstance(out_d['cbm_vbm'][tp][key], np.ndarray):
+                    out_d['cbm_vbm'][tp][key] = list(out_d['cbm_vbm'][tp][key])
+        return out_d
+
+    def to_file(self, path=None, dir_name='run_data', fname='amsetrun',
+                force_write=True):
+        path = os.path.join(path or self.calc_dir, dir_name)
+        if not os.path.exists(path):
+            os.makedirs(name=path)
+        if not force_write:
+            n = 1
+            fname0 = fname
+            while os.path.exists(os.path.join(path, '{}.json'.format(fname))):
+                warnings.warn('The file, {} exists. Amset outputs will be '
+                              'written in {}'.format(fname,
+                                                     fname0 + '_' + str(n)))
+                fname = fname0 + '_' + str(n)
+                n += 1
+        dumpfn(self.as_dict(), os.path.join(path, '{}.json'.format(fname)))
+
+    @staticmethod
+    def from_file(path=None, dir_name="run_data", filename="amsetrun.json"):
+        """
+        Load an Amset instance from a json file written by the Amset.to_file()
+        method. This way, for example, the class attributes such as .mobility
+        can be directly accessed or the plot() method can be called.
+
+        Args:
+            path (str): path to the folder containing the saved json file.
+            dir_name (str): the name of the folder containing the save json
+                file (ignored if path is already set).
+            filename (str): the name of the json file used to save Amset
+                via the Amset.to_file() method.
+
+        Returns (instantiated Amset class): some of the most important (not all)
+            attributes will be populated.
+        """
+        # TODO: add compression (.gz at the end of filename), had some issues implementing it
+        # TODO: make this better, maybe organize these class attributes a bit?
+        if not path:
+            path = os.path.join(os.getcwd(), dir_name)
+        d = loadfn(os.path.join(path, filename))
+        amset = Amset(calc_dir=path,
+                      material_params=d['material_params'],
+                      model_params=d['model_params'],
+                      dopings=d['dopings'],
+                      temperatures=d['temperatures'])
+        amset.kgrid0 = d['kgrid0']
+        amset.egrid0 = d['egrid0']
+        amset.kgrid_tp = d['kgrid_tp']
+        amset.cbm_vbm = d['cbm_vbm']
+        amset.mobility = d['mobility']
+        amset.seebeck = d['seebeck']
+        amset.elastic_scats = d['elastic_scats']
+        amset.inelastic_scats = d['inelastic_scats']
+        amset.dopings = [float(dope) for dope in d['dopings']]
+        amset.temperatures = [float(T) for T in d['temperatures']]
+        amset.material_params = d['material_params']
+        amset.performance_params = d['performance_params']
+        amset.model_params = d['model_params']
+        amset.all_types = list(set([get_tp(c) for c in amset.dopings]))
+        amset.Efrequency0 = d['Efrequency0']
+        return amset
+
+    def to_json(self, kgrid=True, trimmed=False, max_ndata=None, n0=0,
+                valleys=True, path=None, dir_name="run_data"):
+        """
+        Writes the kgrid and egird to json files
+
+        Args:
+            kgrid (bool): whether to also write kgrid to kgrid.json
+            trimmed (bool): if trimmed some properties (dict keys) will be
+                removed to save space
+            max_ndata (int): the maximum index from the CBM/VBM written to file
+            n0 (int): the initial list index of a property written to file
+
+        Returns: egrid.json and (optional) kgrid.json file(s)
+        """
+        path = os.path.join(path or self.calc_dir, dir_name)
+        if not os.path.exists(path):
+            os.makedirs(name=path)
+
+        if not max_ndata:
+            max_ndata = int(self.gl)
+        egrid = deepcopy(self.egrid)
+        if trimmed:
+            nmax = int(min([max_ndata + 1, min([len(egrid["n"]["energy"]),
+                                                len(egrid["p"]["energy"])])]))
+            for tp in ["n", "p"]:
+                for key in egrid[tp]:
+                    if key in ['size', 'J_th', 'relaxation time constant',
+                               'conductivity', 'seebeck', 'TE_power_factor']:
+                        continue
+                    try:
+                        for c in self.dopings:
+                            for T in self.temperatures:
+                                if tp == "n":
+                                    egrid[tp][key][c][T] = \
+                                        self.egrid[tp][key][c][T][n0:n0 + nmax]
+                                else:
+                                    egrid[tp][key][c][T] = \
+                                        self.egrid[tp][key][c][T][::-1][
+                                        n0:n0 + nmax]
+                    except:
+                        try:
+                            if tp == "n":
+                                egrid[tp][key] = self.egrid[tp][key][
+                                                 n0:n0 + nmax]
+                            else:
+                                egrid[tp][key] = self.egrid[tp][key][::-1][
+                                                 n0:n0 + nmax]
+                        except:
+                            if key not in ['mobility']:
+                                self.logger.warning('in to_json: cutting {} '
+                                                    'in egrid failed!'.format(
+                                    key))
+
+        with open(os.path.join(path, "egrid.json"), 'w') as fp:
+            json.dump(egrid, fp, sort_keys=True, indent=4, ensure_ascii=False,
+                      cls=MontyEncoder)
+
+        # self.kgrid trimming
+        if kgrid:
+            kgrid = deepcopy(self.kgrid)
+            if trimmed:
+                nmax = min([max_ndata + 1, min([len(kgrid["n"]["kpoints"][0]),
+                                                len(kgrid["p"]["kpoints"][
+                                                        0])])])
+                for tp in ["n", "p"]:
+                    for key in kgrid[tp]:
+                        if key in ["size"]:
+                            continue
+                        try:
+                            for c in self.dopings:
+                                for T in self.temperatures:
+                                    if tp == "n":
+                                        kgrid[tp][key][c][T] = [
+                                            self.kgrid[tp][key][c][T][b][
+                                            n0:n0 + nmax]
+                                            for b in range(
+                                                self.cbm_vbm[tp]["included"])]
+                                    else:
+                                        kgrid[tp][key][c][T] = [
+                                            self.kgrid[tp][key][c][T][b][::-1][
+                                            n0:n0 + nmax]
+                                            for b in range(
+                                                self.cbm_vbm[tp]["included"])]
+                        except:
+                            try:
+                                if tp == "n":
+                                    kgrid[tp][key] = [
+                                        self.kgrid[tp][key][b][n0:n0 + nmax]
+                                        for b in
+                                        range(self.cbm_vbm[tp]["included"])]
+                                else:
+                                    kgrid[tp][key] = [
+                                        self.kgrid[tp][key][b][::-1][
+                                        n0:n0 + nmax]
+                                        for b in
+                                        range(self.cbm_vbm[tp]["included"])]
+                            except:
+                                if key not in ['mobility']:
+                                    self.logger.warning(
+                                        'in to_json: cutting {} '
+                                        'in kgrid failed!'.format(key))
+
+            with open(os.path.join(path, "kgrid.json"), 'w') as fp:
+                json.dump(kgrid, fp, sort_keys=True, indent=4,
+                          ensure_ascii=False, cls=MontyEncoder)
+        if valleys:
+            with open(os.path.join(path, "valleys.json"), 'w') as fp:
+                json.dump(self.valleys, fp,
+                          sort_keys=True, indent=4,
+                          ensure_ascii=False, cls=MontyEncoder)
+                
+
+    def to_csv(self, path=None, dir_name="run_data", csv_filename='amset_results.csv'):
+        """
+        Writes the calculated transport properties to a csv file.
+
+        Args:
+            csv_filename (str):
+
+        Returns (.csv file)
+        """
+        import csv
+        path = os.path.join(path or self.calc_dir, dir_name)
+        if not os.path.exists(path):
+            os.makedirs(name=path)
+
+        with open(os.path.join(path, csv_filename), 'w') as csvfile:
+            fieldnames = ['type', 'c(cm-3)', 'T(K)', 'overall', 'average'] + \
+                         self.elastic_scats + self.inelastic_scats + ['Seebeck (uV/K)']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for c in self.dopings:
+                tp = get_tp(c)
+                for T in self.temperatures:
+                    row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
+                    for p in ['overall', 'average'] + self.elastic_scats + self.inelastic_scats:
+                        row[p] = sum(self.mobility[tp][p][c][T])/3
+                    row['Seebeck (uV/K)'] = sum(self.seebeck[tp][c][T])/3
+                    writer.writerow(row)
+
+
+    def plot(self, k_plots=None, E_plots=None, mobility=True,
+             concentrations='all', temperatures='all', carrier_types=None,
+             direction=None, show_interactive=True, save_format=None,
+             fontsize=30, ticksize=25, path=None, dir_name="plots",
+             margins=100, fontfamily="serif"):
+        """
+        Plots the given k_plots and E_plots properties.
+
+        Args:
+            k_plots ([str]): the names of the quantities to be plotted against norm(k)
+                options: 'energy', 'df0dk', 'velocity', or just string 'all' (not in a list) to plot everything
+            E_plots ([str]) the names of the quantities to be plotted against E
+                options: 'frequency', 'relaxation time', '_all_elastic', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
+                'g_POP', 'g_th', 'S_i', 'S_o', or just string 'all' (not in a list) to plot everything
+            mobility (bool): if True, create a mobility against temperature plot
+            concentrations ([float]): carrier concentrations, or the string 'all' to plot the
+                results of calculations done with all input concentrations
+            temperatures ([int]): temperatures to be included in the plots
+            carrier_types (list of strings): select carrier types to plot data for - ['n'], ['p'], or ['n', 'p']
+            direction (list of strings): options to include in list are 'x', 'y', 'z', 'avg'; determines which
+                components of vector quantities are plotted
+            show_interactive (bool): if True creates and shows interactive html plots
+            save_format (str): format for saving plots; options are 'png', 'jpeg', 'svg', 'pdf', None (None does not
+                save the plots). NOTE: plotly credentials are needed, see figrecipes documentation
+            fontsize (int): size of title and axis label text
+            ticksize (int): size of axis tick label text
+            path (string): location to save plots
+            dir_name (str): the name of the folder where plot files are saved
+            margins (int): figrecipes plotly margins
+            fontfamily (string): plotly font
+        """
+        k_plots = k_plots or []
+        E_plots = E_plots or []
+        carrier_types = carrier_types or ['n', 'p']
+        direction = direction or ['avg']
+        path = os.path.join(path or self.calc_dir, dir_name)
+        if not os.path.exists(path):
+            os.makedirs(name=path)
+        supported_k_plots = ['energy', 'df0dk', 'velocity'] + self.elastic_scats
+        supported_E_plots = ['frequency', 'relaxation time', 'df0dk', 'velocity'] + self.elastic_scats
+        if "POP" in self.inelastic_scats:
+            supported_E_plots += ['g', 'g_POP', 'g_th', 'S_i', 'S_o']
+            supported_k_plots += ['g', 'g_POP', 'g_th', 'S_i', 'S_o']
+        if k_plots == 'all':
+            k_plots = supported_k_plots
+        if E_plots == 'all':
+            E_plots = supported_E_plots
+        if concentrations == 'all':
+            concentrations = self.dopings
+        if temperatures == 'all':
+            temperatures = self.temperatures
+
+        # make copies of mutable arguments
+        concentrations = [int(c) for c in concentrations]
+        carrier_types = list(carrier_types)
+        direction = list(direction)
+
+        mu_list = ["overall", "average"] + self.elastic_scats + self.inelastic_scats
+
+        # separate temperature dependent and independent properties
+        all_temp_independent_k_props = ['energy', 'velocity']
+        all_temp_independent_E_props = ['frequency', 'velocity']
+        temp_independent_k_props = []
+        temp_independent_E_props = []
+        temp_dependent_k_props = []
+        for prop in k_plots:
+            if prop not in supported_k_plots:
+                raise AmsetError(self.logger,
+                                 'No support for {} vs. k plot!'.format(prop))
+            if prop in all_temp_independent_k_props:
+                temp_independent_k_props.append(prop)
+            else:
+                temp_dependent_k_props.append(prop)
+        temp_dependent_E_props = []
+        for prop in E_plots:
+            if prop not in supported_E_plots:
+                raise AmsetError(self.logger,
+                                 'No support for {} vs. E plot!'.format(prop))
+            if prop in all_temp_independent_E_props:
+                temp_independent_E_props.append(prop)
+            else:
+                temp_dependent_E_props.append(prop)
+
+        vec = {'energy': False,
+               'velocity': True,
+               'frequency': False}
+
+        for tp in carrier_types:
+            x_data = {'k': self.kgrid0[tp]["norm(k)"][0],
+                      'E': [E - self.cbm_vbm[tp]["energy"] for E in self.egrid0[tp]["energy"]]}
+            x_axis_label = {'k': 'norm(k)', 'E': 'energy (eV)'}
+
+
+            # plots of scalar properties first
+            for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
+                y_data_temp_independent = {'k': {'energy': self.kgrid0[tp]['energy'][0],
+                                                 'velocity': self.kgrid0[tp]["norm(v)"][0]},
+                                           'E': {'frequency': self.Efrequency0[tp]}}
+                for y_value in y_values:
+                    if not vec[y_value]:
+                        title = None
+                        if y_value == 'frequency':
+                            title = 'Energy Histogram for {}'.format(self.tp_title[tp])
+                        create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, tp, tp,
+                                          fontsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
+                                          x_label_short=x_value, title=title)
+
+
+            for dir in direction:
+                y_data_temp_independent = {'k': {'energy': self.kgrid0[tp]['energy'][0],
+                                                 'velocity': self.kgrid0[tp]["norm(v)"][0]},
+                                           'E': {'frequency': self.Efrequency0[tp],
+                                                 'velocity': [self.get_scalar_output(p, dir) for p in self.egrid0[tp]['velocity']]}}
+
+                tp_dir = tp + '_' + dir
+
+                # temperature independent k and E plots: energy(k), velocity(k), histogram(E), velocity(E)
+                for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
+                    for y_value in y_values:
+                        if vec[y_value]:
+                            create_plots(x_axis_label[x_value], y_value, show_interactive,
+                                              save_format, tp, tp_dir,
+                                              fontsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
+
+            # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
+            try:
+                y_data_temp_dependent = {'k': {kp: {} for kp in temp_dependent_k_props},
+                                        'E': {ep: {} for ep in temp_dependent_E_props}}
+                for c in concentrations:
+                    for T in temperatures:
+                        for kprop in temp_dependent_k_props:
+                            y_data_temp_dependent['k'][kprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][kprop][c][T][0]]
+                        for eprop in temp_dependent_E_props:
+                            y_data_temp_dependent['E'][eprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.egrid0[tp][eprop][c][T]]
+
+            except KeyError: # for when from_file is called
+                y_data_temp_dependent = {'k': {kp: {} for kp in temp_dependent_k_props},
+                                        'E': {ep: {} for ep in temp_dependent_E_props}}
+                for c in concentrations:
+                    for T in temperatures:
+                        for kprop in temp_dependent_k_props:
+                            y_data_temp_dependent['k'][kprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][kprop][str(c)][str(int(T))][0]]
+                        for eprop in temp_dependent_E_props:
+                            y_data_temp_dependent['E'][eprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.egrid0[tp][eprop][str(c)][str(int(T))]]
+
+            # temperature dependent k and E plots
+            for x_value, y_values in [('k', temp_dependent_k_props), ('E', temp_dependent_E_props)]:
+                for y_value in y_values:
+                    plot_data = []
+                    names = []
+                    for c in concentrations:
+                        for T in temperatures:
+                            plot_data.append((x_data[x_value], y_data_temp_dependent[x_value][y_value][(c, T)]))
+                            names.append('c={0:.1e}, T={1} K'.format(c, T))
+                    create_plots(x_axis_label[x_value], y_value, show_interactive,
+                                      save_format, tp, tp_dir,
+                                      fontsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
+                                      x_label_short=x_value, names=names)
+
+            # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
+            if mobility:
+                for c in concentrations:
+                    plot_data = []
+                    names = []
+                    mo_mags = []
+                    for mo in mu_list:
+                        try:
+                            mo_values = [self.mobility[tp][mo][c][T] for T in self.temperatures]
+                        except KeyError: # for when from_file is called
+                            mo_values = [self.mobility[tp][mo][str(int(c))][str(int(T))] for T in self.temperatures]
+                        plot_data.append((self.temperatures, [self.get_scalar_output(mo_value,
+                                dir) for mo_value in mo_values]))
+                        names.append(mo)
+                        mo_mags.append(np.log10(abs(1+np.mean(mo_values))))
+
+                    scale = None
+                    if np.max(mo_mags) - np.min(mo_mags) > 2:
+                        scale = 'log'
+                    create_plots("Temperature (K)",
+                                 "Mobility (cm2/V.s)",
+                                 show_interactive, save_format, tp, tp_dir,
+                                 fontsize-5, ticksize-5, path, margins,
+                                 fontfamily, plot_data=plot_data, names=names,
+                                 mode='lines+markers', y_label_short="mobility",
+                                 y_axis_type=scale, title="{0}-type mobility at c={1:.2e}".format(tp, c))
+
+
 
 
     def find_fermi_k(self, tolerance=0.001, num_bands = None):
@@ -3042,6 +3327,28 @@ class Amset(object):
                         self.f0_array[c][T][tp][ib] = 1 / (np.exp((self.energy_array[tp][ib][:,:,:,0] - e_f) / (k_B * T)) + 1)
                     self.calc_doping[c][T][tp] = self.integrate_over_states(j - np.array(self.f0_array[c][T][tp]), tp)
         return closest_energy
+
+
+    def get_scalar_output(self, vec, dir):
+        """
+                *** a method used only by "k"-integration method.
+
+        As the name suggests, it returns a scalar off a vector for plotting.
+
+        Args:
+            vec (3x1 array or list): the input vector.
+            dir (str): the direction; options are "x", "y", "z" and "avg"
+
+        Returns (float):
+        """
+        if dir == 'x':
+            return vec[0]
+        if dir == 'y':
+            return vec[1]
+        if dir == 'z':
+            return vec[2]
+        if dir == 'avg':
+            return sum(vec) / 3
 
 
     def calc_v_vec(self, tp):
@@ -3350,298 +3657,6 @@ class Amset(object):
                             valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
                         valley_transport[tp]['seebeck'][c][T] /= self.integrate_over_states(f0_all*(1-f0_all), tp)
         return valley_transport
-
-
-    def calculate_transport_properties_with_E(self):
-        """
-        Mobility and Seebeck coefficient are calculated by integrating the
-        perturbation of electron distribution and group velocity over the energy
-        """
-        valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
-                  self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
-
-        for c in self.dopings:
-            for T in self.temperatures:
-                for j, tp in enumerate(["p", "n"]):
-                    # mobility numerators
-                    for mu_el in self.elastic_scats:
-                        valley_transport[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
-                            self.integrate_over_E(props=["/" + mu_el, "df0dk"], tp=tp, c=c, T=T,
-                                        xDOS=False, xvel=True)
-
-                    for mu_inel in self.inelastic_scats:
-                        valley_transport[tp][mu_inel][c][T] = self.integrate_over_E(props=[
-                                "g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False, xvel=True)
-                        mu_overall_valley = self.integrate_over_E(props=["g"],
-                               tp=tp, c=c, T=T, xDOS=False, xvel=True)
-
-                    # valley_transport[tp]["J_th"][c][T] = float(abs(self.calc_doping[c][T][tp]))*e \
-                    #         *self.integrate_over_E(props=["g_th"],
-                    #                                tp=tp, c=c, T=T,
-                    #                                xDOS=False, xvel=True) #in A/cm2
-
-                    # TODO: make sure that units of J_th is correct and at the end (after we divide by the denominator), we arrive at A/cm2
-                    valley_transport[tp]["J_th"][c][T] = self.integrate_over_E(props=["g_th"],
-                                                   tp=tp, c=c, T=T,
-                                                   xDOS=False, xvel=True)
-
-                    faulty_overall_mobility = False
-                    temp_avg = np.array([0.0, 0.0, 0.0])
-                    for transport in self.elastic_scats + self.inelastic_scats:
-                        temp_avg += 1/ valley_transport[tp][transport][c][T]
-                        if norm(mu_overall_valley) > norm(valley_transport[tp][transport][c][T]):
-                            faulty_overall_mobility = True  # because the overall mobility should be lower than all
-                    valley_transport[tp]['average'][c][T] = 1 / temp_avg
-
-                    if norm(mu_overall_valley) == 0.0 or faulty_overall_mobility:
-                        valley_transport[tp]['overall'][c][T] = valley_transport[tp]['average'][c][T]
-                    else:
-                        valley_transport[tp]["overall"][c][T] = mu_overall_valley
-                    self.egrid[tp]["relaxation time constant"][c][T] = self.mobility[tp]["overall"][c][T] \
-                            * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
-                    if self.independent_valleys:
-                        for mu in self.mo_labels+["J_th"]:
-                            valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
-                        valley_transport[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
-                    else:
-                        valley_transport[tp]["seebeck"][c][T] = self.egrid["Seebeck_integral_numerator"][c][T][tp]
-        return valley_transport
-
-
-    def get_scalar_output(self, vec, dir):
-        """
-        As the name suggests, it returns a scalar off a vector for plotting.
-
-        Args:
-            vec (3x1 array or list): the input vector.
-            dir (str): the direction; options are "x", "y", "z" and "avg"
-
-        Returns (float):
-        """
-        if dir == 'x':
-            return vec[0]
-        if dir == 'y':
-            return vec[1]
-        if dir == 'z':
-            return vec[2]
-        if dir == 'avg':
-            return sum(vec) / 3
-
-
-    def plot(self, k_plots=None, E_plots=None, mobility=True,
-             concentrations='all', temperatures='all', carrier_types=None,
-             direction=None, show_interactive=True, save_format=None,
-             fontsize=30, ticksize=25, path=None, dir_name="plots",
-             margins=100, fontfamily="serif"):
-        """
-        Plots the given k_plots and E_plots properties.
-
-        Args:
-            k_plots: (list of strings) the names of the quantities to be plotted against norm(k)
-                options: 'energy', 'df0dk', 'velocity', or just string 'all' (not in a list) to plot everything
-            E_plots: (list of strings) the names of the quantities to be plotted against E
-                options: 'frequency', 'relaxation time', '_all_elastic', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
-                'g_POP', 'g_th', 'S_i', 'S_o', or just string 'all' (not in a list) to plot everything
-            mobility: (boolean) if True, create a mobility against temperature plot
-            concentrations: ([float]): carrier concentrations, or the string 'all' to plot the
-                results of calculations done with all input concentrations
-            temperatures: ([int]): temperatures to be included in the plots
-            carrier_types: (list of strings) select carrier types to plot data for - ['n'], ['p'], or ['n', 'p']
-            direction: (list of strings) options to include in list are 'x', 'y', 'z', 'avg'; determines which
-                components of vector quantities are plotted
-            show_interactive: (boolean) if True creates and shows interactive html plots
-            save_format: (str) format for saving plots; options are 'png', 'jpeg', 'svg', 'pdf', None (None does not
-                save the plots). NOTE: plotly credentials are needed, see figrecipes documentation
-            fontsize: (int) size of title and axis label text
-            ticksize: (int) size of axis tick label text
-            path: (string) location to save plots
-            margins: (int) figrecipes plotly margins
-            fontfamily: (string) plotly font
-        """
-        k_plots = k_plots or []
-        E_plots = E_plots or []
-        carrier_types = carrier_types or ['n', 'p']
-        direction = direction or ['avg']
-        path = os.path.join(path or self.calc_dir, dir_name)
-        if not os.path.exists(path):
-            os.makedirs(name=path)
-        supported_k_plots = ['energy', 'df0dk', 'velocity'] + self.elastic_scats
-        supported_E_plots = ['frequency', 'relaxation time', 'df0dk', 'velocity'] + self.elastic_scats
-        if "POP" in self.inelastic_scats:
-            supported_E_plots += ['g', 'g_POP', 'g_th', 'S_i', 'S_o']
-            supported_k_plots += ['g', 'g_POP', 'g_th', 'S_i', 'S_o']
-        if k_plots == 'all':
-            k_plots = supported_k_plots
-        if E_plots == 'all':
-            E_plots = supported_E_plots
-        if concentrations == 'all':
-            concentrations = self.dopings
-        if temperatures == 'all':
-            temperatures = self.temperatures
-
-        # make copies of mutable arguments
-        concentrations = [int(c) for c in concentrations]
-        carrier_types = list(carrier_types)
-        direction = list(direction)
-
-        mu_list = ["overall", "average"] + self.elastic_scats + self.inelastic_scats
-
-        # separate temperature dependent and independent properties
-        all_temp_independent_k_props = ['energy', 'velocity']
-        all_temp_independent_E_props = ['frequency', 'velocity']
-        temp_independent_k_props = []
-        temp_independent_E_props = []
-        temp_dependent_k_props = []
-        for prop in k_plots:
-            if prop not in supported_k_plots:
-                raise AmsetError(self.logger,
-                                 'No support for {} vs. k plot!'.format(prop))
-            if prop in all_temp_independent_k_props:
-                temp_independent_k_props.append(prop)
-            else:
-                temp_dependent_k_props.append(prop)
-        temp_dependent_E_props = []
-        for prop in E_plots:
-            if prop not in supported_E_plots:
-                raise AmsetError(self.logger,
-                                 'No support for {} vs. E plot!'.format(prop))
-            if prop in all_temp_independent_E_props:
-                temp_independent_E_props.append(prop)
-            else:
-                temp_dependent_E_props.append(prop)
-
-        vec = {'energy': False,
-               'velocity': True,
-               'frequency': False}
-
-        for tp in carrier_types:
-            x_data = {'k': self.kgrid0[tp]["norm(k)"][0],
-                      'E': [E - self.cbm_vbm[tp]["energy"] for E in self.egrid0[tp]["energy"]]}
-            x_axis_label = {'k': 'norm(k)', 'E': 'energy (eV)'}
-
-
-            # plots of scalar properties first
-            for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
-                y_data_temp_independent = {'k': {'energy': self.kgrid0[tp]['energy'][0],
-                                                 'velocity': self.kgrid0[tp]["norm(v)"][0]},
-                                           'E': {'frequency': self.Efrequency0[tp]}}
-                for y_value in y_values:
-                    if not vec[y_value]:
-                        title = None
-                        if y_value == 'frequency':
-                            title = 'Energy Histogram for {}'.format(self.tp_title[tp])
-                        create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, tp, tp,
-                                          fontsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
-                                          x_label_short=x_value, title=title)
-
-
-            for dir in direction:
-                y_data_temp_independent = {'k': {'energy': self.kgrid0[tp]['energy'][0],
-                                                 'velocity': self.kgrid0[tp]["norm(v)"][0]},
-                                           'E': {'frequency': self.Efrequency0[tp],
-                                                 'velocity': [self.get_scalar_output(p, dir) for p in self.egrid0[tp]['velocity']]}}
-
-                tp_dir = tp + '_' + dir
-
-                # temperature independent k and E plots: energy(k), velocity(k), histogram(E), velocity(E)
-                for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
-                    for y_value in y_values:
-                        if vec[y_value]:
-                            create_plots(x_axis_label[x_value], y_value, show_interactive,
-                                              save_format, tp, tp_dir,
-                                              fontsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
-
-            # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
-            try:
-                y_data_temp_dependent = {'k': {kp: {} for kp in temp_dependent_k_props},
-                                        'E': {ep: {} for ep in temp_dependent_E_props}}
-                for c in concentrations:
-                    for T in temperatures:
-                        for kprop in temp_dependent_k_props:
-                            y_data_temp_dependent['k'][kprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][kprop][c][T][0]]
-                        for eprop in temp_dependent_E_props:
-                            y_data_temp_dependent['E'][eprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.egrid0[tp][eprop][c][T]]
-
-            except KeyError: # for when from_file is called
-                y_data_temp_dependent = {'k': {kp: {} for kp in temp_dependent_k_props},
-                                        'E': {ep: {} for ep in temp_dependent_E_props}}
-                for c in concentrations:
-                    for T in temperatures:
-                        for kprop in temp_dependent_k_props:
-                            y_data_temp_dependent['k'][kprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.kgrid0[tp][kprop][str(c)][str(int(T))][0]]
-                        for eprop in temp_dependent_E_props:
-                            y_data_temp_dependent['E'][eprop][(c, T)] = [self.get_scalar_output(p, dir) for p in self.egrid0[tp][eprop][str(c)][str(int(T))]]
-
-            # temperature dependent k and E plots
-            for x_value, y_values in [('k', temp_dependent_k_props), ('E', temp_dependent_E_props)]:
-                for y_value in y_values:
-                    plot_data = []
-                    names = []
-                    for c in concentrations:
-                        for T in temperatures:
-                            plot_data.append((x_data[x_value], y_data_temp_dependent[x_value][y_value][(c, T)]))
-                            names.append('c={0:.1e}, T={1} K'.format(c, T))
-                    create_plots(x_axis_label[x_value], y_value, show_interactive,
-                                      save_format, tp, tp_dir,
-                                      fontsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
-                                      x_label_short=x_value, names=names)
-
-            # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
-            if mobility:
-                for c in concentrations:
-                    plot_data = []
-                    names = []
-                    mo_mags = []
-                    for mo in mu_list:
-                        try:
-                            mo_values = [self.mobility[tp][mo][c][T] for T in self.temperatures]
-                        except KeyError: # for when from_file is called
-                            mo_values = [self.mobility[tp][mo][str(int(c))][str(int(T))] for T in self.temperatures]
-                        plot_data.append((self.temperatures, [self.get_scalar_output(mo_value,
-                                dir) for mo_value in mo_values]))
-                        names.append(mo)
-                        mo_mags.append(np.log10(abs(1+np.mean(mo_values))))
-
-                    scale = None
-                    if np.max(mo_mags) - np.min(mo_mags) > 2:
-                        scale = 'log'
-                    create_plots("Temperature (K)",
-                                 "Mobility (cm2/V.s)",
-                                 show_interactive, save_format, tp, tp_dir,
-                                 fontsize-5, ticksize-5, path, margins,
-                                 fontfamily, plot_data=plot_data, names=names,
-                                 mode='lines+markers', y_label_short="mobility",
-                                 y_axis_type=scale, title="{0}-type mobility at c={1:.2e}".format(tp, c))
-
-
-
-    def to_csv(self, path=None, dir_name="run_data", csv_filename='amset_results.csv'):
-        """
-        Writes the calculated transport properties to a csv file.
-
-        Args:
-            csv_filename (str):
-
-        Returns (.csv file)
-        """
-        import csv
-        path = os.path.join(path or self.calc_dir, dir_name)
-        if not os.path.exists(path):
-            os.makedirs(name=path)
-
-        with open(os.path.join(path, csv_filename), 'w') as csvfile:
-            fieldnames = ['type', 'c(cm-3)', 'T(K)', 'overall', 'average'] + \
-                         self.elastic_scats + self.inelastic_scats + ['Seebeck (uV/K)']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for c in self.dopings:
-                tp = get_tp(c)
-                for T in self.temperatures:
-                    row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
-                    for p in ['overall', 'average'] + self.elastic_scats + self.inelastic_scats:
-                        row[p] = sum(self.mobility[tp][p][c][T])/3
-                    row['Seebeck (uV/K)'] = sum(self.seebeck[tp][c][T])/3
-                    writer.writerow(row)
 
 
     def test_run(self):
