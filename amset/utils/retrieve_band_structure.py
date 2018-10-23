@@ -10,7 +10,13 @@ from pymatgen.io.vasp import Vasprun
 from amset.utils.tools import get_energy_args, get_bindex_bspin, interpolate_bs
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
-api = MPRester("fDJKEZpxSyvsXdCt")
+"""
+This script is to compare the energy, velocity and effective mass calculated 
+from the band structures interpolated via BoltzTraP1 vs. BoltzTraP2 to check
+their consistency. If KPOINTS file is fed to the Vasprun.get_bandstructure() 
+method, one can compare the band structures in line-mode which is more visually 
+appealing.
+"""
 
 def retrieve_bs_boltztrap1(coeff_file, bs, ibands, matrix=None):
     interp_params = get_energy_args(coeff_file, ibands)
