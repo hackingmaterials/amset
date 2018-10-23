@@ -998,7 +998,9 @@ class Amset(object):
         As the name suggests, given some pre-populated variables such as bs and
         cbm_vbm and the rest of input args, it calculates the k-coordinates of
         the band structure extrema (valence band maxima or conduction band
-        minima) at the specified bands which are the "important" points.
+        minima) at the specified bands which are the "important" points. Note
+        that the symmetrically equivalent k-points and those points that are
+        too close to each other are excluded.
 
         Args:
             coeff_file (str): path to the coefficient file only related to
