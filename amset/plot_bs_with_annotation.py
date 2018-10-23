@@ -1,5 +1,6 @@
 from amset.core import Amset
 from amset.utils.constants import A_to_nm
+from amset.utils.detect_peaks import detect_peaks
 from amset.utils.tools import get_bindex_bspin, interpolate_bs, \
     get_energy_args, kpts_to_first_BZ
 from matminer import PlotlyFig
@@ -30,7 +31,7 @@ comps = {
 }
 
 # INPUTS
-COMPOUND = 'GaAs'
+COMPOUND = 'PbTe'
 LINE_DENSITY = 30
 
 
@@ -42,6 +43,7 @@ if __name__ == "__main__":
 
     dopings = [1e20, -1e20]
     temperatures = global_temperatures[formula]
+    word_map = {'p': 'vb0', 'n': 'cb0'}
 
     amset = Amset(calc_dir='.', material_params={'epsilon_s': 12.9},
               temperatures=temperatures, dopings=dopings,
@@ -55,7 +57,6 @@ if __name__ == "__main__":
                                               interpolation="boltztrap1",
                                               line_density=LINE_DENSITY
                                               )
-
 
     hsk = HighSymmKpath(vrun.final_structure)
     hs_kpoints , _ = hsk.get_kpoints(line_density=LINE_DENSITY)
@@ -93,11 +94,14 @@ if __name__ == "__main__":
 
     pf = PlotlyFig(bs_df, x_title='index', y_title='Energy (eV)')
     plt = pf.xy([(bs_df.index, 'vb0'), (bs_df.index, 'cb0')], labels='str_kpts', return_plot=True)
-    # pf.xy([(bs_df.index, 'vb0'), (bs_df.index, 'cb0')], labels='normk')
 
     extrema_data_x = []
     extrema_data_y = []
     extrema_data_labels = []
+
+    initial_extrema_data_x = []
+    initial_extrema_data_y = []
+    initial_extrema_data_labels = []
 
     for iband, tp in enumerate(['p', 'n']):
         energies, _, _ = interpolate_bs(extrema[tp], interp_params, iband=iband,
@@ -106,11 +110,17 @@ if __name__ == "__main__":
                                           n_jobs=-1)
         for k in extrema[tp]:
             idx = np.argmin([np.linalg.norm(hs_kpoints-k, axis=1)])
-            extrema_data_x.append(idx)
+            if np.linalg.norm(hs_kpoints[idx]-k) < 0.05:
+                extrema_data_x.append(idx)
         extrema_data_labels += [str(k.tolist()) for k in extrema[tp]]
         extrema_data_y += list(energies - vbm)
 
-    word_map = {'p': 'vb0', 'n': 'cb0'}
+        intial_extrema_idx = detect_peaks(bs_df[word_map[tp]], mph=None, mpd=1,
+                                   valley=iband == 1)
+        initial_extrema_data_x += list(intial_extrema_idx)
+        initial_extrema_data_y += (bs_df[word_map[tp]][intial_extrema_idx]-vbm).tolist()
+        initial_extrema_data_labels += [str(k.tolist()) for k in hs_kpoints[intial_extrema_idx]]
+
     for idx in bs_df.index:
         for tp in ['p', 'n']:
             if bs_df['str_kpts'][idx] in extrema[tp]:
@@ -121,13 +131,25 @@ if __name__ == "__main__":
 
     plt['data'].append(
     go.Scatter(
+        x = initial_extrema_data_x,
+        y = initial_extrema_data_y,
+        mode = 'markers',
+        name = 'initial extrema',
+        text = initial_extrema_data_labels,
+        marker = {'size': 15, 'symbol': 'diamond-open', 'color': 'rgb(0, 255, 0)',
+                  'line': {'width': 3}}
+    )
+    )
+
+    plt['data'].append(
+    go.Scatter(
         x = extrema_data_x,
         y = extrema_data_y,
         mode = 'markers',
-        name = 'extrema',
+        name = 'selected extrema',
         text = extrema_data_labels,
-        marker = {'size': 15, 'symbol': 'diamond-open', 'color': 'rgb(0, 255, 0)',
-                  'line': {'width': 3}}
+        marker = {'size': 20, 'symbol': 'circle-open', 'color': 'rgb(255, 0, 0)',
+                  'line': {'width': 4}}
     )
     )
 
