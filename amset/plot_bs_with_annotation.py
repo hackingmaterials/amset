@@ -1,5 +1,5 @@
 from amset.core import Amset
-from amset.utils.constants import A_to_nm
+from amset.utils.constants import A_to_nm, comp_to_dirname
 from amset.utils.detect_peaks import detect_peaks
 from amset.utils.tools import get_bindex_bspin, interpolate_bs, \
     get_energy_args, kpts_to_first_BZ
@@ -21,23 +21,14 @@ help easily detect the important pockets. It can be used to visually test
 the output of get_bs_extrema function.
 """
 
-comps = {
-    'GaAs': 'GaAs_mp-2534',
-    'Si': 'Si_mp-149',
-    'PbTe': 'PbTe_mp-19717',
-    'InP': 'InP_mp-20351',
-    'AlCuS2': 'AlCuS2_mp-4979',
-    'In2O3': 'In2O3_mp-22598',
-}
-
 # INPUTS
 COMPOUND = 'PbTe'
 LINE_DENSITY = 30
 
 
 if __name__ == "__main__":
-    vrun_file = os.path.join(abs_dir, "../test_files/{}/vasprun.xml".format(comps[COMPOUND]))
-    coeff_file = os.path.join(abs_dir, "../test_files/{}/fort.123".format(comps[COMPOUND]))
+    vrun_file = os.path.join(abs_dir, "../test_files/{}/vasprun.xml".format(comp_to_dirname[COMPOUND]))
+    coeff_file = os.path.join(abs_dir, "../test_files/{}/fort.123".format(comp_to_dirname[COMPOUND]))
     vrun = Vasprun(vrun_file)
     formula = vrun.final_structure.composition.reduced_formula
 
