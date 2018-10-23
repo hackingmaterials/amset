@@ -16,9 +16,10 @@ from thermoelectrics_work.amset_examples.material_params import global_dopings, 
 abs_dir = os.path.dirname(__file__)
 
 """
-This script helps plot the band structure with kpoint coordinates as labels to
-help easily detect the important pockets. It can be used to visually test
-the output of get_bs_extrema function.
+This script plots the interpolated band structure with kpoint coordinates as 
+labels to help easily detect the important pockets. It can be used to visually 
+test the output of get_bs_extrema function that is used in Amset to determine 
+the band extrema that contribute to the transport.
 """
 
 # INPUTS
