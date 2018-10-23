@@ -1,22 +1,19 @@
 import numpy as np
 import os
 import unittest
+
+from amset.utils.constants import comp_to_dirname
 from amset.utils.tools import kpts_to_first_BZ, get_closest_k, \
     remove_duplicate_kpoints, get_energy_args, get_bindex_bspin, \
     interpolate_bs, get_bs_extrema
 from pymatgen.io.vasp import Vasprun
 
-comps = {
-    'GaAs': 'GaAs_mp-2534',
-    'Si': 'Si_mp-149',
-    'PbTe': 'PbTe_mp-19717',
-    'InP': 'InP_mp-20351',
-    'AlCuS2': 'AlCuS2_mp-4979',
-    'In2O3': 'In2O3_mp-22598',
-}
+
 tdir = os.path.join(os.path.dirname(__file__), '..', '..', 'test_files')
-vruns = {c: Vasprun(os.path.join(tdir, comps[c], 'vasprun.xml')) for c in comps}
-coeff_files = {c: os.path.join(tdir, comps[c], 'fort.123') for c in comps}
+vruns = {c: Vasprun(os.path.join(tdir, comp_to_dirname[c], 'vasprun.xml')) \
+         for c in comp_to_dirname}
+coeff_files = {c: os.path.join(tdir, comp_to_dirname[c], 'fort.123') \
+               for c in comp_to_dirname}
 
 CHECK_BOLTZTRAP2 = True
 
