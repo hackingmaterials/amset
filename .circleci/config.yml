@@ -22,4 +22,4 @@ jobs:
             pip install --quiet -r requirements.txt
             pip install --quiet -r requirements-optional.txt
             python setup.py test
-          no_output_timeout: 30m
+          no_output_timeout: 60m
