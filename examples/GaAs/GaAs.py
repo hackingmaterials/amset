@@ -10,7 +10,9 @@ if __name__ == "__main__":
                     "elastic_scatterings": ["ACD", "IMP", "PIE"],
                     "inelastic_scatterings": ["POP"]}
     performance_params = {"max_nbands": 1,
-                          "interpolation": "boltztrap1"}
+                          "interpolation": "boltztrap1",
+                          "dos_kdensity": 600
+                          }
     if use_single_parabolic_band:
         effective_mass = 0.25
         model_params["poly_bands"]= [[[[0.0, 0.0, 0.0], [0.0, effective_mass]]]]
@@ -34,10 +36,11 @@ if __name__ == "__main__":
                   model_params = model_params,
                   performance_params=performance_params,
                   dopings= [-2e15, -2e18],
-                  temperatures=[300, 400])
+                  temperatures=[300, 400],
+                  )
 
     # running Amset
-    amset.run_profiled(coeff_file=coeff_file, kgrid_tp="very coarse")
+    amset.run_profiled(coeff_file=coeff_file, kgrid_tp="coarse")
 
     # generating files and outputs
     amset.write_input_files()
