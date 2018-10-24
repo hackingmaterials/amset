@@ -166,13 +166,13 @@ class AmsetTest(unittest.TestCase):
         performance_params = dict(self.performance_params)
         performance_params['fermi_kgrid_tp'] = 'very coarse'
         amset = Amset(calc_dir=self.temp_dir,
-                      vasprun_file=self.GaAs_vasprun,
+                      vasprun_file=os.path.join(self.GaAs_dir, 'vasprun.xml'),
                       material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=performance_params,
                       dopings=[-3e13], temperatures=[300], integration='k',
                       loglevel=LOGLEVEL)
-        amset.run(self.GaAs_cube, kgrid_tp='very coarse')
+        amset.run(os.path.join(self.GaAs_dir, 'fort.123'), kgrid_tp='very coarse')
         mobility = amset.mobility
         self.assertAlmostEqual( # compare with normalized fermi w.r.t. the CBM
             amset.fermi_level[-3e13][300]-amset.cbm_vbm["n"]["energy"],
@@ -199,7 +199,7 @@ class AmsetTest(unittest.TestCase):
                        }
 
         amset = Amset(calc_dir=self.temp_dir,
-                      vasprun_file=self.InP_vasprun,
+                      vasprun_file=os.path.join(self.InP_dir, 'vasprun.xml'),
                       material_params=self.InP_params,
                       model_params=self.model_params,
                       performance_params=self.performance_params,
