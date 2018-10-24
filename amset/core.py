@@ -188,7 +188,6 @@ class Amset(object):
         self.temperatures = temperatures or [300, 600]
         self.temperatures = [int(T) for T in self.temperatures]
         self.set_model_params(model_params)
-        self.logger.info('independent_valleys: {}'.format(self.independent_valleys))
         self.set_material_params(material_params)
         self.set_performance_params(performance_params)
         self.integration = integration
@@ -444,20 +443,6 @@ class Amset(object):
                                   c_and_T_idx=False,
                                   prop_type="vector")
 
-                if self.independent_valleys:
-                    for c in self.dopings:
-                        for T in self.temperatures:
-                            if self.integration=='k':
-                                f0_all = 1 / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                f0p_all = 1 / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1)
-                                self.denominator[c][T]['n'] = (3 * default_small_E * self.integrate_over_states(f0_all, 'n') + 1e-10)
-                                self.denominator[c][T]['p'] = (3 * default_small_E * self.integrate_over_states(1-f0p_all, 'p') + 1e-10)
-                            elif self.integration=='e':
-                                self.denominator[c][T]['n'] = 3 * default_small_E * self.integrate_over_E(props=["f0"], tp='n', c=c, T=T, xDOS=False, xvel=False)
-                                self.denominator[c][T]['p'] = 3 * default_small_E * self.integrate_over_E(props=["1 - f0"], tp='p', c=c, T=T, xDOS=False, xvel=False)
-                                for tp in ['n', 'p']:
-                                    self.seeb_denom[c][T][tp] = self.egrid["Seebeck_integral_denominator"][c][T][tp]
-
                 # find the indexes of equal energy or those with ±hbar*W_POP for scattering via phonon emission and absorption
                 if not self.bs_is_isotropic or "POP" in self.inelastic_scats:
                     self.generate_angles_and_indexes_for_integration()
@@ -539,24 +524,19 @@ class Amset(object):
                     for c in self.dopings:
                         for T in self.temperatures:
                             if self.count_mobility[self.ibrun][tp]:
-                                if not self.independent_valleys:
-                                    if self.integration=='k':
-                                        f0_all = 1. / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1.)
-                                        f0p_all = 1. / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1.)
-                                        finteg = f0_all if tp == 'n' else 1-f0p_all
-                                        self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_states(finteg, tp) + 1e-10
-                                        self.seeb_denom[c][T][tp] += self.integrate_over_states(finteg*(1-finteg), tp)
-                                    elif self.integration=='e':
-                                        finteg = "f0" if tp=="n" else "1 - f0"
-                                        self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(props=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False)  * valley_ndegen
-                                        self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp] * valley_ndegen
-                                    for mu in self.mo_labels+["J_th"]:
-                                        self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * valley_ndegen
-                                    self.mobility[tp]['seebeck'][c][T] += valley_transport[tp]['seebeck'][c][T] # seeb is multiplied by DOS so no need for degeneracy
-                                else:
-                                    for mu in self.mo_labels+["J_th"]:
-                                        self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * valley_ndegen
-                                    self.mobility[tp]["seebeck"][c][T] += valley_transport[tp]["seebeck"][c][T]
+                                if self.integration=='k':
+                                    f0_all = 1. / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1.)
+                                    f0p_all = 1. / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1.)
+                                    finteg = f0_all if tp == 'n' else 1-f0p_all
+                                    self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_states(finteg, tp) + 1e-10
+                                    self.seeb_denom[c][T][tp] += self.integrate_over_states(finteg*(1-finteg), tp)
+                                elif self.integration=='e':
+                                    finteg = "f0" if tp=="n" else "1 - f0"
+                                    self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(props=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False)  * valley_ndegen
+                                    self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp] * valley_ndegen
+                                for mu in self.mo_labels+["J_th"]:
+                                    self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * valley_ndegen
+                                self.mobility[tp]['seebeck'][c][T] += valley_transport[tp]['seebeck'][c][T] # seeb is multiplied by DOS so no need for degeneracy
 
 
                 if self.parabolic_bands0 is None:
@@ -583,19 +563,18 @@ class Amset(object):
                     self.Efrequency0 = deepcopy(self.Efrequency)
         self.logger.debug('here denominator:\n{}'.format(self.denominator))
 
-        if not self.independent_valleys:
-            for tp in ['p', 'n']:
-                for c in self.dopings:
-                    for T in self.temperatures:
-                        for mu in self.mo_labels+["J_th"]:
-                            self.mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
-                            for band in list(self.valleys[tp].keys()):
-                                for valley_k in list(self.valleys[tp][band].keys()):
-                                    self.valleys[tp][band][valley_k][mu][c][T] /= self.denominator[c][T][tp]
-                        self.mobility[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
+        for tp in ['p', 'n']:
+            for c in self.dopings:
+                for T in self.temperatures:
+                    for mu in self.mo_labels+["J_th"]:
+                        self.mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
                         for band in list(self.valleys[tp].keys()):
-                                for valley_k in list(self.valleys[tp][band].keys()):
-                                    self.valleys[tp][band][valley_k]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
+                            for valley_k in list(self.valleys[tp][band].keys()):
+                                self.valleys[tp][band][valley_k][mu][c][T] /= self.denominator[c][T][tp]
+                    self.mobility[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
+                    for band in list(self.valleys[tp].keys()):
+                            for valley_k in list(self.valleys[tp][band].keys()):
+                                self.valleys[tp][band][valley_k]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
 
         # finalize Seebeck values:
         sigma = {tp: {c: {T: 0.0 for T in self.temperatures} for c in self.dopings} for tp in ['p', 'n']}
@@ -1163,7 +1142,6 @@ class Amset(object):
         self.parabolic_bands = self.parabolic_bands0
         self.soc = params.get("soc", False)
         self.logger.info("bs_is_isotropic: {}".format(self.bs_is_isotropic))
-        self.independent_valleys = params.get('independent_valleys', False)
         self.model_params = {
             "bs_is_isotropic": self.bs_is_isotropic,
             "elastic_scats": self.elastic_scats,
@@ -2844,12 +2822,7 @@ class Amset(object):
                         valley_transport[tp]["overall"][c][T] = mu_overall_valley
                     self.egrid[tp]["relaxation time constant"][c][T] = self.mobility[tp]["overall"][c][T] \
                             * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
-                    if self.independent_valleys:
-                        for mu in self.mo_labels+["J_th"]:
-                            valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
-                        valley_transport[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
-                    else:
-                        valley_transport[tp]["seebeck"][c][T] = self.egrid["Seebeck_integral_numerator"][c][T][tp]
+                    valley_transport[tp]["seebeck"][c][T] = self.egrid["Seebeck_integral_numerator"][c][T][tp]
         return valley_transport
 
 
@@ -3677,10 +3650,6 @@ class Amset(object):
                                         'mobility; setting it to average...')
                         valley_transport[tp]['overall'][c][T] = valley_transport[tp]["average"][c][T]
 
-                    if self.independent_valleys:
-                        for mu in self.mo_labels+["J_th"]:
-                            valley_transport[tp][mu][c][T] /= self.denominator[c][T][tp]
-                        valley_transport[tp]['seebeck'][c][T] /= self.integrate_over_states(f0_all*(1-f0_all), tp)
         return valley_transport
 
 
@@ -3713,7 +3682,6 @@ if __name__ == "__main__":
     model_params = {'bs_is_isotropic': True,
                     'elastic_scats': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scats': ['POP']
-        , 'independent_valleys': False
                     }
     if use_parabolic_bands:
         model_params["parabolic_bands"] = [[
