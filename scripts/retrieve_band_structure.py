@@ -3,12 +3,10 @@ import os
 from time import time
 from amset.utils.constants import comp_to_dirname
 from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
-from pymatgen import MPRester
 from matminer import PlotlyFig
 from BoltzTraP2 import sphere, fite
 from pymatgen.io.vasp import Vasprun
 from amset.utils.tools import get_energy_args, get_bindex_bspin, interpolate_bs
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 """
 This script is to compare the energy, velocity and effective mass calculated 
@@ -85,9 +83,9 @@ def retrieve_bs_boltztrap2(vrun, bs, ibands, matrix=None):
 
 if __name__ == "__main__":
     # user inputs
-    COMPOUND = 'PbTe' # You can try: GaAs, Si, PbTe, InP, AlCuS2, In2O3
+    COMPOUND = 'GaAs' # You can try: GaAs, Si, PbTe, InP, AlCuS2, In2O3
     DIR = os.path.dirname(__file__)
-    test_dir = os.path.join(DIR, '../../test_files')
+    test_dir = os.path.join(DIR, '../test_files')
     vruns = {c: Vasprun(os.path.join(test_dir, comp_to_dirname[c],
                                      'vasprun.xml')) for c in comp_to_dirname}
     coeff_files = {c: os.path.join(test_dir, comp_to_dirname[c],

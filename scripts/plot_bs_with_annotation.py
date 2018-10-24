@@ -27,9 +27,10 @@ COMPOUND = 'PbTe'
 LINE_DENSITY = 30
 
 
-if __name__ == "__main__":
-    vrun_file = os.path.join(abs_dir, "../test_files/{}/vasprun.xml".format(comp_to_dirname[COMPOUND]))
-    coeff_file = os.path.join(abs_dir, "../test_files/{}/fort.123".format(comp_to_dirname[COMPOUND]))
+if __name__ == '__main__':
+    test_dir = os.path.join(abs_dir, '..', 'test_files')
+    vrun_file = os.path.join(test_dir, comp_to_dirname[COMPOUND], 'vasprun.xml')
+    coeff_file = os.path.join(test_dir, comp_to_dirname[COMPOUND], 'fort.123')
     vrun = Vasprun(vrun_file)
     formula = vrun.final_structure.composition.reduced_formula
 
@@ -84,7 +85,8 @@ if __name__ == "__main__":
 
     bs_df = pd.DataFrame.from_dict(bsd)
 
-    pf = PlotlyFig(bs_df, x_title='index', y_title='Energy (eV)')
+    pf = PlotlyFig(bs_df, x_title='index', y_title='Energy (eV)',
+                   filename='interpolated_line-mode')
     plt = pf.xy([(bs_df.index, 'vb0'), (bs_df.index, 'cb0')], labels='str_kpts', return_plot=True)
 
     extrema_data_x = []
