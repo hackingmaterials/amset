@@ -233,7 +233,7 @@ class Amset(object):
                         'timeout of {:.4f} hours'.format(self.timeout/3600.0))
 
 
-    def run(self, coeff_file=None, kgrid_tp="coarse", test_k_anisotropic=False):
+    def run(self, coeff_file=None, kgrid_tp="coarse"):
         """
         Function to run Amset and log the main outputs, populate the two main
             grid variables: k-points grid (kgrid) and energy grid (egrid) and
@@ -510,6 +510,7 @@ class Amset(object):
                 # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
                 self.solve_BTE_iteratively()
                 if self.integration=='k':
+                    test_k_anisotropic = False  # for k-integration
                     valley_transport = self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
                 elif self.integration=='e':
                     if len(self.Efrequency['n'])<=1 or len(self.Efrequency['p'])<=1:
@@ -3751,14 +3752,14 @@ if __name__ == "__main__":
                   temperatures = [300, 600],
                   integration='e',
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='very coarse')
+    amset.run_profiled(coeff_file, kgrid_tp='fine')
 
     amset.write_input_files()
     amset.to_csv()
     amset.as_dict()
     amset.to_file()
-    amset.plot(k_plots=['energy']
-               , E_plots=['velocity', 'df0dk', 'ACD'], show_interactive=True
+    amset.plot(k_plots='all'
+               , E_plots='all', show_interactive=True
                , carrier_types=amset.all_types
                , save_format=None)
 
