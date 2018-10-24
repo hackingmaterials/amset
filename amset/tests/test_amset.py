@@ -9,7 +9,7 @@ import unittest
 from amset.core import Amset
 from copy import deepcopy
 
-test_dir = os.path.dirname(__file__)
+test_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'test_files')
 
 LOGLEVEL = logging.ERROR
 
@@ -28,11 +28,8 @@ class AmsetTest(unittest.TestCase):
         self.GaAs_params = {'epsilon_s': 12.9, 'epsilon_inf': 10.9,
                 'W_POP': 8.73, 'C_el': 139.7, 'E_D': {'n': 8.6, 'p': 8.6},
                 'P_PIE': 0.052, 'scissor': 0.5818}
-        self.GaAs_path = os.path.join(test_dir, '..', 'test_files', 'GaAs_mp-2534')
-        self.GaAs_vasprun = os.path.join(self.GaAs_path, 'vasprun.xml')
-        self.GaAs_cube = os.path.join(self.GaAs_path, 'fort.123')
-        self.InP_path = os.path.join(test_dir, '..', 'test_files', 'InP_mp-20351')
-        self.InP_vasprun = os.path.join(self.InP_path, 'vasprun.xml')
+        self.GaAs_dir = os.path.join(test_dir, 'GaAs_mp-2534')
+        self.InP_dir = os.path.join(test_dir, 'InP_mp-20351')
         self.InP_params = {"epsilon_s": 14.7970, "epsilon_inf": 11.558,
                             "W_POP": 9.2651, "C_el": 119.18,
                             "E_D": {"n": 5.74, "p": 1.56},
@@ -52,13 +49,13 @@ class AmsetTest(unittest.TestCase):
         model_params = deepcopy(self.model_params)
         model_params['parabolic_bands'] = [[[[0.0, 0.0, 0.0], [0.0, mass]]]]
         amset = Amset(calc_dir=self.temp_dir,
-                      vasprun_file=self.GaAs_vasprun,
+                      vasprun_file=os.path.join(self.GaAs_dir, 'vasprun.xml'),
                       material_params=self.GaAs_params,
                       model_params=model_params,
                       performance_params=self.performance_params,
                       dopings=[c], temperatures=temperatures, integration='k',
                       loglevel=LOGLEVEL)
-        amset.run(self.GaAs_cube, kgrid_tp='coarse')
+        amset.run(os.path.join(self.GaAs_dir, 'fort.123'), kgrid_tp='coarse')
 
         # check fermi level
         # density calculation source: http://hib.iiit-bh.ac.in/Hibiscus/docs/iiit/NBDB/FP008/597_Semiconductor%20in%20Equilibrium&pn%20junction1.pdf
@@ -94,13 +91,13 @@ class AmsetTest(unittest.TestCase):
         performance_params = deepcopy(self.performance_params)
         performance_params['max_nvalleys'] = 1
         amset = Amset(calc_dir=self.temp_dir,
-                      vasprun_file=self.GaAs_vasprun,
+                      vasprun_file=os.path.join(self.GaAs_dir, 'vasprun.xml'),
                       material_params=self.GaAs_params,
                       model_params=self.model_params,
                       performance_params=performance_params,
                       dopings=[-2e15], temperatures=[300], integration='e',
                       loglevel=LOGLEVEL)
-        amset.run(self.GaAs_cube, kgrid_tp='very coarse')
+        amset.run(os.path.join(self.GaAs_dir, 'fort.123'), kgrid_tp='very coarse')
         kgrid = amset.kgrid
 
         # check general characteristics of the grid
@@ -138,7 +135,7 @@ class AmsetTest(unittest.TestCase):
                        }
         expected_seebeck = -1026.62730
         amset = Amset(calc_dir=self.temp_dir,
-                      vasprun_file=self.GaAs_vasprun,
+                      vasprun_file=os.path.join(self.GaAs_dir, 'vasprun.xml'),
                       material_params=self.GaAs_params,
                       model_params={'bs_is_isotropic': False,
                              'elastic_scats': ['ACD', 'IMP', 'PIE'],
@@ -146,7 +143,7 @@ class AmsetTest(unittest.TestCase):
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], integration='e',
                       loglevel=LOGLEVEL)
-        amset.run(self.GaAs_cube, kgrid_tp='coarse')
+        amset.run(os.path.join(self.GaAs_dir, 'fort.123'), kgrid_tp='coarse')
 
         # check mobility values
         for mu in expected_mu.keys():
@@ -208,7 +205,7 @@ class AmsetTest(unittest.TestCase):
                       performance_params=self.performance_params,
                       dopings=[-2e15], temperatures=[300], integration='e',
                       loglevel=LOGLEVEL)
-        amset.run(os.path.join(self.InP_path, 'fort.123'),
+        amset.run(os.path.join(self.InP_dir, 'fort.123'),
                   kgrid_tp='very coarse')
 
         # check isotropy of transport and mobility values
