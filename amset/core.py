@@ -1233,6 +1233,7 @@ class Amset(object):
         """
         vasprun_file = vasprun_file or os.path.join(self.calc_dir, filename)
         self._vrun = Vasprun(vasprun_file, parse_projected_eigen=True)
+        self.logger.debug('direct lattice matrix:\n{}'.format(self._vrun.lattice.matrix))
         self.interp_params = None
         if self.interpolation == "boltztrap2":
             bz2_data = PymatgenLoader(self._vrun)
@@ -3720,13 +3721,13 @@ if __name__ == "__main__":
                   temperatures = [300, 600],
                   integration='e',
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='fine')
+    amset.run_profiled(coeff_file, kgrid_tp='coarse')
 
     amset.write_input_files()
     amset.to_csv()
     amset.as_dict()
     amset.to_file()
-    amset.plot(k_plots='all'
+    amset.plot(k_plots=['energy']
                , E_plots='all', show_interactive=True
                , carrier_types=amset.all_types
                , save_format=None)
