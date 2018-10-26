@@ -452,7 +452,6 @@ class Amset(object):
                     self.s_elastic(sname=sname)
                     self.map_to_egrid(prop_name=sname)
 
-                self.map_to_egrid(prop_name="_all_elastic")
                 self.map_to_egrid(prop_name="relaxation time")
 
                 for c in self.dopings:
@@ -523,6 +522,11 @@ class Amset(object):
                     self.logger.debug('valley_ndegen = {} for {}'.format(valley_ndegen, important_points[tp][0]))
                     for c in self.dopings:
                         for T in self.temperatures:
+                            self.kgrid[tp]["relaxation time"][c][T][ib] = \
+                                1 / (self.kgrid[tp]["_all_elastic"][c][T][ib] \
+                                + self.kgrid[tp]["S_o"][c][T][ib] \
+                                     + self.kgrid[tp]["S_i"][c][T][ib])
+
                             if self.count_mobility[self.ibrun][tp]:
                                 if self.integration=='k':
                                     f0_all = 1. / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1.)
@@ -538,6 +542,7 @@ class Amset(object):
                                     self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * valley_ndegen
                                 self.mobility[tp]['seebeck'][c][T] += valley_transport[tp]['seebeck'][c][T] # seeb is multiplied by DOS so no need for degeneracy
 
+                self.map_to_egrid(prop_name="relaxation time")
 
                 if self.parabolic_bands0 is None:
                     for tp in ['p', 'n']:
@@ -2570,8 +2575,6 @@ class Amset(object):
                                     self.logger.warning('too large rate for {} at k={}, v={}:'.format(
                                         sname, self.kgrid[tp]['kpoints'][ib][ik], self.kgrid[tp]['velocity'][ib][ik]))
                             self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
-                        self.kgrid[tp]["relaxation time"][c][T][ib] = 1 / self.kgrid[tp]["_all_elastic"][c][T][ib]
-
 
 
     def map_to_egrid(self, prop_name, c_and_T_idx=True, prop_type="vector"):
