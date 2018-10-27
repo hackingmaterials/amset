@@ -180,7 +180,7 @@ class Amset(object):
         self.logger = setup_custom_logger(
                 'amset_logger', calc_dir, 'amset.log', level=loglevel)
         self.calc_dir = calc_dir
-        self.vasprun_file = vasprun_file or self.calc_dir
+        self.vasprun_file = vasprun_file or os.path.join(self.calc_dir, 'vasprun.xml')
         self.dopings = dopings or [-1e20, 1e20]
         self.dopings = [int(doping) for doping in self.dopings]
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
