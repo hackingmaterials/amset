@@ -3262,10 +3262,10 @@ class Amset(object):
                         plot_data.append((self.temperatures, [self.get_scalar_output(mo_value,
                                 dir) for mo_value in mo_values]))
                         names.append(mo)
-                        mo_mags.append(np.log10(abs(1+np.mean(mo_values))))
+                        mo_mags.extend([np.log10(1+abs(np.mean(m))) for m in mo_values])
 
                     scale = None
-                    if np.max(mo_mags) - np.min(mo_mags) > 2:
+                    if np.max(mo_mags) - np.min(mo_mags) > 1.5:
                         scale = 'log'
                     create_plots("Temperature (K)",
                                  "Mobility (cm2/V.s)",
