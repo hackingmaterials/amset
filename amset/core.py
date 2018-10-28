@@ -3093,7 +3093,7 @@ class Amset(object):
              concentrations='all', temperatures='all', carrier_types=None,
              direction=None, show_interactive=True, save_format=None,
              fontsize=30, ticksize=25, path=None, dir_name="plots",
-             margins=100, fontfamily="serif"):
+             margins=100, fontfamily="serif", include_avg=False):
         """
         Plots the given k_plots and E_plots properties.
 
@@ -3119,6 +3119,9 @@ class Amset(object):
             dir_name (str): the name of the folder where plot files are saved
             margins (int): figrecipes plotly margins
             fontfamily (string): plotly font
+            include_avg (bool): whether to include the "average" mobility in
+                the mobility plot. False is recommended as mixing "overall" and
+                "average" mobility may be confusing.
         """
         k_plots = k_plots or []
         E_plots = E_plots or []
@@ -3249,6 +3252,8 @@ class Amset(object):
                                       x_label_short=x_value, names=names)
 
             # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
+            if not include_avg:
+                mu_list = [m for m in mu_list if m != 'average']
             if mobility:
                 for c in concentrations:
                     plot_data = []
