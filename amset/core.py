@@ -3214,7 +3214,7 @@ class Amset(object):
                         if vec[y_value]:
                             create_plots(x_axis_label[x_value], y_value, show_interactive,
                                               save_format, tp, tp_dir,
-                                              fontsize, ticksize, path, margins, fontfamily, plot_data=(x_data[x_value], y_data_temp_independent[x_value][y_value]), x_label_short=x_value)
+                                              fontsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])], x_label_short=x_value)
 
             # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
             try:
