@@ -1016,7 +1016,8 @@ def generate_adaptive_kmesh(bs, important_points, kgrid_tp, ibz=True):
 def create_plots(x_title, y_title, show_interactive, save_format, tp,
                  file_suffix, fontsize, ticksize, path, margins, fontfamily,
                  plot_data, names=None, labels=None, x_label_short='',
-                 y_label_short=None, mode='markers', y_axis_type='linear', title=None):
+                 y_label_short=None, mode='markers', y_axis_type='linear',
+                 title=None, empty_markers=True):
     """
     A wrapper private function with args mostly consistent with
     matminer.figrecipes.PlotlyFig but slightly better handling of plot
@@ -1024,6 +1025,9 @@ def create_plots(x_title, y_title, show_interactive, save_format, tp,
     the filename, etc).
     """
     from matminer.figrecipes.plot import PlotlyFig
+    marker_symbols = range(44)
+    if empty_markers:
+        marker_symbols = [i+100 for i in marker_symbols]
     tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
     if title is None:
         title = '{} for {}'.format(y_title, tp_title[tp])
@@ -1038,7 +1042,9 @@ def create_plots(x_title, y_title, show_interactive, save_format, tp,
                         title=title, fontsize=fontsize,
                        mode='offline', filename=filename, ticksize=ticksize,
                         margins=margins, fontfamily=fontfamily)
-        pf.xy(plot_data, names=names, labels=labels, modes=mode)
+        pf.xy(plot_data, names=names, labels=labels, modes=mode, marker_scale=1.1,
+              markers=[{'symbol': marker_symbols[i],
+                       'line': {'width': 2,'color': 'black'}} for i, _ in enumerate(plot_data)])
     if save_format is not None:
         if not x_label_short:
             filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, save_format))
