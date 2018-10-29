@@ -22,10 +22,10 @@ from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, \
 from collections import OrderedDict
 from copy import deepcopy
 from math import log, pi
-from monty.json import MontyEncoder, MontyDecoder
+from monty.json import MontyEncoder
 from monty.serialization import dumpfn, loadfn
 from multiprocessing import cpu_count
-from pprint import pprint, pformat
+from pprint import pformat
 from pstats import Stats
 from pymatgen.electronic_structure.boltztrap import BoltztrapRunner, BoltztrapAnalyzer
 from pymatgen.io.vasp import Vasprun, Spin, Kpoints
@@ -3089,9 +3089,9 @@ class Amset(object):
                     writer.writerow(row)
 
 
-    def plot(self, k_plots=None, E_plots=None, mobility=True,
+    def plot(self, k_plots=None, E_plots=None, mobility=True, mode='offline',
              concentrations='all', temperatures='all', carrier_types=None,
-             direction=None, show_interactive=True, save_format=None,
+             direction=None,
              fontsize=30, ticksize=25, path=None, dir_name="plots",
              margins=100, fontfamily="serif", include_avg=False):
         """
@@ -3104,15 +3104,16 @@ class Amset(object):
                 options: 'frequency', 'relaxation time', '_all_elastic', 'df0dk', 'velocity', 'ACD', 'IMP', 'PIE', 'g',
                 'g_POP', 'g_th', 'S_i', 'S_o', or just string 'all' (not in a list) to plot everything
             mobility (bool): if True, create a mobility against temperature plot
+            mode (str): plotly mode defaulting to 'offline'; see figrecipe
+                documentation for more information. For example if "static"
+                (saving the figures directly w/o interactive display), the
+                plotly credentials are required.
             concentrations ([float]): carrier concentrations, or the string 'all' to plot the
                 results of calculations done with all input concentrations
             temperatures ([int]): temperatures to be included in the plots
             carrier_types (list of strings): select carrier types to plot data for - ['n'], ['p'], or ['n', 'p']
             direction (list of strings): options to include in list are 'x', 'y', 'z', 'avg'; determines which
                 components of vector quantities are plotted
-            show_interactive (bool): if True creates and shows interactive html plots
-            save_format (str): format for saving plots; options are 'png', 'jpeg', 'svg', 'pdf', None (None does not
-                save the plots). NOTE: plotly credentials are needed, see figrecipes documentation
             fontsize (int): size of title and axis label text
             ticksize (int): size of axis tick label text
             path (string): location to save plots
@@ -3149,8 +3150,9 @@ class Amset(object):
         carrier_types = list(carrier_types)
         direction = list(direction)
 
-        mu_list = ["overall", "average"] + self.elastic_scats + self.inelastic_scats
-
+        mu_list = ["overall"] + self.elastic_scats + self.inelastic_scats
+        if include_avg:
+            mu_list.insert(1, "average")
         # separate temperature dependent and independent properties
         all_temp_independent_k_props = ['energy', 'velocity']
         all_temp_independent_E_props = ['frequency', 'velocity']
@@ -3195,8 +3197,10 @@ class Amset(object):
                         title = None
                         if y_value == 'frequency':
                             title = 'Energy Histogram for {}'.format(self.tp_title[tp])
-                        create_plots(x_axis_label[x_value], y_value, show_interactive, save_format, tp, tp,
-                                          fontsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
+                        create_plots(x_axis_label[x_value], y_value, tp, tp,
+                                          fontsize, ticksize, path, margins, fontfamily,
+                                     plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
+                                     mode=mode,
                                           x_label_short=x_value, title=title)
 
 
@@ -3212,9 +3216,10 @@ class Amset(object):
                 for x_value, y_values in [('k', temp_independent_k_props), ('E', temp_independent_E_props)]:
                     for y_value in y_values:
                         if vec[y_value]:
-                            create_plots(x_axis_label[x_value], y_value, show_interactive,
-                                              save_format, tp, tp_dir,
-                                              fontsize, ticksize, path, margins, fontfamily, plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])], x_label_short=x_value)
+                            create_plots(x_axis_label[x_value], y_value, tp, tp_dir,
+                                              fontsize, ticksize, path, margins, fontfamily,
+                                         plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
+                                         mode=mode, x_label_short=x_value)
 
             # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
             try:
@@ -3246,14 +3251,12 @@ class Amset(object):
                         for T in temperatures:
                             plot_data.append((x_data[x_value], y_data_temp_dependent[x_value][y_value][(c, T)]))
                             names.append('c={0:.1e}, T={1} K'.format(c, T))
-                    create_plots(x_axis_label[x_value], y_value, show_interactive,
-                                      save_format, tp, tp_dir,
-                                      fontsize, ticksize, path, margins, fontfamily, plot_data=plot_data,
+                    create_plots(x_axis_label[x_value], y_value, tp, tp_dir,
+                                      fontsize, ticksize, path, margins, fontfamily,
+                                 plot_data=plot_data, mode=mode,
                                       x_label_short=x_value, names=names)
 
             # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
-            if not include_avg:
-                mu_list = [m for m in mu_list if m != 'average']
             if mobility:
                 for c in concentrations:
                     plot_data = []
@@ -3274,10 +3277,10 @@ class Amset(object):
                         scale = 'log'
                     create_plots("Temperature (K)",
                                  "Mobility (cm2/V.s)",
-                                 show_interactive, save_format, tp, tp_dir,
+                                 tp, tp_dir,
                                  fontsize-5, ticksize-5, path, margins,
-                                 fontfamily, plot_data=plot_data, names=names,
-                                 mode='lines+markers', y_label_short="mobility",
+                                 fontfamily, plot_data=plot_data, mode=mode,  names=names,
+                                 xy_modes='lines+markers', y_label_short="mobility",
                                  y_axis_type=scale, title="{0}-type mobility at c={1:.2e}".format(tp, c))
 
 
@@ -3736,8 +3739,9 @@ if __name__ == "__main__":
     amset.as_dict()
     amset.to_file()
     amset.plot(k_plots=['energy']
-               , E_plots='all', show_interactive=True
+               , E_plots='all'
+               , mode='offline'
                , carrier_types=amset.all_types
-               , save_format=None)
+               )
 
     amset.to_json(kgrid=True, trimmed=True, max_ndata=100, n0=0)
