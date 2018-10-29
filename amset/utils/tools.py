@@ -1013,18 +1013,21 @@ def generate_adaptive_kmesh(bs, important_points, kgrid_tp, ibz=True):
     return kpts
 
 
-def create_plots(x_title, y_title, show_interactive, save_format, tp,
+def create_plots(x_title, y_title, tp,
                  file_suffix, fontsize, ticksize, path, margins, fontfamily,
-                 plot_data, names=None, labels=None, x_label_short='',
-                 y_label_short=None, mode='markers', y_axis_type='linear',
-                 title=None, empty_markers=True):
+                 plot_data, mode='offline', names=None, labels=None, x_label_short='',
+                 y_label_short=None, xy_modes='markers', y_axis_type='linear',
+                 title=None, empty_markers=True, **kwargs):
     """
-    A wrapper private function with args mostly consistent with
+        A wrapper private function with args mostly consistent with
     matminer.figrecipes.PlotlyFig but slightly better handling of plot
     file saving (e.g. incorporating temperature and concentration in
     the filename, etc).
+    Returns:
+
     """
     from matminer.figrecipes.plot import PlotlyFig
+    plot_data = list(plot_data)
     marker_symbols = range(44)
     if empty_markers:
         marker_symbols = [i+100 for i in marker_symbols]
@@ -1033,25 +1036,14 @@ def create_plots(x_title, y_title, show_interactive, save_format, tp,
         title = '{} for {}'.format(y_title, tp_title[tp])
     if y_label_short is None:
         y_label_short = y_title
-    if show_interactive:
-        if not x_label_short:
-            filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, 'html'))
-        else:
-            filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, 'html'))
-        pf = PlotlyFig(x_title=x_title, y_title=y_title, y_scale=y_axis_type,
-                        title=title, fontsize=fontsize,
-                       mode='offline', filename=filename, ticksize=ticksize,
-                        margins=margins, fontfamily=fontfamily)
-        pf.xy(plot_data, names=names, labels=labels, modes=mode, marker_scale=1.1,
-              markers=[{'symbol': marker_symbols[i],
-                       'line': {'width': 2,'color': 'black'}} for i, _ in enumerate(plot_data)])
-    if save_format is not None:
-        if not x_label_short:
-            filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, save_format))
-        else:
-            filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, save_format))
-        pf = PlotlyFig(x_title=x_title, y_title=y_title,
-                        title=title, fontsize=fontsize,
-                        mode='static', filename=filename, ticksize=ticksize,
-                        margins=margins, fontfamily=fontfamily)
-        pf.xy(plot_data, names=names, labels=labels, modes=mode)
+    if not x_label_short:
+        filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, 'html'))
+    else:
+        filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, 'html'))
+    pf = PlotlyFig(x_title=x_title, y_title=y_title, y_scale=y_axis_type,
+                    title=title, fontsize=fontsize,
+                   mode=mode, filename=filename, ticksize=ticksize,
+                    margins=margins, fontfamily=fontfamily, **kwargs)
+    pf.xy(plot_data, names=names, labels=labels, modes=xy_modes, marker_scale=1.1,
+          markers=[{'symbol': marker_symbols[i],
+                   'line': {'width': 2,'color': 'black'}} for i, _ in enumerate(plot_data)])
