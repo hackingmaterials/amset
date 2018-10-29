@@ -3093,7 +3093,7 @@ class Amset(object):
              concentrations='all', temperatures='all', carrier_types=None,
              direction=None,
              fontsize=30, ticksize=25, path=None, dir_name="plots",
-             margins=100, fontfamily="serif", include_avg=False):
+             margins=100, fontfamily="serif", include_avg=False, **kwargs):
         """
         Plots the given k_plots and E_plots properties.
 
@@ -3123,6 +3123,10 @@ class Amset(object):
             include_avg (bool): whether to include the "average" mobility in
                 the mobility plot. False is recommended as mixing "overall" and
                 "average" mobility may be confusing.
+            **kwargs: other keyword arguments of matminer.figrecipes.plot.PlotlyFig
+                for example, for setting plotly credential when mode=="static"
+                note that if mode is "static" Plotly username and api_key need
+                to be set
         """
         k_plots = k_plots or []
         E_plots = E_plots or []
@@ -3200,8 +3204,7 @@ class Amset(object):
                         create_plots(x_axis_label[x_value], y_value, tp, tp,
                                           fontsize, ticksize, path, margins, fontfamily,
                                      plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
-                                     mode=mode,
-                                          x_label_short=x_value, title=title)
+                                     mode=mode, x_label_short=x_value, title=title, **kwargs)
 
 
             for dir in direction:
@@ -3219,7 +3222,7 @@ class Amset(object):
                             create_plots(x_axis_label[x_value], y_value, tp, tp_dir,
                                               fontsize, ticksize, path, margins, fontfamily,
                                          plot_data=[(x_data[x_value], y_data_temp_independent[x_value][y_value])],
-                                         mode=mode, x_label_short=x_value)
+                                         mode=mode, x_label_short=x_value, **kwargs)
 
             # want variable of the form: y_data_temp_dependent[k or E][prop][temp] (the following lines reorganize
             try:
@@ -3254,7 +3257,7 @@ class Amset(object):
                     create_plots(x_axis_label[x_value], y_value, tp, tp_dir,
                                       fontsize, ticksize, path, margins, fontfamily,
                                  plot_data=plot_data, mode=mode,
-                                      x_label_short=x_value, names=names)
+                                      x_label_short=x_value, names=names, **kwargs)
 
             # mobility plots as a function of temperature (the only plot that does not have k or E on the x axis)
             if mobility:
@@ -3281,7 +3284,7 @@ class Amset(object):
                                  fontsize-5, ticksize-5, path, margins,
                                  fontfamily, plot_data=plot_data, mode=mode,  names=names,
                                  xy_modes='lines+markers', y_label_short="mobility",
-                                 y_axis_type=scale, title="{0}-type mobility at c={1:.2e}".format(tp, c))
+                                 y_axis_type=scale, title="{0}-type mobility at c={1:.2e}".format(tp, c), **kwargs)
 
 
 
