@@ -1019,11 +1019,34 @@ def create_plots(x_title, y_title, tp,
                  y_label_short=None, xy_modes='markers', y_axis_type='linear',
                  title=None, empty_markers=True, **kwargs):
     """
-        A wrapper private function with args mostly consistent with
-    matminer.figrecipes.PlotlyFig but slightly better handling of plot
-    file saving (e.g. incorporating temperature and concentration in
-    the filename, etc).
-    Returns:
+    A wrapper function with args mostly consistent with
+    matminer.figrecipes.plot.PlotlyFig
+
+    Args:
+        x_title (str): label of the x-axis
+        y_title (str): label of the y-axis
+        tp (str): "n" or "p"
+        file_suffix (str): small suffix for filename (NOT a file format)
+        fontsize (int):
+        ticksize (int):
+        path (str): root folder where the plot will be saved.
+        margins (float or [float]): figrecipe PlotlyFig margins
+        fontfamily (str):
+        plot_data ([(x_data, y_data) tuples]): the actual data to be plotted
+        mode (str): plot mode. "offline" and "static" recommended. "static"
+            would automatically set the file format to .png
+        names ([str]): names of the traces
+        labels ([str]): the labels of the scatter points
+        x_label_short (str): used for distinguishing filenames
+        y_label_short (str):  used for distinguishing filenames
+        xy_modes (str): mode of the xy scatter plots: "markers", "lines+markers"
+        y_axis_type (str): e.g. "log" for logscale
+        title (str): the title of the plot appearing at the top
+        empty_markers (bool): whether the markers are empty (filled if False)
+        **kwargs: other keyword arguments of matminer.figrecipes.plot.PlotlyFig
+                for example, for setting plotly credential when mode=="static"
+
+    Returns (None): to return the dict
 
     """
     from matminer.figrecipes.plot import PlotlyFig
@@ -1037,9 +1060,12 @@ def create_plots(x_title, y_title, tp,
     if y_label_short is None:
         y_label_short = y_title
     if not x_label_short:
-        filename = os.path.join(path, "{}_{}.{}".format(y_label_short, file_suffix, 'html'))
+        filename = os.path.join(path, "{}_{}".format(y_label_short, file_suffix))
     else:
-        filename = os.path.join(path, "{}_{}_{}.{}".format(y_label_short, x_label_short, file_suffix, 'html'))
+        filename = os.path.join(path, "{}_{}_{}".format(y_label_short, x_label_short, file_suffix))
+    if mode == "static":
+        if not filename.endswith(".png"):
+            filename += ".png"
     pf = PlotlyFig(x_title=x_title, y_title=y_title, y_scale=y_axis_type,
                     title=title, fontsize=fontsize,
                    mode=mode, filename=filename, ticksize=ticksize,
