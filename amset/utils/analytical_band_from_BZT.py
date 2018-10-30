@@ -4,12 +4,13 @@ import numpy as np
 import warnings
 
 matplotlib.use('agg')
+from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, A_to_nm, m_to_cm, e
+from amset.utils.general import norm, outer
 from matplotlib.pylab import plot, show, scatter
 from math import pi
 from pymatgen.core.units import Energy
 from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from amset.utils.constants import hbar, m_e, Ry_to_eV, A_to_m, A_to_nm, m_to_cm, e
 
 
 __author__ = "Francesco Ricci and Alireza Faghaninia"
@@ -32,21 +33,9 @@ Here, we just build the star functions using those coefficients.
 Then, we also calculate the energy bands for each k-point in input.
 '''
 
-def norm(v):
-    """method to quickly calculate the norm of a vector (v: 1x3 or 3x1) as
-    numpy.linalg.norm is slower if only used for one vector"""
-    return (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
 
 
-def outer(v1, v2):
-    """returns the outer product of vectors v1 and v2. This is to be used
-    instead of numpy.outer which is ~3x slower if only used for 2 vectors."""
-    return np.array([[v1[0] * v2[0], v1[0] * v2[1], v1[0] * v2[2]],
-                     [v1[1] * v2[0], v1[1] * v2[1], v1[1] * v2[2]],
-                     [v1[2] * v2[0], v1[2] * v2[1], v1[2] * v2[2]]])
-
-
-def get_poly_energy(kpt, parabolic_bands, type, ib=0, bandgap=1, all_values = False):
+def get_parabolic_energy(kpt, parabolic_bands, type, ib=0, bandgap=1, all_values = False):
     """
     Args:
         kpt (list): coordinates of a given k-point in the actual cartesian coordinates and NOT fractional coordinates
@@ -195,7 +184,7 @@ def get_dos_from_parabolic_bands(st, reclat_matrix, mesh, e_min, e_max, e_points
             for tp in ["n", "p"]:
                 for ib in range(len(parabolic_bands)):
                     if all_values:
-                        energy_list, k_dist = get_poly_energy(kpt, parabolic_bands, tp, ib=ib, bandgap=bandgap,
+                        energy_list, k_dist = get_parabolic_energy(kpt, parabolic_bands, tp, ib=ib, bandgap=bandgap,
                                                            all_values=all_values)
                         all_energies += energy_list
                         all_ks += [k_dist]*len(energy_list)
@@ -203,7 +192,7 @@ def get_dos_from_parabolic_bands(st, reclat_matrix, mesh, e_min, e_max, e_points
                             g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                             dos += w/w_sum * g
                     else:
-                        energy, v, m_eff = get_poly_energy(kpt, parabolic_bands, tp, ib=ib, bandgap=bandgap, all_values=all_values)
+                        energy, v, m_eff = get_parabolic_energy(kpt, parabolic_bands, tp, ib=ib, bandgap=bandgap, all_values=all_values)
                         g = height * np.exp(-((e_mesh - energy) / width) ** 2 / 2.)
                         dos += w/w_sum * g
         if all_values:
@@ -552,16 +541,16 @@ if __name__ == "__main__":
     # print(np.dot(np.dot(MATRIX, comp_mass), MATRIX))
 
     mass=0.065
-    _, v_poly, effective_mass = get_poly_energy(_rec_lattice.get_cartesian_coords(kpt)
+    _, v_parabolic, effective_mass = get_parabolic_energy(_rec_lattice.get_cartesian_coords(kpt)
         ,parabolic_bands=[[
             [[0.0, 0.0, 0.0], [0.0, mass]],
         ]],
         type='n', ib=0,
         bandgap=1.54)
 
-    print('poly velocity with mass={}'.format(mass))
-    print(v_poly)
-    print('poly mass')
+    print('parabolic velocity with mass={}'.format(mass))
+    print(v_parabolic)
+    print('parabolic mass')
     print(effective_mass)
 
     quit()
