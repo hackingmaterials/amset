@@ -7,7 +7,7 @@ import os
 import time
 import warnings
 from amset.utils.analytical_band_from_BZT import Analytical_bands, \
-        get_dos_from_parabolic_bands, get_poly_energy
+        get_dos_from_parabolic_bands, get_parabolic_energy
 from amset.utils.tools import norm, generate_k_mesh_axes, \
     create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
     fermi_integral, calculate_Sio, remove_from_grid, get_tp, \
@@ -126,7 +126,7 @@ class Amset(object):
                 a single parabolic band, with a single extremum at
                 Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
                 has an effective mass of 0.09. Coordinates are fractional. For
-                more information see the docs for get_poly_energy function.
+                more information see the docs for get_parabolic_energy function.
         performance_params (dict): parameters related to convergence, speed,
             etc; the options are:
             "dE_min" (float): minimum energy difference differentiated in the
@@ -778,7 +778,7 @@ class Amset(object):
             sgn = (-1.0) ** i
             iband = i if self.interpolation=="boltztrap1" else self.cbm_vbm0[tp]["bidx"]
             if self.parabolic_bands is not None:
-                energy, velocity, effective_m = self.calc_poly_energy(self.cbm_vbm0[tp]["kpoint"], tp, 0)
+                energy, velocity, effective_m = self.calc_parabolic_energy(self.cbm_vbm0[tp]["kpoint"], tp, 0)
             else:
                 energies, velocities, masses = interpolate_bs(
                     [self.cbm_vbm0[tp]["kpoint"]], self.interp_params,
@@ -864,7 +864,7 @@ class Amset(object):
                 for ib in range(num_bands[tp]):
                     if self.parabolic_bands is not None:
                         for ik in range(len(kpts[tp])):
-                            energies[tp][ik], _, _ = self.calc_poly_energy(kpts[tp][ik], tp, ib)
+                            energies[tp][ik], _, _ = self.calc_parabolic_energy(kpts[tp][ik], tp, ib)
                     else:
                         if self.interpolation == "boltztrap1":
                             iband = i * num_bands['p'] + ib
@@ -898,7 +898,7 @@ class Amset(object):
                     all_bands_energies[tp] = energies[tp]
                     for ib in range(1, len(self.parabolic_bands)):
                         for ik in range(len(kpts[tp])):
-                            energy, velocity, effective_m = get_poly_energy(
+                            energy, velocity, effective_m = get_parabolic_energy(
                                 self.get_cartesian_coords(kpts[ik]) / A_to_nm,
                                 parabolic_bands=self.parabolic_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
                             all_bands_energies[tp].append(energy)
@@ -1651,9 +1651,9 @@ class Amset(object):
                                                     self.dopings}
 
 
-    def calc_poly_energy(self, xkpt, tp, ib):
+    def calc_parabolic_energy(self, xkpt, tp, ib):
         """
-        Calculates parabolic or other polynomial bands at given k-point & band
+        Calculates parabolic or other parabolic bands at given k-point & band
 
         Args:
             xkpt (3x1 array or list): fractional coordinates of a given k-point
@@ -1663,7 +1663,7 @@ class Amset(object):
         Returns:
             (energy(eV), velocity (cm/s), effective mass) from a parabolic band
         """
-        energy, velocity, effective_m = get_poly_energy(
+        energy, velocity, effective_m = get_parabolic_energy(
             self.get_cartesian_coords(xkpt)/A_to_nm, parabolic_bands=self.parabolic_bands,
             type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
         return energy, velocity, effective_m
@@ -1757,7 +1757,7 @@ class Amset(object):
                     if self.parabolic_bands is not None:
                         self.kgrid[tp]["energy"][ib][ik], \
                                 self.kgrid[tp]["velocity"][ib][ik], _ = \
-                                get_poly_energy(
+                                get_parabolic_energy(
                                     self.kgrid[tp]["cartesian kpoints"][ib][ik],
                                    parabolic_bands=self.parabolic_bands, type=tp, ib=ib,
                                         bandgap=self.dft_gap + self.scissor)
