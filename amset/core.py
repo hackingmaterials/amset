@@ -1065,6 +1065,8 @@ class Amset(object):
                 params = {'epsilon_s': 11.111}
 
         Returns (None):
+            Sets the corresponding material parameters and material_params
+                instance variables.
         """
         self.epsilon_s = params["epsilon_s"]
         self.P_PIE = params.get("P_PIE", None) or 0.15  # unitless
