@@ -6,19 +6,21 @@ import numpy as np
 import os
 import time
 import warnings
-from amset.utils.analytical_band_from_BZT import Analytical_bands, \
-        get_dos_from_parabolic_bands, get_parabolic_energy
-from amset.utils.tools import norm, generate_k_mesh_axes, \
-    create_grid, array_to_kgrid, normalize_array, f0, df0dE, cos_angle, \
-    fermi_integral, calculate_Sio, remove_from_grid, get_tp, \
-    remove_duplicate_kpoints, get_angle, sort_angles, get_closest_k, \
-    get_energy_args, get_bindex_bspin, get_bs_extrema, \
-    AmsetError, get_dos_boltztrap2, free_e_dos, \
-    setup_custom_logger, interpolate_bs, \
-    get_dft_orbitals, generate_adaptive_kmesh, create_plots
-from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, \
-    A_to_nm, e, k_B, \
+from amset.utils.analytical_band_from_bzt1 import Analytical_bands
+from amset.utils.band_parabolic import get_dos_from_parabolic_bands, \
+    get_parabolic_energy
+from amset.utils.band_interpolation import interpolate_bs, get_energy_args, \
+    get_bs_extrema, get_dos_boltztrap2
+from amset.utils.band_structure import get_bindex_bspin, remove_duplicate_kpoints, \
+    get_closest_k, generate_adaptive_kmesh, get_dft_orbitals
+from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, A_to_nm, e, k_B, \
     epsilon_0, default_small_E, dTdz, sq3
+from amset.utils.general import norm, cos_angle, remove_from_grid, get_angle, \
+    sort_angles, AmsetError, setup_custom_logger, create_plots
+from amset.utils.k_integration import generate_k_mesh_axes, create_grid, \
+    array_to_kgrid, normalize_array
+from amset.utils.transport import f0, df0dE, fermi_integral, calculate_Sio, \
+        get_tp, free_e_dos
 from collections import OrderedDict
 from copy import deepcopy
 from math import log, pi
@@ -33,13 +35,6 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from scipy.interpolate import griddata
 from sys import stdout as STDOUT
 
-try:
-    import BoltzTraP2
-    import BoltzTraP2.dft
-    from BoltzTraP2 import sphere, fite
-    from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
-except ImportError:
-    warnings.warn('BoltzTraP2 not imported, "boltztrap2" interpolation not available.')
 
 __author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"

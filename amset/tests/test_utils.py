@@ -3,9 +3,9 @@ import os
 import unittest
 
 from amset.utils.constants import comp_to_dirname
-from amset.utils.tools import kpts_to_first_BZ, get_closest_k, \
-    remove_duplicate_kpoints, get_energy_args, get_bindex_bspin, \
-    interpolate_bs, get_bs_extrema
+from amset.utils.band_structure import kpts_to_first_BZ, get_closest_k, \
+    remove_duplicate_kpoints, get_bindex_bspin
+from amset.utils.band_interpolation import get_energy_args, interpolate_bs, get_bs_extrema
 from pymatgen.io.vasp import Vasprun
 
 
