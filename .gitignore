@@ -44,10 +44,8 @@ nosetests.xml
 .idea/*
 
 # doc html folder
-!docs/build
 
 temp_dir
-docs/build/doctrees
 
 run_data
 amset.log
