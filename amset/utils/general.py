@@ -9,6 +9,7 @@ General tools used in other methods such as vector manipulation tools used in
 other methods as well as create_plot visualization method.
 """
 
+
 class AmsetError(Exception):
     """
     Exception class for Amset. Raised when Amset gives an error. The purpose
@@ -60,8 +61,8 @@ def remove_from_grid(grid, grid_rm_list):
     for tp in ["n", "p"]:
         for rm in grid_rm_list:
             try:
-                del (grid[tp][rm])
-            except:
+                del(grid[tp][rm])
+            except KeyError:
                 pass
     return grid
 
@@ -88,7 +89,9 @@ def cos_angle(v1, v2):
     """
     norm_v1, norm_v2 = norm(v1), norm(v2)
     if norm_v1 == 0 or norm_v2 == 0:
-        return 1.0  # In case of the two points are the origin, we assume 0 degree; i.e. no scattering: 1-X==0
+        # In case of the two points are the origin, we assume 0 degree;
+        # i.e. no scattering: 1-X==0
+        return 1.0
     else:
         return np.dot(v1, v2) / (norm_v1 * norm_v2)
 
@@ -97,9 +100,9 @@ def get_angle(v1, v2):
     """
     Returns the actual angles (in radian) between 2 vectors not its cosine.
     """
-    x = cos_angle(v1,v2)
+    x = cos_angle(v1, v2)
     if x < -1:
-        x = -1 # just to avoid consequence of numerical instability.
+        x = -1  # just to avoid consequence of numerical instability.
     elif x > 1:
         x = 1
     return np.arccos(x)
@@ -124,10 +127,8 @@ def sort_angles(vecs):
         sort_idx = np.argsort(angles)
         vecs = [vecs[i] for i in sort_idx]
         indexes = [indexes[i] for i in sort_idx]
-        sorted_vecs.append(vecs.pop(0)) # reduntant step for the first element
+        sorted_vecs.append(vecs.pop(0))  # redundant step for the first element
         final_idx.append(indexes.pop(0))
     vecs.extend(sorted_vecs)
     indexes.extend(final_idx)
     return np.array(vecs), indexes
-
-
