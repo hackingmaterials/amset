@@ -10,6 +10,7 @@ docs/_build/*/*/*
 
 # Packages
 *.egg
+*.eggs
 *.egg-info
 dist
 build
@@ -41,3 +42,9 @@ nosetests.xml
 
 # Pycharm
 .idea/*
+
+# doc html folder
+!docs/build
+
+temp_dir
+docs/build/doctrees
