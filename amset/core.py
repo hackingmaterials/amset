@@ -44,24 +44,23 @@ __email__ = "alireza.faghaninia@gmail.com"
 __status__ = "Development"
 
 
-
 class Amset(object):
     """ Runs Amset on a pymatgen from a VASP run (i.e. vasprun.xml). Amset is an ab initio model
     for calculating the mobility and Seebeck coefficient using Bolƒtzmann transport equation (BTE). The band structure
     in the Brilluin zone (BZ) is extracted from vasprun.xml to calculate the group velocity and transport properties
     in presence of various scattering mechanisms.
 
-     Currently the following scattering mechanisms with their corresponding three-letter abbreviations implemented are:
-     ionized impurity scattering (IMP), acoustic phonon deformation potential (ACD), piezoelectric (PIE), and charged
-     dislocation scattering (DIS). Also, longitudinal polar optical phonon (POP) in implemented as an inelastic
-     scattering mechanism that can alter the electronic distribution (the reason BTE has to be solved explicitly; for
-     more information, see references [R, A]).
+    Currently the following scattering mechanisms with their corresponding three-letter abbreviations implemented are:
+    ionized impurity scattering (IMP), acoustic phonon deformation potential (ACD), piezoelectric (PIE), and charged
+    dislocation scattering (DIS). Also, longitudinal polar optical phonon (POP) in implemented as an inelastic
+    scattering mechanism that can alter the electronic distribution (the reason BTE has to be solved explicitly; for
+    more information, see references [R, A]).
 
-     you can control the level of theory via various inputs. For example, by assuming that the band structure is
-     isotropic at the surrounding point of each k-point (i.e. bs_is_isotropic == True), one can significantly reduce
-     the computational effort otherwise needed for accurate numerical integration of the scatterings.
+    You can control the level of theory via various inputs. For example, by assuming that the band structure is
+    isotropic at the surrounding point of each k-point (i.e. bs_is_isotropic == True), one can significantly reduce
+    the computational effort otherwise needed for accurate numerical integration of the scatterings.
 
-    * a small comment on the structure of this code: the calculations are done and stored in two main dictionary type
+    A small comment on the structure of this code: the calculations are done and stored in two main dictionary type
     variable called kgrid and egrid. kgrid contains all calculations that are done in k-space meaning that for each
     k-point and each band that is included there is a number/vector/property stored. On the other hand, the egrid
     is everything in energy scale hence we have number/vector/property stored at each energy point.
@@ -79,70 +78,76 @@ class Amset(object):
 
     Args:
         calc_dir (str): where Amset will be running (e.g. path to the vasprun.xml)
-        material_params (dict, required): material parameters; current options:
-            "epsilon_s" (float>0, required): static dielectric constant
-            "epsilon_inf" (float>0): high-frequency dielectric constant
-            "C_el" (float>0): average elastic constant in GPa only used by ACD
-            "P_PIE" (float>0): piezoelectric coefficient only used by PIE
-            "E_D" (float>0 or {"n": float, "p": float}): CBM/VBM acoustic phonon
-                deformation potential constant in eV; only used by ACD
-            "N_dis" (float>0): charged linear discloation concentration only
-                used by DIS. Units: 1/cm2 (# of dislocations in unit thickness)
-            "user_bandgap" (float): the target band gap set artificially.
-            "scissor" (float): amount of artificial change to the electronic
-                band gap in eV; ignored if user_bandgap is set.
-            "donor_charge" (int): the charge of the shallow donors (e.g. 2)
-                defaults to 1
-            "acceptor_charge" (int): the charge of the shallow acceptors
-                defaults to 1
-            "dislocations_charge" (int): absolute value of the charge of the
-                linear dislocations; defaults to 1
-            "important_points" (dict): the important band extrema dominating the
-                transport; defaults to None to automatically find those points.
-                examples: None or {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
-                                   'p': [[0.0, 0.0, 0.0]]}
-            "W_POP" (float): Longitudinal polar optical phonon frequency in THz
-                at the k-point where the CBM/VBM is located
+            material_params (dict, required): material parameters; current options::
+
+                "epsilon_s" (float>0, required): static dielectric constant
+                "epsilon_inf" (float>0): high-frequency dielectric constant
+                "C_el" (float>0): average elastic constant in GPa only used by ACD
+                "P_PIE" (float>0): piezoelectric coefficient only used by PIE
+                "E_D" (float>0 or {"n": float, "p": float}): CBM/VBM acoustic phonon
+                    deformation potential constant in eV; only used by ACD
+                "N_dis" (float>0): charged linear discloation concentration only
+                    used by DIS. Units: 1/cm2 (# of dislocations in unit thickness)
+                "user_bandgap" (float): the target band gap set artificially.
+                "scissor" (float): amount of artificial change to the electronic
+                    band gap in eV; ignored if user_bandgap is set.
+                "donor_charge" (int): the charge of the shallow donors (e.g. 2)
+                    defaults to 1
+                "acceptor_charge" (int): the charge of the shallow acceptors
+                    defaults to 1
+                "dislocations_charge" (int): absolute value of the charge of the
+                    linear dislocations; defaults to 1
+                "important_points" (dict): the important band extrema dominating the
+                    transport; defaults to None to automatically find those points.
+                    examples: None or {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+                                       'p': [[0.0, 0.0, 0.0]]}
+                "W_POP" (float): Longitudinal polar optical phonon frequency in THz
+                    at the k-point where the CBM/VBM is located
+
             example of material_params: {"epsilon_s": 10.3, "user_bandgap": 1.}
         vasprun_file (str): path the vasprun.xml; is set to calc_dir by default
-        model_params (dict): parameters related to the model and the formulation
-            "bs_is_isotropic" (bool): whether to use isotropic band formulation
-                note that True is recommended as it is much faster than the
-                anisotropic formulation while still captures some anisotropy.
-                However, some details of anisotropic band may be lost in which
-                case set to False.
-            "elastic_scats" ([str]): list of elastic scattering mechanisms to
-                be include; for example: ["ACD", "IMP", "PIE"]
-            "inelastic_scats" ([str]): list of inelastic scattering mechanisms
-                to be included; for example: ["POP"]
-            "parabolic_bands" (None or list): None is recommended; otherwise set
-                to simulate a band structure with one or multiple parabolic
-                bands; For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]] denotes
-                a single parabolic band, with a single extremum at
-                Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
-                has an effective mass of 0.09. Coordinates are fractional. For
-                more information see the docs for get_parabolic_energy function.
+        model_params (dict): parameters related to the model and the formulation::
+
+                "bs_is_isotropic" (bool): whether to use isotropic band formulation
+                    note that True is recommended as it is much faster than the
+                    anisotropic formulation while still captures some anisotropy.
+                    However, some details of anisotropic band may be lost in which
+                    case set to False.
+                "elastic_scats" ([str]): list of elastic scattering mechanisms to
+                    be include; for example: ["ACD", "IMP", "PIE"]
+                "inelastic_scats" ([str]): list of inelastic scattering mechanisms
+                    to be included; for example: ["POP"]
+                "parabolic_bands" (None or list): None is recommended; otherwise set
+                    to simulate a band structure with one or multiple parabolic
+                    bands; For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]] denotes
+                    a single parabolic band, with a single extremum at
+                    Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
+                    has an effective mass of 0.09. Coordinates are fractional. For
+                    more information see the docs for get_parabolic_energy function.
+
         performance_params (dict): parameters related to convergence, speed,
-            etc; the options are:
-            "dE_min" (float): minimum energy difference differentiated in the
-                energy grid (egrid); essentially the resolution of the egrid
-            "Ecut" (float or {"n": float, "p": float}): energy cutoff from the
-                CBM/VBM beyond which the band structure is ignored.
-            "dos_bwidth" (float): the bandwidth (in eV) used for calculating
-                the density of states (DOS)
-            "dos_kdensity" (int > 100): the uniform k-point density for DOS
-            "BTE_iters" (int>3): the number of iterations in solving the
-                linearized Boltzmann Transport Equation (BTE)
-            "max_nbands" (None, int>=1): the maximum number of bands included;
-                set None for autmatic determination bands on the Ecut.
-            "max_normk0" (float): the cutoff in reciprocal space from a given
-                extremum in units of 1/nm
-            "max_nvalleys (None or int>=1): the maximum number of valleys
-                included in each band. Set to None for automatic setting.
-            "n_jobs" (int>=1): the number of jobs in parallelization. Currently,
-                it is only relevant to interpolation method of "boltztrap1"
-            "interpolation" (str): the band structure interpolation method.
-                Current options are "boltztrap1" and "boltztrap2".
+            etc; the options are::
+
+                "dE_min" (float): minimum energy difference differentiated in the
+                    energy grid (egrid); essentially the resolution of the egrid
+                "Ecut" (float or {"n": float, "p": float}): energy cutoff from the
+                    CBM/VBM beyond which the band structure is ignored.
+                "dos_bwidth" (float): the bandwidth (in eV) used for calculating
+                    the density of states (DOS)
+                "dos_kdensity" (int > 100): the uniform k-point density for DOS
+                "BTE_iters" (int>3): the number of iterations in solving the
+                    linearized Boltzmann Transport Equation (BTE)
+                "max_nbands" (None, int>=1): the maximum number of bands included;
+                    set None for autmatic determination bands on the Ecut.
+                "max_normk0" (float): the cutoff in reciprocal space from a given
+                    extremum in units of 1/nm
+                "max_nvalleys (None or int>=1): the maximum number of valleys
+                    included in each band. Set to None for automatic setting.
+                "n_jobs" (int>=1): the number of jobs in parallelization. Currently,
+                    it is only relevant to interpolation method of "boltztrap1"
+                "interpolation" (str): the band structure interpolation method.
+                    Current options are "boltztrap1" and "boltztrap2".
+
         dopings ([float]): list of input carrier concentrations; c<0 for
             electrons and c>0 for holes
         temperatures ([float]): input temperatures (T) in Kelvin.
@@ -155,9 +160,11 @@ class Amset(object):
             are already calculated, the postprocessing (e.g. write to file)
             might violate this timeout.
 
-    Returns (None): results are accessible through various methods such as the
+    Returns:
+        (None): results are accessible through various methods such as the
         logged result (on the screen or the logfile), or through the following
-        methods:
+        methods::
+
             Amset.to_csv(): transport properties at different c&T
             Amset.as_dict(): most commonly used attributes as python dictionary
             Amset.to_json(): details of relaxation time, scattering rates, group
@@ -672,7 +679,7 @@ class Amset(object):
     def calculate_spb_transport(self):
         """
         Using single parabolic band (SPB), calculates some elastic scattering-
-        limited mobility values named with an SPB_ prefix. For example,
+        limited mobility values named with an "SPB_*" prefix. For example,
         mobility limited by acoustic phonon deformation potential (SPB_ACD)
 
         Returns: None; results are saved inside self.mobility
@@ -1341,7 +1348,7 @@ class Amset(object):
         Returns the numerator of the integral term in eq (52) of [R] for
         calculation of the Seebeck coefficient.
 
-        *This is a wrapper function used as an input to calculate_property.
+        *This is a wrapper function used as an input to calculate_property.*
 
         Args:
             c (int): the carrier concentration <0 for electrons, >0 for holes
@@ -1362,13 +1369,14 @@ class Amset(object):
         Returns the denominator of the integral term in eq (52) of [R] for
         calculation of the Seebeck coefficient.
 
-        *This is a wrapper function used as an input to calculate_property.
+        *This is a wrapper function used as an input to calculate_property.*
 
         Args:
             c (int): the carrier concentration <0 for electrons, >0 for holes
             T (int): temperature in Kelvin
 
-        Returns (dict: {"n": float, "p": float}): Seebeck integral denominator
+        Returns:
+            (dict: {"n": float, "p": float}): Seebeck integral denominator
             integrated over the energy scale (egrid).
         """
         return {t: self.gs + self.integrate_over_E(
@@ -1978,7 +1986,7 @@ class Amset(object):
         k-point indexes of all the points that are within tolerance of E + E_change
 
         **Attention! this function assumes self.kgrid is sorted based on the
-            energy in ascending order.
+        energy in ascending order.**
 
         Args:
             tp (str): type of the band; options: "n" or "p"
@@ -2079,6 +2087,7 @@ class Amset(object):
     def integrate_func_over_E(self, func, tp, fermi, T, interpolation_nsteps=None, xDOS=True, normalize_energy=False):
         """
         Integrates a single function (func) over the egrid.
+
         Args:
             func (object): a function object
             tp (str): options are "n" or "p"
@@ -2089,8 +2098,8 @@ class Amset(object):
                 of states (DOS)
             normalize_energy (bool): whether to set the CBM/VBM as the reference
 
-        Returns (float):
-            The integral value of func, integrated over the egrid.
+        Returns:
+            (float): The integral value of func, integrated over the egrid.
         """
         if not interpolation_nsteps:
             interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
@@ -2182,16 +2191,18 @@ class Amset(object):
                          interpolation_nsteps=None):
         """
         Integrates the multiplication of props in the egrid over dE where
-            E stands for energy.
+        E stands for energy.
 
         Args:
             props ([str]): list of property names. These properties must
                 be available in egrid such as "g" or "df0dk" or "ACD". Note
                 that some simple math operations of properties are permitted.
-                    examples:
-                        "1 - f0"
-                        "f0x1-f0"
-                        "/ACD"
+                examples::
+
+                    "1 - f0"
+                    "f0x1-f0"
+                    "/ACD"
+
             tp (str): "p" (valence bands) or "n" (conduction bands) type
             c (int): the carrier concentration
             T (int): the absolute temperature in Kelvin
@@ -3288,7 +3299,7 @@ class Amset(object):
 
     def find_fermi_k(self, tolerance=0.001, num_bands = None):
         """
-        *** a method used only by "k"-integration method.
+        **method used only by "k"-integration method.**
 
         Args:
             tolerance:
@@ -3341,7 +3352,7 @@ class Amset(object):
 
     def get_scalar_output(self, vec, dir):
         """
-                *** a method used only by "k"-integration method.
+        **method used only by "k"-integration method.**
 
         As the name suggests, it returns a scalar off a vector for plotting.
 
@@ -3363,7 +3374,7 @@ class Amset(object):
 
     def calc_v_vec(self, tp):
         """
-                *** a method used only by "k"-integration method.
+        **method used only by "k"-integration method.**
 
         Args:
             tp:
@@ -3382,7 +3393,7 @@ class Amset(object):
 
     def array_from_kgrid(self, prop_name, tp, c=None, T=None, denom=False, none_missing=False, fill=None):
         """
-                *** a method used only by "k"-integration method.
+        **method used only by "k"-integration method.**
 
         turns a kgrid property into a list of grid arrays of that property for k integration
 
@@ -3406,7 +3417,7 @@ class Amset(object):
 
     def grid_from_energy_list(self, props, tp, ib, denom=False, none_missing=False, fill=None):
         """
-        *** a method used only by "k"-integration method.
+        **method used only by "k"-integration method.**
 
         Args:
             props: a list that is sorted by energy and missing removed points
@@ -3446,7 +3457,7 @@ class Amset(object):
 
     def grid_from_ordered_list(self, props, tp, denom=False, none_missing=False, scalar=False):
         """
-                *** a method used only by "k"-integration method.
+        **method used only by "k"-integration method.**
 
         Args:
             props:
@@ -3482,7 +3493,7 @@ class Amset(object):
 
     def integrate_over_states(self, integrand_grid, tp='all'):
         """
-        *** a method used only by "k"-integration method.
+        **method used only by "k"-integration method.**
 
         Args:
             integrand_grid: list or array of array grids
@@ -3504,9 +3515,10 @@ class Amset(object):
 
     def calculate_transport_properties_with_k(self, test_anisotropic, important_points):
         """
-                *** a method used only by "k"-integration method.
+        **method used only by "k"-integration method.**
+
         Calculates transport properties for isotropic materials with integration
-            over the k-points rather than energy
+        over the k-points rather than energy
 
         Args:
             test_anisotropic:
