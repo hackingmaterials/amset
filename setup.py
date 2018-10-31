@@ -1,29 +1,29 @@
-#!/usr/bin/env python
-
 from setuptools import setup, find_packages
+
 import os
-import multiprocessing, logging  # AJ: for some reason this is needed to not have "python setup.py test" freak out
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
+with open('README.rst', 'r') as file:
+    long_description = file.read()
+
 if __name__ == "__main__":
     setup(
-        name='Amset',
+        name='amset',
         version='0.1.0',
-        description='Amset is Ab initio Mobility, Seebeck, and Transport',
-        long_description=open(os.path.join(module_dir, 'README.rst')).read(),
-        url='https://github.com/hackingmaterials/Amset',
+        description='AMSET is Ab initio Mobility, Seebeck, and Transport',
+        long_description=long_description,
+        url='https://github.com/hackingmaterials/amset',
         author='Alireza Faghaninia',
         author_email='alireza@lbl.gov',
         license='modified BSD',
+        keywords='conductivity scattering seebeck dft vasp',
         packages=find_packages(),
-        #package_data={'amset.example_module': ['*.txt'], 'amset.flask_site': ['static/images/*', 'static/css/*', 'static/js/*', 'templates/*']},
         package_data={},
+        data_files=['LICENSE', 'requirements-optional.txt'],
         zip_safe=False,
-        #install_requires=['six>=1.5.2'],
-        install_requires=[],
-        #extras_require={'plotting':['matplotlib>=1.1.1'},
-        extras_require={},
+        install_requires=['numpy', 'pymatgen'],
+        extras_require={'docs': ['sphinx']},
         classifiers=['Programming Language :: Python :: 3.6',
                      'Development Status :: 4 - Beta',
                      'Intended Audience :: Science/Research',
@@ -34,6 +34,4 @@ if __name__ == "__main__":
                      'Topic :: Scientific/Engineering'],
         test_suite='nose.collector',
         tests_require=['nose'],
-        scripts=[]
-        #scripts=[os.path.join('scripts', f) for f in os.listdir(os.path.join(module_dir, 'scripts'))]
     )
