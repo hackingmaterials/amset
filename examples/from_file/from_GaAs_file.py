@@ -14,6 +14,6 @@ if __name__ == "__main__":
                             filename="amsetrun.json")
 
     amset.plot(k_plots=['energy', 'velocity'],
-               E_plots=['velocity', 'ACD', 'S_i', 'S_o']+amset.elastic_scats,
-               show_interactive=True,
+               e_plots=['velocity', 'ACD', 'S_i', 'S_o']+amset.elastic_scats,
+               direction=['x', 'z'],
                carrier_types=amset.all_types)

@@ -36,7 +36,7 @@ if __name__ == "__main__":
                   model_params = model_params,
                   performance_params=performance_params,
                   dopings= [-2e15, -2e18],
-                  temperatures=[300, 400],
+                  temperatures=[300, 600],
                   )
 
     # running Amset
@@ -47,5 +47,5 @@ if __name__ == "__main__":
     amset.to_csv()
     amset.to_file()
     amset.to_json(kgrid=True, trimmed=True, max_ndata=50, n0=0)
-    amset.plot(k_plots=['energy'], E_plots='all', show_interactive=True,
+    amset.plot(k_plots=['energy'], e_plots='all',
                carrier_types=amset.all_types, save_format=None)

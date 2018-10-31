@@ -34,7 +34,7 @@ if __name__ == "__main__":
     # generating files and outputs
     amset.write_input_files()
     amset.to_csv()
-    amset.plot(k_plots=['energy'], E_plots='all',
+    amset.plot(k_plots=['energy'], e_plots='all',
                show_interactive=True,
                carrier_types=amset.all_types)
     amset.to_file()
