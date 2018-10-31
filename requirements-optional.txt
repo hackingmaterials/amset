@@ -1,2 +1,4 @@
 matminer==0.3.9
 BoltzTraP2
+[docs]
+sphinx
