@@ -8,6 +8,11 @@ Ab initio Model for Mobility and Seebeck coefficient using Boltzmann Transport e
 
 More information here.
 
+Scattering rates
+----------------
+
+More information about the scattering rates calculated in AMSET can be found :doc:`here </scattering>`.
+
 ===========
 What's new?
 ===========

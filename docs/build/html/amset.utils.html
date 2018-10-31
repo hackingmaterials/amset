@@ -702,46 +702,6 @@ due to Amset input/output requirements instead of a generic ValueError, etc</p>
 </dd></dl>
 
 <dl class="function">
-<dt id="amset.utils.general.create_plots">
-<code class="descclassname">amset.utils.general.</code><code class="descname">create_plots</code><span class="sig-paren">(</span><em>x_title</em>, <em>y_title</em>, <em>tp</em>, <em>file_suffix</em>, <em>fontsize</em>, <em>ticksize</em>, <em>path</em>, <em>margins</em>, <em>fontfamily</em>, <em>plot_data</em>, <em>mode='offline'</em>, <em>names=None</em>, <em>labels=None</em>, <em>x_label_short=''</em>, <em>y_label_short=None</em>, <em>xy_modes='markers'</em>, <em>y_axis_type='linear'</em>, <em>title=None</em>, <em>empty_markers=True</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/amset/utils/general.html#create_plots"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#amset.utils.general.create_plots" title="Permalink to this definition">¶</a></dt>
-<dd><p>A wrapper function with args mostly consistent with
-matminer.figrecipes.plot.PlotlyFig</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>x_title</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – label of the x-axis</li>
-<li><strong>y_title</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – label of the y-axis</li>
-<li><strong>tp</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – “n” or “p”</li>
-<li><strong>file_suffix</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – small suffix for filename (NOT a file format)</li>
-<li><strong>fontsize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – </li>
-<li><strong>ticksize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – </li>
-<li><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – root folder where the plot will be saved.</li>
-<li><strong>margins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em> or </em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>]</em>) – figrecipe PlotlyFig margins</li>
-<li><strong>fontfamily</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – </li>
-<li><strong>plot_data</strong> (<em>[</em><em>(</em><em>x_data</em><em>, </em><em>y_data</em><em>) </em><em>tuples</em><em>]</em>) – the actual data to be plotted</li>
-<li><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – plot mode. “offline” and “static” recommended. “static”
-would automatically set the file format to .png</li>
-<li><strong>names</strong> (<em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em>]</em>) – names of the traces</li>
-<li><strong>labels</strong> (<em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em>]</em>) – the labels of the scatter points</li>
-<li><strong>x_label_short</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – used for distinguishing filenames</li>
-<li><strong>y_label_short</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – used for distinguishing filenames</li>
-<li><strong>xy_modes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – mode of the xy scatter plots: “markers”, “lines+markers”</li>
-<li><strong>y_axis_type</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – e.g. “log” for logscale</li>
-<li><strong>title</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – the title of the plot appearing at the top</li>
-<li><strong>empty_markers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – whether the markers are empty (filled if False)</li>
-<li><strong>**kwargs</strong> – other keyword arguments of matminer.figrecipes.plot.PlotlyFig
-for example, for setting plotly credential when mode==”static”</li>
-</ul>
-</td>
-</tr>
-</tbody>
-</table>
-<p>Returns (None): to return the dict</p>
-</dd></dl>
-
-<dl class="function">
 <dt id="amset.utils.general.get_angle">
 <code class="descclassname">amset.utils.general.</code><code class="descname">get_angle</code><span class="sig-paren">(</span><em>v1</em>, <em>v2</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/amset/utils/general.html#get_angle"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#amset.utils.general.get_angle" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the actual angles (in radian) between 2 vectors not its cosine.</p>
