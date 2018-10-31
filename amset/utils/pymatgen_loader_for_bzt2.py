@@ -13,7 +13,9 @@ from pymatgen.io.vasp import Vasprun
 from pymatgen.io.ase import AseAtomsAdaptor
 from BoltzTraP2 import units
 
+
 class PymatgenLoader:
+
     def __init__(self, vrun):
         self.kpoints = np.array(vrun.actual_kpoints)
         self.structure = vrun.final_structure
@@ -63,6 +65,7 @@ class PymatgenLoader:
             lattvec = self.get_lattvec()
             self.UCvol = np.abs(np.linalg.det(lattvec))
         return self.UCvol
+
 
 class BandstructureLoader:
     def __init__(self, pmg_bs_obj,structure=None,nelect=None):
