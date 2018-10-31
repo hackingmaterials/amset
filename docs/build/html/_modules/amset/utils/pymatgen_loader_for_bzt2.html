@@ -55,7 +55,9 @@
 <span class="kn">from</span> <span class="nn">pymatgen.io.ase</span> <span class="k">import</span> <span class="n">AseAtomsAdaptor</span>
 <span class="kn">from</span> <span class="nn">BoltzTraP2</span> <span class="k">import</span> <span class="n">units</span>
 
+
 <div class="viewcode-block" id="PymatgenLoader"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.pymatgen_loader_for_bzt2.PymatgenLoader">[docs]</a><span class="k">class</span> <span class="nc">PymatgenLoader</span><span class="p">:</span>
+
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vrun</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">kpoints</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vrun</span><span class="o">.</span><span class="n">actual_kpoints</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">structure</span> <span class="o">=</span> <span class="n">vrun</span><span class="o">.</span><span class="n">final_structure</span>
@@ -105,6 +107,7 @@
             <span class="n">lattvec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_lattvec</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">UCvol</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">det</span><span class="p">(</span><span class="n">lattvec</span><span class="p">))</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">UCvol</span></div></div>
+
 
 <div class="viewcode-block" id="BandstructureLoader"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.pymatgen_loader_for_bzt2.BandstructureLoader">[docs]</a><span class="k">class</span> <span class="nc">BandstructureLoader</span><span class="p">:</span>
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pmg_bs_obj</span><span class="p">,</span><span class="n">structure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">nelect</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>

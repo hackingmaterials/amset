@@ -1019,46 +1019,9 @@ mapped at each concentration, c, and T</li>
 
 <dl class="method">
 <dt id="amset.core.Amset.plot">
-<code class="descname">plot</code><span class="sig-paren">(</span><em>k_plots=None</em>, <em>E_plots=None</em>, <em>mobility=True</em>, <em>mode='offline'</em>, <em>concentrations='all'</em>, <em>temperatures='all'</em>, <em>carrier_types=None</em>, <em>direction=None</em>, <em>fontsize=30</em>, <em>ticksize=25</em>, <em>path=None</em>, <em>dir_name='plots'</em>, <em>margins=100</em>, <em>fontfamily='serif'</em>, <em>include_avg=False</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/amset/core.html#Amset.plot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#amset.core.Amset.plot" title="Permalink to this definition">¶</a></dt>
-<dd><p>Plots the given k_plots and E_plots properties.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>k_plots</strong> (<em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em>]</em>) – the names of the quantities to be plotted against norm(k)
-options: ‘energy’, ‘df0dk’, ‘velocity’, or just string ‘all’ (not in a list) to plot everything</li>
-<li><strong>E_plots</strong> (<em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em>]</em>) – options: ‘frequency’, ‘relaxation time’, ‘_all_elastic’, ‘df0dk’, ‘velocity’, ‘ACD’, ‘IMP’, ‘PIE’, ‘g’,
-‘g_POP’, ‘g_th’, ‘S_i’, ‘S_o’, or just string ‘all’ (not in a list) to plot everything</li>
-<li><strong>mobility</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – if True, create a mobility against temperature plot</li>
-<li><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – plotly mode defaulting to ‘offline’; see figrecipe
-documentation for more information. For example if “static”
-(saving the figures directly w/o interactive display), the
-plotly credentials are required.</li>
-<li><strong>concentrations</strong> (<em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>]</em>) – carrier concentrations, or the string ‘all’ to plot the
-results of calculations done with all input concentrations</li>
-<li><strong>temperatures</strong> (<em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a><em>]</em>) – temperatures to be included in the plots</li>
-<li><strong>carrier_types</strong> (<em>list of strings</em>) – select carrier types to plot data for - [‘n’], [‘p’], or [‘n’, ‘p’]</li>
-<li><strong>direction</strong> (<em>list of strings</em>) – options to include in list are ‘x’, ‘y’, ‘z’, ‘avg’; determines which
-components of vector quantities are plotted</li>
-<li><strong>fontsize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – size of title and axis label text</li>
-<li><strong>ticksize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – size of axis tick label text</li>
-<li><strong>path</strong> (<em>string</em>) – location to save plots</li>
-<li><strong>dir_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – the name of the folder where plot files are saved</li>
-<li><strong>margins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – figrecipes plotly margins</li>
-<li><strong>fontfamily</strong> (<em>string</em>) – plotly font</li>
-<li><strong>include_avg</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – whether to include the “average” mobility in
-the mobility plot. False is recommended as mixing “overall” and
-“average” mobility may be confusing.</li>
-<li><strong>**kwargs</strong> – other keyword arguments of matminer.figrecipes.plot.PlotlyFig
-for example, for setting plotly credential when mode==”static”
-note that if mode is “static” Plotly username and api_key need
-to be set</li>
-</ul>
-</td>
-</tr>
-</tbody>
-</table>
+<code class="descname">plot</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/amset/core.html#Amset.plot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#amset.core.Amset.plot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots the given k_plots and e_plots properties.</p>
+<p>See docstring for amset.plotting.get_amset_plots for kewyword arguments.</p>
 </dd></dl>
 
 <dl class="method">

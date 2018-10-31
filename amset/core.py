@@ -2800,7 +2800,7 @@ class Amset(object):
         """
         Mobility and Seebeck coefficient are calculated by integrating the
         perturbation of electron distribution and group velocity over the energy
-        """
+            """
         valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
                   self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
 
