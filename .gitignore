@@ -48,3 +48,6 @@ nosetests.xml
 
 temp_dir
 docs/build/doctrees
+
+run_data
+amset.log
