@@ -2527,8 +2527,8 @@ class Amset(object):
 
         if sname.upper() == "ACD":
             # The following two lines are from [R]: page 38, eq. (112)
-            return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) / (3 * pi * hbar ** 2 * self.C_el * 1e9 * v) \
-                   * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * e * 1e20
+            return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) / (3 * pi * hbar ** 2 * self.C_el * v) \
+                   * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * e * 1e11
 
         elif sname.upper() == "IMP":
             # The following is a variation of Dingle's theory; see eq. (90) in [R]
