@@ -39,6 +39,13 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from scipy.interpolate import griddata
 from sys import stdout as STDOUT
 
+try:
+    import BoltzTraP2
+    import BoltzTraP2.dft
+    from BoltzTraP2 import sphere, fite
+except ImportError:
+    warnings.warn('BoltzTraP2 not imported; "boltztrap2" interpolation not available.')
+
 
 __author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
@@ -593,16 +600,16 @@ class Amset(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     self.logger.debug('3 terms of {0}-type seebeck at c={1:.2e}, T={2}'.format(tp, c, T))
-                    self.logger.debug('seebeck integral: {}'.format(str(self.mobility[tp]['seebeck'][c][T]*(-1e6) * k_B)))
+                    self.logger.debug('seebeck integral term: {}'.format(str(self.mobility[tp]['seebeck'][c][T]*(-1e6) * k_B)))
                     self.mobility[tp]['seebeck'][c][T] -= \
                         (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) \
                         / (k_B * T)
-                    self.logger.debug('Fermi level w.r.t. the CBM/VBM: {}'.format(str((self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"])/(k_B * T)*(-1e6) * k_B)))
+                    self.logger.debug('seebeck term Fermi level w.r.t. the CBM/VBM: {}'.format(str((self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"])/(k_B * T)*(-1e6) * k_B)))
                     self.mobility[tp]['seebeck'][c][T] *= (-1e6) * k_B
                     self.mobility[tp]["seebeck"][c][T] -= 0 # TODO: J_th term is too large, see why (e.g. in SnS)
                     # self.mobility[tp]["seebeck"][c][T] += 1e6 * self.mobility[tp]["J_th"][c][T]\
                     #     /(self.mobility[tp]["overall"][c][T]*e*float(1+abs(self.calc_doping[c][T][tp])))/dTdz
-                    self.logger.debug('J_th term: {}'.format(str(1e6 * self.mobility[tp]["J_th"][c][T]/(self.mobility[tp]["overall"][c][T]*e*float(1+abs(self.calc_doping[c][T][tp])))/dTdz)))
+                    self.logger.debug('seebeck term J_th: {}'.format(str(1e6 * self.mobility[tp]["J_th"][c][T]/(self.mobility[tp]["overall"][c][T]*e*float(1+abs(self.calc_doping[c][T][tp])))/dTdz)))
                     for band in list(self.valleys[tp].keys()):
                         for valley_k in list(self.valleys[tp][band].keys()):
                             self.valleys[tp][band][valley_k]["seebeck"][c][T] -= (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T)
