@@ -570,6 +570,9 @@ class Amset(object):
                                     k[i] = round(k[i], 1)
                                 elif k[i] != round(k[i], 2):
                                     k[i] = round(k[i], 2)
+                            #TODO: here the numerator of band/valleys is initiated by w/o valley_ndegen which results
+                            # in valleys.json mobility values being lower; write a function that goes over all values of
+                            # valley transport and multiplies them by valley_ndegen = self.bs.get_kpoint_degeneracy(k)
                             self.valleys[tp]['band {}'.format(self.ibrun)]['{};{};{}'.format(k[0], k[1], k[2])] = valley_transport[tp]
 
                 kgrid_rm_list = ["f_th", "S_i_th", "S_o_th"]
