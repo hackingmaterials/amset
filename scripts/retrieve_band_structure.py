@@ -6,7 +6,8 @@ from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
 from matminer import PlotlyFig
 from BoltzTraP2 import sphere, fite
 from pymatgen.io.vasp import Vasprun
-from amset.utils.tools import get_energy_args, get_bindex_bspin, interpolate_bs
+from amset.utils.band_interpolation import get_energy_args, interpolate_bs
+from amset.utils.band_structure import get_bindex_bspin
 
 """
 This script is to compare the energy, velocity and effective mass calculated 

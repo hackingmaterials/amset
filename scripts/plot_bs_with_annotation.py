@@ -1,8 +1,8 @@
 from amset.core import Amset
 from amset.utils.constants import A_to_nm, comp_to_dirname
 from amset.utils.detect_peaks import detect_peaks
-from amset.utils.tools import get_bindex_bspin, interpolate_bs, \
-    get_energy_args, kpts_to_first_BZ
+from amset.utils.band_structure import get_bindex_bspin, kpts_to_first_BZ
+from amset.utils.band_interpolation import interpolate_bs, get_energy_args
 from matminer import PlotlyFig
 import numpy as np
 import os
