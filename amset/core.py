@@ -524,7 +524,6 @@ class Amset(object):
                 self.logger.info('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
                 self.logger.info('transport properties of the current valley'
                                  '\n{}'.format(pformat(valley_transport)))
-                # pprint(valley_transport)
 
                 if self.ibrun==0 and ivalley==0: # 1-valley only since it's SPB
                     self.calculate_spb_transport()
@@ -3500,32 +3499,12 @@ class Amset(object):
         return valley_transport
 
 
-    def test_run(self):
-        important_pts = [self.cbm_vbm["n"]["kpoint"]]
-        if (np.array(self.cbm_vbm["p"]["kpoint"]) != np.array(self.cbm_vbm["n"]["kpoint"])).any():
-            important_pts.append(self.cbm_vbm["p"]["kpoint"])
-
-        points_1d = generate_k_mesh_axes(important_pts, kgrid_tp='very coarse')
-        self.kgrid_array = create_grid(points_1d)
-        kpts = array_to_kgrid(self.kgrid_array)
-
-        self.k_hat_array = normalize_array(self.kgrid_array)
-
-        self.dv_grid = self.find_dv(self.kgrid_array)
-
-        k_x = self.kgrid_array[:, :, :, 0]
-        k_y = self.kgrid_array[:, :, :, 1]
-        k_z = self.kgrid_array[:, :, :, 2]
-        result = self.integrate_over_k(np.cos(k_x))
-        print(result)
-
 
 if __name__ == "__main__":
 
-
+    # inputs
     mass = 0.25
     use_parabolic_bands = False
-
     model_params = {'bs_is_isotropic': True,
                     'elastic_scats': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scats': ['POP']
@@ -3534,7 +3513,6 @@ if __name__ == "__main__":
         model_params["parabolic_bands"] = [[
             [[0.0, 0.0, 0.0], [0.0, mass]],
         ]]
-
     performance_params = {"dE_min": 0.0001, "nE_min": 5,
                           "BTE_iters": 5,
                           "max_nbands": 1,
@@ -3545,9 +3523,7 @@ if __name__ == "__main__":
                           "max_Ecut": 1.0,
                           "dos_kdensity": 300
                           }
-
-    # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, # experimental
-    material_params = {"epsilon_s": 12.18, "epsilon_inf": 10.32, "W_POP": 8.16, # ab initio (lower overall mobility)
+    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, # experimental from [R]
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052
             , "user_bandgap": 1.54,
             # "important_points": {'n': [[0. , 0.5, 0. ]], 'p': [[0. , 0.0, 0. ]]},
@@ -3556,14 +3532,13 @@ if __name__ == "__main__":
     # coeff_file = None
     coeff_file = os.path.join(input_dir, "fort.123")
 
+    # instantiate and run AMSET:
     amset = Amset(calc_dir='.',
                   vasprun_file=os.path.join(input_dir, "vasprun.xml"),
                   material_params=material_params,
                   model_params=model_params,
                   performance_params=performance_params,
                   dopings = [-3e13],
-                  # dopings = [-1e16, -1e17, -1e18, -1e19, -1e20, -1e21],
-                  # temperatures = [300, 600, 900],
                   temperatures = [300, 600],
                   integration='e',
                   )
