@@ -2541,7 +2541,7 @@ class Amset(object):
 
             return abs((e ** 4 * abs(self.egrid["N_II"][c][T])) / (
                 8 * pi * v * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2 *
-                knrm ** 2) * (D_II * log(1 + 4 * knrm ** 2 / beta ** 2) - B_II) * 3.89564386e27)
+                knrm ** 2) * (D_II * log(1 + 4 * knrm ** 2 / beta ** 2) - B_II)) / (1e10*e**2)
 
         elif sname.upper() == "PIE":
             # equation (108) of the reference [R]
@@ -2554,8 +2554,7 @@ class Amset(object):
             return (self.N_dis * e ** 4 * knrm) / (
             hbar ** 2 * epsilon_0 ** 2 * self.epsilon_s ** 2 * (self._vrun.lattice.c * A_to_nm) ** 2 * v) \
                    / (self.egrid["beta"][c][T][tp] ** 4 * (
-            1 + (4 * knrm ** 2) / (self.egrid["beta"][c][T][tp] ** 2)) ** 1.5) \
-                   * 2.43146974985767e42 * 1.60217657 / 1e8;
+            1 + (4 * knrm ** 2) / (self.egrid["beta"][c][T][tp] ** 2)) ** 1.5)/(1e3*e**2)
         else:
             raise ValueError('The elastic scattering name "{}" is NOT supported.'.format(sname))
 
