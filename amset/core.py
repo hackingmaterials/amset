@@ -47,11 +47,11 @@ except ImportError:
     warnings.warn('BoltzTraP2 not imported; "boltztrap2" interpolation not available.')
 
 
-__author__ = "Alireza Faghaninia, Jason Frost, Anubhav Jain"
+__author__ = "Alireza Faghaninia, Alex Ganose, Jason Frost, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
 __version__ = "0.1.0"
-__maintainer__ = "Alireza Faghaninia"
-__email__ = "alireza.faghaninia@gmail.com"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
 __status__ = "Development"
 
 
@@ -670,7 +670,8 @@ class Amset(object):
                 raise AmsetError(self.logger,
                                  '{} does not exist! generating the cube file '
                                  '(i.e. fort.123) requires a modified version of BoltzTraP. '
-                                 'Contact {}'.format(coeff_file, __email__))
+                                 'Contact {}'.format(coeff_file, "frankyricci@gmail.com"))
+                                # 'Contact {}'.format(coeff_file, __email__))
         # initialize transport variables
         self.mo_labels = self.elastic_scats + self.inelastic_scats + ['overall', 'average']
         self.spb_labels = ['SPB_ACD']
