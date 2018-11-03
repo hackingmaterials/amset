@@ -24,6 +24,11 @@ from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
 from amset.utils.transport import f0, df0dE, fermi_integral, calculate_Sio, \
         get_tp, free_e_dos
 from amset.utils.plotting import get_amset_plots
+from amset.scattering.elastic import (
+    IonizedImpurityScattering, AcousticDeformationScattering,
+    PiezoelectricScattering, DislocationScattering)
+
+from amset.valley import Valley
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -369,7 +374,7 @@ class Amset(object):
                         # different valleys but among symmetrically equivalent
                         # k-points of the same valley so the cutoff would make sense
                         for k in self.bs.get_sym_eq_kpoints(important_points[tp][0], cartesian=False):
-                            kdiff =  get_closest_k(
+                            kdiff = get_closest_k(
                                 k, self.all_important_pts[tp], return_diff=True, exclude_self=True)
                             new_dist = 1/A_to_nm *norm(self.get_cartesian_coords(kdiff))
                             # to avoid self-counting, 0.1 criterion added:
@@ -2064,7 +2069,7 @@ class Amset(object):
         norm_diff_k = norm(k - k_prm)  # the slope for PIE and IMP don't match with bs_is_isotropic
         if norm_diff_k == 0.0:
             warnings.warn("WARNING!!! same k and k' vectors as input of the elastic scattering equation")
-            return 0.0
+            return 0.#0
 
         if sname.upper() in ["IMP"]:  # ionized impurity scattering
             unit_conversion = 0.001 / e ** 2
@@ -2267,6 +2272,7 @@ class Amset(object):
                 k-point at each band
             integrand (func): the integrand function; options: el_integrand_X
                 or inel_integrand_X for elastic and inelastic respectively
+
             ib (int): the band index
             ik (int): the k-point index
             c (float): the carrier concentration
@@ -2567,9 +2573,49 @@ class Amset(object):
         sname = sname.upper()
         self.initialize_var("egrid", sname, "vector", 0.0, c_T_idx=True)
         self.initialize_var("kgrid", sname, "vector", 0.0, c_T_idx=True)
+
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
+
+                    if sname in ['IMP']:
+                        valley = Valley(
+                            self.kgrid[tp]["cartesian kpoints"][0],
+                            self.kgrid[tp]['norm(k)'][0],
+                            self.kgrid[tp]['velocity'][0],
+                            self.kgrid[tp]['norm(v)'][0],
+                            self.kgrid[tp]['a'][0],
+                            self.kgrid[tp]['c'][0],
+                            angle_k_prime_mapping=self.kgrid[tp]["X_E_ik"][0]
+                        )
+
+                        if sname == 'IMP':
+                            scats = IonizedImpurityScattering(
+                                self.bs_is_isotropic, valley, self.epsilon_s,
+                                self.egrid["N_II"][c][T],
+                                self.egrid["beta"][c][T][tp])
+                        elif sname == 'ACD':
+                            scats = AcousticDeformationScattering(
+                                self.bs_is_isotropic, valley, self.C_el,
+                                self.E_D[tp], T)
+                        elif sname == 'PIE':
+                            scats = PiezoelectricScattering(
+                                self.bs_is_isotropic, valley, self.epsilon_s,
+                                self.P_PIE, T)
+                        elif sname == 'DIS':
+                            scats = DislocationScattering(
+                                self.bs_is_isotropic, valley, self.epsilon_s,
+                                self.P_PIE, T)
+                        else:
+                            raise ValueError("Unknown scattering type: {}".format(
+                                sname))
+
+                        rates = scats.calculate_scattering()
+                        self.kgrid[tp][sname][c][T][0] = rates
+                        self.kgrid[tp]["_all_elastic"][c][T][0] += rates
+
+                        return
+
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             if self.bs_is_isotropic:
@@ -3516,7 +3562,7 @@ if __name__ == "__main__":
     mass = 0.25
     use_parabolic_bands = False
 
-    model_params = {'bs_is_isotropic': True,
+    model_params = {'bs_is_isotropic': False,
                     'elastic_scats': ['ACD', 'IMP', 'PIE'],
                     'inelastic_scats': ['POP']
                     }
@@ -3533,7 +3579,7 @@ if __name__ == "__main__":
                           "max_nvalleys": 1,
                           "interpolation": "boltztrap1",
                           "max_Ecut": 1.0,
-                          "dos_kdensity": 300
+                          "dos_kdensity": 50
                           }
 
     # material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, # experimental
@@ -3554,16 +3600,16 @@ if __name__ == "__main__":
                   dopings = [-3e13],
                   # dopings = [-1e16, -1e17, -1e18, -1e19, -1e20, -1e21],
                   # temperatures = [300, 600, 900],
-                  temperatures = [300, 600],
+                  temperatures = [300],
                   integration='e',
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse')
+    amset.run_profiled(coeff_file, kgrid_tp='very fine')
 
-    amset.write_input_files()
-    amset.to_csv()
-    amset.as_dict()
-    amset.to_file()
-    amset.plot(k_plots=['energy'], e_plots='all', mode='offline',
-               carrier_types=amset.all_types)
-
-    amset.to_json(kgrid=True, trimmed=True, max_ndata=100, n0=0)
+    # amset.write_input_files()
+    # amset.to_csv()
+    # amset.as_dict()
+    # amset.to_file()
+    # amset.plot(k_plots=['energy'], e_plots='all', mode='offline',
+    #            carrier_types=amset.all_types)
+    #
+    # amset.to_json(kgrid=True, trimmed=True, max_ndata=100, n0=0)
