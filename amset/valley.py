@@ -1,5 +1,7 @@
+from monty.json import MSONable
 
-class Valley(object):
+
+class Valley(MSONable):
 
     def __init__(self, kpoints, kpoints_norm, velocities,
                  velocities_norm, a_contrib, c_contrib,
@@ -11,3 +13,4 @@ class Valley(object):
         self.a_contrib = a_contrib
         self.c_contrib = c_contrib
         self.angle_k_prime_mapping = angle_k_prime_mapping
+
