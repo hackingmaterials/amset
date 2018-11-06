@@ -2558,13 +2558,12 @@ class Amset(object):
         else:
             raise ValueError('The elastic scattering name "{}" is NOT supported.'.format(sname))
 
-
     def s_elastic(self, sname):
         """
         The scattering rate equation for each elastic scattering name (sname)
 
         Args:
-            sname (st): elastic scattering name: 'IMP', 'ADE', 'PIE', 'DIS'
+            sname (str): elastic scattering name: 'IMP', 'ADE', 'PIE', 'DIS'
 
         Returns:
             it directly calculates the scattering rate at each k-point at each
@@ -2577,63 +2576,41 @@ class Amset(object):
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
+                    valley = Valley(
+                        self.kgrid[tp]["cartesian kpoints"][0],
+                        self.kgrid[tp]['norm(k)'][0],
+                        self.kgrid[tp]['velocity'][0],
+                        self.kgrid[tp]['norm(v)'][0],
+                        self.kgrid[tp]['a'][0],
+                        self.kgrid[tp]['c'][0],
+                        angle_k_prime_mapping=self.kgrid[tp]["X_E_ik"][0]
+                    )
 
-                    if sname in ['IMP']:
-                        valley = Valley(
-                            self.kgrid[tp]["cartesian kpoints"][0],
-                            self.kgrid[tp]['norm(k)'][0],
-                            self.kgrid[tp]['velocity'][0],
-                            self.kgrid[tp]['norm(v)'][0],
-                            self.kgrid[tp]['a'][0],
-                            self.kgrid[tp]['c'][0],
-                            angle_k_prime_mapping=self.kgrid[tp]["X_E_ik"][0]
-                        )
+                    if sname == 'IMP':
+                        scats = IonizedImpurityScattering(
+                            self.bs_is_isotropic, valley, self.epsilon_s,
+                            self.egrid["N_II"][c][T],
+                            self.egrid["beta"][c][T][tp])
+                    elif sname == 'ACD':
+                        scats = AcousticDeformationScattering(
+                            self.bs_is_isotropic, valley, self.C_el,
+                            self.E_D[tp], T)
+                    elif sname == 'PIE':
+                        scats = PiezoelectricScattering(
+                            self.bs_is_isotropic, valley, self.epsilon_s,
+                            self.P_PIE, T)
+                    elif sname == 'DIS':
+                        scats = DislocationScattering(
+                            self.bs_is_isotropic, valley, self.epsilon_s,
+                            self.egrid["beta"][c][T][tp], self.N_dis,
+                            self._vrun.lattice.c)
+                    else:
+                        raise ValueError("Unknown scattering type: {}".format(
+                            sname))
 
-                        if sname == 'IMP':
-                            scats = IonizedImpurityScattering(
-                                self.bs_is_isotropic, valley, self.epsilon_s,
-                                self.egrid["N_II"][c][T],
-                                self.egrid["beta"][c][T][tp])
-                        elif sname == 'ACD':
-                            scats = AcousticDeformationScattering(
-                                self.bs_is_isotropic, valley, self.C_el,
-                                self.E_D[tp], T)
-                        elif sname == 'PIE':
-                            scats = PiezoelectricScattering(
-                                self.bs_is_isotropic, valley, self.epsilon_s,
-                                self.P_PIE, T)
-                        elif sname == 'DIS':
-                            scats = DislocationScattering(
-                                self.bs_is_isotropic, valley, self.epsilon_s,
-                                self.P_PIE, T)
-                        else:
-                            raise ValueError("Unknown scattering type: {}".format(
-                                sname))
-
-                        rates = scats.calculate_scattering()
-                        self.kgrid[tp][sname][c][T][0] = rates
-                        self.kgrid[tp]["_all_elastic"][c][T][0] += rates
-
-                        return
-
-                    for ib in range(len(self.kgrid[tp]["energy"])):
-                        for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            if self.bs_is_isotropic:
-                                self.kgrid[tp][sname][c][T][ib][ik] = self.s_el_eq_isotropic(sname, tp, c, T, ib, ik)
-                            else:
-                                summation = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
-                                                                  integrand=self.el_integrand_X,
-                                                                  ib=ib, ik=ik, c=c, T=T, sname=sname, g_suffix="")
-                                self.kgrid[tp][sname][c][T][ib][ik] = abs(summation) * 2e-7 * pi / hbar
-                                if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 100 and sname not in ["DIS"]:
-                                    self.logger.warning("Here {} rate < 1.\nX_E_ik:\n{}".format(sname, self.kgrid[tp]["X_E_ik"][ib][ik]))
-                                    self.kgrid[tp][sname][c][T][ib][ik] = [1e10, 1e10, 1e10]
-
-                                if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e20:
-                                    self.logger.warning('too large rate for {} at k={}, v={}:'.format(
-                                        sname, self.kgrid[tp]['kpoints'][ib][ik], self.kgrid[tp]['velocity'][ib][ik]))
-                            self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
-
+                    rates = scats.calculate_scattering()
+                    self.kgrid[tp][sname][c][T][0] = rates
+                    self.kgrid[tp]["_all_elastic"][c][T][0] += rates
 
     def map_to_egrid(self, prop_name, c_and_T_idx=True, prop_type="vector"):
         """
