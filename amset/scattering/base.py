@@ -1,15 +1,39 @@
-from scipy.integrate import trapz
+"""
+This module defines the base class for calculating scattering rates.
 
+TODO: reformat angle_k_prime_mapping to remove band index
+TODO: check final mobilities using both methods, against isotropic
+      formalism to see which one is more accurate
+"""
 import copy
-
 import numpy as np
 
-from multiprocessing import Pool, cpu_count
+from monty.json import MSONable
+from scipy.integrate import trapz
+
+from amset.utils.constants import pi
 
 
-class AbstractScattering(object):
-    """Abstract class defining common scattering calculation functions.
+class AbstractScattering(MSONable):
+    """Abstract class for defining charge-carrier scattering processes.
 
+    This class provides helper functions for integrating scattering rates over
+    360 degrees in reciprocal space, and for calculating the overlap integral
+    between k-points.
+
+    Scattering classes that extend this class must implement the following
+    methods ``calculate_isotropic`` and ``calculate_isotropic`` for calculating
+    the isotropic and anisotropic scattering rates for all k-points,
+    respectively, and ``integrand_angle`` for calculating the scattering
+    interaction between two k-points.
+
+    Args:
+        name (str): A three letter abbreviation for the scattering type.
+        isotropic (bool): Whether the scattering should be calculated using the
+            isotropic formalism.
+        valley (Valley): A valley object.
+        constrain_rates (bool, optional): Whether to constrain the scattering
+            rates to physical values.
     """
 
     def __init__(self, name, isotropic, valley, constrain_rates=True):
@@ -22,37 +46,84 @@ class AbstractScattering(object):
             raise ValueError("valley angle_k_prime_mapping required to "
                              "calculate anisotropic scattering")
 
-    def calculate_isotropic(self):
-        raise NotImplementedError
-
-    def calculate_anisotropic(self):
-        raise NotImplementedError
-
     def integrand_angle(self, kpoint, kpoint_prime, angle, **kwargs):
         raise NotImplementedError
 
+    def calculate_isotropic(self):
+        """Calculates the isotropic scattering rate for all k-points.
+
+        Returns:
+            (numpy.ndarray): The scattering rates as an (Nx3) numpy array, where
+            N is the number of k-points in the valley. The second axis of the
+            array refers to the cartesian lattice direction, e.g. x, y, and z.
+            For the isotropic case, all three directions will be the same value.
+        """
+        raise NotImplementedError
+
+    def calculate_anisotropic(self):
+        """Calculates the anistropic scattering rate for all k-points.
+
+        Depending on the ``constrain_rates`` instance variables, the rate
+        will be limited to physical values.
+
+        Returns:
+            (numpy.ndarray): The scattering rates as an (Nx3) numpy array, where
+            N is the number of k-points in the valley. The second axis of the
+            array refers to the cartesian lattice direction, e.g. x, y, and z.
+        """
+        raise NotImplementedError
+
     def calculate_scattering(self):
+        """Calculates carrier scattering rates for all k-points in the valley.
+
+        The formalism used depends on the ``isotropic`` instance variable.
+
+        Returns:
+            (numpy.ndarray): The scattering rates as an (Nx3) numpy array, where
+            N is the number of k-points in the valley. The second axis of the
+            array refers to the cartesian lattice direction, e.g. x, y, and z.
+        """
         if self.isotropic:
             return self.calculate_isotropic()
         else:
             return self.calculate_anisotropic()
 
     def get_overlap_integral(self, kpoint, kpoint_prime, angle):
+        """Calculates the overlap integral between two k-points.
+
+        Args:
+            kpoint (int): The index of the first k-point.
+            kpoint_prime (int): The index of the second k-point.
+            angle (float): The cosine of the angle between the two k-points.
+
+        Returns:
+            (float): The overlap integral between the two k-points.
+        """
         return ((self.valley.a_contrib[kpoint] *
                  self.valley.a_contrib[kpoint_prime]) +
                 (angle * self.valley.c_contrib[kpoint] *
                  self.valley.c_contrib[kpoint_prime]))**2
 
     def integrate_over_angle(self, kpoint, scipy_int=False, **integrand_kwargs):
-        """
-        integrate numerically with a simple trapezoidal algorithm.
+        """Integrate the scattering rate over 360 degrees in reciprocal space.
+
+        The default algorithm is to use a simple trapezoidal method
+        (implemented by Alireza Faghaninia). This method gives non-negligible
+        differences to the trapezoidal algorithm in scipy. Both methods have
+        been implemented but the function will default to the method written
+        by Alireza until the discrepancies can be resolved.
 
         Args:
-            kpoint (int): the k-point index
-            scipy_int (bool): Whether to use my scipy interpolation rather than
-                Alireza's
+            kpoint (int): The index of the k-point.
+            scipy_int (bool, optional): Whether to use scipy for interpolation
+                rather than Alireza's procedure.
+            **integrand_kwargs (kwargs): Keyword arguments to be passed to
+                the ``integrand_angle`` function. See the implemention of this
+                method in the subclasses for more details.
 
-        Returns (float or numpy.array): the integrated value/vector
+        Returns:
+            (numpy.ndarray): The integrated scattering rate as a (1x3) numpy
+            array.
         """
         summation = 0.0
         if len(self.valley.angle_k_prime_mapping[kpoint]) == 0:
@@ -62,11 +133,6 @@ class AbstractScattering(object):
 
         # relies on the fact that the mapping is already sorted by angle
         mapping = copy.deepcopy(self.valley.angle_k_prime_mapping[kpoint])
-
-        # todo: reformat angle_k_prime_mapping to remove band index
-
-        # todo: check final mobilities using both methods, against isotropic
-        # formalism to see which one is more accurate
 
         if scipy_int:
             mapping.insert(0, [-1, 0, kpoint])
@@ -118,37 +184,3 @@ class AbstractScattering(object):
                 summation += dum * delta_angle
 
         return summation
-
-
-class AbstractParallelizableScattering(object):
-    """Abstract class defining common scattering calculation functions.
-
-    """
-
-    def __init__(self, n_jobs=-1):
-        self._n_jobs = n_jobs
-
-    def calculate(self, kpoint_index, kpoints, energies, velocities):
-        raise NotImplementedError
-
-    def calculate_scattering(self, kpoints, energies, velocities):
-
-        def calculate_wrapper(kpoint_index):
-            return self.calculate(kpoint_index, kpoints, energies, velocities)
-
-        kpoint_indexes = range(len(kpoints))
-
-        if self.n_jobs == 1:
-            return [self.calculate(i, kpoints, energies, velocities)
-                    for i in kpoint_indexes]
-        else:
-            with Pool(self.n_jobs) as p:
-                return p.map(calculate_wrapper, kpoint_indexes)
-
-    def set_n_jobs(self, n_jobs):
-        """Set the number of processes to spawn."""
-        self._n_jobs = n_jobs
-
-    @property
-    def n_jobs(self):
-        return self._n_jobs if hasattr(self, '_n_jobs') else cpu_count()
