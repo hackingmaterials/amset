@@ -11,7 +11,7 @@ from copy import deepcopy
 
 test_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'test_files')
 
-LOGLEVEL = logging.ERROR
+LOGLEVEL = logging.DEBUG
 
 
 class AmsetTest(unittest.TestCase):
@@ -104,7 +104,7 @@ class AmsetTest(unittest.TestCase):
         self.assertEqual(kgrid['n']['velocity'][0].shape[0], 78)
         mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
         self.assertLessEqual(np.std(mean_v), 50.00) # isotropic BS after removing points
-        self.assertAlmostEqual(mean_v[0], 113757441.8667, places=1) # zeroth band
+        self.assertAlmostEqual(mean_v[0], 113757441.8667, places=1) # velocity
 
         # check mobility values
         for mu in expected_mu.keys():
