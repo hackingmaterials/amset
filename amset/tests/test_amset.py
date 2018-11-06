@@ -13,6 +13,7 @@ test_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'test_files')
 
 LOGLEVEL = logging.ERROR
 
+
 class AmsetTest(unittest.TestCase):
     def setUp(self):
         os.makedirs(os.path.join(test_dir, 'temp_dir'), exist_ok=True)
@@ -77,7 +78,6 @@ class AmsetTest(unittest.TestCase):
                    amset.mobility['n']['SPB_ACD'][c][T]) / 2
             self.assertTrue((diff / avg <= 0.025).all())
 
-
     def test_GaAs_isotropic_E_plus_serialize_deserialize(self):
         print('\ntesting test_GaAs_isotropic_E_plus_serialize_deserialize...')
         expected_mu = {'ACD': 459623.2946,
@@ -122,7 +122,6 @@ class AmsetTest(unittest.TestCase):
 
         # deserialization test:
         amset.from_file(path=os.path.join(amset.calc_dir, 'run_data'))
-
 
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
