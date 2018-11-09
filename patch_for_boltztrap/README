@@ -1,0 +1,24 @@
+This patch is meant to edit the BoltzTraP code in order to get a file containg
+the coefficients of the interpolation and other data useful to interpolate the
+band structure inside AMSET.
+
+This is an example code to get the original BoltzTraP version and apply this patch.
+
+wget https://owncloud.tuwien.ac.at/index.php/s/s2d55LYlZnioa3s/download -O Boltztrap.tar.gz
+
+tar xf Boltztrap.tar.gz
+
+cp patch.diff boltztrap-1.2.5/
+
+cd boltztrap-1.2.5/
+
+patch -p0 < patch.diff
+
+This should be the correct output:
+patching file src/BoltzTraP.F90
+patching file src/m_bandstructure.F90
+
+Then it is possible to continue with the compilation of the BoltzTraP code
+according its documentation.
+
+
