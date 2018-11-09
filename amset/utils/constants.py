@@ -15,3 +15,12 @@ epsilon_0 = 8.854187817e-12  # dielectric constant in vacuum [C**2/m**2N]
 default_small_E = 1.0  # eV/cm the value of this parameter does not matter
 dTdz = 10.0  # K/cm
 sq3 = 3.0 ** 0.5
+
+comp_to_dirname = {
+    'GaAs': 'GaAs_mp-2534',
+    'Si': 'Si_mp-149',
+    'PbTe': 'PbTe_mp-19717',
+    'InP': 'InP_mp-20351',
+    'AlCuS2': 'AlCuS2_mp-4979',
+    'In2O3': 'In2O3_mp-22598',
+}

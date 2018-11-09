@@ -1,0 +1,335 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>amset.utils.band_structure &#8212; Amset 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+ 
+<link href='https://fonts.googleapis.com/css?family=Lato:400,700' rel='stylesheet' type='text/css'>
+
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Amset 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for amset.utils.band_structure</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">amset.utils.general</span> <span class="k">import</span> <span class="n">AmsetError</span><span class="p">,</span> <span class="n">norm</span>
+<span class="kn">from</span> <span class="nn">pymatgen</span> <span class="k">import</span> <span class="n">Spin</span>
+<span class="kn">from</span> <span class="nn">pymatgen.symmetry.analyzer</span> <span class="k">import</span> <span class="n">SpacegroupAnalyzer</span>
+<span class="kn">from</span> <span class="nn">pymatgen.util.coord</span> <span class="k">import</span> <span class="n">pbc_diff</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">For functions that deal with band structure, k-points operations, k-point grid, </span>
+<span class="sd">Brillouin zone and even parsing s- and p-orbital contribution from vasprun.xml</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="kpts_to_first_BZ"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.band_structure.kpts_to_first_BZ">[docs]</a><span class="k">def</span> <span class="nf">kpts_to_first_BZ</span><span class="p">(</span><span class="n">kpts</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Brings a list of k-points to the 1st Brillouin Zone (BZ);</span>
+<span class="sd">    i.e. -0.5 &lt;= the fractional coordinates &lt;= 0.5</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        kpts ([3x1 list or array]): list of k-points fractional coordinates</span>
+
+<span class="sd">    Returns ([3x1 list or array]): list of transformed coordinates</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">new_kpts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">kpts</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="k">while</span> <span class="n">k</span><span class="p">[</span><span class="n">alpha</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.50</span><span class="p">:</span>
+                <span class="n">k</span><span class="p">[</span><span class="n">alpha</span><span class="p">]</span> <span class="o">-=</span> <span class="mf">1.00</span>
+            <span class="k">while</span> <span class="n">k</span><span class="p">[</span><span class="n">alpha</span><span class="p">]</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mf">0.50</span><span class="p">:</span>
+                <span class="n">k</span><span class="p">[</span><span class="n">alpha</span><span class="p">]</span> <span class="o">+=</span> <span class="mf">1.00</span>
+        <span class="n">new_kpts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">new_kpts</span></div>
+
+
+<div class="viewcode-block" id="get_closest_k"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.band_structure.get_closest_k">[docs]</a><span class="k">def</span> <span class="nf">get_closest_k</span><span class="p">(</span><span class="n">kpoint</span><span class="p">,</span> <span class="n">ref_ks</span><span class="p">,</span> <span class="n">return_diff</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">exclude_self</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the list of difference between kpoints. If return_diff True, then</span>
+<span class="sd">        for a given kpoint the minimum distance among distances with ref_ks is</span>
+<span class="sd">        returned or just the reference kpoint that results if not return_diff</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        kpoint (1x3 array): the coordinates of the input k-point</span>
+<span class="sd">        ref_ks ([1x3 array]): list of reference k-points from which the</span>
+<span class="sd">            distance with initial_ks are calculated</span>
+<span class="sd">        return_diff (bool): if True, the minimum distance is returned</span>
+<span class="sd">        exclude_self (bool): if kpoint is already repeated in ref_ks, exclude</span>
+<span class="sd">            that from ref_ks</span>
+
+<span class="sd">    Returns (1x3 array):</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">kpoint</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">3</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">ref_ks</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">AmsetError</span><span class="p">(</span><span class="s1">&#39;k-point coordinates must be 3-dimensional&#39;</span><span class="p">)</span>
+    <span class="n">norms</span> <span class="o">=</span> <span class="p">[</span><span class="n">norm</span><span class="p">(</span><span class="n">ki</span><span class="o">-</span><span class="n">kpoint</span><span class="p">)</span> <span class="k">for</span> <span class="n">ki</span> <span class="ow">in</span> <span class="n">ref_ks</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">exclude_self</span><span class="p">:</span>
+        <span class="n">norms</span> <span class="o">=</span> <span class="p">[</span><span class="n">norm</span> <span class="k">if</span> <span class="n">norm</span><span class="o">&gt;</span><span class="mf">0.001</span> <span class="k">else</span> <span class="mf">1e10</span> <span class="k">for</span> <span class="n">norm</span> <span class="ow">in</span> <span class="n">norms</span><span class="p">]</span>
+    <span class="n">min_dist_ik</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">norms</span><span class="p">)</span><span class="o">.</span><span class="n">argmin</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">return_diff</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">kpoint</span> <span class="o">-</span> <span class="n">ref_ks</span><span class="p">[</span><span class="n">min_dist_ik</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ref_ks</span><span class="p">[</span><span class="n">min_dist_ik</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="remove_duplicate_kpoints"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.band_structure.remove_duplicate_kpoints">[docs]</a><span class="k">def</span> <span class="nf">remove_duplicate_kpoints</span><span class="p">(</span><span class="n">kpts</span><span class="p">,</span> <span class="n">dk</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">periodic</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Removes duplicate points from a list of k-points.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        kpts ([np.ndarray or list]): list of k-point coordinates</span>
+
+<span class="sd">    Returns ([np.ndarray or list]):</span>
+<span class="sd">        kpts but with duplicate points removed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rm_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">periodic</span><span class="p">:</span>
+        <span class="n">diff_func</span> <span class="o">=</span> <span class="n">pbc_diff</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">diff_func</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">subtract</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">kpts</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">kpts</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">diff_func</span><span class="p">(</span><span class="n">kpts</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">kpts</span><span class="p">[</span><span class="n">j</span><span class="p">]),</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">atol</span><span class="o">=</span><span class="n">dk</span><span class="p">):</span>
+                <span class="n">rm_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                <span class="k">break</span>
+    <span class="k">return</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">kpts</span><span class="p">,</span> <span class="n">rm_list</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="get_bindex_bspin"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.band_structure.get_bindex_bspin">[docs]</a><span class="k">def</span> <span class="nf">get_bindex_bspin</span><span class="p">(</span><span class="n">extremum</span><span class="p">,</span> <span class="n">is_cbm</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the band index and spin of band extremum</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        extremum (dict): dictionary containing the CBM/VBM, i.e. output of</span>
+<span class="sd">            Bandstructure.get_cbm()</span>
+<span class="sd">        is_cbm (bool): whether the extremum is the CBM or not</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">is_cbm</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>  <span class="c1"># 0 for CBM and -1 for VBM</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">bidx</span> <span class="o">=</span> <span class="n">extremum</span><span class="p">[</span><span class="s2">&quot;band_index&quot;</span><span class="p">][</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">][</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">bspin</span> <span class="o">=</span> <span class="n">Spin</span><span class="o">.</span><span class="n">up</span>
+    <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+        <span class="n">bidx</span> <span class="o">=</span> <span class="n">extremum</span><span class="p">[</span><span class="s2">&quot;band_index&quot;</span><span class="p">][</span><span class="n">Spin</span><span class="o">.</span><span class="n">down</span><span class="p">][</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">bspin</span> <span class="o">=</span> <span class="n">Spin</span><span class="o">.</span><span class="n">down</span>
+    <span class="k">return</span> <span class="n">bidx</span><span class="p">,</span> <span class="n">bspin</span></div>
+
+
+<div class="viewcode-block" id="insert_intermediate_kpoints"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.band_structure.insert_intermediate_kpoints">[docs]</a><span class="k">def</span> <span class="nf">insert_intermediate_kpoints</span><span class="p">(</span><span class="n">kpts</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Insert n k-points in between each two k-points from kpts and return the</span>
+<span class="sd">        latter bigger list. This can be used for example to make a finer-mesh</span>
+<span class="sd">        HighSymmKpath</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        kpts ([[float]]): list of coordinates of k-points</span>
+<span class="sd">        n (int): the number of k-points inserted between each pair of k-points</span>
+
+<span class="sd">    Returns ([[float]]): the final list of k-point coordinates</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">new_kpts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">kpts</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="p">(</span><span class="n">kpts</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">kpts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="o">/</span><span class="n">n</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">new_kpts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kpts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">j</span><span class="o">*</span><span class="n">step</span><span class="p">)</span>
+    <span class="n">new_kpts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kpts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">new_kpts</span></div>
+
+
+<div class="viewcode-block" id="get_dft_orbitals"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.band_structure.get_dft_orbitals">[docs]</a><span class="k">def</span> <span class="nf">get_dft_orbitals</span><span class="p">(</span><span class="n">vasprun</span><span class="p">,</span> <span class="n">bidx</span><span class="p">,</span> <span class="n">lorbit</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The contribution from s and p orbitals at a given band for kpoints</span>
+<span class="sd">    that were used in the DFT run (from which vasprun.xml is read). This is</span>
+<span class="sd">    just to parse the total orbital contributions out of Vasprun depending</span>
+<span class="sd">    on LORBIT.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        vasprun (pymatgen Vasprun):</span>
+<span class="sd">        bidx (idx): band index</span>
+<span class="sd">        lorbit (int): the LORBIT flag that was used when vasprun.xml generated</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ([float], [float]) two lists: s&amp;p orbital scores at the band # bidx</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">projected</span> <span class="o">=</span> <span class="n">vasprun</span><span class="o">.</span><span class="n">projected_eigenvalues</span>
+    <span class="n">nk</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vasprun</span><span class="o">.</span><span class="n">actual_kpoints</span><span class="p">)</span>
+    <span class="c1"># projected indexes : Spin; kidx; bidx; s,py,pz,px,dxy,dyz,dz2,dxz,dx2</span>
+    <span class="n">s_orbital</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">nk</span>
+    <span class="n">p_orbital</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">nk</span>
+    <span class="k">for</span> <span class="n">ik</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nk</span><span class="p">):</span>
+        <span class="n">s_orbital</span><span class="p">[</span><span class="n">ik</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">projected</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">][</span><span class="n">ik</span><span class="p">][</span><span class="n">bidx</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">lorbit</span> <span class="o">==</span> <span class="mi">10</span><span class="p">:</span>
+            <span class="n">p_orbital</span><span class="p">[</span><span class="n">ik</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">projected</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">][</span><span class="n">ik</span><span class="p">][</span><span class="n">bidx</span><span class="p">])[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">lorbit</span> <span class="o">==</span> <span class="mi">11</span><span class="p">:</span>
+            <span class="n">p_orbital</span><span class="p">[</span><span class="n">ik</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">projected</span><span class="p">[</span><span class="n">Spin</span><span class="o">.</span><span class="n">up</span><span class="p">][</span><span class="n">ik</span><span class="p">][</span><span class="n">bidx</span><span class="p">])[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AmsetError</span><span class="p">(</span><span class="s1">&#39;Not sure what to do with lorbit=</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">lorbit</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">s_orbital</span><span class="p">,</span> <span class="n">p_orbital</span></div>
+
+
+<div class="viewcode-block" id="generate_adaptive_kmesh"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.band_structure.generate_adaptive_kmesh">[docs]</a><span class="k">def</span> <span class="nf">generate_adaptive_kmesh</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span> <span class="n">important_points</span><span class="p">,</span> <span class="n">kgrid_tp</span><span class="p">,</span> <span class="n">ibz</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a kpoint mesh surrounding the important k-points in the</span>
+<span class="sd">    conduction (n-type) and valence bands (p-type). This mesh is adaptive,</span>
+<span class="sd">    meaning that the mesh is much finer closer to these &quot;important&quot; points</span>
+<span class="sd">    than it is further away. This saves tremendous computational time as</span>
+<span class="sd">    the points closer to the extremum are the most important ones dictating</span>
+<span class="sd">    the transport properties.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        bs (pymatgen.BandStructure): the bandstructure with bs.structure</span>
+<span class="sd">            present that are used for structural symmetry and getting the</span>
+<span class="sd">            symmetrically equivalent points</span>
+<span class="sd">        important_points ({&quot;n&quot;: [[3x1 array]], &quot;p&quot;: [[3x1 array]]}): list</span>
+<span class="sd">            of fractional coordinates of extrema for n-type and p-type</span>
+<span class="sd">        kgrid_tp (str): determines how coarse/fine the k-mesh would be.</span>
+<span class="sd">            options: &quot;very coarse&quot;, &quot;coarse&quot;, &quot;fine&quot;, &quot;very fine&quot;</span>
+<span class="sd">        ibz (bool): whether to generate the k-mesh based on a scaled k-mesh</span>
+<span class="sd">            in Irreducible Brillouin Zone (True, recommended) or custom</span>
+<span class="sd">            intervals only in the directions (+/-) of ibz kpoints.</span>
+
+<span class="sd">    Returns ({&quot;n&quot;: [[3x1 array]], &quot;p&quot;: [[3x1 array]]}):</span>
+<span class="sd">        list of k-points (k-mesh) may be different for conduction or</span>
+<span class="sd">        valence bands.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">ibz</span><span class="p">:</span>
+        <span class="n">kpts</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">kgrid_tp_map</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;very coarse&#39;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+                        <span class="s1">&#39;coarse&#39;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
+                        <span class="s1">&#39;fine&#39;</span><span class="p">:</span> <span class="mi">14</span><span class="p">,</span>
+                        <span class="s1">&#39;very fine&#39;</span><span class="p">:</span> <span class="mi">19</span><span class="p">,</span>
+                        <span class="s1">&#39;super fine&#39;</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>
+                        <span class="s1">&#39;extremely fine&#39;</span><span class="p">:</span> <span class="mi">33</span>
+                        <span class="p">}</span>
+        <span class="n">nkk</span> <span class="o">=</span> <span class="n">kgrid_tp_map</span><span class="p">[</span><span class="n">kgrid_tp</span><span class="p">]</span>
+        <span class="n">sg</span> <span class="o">=</span> <span class="n">SpacegroupAnalyzer</span><span class="p">(</span><span class="n">bs</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
+        <span class="n">kpts_and_weights</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">get_ir_reciprocal_mesh</span><span class="p">(</span><span class="n">mesh</span><span class="o">=</span><span class="p">(</span><span class="n">nkk</span><span class="p">,</span> <span class="n">nkk</span><span class="p">,</span> <span class="n">nkk</span><span class="p">),</span>
+                                                     <span class="n">is_shift</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">kpts_and_weights_init</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">get_ir_reciprocal_mesh</span><span class="p">(</span><span class="n">mesh</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+                                                     <span class="n">is_shift</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">initial_ibzkpt_init</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kpts_and_weights_init</span><span class="p">]</span>
+        <span class="n">initial_ibzkpt0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kpts_and_weights</span><span class="p">])</span>
+
+        <span class="c1"># this is to cover the whole BZ in an adaptive manner in case of high-mass isolated valleys</span>
+        <span class="n">initial_ibzkpt0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">initial_ibzkpt_init</span> <span class="o">+</span> \
+                                   <span class="nb">list</span><span class="p">(</span><span class="n">initial_ibzkpt0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">+</span>
+                                   <span class="nb">list</span><span class="p">(</span><span class="n">initial_ibzkpt0</span><span class="o">/</span><span class="mf">9.0</span><span class="p">)</span> <span class="o">+</span> \
+                                   <span class="nb">list</span><span class="p">(</span><span class="n">initial_ibzkpt0</span><span class="o">/</span><span class="mf">19.0</span><span class="p">)</span> <span class="p">)</span>
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;p&#39;</span><span class="p">,</span> <span class="s1">&#39;n&#39;</span><span class="p">]:</span>
+            <span class="n">tmp_kpts</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">important_point</span> <span class="ow">in</span> <span class="n">important_points</span><span class="p">[</span><span class="n">tp</span><span class="p">]:</span>
+                <span class="n">initial_ibzkpt</span> <span class="o">=</span> <span class="n">initial_ibzkpt0</span> <span class="o">+</span> <span class="n">important_point</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">initial_ibzkpt</span><span class="p">:</span>
+                    <span class="n">tmp_kpts</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">bs</span><span class="o">.</span><span class="n">get_sym_eq_kpoints</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
+            <span class="n">kpts</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">tmp_kpts</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">kgrid_tp</span> <span class="o">==</span> <span class="s2">&quot;fine&quot;</span><span class="p">:</span>
+            <span class="n">mesh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="p">[</span><span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.002</span><span class="p">,</span> <span class="mf">0.003</span><span class="p">,</span> <span class="mf">0.005</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">])</span>
+            <span class="n">nkk</span> <span class="o">=</span> <span class="mi">15</span>
+        <span class="k">elif</span> <span class="n">kgrid_tp</span> <span class="o">==</span> <span class="s2">&quot;coarse&quot;</span><span class="p">:</span>
+            <span class="n">mesh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.005</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">])</span>
+            <span class="n">nkk</span> <span class="o">=</span> <span class="mi">10</span>
+        <span class="k">elif</span> <span class="n">kgrid_tp</span> <span class="o">==</span> <span class="s1">&#39;very coarse&#39;</span><span class="p">:</span>
+            <span class="n">mesh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">])</span>
+            <span class="n">nkk</span> <span class="o">=</span> <span class="mi">5</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AmsetError</span><span class="p">(</span><span class="s1">&#39;Unsupported kgrid_tp: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kgrid_tp</span><span class="p">))</span>
+        <span class="c1"># just to find a set of + or - kpoint signs when ibzkpt is generated:</span>
+        <span class="n">sg</span> <span class="o">=</span> <span class="n">SpacegroupAnalyzer</span><span class="p">(</span><span class="n">bs</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
+        <span class="n">kpts_and_weights</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">get_ir_reciprocal_mesh</span><span class="p">(</span><span class="n">mesh</span><span class="o">=</span><span class="p">(</span><span class="n">nkk</span><span class="p">,</span> <span class="n">nkk</span><span class="p">,</span> <span class="n">nkk</span><span class="p">),</span>
+                                                     <span class="n">is_shift</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">initial_ibzkpt</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kpts_and_weights</span><span class="p">]</span>
+        <span class="n">step_signs</span> <span class="o">=</span> <span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">k</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">k</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">k</span><span class="p">[</span><span class="mi">2</span><span class="p">])]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span>
+                      <span class="n">initial_ibzkpt</span><span class="p">]</span>
+        <span class="n">step_signs</span> <span class="o">=</span> <span class="n">remove_duplicate_kpoints</span><span class="p">(</span><span class="n">step_signs</span><span class="p">,</span> <span class="n">periodic</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># actually generating the mesh seaprately for n- and p-type</span>
+        <span class="n">kpts</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;n&#39;</span><span class="p">:</span> <span class="p">[],</span> <span class="s1">&#39;p&#39;</span><span class="p">:</span> <span class="p">[]}</span>
+        <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;n&quot;</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">k_extremum</span> <span class="ow">in</span> <span class="n">important_points</span><span class="p">[</span><span class="n">tp</span><span class="p">]:</span>
+                <span class="k">for</span> <span class="n">kx_sign</span><span class="p">,</span> <span class="n">ky_sign</span><span class="p">,</span> <span class="n">kz_sign</span> <span class="ow">in</span> <span class="n">step_signs</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">kx</span> <span class="ow">in</span> <span class="n">k_extremum</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">kx_sign</span><span class="o">*</span><span class="n">mesh</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">ky</span> <span class="ow">in</span> <span class="n">k_extremum</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">ky_sign</span><span class="o">*</span><span class="n">mesh</span><span class="p">:</span>
+                            <span class="k">for</span> <span class="n">kz</span> <span class="ow">in</span> <span class="n">k_extremum</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">kz_sign</span><span class="o">*</span><span class="n">mesh</span><span class="p">:</span>
+                                <span class="n">kpts</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">kz</span><span class="p">]))</span>
+            <span class="n">tmp_kpts</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kpts</span><span class="p">[</span><span class="n">tp</span><span class="p">]:</span>
+                <span class="n">tmp_kpts</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">bs</span><span class="o">.</span><span class="n">get_sym_eq_kpoints</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
+            <span class="n">kpts</span><span class="p">[</span><span class="n">tp</span><span class="p">]</span> <span class="o">=</span> <span class="n">remove_duplicate_kpoints</span><span class="p">(</span><span class="n">tmp_kpts</span><span class="p">,</span> <span class="n">dk</span><span class="o">=</span><span class="mf">0.0009</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">kpts</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Amset 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2018, Alireza Faghaninia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.1.
+    </div>
+
+  </body>
+</html>

@@ -1,0 +1,212 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>amset.utils.band_parabolic &#8212; Amset 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+ 
+<link href='https://fonts.googleapis.com/css?family=Lato:400,700' rel='stylesheet' type='text/css'>
+
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Amset 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for amset.utils.band_parabolic</h1><div class="highlight"><pre>
+<span></span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">amset.utils.constants</span> <span class="k">import</span> <span class="n">hbar</span><span class="p">,</span> <span class="n">m_e</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">A_to_nm</span><span class="p">,</span> <span class="n">pi</span>
+<span class="kn">from</span> <span class="nn">amset.utils.general</span> <span class="k">import</span> <span class="n">norm</span>
+<span class="kn">from</span> <span class="nn">matplotlib.pylab</span> <span class="k">import</span> <span class="n">show</span><span class="p">,</span> <span class="n">scatter</span>
+<span class="kn">from</span> <span class="nn">pymatgen.symmetry.analyzer</span> <span class="k">import</span> <span class="n">SpacegroupAnalyzer</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Methods for generating parabolic band structure and density of states.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="get_parabolic_energy"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.band_parabolic.get_parabolic_energy">[docs]</a><span class="k">def</span> <span class="nf">get_parabolic_energy</span><span class="p">(</span><span class="n">kpt</span><span class="p">,</span> <span class="n">parabolic_bands</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">ib</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">bandgap</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">all_values</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Args:</span>
+<span class="sd">        kpt (list): coordinates of a given k-point in the actual cartesian coordinates and NOT fractional coordinates</span>
+<span class="sd">        rotations: symmetry rotation operations</span>
+<span class="sd">        translations: symmetry translational operations</span>
+<span class="sd">        parabolic_bands [[lists]]: each member of the first list represents a band: in each band a list of lists of lists</span>
+<span class="sd">            should contain a list of two-member lists: the two members are: the coordinates of extrema k-point and its</span>
+<span class="sd">            symmetrically equivalent points and another two members list of</span>
+<span class="sd">            [first member: energy offset from the main extremum (i.e. CBM/VBM), second member: the effective mass]</span>
+<span class="sd">            example parabolic_bands = [[ [[[0.5, 0.5, 0.5]], [0, 0.1]], [[[0, 0, 0]], [0.5, 0.2]]]] represents a</span>
+<span class="sd">            band structure with a single band; this parabolic band (hbar**2k**2/2m*) at point X</span>
+<span class="sd">            where k is norm(k-[0.5,0.5,0.5]) if the k-point is closer to X than Gamma. Additionally, this band has</span>
+<span class="sd">            another extremum at an energy level 0.5 eV above the first/main extremum/CBM. If type is &quot;p&quot; the band structure</span>
+<span class="sd">            would be a mirror image. VBM is always set to 0.0 eV and the CBM is set to the bandgap</span>
+
+<span class="sd">        type (str): &quot;n&quot; or &quot;p&quot;</span>
+<span class="sd">        ib (int): the band index, 0 is for the first band and maximum allowed value is len(parabolic_bands)-1</span>
+<span class="sd">        bandgap (float): the targetted band gap of the band structure</span>
+<span class="sd">    Returns:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># The sign of energy from type; e.g. p-type energies are negative (VBM=0.0)</span>
+    <span class="n">kpt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">kpt</span><span class="p">)</span>
+    <span class="n">sgn</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="p">([</span><span class="s2">&quot;p&quot;</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="nb">type</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">band_shapes</span> <span class="o">=</span> <span class="n">parabolic_bands</span><span class="p">[</span><span class="n">ib</span><span class="p">]</span>
+    <span class="n">min_kdist</span> <span class="o">=</span> <span class="mf">1e32</span>
+    <span class="n">allE</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">ks</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">band_shapes</span><span class="p">:</span>
+        <span class="c1">#ks: all symmetrically equivalent k-points to the extremum k in 1st BZ</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ks</span><span class="p">:</span>
+            <span class="n">distance</span> <span class="o">=</span> <span class="n">norm</span><span class="p">(</span><span class="n">kpt</span><span class="o">-</span><span class="n">k</span><span class="p">)</span>
+            <span class="n">allE</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bandgap</span> <span class="o">*</span> <span class="p">[</span><span class="s2">&quot;p&quot;</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="nb">type</span><span class="p">)</span> <span class="o">+</span> <span class="n">sgn</span> <span class="o">*</span> <span class="p">(</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> \
+                    <span class="n">hbar</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">distance</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">m_e</span> <span class="o">*</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="n">e</span> <span class="o">*</span> <span class="mf">1e18</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">distance</span> <span class="o">&lt;</span> <span class="n">min_kdist</span><span class="p">:</span>
+                <span class="n">min_kdist</span> <span class="o">=</span> <span class="n">distance</span>
+                <span class="n">coefficients</span> <span class="o">=</span> <span class="n">c</span>
+    <span class="n">eff_m</span> <span class="o">=</span> <span class="n">coefficients</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">energy</span> <span class="o">=</span> <span class="n">sgn</span> <span class="o">*</span> <span class="n">bandgap</span><span class="o">/</span><span class="mf">2.0</span>
+    <span class="n">energy</span> <span class="o">+=</span> <span class="n">sgn</span><span class="o">*</span><span class="p">(</span><span class="n">coefficients</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">hbar</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">min_kdist</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">m_e</span><span class="o">*</span><span class="n">eff_m</span><span class="p">)</span> <span class="o">*</span> <span class="n">e</span><span class="o">*</span><span class="mf">1e18</span><span class="p">)</span> <span class="c1"># last part is unit conv. to eV</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">hbar</span><span class="o">*</span><span class="n">min_kdist</span><span class="o">/</span><span class="p">(</span><span class="n">m_e</span><span class="o">*</span><span class="n">eff_m</span><span class="p">)</span> <span class="o">*</span><span class="mf">1e11</span><span class="o">*</span><span class="n">e</span> <span class="c1">#last part is unit conversion to cm/s</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">all_values</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">energy</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">]),</span> <span class="n">sgn</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[[</span><span class="n">eff_m</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eff_m</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">eff_m</span><span class="p">]])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">allE</span><span class="p">,</span> <span class="n">min_kdist</span></div>
+
+
+<div class="viewcode-block" id="get_dos_from_parabolic_bands"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.band_parabolic.get_dos_from_parabolic_bands">[docs]</a><span class="k">def</span> <span class="nf">get_dos_from_parabolic_bands</span><span class="p">(</span><span class="n">st</span><span class="p">,</span> <span class="n">reclat_matrix</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">e_min</span><span class="p">,</span> <span class="n">e_max</span><span class="p">,</span> <span class="n">e_points</span><span class="p">,</span> <span class="n">parabolic_bands</span><span class="p">,</span> <span class="n">bandgap</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">SPB_DOS</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">all_values</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Args:</span>
+<span class="sd">    st:       pmg object of crystal structure to calculate symmetries</span>
+<span class="sd">    mesh:     list of integers defining the k-mesh on which the dos is required</span>
+<span class="sd">    e_min:    starting energy (eV) of dos</span>
+<span class="sd">    e_max:    ending energy (eV) of dos</span>
+<span class="sd">    e_points: number of points of the get_dos</span>
+<span class="sd">    width:    width in eV of the gaussians generated for each energy</span>
+<span class="sd">    Returns:</span>
+<span class="sd">    e_mesh:   energies in eV od the DOS</span>
+<span class="sd">    dos:      density of states for each energy in e_mesh</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">height</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">width</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span>
+    <span class="n">e_mesh</span><span class="p">,</span> <span class="n">step</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">e_min</span><span class="p">,</span> <span class="n">e_max</span><span class="p">,</span><span class="n">num</span><span class="o">=</span><span class="n">e_points</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">retstep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">e_range</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">e_mesh</span><span class="p">)</span>
+    <span class="n">ir_kpts_n_weights</span> <span class="o">=</span> <span class="n">SpacegroupAnalyzer</span><span class="p">(</span><span class="n">st</span><span class="p">)</span><span class="o">.</span><span class="n">get_ir_reciprocal_mesh</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
+    <span class="n">ir_kpts</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ir_kpts_n_weights</span><span class="p">]</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ir_kpts_n_weights</span><span class="p">]</span>
+
+    <span class="n">ir_kpts</span> <span class="o">=</span> <span class="p">[</span><span class="n">reclat_matrix</span><span class="o">.</span><span class="n">get_cartesian_coords</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="o">/</span><span class="n">A_to_nm</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ir_kpts</span><span class="p">]</span>
+
+    <span class="n">w_sum</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">))</span>
+    <span class="n">dos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">e_range</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">SPB_DOS</span><span class="p">:</span>
+        <span class="n">volume</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">volume</span>
+        <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">parabolic_bands</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">valley</span> <span class="ow">in</span> <span class="n">band</span><span class="p">:</span>
+                <span class="n">offset</span> <span class="o">=</span> <span class="n">valley</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># each valley has a list of k-points (valley[0]) and [offset, m*] (valley[1]) info</span>
+                <span class="n">m_eff</span> <span class="o">=</span> <span class="n">valley</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">degeneracy</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">valley</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">for</span> <span class="n">ie</span><span class="p">,</span> <span class="n">energy</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">e_mesh</span><span class="p">):</span>
+                    <span class="n">dos_temp</span> <span class="o">=</span> <span class="n">volume</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">m_e</span><span class="o">*</span><span class="n">m_eff</span><span class="o">/</span><span class="n">hbar</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mf">1.5</span> <span class="o">*</span> <span class="mf">1e-30</span><span class="o">/</span><span class="n">e</span><span class="o">**</span><span class="mf">1.5</span>
+                    <span class="k">if</span> <span class="n">energy</span> <span class="o">&lt;=</span> <span class="o">-</span><span class="n">bandgap</span><span class="o">/</span><span class="mf">2.0</span><span class="o">-</span><span class="n">offset</span><span class="p">:</span>
+                        <span class="c1"># dos_temp *= (-energy-offset)**0.5</span>
+                        <span class="n">dos_temp</span> <span class="o">*=</span> <span class="p">(</span><span class="o">-</span><span class="n">energy</span><span class="o">+</span><span class="n">bandgap</span><span class="o">/</span><span class="mf">2.0</span><span class="o">+</span><span class="n">offset</span><span class="p">)</span><span class="o">**</span><span class="mf">0.5</span>
+                    <span class="k">elif</span> <span class="n">energy</span> <span class="o">&gt;=</span><span class="n">bandgap</span><span class="o">/</span><span class="mf">2.0</span><span class="o">+</span><span class="n">offset</span><span class="p">:</span>
+                        <span class="c1"># dos_temp *= (energy-bandgap-offset)**0.5</span>
+                        <span class="n">dos_temp</span> <span class="o">*=</span> <span class="p">(</span><span class="n">energy</span><span class="o">-</span><span class="n">bandgap</span><span class="o">/</span><span class="mf">2.0</span><span class="o">-</span><span class="n">offset</span><span class="p">)</span><span class="o">**</span><span class="mf">0.5</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">dos_temp</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">dos</span><span class="p">[</span><span class="n">ie</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dos_temp</span> <span class="o">*</span> <span class="n">degeneracy</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">all_energies</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">all_ks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">kpt</span><span class="p">,</span><span class="n">w</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ir_kpts</span><span class="p">,</span><span class="n">weights</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">tp</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;n&quot;</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">]:</span>
+                <span class="k">for</span> <span class="n">ib</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">parabolic_bands</span><span class="p">)):</span>
+                    <span class="k">if</span> <span class="n">all_values</span><span class="p">:</span>
+                        <span class="n">energy_list</span><span class="p">,</span> <span class="n">k_dist</span> <span class="o">=</span> <span class="n">get_parabolic_energy</span><span class="p">(</span><span class="n">kpt</span><span class="p">,</span> <span class="n">parabolic_bands</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">ib</span><span class="o">=</span><span class="n">ib</span><span class="p">,</span> <span class="n">bandgap</span><span class="o">=</span><span class="n">bandgap</span><span class="p">,</span>
+                                                           <span class="n">all_values</span><span class="o">=</span><span class="n">all_values</span><span class="p">)</span>
+                        <span class="n">all_energies</span> <span class="o">+=</span> <span class="n">energy_list</span>
+                        <span class="n">all_ks</span> <span class="o">+=</span> <span class="p">[</span><span class="n">k_dist</span><span class="p">]</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">energy_list</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">energy</span> <span class="ow">in</span> <span class="n">energy_list</span><span class="p">:</span>
+                            <span class="n">g</span> <span class="o">=</span> <span class="n">height</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">e_mesh</span> <span class="o">-</span> <span class="n">energy</span><span class="p">)</span> <span class="o">/</span> <span class="n">width</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">)</span>
+                            <span class="n">dos</span> <span class="o">+=</span> <span class="n">w</span><span class="o">/</span><span class="n">w_sum</span> <span class="o">*</span> <span class="n">g</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">energy</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">m_eff</span> <span class="o">=</span> <span class="n">get_parabolic_energy</span><span class="p">(</span><span class="n">kpt</span><span class="p">,</span> <span class="n">parabolic_bands</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">ib</span><span class="o">=</span><span class="n">ib</span><span class="p">,</span> <span class="n">bandgap</span><span class="o">=</span><span class="n">bandgap</span><span class="p">,</span> <span class="n">all_values</span><span class="o">=</span><span class="n">all_values</span><span class="p">)</span>
+                        <span class="n">g</span> <span class="o">=</span> <span class="n">height</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">e_mesh</span> <span class="o">-</span> <span class="n">energy</span><span class="p">)</span> <span class="o">/</span> <span class="n">width</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">)</span>
+                        <span class="n">dos</span> <span class="o">+=</span> <span class="n">w</span><span class="o">/</span><span class="n">w_sum</span> <span class="o">*</span> <span class="n">g</span>
+        <span class="k">if</span> <span class="n">all_values</span><span class="p">:</span>
+            <span class="n">scatter</span><span class="p">(</span><span class="n">all_ks</span><span class="p">,</span> <span class="n">all_energies</span><span class="p">)</span>
+            <span class="n">show</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">e_mesh</span><span class="p">,</span><span class="n">dos</span></div>
+
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Amset 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2018, Alireza Faghaninia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.1.
+    </div>
+
+  </body>
+</html>
