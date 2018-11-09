@@ -8,15 +8,18 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Make tox env
+          name: dependencies in py3 env gcc g++ for boltztrap2 and run tests
           command: |
-            mkdir ~/tox_env
-            python -m venv ~/tox_env
-            source ~/tox_env/bin/activate
-            pip install tox tox-pyenv
-      - run:
-          name: Run amset tests
-          command: |
-            source ~/tox_env/bin/activate
-            tox
+            sudo apt-get install gcc
+            sudo apt-get install g++
+            export CC=/usr/bin/gcc
+            export CXX=/usr/bin/g++
+            export CFLAGS="-std=c++11"
+            python3 -m venv test_env
+            . test_env/bin/activate
+            pip install --upgrade pip
+            pip install --quiet numpy cython cmake
+            pip install --quiet -r requirements.txt
+            pip install --quiet -r requirements-optional.txt
+            python setup.py test
           no_output_timeout: 60m

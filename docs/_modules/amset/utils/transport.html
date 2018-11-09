@@ -1,0 +1,318 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>amset.utils.transport &#8212; Amset 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+ 
+<link href='https://fonts.googleapis.com/css?family=Lato:400,700' rel='stylesheet' type='text/css'>
+
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Amset 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for amset.utils.transport</h1><div class="highlight"><pre>
+<span></span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">amset.utils.constants</span> <span class="k">import</span> <span class="n">k_B</span><span class="p">,</span> <span class="n">hbar</span><span class="p">,</span> <span class="n">m_e</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">pi</span><span class="p">,</span> <span class="n">sq3</span><span class="p">,</span> <span class="n">epsilon_0</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="k">import</span> <span class="n">log</span>
+
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Contains method for calculating electron distribution and optical phonon</span>
+<span class="sd">scattering rate, etc.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="f0"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.transport.f0">[docs]</a><span class="k">def</span> <span class="nf">f0</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">fermi</span><span class="p">,</span> <span class="n">T</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the value of Fermi-Dirac distribution at equilibrium.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        E (float): energy in eV</span>
+<span class="sd">        fermi (float): the Fermi level with the same reference as E (in eV)</span>
+<span class="sd">        T (float): the absolute temperature in Kelvin.</span>
+
+<span class="sd">    Returns (0&lt;float&lt;1):</span>
+<span class="sd">        The occupation calculated by Fermi dirac</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="mf">1.</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="n">E</span> <span class="o">-</span> <span class="n">fermi</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">k_B</span> <span class="o">*</span> <span class="n">T</span><span class="p">)))</span></div>
+
+
+<div class="viewcode-block" id="df0dE"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.transport.df0dE">[docs]</a><span class="k">def</span> <span class="nf">df0dE</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">fermi</span><span class="p">,</span> <span class="n">T</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the energy derivative of the Fermi-Dirac equilibrium distribution</span>
+
+<span class="sd">    Args: see Args for f0(E, fermi, T)</span>
+
+<span class="sd">    Returns (float&lt;0): the energy derivative of the Fermi-Dirac distribution.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">exponent</span> <span class="o">=</span> <span class="p">(</span><span class="n">E</span> <span class="o">-</span> <span class="n">fermi</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">k_B</span> <span class="o">*</span> <span class="n">T</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">exponent</span> <span class="o">&gt;</span> <span class="mi">40</span> <span class="ow">or</span> <span class="n">exponent</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">40</span><span class="p">:</span>  <span class="c1"># This is necessary so at too low numbers python doesn&#39;t return NaN</span>
+        <span class="k">return</span> <span class="mf">1e-32</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">k_B</span> <span class="o">*</span> <span class="n">T</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="n">E</span> <span class="o">-</span> <span class="n">fermi</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">k_B</span> <span class="o">*</span> <span class="n">T</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="n">E</span> <span class="o">-</span> <span class="n">fermi</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">k_B</span> <span class="o">*</span> <span class="n">T</span><span class="p">)))</span> <span class="o">**</span> <span class="mi">2</span></div>
+
+
+
+<div class="viewcode-block" id="fermi_integral"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.transport.fermi_integral">[docs]</a><span class="k">def</span> <span class="nf">fermi_integral</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">fermi</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">initial_energy</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the Fermi integral</span>
+<span class="sd">    (e.g. for calculating single parabolic band acoustic phonon mobility)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        order (int): the order of integral</span>
+<span class="sd">        fermi (float): absolute band structure fermi (not relative to CBM/VBM)</span>
+<span class="sd">        T (float): the temperature in kelvin</span>
+<span class="sd">        initial_energy (float): the actual CBM/VBM energy in eV</span>
+<span class="sd">        wordy (bool): whether to print out the integrals or not</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fermi</span> <span class="o">=</span> <span class="n">fermi</span> <span class="o">-</span> <span class="n">initial_energy</span>
+    <span class="n">integral</span> <span class="o">=</span> <span class="mf">0.</span>
+    <span class="n">nsteps</span> <span class="o">=</span> <span class="mf">100000.0</span>
+    <span class="c1"># TODO: 1e6 works better (converges!) but for faster test we use 1e5</span>
+    <span class="n">emesh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mi">30</span> <span class="o">*</span> <span class="n">k_B</span> <span class="o">*</span> <span class="n">T</span><span class="p">,</span> <span class="n">nsteps</span><span class="p">)</span>
+    <span class="n">dE</span> <span class="o">=</span> <span class="p">(</span><span class="n">emesh</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">emesh</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="n">nsteps</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">E</span> <span class="ow">in</span> <span class="n">emesh</span><span class="p">:</span>
+        <span class="n">integral</span> <span class="o">+=</span> <span class="n">dE</span><span class="o">*</span><span class="p">(</span><span class="n">E</span> <span class="o">/</span> <span class="p">(</span><span class="n">k_B</span><span class="o">*</span><span class="n">T</span><span class="p">))</span><span class="o">**</span><span class="n">order</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="n">E</span><span class="o">-</span><span class="n">fermi</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">k_B</span><span class="o">*</span><span class="n">T</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">integral</span></div>
+
+
+<div class="viewcode-block" id="free_e_dos"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.transport.free_e_dos">[docs]</a><span class="k">def</span> <span class="nf">free_e_dos</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">m_eff</span><span class="o">=</span><span class="mf">0.001</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The density of states (dos) of a free-electron with effective mass m_eff</span>
+<span class="sd">        that consequently has a parabolic band.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        E (float): energy in eV relative to the CBM (or VBM for valence)</span>
+<span class="sd">        m_eff (float): unitless effective mass</span>
+
+<span class="sd">    Returns (float): the dos</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">volume</span> <span class="o">=</span> <span class="mf">4.</span><span class="o">/</span><span class="mf">3.</span><span class="o">*</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">m_eff</span><span class="o">*</span><span class="n">m_e</span><span class="o">*</span><span class="n">E</span><span class="o">/</span><span class="p">(</span><span class="n">hbar</span><span class="o">**</span><span class="mi">2</span><span class="o">*</span><span class="mf">1e10</span><span class="o">*</span><span class="n">e</span><span class="p">))</span><span class="o">**</span><span class="mf">1.5</span>
+    <span class="k">return</span> <span class="n">volume</span><span class="o">/</span><span class="p">(</span><span class="o">.</span><span class="mi">2</span><span class="o">*</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">m_e</span><span class="o">*</span><span class="n">m_eff</span><span class="o">/</span><span class="n">hbar</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mf">1.5</span><span class="o">*</span><span class="mf">1e-30</span><span class="o">/</span><span class="n">e</span><span class="o">**</span><span class="mf">1.5</span><span class="o">*</span><span class="n">E</span><span class="o">**</span><span class="mf">0.5</span></div>
+
+
+<div class="viewcode-block" id="find_fermi_SPB"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.transport.find_fermi_SPB">[docs]</a><span class="k">def</span> <span class="nf">find_fermi_SPB</span><span class="p">(</span><span class="n">cbm_vbm</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Not tested! Returns the fermi level based on single parabolic band (SPB)</span>
+<span class="sd">    assumption. Note that this function is currently not tested and not used</span>
+<span class="sd">    in Amset</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        cbm_vbm (dict):</span>
+<span class="sd">        c (float):</span>
+<span class="sd">        T (float):</span>
+<span class="sd">        tolerance (float):</span>
+<span class="sd">        alpha (float):</span>
+<span class="sd">        max_iter (int):</span>
+
+<span class="sd">    Returns (float):</span>
+<span class="sd">        the fermi level under SPB assumption.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">tp</span> <span class="o">=</span> <span class="n">get_tp</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+    <span class="n">sgn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+    <span class="n">m_eff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">cbm_vbm</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;eff_mass_xx&quot;</span><span class="p">])</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">*=</span> <span class="n">sgn</span>
+    <span class="n">initial_energy</span> <span class="o">=</span> <span class="n">cbm_vbm</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;energy&quot;</span><span class="p">]</span>
+    <span class="n">fermi</span> <span class="o">=</span> <span class="n">initial_energy</span> <span class="o">+</span> <span class="mf">0.02</span>
+    <span class="k">for</span> <span class="nb">iter</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_iter</span><span class="p">):</span>
+        <span class="n">calc_doping</span> <span class="o">=</span> <span class="mi">4</span><span class="o">*</span><span class="n">pi</span><span class="o">*</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">m_eff</span><span class="o">*</span><span class="n">m_e</span><span class="o">*</span><span class="n">k_B</span><span class="o">*</span><span class="n">T</span> <span class="o">/</span> <span class="n">hbar</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mf">1.5</span> <span class="o">*</span> \
+                    <span class="n">fermi_integral</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">fermi</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span><span class="n">initial_energy</span><span class="p">)</span><span class="o">*</span><span class="mf">1e-6</span> <span class="o">/</span> <span class="n">e</span><span class="o">**</span><span class="mf">1.5</span>
+        <span class="n">fermi</span> <span class="o">+=</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">sgn</span> <span class="o">*</span> <span class="p">(</span><span class="n">calc_doping</span> <span class="o">-</span> <span class="n">c</span><span class="p">)</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="n">calc_doping</span><span class="p">)</span> <span class="o">*</span> <span class="n">fermi</span>
+        <span class="n">relative_error</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">calc_doping</span> <span class="o">-</span> <span class="n">c</span><span class="p">)</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">relative_error</span> <span class="o">&lt;=</span> <span class="n">tolerance</span><span class="p">:</span>
+            <span class="c1"># This here assumes that the SPB generator set the VBM to 0.0 and CBM=gap + scissor</span>
+            <span class="k">if</span> <span class="n">sgn</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">fermi</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="o">-</span><span class="p">(</span><span class="n">fermi</span> <span class="o">-</span> <span class="n">initial_energy</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">relative_error</span> <span class="o">&gt;</span> <span class="n">tolerance</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;could NOT find a corresponding SPB fermi level after </span><span class="si">{}</span><span class="s2"> itenrations&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">max_iter</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="GB"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.transport.GB">[docs]</a><span class="k">def</span> <span class="nf">GB</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gaussian broadening. At very small eta values (e.g. 0.005 eV) this function</span>
+<span class="sd">    goes to the dirac-delta of x.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (float): the mean value of the nomral distribution</span>
+<span class="sd">        eta (float): the standard deviation of the normal distribution</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="n">eta</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="calculate_Sio"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.transport.calculate_Sio">[docs]</a><span class="k">def</span> <span class="nf">calculate_Sio</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">ib</span><span class="p">,</span> <span class="n">ik</span><span class="p">,</span> <span class="n">once_called</span><span class="p">,</span> <span class="n">kgrid</span><span class="p">,</span> <span class="n">cbm_vbm</span><span class="p">,</span> <span class="n">epsilon_s</span><span class="p">,</span> <span class="n">epsilon_inf</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculates the polar optical phonon &quot;in&quot; and &quot;out&quot; scattering rates.</span>
+<span class="sd">    This method is defined outside of the Amset class to enable parallelization</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        tp (str): type of the bands</span>
+<span class="sd">            options: &quot;n&quot; for the conduction and &quot;p&quot; for the valence bands</span>
+<span class="sd">        c (float): the carrier concentration in 1/cm3</span>
+<span class="sd">        T (float): the temperature in Kelvin</span>
+<span class="sd">        ib (int): the band index</span>
+<span class="sd">        ik (int): the k-point index</span>
+<span class="sd">        once_called (bool): whether this function was once called hence S_o and</span>
+<span class="sd">            S_o_th calculated once or not. Caches already calculated properties</span>
+<span class="sd">        kgrid (dict): the main kgrid variable in Amset (Amset.kgrid)</span>
+<span class="sd">        cbm_vbm (dict): from Amset.cbm_vbm, containing cbm and vbm energy</span>
+<span class="sd">        epsilon_s (float): static dielectric constant</span>
+<span class="sd">        epsilon_inf (float): high-frequency dielectric constant</span>
+
+<span class="sd">    Returns ([four 3x1 lists]):</span>
+<span class="sd">        the overall vectors for S_i, S_i_th, S_o, and S_o_th</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">S_i</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">])]</span>
+    <span class="n">S_i_th</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">])]</span>
+    <span class="n">S_o</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">])]</span>
+    <span class="n">S_o_th</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">,</span> <span class="mf">1e-32</span><span class="p">])]</span>
+
+    <span class="n">k</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;norm(k)&quot;</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;a&quot;</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]</span>
+    <span class="n">c_</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;c&quot;</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;f&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">][</span><span class="n">T</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]</span>
+    <span class="n">f_th</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;f_th&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">][</span><span class="n">T</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]</span>
+    <span class="n">N_POP</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;N_POP&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">][</span><span class="n">T</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">X_Epm</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="s2">&quot;X_Eplus_ik&quot;</span><span class="p">,</span> <span class="s2">&quot;X_Eminus_ik&quot;</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="n">tp</span> <span class="o">==</span> <span class="s2">&quot;n&quot;</span> <span class="ow">and</span> <span class="n">X_Epm</span> <span class="o">==</span> <span class="s2">&quot;X_Eminus_ik&quot;</span> <span class="ow">and</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;energy&quot;</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]</span> <span class="o">-</span> <span class="n">hbar</span> <span class="o">*</span> \
+                <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;W_POP&quot;</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">cbm_vbm</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;energy&quot;</span><span class="p">]:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">tp</span> <span class="o">==</span> <span class="s2">&quot;p&quot;</span> <span class="ow">and</span> <span class="n">X_Epm</span> <span class="o">==</span> <span class="s2">&quot;X_Eplus_ik&quot;</span> <span class="ow">and</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;energy&quot;</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]</span> <span class="o">+</span> <span class="n">hbar</span> <span class="o">*</span> \
+                <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;W_POP&quot;</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">cbm_vbm</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;energy&quot;</span><span class="p">]:</span>
+            <span class="k">continue</span>
+        <span class="n">counted</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="n">X_Epm</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">X_ib_ik</span> <span class="ow">in</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="n">X_Epm</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]:</span>
+            <span class="n">X</span><span class="p">,</span> <span class="n">ib_pm</span><span class="p">,</span> <span class="n">ik_pm</span> <span class="o">=</span> <span class="n">X_ib_ik</span>
+            <span class="n">k_pm</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;norm(k)&quot;</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">]</span>
+            <span class="n">abs_kdiff</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">k_pm</span> <span class="o">-</span> <span class="n">k</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">abs_kdiff</span> <span class="o">&lt;</span> <span class="mf">1e-4</span> <span class="ow">or</span> <span class="n">k</span><span class="o">&lt;</span><span class="mf">1e-4</span> <span class="ow">or</span> <span class="n">k_pm</span><span class="o">&lt;</span><span class="mf">1e-4</span><span class="p">:</span>
+                <span class="c1"># avoid rate blow-up (e.g. due to self-scattering)</span>
+                <span class="n">counted</span> <span class="o">-=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s1">&#39;energy&#39;</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">]</span> <span class="o">-</span> \
+                           <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s1">&#39;energy&#39;</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">])</span> <span class="o">&lt;</span> \
+                                    <span class="n">hbar</span> <span class="o">*</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;W_POP&quot;</span><span class="p">][</span><span class="n">ib</span><span class="p">][</span><span class="n">ik</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">:</span>
+                <span class="n">counted</span> <span class="o">-=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+            <span class="n">g_pm</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;g&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">][</span><span class="n">T</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">]</span>
+            <span class="n">g_pm_th</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;g_th&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">][</span><span class="n">T</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">]</span>
+            <span class="n">v_pm</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;norm(v)&quot;</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">]</span> <span class="o">/</span> <span class="n">sq3</span>  <span class="c1"># 3**0.5 is to treat each direction as 1D BS</span>
+            <span class="n">a_pm</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;a&quot;</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">]</span>
+            <span class="n">c_pm</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;c&quot;</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">tp</span> <span class="o">==</span> <span class="s2">&quot;n&quot;</span><span class="p">:</span>
+                <span class="n">f_pm</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;f&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">][</span><span class="n">T</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">]</span>
+                <span class="n">f_pm_th</span> <span class="o">=</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;f_th&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">][</span><span class="n">T</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">f_pm</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;f&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">][</span><span class="n">T</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">]</span>
+                <span class="n">f_pm_th</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;f_th&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">][</span><span class="n">T</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">]</span>
+            <span class="n">A_pm</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">a_pm</span> <span class="o">+</span> <span class="n">c_</span> <span class="o">*</span> <span class="n">c_pm</span> <span class="o">*</span> <span class="p">(</span><span class="n">k_pm</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">k</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">k_pm</span> <span class="o">*</span> <span class="n">k</span><span class="p">)</span>
+            <span class="n">beta_pm</span> <span class="o">=</span> <span class="p">(</span><span class="n">e</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">kgrid</span><span class="p">[</span><span class="n">tp</span><span class="p">][</span><span class="s2">&quot;W_POP&quot;</span><span class="p">][</span><span class="n">ib_pm</span><span class="p">][</span><span class="n">ik_pm</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="n">hbar</span> <span class="o">*</span> <span class="n">v_pm</span><span class="p">)</span> <span class="o">*</span> \
+                      <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">epsilon_inf</span> <span class="o">*</span> <span class="n">epsilon_0</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">epsilon_s</span> <span class="o">*</span> <span class="n">epsilon_0</span><span class="p">))</span> <span class="o">*</span> <span class="mf">6.2415093e20</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">once_called</span><span class="p">:</span>
+                <span class="n">lamb_opm</span> <span class="o">=</span> <span class="n">beta_pm</span> <span class="o">*</span> <span class="p">(</span>
+                    <span class="n">A_pm</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">log</span><span class="p">((</span><span class="n">k_pm</span> <span class="o">+</span> <span class="n">k</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">abs_kdiff</span><span class="p">))</span> <span class="o">-</span> <span class="n">A_pm</span> <span class="o">*</span> <span class="n">c_</span> <span class="o">*</span> <span class="n">c_pm</span> <span class="o">-</span> <span class="n">a</span> <span class="o">*</span> <span class="n">a_pm</span> <span class="o">*</span> <span class="n">c_</span> <span class="o">*</span> <span class="n">c_pm</span><span class="p">)</span>
+                <span class="c1"># because in the scalar form k+ or k- is supposed to be unique, here we take average</span>
+                <span class="n">S_o</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="n">N_POP</span> <span class="o">+</span> <span class="n">j</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="n">j</span> <span class="o">*</span> <span class="n">f_pm</span><span class="p">)</span> <span class="o">*</span> <span class="n">lamb_opm</span>
+                <span class="n">S_o_th</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="n">N_POP</span> <span class="o">+</span> <span class="n">j</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="n">j</span> <span class="o">*</span> <span class="n">f_pm_th</span><span class="p">)</span> <span class="o">*</span> <span class="n">lamb_opm</span>
+
+            <span class="n">lamb_ipm</span> <span class="o">=</span> <span class="n">beta_pm</span> <span class="o">*</span> <span class="p">(</span>
+                <span class="p">(</span><span class="n">k_pm</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">k</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">k</span><span class="o">*</span><span class="n">k_pm</span><span class="p">)</span> <span class="o">*</span> <span class="n">A_pm</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span>\
+                <span class="n">log</span><span class="p">((</span><span class="n">k_pm</span> <span class="o">+</span> <span class="n">k</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">abs_kdiff</span><span class="p">))</span> <span class="o">-</span> <span class="n">A_pm</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">c_</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">c_pm</span><span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span>
+            <span class="n">S_i</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="n">N_POP</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">j</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">j</span><span class="p">)</span> <span class="o">*</span> <span class="n">f</span><span class="p">)</span> <span class="o">*</span> <span class="n">lamb_ipm</span> <span class="o">*</span> <span class="n">g_pm</span>
+            <span class="n">S_i_th</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="n">N_POP</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">j</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">j</span><span class="p">)</span> <span class="o">*</span> <span class="n">f_th</span><span class="p">)</span> <span class="o">*</span> <span class="n">lamb_ipm</span> <span class="o">*</span> <span class="n">g_pm_th</span>
+        <span class="k">if</span> <span class="n">counted</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">S_i</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/=</span> <span class="n">counted</span>
+            <span class="n">S_i_th</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/=</span> <span class="n">counted</span>
+            <span class="n">S_o</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/=</span> <span class="n">counted</span>
+            <span class="n">S_o_th</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/=</span> <span class="n">counted</span>
+    <span class="k">return</span> <span class="p">[</span><span class="nb">sum</span><span class="p">(</span><span class="n">S_i</span><span class="p">),</span> <span class="nb">sum</span><span class="p">(</span><span class="n">S_i_th</span><span class="p">),</span> <span class="nb">sum</span><span class="p">(</span><span class="n">S_o</span><span class="p">),</span> <span class="nb">sum</span><span class="p">(</span><span class="n">S_o_th</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="get_tp"><a class="viewcode-back" href="../../../amset.utils.html#amset.utils.transport.get_tp">[docs]</a><span class="k">def</span> <span class="nf">get_tp</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns &quot;n&quot; for n-type (electrons majority carrier, c&lt;0) or &quot;p&quot; (p-type).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;n&quot;</span>
+    <span class="k">elif</span> <span class="n">c</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;p&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The carrier concentration cannot be zero! Amset stops now!&quot;</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Amset 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2018, Alireza Faghaninia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.1.
+    </div>
+
+  </body>
+</html>

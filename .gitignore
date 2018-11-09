@@ -10,6 +10,7 @@ docs/_build/*/*/*
 
 # Packages
 *.egg
+*.eggs
 *.egg-info
 dist
 build
@@ -41,3 +42,10 @@ nosetests.xml
 
 # Pycharm
 .idea/*
+
+# doc html folder
+
+temp_dir
+
+run_data
+amset.log
