@@ -149,7 +149,6 @@ def get_dos_boltztrap2(params, st, mesh, estep=0.001, vbmidx=None,
     Returns (tuple): in the same order: 1) list of enegy values 2) list of
         densities at those energy values and 3) number of bands considered
     """
-    from BoltzTraP2 import fite
     (equivalences, lattvec, coeffs) = params
     ir_kpts = SpacegroupAnalyzer(st).get_ir_reciprocal_mesh(mesh)
     ir_kpts = [k[0] for k in ir_kpts]
