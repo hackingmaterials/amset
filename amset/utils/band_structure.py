@@ -125,32 +125,32 @@ def insert_intermediate_kpoints(kpts, n=2):
     return new_kpts
 
 
-def get_dft_orbitals(vasprun, bidx, lorbit):
+def get_dft_orbitals(projected_eigenvalues, num_kpoints, bidx, lorbit):
     """
     The contribution from s and p orbitals at a given band for kpoints
-    that were used in the DFT run (from which vasprun.xml is read). This is
+    that were used in the DFT run . This is
     just to parse the total orbital contributions out of Vasprun depending
     on LORBIT.
 
     Args:
-        vasprun (pymatgen Vasprun):
+        projected_eigenvalues (): projected_eigenvalues from vasprun
+        num_kpoints (): number of actual_kpoints from vasprun
         bidx (idx): band index
         lorbit (int): the LORBIT flag that was used when vasprun.xml generated
 
     Returns:
         ([float], [float]) two lists: s&p orbital scores at the band # bidx
     """
-    projected = vasprun.projected_eigenvalues
-    nk = len(vasprun.actual_kpoints)
     # projected indexes : Spin; kidx; bidx; s,py,pz,px,dxy,dyz,dz2,dxz,dx2
-    s_orbital = [0.0] * nk
-    p_orbital = [0.0] * nk
-    for ik in range(nk):
-        s_orbital[ik] = sum(projected[Spin.up][ik][bidx])[0]
+    s_orbital = [0.0] * num_kpoints
+    p_orbital = [0.0] * num_kpoints
+    for ik in range(num_kpoints):
+        s_orbital[ik] = sum(projected_eigenvalues[Spin.up][ik][bidx])[0]
         if lorbit == 10:
-            p_orbital[ik] = sum(projected[Spin.up][ik][bidx])[1]
+            p_orbital[ik] = sum(projected_eigenvalues[Spin.up][ik][bidx])[1]
         elif lorbit == 11:
-            p_orbital[ik] = sum(sum(projected[Spin.up][ik][bidx])[1:4])
+            p_orbital[ik] = sum(sum(
+                projected_eigenvalues[Spin.up][ik][bidx])[1:4])
         else:
             raise AmsetError('Not sure what to do with lorbit={}'.format(lorbit))
     return s_orbital, p_orbital
