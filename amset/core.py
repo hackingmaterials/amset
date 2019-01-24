@@ -24,6 +24,11 @@ from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
 from amset.utils.transport import f0, df0dE, fermi_integral, calculate_Sio, \
         get_tp, free_e_dos
 from amset.utils.plotting import get_amset_plots
+from amset.scattering.elastic import (
+    IonizedImpurityScattering, AcousticDeformationScattering,
+    PiezoelectricScattering, DislocationScattering)
+
+from amset.valley import Valley
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -224,7 +229,7 @@ class Amset(object):
 
     def run_profiled(self, coeff_file=None, kgrid_tp="coarse", nfuncs=15):
         """
-        Very similar to the run method except that it is time-profiled: it 
+        Very similar to the run method except that it is time-profiled: it
             shows the total and per-call time elapsed in running each function.
 
         Args:
@@ -263,7 +268,7 @@ class Amset(object):
         """
         self.read_vrun(vasprun_file=self.vasprun_file, filename="vasprun.xml")
         self.logger.info('Running Amset on {}'.format(
-            self._vrun.final_structure.composition.reduced_formula))
+            self.structure.composition.reduced_formula))
         self.kgrid_tp = kgrid_tp
         self.logger.info('Running on "{}" mesh for each valley'.format(kgrid_tp))
         self.logger.info('band interpolation="{}" method'.format(self.interpolation))
@@ -376,7 +381,7 @@ class Amset(object):
                         # different valleys but among symmetrically equivalent
                         # k-points of the same valley so the cutoff would make sense
                         for k in self.bs.get_sym_eq_kpoints(important_points[tp][0], cartesian=False):
-                            kdiff =  get_closest_k(
+                            kdiff = get_closest_k(
                                 k, self.all_important_pts[tp], return_diff=True, exclude_self=True)
                             new_dist = 1/A_to_nm *norm(self.get_cartesian_coords(kdiff))
                             # to avoid self-counting, 0.1 criterion added:
@@ -799,7 +804,7 @@ class Amset(object):
                 energies, velocities, masses = interpolate_bs(
                     [self.cbm_vbm0[tp]["kpoint"]], self.interp_params,
                     iband=iband, sgn=sgn, method=self.interpolation,
-                    scissor=self.scissor, matrix=self._vrun.lattice.matrix)
+                    scissor=self.scissor, matrix=self.structure.lattice.matrix)
                 energy = energies[0]
                 effective_m = masses[0]
             self.offset_from_vrun[tp] = energy - self.cbm_vbm0[tp]["energy"]
@@ -891,7 +896,7 @@ class Amset(object):
                                 kpts[tp], interp_params=self.interp_params,
                                 iband=iband, sgn=sgn, method=self.interpolation,
                                 scissor=self.scissor, return_mass=False,
-                                matrix=self._vrun.lattice.matrix, n_jobs=self.n_jobs)
+                                matrix=self.structure.lattice.matrix, n_jobs=self.n_jobs)
                         self._check_timeout_hours()
                     if self.integration == 'k':
                         self.energy_array[tp].append(
@@ -927,23 +932,23 @@ class Amset(object):
                                  ['p', 'n']}
 
         if not once_called:
-            dos_kmesh = Kpoints.automatic_density_by_vol(self._vrun.final_structure, kppvol=self.dos_kdensity).kpts[0]
+            dos_kmesh = Kpoints.automatic_density_by_vol(self.structure, kppvol=self.dos_kdensity).kpts[0]
             self.logger.info('kmesh used for dos: {}'.format(dos_kmesh))
             if self.parabolic_bands is None:
                 if self.interpolation=="boltztrap1":
                     emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
-                            self._vrun.final_structure, dos_kmesh, self.dos_emin,
+                            self.structure, dos_kmesh, self.dos_emin,
                             self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
                             / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
                             scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
                     self.logger.debug("dos_nbands: {} \n".format(dos_nbands))
-                    self.dos_start = min(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin]) \
+                    self.dos_start = min(self.bs.as_dict()["bands"]["1"][bmin]) \
                                      + self.offset_from_vrun['p']
-                    self.dos_end = max(self._vrun.get_band_structure().as_dict()["bands"]["1"][bmin+dos_nbands]) \
+                    self.dos_end = max(self.bs.as_dict()["bands"]["1"][bmin+dos_nbands]) \
                                    + self.offset_from_vrun['n']
                 elif self.interpolation=="boltztrap2":
                     emesh, dos, dos_nbands = get_dos_boltztrap2(
-                        self.interp_params, self._vrun.final_structure,
+                        self.interp_params, self.structure,
                         mesh=dos_kmesh, estep=max(self.dE_min, 0.0001),
                         vbmidx = self.cbm_vbm["p"]["bidx"]-1,
                         width=self.dos_bwidth, scissor=self.scissor)
@@ -956,9 +961,10 @@ class Amset(object):
                 self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
             else:
                 self.logger.debug("here self.parabolic_bands: \n {}".format(self.parabolic_bands))
-                emesh, dos = get_dos_from_parabolic_bands(self._vrun.final_structure, self._rec_lattice,
-                                                     dos_kmesh, self.dos_emin,
-                        self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
+                emesh, dos = get_dos_from_parabolic_bands(
+                    self.structure, self.structure.lattice.reciprocal_lattice,
+                    dos_kmesh, self.dos_emin, self.dos_emax,
+                    int(round((self.dos_emax - self.dos_emin) \
                         / max(self.dE_min, 0.0001))),parabolic_bands=self.parabolic_bands,
                         bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
                         "energy"], width=self.dos_bwidth, SPB_DOS=False)
@@ -1255,31 +1261,33 @@ class Amset(object):
         Returns (None):
         """
         vasprun_file = vasprun_file or os.path.join(self.calc_dir, filename)
-        self._vrun = Vasprun(vasprun_file, parse_projected_eigen=True)
-        self.logger.debug('direct lattice matrix:\n{}'.format(self._vrun.lattice.matrix))
+        vr = Vasprun(vasprun_file, parse_projected_eigen=True)
+        self.logger.debug('direct lattice matrix:\n{}'.format(vr.lattice.matrix))
         self.interp_params = None
         if self.interpolation == "boltztrap2":
-            bz2_data = PymatgenLoader(self._vrun)
+            bz2_data = PymatgenLoader(vr)
             equivalences = sphere.get_equivalences(atoms=bz2_data.atoms,
                         nkpt=len(bz2_data.kpoints) * 5, magmom=None)
             lattvec = bz2_data.get_lattvec()
             coeffs = fite.fitde3D(bz2_data, equivalences)
             self.interp_params = (equivalences, lattvec, coeffs)
-        self.volume = self._vrun.final_structure.volume
-        self.logger.info("unitcell volume = {} A**3".format(self.volume))
-        self.density = self._vrun.final_structure.density
-        self._rec_lattice = self._vrun.final_structure.lattice.reciprocal_lattice
 
-        sg = SpacegroupAnalyzer(self._vrun.final_structure)
+        self.projected_eigenvalues = vr.projected_eigenvalues
+        self.kpoints = vr.actual_kpoints
+
+        self.structure = vr.final_structure
+        self.logger.info("unitcell volume = {} A**3".format(self.structure.volume))
+
+        sg = SpacegroupAnalyzer(self.structure)
         self.rotations, _ = sg._get_symmetry()
-        self.bs = self._vrun.get_band_structure()
+        self.bs = vr.get_band_structure()
         if self.bs.is_metal():
             raise AmsetError(self.logger, 'The input band structure is a metal'
                                           ' currently not supported by Amset')
-        self.bs.structure = self._vrun.final_structure
+        self.bs.structure = self.structure
         self.nbands = self.bs.nb_bands
-        self.lorbit = 11 if len(sum(self._vrun.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
-        self.DFT_cartesian_kpts = np.array([self.get_cartesian_coords(k) for k in self._vrun.actual_kpoints])/ A_to_nm
+        self.lorbit = 11 if len(sum(vr.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
+        self.DFT_cartesian_kpts = np.array([self.get_cartesian_coords(k) for k in vr.actual_kpoints])/ A_to_nm
 
         cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
                    "p": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]}}
@@ -1287,7 +1295,7 @@ class Amset(object):
         vbm = self.bs.get_vbm()
         self.dft_gap = cbm["energy"] - vbm["energy"]
         self.logger.debug("DFT gap from vasprun.xml : {} eV".format(self.dft_gap))
-        self.logger.info("total number of bands: {}".format(self._vrun.get_band_structure().nb_bands))
+        self.logger.info("total number of bands: {}".format(self.bs.nb_bands))
         cbm_vbm["n"]["energy"] = cbm["energy"]
         cbm_vbm["n"]["bidx"], _ = get_bindex_bspin(cbm, is_cbm=True)
         cbm_vbm["n"]["kpoint"] = self.bs.kpoints[cbm["kpoint_index"][0]].frac_coords
@@ -1302,7 +1310,7 @@ class Amset(object):
                         self.user_bandgap - self.dft_gap))
             self.scissor = self.user_bandgap - self.dft_gap
             self.logger.info('scissor is set to {}'.format(self.scissor))
-        self.nelec = self._vrun.parameters['NELECT']
+        self.nelec = vr.parameters['NELECT']
         bsd = self.bs.as_dict()
         if bsd["is_spin_polarized"]:
             self.dos_emin = min(min(bsd["bands"]["1"][0]), min(bsd["bands"]["-1"][0]))
@@ -1336,12 +1344,12 @@ class Amset(object):
         self.logger.info("original cbm_vbm:\n {}".format(cbm_vbm))
         self.num_bands = {tp:self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
 
-
     def get_cartesian_coords(self, frac_k, reciprocal=True):
         """
-        Transformation from fractional too cartesian. Note that this is different
-        form get_cartesian_coords method available in self._rec_lattice, that
-        one does NOT work with BolzTraP outputs
+        Transformation from fractional too cartesian. Note that this is
+        different form get_cartesian_coords method available in
+        self.structure.lattice.reciprocal_lattice, that one does NOT work with
+        BolzTraP outputs
 
         Args:
             frac_k (np.ndarray): a 3-D vector in fractional (unitless)
@@ -1352,9 +1360,10 @@ class Amset(object):
         Returns (np.ndarray): frac_k ransformed into cartesian coordinates
         """
         if reciprocal:
-            return np.dot(self._rec_lattice.matrix, np.array(frac_k))
+            return np.dot(self.structure.lattice.reciprocal_lattice.matrix,
+                          np.array(frac_k))
         else:
-            return np.dot(self._vrun.lattice.matrix, np.array(frac_k))
+            return np.dot(self.structure.lattice.matrix, np.array(frac_k))
 
 
     def seeb_int_num(self, c, T):
@@ -1441,7 +1450,7 @@ class Amset(object):
         """
         N_II = abs(self.calc_doping[c][T]["n"]) * self.charge["n"] ** 2 + \
                abs(self.calc_doping[c][T]["p"]) * self.charge["p"] ** 2 + \
-               self.N_dis / self.volume ** (1 / 3) * 1e8 * self.charge["dislocations"] ** 2
+               self.N_dis / self.structure.volume ** (1 / 3) * 1e8 * self.charge["dislocations"] ** 2
         # N_dis is a given 2D concentration of charged dislocations in 1/cm**2
         return N_II
 
@@ -1737,7 +1746,8 @@ class Amset(object):
                         self.get_cartesian_coords(self.kgrid[tp]["kpoints"][ib][ik]) / A_to_nm
 
                 s_orbital, p_orbital = get_dft_orbitals(
-                    vasprun=self._vrun,
+                    projected_eigenvalues=self.projected_eigenvalues,
+                    num_kpoints=len(self.kpoints),
                     bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib,
                     lorbit=self.lorbit)
                 orbitals = {"s": s_orbital, "p": p_orbital}
@@ -1756,7 +1766,7 @@ class Amset(object):
                                    self.interp_params, iband=iband, sgn=sgn,
                                    method=self.interpolation,
                                    scissor=self.scissor,
-                                   matrix=self._vrun.lattice.matrix,
+                                   matrix=self.structure.lattice.matrix,
                                    n_jobs=self.n_jobs,
                                    return_mass=False)
 
@@ -2074,7 +2084,7 @@ class Amset(object):
         norm_diff_k = norm(k - k_prm)  # the slope for PIE and IMP don't match with bs_is_isotropic
         if norm_diff_k == 0.0:
             warnings.warn("WARNING!!! same k and k' vectors as input of the elastic scattering equation")
-            return 0.0
+            return 0.#0
 
         if sname.upper() in ["IMP"]:  # ionized impurity scattering
             unit_conversion = 0.001 / e ** 2
@@ -2173,7 +2183,8 @@ class Amset(object):
                     dv[i,j,k] = (dx1 + dx2) * (dy1 + dy2) * (dz1 + dz2)
 
         # convert from fractional to cartesian (k space) volume
-        dv *= self._rec_lattice.volume / (A_to_m * m_to_cm) ** 3
+        dv *= self.structure.lattice.reciprocal_lattice.volume / (
+                A_to_m * m_to_cm) ** 3
         return dv
 
 
@@ -2277,6 +2288,7 @@ class Amset(object):
                 k-point at each band
             integrand (func): the integrand function; options: el_integrand_X
                 or inel_integrand_X for elastic and inelastic respectively
+
             ib (int): the band index
             ik (int): the k-point index
             c (float): the carrier concentration
@@ -2555,19 +2567,18 @@ class Amset(object):
         elif sname.upper() == "DIS":
             # See table 1 of the reference [A]
             return (self.N_dis * e ** 4 * knrm) / (
-            hbar ** 2 * epsilon_0 ** 2 * self.epsilon_s ** 2 * (self._vrun.lattice.c * A_to_nm) ** 2 * v) \
+            hbar ** 2 * epsilon_0 ** 2 * self.epsilon_s ** 2 * (self.structure.lattice.c * A_to_nm) ** 2 * v) \
                    / (self.egrid["beta"][c][T][tp] ** 4 * (
             1 + (4 * knrm ** 2) / (self.egrid["beta"][c][T][tp] ** 2)) ** 1.5)/(1e3*e**2)
         else:
             raise ValueError('The elastic scattering name "{}" is NOT supported.'.format(sname))
-
 
     def s_elastic(self, sname):
         """
         The scattering rate equation for each elastic scattering name (sname)
 
         Args:
-            sname (st): elastic scattering name: 'IMP', 'ADE', 'PIE', 'DIS'
+            sname (str): elastic scattering name: 'IMP', 'ADE', 'PIE', 'DIS'
 
         Returns:
             it directly calculates the scattering rate at each k-point at each
@@ -2576,27 +2587,45 @@ class Amset(object):
         sname = sname.upper()
         self.initialize_var("egrid", sname, "vector", 0.0, c_T_idx=True)
         self.initialize_var("kgrid", sname, "vector", 0.0, c_T_idx=True)
+
         for tp in ["n", "p"]:
             for c in self.dopings:
                 for T in self.temperatures:
-                    for ib in range(len(self.kgrid[tp]["energy"])):
-                        for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                            if self.bs_is_isotropic:
-                                self.kgrid[tp][sname][c][T][ib][ik] = self.s_el_eq_isotropic(sname, tp, c, T, ib, ik)
-                            else:
-                                summation = self.integrate_over_X(tp, X_E_index=self.kgrid[tp]["X_E_ik"],
-                                                                  integrand=self.el_integrand_X,
-                                                                  ib=ib, ik=ik, c=c, T=T, sname=sname, g_suffix="")
-                                self.kgrid[tp][sname][c][T][ib][ik] = abs(summation) * 2e-7 * pi / hbar
-                                if norm(self.kgrid[tp][sname][c][T][ib][ik]) < 100 and sname not in ["DIS"]:
-                                    self.logger.warning("Here {} rate < 1.\nX_E_ik:\n{}".format(sname, self.kgrid[tp]["X_E_ik"][ib][ik]))
-                                    self.kgrid[tp][sname][c][T][ib][ik] = [1e10, 1e10, 1e10]
+                    valley = Valley(
+                        self.kgrid[tp]["cartesian kpoints"][0],
+                        self.kgrid[tp]['norm(k)'][0],
+                        self.kgrid[tp]['velocity'][0],
+                        self.kgrid[tp]['norm(v)'][0],
+                        self.kgrid[tp]['a'][0],
+                        self.kgrid[tp]['c'][0],
+                        angle_k_prime_mapping=self.kgrid[tp]["X_E_ik"][0]
+                    )
 
-                                if norm(self.kgrid[tp][sname][c][T][ib][ik]) > 1e20:
-                                    self.logger.warning('too large rate for {} at k={}, v={}:'.format(
-                                        sname, self.kgrid[tp]['kpoints'][ib][ik], self.kgrid[tp]['velocity'][ib][ik]))
-                            self.kgrid[tp]["_all_elastic"][c][T][ib][ik] += self.kgrid[tp][sname][c][T][ib][ik]
+                    if sname == 'IMP':
+                        scats = IonizedImpurityScattering(
+                            self.bs_is_isotropic, valley, self.epsilon_s,
+                            self.egrid["N_II"][c][T],
+                            self.egrid["beta"][c][T][tp])
+                    elif sname == 'ACD':
+                        scats = AcousticDeformationScattering(
+                            self.bs_is_isotropic, valley, self.C_el,
+                            self.E_D[tp], T)
+                    elif sname == 'PIE':
+                        scats = PiezoelectricScattering(
+                            self.bs_is_isotropic, valley, self.epsilon_s,
+                            self.P_PIE, T)
+                    elif sname == 'DIS':
+                        scats = DislocationScattering(
+                            self.bs_is_isotropic, valley, self.epsilon_s,
+                            self.egrid["beta"][c][T][tp], self.N_dis,
+                            self.structure.lattice.c)
+                    else:
+                        raise ValueError("Unknown scattering type: {}".format(
+                            sname))
 
+                    rates = scats.calculate_scattering()
+                    self.kgrid[tp][sname][c][T][0] = rates
+                    self.kgrid[tp]["_all_elastic"][c][T][0] += rates
 
     def map_to_egrid(self, prop_name, c_and_T_idx=True, prop_type="vector"):
         """
@@ -2660,7 +2689,7 @@ class Amset(object):
         typ = get_tp(c)
         fermi = self.cbm_vbm[typ]["energy"] + 0.01 # initialize fermi non-zero
 
-        conversion = 1.0 / (self.volume * (A_to_m * m_to_cm) ** 3)
+        conversion = 1.0 / (self.structure.volume * (A_to_m * m_to_cm) ** 3)
 
         dos_e = np.array([d[0] for d in self.dos])
         dos_de = np.array([self.dos[i + 1][0] - self.dos[i][0] \
@@ -2740,7 +2769,7 @@ class Amset(object):
             integral = self.integrate_over_E(props=["f0","1 - f0"],
                                              tp=tp, c=c, T=T, xDOS=True)
             beta[tp] = (e**2 / (self.epsilon_s * epsilon_0 * k_B * T) \
-                        * integral / self.volume * 1e12 / e) ** 0.5
+                        * integral / self.structure.volume * 1e12 / e) ** 0.5
         return beta
 
 
@@ -3446,9 +3475,8 @@ class Amset(object):
                         k_norm = np.sqrt(self.kgrid_array_cartesian[tp][:,:,:,0]**2 + self.kgrid_array_cartesian[tp][:,:,:,1]**2 + self.kgrid_array_cartesian[tp][:,:,:,2]**2) / (A_to_m * m_to_cm)
                         print('norm(k)')
                         print(k_norm[(N[0] - 1) / 2, (N[1] - 1) / 2, :])   # 1/cm
-                        print(self._rec_lattice.volume)   # in 1/A^3
-                        k_0 = (self._rec_lattice.volume)**(1./3) / (A_to_m * m_to_cm)
-                        #vol = self._rec_lattice.volume / (A_to_m * m_to_cm)**3
+                        print(self.structure.lattice.reciprocal_lattice.volume)   # in 1/A^3
+                        k_0 = (self.structure.lattice.reciprocal_lattice.volume)**(1./3) / (A_to_m * m_to_cm)
                         print('k_0')
                         print(k_0)   # in 1/cm
                         print('test integral of e^(-r) * cos^2(theta)')
@@ -3521,7 +3549,7 @@ if __name__ == "__main__":
                           "max_nvalleys": 1,
                           "interpolation": "boltztrap1",
                           "max_Ecut": 1.0,
-                          "dos_kdensity": 300
+                          "dos_kdensity": 50
                           }
     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, # experimental from [R]
             "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052
@@ -3542,13 +3570,13 @@ if __name__ == "__main__":
                   temperatures = [300, 600],
                   integration='e',
                   )
-    amset.run_profiled(coeff_file, kgrid_tp='coarse')
+    amset.run_profiled(coeff_file, kgrid_tp='very fine')
 
-    amset.write_input_files()
-    amset.to_csv()
-    amset.as_dict()
-    amset.to_file()
-    amset.plot(k_plots=['energy'], e_plots='all', mode='offline',
-               carrier_types=amset.all_types)
-
-    amset.to_json(kgrid=True, trimmed=True, max_ndata=100, n0=0)
+    # amset.write_input_files()
+    # amset.to_csv()
+    # amset.as_dict()
+    # amset.to_file()
+    # amset.plot(k_plots=['energy'], e_plots='all', mode='offline',
+    #            carrier_types=amset.all_types)
+    #
+    # amset.to_json(kgrid=True, trimmed=True, max_ndata=100, n0=0)
