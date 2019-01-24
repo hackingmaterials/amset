@@ -4,7 +4,7 @@ import os
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
-with open('README.rst', 'r') as file:
+with open('README.md', 'r') as file:
     long_description = file.read()
 
 if __name__ == "__main__":
