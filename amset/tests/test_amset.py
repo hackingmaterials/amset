@@ -13,6 +13,7 @@ test_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'test_files')
 
 LOGLEVEL = logging.DEBUG
 
+
 class AmsetTest(unittest.TestCase):
     def setUp(self):
         os.makedirs(os.path.join(test_dir, 'temp_dir'), exist_ok=True)
@@ -77,7 +78,6 @@ class AmsetTest(unittest.TestCase):
                    amset.mobility['n']['SPB_ACD'][c][T]) / 2
             self.assertTrue((diff / avg <= 0.025).all())
 
-
     def test_GaAs_isotropic_E_plus_serialize_deserialize(self):
         print('\ntesting test_GaAs_isotropic_E_plus_serialize_deserialize...')
         expected_mu = {'ACD': 459623.2946,
@@ -122,35 +122,6 @@ class AmsetTest(unittest.TestCase):
 
         # deserialization test:
         amset.from_file(path=os.path.join(amset.calc_dir, 'run_data'))
-
-        print('\ntesting test_GaAs_isotropic_E_... w/ boltztrap2 interpolation')
-        # test boltztrap2 once & its consistency with boltztrap1 interpolations
-        # the difference seem to originate from the difference in Fermi levels
-        performance_params["interpolation"] = "boltztrap2"
-        amset = Amset(calc_dir=self.temp_dir,
-                      vasprun_file=os.path.join(self.GaAs_dir, 'vasprun.xml'),
-                      material_params=self.GaAs_params,
-                      model_params=self.model_params,
-                      performance_params=performance_params,
-                      dopings=[-2e15], temperatures=[300], integration='e',
-                      loglevel=LOGLEVEL)
-        amset.run(os.path.join(self.GaAs_dir, 'fort.123'), kgrid_tp='very coarse')
-        kgrid = amset.kgrid
-
-        # check general characteristics of the grid
-        self.assertEqual(kgrid['n']['velocity'][0].shape[0], 78)
-        mean_v = np.mean(kgrid['n']['velocity'][0], axis=0)
-        self.assertLessEqual(np.std(mean_v), 50.00) # isotropic BS after removing points
-        self.assertLessEqual(abs(mean_v[0]/113757441.8667-1), 0.03) # velocity
-
-        # check mobility values
-        for mu in expected_mu.keys():
-            self.assertLessEqual(np.std( # test isotropic
-                amset.mobility['n'][mu][-2e15][300])/np.mean(
-                amset.mobility['n'][mu][-2e15][300]), 0.1)
-            self.assertLessEqual(abs(amset.mobility['n'][mu][-2e15][300][0] / expected_mu[mu] - 1), 0.07)
-        self.assertLess(abs(amset.seebeck['n'][-2e15][300][0]/expected_seebeck-1), 0.2)
-
 
     def test_GaAs_anisotropic(self):
         print('\ntesting test_GaAs_anisotropic...')
