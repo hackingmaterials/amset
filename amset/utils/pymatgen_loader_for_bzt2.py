@@ -9,33 +9,44 @@
 # data = BTP.DFTData(vasp_dir)
 
 import numpy as np
-from pymatgen.io.vasp import Vasprun
+
+from pymatgen import Spin
 from pymatgen.io.ase import AseAtomsAdaptor
 from BoltzTraP2 import units
 
+from pymatgen.io.vasp import Vasprun
 
-class PymatgenLoader:
 
-    def __init__(self, vrun):
-        self.kpoints = np.array(vrun.actual_kpoints)
-        self.structure = vrun.final_structure
+class PymatgenLoader(object):
+
+    def __init__(self, band_structure, num_electrons):
+        self.kpoints = [k.frac_coords for k in band_structure.kpoints]
+        self.structure = band_structure.structure
+
         self.atoms = AseAtomsAdaptor.get_atoms(self.structure)
-        if len(vrun.eigenvalues) == 1:
-            e = list(vrun.eigenvalues.values())[0]
-            self.ebands = e[:,:,0].transpose() * units.eV
+
+        if len(band_structure.bands) == 1:
+            self.ebands = band_structure.bands[Spin.up] * units.eV
             self.dosweight = 2.0
-        elif len(vrun.eigenvalues) == 2:
-            raise BaseException("spin bs case not implemented")
-        
+
+        else:
+            raise BaseException("Spin polarized band structure not supported")
+
         self.lattvec = self.atoms.get_cell().T * units.Angstrom
         self.mommat = None
-        self.fermi = vrun.efermi * units.eV
-        self.nelect = vrun.parameters['NELECT']
-        self.UCvol = self.structure.volume * units.Angstrom**3
+        self.fermi = band_structure.efermi * units.eV
+        self.nelect = num_electrons
+        self.UCvol = self.structure.volume * units.Angstrom ** 3
 
     @staticmethod
-    def from_files(vasprun_file):
-        return PymatgenLoader(Vasprun(vasprun_file))
+    def from_vasprun(vasprun):
+        if isinstance(vasprun, str):
+            vasprun = Vasprun(vasprun)
+
+        band_structure = vasprun.get_band_structure()
+        num_electrons = vasprun.parameters['NELECT']
+
+        return PymatgenLoader(band_structure, num_electrons)
 
     def get_lattvec(self):
         try:
@@ -43,14 +54,14 @@ class PymatgenLoader:
         except AttributeError:
             self.lattvec = self.atoms.get_cell().T * units.Angstrom
         return self.lattvec
-    
+
     def bandana(self, emin=-np.inf, emax=np.inf):
         bandmin = np.min(self.ebands, axis=1)
         bandmax = np.max(self.ebands, axis=1)
-        II = np.nonzero(bandmin < emax)
-        nemax = II[0][-1]
-        II = np.nonzero(bandmax > emin)
-        nemin = II[0][0]
+        ii = np.nonzero(bandmin < emax)
+        nemax = ii[0][-1]
+        ii = np.nonzero(bandmax > emin)
+        nemin = ii[0][0]
         self.ebands = self.ebands[nemin:nemax]
         if self.mommat is not None:
             self.mommat = self.mommat[:, nemin:nemax, :]
@@ -68,17 +79,17 @@ class PymatgenLoader:
 
 
 class BandstructureLoader:
-    def __init__(self, pmg_bs_obj,structure=None,nelect=None):
+    def __init__(self, pmg_bs_obj, structure=None, nelect=None):
         self.kpoints = np.array([kp.frac_coords for kp in pmg_bs_obj.kpoints])
-        
+
         if structure is None:
             try:
                 self.structure = pmg_bs_obj.structure
             except:
                 BaseException('No structure found in the bs obj.')
-        
+
         self.atoms = AseAtomsAdaptor.get_atoms(self.structure)
-        
+
         if len(pmg_bs_obj.bands) == 1:
             e = list(pmg_bs_obj.bands.values())[0]
             self.ebands = e * units.eV
@@ -89,28 +100,28 @@ class BandstructureLoader:
         self.lattvec = self.atoms.get_cell().T * units.Angstrom
         self.mommat = None
         self.fermi = pmg_bs_obj.efermi * units.eV
-        
+
         self.nelect = nelect
-        self.UCvol = self.structure.volume * units.Angstrom**3
-        
+        self.UCvol = self.structure.volume * units.Angstrom ** 3
+
     def get_lattvec(self):
         try:
             self.lattvec
         except AttributeError:
             self.lattvec = self.atoms.get_cell().T * units.Angstrom
         return self.lattvec
-    
+
     def bandana(self, emin=-np.inf, emax=np.inf):
         bandmin = np.min(self.ebands, axis=1)
         bandmax = np.max(self.ebands, axis=1)
-        II = np.nonzero(bandmin < emax)
-        nemax = II[0][-1]
-        II = np.nonzero(bandmax > emin)
-        nemin = II[0][0]
-        #BoltzTraP2.misc.info("BANDANA output")
-        #for iband in range(len(self.ebands)):
-            #BoltzTraP2.misc.info(iband, bandmin[iband], bandmax[iband], (
-                #(bandmin[iband] < emax) & (bandmax[iband] > emin)))
+        ii = np.nonzero(bandmin < emax)
+        nemax = ii[0][-1]
+        ii = np.nonzero(bandmax > emin)
+        nemin = ii[0][0]
+        # BoltzTraP2.misc.info("BANDANA output")
+        # for iband in range(len(self.ebands)):
+        # BoltzTraP2.misc.info(iband, bandmin[iband], bandmax[iband], (
+        # (bandmin[iband] < emax) & (bandmax[iband] > emin)))
         self.ebands = self.ebands[nemin:nemax]
         if self.mommat is not None:
             self.mommat = self.mommat[:, nemin:nemax, :]
