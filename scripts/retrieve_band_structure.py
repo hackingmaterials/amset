@@ -54,7 +54,7 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, matrix=None):
 def retrieve_bs_boltztrap2(vrun, bs, ibands, matrix=None):
     pf = PlotlyFig(filename='Energy-bt2')
     sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
-    bz_data = PymatgenLoader(vrun)
+    bz_data = PymatgenLoader.from_vasprun(vrun)
     equivalences = sphere.get_equivalences(atoms=bz_data.atoms, nkpt=len(bz_data.kpoints) * 5, magmom=None)
     lattvec = bz_data.get_lattvec()
     coeffs = fite.fitde3D(bz_data, equivalences)
