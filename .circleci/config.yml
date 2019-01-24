@@ -10,16 +10,16 @@ jobs:
       - run:
           name: dependencies in py3 env gcc g++ for boltztrap2 and run tests
           command: |
-            sudo apt-get install gcc
-            sudo apt-get install g++
+            sudo apt-get install gcc g++ -y -q
             export CC=/usr/bin/gcc
             export CXX=/usr/bin/g++
             export CFLAGS="-std=c++11"
             python3 -m venv test_env
             . test_env/bin/activate
-            pip install --upgrade pip
-            pip install --quiet numpy cython cmake
-            pip install --quiet -r requirements.txt
-            pip install --quiet -r requirements-optional.txt
+            pip install -q --upgrade pip
+            pip install -q numpy cython cmake
+            pip install -q -e .
+            pip install -q -r requirements.txt
+            pip install -q -r requirements-optional.txt
             python setup.py test
-          no_output_timeout: 60m
+          no_output_timeout: 120m
