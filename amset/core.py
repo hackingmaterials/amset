@@ -6,6 +6,8 @@ import numpy as np
 import os
 import time
 import warnings
+
+from amset.logging import LoggableMixin
 from amset.utils.analytical_band_from_bzt1 import Analytical_bands
 from amset.utils.band_parabolic import get_dos_from_parabolic_bands, \
     get_parabolic_energy
@@ -17,7 +19,7 @@ from amset.utils.band_structure import get_bindex_bspin, \
 from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, A_to_nm, e, k_B, \
     epsilon_0, default_small_E, dTdz, sq3
 from amset.utils.general import norm, cos_angle, remove_from_grid, get_angle, \
-    sort_angles, AmsetError, setup_custom_logger
+    sort_angles, AmsetError
 from amset.utils.k_integration import generate_k_mesh_axes, create_grid, \
     array_to_kgrid, normalize_array
 
@@ -43,11 +45,9 @@ from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
 from pymatgen.io.vasp import Vasprun, Spin, Kpoints
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from scipy.interpolate import griddata
-from sys import stdout as STDOUT
+from sys import stdout
 
 try:
-    import BoltzTraP2
-    import BoltzTraP2.dft
     from BoltzTraP2 import sphere, fite
 except ImportError:
     warnings.warn(
@@ -60,8 +60,10 @@ __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 __status__ = "Development"
 
+doping_names = {"n": "conduction band(s)", "p": "valence band(s)"}
 
-class Amset(object):
+
+class Amset(LoggableMixin):
     """ Runs Amset on a pymatgen from a VASP run (i.e. vasprun.xml). Amset is
     an ab initio model for calculating the mobility and Seebeck coefficient
     using Bolƒtzmann transport equation (BTE). The band structure in the
@@ -103,88 +105,92 @@ class Amset(object):
             DOI: 10.1093/acprof:oso/9780199677214.001.0001
 
     Args:
-        calc_dir (str): where Amset will be running (e.g. path to the vasprun.xml)
-            material_params (dict, required): material parameters; current options::
+        calc_dir (str): Where Amset will be running.
+        material_params (dict, required): material parameters; current options:
 
-                "epsilon_s" (float>0, required): static dielectric constant
-                "epsilon_inf" (float>0): high-frequency dielectric constant
-                "C_el" (float>0): average elastic constant in GPa only used by ACD
-                "P_PIE" (float>0): piezoelectric coefficient only used by PIE
-                "E_D" (float>0 or {"n": float, "p": float}): CBM/VBM acoustic phonon
-                    deformation potential constant in eV; only used by ACD
-                "N_dis" (float>0): charged linear discloation concentration only
-                    used by DIS. Units: 1/cm2 (# of dislocations in unit thickness)
-                "user_bandgap" (float): the target band gap set artificially.
-                "scissor" (float): amount of artificial change to the electronic
-                    band gap in eV; ignored if user_bandgap is set.
-                "donor_charge" (int): the charge of the shallow donors (e.g. 2)
-                    defaults to 1
-                "acceptor_charge" (int): the charge of the shallow acceptors
-                    defaults to 1
-                "dislocations_charge" (int): absolute value of the charge of the
-                    linear dislocations; defaults to 1
-                "important_points" (dict): the important band extrema dominating the
-                    transport; defaults to None to automatically find those points.
-                    examples: None or {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
-                                       'p': [[0.0, 0.0, 0.0]]}
-                "W_POP" (float): Longitudinal polar optical phonon frequency in THz
-                    at the k-point where the CBM/VBM is located
+            "epsilon_s" (float>0, required): static dielectric constant
+            "epsilon_inf" (float>0): high-frequency dielectric constant
+            "C_el" (float>0): average elastic constant in GPa only used by ACD
+            "P_PIE" (float>0): piezoelectric coefficient only used by PIE
+            "E_D" (float>0 or {"n": float, "p": float}): CBM/VBM acoustic phonon
+                deformation potential constant in eV; only used by ACD
+            "N_dis" (float>0): charged linear discloation concentration only
+                used by DIS. Units: 1/cm2 (# of dislocations in unit thickness)
+            "user_bandgap" (float): the target band gap set artificially.
+            "scissor" (float): amount of artificial change to the electronic
+                band gap in eV; ignored if user_bandgap is set.
+            "donor_charge" (int): the charge of the shallow donors (e.g. 2)
+                defaults to 1
+            "acceptor_charge" (int): the charge of the shallow acceptors
+                defaults to 1
+            "dislocations_charge" (int): absolute value of the charge of the
+                linear dislocations; defaults to 1
+            "important_points" (dict): the important band extrema dominating the
+                transport; defaults to None to automatically find those points.
+                examples: None or {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+                                   'p': [[0.0, 0.0, 0.0]]}
+            "W_POP" (float): Longitudinal polar optical phonon frequency in THz
+                at the k-point where the CBM/VBM is located
 
             example of material_params: {"epsilon_s": 10.3, "user_bandgap": 1.}
-        vasprun_file (str): path the vasprun.xml; is set to calc_dir by default
-        model_params (dict): parameters related to the model and the formulation::
+        model_params (dict): parameters related to the model and the
+            formulation:
 
-                "bs_is_isotropic" (bool): whether to use isotropic band formulation
-                    note that True is recommended as it is much faster than the
-                    anisotropic formulation while still captures some anisotropy.
-                    However, some details of anisotropic band may be lost in which
-                    case set to False.
-                "elastic_scats" ([str]): list of elastic scattering mechanisms to
-                    be include; for example: ["ACD", "IMP", "PIE"]
-                "inelastic_scats" ([str]): list of inelastic scattering mechanisms
-                    to be included; for example: ["POP"]
-                "parabolic_bands" (None or list): None is recommended; otherwise set
-                    to simulate a band structure with one or multiple parabolic
-                    bands; For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]] denotes
-                    a single parabolic band, with a single extremum at
-                    Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
-                    has an effective mass of 0.09. Coordinates are fractional. For
-                    more information see the docs for get_parabolic_energy function.
+            - "bs_is_isotropic" (bool): whether to use isotropic band
+              formulation note that True is recommended as it is much faster
+              than the anisotropic formulation while still captures some
+              anisotropy. However, some details of anisotropic band may be lost
+              in which case set to False.
+            - "elastic_scats" ([str]): list of elastic scattering mechanisms to
+              be include; for example: ["ACD", "IMP", "PIE"]
+            - "inelastic_scats" ([str]): list of inelastic scattering mechanisms
+               to be included; for example: ["POP"]
+            - "parabolic_bands" (None or list): None is recommended; otherwise
+              set to simulate a band structure with one or multiple parabolic
+              bands; For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]] denotes
+              a single parabolic band, with a single extremum at
+              Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
+              has an effective mass of 0.09. Coordinates are fractional. For
+              more information see the docs for get_parabolic_energy function.
 
         performance_params (dict): parameters related to convergence, speed,
-            etc; the options are::
+            etc; the options are:
 
-                "dE_min" (float): minimum energy difference differentiated in the
-                    energy grid (egrid); essentially the resolution of the egrid
-                "Ecut" (float or {"n": float, "p": float}): energy cutoff from the
-                    CBM/VBM beyond which the band structure is ignored.
-                "dos_bwidth" (float): the bandwidth (in eV) used for calculating
-                    the density of states (DOS)
-                "dos_kdensity" (int > 100): the uniform k-point density for DOS
-                "BTE_iters" (int>3): the number of iterations in solving the
-                    linearized Boltzmann Transport Equation (BTE)
-                "max_nbands" (None, int>=1): the maximum number of bands included;
-                    set None for autmatic determination bands on the Ecut.
-                "max_normk0" (float): the cutoff in reciprocal space from a given
-                    extremum in units of 1/nm
-                "max_nvalleys (None or int>=1): the maximum number of valleys
-                    included in each band. Set to None for automatic setting.
-                "n_jobs" (int>=1): the number of jobs in parallelization. Currently,
-                    it is only relevant to interpolation method of "boltztrap1"
-                "interpolation" (str): the band structure interpolation method.
-                    Current options are "boltztrap1" and "boltztrap2".
+            - "dE_min" (float): minimum energy difference differentiated in the
+              energy grid (egrid); essentially the resolution of the egrid
+            - "Ecut" (float or {"n": float, "p": float}): energy cutoff from the
+              CBM/VBM beyond which the band structure is ignored.
+            - "dos_bwidth" (float): the bandwidth (in eV) used for calculating
+              the density of states (DOS)
+            - "dos_kdensity" (int > 100): the uniform k-point density for DOS
+            - "BTE_iters" (int>3): the number of iterations in solving the
+              linearized Boltzmann Transport Equation (BTE)
+            - "max_nbands" (None, int>=1): the maximum number of bands included;
+              set None for autmatic determination bands on the Ecut.
+            - "max_normk0" (float): the cutoff in reciprocal space from a given
+              extremum in units of 1/nm
+            - "max_nvalleys (None or int>=1): the maximum number of valleys
+              included in each band. Set to None for automatic setting.
+            - "n_jobs" (int>=1): the number of jobs in parallelization.
+              Currently, it is only relevant to interpolation method of
+              "boltztrap1"
+            - "interpolation" (str): the band structure interpolation method.
+              Current options are "boltztrap1" and "boltztrap2".
 
         dopings ([float]): list of input carrier concentrations; c<0 for
             electrons and c>0 for holes
         temperatures ([float]): input temperatures (T) in Kelvin.
         integration (str): 'e' or 'k'. Currently only e or integration of
             properties in the energy-scale is supported
-        loglevel (int): e.g. logging.DEBUG; set logging.ERROR to turn off
+        logger (Logger, bool): A custom logger object to use for logging.
+            Alternatively, if set to True, the default automatminer logger will
+            be used. If set to False, then no logging will occur.
+        log_level (int): e.g. logging.DEBUG; set logging.ERROR to turn off
             the logging
-        timeout_hours (float): timeout_hours in hours. If Amset takes longer than this,
-            the calculations will stop. However, if transport properties
-            are already calculated, the postprocessing (e.g. write to file)
-            might violate this timeout_hours.
+        timeout_hours (float): timeout_hours in hours. If Amset takes longer
+            than this, the calculations will stop. However, if transport
+            properties are already calculated, the postprocessing (e.g. write to
+            file) might violate this timeout_hours.
 
     Returns:
         (None): results are accessible through various methods such as the
@@ -205,42 +211,38 @@ class Amset(object):
     def __init__(self, band_structure, num_electrons, projected_eigenvalues,
                  material_params, calc_dir=None,
                  model_params=None, performance_params=None,
-                 dopings=None, temperatures=None, integration='e',
-                 loglevel=None, timeout_hours=48):
+                 dopings=None, temperatures=None, integration='e', logger=True,
+                 log_level=None, timeout_hours=48):
+
+        self._logger = self.get_logger(logger, level=log_level)
+
+        if integration != 'e':
+            self.log_raise(ValueError, 'Only "e" integration supported.')
+
+        if band_structure.is_metal():
+            self.log_raise(ValueError, 'Band structure is metallic. This is not'
+                                       'supported by AMSET.')
+
         self.bs = band_structure
+        self.nbands = self.bs.nb_bands
         self.nelec = num_electrons
         self.projected_eigenvalues = projected_eigenvalues
         self.structure = band_structure.structure
-
         self.calc_dir = calc_dir if calc_dir else '.'
-        self.logger = setup_custom_logger(
-            'amset_logger', self.calc_dir, 'amset.log', level=loglevel)
-        self.dopings = dopings or [-1e20, 1e20]
-        self.dopings = [int(doping) for doping in self.dopings]
+        self.dopings = map(int, dopings) if dopings else [-1e20, 1e20]
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
-        self.tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
-        self.temperatures = temperatures or [300, 600]
-        self.temperatures = [int(T) for T in self.temperatures]
+        self.temps = map(int, temperatures) if temperatures else [300, 600]
+        self.integration = integration
+        self.timeout_hours = timeout_hours * 3600.0
+        self.kpoints = [k.frac_coords for k in band_structure.kpoints]
+        self.cartesian_kpoints = np.array([self.get_cartesian_coords(k)
+                                           for k in self.kpoints]) / A_to_nm
+        self.rotations = SpacegroupAnalyzer(
+            self.structure).get_symmetry_dataset()['rotations']
+
         self.set_model_params(model_params)
         self.set_material_params(material_params)
         self.set_performance_params(performance_params)
-        self.integration = integration
-        self.logger.info('integration: {}'.format(self.integration))
-        if self.integration == "k":
-            self.logger.warning(
-                "k-integration is not fully implemented! The results may be "
-                "unreliable. It also only works for structures with a symmetric"
-                " lattic constant! 'e'-integration is recommended.")
-        elif self.integration != "e":
-            raise AmsetError(self.logger, "Unsupported integration method: "
-                                          "'{}'".format(self.integration))
-        self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
-        self.counter = 0  # a global counter just for debugging
-        self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
-        self.kgrid_tp = None
-        self.seebeck = {'n': None, 'p': None}
-        self.timeout_hours = timeout_hours * 3600.0
-        self.start_time = time.time()
 
         self.interp_params = None
         if self.interpolation == "boltztrap2":
@@ -253,95 +255,71 @@ class Amset(object):
             coeffs = fite.fitde3D(bz2_data, equivalences)
             self.interp_params = (equivalences, lattvec, coeffs)
 
-        self.logger.debug('direct lattice matrix:\n{}'.format(
-            self.structure.lattice.matrix))
-        self.logger.info(
-            "unitcell volume = {} A**3".format(self.structure.volume))
-
-        sg = SpacegroupAnalyzer(self.structure)
-        self.rotations, _ = sg._get_symmetry()
-
-        self.kpoints = [k.frac_coords for k in band_structure.kpoints]
-
-        if self.bs.is_metal():
-            raise AmsetError(self.logger,
-                             'The input band structure is a metal currently '
-                             'not supported by Amset')
-
-        self.nbands = self.bs.nb_bands
         # fix projected_eigenvalues
         self.lorbit = 11 if len(
             sum(projected_eigenvalues[Spin.up][0][10])) > 5 else 10
 
-        self.DFT_cartesian_kpts = np.array([self.get_cartesian_coords(k)
-                                            for k in self.kpoints]) / A_to_nm
+        cbm = band_structure.get_cbm()
+        vbm = band_structure.get_vbm()
+        eigs = np.array([self.bs.bands[s] for s in Spin if s in self.bs.bands])
+        self.dos_emin = np.min(eigs)
+        self.dos_emax = np.max(eigs)
 
-        cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0,
-                         "eff_mass_xx": [0.0, 0.0, 0.0]},
-                   "p": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0,
-                         "eff_mass_xx": [0.0, 0.0, 0.0]}}
-
-        cbm = self.bs.get_cbm()
-        vbm = self.bs.get_vbm()
         self.dft_gap = cbm["energy"] - vbm["energy"]
-        self.logger.debug(
-            "DFT gap from vasprun.xml : {} eV".format(self.dft_gap))
-        self.logger.info("total number of bands: {}".format(self.bs.nb_bands))
-        cbm_vbm["n"]["energy"] = cbm["energy"]
-        cbm_vbm["n"]["bidx"], _ = get_bindex_bspin(cbm, is_cbm=True)
-        cbm_vbm["n"]["kpoint"] = self.bs.kpoints[
-            cbm["kpoint_index"][0]].frac_coords
-        cbm_vbm["p"]["energy"] = vbm["energy"]
-        cbm_vbm["p"]["bidx"], _ = get_bindex_bspin(vbm, is_cbm=False)
-        cbm_vbm["p"]["kpoint"] = self.bs.kpoints[
-            vbm["kpoint_index"][0]].frac_coords
+        self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
 
         if self.user_bandgap:
             if self.scissor != 0.0:
-                self.logger.warning(
-                    '"user_bandgap" is set hence previously set '
-                    '"scissor" is ignored. Continuing with scissor={}'.format(
-                        self.user_bandgap - self.dft_gap))
+                self.logger.warning("user_bandgap and scissor are both set, "
+                                    "overriding scissor.")
             self.scissor = self.user_bandgap - self.dft_gap
             self.logger.info('scissor is set to {}'.format(self.scissor))
 
-        bsd = self.bs.as_dict()
-        if bsd["is_spin_polarized"]:
-            self.dos_emin = min(min(bsd["bands"]["1"][0]),
-                                min(bsd["bands"]["-1"][0]))
-            self.dos_emax = max(max(bsd["bands"]["1"][-1]),
-                                max(bsd["bands"]["-1"][-1]))
-        else:
-            self.dos_emin = min(bsd["bands"]["1"][0])
-            self.dos_emax = max(bsd["bands"]["1"][-1])
+        # I think we add 1 to band indicies to be consistent with BoltzTraP?
+        cbm_vbm = {"n": {"kpoint": self.kpoints[cbm["kpoint_index"][0]],
+                         "energy": cbm["energy"],
+                         "bidx": get_bindex_bspin(vbm, is_cbm=False)[0] + 2,
+                         "included": 0,
+                         "eff_mass_xx": [0.0, 0.0, 0.0]},
+                   "p": {"kpoint": self.kpoints[vbm["kpoint_index"][0]],
+                         "energy": vbm["energy"],
+                         "bidx": get_bindex_bspin(vbm, is_cbm=False)[0] + 1,
+                         "included": 0,
+                         "eff_mass_xx": [0.0, 0.0, 0.0]}}
 
-        self.init_nbands = {'n': None, 'p': None}
         if self.parabolic_bands0 is None:
-            for i, tp in enumerate(["n", "p"]):
-                Ecut = self.Ecut[tp]
-                sgn = (-1) ** i
-                while abs(
-                        min(sgn * np.array(bsd["bands"]["1"][
-                                               cbm_vbm[tp]["bidx"] + sgn *
-                                               cbm_vbm[tp][
-                                                   "included"]])) - sgn *
-                        cbm_vbm[tp]["energy"]) < Ecut:
-                    cbm_vbm[tp]["included"] += 1
-                self.init_nbands[tp] = cbm_vbm[tp]["included"]
+            # normalise the band energies to the band edge
+            max_cb = np.min(eigs[0], axis=1) - cbm['energy']
+            min_vb = np.max(eigs[0], axis=1) - vbm['energy']
+
+            # count the number of bands within cut-off from the band edges
+            cbm_vbm['n']['included'] = len(
+                max_cb[(max_cb >= 0) & (max_cb <= self.Ecut["n"])])
+            cbm_vbm['p']['included'] = len(
+                max_cb[(min_vb <= 0) & (min_vb >= -self.Ecut["p"])])
         else:
             cbm_vbm["n"]["included"] = len(self.parabolic_bands0)
             cbm_vbm["p"]["included"] = len(self.parabolic_bands0)
-            self.init_nbands['n'] = len(self.parabolic_bands0)
-            self.init_nbands['p'] = len(self.parabolic_bands0)
-        cbm_vbm["p"]["bidx"] += 1
-        cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
+
+        self.init_nbands = {'n': cbm_vbm['n']['included'],
+                            'p': cbm_vbm['p']['included']}
+
         self.cbm_vbm = cbm_vbm
         self.cbm_vbm0 = deepcopy(cbm_vbm)
-        self.valleys = {tp: {'band {}'.format(i): OrderedDict() \
-                             for i in range(self.cbm_vbm0[tp]['included'])} \
+        self.valleys = {tp: {'band {}'.format(i): OrderedDict()
+                             for i in range(self.cbm_vbm0[tp]['included'])}
                         for tp in ['p', 'n']}
-        self.logger.info("original cbm_vbm:\n {}".format(cbm_vbm))
         self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
+        self.kgrid_tp = None
+        self.seebeck = {'n': None, 'p': None}
+        self.start_time = time.time()
+
+        self.logger.info('integration: {}'.format(self.integration))
+        self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
+        self.logger.debug('direct lattice matrix:\n{}'.format(
+            self.structure.lattice.matrix))
+        self.logger.info("cell volume = {} A**3".format(self.structure.volume))
+        self.logger.info("original cbm_vbm:\n {}".format(cbm_vbm))
 
     @staticmethod
     def from_vasprun(vasprun, material_params, **kwargs):
@@ -370,7 +348,7 @@ class Amset(object):
         """
         profiler = cProfile.Profile()
         profiler.runcall(lambda: self.run(coeff_file, kgrid_tp=kgrid_tp))
-        stats = Stats(profiler, stream=STDOUT)
+        stats = Stats(profiler, stream=stdout)
         stats.strip_dirs()
         stats.sort_stats('cumulative')
         stats.print_stats(nfuncs)
@@ -451,11 +429,11 @@ class Amset(object):
                                   num_bands=self.init_nbands,
                                   nbelow_vbm=0,
                                   nabove_cbm=0)
-            self.fermi_level = {c: {T: None for T in self.temperatures} \
+            self.fermi_level = {c: {T: None for T in self.temps} \
                                 for c in self.dopings}
 
             for c in self.dopings:
-                for T in self.temperatures:
+                for T in self.temps:
                     self.fermi_level[c][T] = self.find_fermi(c, T)
         self.logger.info('fermi level = {}'.format(self.fermi_level))
         self.logger.info(
@@ -489,11 +467,12 @@ class Amset(object):
         self.logger.debug(self.count_mobility)
 
         self.denominator = {
-            c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in
+            c: {T: {'p': 0.0, 'n': 0.0} for T in self.temps} for c in
             self.dopings}
         self.seeb_denom = {
-            c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in
+            c: {T: {'p': 0.0, 'n': 0.0} for T in self.temps} for c in
             self.dopings}
+
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(
                 ibands_tuple):
             self._check_timeout_hours()
@@ -648,7 +627,7 @@ class Amset(object):
                 self.map_to_egrid(prop_name="relaxation time")
 
                 for c in self.dopings:
-                    for T in self.temperatures:
+                    for T in self.temps:
                         seeb_integ = \
                             self.egrid["Seebeck_integral_numerator"][c][T][tp] / \
                             self.egrid["Seebeck_integral_denominator"][c][T][tp]
@@ -741,7 +720,7 @@ class Amset(object):
                                                            important_points[tp][
                                                                0]))
                     for c in self.dopings:
-                        for T in self.temperatures:
+                        for T in self.temps:
                             self.kgrid[tp]["relaxation time"][c][T][ib] = \
                                 1 / (self.kgrid[tp]["_all_elastic"][c][T][ib] \
                                      + self.kgrid[tp]["S_o"][c][T][ib] \
@@ -817,7 +796,7 @@ class Amset(object):
 
         for tp in ['p', 'n']:
             for c in self.dopings:
-                for T in self.temperatures:
+                for T in self.temps:
                     for mu in self.mo_labels + ["J_th"]:
                         self.mobility[tp][mu][c][T] /= self.denominator[c][T][
                             tp]
@@ -834,12 +813,12 @@ class Amset(object):
 
         # finalize Seebeck values:
         sigma = {
-            tp: {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+            tp: {c: {T: 0.0 for T in self.temps} for c in self.dopings}
             for
             tp in ['p', 'n']}
         for tp in ['p', 'n']:
             for c in self.dopings:
-                for T in self.temperatures:
+                for T in self.temps:
                     self.logger.debug(
                         '3 terms of {0}-type seebeck at c={1:.2e}, T={2}'.format(
                             tp, c, T))
@@ -910,7 +889,7 @@ class Amset(object):
                                                doping=[1e20],
                                                tgrid=300,
                                                tmax=max(
-                                                   self.temperatures + [300]),
+                                                   self.temps + [300]),
                                                )  # do NOT set scissor in runner
             boltztrap_runner.run(path_dir=self.calc_dir)
             coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
@@ -935,12 +914,12 @@ class Amset(object):
                                                                     "J_th"]
         self.mobility = {
             tp: {el_mech: {c: {T: np.array([0., 0., 0.], dtype='float') \
-                               for T in self.temperatures} \
+                               for T in self.temps} \
                            for c in self.dopings} \
                  for el_mech in self.transport_labels} \
             for tp in ["n", "p"]}
         self.calc_doping = {c: {T: {'n': None, 'p': None} \
-                                for T in self.temperatures} \
+                                for T in self.temps} \
                             for c in self.dopings}
         self.ibrun = 0  # counter of the ibands_tuple (band-valley walker)
         self.count_mobility = [{'n': True, 'p': True} \
@@ -958,7 +937,7 @@ class Amset(object):
         """
         for tp in ['p', 'n']:
             for c in self.dopings:
-                for T in self.temperatures:
+                for T in self.temps:
                     fermi = self.fermi_level[c][T]
 
                     # TODO: note that now I only calculate one mobility, define a relative energy term for both n- and p-SPB later
@@ -1506,7 +1485,7 @@ class Amset(object):
         c_factor = max(1., max(
             [log(abs(ci) / 1e19) for ci in self.dopings] + [1.]) ** 0.5)
         Ecut = params.get("Ecut",
-                          c_factor * 5 * k_B * max(self.temperatures + [600]))
+                          c_factor * 5 * k_B * max(self.temps + [600]))
         self.max_Ecut = params.get("Ecut",
                                    1.5)  # TODO-AF: set this default Encut based on maximum energy range that the current BS covers between
         Ecut = min(Ecut, self.max_Ecut)
@@ -1653,12 +1632,12 @@ class Amset(object):
             for tp in ["n", "p"]:
                 self.egrid[tp][prop_name] = \
                     {c: {T: [self.gs] * len(self.egrid[tp]["energy"]) \
-                         for T in self.temperatures} for c in self.dopings}
+                         for T in self.temps} for c in self.dopings}
         else:
-            self.egrid[prop_name] = {c: {T: self.gs for T in self.temperatures
+            self.egrid[prop_name] = {c: {T: self.gs for T in self.temps
                                          } for c in self.dopings}
         for c in self.dopings:
-            for T in self.temperatures:
+            for T in self.temps:
                 if for_all_E:
                     fermi = self.fermi_level[c][T]
                     for tp in ["n", "p"]:
@@ -1785,7 +1764,7 @@ class Amset(object):
             return corrupt_tps
         for tp in ['n', 'p']:
             self.egrid[tp]["relaxation time constant"] = {
-                c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+                c: {T: 0.0 for T in self.temps} for c in self.dopings}
 
         self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
         self.calculate_property(prop_name="f", prop_func=f0, for_all_E=True)
@@ -1804,7 +1783,7 @@ class Amset(object):
                                                                              T)),
                                 for_all_E=True)
         for c in self.dopings:
-            for T in self.temperatures:
+            for T in self.temps:
                 fermi = self.fermi_level[c][T]
                 for tp in ["n", "p"]:
                     for ib in range(len(self.kgrid[tp]["energy"])):
@@ -1921,7 +1900,7 @@ class Amset(object):
                     else:
                         self[grid][tp][name] = {
                             c: {T: np.array(init_content) for T in
-                                self.temperatures} for c in
+                                self.temps} for c in
                             self.dopings}
                 else:
                     # TODO: if not is_nparray both temperature values will be equal probably because both are equal to init_content that are a list and FOREVER they will change together. Keep is_nparray as True as it makes a copy, otherwise you are doomed! See if you can fix this later
@@ -1933,7 +1912,7 @@ class Amset(object):
                             self[grid][tp][name] = init_content
                         else:
                             self[grid][tp][name] = {
-                                c: {T: init_content for T in self.temperatures}
+                                c: {T: init_content for T in self.temps}
                                 for
                                 c in
                                 self.dopings}
@@ -2021,7 +2000,7 @@ class Amset(object):
                     lorbit=self.lorbit)
                 orbitals = {"s": s_orbital, "p": p_orbital}
                 fit_orbs = {
-                    orb: griddata(points=np.array(self.DFT_cartesian_kpts),
+                    orb: griddata(points=np.array(self.cartesian_kpoints),
                                   values=np.array(orbitals[orb]),
                                   xi=np.array(
                                       self.kgrid[tp]["old cartesian kpoints"][
@@ -2171,7 +2150,7 @@ class Amset(object):
                 self.kgrid[tp]["W_POP"][ib] = \
                     [self.W_POP] * len(self.kgrid[tp]["kpoints"][ib])
                 for c in self.dopings:
-                    for T in self.temperatures:
+                    for T in self.temps:
                         self.kgrid[tp]["N_POP"][c][T][ib] = np.array(
                             [1 / (np.exp(hbar * W_POP / (k_B * T)) - 1) for
                              W_POP in self.kgrid[tp]["W_POP"][ib]])
@@ -2238,7 +2217,7 @@ class Amset(object):
                 if enforced_ratio > 0.9:
                     warnings.warn(
                         "the k-grid is too coarse for an acceptable simulation of elastic scattering in {};"
-                            .format(self.tp_title[tp]))
+                            .format(doping_names[tp]))
 
                 avg_Ediff = sum(self.ediff_scat[tp]) / max(
                     len(self.ediff_scat[tp]), 1)
@@ -2290,7 +2269,7 @@ class Amset(object):
                         warnings.warn(
                             "the k-grid is too coarse for an acceptable simulation of POP scattering in {};"
                             " you can try this k-point grid but without POP as an inelastic scattering.".format(
-                                self.tp_title[tp]))
+                                doping_names[tp]))
 
                     avg_Ediff = sum(self.ediff_scat[tp]) / max(
                         len(self.ediff_scat[tp]), 1)
@@ -2853,7 +2832,7 @@ class Amset(object):
         """
         for tp in ["n", "p"]:
             for c in self.dopings:
-                for T in self.temperatures:
+                for T in self.temps:
                     for ib in range(len(self.kgrid[tp]["kpoints"])):
                         results = [calculate_Sio(tp, c, T, ib, ik,
                                                  once_called, self.kgrid,
@@ -2899,7 +2878,7 @@ class Amset(object):
         """
         for tp in ["n", "p"]:
             for c in self.dopings:
-                for T in self.temperatures:
+                for T in self.temps:
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             summation = np.array([0.0, 0.0, 0.0])
@@ -3003,7 +2982,7 @@ class Amset(object):
 
         for tp in ["n", "p"]:
             for c in self.dopings:
-                for T in self.temperatures:
+                for T in self.temps:
                     valley = Valley(
                         self.kgrid[tp]["cartesian kpoints"][0],
                         self.kgrid[tp]['norm(k)'][0],
@@ -3070,7 +3049,7 @@ class Amset(object):
                                 is_nparray=True, c_T_idx=True)
             for tp in ["n", "p"]:
                 for c in self.dopings:
-                    for T in self.temperatures:
+                    for T in self.temps:
                         for ie, en in enumerate(self.egrid[tp]["energy"]):
                             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                                 self.egrid[tp][prop_name][c][T][ie] += \
@@ -3217,7 +3196,7 @@ class Amset(object):
                         self.s_inelastic(sname="S_i" + g_suffix,
                                          g_suffix=g_suffix)
             for c in self.dopings:
-                for T in self.temperatures:
+                for T in self.temps:
                     for tp in ["n", "p"]:
                         g_old = np.array(self.kgrid[tp]["g"][c][T][0])
                         for ib in range(self.cbm_vbm[tp]["included"]):
@@ -3295,7 +3274,7 @@ class Amset(object):
 
         for tp in ["n", "p"]:
             for c in self.dopings:
-                for T in self.temperatures:
+                for T in self.temps:
                     for ie in range(len(self.egrid[tp]["g_POP"][c][T])):
                         if norm(self.egrid[tp]["g_POP"][c][T][ie]) > 1:
                             self.egrid[tp]["g_POP"][c][T][ie] = [1e-5, 1e-5,
@@ -3307,7 +3286,7 @@ class Amset(object):
         perturbation of electron distribution and group velocity over the energy
             """
         valley_transport = {tp: {
-            el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures}
+            el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temps}
                       for
                       c in
                       self.dopings} for el_mech in self.transport_labels} for tp
@@ -3315,7 +3294,7 @@ class Amset(object):
             ["n", "p"]}
 
         for c in self.dopings:
-            for T in self.temperatures:
+            for T in self.temps:
                 for j, tp in enumerate(["p", "n"]):
                     # mobility numerators
                     for mu_el in self.elastic_scats:
@@ -3385,7 +3364,7 @@ class Amset(object):
                  'elastic_scats': self.elastic_scats,
                  'inelastic_scats': self.inelastic_scats,
                  'dopings': self.dopings,
-                 'temperatures': self.temperatures,
+                 'temps': self.temps,
                  'material_params': self.material_params,
                  'performance_params': self.performance_params,
                  'model_params': self.model_params,
@@ -3464,7 +3443,7 @@ class Amset(object):
                       calc_dir=path,
                       model_params=d['model_params'],
                       dopings=d['dopings'],
-                      temperatures=d['temperatures'])
+                      temperatures=d['temps'])
         amset.kgrid0 = d['kgrid0']
         amset.egrid0 = d['egrid0']
         amset.kgrid_tp = d['kgrid_tp']
@@ -3474,7 +3453,7 @@ class Amset(object):
         amset.elastic_scats = d['elastic_scats']
         amset.inelastic_scats = d['inelastic_scats']
         amset.dopings = [float(dope) for dope in d['dopings']]
-        amset.temperatures = [float(T) for T in d['temperatures']]
+        amset.temps = [float(T) for T in d['temps']]
         amset.material_params = d['material_params']
         amset.performance_params = d['performance_params']
         amset.model_params = d['model_params']
@@ -3513,7 +3492,7 @@ class Amset(object):
                         continue
                     try:
                         for c in self.dopings:
-                            for T in self.temperatures:
+                            for T in self.temps:
                                 if tp == "n":
                                     egrid[tp][key][c][T] = \
                                         self.egrid[tp][key][c][T][n0:n0 + nmax]
@@ -3552,7 +3531,7 @@ class Amset(object):
                             continue
                         try:
                             for c in self.dopings:
-                                for T in self.temperatures:
+                                for T in self.temps:
                                     if tp == "n":
                                         kgrid[tp][key][c][T] = [
                                             self.kgrid[tp][key][c][T][b][
@@ -3621,7 +3600,7 @@ class Amset(object):
             writer.writeheader()
             for c in self.dopings:
                 tp = get_tp(c)
-                for T in self.temperatures:
+                for T in self.temps:
                     row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
                     for p in ['overall',
                               'average'] + self.elastic_scats + self.inelastic_scats:
@@ -3650,16 +3629,16 @@ class Amset(object):
 
         """
         num_bands = num_bands or self.num_bands
-        closest_energy = {c: {T: None for T in self.temperatures} for c in
+        closest_energy = {c: {T: None for T in self.temps} for c in
                           self.dopings}
         self.f0_array = {c: {T: {tp: list(range(num_bands[tp])) \
                                  for tp in ['n', 'p']} \
-                             for T in self.temperatures} \
+                             for T in self.temps} \
                          for c in self.dopings}
         for c in self.dopings:
             tp = get_tp(c)
             tol = tolerance * abs(c)
-            for T in self.temperatures:
+            for T in self.temps:
                 step = 0.1
                 range_of_energies = np.arange(self.cbm_vbm[tp]['energy'] - 2,
                                               self.cbm_vbm[tp]['energy'] + 2.1,
@@ -3902,11 +3881,11 @@ class Amset(object):
         """
         # calculate mobility by averaging velocity per electric field strength
         mu_num = {tp: {
-            el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in
+            el_mech: {c: {T: [0, 0, 0] for T in self.temps} for c in
                       self.dopings} for el_mech in self.elastic_scats} for tp in
             ["n", "p"]}
         valley_transport = {tp: {
-            el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures}
+            el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temps}
                       for
                       c in
                       self.dopings} for el_mech in self.transport_labels} for tp
@@ -3914,7 +3893,7 @@ class Amset(object):
             ["n", "p"]}
 
         for c in self.dopings:
-            for T in self.temperatures:
+            for T in self.temps:
                 for j, tp in enumerate(["n", "p"]):
                     E_array = self.array_from_kgrid('energy', tp)
                     if not self.count_mobility[self.ibrun][tp]:
@@ -4111,52 +4090,52 @@ class Amset(object):
         return valley_transport
 
 
-if __name__ == "__main__":
-
-    # inputs
-    mass = 0.25
-    use_parabolic_bands = False
-    model_params = {'bs_is_isotropic': True,
-                    'elastic_scats': ['ACD', 'IMP', 'PIE'],
-                    'inelastic_scats': ['POP']
-                    }
-    if use_parabolic_bands:
-        model_params["parabolic_bands"] = [[
-            [[0.0, 0.0, 0.0], [0.0, mass]],
-        ]]
-    performance_params = {"dE_min": 0.0001, "nE_min": 5,
-                          "BTE_iters": 5,
-                          "max_nbands": 1,
-                          "max_normk": None,
-                          "n_jobs": -1,
-                          "max_nvalleys": 1,
-                          "interpolation": "boltztrap1",
-                          "max_Ecut": 1.0,
-                          "dos_kdensity": 50
-                          }
-    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
-                       # experimental from [R]
-                       "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6},
-                       "P_PIE": 0.052,
-                       "user_bandgap": 1.54,
-                       # "important_points": {'n': [[0. , 0.5, 0. ]],
-                       #                      'p': [[0. , 0.0, 0. ]]},
-                       }
-    input_dir = "../test_files/GaAs_mp-2534"
-    # coeff_file = None
-    coeff_file = os.path.join(input_dir, "fort.123")
-
-    # instantiate and run AMSET:
-    amset = Amset.from_vasprun(
-        os.path.join(input_dir, "vasprun.xml"),
-        material_params=material_params, calc_dir='.',
-        model_params=model_params,
-        performance_params=performance_params,
-        dopings=[-3e13],
-        temperatures=[300, 600],
-        integration='e',
-    )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine')
+# if __name__ == "__main__":
+#
+#     # inputs
+#     mass = 0.25
+#     use_parabolic_bands = False
+#     model_params = {'bs_is_isotropic': True,
+#                     'elastic_scats': ['ACD', 'IMP', 'PIE'],
+#                     'inelastic_scats': ['POP']
+#                     }
+#     if use_parabolic_bands:
+#         model_params["parabolic_bands"] = [[
+#             [[0.0, 0.0, 0.0], [0.0, mass]],
+#         ]]
+#     performance_params = {"dE_min": 0.0001, "nE_min": 5,
+#                           "BTE_iters": 5,
+#                           "max_nbands": 1,
+#                           "max_normk": None,
+#                           "n_jobs": -1,
+#                           "max_nvalleys": 1,
+#                           "interpolation": "boltztrap1",
+#                           "max_Ecut": 1.0,
+#                           "dos_kdensity": 50
+#                           }
+#     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
+#                        # experimental from [R]
+#                        "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6},
+#                        "P_PIE": 0.052,
+#                        "user_bandgap": 1.54,
+#                        # "important_points": {'n': [[0. , 0.5, 0. ]],
+#                        #                      'p': [[0. , 0.0, 0. ]]},
+#                        }
+#     input_dir = "../test_files/GaAs_mp-2534"
+#     # coeff_file = None
+#     coeff_file = os.path.join(input_dir, "fort.123")
+#
+#     # instantiate and run AMSET:
+#     amset = Amset.from_vasprun(
+#         os.path.join(input_dir, "vasprun.xml"),
+#         material_params=material_params, calc_dir='.',
+#         model_params=model_params,
+#         performance_params=performance_params,
+#         dopings=[-3e13],
+#         temperatures=[300, 600],
+#         integration='e',
+#     )
+#     amset.run_profiled(coeff_file, kgrid_tp='very fine')
 
     # amset.write_input_files()
     # amset.to_csv()

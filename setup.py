@@ -22,7 +22,7 @@ if __name__ == "__main__":
         package_data={},
         data_files=['LICENSE', 'requirements-optional.txt'],
         zip_safe=False,
-        install_requires=['numpy', 'pymatgen'],
+        install_requires=['numpy', 'pymatgen', 'scipy', 'monty'],
         extras_require={'docs': ['sphinx']},
         classifiers=['Programming Language :: Python :: 3.6',
                      'Development Status :: 4 - Beta',

@@ -1,2 +1,4 @@
 numpy
 pymatgen
+scipy
+monty
