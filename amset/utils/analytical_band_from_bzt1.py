@@ -1,9 +1,7 @@
 # coding: utf-8
-import matplotlib
 import numpy as np
 import warnings
 
-matplotlib.use('agg')
 from amset.utils.constants import Ry_to_eV
 from pymatgen.core.units import Energy
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
@@ -13,7 +11,7 @@ __author__ = "Francesco Ricci and Alireza Faghaninia"
 __copyright__ = "Copyright 2017, HackingMaterials"
 __maintainer__ = "Francesco Ricci"
 
-'''
+"""
 The fitting algorythm is the Shankland-Koelling-Wood Fourier interpolation scheme,
 implemented (for example) in the BolzTraP software package (boltztrap1).
 
@@ -27,12 +25,12 @@ Details of the interpolation method are available in:
 The coefficient for fitting are indeed calculated in BoltzTraP, not in this code.
 Here, we just build the star functions using those coefficients.
 Then, we also calculate the energy bands for each k-point in input.
-'''
+"""
 
 
 def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
                br_dir=None, cbm=True, return_dde=True):
-    '''
+    """
     Compute energy for a k-point from star functions
     Args:
         xkpt: k-point coordinates as array
@@ -53,7 +51,7 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
         ene: the electronic energy at the k-point in input
         dene: 1st derivative of the electronic energy at the k-point in input
         ddene: 2nd derivative of the electronic energy at the k-point in input
-    '''
+    """
     sign = -1 if cbm == False else 1
     arg = 2 * np.pi * vec.dot(xkpt)
     tempc = np.cos(arg)
@@ -61,7 +59,7 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
 
     if br_dir is not None:
         temps = np.sin(arg)
-        # np.newaxis adds a new dimensions so that the shape of temps (nwave,2)
+        # np.newaxis adds a new dimensions so that the shape of temperatures (nwave,2)
         # converts to (nwave,2,1) so it can be projected to vec2 (nwave, 2, 3)
         dspwre = np.sum(vec2 * temps[:, :, np.newaxis], axis=1)
         dspwre /= nstv[:, np.newaxis]
@@ -294,7 +292,7 @@ class Analytical_bands(object):
     def get_dos_standard(self,energies,weights,e_min,e_max,e_points,width=0.2):
         """
         Args:
-        energies: matrix (num_kpoints,num_bands) of values in eV 
+        energies: matrix (num_kpoints,num_bands) of values in eV
                   from a previous interpolation over all the bands (num_bands)
                   and all the irreducible k-points (num_kpoints)
         weights:  list of multeplicities of irreducible k-points

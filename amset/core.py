@@ -1,56 +1,58 @@
 # coding: utf-8
 from __future__ import absolute_import
+
 import cProfile
 import json
-import numpy as np
 import os
 import time
 import warnings
-from amset.utils.analytical_band_from_bzt1 import Analytical_bands
-from amset.utils.band_parabolic import get_dos_from_parabolic_bands, \
-    get_parabolic_energy
-from amset.utils.band_interpolation import interpolate_bs, get_energy_args, \
-    get_bs_extrema, get_dos_boltztrap2
-from amset.utils.band_structure import get_bindex_bspin, remove_duplicate_kpoints, \
-    get_closest_k, generate_adaptive_kmesh, get_dft_orbitals
-from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, A_to_nm, e, k_B, \
-    epsilon_0, default_small_E, dTdz, sq3
-from amset.utils.general import norm, cos_angle, remove_from_grid, get_angle, \
-    sort_angles, AmsetError, setup_custom_logger
-from amset.utils.k_integration import generate_k_mesh_axes, create_grid, \
-    array_to_kgrid, normalize_array
+from collections import OrderedDict
+from copy import deepcopy
+from itertools import count
+from math import log, pi
+from multiprocessing import cpu_count
+from os.path import join as path_join
+from pprint import pformat
+from pstats import Stats
+from sys import stdout
 
-from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
-from amset.utils.transport import f0, df0dE, fermi_integral, calculate_Sio, \
-        get_tp, free_e_dos
-from amset.utils.plotting import get_amset_plots
+import numpy as np
+from monty.json import MontyEncoder, MSONable, MontyDecoder
+from monty.serialization import dumpfn, loadfn
+from scipy.interpolate import griddata
+
+from amset.logging import LoggableMixin
 from amset.scattering.elastic import (
     IonizedImpurityScattering, AcousticDeformationScattering,
     PiezoelectricScattering, DislocationScattering)
-
+from amset.utils.analytical_band_from_bzt1 import Analytical_bands
+from amset.utils.band_interpolation import interpolate_bs, get_energy_args, \
+    get_bs_extrema, get_dos_boltztrap2
+from amset.utils.band_parabolic import get_dos_from_parabolic_bands, \
+    get_parabolic_energy
+from amset.utils.band_structure import get_bindex_bspin, \
+    remove_duplicate_kpoints, \
+    get_closest_k, generate_adaptive_kmesh, get_band_orbital_contributions
+from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, A_to_nm, e, k_B, \
+    epsilon_0, default_small_E, dTdz, sq3
+from amset.utils.general import norm, cos_angle, remove_from_grid, get_angle, \
+    sort_angles, AmsetError, get_tp
+from amset.utils.k_integration import generate_k_mesh_axes, create_grid, \
+    array_to_kgrid, normalize_array
+from amset.plotting import get_amset_plots
+from amset.utils.transport import f0, df0de, fermi_integral, calculate_sio, \
+    free_e_dos
 from amset.valley import Valley
-
-from collections import OrderedDict
-from copy import deepcopy
-from math import log, pi
-from monty.json import MontyEncoder
-from monty.serialization import dumpfn, loadfn
-from multiprocessing import cpu_count
-from pprint import pformat
-from pstats import Stats
 from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
 from pymatgen.io.vasp import Vasprun, Spin, Kpoints
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from scipy.interpolate import griddata
-from sys import stdout as STDOUT
 
 try:
-    import BoltzTraP2
-    import BoltzTraP2.dft
     from BoltzTraP2 import sphere, fite
+    from pymatgen.electronic_structure.boltztrap2 import BandstructureLoader
 except ImportError:
-    warnings.warn('BoltzTraP2 not imported; "boltztrap2" interpolation not available.')
-
+    warnings.warn(
+        'BoltzTraP2 not imported; "boltztrap2" interpolation not available.')
 
 __author__ = "Alireza Faghaninia, Alex Ganose, Jason Frost, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
@@ -59,27 +61,40 @@ __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 __status__ = "Development"
 
+_doping_names = {"n": "conduction band(s)", "p": "valence band(s)"}
+_inst_args = ['kgrid0', 'egrid0', 'kgrid_tp', 'cbm_vbm', 'mobility',
+              'seebeck', 'elastic_scats', 'inelastic_scats', 'Efrequency0']
 
-class Amset(object):
-    """ Runs Amset on a pymatgen from a VASP run (i.e. vasprun.xml). Amset is an ab initio model
-    for calculating the mobility and Seebeck coefficient using Bolƒtzmann transport equation (BTE). The band structure
-    in the Brilluin zone (BZ) is extracted from vasprun.xml to calculate the group velocity and transport properties
-    in presence of various scattering mechanisms.
 
-    Currently the following scattering mechanisms with their corresponding three-letter abbreviations implemented are:
-    ionized impurity scattering (IMP), acoustic phonon deformation potential (ACD), piezoelectric (PIE), and charged
-    dislocation scattering (DIS). Also, longitudinal polar optical phonon (POP) in implemented as an inelastic
-    scattering mechanism that can alter the electronic distribution (the reason BTE has to be solved explicitly; for
-    more information, see references [R, A]).
+class Amset(MSONable, LoggableMixin):
+    """ Runs Amset on a pymatgen from a VASP run (i.e. vasprun.xml). Amset is
+    an ab initio model for calculating the mobility and Seebeck coefficient
+    using Bolƒtzmann transport equation (BTE). The band structure in the
+    Brilluin zone (BZ) is extracted from vasprun.xml to calculate the group
+    velocity and transport properties in presence of various scattering
+    mechanisms.
 
-    You can control the level of theory via various inputs. For example, by assuming that the band structure is
-    isotropic at the surrounding point of each k-point (i.e. bs_is_isotropic == True), one can significantly reduce
-    the computational effort otherwise needed for accurate numerical integration of the scatterings.
+    Currently the following scattering mechanisms with their corresponding
+    three-letter abbreviations implemented are: ionized impurity scattering (
+    IMP), acoustic phonon deformation potential (ACD), piezoelectric (PIE),
+    and charged dislocation scattering (DIS). Also, longitudinal polar
+    optical phonon (POP) in implemented as an inelastic scattering mechanism
+    that can alter the electronic distribution (the reason BTE has to be
+    solved explicitly; for more information, see references [R, A]).
 
-    A small comment on the structure of this code: the calculations are done and stored in two main dictionary type
-    variable called kgrid and egrid. kgrid contains all calculations that are done in k-space meaning that for each
-    k-point and each band that is included there is a number/vector/property stored. On the other hand, the egrid
-    is everything in energy scale hence we have number/vector/property stored at each energy point.
+    You can control the level of theory via various inputs. For example,
+    by assuming that the band structure is isotropic at the surrounding point
+    of each k-point (i.e. bs_is_isotropic == True), one can significantly
+    reduce the computational effort otherwise needed for accurate numerical
+    integration of the scatterings.
+
+    A small comment on the structure of this code: the calculations are done
+    and stored in two main dictionary type variable called kgrid and egrid.
+    kgrid contains all calculations that are done in k-space meaning that for
+    each k-point and each band that is included there is a
+    number/vector/property stored. On the other hand, the egrid is everything
+    in energy scale hence we have number/vector/property stored at each
+    energy point.
 
     References:
         [R]: D. L. Rode, Low-Field Electron Transport, Elsevier, 1975, vol. 10.,
@@ -93,88 +108,92 @@ class Amset(object):
             DOI: 10.1093/acprof:oso/9780199677214.001.0001
 
     Args:
-        calc_dir (str): where Amset will be running (e.g. path to the vasprun.xml)
-            material_params (dict, required): material parameters; current options::
+        calc_dir (str): Where Amset will be running.
+        material_params (dict, required): material parameters; current options:
 
-                "epsilon_s" (float>0, required): static dielectric constant
-                "epsilon_inf" (float>0): high-frequency dielectric constant
-                "C_el" (float>0): average elastic constant in GPa only used by ACD
-                "P_PIE" (float>0): piezoelectric coefficient only used by PIE
-                "E_D" (float>0 or {"n": float, "p": float}): CBM/VBM acoustic phonon
-                    deformation potential constant in eV; only used by ACD
-                "N_dis" (float>0): charged linear discloation concentration only
-                    used by DIS. Units: 1/cm2 (# of dislocations in unit thickness)
-                "user_bandgap" (float): the target band gap set artificially.
-                "scissor" (float): amount of artificial change to the electronic
-                    band gap in eV; ignored if user_bandgap is set.
-                "donor_charge" (int): the charge of the shallow donors (e.g. 2)
-                    defaults to 1
-                "acceptor_charge" (int): the charge of the shallow acceptors
-                    defaults to 1
-                "dislocations_charge" (int): absolute value of the charge of the
-                    linear dislocations; defaults to 1
-                "important_points" (dict): the important band extrema dominating the
-                    transport; defaults to None to automatically find those points.
-                    examples: None or {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
-                                       'p': [[0.0, 0.0, 0.0]]}
-                "W_POP" (float): Longitudinal polar optical phonon frequency in THz
-                    at the k-point where the CBM/VBM is located
+            "epsilon_s" (float>0, required): static dielectric constant
+            "epsilon_inf" (float>0): high-frequency dielectric constant
+            "C_el" (float>0): average elastic constant in GPa only used by ACD
+            "P_PIE" (float>0): piezoelectric coefficient only used by PIE
+            "E_D" (float>0 or {"n": float, "p": float}): CBM/VBM acoustic phonon
+                deformation potential constant in eV; only used by ACD
+            "N_dis" (float>0): charged linear discloation concentration only
+                used by DIS. Units: 1/cm2 (# of dislocations in unit thickness)
+            "user_bandgap" (float): the target band gap set artificially.
+            "scissor" (float): amount of artificial change to the electronic
+                band gap in eV; ignored if user_bandgap is set.
+            "donor_charge" (int): the charge of the shallow donors (e.g. 2)
+                defaults to 1
+            "acceptor_charge" (int): the charge of the shallow acceptors
+                defaults to 1
+            "dislocations_charge" (int): absolute value of the charge of the
+                linear dislocations; defaults to 1
+            "important_points" (dict): the important band extrema dominating the
+                transport; defaults to None to automatically find those points.
+                examples: None or {'n': [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+                                   'p': [[0.0, 0.0, 0.0]]}
+            "W_POP" (float): Longitudinal polar optical phonon frequency in THz
+                at the k-point where the CBM/VBM is located
 
             example of material_params: {"epsilon_s": 10.3, "user_bandgap": 1.}
-        vasprun_file (str): path the vasprun.xml; is set to calc_dir by default
-        model_params (dict): parameters related to the model and the formulation::
+        model_params (dict): parameters related to the model and the
+            formulation:
 
-                "bs_is_isotropic" (bool): whether to use isotropic band formulation
-                    note that True is recommended as it is much faster than the
-                    anisotropic formulation while still captures some anisotropy.
-                    However, some details of anisotropic band may be lost in which
-                    case set to False.
-                "elastic_scats" ([str]): list of elastic scattering mechanisms to
-                    be include; for example: ["ACD", "IMP", "PIE"]
-                "inelastic_scats" ([str]): list of inelastic scattering mechanisms
-                    to be included; for example: ["POP"]
-                "parabolic_bands" (None or list): None is recommended; otherwise set
-                    to simulate a band structure with one or multiple parabolic
-                    bands; For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]] denotes
-                    a single parabolic band, with a single extremum at
-                    Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
-                    has an effective mass of 0.09. Coordinates are fractional. For
-                    more information see the docs for get_parabolic_energy function.
+            - "bs_is_isotropic" (bool): whether to use isotropic band
+              formulation note that True is recommended as it is much faster
+              than the anisotropic formulation while still captures some
+              anisotropy. However, some details of anisotropic band may be lost
+              in which case set to False.
+            - "elastic_scats" ([str]): list of elastic scattering mechanisms to
+              be include; for example: ["ACD", "IMP", "PIE"]
+            - "inelastic_scats" ([str]): list of inelastic scattering mechanisms
+               to be included; for example: ["POP"]
+            - "parabolic_bands" (None or list): None is recommended; otherwise
+              set to simulate a band structure with one or multiple parabolic
+              bands; For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]] denotes
+              a single parabolic band, with a single extremum at
+              Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
+              has an effective mass of 0.09. Coordinates are fractional. For
+              more information see the docs for get_parabolic_energy function.
 
         performance_params (dict): parameters related to convergence, speed,
-            etc; the options are::
+            etc; the options are:
 
-                "dE_min" (float): minimum energy difference differentiated in the
-                    energy grid (egrid); essentially the resolution of the egrid
-                "Ecut" (float or {"n": float, "p": float}): energy cutoff from the
-                    CBM/VBM beyond which the band structure is ignored.
-                "dos_bwidth" (float): the bandwidth (in eV) used for calculating
-                    the density of states (DOS)
-                "dos_kdensity" (int > 100): the uniform k-point density for DOS
-                "BTE_iters" (int>3): the number of iterations in solving the
-                    linearized Boltzmann Transport Equation (BTE)
-                "max_nbands" (None, int>=1): the maximum number of bands included;
-                    set None for autmatic determination bands on the Ecut.
-                "max_normk0" (float): the cutoff in reciprocal space from a given
-                    extremum in units of 1/nm
-                "max_nvalleys (None or int>=1): the maximum number of valleys
-                    included in each band. Set to None for automatic setting.
-                "n_jobs" (int>=1): the number of jobs in parallelization. Currently,
-                    it is only relevant to interpolation method of "boltztrap1"
-                "interpolation" (str): the band structure interpolation method.
-                    Current options are "boltztrap1" and "boltztrap2".
+            - "dE_min" (float): minimum energy difference differentiated in the
+              energy grid (egrid); essentially the resolution of the egrid
+            - "Ecut" (float or {"n": float, "p": float}): energy cutoff from the
+              CBM/VBM beyond which the band structure is ignored.
+            - "dos_bwidth" (float): the bandwidth (in eV) used for calculating
+              the density of states (DOS)
+            - "dos_kdensity" (int > 100): the uniform k-point density for DOS
+            - "BTE_iters" (int>3): the number of iterations in solving the
+              linearized Boltzmann Transport Equation (BTE)
+            - "max_nbands" (None, int>=1): the maximum number of bands included;
+              set None for autmatic determination bands on the Ecut.
+            - "max_normk0" (float): the cutoff in reciprocal space from a given
+              extremum in units of 1/nm
+            - "max_nvalleys (None or int>=1): the maximum number of valleys
+              included in each band. Set to None for automatic setting.
+            - "n_jobs" (int>=1): the number of jobs in parallelization.
+              Currently, it is only relevant to interpolation method of
+              "boltztrap1"
+            - "interpolation" (str): the band structure interpolation method.
+              Current options are "boltztrap1" and "boltztrap2".
 
         dopings ([float]): list of input carrier concentrations; c<0 for
             electrons and c>0 for holes
         temperatures ([float]): input temperatures (T) in Kelvin.
         integration (str): 'e' or 'k'. Currently only e or integration of
             properties in the energy-scale is supported
-        loglevel (int): e.g. logging.DEBUG; set logging.ERROR to turn off
+        logger (Logger, bool): A custom logger object to use for logging.
+            Alternatively, if set to True, the default automatminer logger will
+            be used. If set to False, then no logging will occur.
+        log_level (int): e.g. logging.DEBUG; set logging.ERROR to turn off
             the logging
-        timeout_hours (float): timeout_hours in hours. If Amset takes longer than this,
-            the calculations will stop. However, if transport properties
-            are already calculated, the postprocessing (e.g. write to file)
-            might violate this timeout_hours.
+        timeout_hours (float): timeout_hours in hours. If Amset takes longer
+            than this, the calculations will stop. However, if transport
+            properties are already calculated, the postprocessing (e.g. write to
+            file) might violate this timeout_hours.
 
     Returns:
         (None): results are accessible through various methods such as the
@@ -183,49 +202,141 @@ class Amset(object):
 
             Amset.to_csv(): transport properties at different c&T
             Amset.as_dict(): most commonly used attributes as python dictionary
-            Amset.to_json(): details of relaxation time, scattering rates, group
-                velocities, etc in both kgrid and egrid
+            Amset.grids_to_json(): details of relaxation time, scattering rates,
+                group velocities, etc in both kgrid and egrid
             Amset.to_file(): writes everything to a json file to be used again
                 later (via Amset.from_file() e.g. for plotting). to_file is
-                more complete than to_json and is readable by from_file
+                more complete than grids_to_json and is readable by from_file
             Amset.plot(): convenience function to plot the mobilities, energy,
                 perturbation function, scattering rates, etc.
      """
-    def __init__(self, calc_dir, material_params, vasprun_file=None,
+
+    def __init__(self, band_structure, num_electrons, material_params,
+                 calc_dir=None,
                  model_params=None, performance_params=None,
-                 dopings=None, temperatures=None, integration='e',
-                 loglevel=None, timeout_hours=48):
-        self.logger = setup_custom_logger(
-                'amset_logger', calc_dir, 'amset.log', level=loglevel)
-        self.calc_dir = calc_dir
-        self.vasprun_file = vasprun_file or os.path.join(self.calc_dir, 'vasprun.xml')
-        self.dopings = dopings or [-1e20, 1e20]
-        self.dopings = [int(doping) for doping in self.dopings]
+                 dopings=None, temperatures=None, integration='e', logger=True,
+                 log_level=None, timeout_hours=48):
+
+        self._logger = self.get_logger(logger, level=log_level)
+        self._log_level = log_level
+
+        if integration == 'k':
+            self.logger.warning(
+                "k-integration is not fully implemented! The results may be"
+                "unreliable, especially for non-cubic systems. 'e'-integration "
+                "is recommended.")
+        elif integration != 'e':
+            self.log_raise(ValueError, 'Only "e" integration supported.')
+
+        if band_structure.is_metal():
+            self.log_raise(ValueError, 'Band structure is metallic. This is not'
+                                       'supported by AMSET.')
+
+        self.band_structure = band_structure
+        self.nbands = self.band_structure.nb_bands
+        self.num_electrons = num_electrons
+
+        # TODO use these rather than set material params etc.
+        # also remove deepcopy
+        self._material_params = deepcopy(material_params)
+        self._model_params = deepcopy(model_params)
+        self._performance_params = deepcopy(performance_params)
+
+        self.structure = band_structure.structure
+        self.calc_dir = calc_dir if calc_dir else '.'
+        self.dopings = list(map(int, dopings)) if dopings else [-1e20, 1e20]
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
-        self.tp_title = {"n": "conduction band(s)", "p": "valence band(s)"}
-        self.temperatures = temperatures or [300, 600]
-        self.temperatures = [int(T) for T in self.temperatures]
+        self.temperatures = list(map(int, temperatures)) if temperatures else \
+            [300, 600]
+        self.integration = integration
+        self.timeout_hours = timeout_hours * 3600.0
+        self.kpoints = [k.frac_coords for k in band_structure.kpoints]
+        self.cartesian_kpoints = np.array([self.get_cartesian_coords(k)
+                                           for k in self.kpoints]) / A_to_nm
+        self.rotations = SpacegroupAnalyzer(
+            self.structure).get_symmetry_dataset()['rotations']
+
         self.set_model_params(model_params)
         self.set_material_params(material_params)
         self.set_performance_params(performance_params)
-        self.integration = integration
-        self.logger.info('integration: {}'.format(self.integration))
-        if self.integration=="k":
-            self.logger.warning(
-                "k-integration is not fully implemented! The results may be "
-                "unreliable. It also only works for structures with a symmetric"
-                " lattic constant! 'e'-integration is recommended.")
-        elif self.integration!="e":
-            raise AmsetError(self.logger, "Unsupported integration method: "
-                                          "'{}'".format(self.integration))
-        self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
-        self.counter = 0 # a global counter just for debugging
+
+        self.interp_params = None
+        if self.interpolation == "boltztrap2":
+            bz2_data = BandstructureLoader(
+                band_structure, structure=band_structure.structure,
+                nelect=num_electrons)
+            equivalences = sphere.get_equivalences(atoms=bz2_data.atoms,
+                                                   nkpt=len(
+                                                       bz2_data.kpoints) * 5,
+                                                   magmom=None)
+            lattvec = bz2_data.get_lattvec()
+            coeffs = fite.fitde3D(bz2_data, equivalences)
+            self.interp_params = (equivalences, lattvec, coeffs)
+
+        cbm = band_structure.get_cbm()
+        vbm = band_structure.get_vbm()
+        eigs = np.array([self.band_structure.bands[s] for s in Spin
+                         if s in self.band_structure.bands])
+        self.dos_emin = np.min(eigs)
+        self.dos_emax = np.max(eigs)
+
+        self.dft_gap = cbm["energy"] - vbm["energy"]
         self.offset_from_vrun = {'n': 0.0, 'p': 0.0}
+
+        if self.user_bandgap:
+            if self.scissor != 0.0:
+                self.logger.warning("user_bandgap and scissor are both set, "
+                                    "overriding scissor.")
+            self.scissor = self.user_bandgap - self.dft_gap
+            self.logger.info('scissor is set to {}'.format(self.scissor))
+
+        # I think we add 1 to band indicies to be consistent with BoltzTraP?
+        cbm_vbm = {"n": {"kpoint": self.kpoints[cbm["kpoint_index"][0]],
+                         "energy": cbm["energy"],
+                         "bidx": get_bindex_bspin(vbm, is_cbm=False)[0] + 2,
+                         "included": 0,
+                         "eff_mass_xx": [0.0, 0.0, 0.0]},
+                   "p": {"kpoint": self.kpoints[vbm["kpoint_index"][0]],
+                         "energy": vbm["energy"],
+                         "bidx": get_bindex_bspin(vbm, is_cbm=False)[0] + 1,
+                         "included": 0,
+                         "eff_mass_xx": [0.0, 0.0, 0.0]}}
+
+        if self.parabolic_bands0 is None:
+            # normalise the band energies to the band edge
+            max_cb = np.min(eigs[0], axis=1) - cbm['energy']
+            min_vb = np.max(eigs[0], axis=1) - vbm['energy']
+
+            # count the number of bands within cut-off from the band edges
+            cbm_vbm['n']['included'] = len(
+                max_cb[(max_cb >= 0) & (max_cb <= self.Ecut["n"])])
+            cbm_vbm['p']['included'] = len(
+                max_cb[(min_vb <= 0) & (min_vb >= -self.Ecut["p"])])
+        else:
+            cbm_vbm["n"]["included"] = len(self.parabolic_bands0)
+            cbm_vbm["p"]["included"] = len(self.parabolic_bands0)
+
+        self.init_nbands = {'n': cbm_vbm['n']['included'],
+                            'p': cbm_vbm['p']['included']}
+
+        self.cbm_vbm = cbm_vbm
+        self.cbm_vbm0 = deepcopy(cbm_vbm)
+        self.valleys = {tp: {'band {}'.format(i): OrderedDict()
+                             for i in range(self.cbm_vbm0[tp]['included'])}
+                        for tp in ['p', 'n']}
+        self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
         self.kgrid_tp = None
         self.seebeck = {'n': None, 'p': None}
-        self.timeout_hours = timeout_hours * 3600.0
-        self.start_time = time.time()
+        self.start_time = None
 
+    @staticmethod
+    def from_vasprun(vasprun, material_params, **kwargs):
+        if isinstance(vasprun, str):
+            vasprun = Vasprun(vasprun, parse_projected_eigen=True)
+
+        band_structure = vasprun.get_band_structure()
+        num_electrons = vasprun.parameters['NELECT']
+        return Amset(band_structure, num_electrons, material_params, **kwargs)
 
     def run_profiled(self, coeff_file=None, kgrid_tp="coarse", nfuncs=15):
         """
@@ -238,17 +349,16 @@ class Amset(object):
         """
         profiler = cProfile.Profile()
         profiler.runcall(lambda: self.run(coeff_file, kgrid_tp=kgrid_tp))
-        stats = Stats(profiler, stream=STDOUT)
+        stats = Stats(profiler, stream=stdout)
         stats.strip_dirs()
         stats.sort_stats('cumulative')
         stats.print_stats(nfuncs)
 
-
     def _check_timeout_hours(self):
         if time.time() - self.start_time > self.timeout_hours:
-            raise AmsetError(self.logger, 'The calculations exceeded the '
-                        'timeout_hours of {:.4f} hours'.format(self.timeout_hours/3600.0))
-
+            self.log_raise(RuntimeError,
+                           'The calculations exceeded the timeout_hours of '
+                           '{:.4f} hours'.format(self.timeout_hours / 3600.0))
 
     def run(self, coeff_file=None, kgrid_tp="coarse"):
         """
@@ -266,15 +376,25 @@ class Amset(object):
         Returns (None):
             many instance variables get updated with calculated properties.
         """
-        self.read_vrun(vasprun_file=self.vasprun_file, filename="vasprun.xml")
+        self.start_time = time.time()
+
         self.logger.info('Running Amset on {}'.format(
             self.structure.composition.reduced_formula))
+        self.logger.info('integration: {}'.format(self.integration))
+        self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
+        self.logger.debug('direct lattice matrix:\n{}'.format(
+            self.structure.lattice.matrix))
+        self.logger.info("cell volume = {} A**3".format(self.structure.volume))
+        self.logger.info("original cbm_vbm:\n {}".format(self.cbm_vbm))
         self.kgrid_tp = kgrid_tp
-        self.logger.info('Running on "{}" mesh for each valley'.format(kgrid_tp))
-        self.logger.info('band interpolation="{}" method'.format(self.interpolation))
+        self.logger.info(
+            'Running on "{}" mesh for each valley'.format(kgrid_tp))
+        self.logger.info(
+            'band interpolation="{}" method'.format(self.interpolation))
         self.logger.info('max_nbands={}'.format(self.max_nbands))
         self.logger.info('max_nvalleys={}'.format(self.max_nvalleys))
         self.logger.info('max_normk={}'.format(self.max_normk))
+
         coeff_file = self._initialize_transport_vars(coeff_file=coeff_file)
         # make the reference energy consistent w/ interpolation rather than DFT
         self.update_cbm_vbm_dos(coeff_file=coeff_file)
@@ -284,19 +404,23 @@ class Amset(object):
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['included'] = 1
         self.logger.debug("cbm_vbm after updating:\n {}".format(self.cbm_vbm))
-        gap = self.cbm_vbm["n"]["energy"]-self.cbm_vbm["p"]["energy"]
+        gap = self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"]
         gap_orig = self.dft_gap + self.scissor
         if abs(gap_orig - gap) > 0.1:
             raise AmsetError(self.logger, 'The band gap calculated based '
-                             'on the interpolation method does not match with '
-                             'the input bandgap! {}!={}'.format(gap, gap_orig))
+                                          'on the interpolation method does not match with '
+                                          'the input bandgap! {}!={}'.format(
+                gap, gap_orig))
 
         self._check_timeout_hours()
         if self.integration == 'k':
             kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]],
-                                                         'p': [[0.0, 0.0, 0.0]]},
+                                                         'p': [
+                                                             [0.0, 0.0, 0.0]]},
                                        kgrid_tp=kgrid_tp)
-            # the purpose of the following line is just to generate self.energy_array that find_fermi_k function uses
+
+            # the purpose of the following line is just to generate self.energy
+            # _array that find_fermi_k function uses
             _, _ = self.get_energy_array(coeff_file, kpts,
                                          once_called=False,
                                          return_energies=True,
@@ -306,7 +430,8 @@ class Amset(object):
             self.fermi_level = self.find_fermi_k(num_bands=self.init_nbands)
         elif self.integration == 'e':
             kpts = self.generate_kmesh(
-                important_points={'n': [[0.0, 0.0, 0.0]], 'p': [[0.0, 0.0, 0.0]]},
+                important_points={'n': [[0.0, 0.0, 0.0]],
+                                  'p': [[0.0, 0.0, 0.0]]},
                 kgrid_tp='very coarse')
             self.get_energy_array(coeff_file, kpts,
                                   once_called=False,
@@ -321,50 +446,67 @@ class Amset(object):
                 for T in self.temperatures:
                     self.fermi_level[c][T] = self.find_fermi(c, T)
         self.logger.info('fermi level = {}'.format(self.fermi_level))
-        self.logger.info('initial number of bands:\n{}'.format(self.init_nbands))
-        self.logger.debug('here is the calculated dopings"\n{}'.format(self.calc_doping))
+        self.logger.info(
+            'initial number of bands:\n{}'.format(self.init_nbands))
+        self.logger.debug(
+            'here is the calculated dopings"\n{}'.format(self.calc_doping))
         vibands = list(range(self.init_nbands['p']))
         cibands = list(range(self.init_nbands['n']))
 
         if len(vibands) > len(cibands):
-            ibands_tuple = list(zip(vibands, cibands+[cibands[0]]*(len(vibands)-len(cibands))))
+            ibands_tuple = list(zip(vibands, cibands + [cibands[0]] * (
+                    len(vibands) - len(cibands))))
             for ivt in range(len(cibands), len(vibands)):
                 self.count_mobility[ivt]['n'] = False
         else:
-            ibands_tuple = list(zip(vibands+[vibands[0]]*(len(cibands)-len(vibands)), cibands))
+            ibands_tuple = list(
+                zip(vibands + [vibands[0]] * (len(cibands) - len(vibands)),
+                    cibands))
             for ivt in range(len(vibands), len(cibands)):
                 self.count_mobility[ivt]['p'] = False
         self.ibands_tuple = ibands_tuple
         self.count_mobility0 = deepcopy(self.count_mobility)
-        #each time num_bands will be {'n': 1, 'p': 1} but w/ different band idx
+        # each time num_bands will be {'n': 1, 'p': 1} but w/ different band idx
         if self.max_nbands:
-            ibands_tuple = ibands_tuple[:min(len(ibands_tuple), self.max_nbands)]
+            ibands_tuple = ibands_tuple[
+                           :min(len(ibands_tuple), self.max_nbands)]
 
         self.logger.debug('here ibands_tuple: [(val. band #, cond. band #)]')
         self.logger.debug(ibands_tuple)
         self.logger.debug('here whether to count bands')
         self.logger.debug(self.count_mobility)
 
-        self.denominator = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
-        self.seeb_denom = {c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in self.dopings}
-        for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(ibands_tuple):
-            self._check_timeout_hours()
-            self.logger.info('going over conduction and valence # {}'.format(self.ibrun))
-            self.all_important_pts = self.find_all_important_points(coeff_file,
-                                           nbelow_vbm=self.nbelow_vbm,
-                                           nabove_cbm=self.nabove_cbm,
-                                           interpolation=self.interpolation)
+        self.denominator = {
+            c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in
+            self.dopings}
+        self.seeb_denom = {
+            c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in
+            self.dopings}
 
-            if self.max_nvalleys['n'] is None and self.max_nvalleys['p'] is None:
+        for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(
+                ibands_tuple):
+            self._check_timeout_hours()
+            self.logger.info(
+                'going over conduction and valence # {}'.format(self.ibrun))
+            self.all_important_pts = self.find_all_important_points(coeff_file,
+                                                                    nbelow_vbm=self.nbelow_vbm,
+                                                                    nabove_cbm=self.nabove_cbm,
+                                                                    interpolation=self.interpolation)
+
+            if self.max_nvalleys['n'] is None and self.max_nvalleys[
+                'p'] is None:
                 max_nvalleys = max(len(self.important_pts['n']),
                                    len(self.important_pts['p']))
             else:
-                max_nvalleys = max(min(len(self.important_pts['n']), self.max_nvalleys["n"] or 1000),
-                                   min(len(self.important_pts['p']), self.max_nvalleys["p"] or 1000))
+                max_nvalleys = max(min(len(self.important_pts['n']),
+                                       self.max_nvalleys["n"] or 1000),
+                                   min(len(self.important_pts['p']),
+                                       self.max_nvalleys["p"] or 1000))
 
             for ivalley in range(max_nvalleys):
                 self._check_timeout_hours()
-                self.count_mobility[self.ibrun] = self.count_mobility0[self.ibrun]
+                self.count_mobility[self.ibrun] = self.count_mobility0[
+                    self.ibrun]
                 important_points = {'n': None, 'p': None}
                 once_called = True
                 for tp in ['p', 'n']:
@@ -376,54 +518,72 @@ class Amset(object):
 
                 if self.max_normk0 is None:
                     for tp in ['n', 'p']:
-                        min_dist = 100.0 # in 1/nm
+                        min_dist = 100.0  # in 1/nm
                         # This for loop not only checks the distance between
-                        # different valleys but among symmetrically equivalent
-                        # k-points of the same valley so the cutoff would make sense
-                        for k in self.bs.get_sym_eq_kpoints(important_points[tp][0], cartesian=False):
+                        # different valleys but among symmetrically
+                        # equivalent k-points of the same valley so the
+                        # cutoff would make sense
+                        for k in self.band_structure.get_sym_eq_kpoints(
+                                important_points[tp][0], cartesian=False):
                             kdiff = get_closest_k(
-                                k, self.all_important_pts[tp], return_diff=True, exclude_self=True)
-                            new_dist = 1/A_to_nm *norm(self.get_cartesian_coords(kdiff))
+                                k, self.all_important_pts[tp], return_diff=True,
+                                exclude_self=True)
+                            new_dist = 1 / A_to_nm * norm(
+                                self.get_cartesian_coords(kdiff))
                             # to avoid self-counting, 0.1 criterion added:
                             if new_dist < min_dist and new_dist > 0.01:
                                 min_dist = new_dist
-                        self.max_normk[tp] = min_dist/2.0
+                        self.max_normk[tp] = min_dist / 2.0
                         if self.max_normk[tp] < 0.05:
                             raise AmsetError(self.logger, "max_normk['{}']={} "
-                                "is way too low! Please check your input and if "
-                                "necessary manually enter the band extrema "
-                                "coordinates".format(tp, self.max_normk[tp]))
+                                                          "is way too low! Please check your input and if "
+                                                          "necessary manually enter the band extrema "
+                                                          "coordinates".format(
+                                tp, self.max_normk[tp]))
                 for tp in ['p', 'n']:
-                    if self.max_nvalleys[tp]==1 and self.max_normk0 is None:
+                    if self.max_nvalleys[tp] == 1 and self.max_normk0 is None:
                         self.max_normk[tp] = 5.0
-                        self.logger.warn('max_normk["{}"] -> {} avoiding unlrealistic'
-                                         ' scattering'.format(tp, self.max_normk[tp]))
-                self.logger.info('at valence band #{} and conduction band #{}'.format(self.nbelow_vbm, self.nabove_cbm))
-                self.logger.info('Current valleys:\n{}'.format(important_points))
-                self.logger.info('Whether to count valleys: {}'.format(self.count_mobility[self.ibrun]))
+                        self.logger.warn(
+                            'max_normk["{}"] -> {} avoiding unlrealistic'
+                            ' scattering'.format(tp, self.max_normk[tp]))
+                self.logger.info(
+                    'at valence band #{} and conduction band #{}'.format(
+                        self.nbelow_vbm, self.nabove_cbm))
+                self.logger.info(
+                    'Current valleys:\n{}'.format(important_points))
+                self.logger.info('Whether to count valleys: {}'.format(
+                    self.count_mobility[self.ibrun]))
                 self.logger.info('max_normk:\n{}'.format(self.max_normk))
-                self.logger.info('important points for this band:\n{}'.format(important_points))
+                self.logger.info('important points for this band:\n{}'.format(
+                    important_points))
 
-                if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
-                    self.logger.info('skipping this valley as it is unimportant for both n and p type...')
+                if not self.count_mobility[self.ibrun]['n'] and not \
+                        self.count_mobility[self.ibrun]['p']:
+                    self.logger.info(
+                        'skipping this valley as it is unimportant for both n and p type...')
                     continue
                 kpts = self.generate_kmesh(important_points=important_points,
                                            kgrid_tp=kgrid_tp)
-                kpts, energies=self.get_energy_array(coeff_file, kpts,
-                                                     once_called=once_called,
-                                                     return_energies=True,
-                                                     nbelow_vbm=self.nbelow_vbm,
-                                                     nabove_cbm=self.nabove_cbm,
-                                                     num_bands={'p': 1, 'n': 1})
+                kpts, energies = self.get_energy_array(coeff_file, kpts,
+                                                       once_called=once_called,
+                                                       return_energies=True,
+                                                       nbelow_vbm=self.nbelow_vbm,
+                                                       nabove_cbm=self.nabove_cbm,
+                                                       num_bands={'p': 1,
+                                                                  'n': 1})
                 self._check_timeout_hours()
 
-                if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut['n']:
+                if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut[
+                    'n']:
                     self.logger.info('not counting conduction band {} valley\
-                     {} due to off enery...'.format(self.ibrun, important_points['n'][0]))
+                     {} due to off enery...'.format(self.ibrun,
+                                                    important_points['n'][0]))
                     self.count_mobility[self.ibrun]['n'] = False
-                if self.cbm_vbm['p']['energy'] - max(energies['p']) > self.Ecut['p']:
+                if self.cbm_vbm['p']['energy'] - max(energies['p']) > self.Ecut[
+                    'p']:
                     self.logger.info('not counting valence band {} valley {} \
-                    due to off enery...'.format(self.ibrun, important_points['p'][0]))
+                    due to off enery...'.format(self.ibrun,
+                                                important_points['p'][0]))
                     self.count_mobility[self.ibrun]['p'] = False
 
                 if not self.count_mobility[self.ibrun]['n'] and \
@@ -437,14 +597,18 @@ class Amset(object):
                 for tp in corrupt_tps:
                     self.count_mobility[self.ibrun][tp] = False
 
-                if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
-                    self.logger.info('skipping this valley as it is unimportant or its energies are way off...')
+                if not self.count_mobility[self.ibrun]['n'] and not \
+                        self.count_mobility[self.ibrun]['p']:
+                    self.logger.info(
+                        'skipping this valley as it is unimportant or its energies are way off...')
                     continue
                 corrupt_tps = self.init_egrid()
                 for tp in corrupt_tps:
                     self.count_mobility[self.ibrun][tp] = False
-                if not self.count_mobility[self.ibrun]['n'] and not self.count_mobility[self.ibrun]['p']:
-                    self.logger.info('skipping this valley as it is unimportant or its energies are way off...')
+                if not self.count_mobility[self.ibrun]['n'] and not \
+                        self.count_mobility[self.ibrun]['p']:
+                    self.logger.info(
+                        'skipping this valley as it is unimportant or its energies are way off...')
                     continue
 
                 self.bandgap = min(self.egrid["n"]["all_en_flat"]) \
@@ -475,89 +639,139 @@ class Amset(object):
                 for c in self.dopings:
                     for T in self.temperatures:
                         seeb_integ = \
-                        self.egrid["Seebeck_integral_numerator"][c][T][tp] / \
-                        self.egrid["Seebeck_integral_denominator"][c][T][tp]
+                            self.egrid["Seebeck_integral_numerator"][c][T][tp] / \
+                            self.egrid["Seebeck_integral_denominator"][c][T][tp]
                         fermi = self.fermi_level[c][T]
                         for tp in ["n", "p"]:
                             fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
                             for ib in range(len(self.kgrid[tp]["energy"])):
-                                for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
+                                for ik in range(
+                                        len(self.kgrid[tp]["kpoints"][ib])):
                                     E = self.kgrid[tp]["energy"][ib][ik]
                                     v = self.kgrid[tp]["velocity"][ib][ik]
-                                    self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T) * 1.0
-                                    self.kgrid[tp]["df0dk"][c][T][ib][ik] = hbar * df0dE(E, fermi, T) * v  # in cm
-                                    self.kgrid[tp]["electric force"][c][T][ib][ik] = \
-                                        -1 * self.kgrid[tp]["df0dk"][c][T][ib][ik] * \
+                                    self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E,
+                                                                            fermi,
+                                                                            T) * 1.0
+                                    self.kgrid[tp]["df0dk"][c][T][ib][
+                                        ik] = hbar * df0de(E, fermi,
+                                                           T) * v  # in cm
+                                    self.kgrid[tp]["electric force"][c][T][ib][
+                                        ik] = \
+                                        -1 * self.kgrid[tp]["df0dk"][c][T][ib][
+                                            ik] * \
                                         default_small_E / hbar  # in 1/s
                                     E_norm = E - self.cbm_vbm[tp]["energy"]
-                                    self.kgrid[tp]["thermal force"][c][T][ib][ik] = \
-                                        -v * f0(E_norm, fermi_norm, T) * (1 - f0(
-                                        E_norm, fermi_norm, T)) * dTdz / T * (
+                                    self.kgrid[tp]["thermal force"][c][T][ib][
+                                        ik] = \
+                                        -v * f0(E_norm, fermi_norm, T) * (
+                                                1 - f0(
+                                            E_norm, fermi_norm,
+                                            T)) * dTdz / T * (
                                                 E_norm / (k_B * T) - seeb_integ
                                         )
                         # - norm(v)/sq3 * f0(E_norm, fermi_norm, T) * (1 - f0(
-                        if self.integration=='k':
+                        if self.integration == 'k':
                             dop_tp = get_tp(c)
-                            f0_all = 1 / (np.exp((self.energy_array[dop_tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                            f0_all = 1 / (np.exp((self.energy_array[dop_tp] -
+                                                  self.fermi_level[c][T]) / (
+                                                         k_B * T)) + 1)
                             if c < 0:
-                                electrons = self.integrate_over_states(f0_all, dop_tp)
-                                self.logger.info('k-integral of f0 above band gap at c={:.2e}, T={}: {}'.format(c, T, electrons))
+                                electrons = self.integrate_over_states(f0_all,
+                                                                       dop_tp)
+                                self.logger.info(
+                                    'k-integral of f0 above band gap at c={:.2e}, T={}: {}'.format(
+                                        c, T, electrons))
                             if c > 0:
-                                holes = self.integrate_over_states(1-f0_all, dop_tp)
-                                self.logger.info('k-integral of 1-f0 below band gap at c={:.2e}, T={}: {}'.format(c, T, holes))
+                                holes = self.integrate_over_states(1 - f0_all,
+                                                                   dop_tp)
+                                self.logger.info(
+                                    'k-integral of 1-f0 below band gap at c={:.2e}, T={}: {}'.format(
+                                        c, T, holes))
 
-                self.map_to_egrid(prop_name="f0", c_and_T_idx=True, prop_type="vector")
-                self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True, prop_type="vector")
+                self.map_to_egrid(prop_name="f0", c_and_T_idx=True,
+                                  prop_type="vector")
+                self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True,
+                                  prop_type="vector")
 
                 # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
                 self.solve_BTE_iteratively()
-                if self.integration=='k':
+                if self.integration == 'k':
                     test_k_anisotropic = False  # for k-integration
-                    valley_transport = self.calculate_transport_properties_with_k(test_k_anisotropic, important_points)
-                elif self.integration=='e':
-                    if len(self.Efrequency['n'])<=1 or len(self.Efrequency['p'])<=1:
+                    valley_transport = self.calculate_transport_properties_with_k(
+                        test_k_anisotropic, important_points)
+                elif self.integration == 'e':
+                    if len(self.Efrequency['n']) <= 1 or len(
+                            self.Efrequency['p']) <= 1:
                         raise AmsetError(self.logger,
                                          'The egrid is too small for n- or p-'
                                          'type for e-integration of transport')
                     valley_transport = self.calculate_transport_properties_with_E()
                 else:
-                    raise AmsetError(self.logger,'Unsupported integration '
-                                    'method: {}'.format(self.integration))
+                    raise AmsetError(self.logger, 'Unsupported integration '
+                                                  'method: {}'.format(
+                        self.integration))
                 self.logger.info('finished calculating the mobility of the '
                                  'valley {} and band (p, n) {}'.format(
-                            important_points, self.ibands_tuple[self.ibrun]))
-                self.logger.info('count_mobility: {}'.format(self.count_mobility[self.ibrun]))
+                    important_points, self.ibands_tuple[self.ibrun]))
+                self.logger.info('count_mobility: {}'.format(
+                    self.count_mobility[self.ibrun]))
                 self.logger.info('transport properties of the current valley'
                                  '\n{}'.format(pformat(valley_transport)))
 
-                if self.ibrun==0 and ivalley==0: # 1-valley only since it's SPB
+                if self.ibrun == 0 and ivalley == 0:  # 1-valley only since it's SPB
                     self.calculate_spb_transport()
 
                 self.logger.info('Mobility Labels: {}'.format(self.mo_labels))
                 for tp in ['p', 'n']:
-                    valley_ndegen = self.bs.get_kpoint_degeneracy(important_points[tp][0])
-                    self.logger.debug('valley_ndegen = {} for {}'.format(valley_ndegen, important_points[tp][0]))
+                    valley_ndegen = self.band_structure.get_kpoint_degeneracy(
+                        important_points[tp][0])
+                    self.logger.debug(
+                        'valley_ndegen = {} for {}'.format(valley_ndegen,
+                                                           important_points[tp][
+                                                               0]))
                     for c in self.dopings:
                         for T in self.temperatures:
                             self.kgrid[tp]["relaxation time"][c][T][ib] = \
                                 1 / (self.kgrid[tp]["_all_elastic"][c][T][ib] \
-                                + self.kgrid[tp]["S_o"][c][T][ib] \
+                                     + self.kgrid[tp]["S_o"][c][T][ib] \
                                      + self.kgrid[tp]["S_i"][c][T][ib])
 
                             if self.count_mobility[self.ibrun][tp]:
-                                if self.integration=='k':
-                                    f0_all = 1. / (np.exp((self.energy_array['n'] - self.fermi_level[c][T]) / (k_B * T)) + 1.)
-                                    f0p_all = 1. / (np.exp((self.energy_array['p'] - self.fermi_level[c][T]) / (k_B * T)) + 1.)
-                                    finteg = f0_all if tp == 'n' else 1-f0p_all
-                                    self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_states(finteg, tp) + 1e-10
-                                    self.seeb_denom[c][T][tp] += self.integrate_over_states(finteg*(1-finteg), tp)
-                                elif self.integration=='e':
-                                    finteg = "f0" if tp=="n" else "1 - f0"
-                                    self.denominator[c][T][tp] += 3 * default_small_E * self.integrate_over_E(props=[finteg], tp=tp, c=c, T=T, xDOS=False, xvel=False)  * valley_ndegen
-                                    self.seeb_denom[c][T][tp] += self.egrid["Seebeck_integral_denominator"][c][T][tp] * valley_ndegen
-                                for mu in self.mo_labels+["J_th"]:
-                                    self.mobility[tp][mu][c][T] += valley_transport[tp][mu][c][T] * valley_ndegen
-                                self.mobility[tp]['seebeck'][c][T] += valley_transport[tp]['seebeck'][c][T] # seeb is multiplied by DOS so no need for degeneracy
+                                if self.integration == 'k':
+                                    f0_all = 1. / (np.exp((self.energy_array[
+                                                               'n'] -
+                                                           self.fermi_level[c][
+                                                               T]) / (
+                                                                  k_B * T)) + 1.)
+                                    f0p_all = 1. / (np.exp((self.energy_array[
+                                                                'p'] -
+                                                            self.fermi_level[c][
+                                                                T]) / (
+                                                                   k_B * T)) + 1.)
+                                    finteg = f0_all if tp == 'n' else 1 - f0p_all
+                                    self.denominator[c][T][
+                                        tp] += 3 * default_small_E * self.integrate_over_states(
+                                        finteg, tp) + 1e-10
+                                    self.seeb_denom[c][T][
+                                        tp] += self.integrate_over_states(
+                                        finteg * (1 - finteg), tp)
+                                elif self.integration == 'e':
+                                    finteg = "f0" if tp == "n" else "1 - f0"
+                                    self.denominator[c][T][
+                                        tp] += 3 * default_small_E * self.integrate_over_E(
+                                        props=[finteg], tp=tp, c=c, T=T,
+                                        xDOS=False, xvel=False) * valley_ndegen
+                                    self.seeb_denom[c][T][tp] += \
+                                        self.egrid[
+                                            "Seebeck_integral_denominator"][
+                                            c][T][tp] * valley_ndegen
+                                for mu in self.mo_labels + ["J_th"]:
+                                    self.mobility[tp][mu][c][T] += \
+                                        valley_transport[tp][mu][c][
+                                            T] * valley_ndegen
+                                self.mobility[tp]['seebeck'][c][T] += \
+                                    valley_transport[tp]['seebeck'][c][
+                                        T]  # seeb is multiplied by DOS so no need for degeneracy
 
                 self.map_to_egrid(prop_name="relaxation time")
 
@@ -574,14 +788,16 @@ class Amset(object):
                                     k[i] = round(k[i], 1)
                                 elif k[i] != round(k[i], 2):
                                     k[i] = round(k[i], 2)
-                            #TODO: here the numerator of band/valleys is initiated by w/o valley_ndegen which results
+                            # TODO: here the numerator of band/valleys is initiated by w/o valley_ndegen which results
                             # in valleys.json mobility values being lower; write a function that goes over all values of
-                            # valley transport and multiplies them by valley_ndegen = self.bs.get_kpoint_degeneracy(k)
-                            self.valleys[tp]['band {}'.format(self.ibrun)]['{};{};{}'.format(k[0], k[1], k[2])] = valley_transport[tp]
+                            # valley transport and multiplies them by valley_ndegen = self.band_structure.get_kpoint_degeneracy(k)
+                            self.valleys[tp]['band {}'.format(self.ibrun)][
+                                '{};{};{}'.format(k[0], k[1], k[2])] = \
+                                valley_transport[tp]
 
                 kgrid_rm_list = ["f_th", "S_i_th", "S_o_th"]
                 self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
-                if ivalley==0 and self.ibrun==0:
+                if ivalley == 0 and self.ibrun == 0:
                     # TODO: make it possible for the user to choose which valley(s) to plot
                     self.kgrid0 = deepcopy(self.kgrid)
                     self.egrid0 = deepcopy(self.egrid)
@@ -591,38 +807,61 @@ class Amset(object):
         for tp in ['p', 'n']:
             for c in self.dopings:
                 for T in self.temperatures:
-                    for mu in self.mo_labels+["J_th"]:
-                        self.mobility[tp][mu][c][T] /= self.denominator[c][T][tp]
+                    for mu in self.mo_labels + ["J_th"]:
+                        self.mobility[tp][mu][c][T] /= self.denominator[c][T][
+                            tp]
                         for band in list(self.valleys[tp].keys()):
                             for valley_k in list(self.valleys[tp][band].keys()):
-                                self.valleys[tp][band][valley_k][mu][c][T] /= self.denominator[c][T][tp]
-                    self.mobility[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
+                                self.valleys[tp][band][valley_k][mu][c][T] /= \
+                                    self.denominator[c][T][tp]
+                    self.mobility[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][
+                        tp]
                     for band in list(self.valleys[tp].keys()):
-                            for valley_k in list(self.valleys[tp][band].keys()):
-                                self.valleys[tp][band][valley_k]["seebeck"][c][T] /= self.seeb_denom[c][T][tp]
+                        for valley_k in list(self.valleys[tp][band].keys()):
+                            self.valleys[tp][band][valley_k]["seebeck"][c][T] /= \
+                                self.seeb_denom[c][T][tp]
 
         # finalize Seebeck values:
-        sigma = {tp: {c: {T: 0.0 for T in self.temperatures} for c in self.dopings} for tp in ['p', 'n']}
+        sigma = {
+            tp: {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+            for
+            tp in ['p', 'n']}
         for tp in ['p', 'n']:
             for c in self.dopings:
                 for T in self.temperatures:
-                    self.logger.debug('3 terms of {0}-type seebeck at c={1:.2e}, T={2}'.format(tp, c, T))
-                    self.logger.debug('seebeck integral term: {}'.format(str(self.mobility[tp]['seebeck'][c][T]*(-1e6) * k_B)))
+                    self.logger.debug(
+                        '3 terms of {0}-type seebeck at c={1:.2e}, T={2}'.format(
+                            tp, c, T))
+                    self.logger.debug('seebeck integral term: {}'.format(
+                        str(self.mobility[tp]['seebeck'][c][T] * (-1e6) * k_B)))
                     self.mobility[tp]['seebeck'][c][T] -= \
                         (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) \
                         / (k_B * T)
-                    self.logger.debug('seebeck term Fermi level w.r.t. the CBM/VBM: {}'.format(str((self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"])/(k_B * T)*(-1e6) * k_B)))
+                    self.logger.debug(
+                        'seebeck term Fermi level w.r.t. the CBM/VBM: {}'.format(
+                            str((self.fermi_level[c][T] - self.cbm_vbm[tp][
+                                "energy"]) / (k_B * T) * (-1e6) * k_B)))
                     self.mobility[tp]['seebeck'][c][T] *= (-1e6) * k_B
-                    self.mobility[tp]["seebeck"][c][T] -= 0 # TODO: J_th term is too large, see why (e.g. in SnS)
+                    self.mobility[tp]["seebeck"][c][
+                        T] -= 0  # TODO: J_th term is too large, see why (e.g. in SnS)
                     # self.mobility[tp]["seebeck"][c][T] += 1e6 * self.mobility[tp]["J_th"][c][T]\
                     #     /(self.mobility[tp]["overall"][c][T]*e*float(1+abs(self.calc_doping[c][T][tp])))/dTdz
-                    self.logger.debug('seebeck term J_th: {}'.format(str(1e6 * self.mobility[tp]["J_th"][c][T]/(self.mobility[tp]["overall"][c][T]*e*float(1+abs(self.calc_doping[c][T][tp])))/dTdz)))
+                    self.logger.debug('seebeck term J_th: {}'.format(str(
+                        1e6 * self.mobility[tp]["J_th"][c][T] / (
+                                self.mobility[tp]["overall"][c][
+                                    T] * e * float(
+                            1 + abs(self.calc_doping[c][T][tp]))) / dTdz)))
                     for band in list(self.valleys[tp].keys()):
                         for valley_k in list(self.valleys[tp][band].keys()):
-                            self.valleys[tp][band][valley_k]["seebeck"][c][T] -= (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) / (k_B * T)
-                            self.valleys[tp][band][valley_k]["seebeck"][c][T] *= (-1e6) * k_B
+                            self.valleys[tp][band][valley_k]["seebeck"][c][
+                                T] -= (self.fermi_level[c][T] -
+                                       self.cbm_vbm[tp]["energy"]) / (k_B * T)
+                            self.valleys[tp][band][valley_k]["seebeck"][c][
+                                T] *= (-1e6) * k_B
             self.seebeck[tp] = self.mobility[tp].pop('seebeck')
-            sigma[tp][c][T] = sum(self.mobility[tp]['overall'][c][T])/3. * e * abs(self.calc_doping[c][T][tp])
+            sigma[tp][c][T] = sum(
+                self.mobility[tp]['overall'][c][T]) / 3. * e * abs(
+                self.calc_doping[c][T][tp])
 
         self.logger.debug('here is the conductivity, sigma:\n{}'.format(sigma))
         # seebeck = deepcopy(self.seebeck)
@@ -632,7 +871,6 @@ class Amset(object):
         self.logger.info('run finished.')
         self.logger.info('\nfinal mobility:\n{}'.format(pformat(self.mobility)))
         self.logger.info('\nfinal Seebeck:\n{}'.format(pformat(self.seebeck)))
-
 
     def _initialize_transport_vars(self, coeff_file):
         """
@@ -655,13 +893,14 @@ class Amset(object):
         if not coeff_file and self.interpolation == "boltztrap1":
             self.logger.warning(
                 '\nRunning BoltzTraP to generate the cube file...')
-            boltztrap_runner = BoltztrapRunner(bs=self.bs,
-                                               nelec=self.nelec,
+            boltztrap_runner = BoltztrapRunner(bs=self.band_structure,
+                                               nelec=self.num_electrons,
                                                run_type='BANDS',
                                                doping=[1e20],
                                                tgrid=300,
-                                               tmax=max(self.temperatures+[300]),
-                                               ) # do NOT set scissor in runner
+                                               tmax=max(
+                                                   self.temperatures + [300]),
+                                               )  # do NOT set scissor in runner
             boltztrap_runner.run(path_dir=self.calc_dir)
             coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
             self.logger.warning(
@@ -674,26 +913,29 @@ class Amset(object):
                 raise AmsetError(self.logger,
                                  '{} does not exist! generating the cube file '
                                  '(i.e. fort.123) requires a modified version of BoltzTraP. '
-                                 'Contact {}'.format(coeff_file, "frankyricci@gmail.com"))
-                                # 'Contact {}'.format(coeff_file, __email__))
+                                 'Contact {}'.format(coeff_file,
+                                                     "frankyricci@gmail.com"))
+                # 'Contact {}'.format(coeff_file, __email__))
         # initialize transport variables
-        self.mo_labels = self.elastic_scats + self.inelastic_scats + ['overall', 'average']
+        self.mo_labels = self.elastic_scats + self.inelastic_scats + ['overall',
+                                                                      'average']
         self.spb_labels = ['SPB_ACD']
-        self.transport_labels = self.mo_labels + self.spb_labels + ["seebeck","J_th"]
-        self.mobility = {tp: {el_mech: {c: {T: np.array([0., 0., 0.], dtype='float') \
-                                            for T in self.temperatures} \
-                                        for c in self.dopings} \
-                              for el_mech in self.transport_labels} \
-                         for tp in ["n", "p"]}
+        self.transport_labels = self.mo_labels + self.spb_labels + ["seebeck",
+                                                                    "J_th"]
+        self.mobility = {
+            tp: {el_mech: {c: {T: np.array([0., 0., 0.], dtype='float') \
+                               for T in self.temperatures} \
+                           for c in self.dopings} \
+                 for el_mech in self.transport_labels} \
+            for tp in ["n", "p"]}
         self.calc_doping = {c: {T: {'n': None, 'p': None} \
                                 for T in self.temperatures} \
                             for c in self.dopings}
-        self.ibrun = 0 # counter of the ibands_tuple (band-valley walker)
+        self.ibrun = 0  # counter of the ibands_tuple (band-valley walker)
         self.count_mobility = [{'n': True, 'p': True} \
                                for _ in range(max(self.init_nbands['p'],
                                                   self.init_nbands['n']))]
         return coeff_file
-
 
     def calculate_spb_transport(self):
         """
@@ -713,11 +955,14 @@ class Amset(object):
 
                     # ACD mobility based on single parabolic band extracted from Thermoelectric Nanomaterials,
                     # chapter 1, page 12: "Material Design Considerations Based on Thermoelectric Quality Factor"
-                    self.mobility[tp]["SPB_ACD"][c][T] = 2 ** 0.5 * pi * hbar ** 4 * e * self.C_el * 1e9 / (
-                        3 * (abs(self.cbm_vbm[tp]["eff_mass_xx"]+self.gs) * m_e) ** 2.5 * (k_B * T) ** 1.5 * self.E_D[tp] ** 2) \
-                                * fermi_integral(0, fermi, T, energy) \
-                                / fermi_integral(0.5, fermi, T, energy) * e ** 0.5 * 1e4  # to cm2/V.s
-
+                    self.mobility[tp]["SPB_ACD"][c][
+                        T] = 2 ** 0.5 * pi * hbar ** 4 * e * self.C_el * 1e9 / (
+                            3 * (abs(self.cbm_vbm[tp][
+                                         "eff_mass_xx"] + self.gs) * m_e) ** 2.5 * (
+                                    k_B * T) ** 1.5 * self.E_D[tp] ** 2) \
+                             * fermi_integral(0, fermi, T, energy) \
+                             / fermi_integral(0.5, fermi, T,
+                                              energy) * e ** 0.5 * 1e4  # to cm2/V.s
 
     def generate_kmesh(self, important_points, kgrid_tp='coarse'):
         """
@@ -741,9 +986,11 @@ class Amset(object):
         self.dv_grid = {}
         kpts = {}
         if self.integration == 'e':
-            kpts = generate_adaptive_kmesh(self.bs, important_points, kgrid_tp)
+            kpts = generate_adaptive_kmesh(self.band_structure,
+                                           important_points, kgrid_tp)
         for tp in ['n', 'p']:
-            points_1d = generate_k_mesh_axes(important_points[tp], kgrid_tp, one_list=True)
+            points_1d = generate_k_mesh_axes(important_points[tp], kgrid_tp,
+                                             one_list=True)
             self.kgrid_array[tp] = create_grid(points_1d)
             if self.integration == 'k':
                 kpts[tp] = array_to_kgrid(self.kgrid_array[tp])
@@ -752,14 +999,16 @@ class Amset(object):
             for ii in range(N[0]):
                 for jj in range(N[1]):
                     for kk in range(N[2]):
-                        self.kgrid_array_cartesian[tp][ii,jj,kk,:] = self.get_cartesian_coords(self.kgrid_array[tp][ii,jj,kk])   # 1/A
+                        self.kgrid_array_cartesian[tp][ii, jj, kk,
+                        :] = self.get_cartesian_coords(
+                            self.kgrid_array[tp][ii, jj, kk])  # 1/A
 
             # generate a normalized numpy array of vectors pointing in the direction of k
             self.k_hat_array[tp] = normalize_array(self.kgrid_array[tp])
-            self.k_hat_array_cartesian[tp] = normalize_array(self.kgrid_array_cartesian[tp])
+            self.k_hat_array_cartesian[tp] = normalize_array(
+                self.kgrid_array_cartesian[tp])
             self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
         return kpts
-
 
     def update_cbm_vbm_dos(self, coeff_file=None):
         """
@@ -776,30 +1025,34 @@ class Amset(object):
             calculations reference energy and the interpolation method.
         """
         if self.parabolic_bands0 is None:
-            if self.interpolation=="boltztrap1":
+            if self.interpolation == "boltztrap1":
                 self.logger.debug(
                     "start interpolating bands from {}".format(coeff_file))
-            self.all_ibands = [self.cbm_vbm0['p']["bidx"], self.cbm_vbm0['n']["bidx"]]
+            self.all_ibands = [self.cbm_vbm0['p']["bidx"],
+                               self.cbm_vbm0['n']["bidx"]]
 
             self.all_ibands.sort()
             self.logger.debug("all_ibands: {}".format(self.all_ibands))
             if self.interpolation == "boltztrap1":
-                self.interp_params = get_energy_args(coeff_file, self.all_ibands)
+                self.interp_params = get_energy_args(coeff_file,
+                                                     self.all_ibands)
         else:
             self.parabolic_bands = np.array(self.parabolic_bands0)
             for ib in range(len(self.parabolic_bands0)):
                 for valley in range(len(self.parabolic_bands0[ib])):
                     self.parabolic_bands[ib][valley][
                         0] = remove_duplicate_kpoints(
-                        self.bs.get_sym_eq_kpoints(
+                        self.band_structure.get_sym_eq_kpoints(
                             self.parabolic_bands0[ib][valley][0],
                             cartesian=True))
 
         for i, tp in enumerate(["p", "n"]):
             sgn = (-1.0) ** i
-            iband = i if self.interpolation=="boltztrap1" else self.cbm_vbm0[tp]["bidx"]
+            iband = i if self.interpolation == "boltztrap1" else \
+                self.cbm_vbm0[tp]["bidx"]
             if self.parabolic_bands is not None:
-                energy, velocity, effective_m = self.calc_parabolic_energy(self.cbm_vbm0[tp]["kpoint"], tp, 0)
+                energy, velocity, effective_m = self.calc_parabolic_energy(
+                    self.cbm_vbm0[tp]["kpoint"], tp, 0)
             else:
                 energies, velocities, masses = interpolate_bs(
                     [self.cbm_vbm0[tp]["kpoint"]], self.interp_params,
@@ -808,7 +1061,9 @@ class Amset(object):
                 energy = energies[0]
                 effective_m = masses[0]
             self.offset_from_vrun[tp] = energy - self.cbm_vbm0[tp]["energy"]
-            self.logger.debug("offset from vasprun energy values for {}-type = {} eV".format(tp, self.offset_from_vrun[tp]))
+            self.logger.debug(
+                "offset from vasprun energy values for {}-type = {} eV".format(
+                    tp, self.offset_from_vrun[tp]))
             self.cbm_vbm0[tp]["energy"] = energy
             self.cbm_vbm0[tp]["eff_mass_xx"] = effective_m.diagonal()
         if self.parabolic_bands is None:
@@ -817,8 +1072,8 @@ class Amset(object):
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['energy'] = self.cbm_vbm0[tp]['energy']
             self.cbm_vbm[tp]['eff_mass_xx'] = self.cbm_vbm0[tp]['eff_mass_xx']
-        self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm0[tp]["eff_mass_xx"])) for tp in ["n", "p"]}
-
+        self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm0[tp]["eff_mass_xx"]))
+                              for tp in ["n", "p"]}
 
     def get_energy_array(self, coeff_file, kpts, once_called=False,
                          return_energies=False, num_bands=None,
@@ -849,31 +1104,43 @@ class Amset(object):
         start_time = time.time()
         if self.parabolic_bands0 is None:
             if self.interpolation == 'boltztrap1':
-                self.logger.debug("start interpolating bands from {}".format(coeff_file))
+                self.logger.debug(
+                    "start interpolating bands from {}".format(coeff_file))
                 analytical_bands = Analytical_bands(coeff_file=coeff_file)
                 self.all_ibands = []
                 for ib in range(num_bands['p']):
-                    self.all_ibands.append(self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
+                    self.all_ibands.append(
+                        self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
                 for ib in range(num_bands['n']):
-                    self.all_ibands.append(self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
+                    self.all_ibands.append(
+                        self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
                 self.all_ibands.sort()
                 self.logger.debug("all_ibands: {}".format(self.all_ibands))
-                self.interp_params = get_energy_args(coeff_file, self.all_ibands)
+                self.interp_params = get_energy_args(coeff_file,
+                                                     self.all_ibands)
             elif self.interpolation != 'boltztrap2':
-                raise ValueError('Unsupported interpolation method: "{}"'.format(self.interpolation))
+                raise ValueError(
+                    'Unsupported interpolation method: "{}"'.format(
+                        self.interpolation))
         else:
             # first modify the self.parabolic_bands to include all symmetrically equivalent k-points (k_i)
             # these points will be used later to generate energy based on the minimum norm(k-k_i)
             self.parabolic_bands = np.array(self.parabolic_bands0)
             for ib in range(len(self.parabolic_bands0)):
                 for valley in range(len(self.parabolic_bands0[ib])):
-                    self.parabolic_bands[ib][valley][0] = remove_duplicate_kpoints(
-                        self.bs.get_sym_eq_kpoints(self.parabolic_bands0[ib][valley][0], cartesian=True))
+                    self.parabolic_bands[ib][valley][
+                        0] = remove_duplicate_kpoints(
+                        self.band_structure.get_sym_eq_kpoints(
+                            self.parabolic_bands0[ib][valley][0],
+                            cartesian=True))
 
-        self.logger.debug("time to get engre and calculate the outvec2: {} seconds".format(time.time() - start_time))
+        self.logger.debug(
+            "time to get engre and calculate the outvec2: {} seconds".format(
+                time.time() - start_time))
         start_time = time.time()
         energies = {"n": [0.0] * len(kpts['n']), "p": [0.0] * len(kpts['p'])}
-        energies_sorted = {"n":[0.0]*len(kpts['n']), "p":[0.0]*len(kpts['p'])}
+        energies_sorted = {"n": [0.0] * len(kpts['n']),
+                           "p": [0.0] * len(kpts['p'])}
         velocities = {"n": [[0.0, 0.0, 0.0] for _ in kpts['n']],
                       "p": [[0.0, 0.0, 0.0] for _ in kpts['p']]}
         self.pos_idx = {'n': [], 'p': []}
@@ -885,7 +1152,8 @@ class Amset(object):
                 for ib in range(num_bands[tp]):
                     if self.parabolic_bands is not None:
                         for ik in range(len(kpts[tp])):
-                            energies[tp][ik], _, _ = self.calc_parabolic_energy(kpts[tp][ik], tp, ib)
+                            energies[tp][ik], _, _ = self.calc_parabolic_energy(
+                                kpts[tp][ik], tp, ib)
                     else:
                         if self.interpolation == "boltztrap1":
                             iband = i * num_bands['p'] + ib
@@ -893,26 +1161,32 @@ class Amset(object):
                             iband = ib + self.cbm_vbm[tp]["bidx"] \
                                     + (i - 1) * self.cbm_vbm["p"]["included"]
                         energies[tp], velocities[tp] = interpolate_bs(
-                                kpts[tp], interp_params=self.interp_params,
-                                iband=iband, sgn=sgn, method=self.interpolation,
-                                scissor=self.scissor, return_mass=False,
-                                matrix=self.structure.lattice.matrix, n_jobs=self.n_jobs)
+                            kpts[tp], interp_params=self.interp_params,
+                            iband=iband, sgn=sgn, method=self.interpolation,
+                            scissor=self.scissor, return_mass=False,
+                            matrix=self.structure.lattice.matrix,
+                            n_jobs=self.n_jobs)
                         self._check_timeout_hours()
                     if self.integration == 'k':
                         self.energy_array[tp].append(
-                            self.grid_from_ordered_list(energies[tp], tp, none_missing=True))
+                            self.grid_from_ordered_list(energies[tp], tp,
+                                                        none_missing=True))
 
                     # we only need the 1st band energies to order k-points:
                     if ib == 0:
-                        e_sort_idx = np.array(energies[tp]).argsort() if tp == "n" else np.array(energies[tp]).argsort()[::-1]
-                        energies_sorted[tp] = [energies[tp][ie] for ie in e_sort_idx]
+                        e_sort_idx = np.array(
+                            energies[tp]).argsort() if tp == "n" else np.array(
+                            energies[tp]).argsort()[::-1]
+                        energies_sorted[tp] = [energies[tp][ie] for ie in
+                                               e_sort_idx]
                         energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
-                        self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[e_sort_idx].argsort()
+                        self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[
+                            e_sort_idx].argsort()
                         kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
 
             self.logger.debug("time to calculate ibz energy, velocity info "
                               "and store them to variables: \n {}".format(
-                time.time()-start_time))
+                time.time() - start_time))
             if self.parabolic_bands is not None:
                 all_bands_energies = {"n": [], "p": []}
                 for tp in ["p", "n"]:
@@ -921,7 +1195,8 @@ class Amset(object):
                         for ik in range(len(kpts[tp])):
                             energy, velocity, effective_m = get_parabolic_energy(
                                 self.get_cartesian_coords(kpts[ik]) / A_to_nm,
-                                parabolic_bands=self.parabolic_bands, type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
+                                parabolic_bands=self.parabolic_bands, type=tp,
+                                ib=ib, bandgap=self.dft_gap + self.scissor)
                             all_bands_energies[tp].append(energy)
                 if not once_called:
                     self.dos_emin = min(all_bands_energies["p"])
@@ -932,48 +1207,58 @@ class Amset(object):
                                  ['p', 'n']}
 
         if not once_called:
-            dos_kmesh = Kpoints.automatic_density_by_vol(self.structure, kppvol=self.dos_kdensity).kpts[0]
+            dos_kmesh = Kpoints.automatic_density_by_vol(self.structure,
+                                                         kppvol=self.dos_kdensity).kpts[
+                0]
             self.logger.info('kmesh used for dos: {}'.format(dos_kmesh))
             if self.parabolic_bands is None:
-                if self.interpolation=="boltztrap1":
-                    emesh, dos, dos_nbands, bmin=analytical_bands.get_dos_from_scratch(
-                            self.structure, dos_kmesh, self.dos_emin,
-                            self.dos_emax,int(round((self.dos_emax - self.dos_emin) \
-                            / max(self.dE_min, 0.0001))), width=self.dos_bwidth,
-                            scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
+                if self.interpolation == "boltztrap1":
+                    emesh, dos, dos_nbands, bmin = analytical_bands.get_dos_from_scratch(
+                        self.structure, dos_kmesh, self.dos_emin,
+                        self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
+                                                 / max(self.dE_min, 0.0001))),
+                        width=self.dos_bwidth,
+                        scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
                     self.logger.debug("dos_nbands: {} \n".format(dos_nbands))
-                    self.dos_start = min(self.bs.as_dict()["bands"]["1"][bmin]) \
+                    self.dos_start = min(
+                        self.band_structure.as_dict()["bands"]["1"][bmin]) \
                                      + self.offset_from_vrun['p']
-                    self.dos_end = max(self.bs.as_dict()["bands"]["1"][bmin+dos_nbands]) \
+                    self.dos_end = max(
+                        self.band_structure.as_dict()["bands"]["1"][
+                            bmin + dos_nbands]) \
                                    + self.offset_from_vrun['n']
-                elif self.interpolation=="boltztrap2":
+                elif self.interpolation == "boltztrap2":
                     emesh, dos, dos_nbands = get_dos_boltztrap2(
                         self.interp_params, self.structure,
                         mesh=dos_kmesh, estep=max(self.dE_min, 0.0001),
-                        vbmidx = self.cbm_vbm["p"]["bidx"]-1,
+                        vbmidx=self.cbm_vbm["p"]["bidx"] - 1,
                         width=self.dos_bwidth, scissor=self.scissor)
                     self.dos_start = emesh[0]
                     self.dos_emin = emesh[0]
                     self.dos_end = emesh[-1]
                     self.dos_emax = emesh[-1]
                 else:
-                    raise ValueError('Unsupported interpolation: "{}"'.format(self.interpolation))
+                    raise ValueError('Unsupported interpolation: "{}"'.format(
+                        self.interpolation))
                 self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
             else:
-                self.logger.debug("here self.parabolic_bands: \n {}".format(self.parabolic_bands))
+                self.logger.debug("here self.parabolic_bands: \n {}".format(
+                    self.parabolic_bands))
                 emesh, dos = get_dos_from_parabolic_bands(
                     self.structure, self.structure.lattice.reciprocal_lattice,
                     dos_kmesh, self.dos_emin, self.dos_emax,
                     int(round((self.dos_emax - self.dos_emin) \
-                        / max(self.dE_min, 0.0001))),parabolic_bands=self.parabolic_bands,
-                        bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
+                              / max(self.dE_min, 0.0001))),
+                    parabolic_bands=self.parabolic_bands,
+                    bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
                         "energy"], width=self.dos_bwidth, SPB_DOS=False)
-                self.dos_normalization_factor = len(self.parabolic_bands) * 2 * 2
+                self.dos_normalization_factor = len(
+                    self.parabolic_bands) * 2 * 2
                 self.dos_start = self.dos_emin
                 self.dos_end = self.dos_emax
 
             self.logger.debug("DOS normalization factor: {}".format(
-                                            self.dos_normalization_factor))
+                self.dos_normalization_factor))
             integ = 0.0
             self.dos_start = abs(emesh - self.dos_start).argmin()
             self.dos_end = abs(emesh - self.dos_end).argmin()
@@ -982,13 +1267,22 @@ class Amset(object):
             self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
 
             # dos be at least spb:
-            for idx in range(self.cbm_dos_idx, self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]+2.0)):
-                dos[idx] = max(dos[idx], free_e_dos(E=self.dos_emesh[idx]-self.cbm_vbm["n"]["energy"]))
-            for idx in range(self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"]-2.0), self.vbm_dos_idx):
-                dos[idx] = max(dos[idx], free_e_dos(E=self.cbm_vbm["p"]["energy"]-self.dos_emesh[idx]))
+            for idx in range(self.cbm_dos_idx, self.get_Eidx_in_dos(
+                    self.cbm_vbm["n"]["energy"] + 2.0)):
+                dos[idx] = max(dos[idx], free_e_dos(
+                    energy=self.dos_emesh[idx] - self.cbm_vbm["n"]["energy"]))
+            for idx in range(
+                    self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"] - 2.0),
+                    self.vbm_dos_idx):
+                dos[idx] = max(dos[idx], free_e_dos(
+                    energy=self.cbm_vbm["p"]["energy"] - self.dos_emesh[idx]))
             for idos in range(self.dos_start, self.dos_end):
-                integ += (dos[idos + 1] + dos[idos]) / 2 * (emesh[idos + 1] - emesh[idos])
-            self.logger.debug("dos integral from {} index to {}: {}".format(self.dos_start,  self.dos_end, integ))
+                integ += (dos[idos + 1] + dos[idos]) / 2 * (
+                        emesh[idos + 1] - emesh[idos])
+            self.logger.debug(
+                "dos integral from {} index to {}: {}".format(self.dos_start,
+                                                              self.dos_end,
+                                                              integ))
             dos = [g / integ * self.dos_normalization_factor for g in dos]
             self.dos = zip(emesh, dos)
             self.dos = [list(a) for a in self.dos]
@@ -998,11 +1292,10 @@ class Amset(object):
         else:
             return kpts
 
-
     def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0,
                                   interpolation="boltztrap1", **kwargs):
         """
-        As the name suggests, given some pre-populated variables such as bs and
+        As the name suggests, given some pre-populated variables such as band_structure and
         cbm_vbm and the rest of input args, it calculates the k-coordinates of
         the band structure extrema (valence band maxima or conduction band
         minima) at the specified bands which are the "important" points. Note
@@ -1024,30 +1317,39 @@ class Amset(object):
             list of band extrema (i.e. important k-points) for the selected
             conduction ("n") and valence ("p") band.
         """
-        if interpolation=="boltztrap1":
-            ibands = [self.cbm_vbm['p']['bidx']-nbelow_vbm,
-                      self.cbm_vbm['n']['bidx']+nabove_cbm]
+        if interpolation == "boltztrap1":
+            ibands = [self.cbm_vbm['p']['bidx'] - nbelow_vbm,
+                      self.cbm_vbm['n']['bidx'] + nabove_cbm]
             self.interp_params = get_energy_args(coeff_file, ibands)
-        if self.important_pts is None or nbelow_vbm+nabove_cbm>0:
+        if self.important_pts is None or nbelow_vbm + nabove_cbm > 0:
             if self.parabolic_bands0 is None:
                 eref = {typ: self.cbm_vbm[typ]['energy'] for typ in ['p', 'n']}
             else:
                 eref = None
-            self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs, coeff_file,
-                    interp_params=self.interp_params, method=interpolation,
-                    Ecut=self.Ecut, eref=eref, return_global=True, n_jobs=self.n_jobs,
-                    nbelow_vbm= nbelow_vbm, nabove_cbm=nabove_cbm,
-                    scissor=self.scissor, **kwargs)
-            if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n']['energy'] and self.parabolic_bands0 is None:
+            self.important_pts, new_cbm_vbm = get_bs_extrema(
+                self.band_structure,
+                coeff_file,
+                interp_params=self.interp_params,
+                method=interpolation,
+                Ecut=self.Ecut,
+                eref=eref,
+                return_global=True,
+                n_jobs=self.n_jobs,
+                nbelow_vbm=nbelow_vbm,
+                nabove_cbm=nabove_cbm,
+                scissor=self.scissor,
+                **kwargs)
+            if new_cbm_vbm['n']['energy'] < self.cbm_vbm['n'][
+                'energy'] and self.parabolic_bands0 is None:
                 self.cbm_vbm['n']['energy'] = new_cbm_vbm['n']['energy']
                 self.cbm_vbm['n']['kpoint'] = new_cbm_vbm['n']['kpoint']
-            if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p']['energy'] and self.parabolic_bands0 is None:
+            if new_cbm_vbm['p']['energy'] > self.cbm_vbm['p'][
+                'energy'] and self.parabolic_bands0 is None:
                 self.cbm_vbm['p']['energy'] = new_cbm_vbm['p']['energy']
                 self.cbm_vbm['p']['kpoint'] = new_cbm_vbm['p']['kpoint']
         self.logger.info('Here all the initial extrema (valleys):\n{}'.format(
-                self.important_pts))
+            self.important_pts))
         return deepcopy(self.important_pts)
-
 
     def write_input_files(self, path=None, dir_name="run_data"):
         """
@@ -1073,12 +1375,14 @@ class Amset(object):
         performance_params = self.performance_params
 
         with open(os.path.join(path, "material_params.json"), "w") as fp:
-            json.dump(material_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
+            json.dump(material_params, fp, sort_keys=True, indent=4,
+                      ensure_ascii=False, cls=MontyEncoder)
         with open(os.path.join(path, "model_params.json"), "w") as fp:
-            json.dump(model_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
+            json.dump(model_params, fp, sort_keys=True, indent=4,
+                      ensure_ascii=False, cls=MontyEncoder)
         with open(os.path.join(path, "performance_params.json"), "w") as fp:
-            json.dump(performance_params, fp, sort_keys=True, indent=4, ensure_ascii=False, cls=MontyEncoder)
-
+            json.dump(performance_params, fp, sort_keys=True, indent=4,
+                      ensure_ascii=False, cls=MontyEncoder)
 
     def set_material_params(self, params):
         """
@@ -1119,10 +1423,11 @@ class Amset(object):
         self.epsilon_inf = params.get("epsilon_inf", None)
         self.W_POP = params.get("W_POP", None)
         if self.W_POP:
-            self.W_POP *= 1e12 * 2 * pi # convert to THz
+            self.W_POP *= 1e12 * 2 * pi  # convert to THz
         if 'POP' in self.inelastic_scats:
             if self.epsilon_inf is None or self.W_POP is None:
-                warnings.warn('POP cannot be calculated w/o epsilon_inf and W_POP')
+                warnings.warn(
+                    'POP cannot be calculated w/o epsilon_inf and W_POP')
                 self.inelastic_scats.pop(self.inelastic_scats.index('POP'))
 
         self.N_dis = params.get("N_dis", 0.1)  # in 1/cm**2
@@ -1132,7 +1437,8 @@ class Amset(object):
         donor_charge = params.get("donor_charge", 1.0)
         acceptor_charge = params.get("acceptor_charge", 1.0)
         dislocations_charge = params.get("dislocations_charge", 1.0)
-        self.charge = {"n": donor_charge, "p": acceptor_charge, "dislocations": dislocations_charge}
+        self.charge = {"n": donor_charge, "p": acceptor_charge,
+                       "dislocations": dislocations_charge}
         self.important_pts = params.get('important_points', None)
         self.material_params = {
             "epsilon_s": self.epsilon_s,
@@ -1149,8 +1455,6 @@ class Amset(object):
             "user_bandgap": self.user_bandgap,
             "W_POP": self.W_POP
         }
-
-
 
     def set_model_params(self, params=None):
         """
@@ -1178,7 +1482,6 @@ class Amset(object):
             "parabolic_bands": self.parabolic_bands
         }
 
-
     def set_performance_params(self, params=None):
         """
         Set (or retrieve from input parameters) that are related to running
@@ -1193,18 +1496,23 @@ class Amset(object):
         params = params or {}
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 5)
-        c_factor = max(1., max([log(abs(ci)/1e19) for ci in self.dopings]+ [1.])**0.5)
-        Ecut = params.get("Ecut", c_factor * 5 * k_B * max(self.temperatures + [600]))
-        self.max_Ecut = params.get("Ecut", 1.5) #TODO-AF: set this default Encut based on maximum energy range that the current BS covers between
+        c_factor = max(1., max(
+            [log(abs(ci) / 1e19) for ci in self.dopings] + [1.]) ** 0.5)
+        Ecut = params.get("Ecut",
+                          c_factor * 5 * k_B * max(self.temperatures + [600]))
+        self.max_Ecut = params.get("Ecut",
+                                   1.5)  # TODO-AF: set this default Encut based on maximum energy range that the current BS covers between
         Ecut = min(Ecut, self.max_Ecut)
-        self.Ecut = {tp: Ecut if tp in self.all_types else Ecut*2./3. for tp in ["n", "p"]}
+        self.Ecut = {tp: Ecut if tp in self.all_types else Ecut * 2. / 3. for tp
+                     in ["n", "p"]}
         for tp in ["n", "p"]:
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
         self.dos_bwidth = params.get("dos_bwidth", 0.075)
         self.dos_kdensity = params.get("dos_kdensity", 5500)
         # self.dos_kdensity = params.get("dos_kdensity", 1500) # just for rapid testing
         self.v_min = 1000
-        self.gs = float(1e-32)  # small value (e.g. used for an initial non-zero val)
+        self.gs = float(
+            1e-32)  # small value (e.g. used for an initial non-zero val)
         self.gl = float(1e32)  # global large value
         self.BTE_iters = params.get("BTE_iters", 5)
         self.n_jobs = params.get("n_jobs", -1)
@@ -1215,7 +1523,9 @@ class Amset(object):
         self.max_normk = {'n': self.max_normk0, 'p': self.max_normk0}
         self.max_nvalleys = params.get("max_nvalleys", None)
         if not isinstance(self.max_nvalleys, dict):
-            self.max_nvalleys = {tp:self.max_nvalleys if tp in self.all_types else 1 for tp in ['p', 'n']}
+            self.max_nvalleys = {
+                tp: self.max_nvalleys if tp in self.all_types else 1 for tp in
+                ['p', 'n']}
         self.interpolation = params.get("interpolation", "boltztrap1")
         if self.interpolation == "boltztrap2":
             try:
@@ -1237,7 +1547,6 @@ class Amset(object):
             "interpolation": self.interpolation
         }
 
-
     def __getitem__(self, key):
         if key == "kgrid":
             return self.kgrid
@@ -1245,7 +1554,6 @@ class Amset(object):
             return self.egrid
         else:
             raise KeyError
-
 
     def read_vrun(self, vasprun_file=None, filename="vasprun.xml"):
         """
@@ -1260,89 +1568,6 @@ class Amset(object):
 
         Returns (None):
         """
-        vasprun_file = vasprun_file or os.path.join(self.calc_dir, filename)
-        vr = Vasprun(vasprun_file, parse_projected_eigen=True)
-        self.logger.debug('direct lattice matrix:\n{}'.format(vr.lattice.matrix))
-        self.interp_params = None
-        if self.interpolation == "boltztrap2":
-            bz2_data = PymatgenLoader(vr)
-            equivalences = sphere.get_equivalences(atoms=bz2_data.atoms,
-                        nkpt=len(bz2_data.kpoints) * 5, magmom=None)
-            lattvec = bz2_data.get_lattvec()
-            coeffs = fite.fitde3D(bz2_data, equivalences)
-            self.interp_params = (equivalences, lattvec, coeffs)
-
-        self.projected_eigenvalues = vr.projected_eigenvalues
-        self.kpoints = vr.actual_kpoints
-
-        self.structure = vr.final_structure
-        self.logger.info("unitcell volume = {} A**3".format(self.structure.volume))
-
-        sg = SpacegroupAnalyzer(self.structure)
-        self.rotations, _ = sg._get_symmetry()
-        self.bs = vr.get_band_structure()
-        if self.bs.is_metal():
-            raise AmsetError(self.logger, 'The input band structure is a metal'
-                                          ' currently not supported by Amset')
-        self.bs.structure = self.structure
-        self.nbands = self.bs.nb_bands
-        self.lorbit = 11 if len(sum(vr.projected_eigenvalues[Spin.up][0][10])) > 5 else 10
-        self.DFT_cartesian_kpts = np.array([self.get_cartesian_coords(k) for k in vr.actual_kpoints])/ A_to_nm
-
-        cbm_vbm = {"n": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]},
-                   "p": {"kpoint": [], "energy": 0.0, "bidx": 0, "included": 0, "eff_mass_xx": [0.0, 0.0, 0.0]}}
-        cbm = self.bs.get_cbm()
-        vbm = self.bs.get_vbm()
-        self.dft_gap = cbm["energy"] - vbm["energy"]
-        self.logger.debug("DFT gap from vasprun.xml : {} eV".format(self.dft_gap))
-        self.logger.info("total number of bands: {}".format(self.bs.nb_bands))
-        cbm_vbm["n"]["energy"] = cbm["energy"]
-        cbm_vbm["n"]["bidx"], _ = get_bindex_bspin(cbm, is_cbm=True)
-        cbm_vbm["n"]["kpoint"] = self.bs.kpoints[cbm["kpoint_index"][0]].frac_coords
-        cbm_vbm["p"]["energy"] = vbm["energy"]
-        cbm_vbm["p"]["bidx"], _ = get_bindex_bspin(vbm, is_cbm=False)
-        cbm_vbm["p"]["kpoint"] = self.bs.kpoints[vbm["kpoint_index"][0]].frac_coords
-
-        if self.user_bandgap:
-            if self.scissor != 0.0:
-                self.logger.warning('"user_bandgap" is set hence previously set '
-                    '"scissor" is ignored. Continuing with scissor={}'.format(
-                        self.user_bandgap - self.dft_gap))
-            self.scissor = self.user_bandgap - self.dft_gap
-            self.logger.info('scissor is set to {}'.format(self.scissor))
-        self.nelec = vr.parameters['NELECT']
-        bsd = self.bs.as_dict()
-        if bsd["is_spin_polarized"]:
-            self.dos_emin = min(min(bsd["bands"]["1"][0]), min(bsd["bands"]["-1"][0]))
-            self.dos_emax = max(max(bsd["bands"]["1"][-1]), max(bsd["bands"]["-1"][-1]))
-        else:
-            self.dos_emin = min(bsd["bands"]["1"][0])
-            self.dos_emax = max(bsd["bands"]["1"][-1])
-        self.init_nbands = {'n': None, 'p': None}
-        if self.parabolic_bands0 is None:
-            for i, tp in enumerate(["n", "p"]):
-                Ecut = self.Ecut[tp]
-                sgn = (-1) ** i
-                while abs(
-                        min(sgn*np.array(bsd["bands"]["1"][cbm_vbm[tp]["bidx"]\
-                                + sgn * cbm_vbm[tp]["included"]])) \
-                                    - sgn * cbm_vbm[tp]["energy"]) < Ecut:
-                    cbm_vbm[tp]["included"] += 1
-                self.init_nbands[tp] = cbm_vbm[tp]["included"]
-        else:
-            cbm_vbm["n"]["included"] = len(self.parabolic_bands0)
-            cbm_vbm["p"]["included"] = len(self.parabolic_bands0)
-            self.init_nbands['n'] = len(self.parabolic_bands0)
-            self.init_nbands['p'] = len(self.parabolic_bands0)
-        cbm_vbm["p"]["bidx"] += 1
-        cbm_vbm["n"]["bidx"] = cbm_vbm["p"]["bidx"] + 1
-        self.cbm_vbm = cbm_vbm
-        self.cbm_vbm0 = deepcopy(cbm_vbm)
-        self.valleys = {tp: {'band {}'.format(i): OrderedDict() \
-                             for i in range(self.cbm_vbm0[tp]['included']) } \
-                        for tp in ['p', 'n']}
-        self.logger.info("original cbm_vbm:\n {}".format(cbm_vbm))
-        self.num_bands = {tp:self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
 
     def get_cartesian_coords(self, frac_k, reciprocal=True):
         """
@@ -1365,7 +1590,6 @@ class Amset(object):
         else:
             return np.dot(self.structure.lattice.matrix, np.array(frac_k))
 
-
     def seeb_int_num(self, c, T):
         """
         Returns the numerator of the integral term in eq (52) of [R] for
@@ -1380,12 +1604,12 @@ class Amset(object):
         Returns (dict: {"n": float, "p": float}): Seebeck integral numerator
             integrated over the energy scale (egrid).
         """
-        fn = lambda E, fermi, T: f0(E,fermi,T) * (1-f0(E,fermi,T)) * E/(k_B*T)
+        fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T)) * E / (
+                k_B * T)
         return {t: self.integrate_func_over_E(func=fn, tp=t, T=T,
                                               fermi=self.fermi_level[c][T],
                                               normalize_energy=True,
                                               xDOS=True) for t in ["n", "p"]}
-
 
     def seeb_int_denom(self, c, T):
         """
@@ -1405,7 +1629,6 @@ class Amset(object):
         return {t: self.gs + self.integrate_over_E(
             props=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in ["n", "p"]}
 
-
     def calculate_property(self, prop_name, prop_func, for_all_E=False):
         """
         Calculates the propery at all concentrations and temperatures using
@@ -1422,7 +1645,7 @@ class Amset(object):
         if for_all_E:
             for tp in ["n", "p"]:
                 self.egrid[tp][prop_name] = \
-                    {c: {T: [self.gs]*len(self.egrid[tp]["energy"]) \
+                    {c: {T: [self.gs] * len(self.egrid[tp]["energy"]) \
                          for T in self.temperatures} for c in self.dopings}
         else:
             self.egrid[prop_name] = {c: {T: self.gs for T in self.temperatures
@@ -1433,10 +1656,11 @@ class Amset(object):
                     fermi = self.fermi_level[c][T]
                     for tp in ["n", "p"]:
                         for ie, E in enumerate(self.egrid[tp]["energy"]):
-                            self.egrid[tp][prop_name][c][T][ie] = prop_func(E, fermi, T)
+                            self.egrid[tp][prop_name][c][T][ie] = prop_func(E,
+                                                                            fermi,
+                                                                            T)
                 else:
                     self.egrid[prop_name][c][T] = prop_func(c, T)
-
 
     def calculate_N_II(self, c, T):
         """
@@ -1450,10 +1674,10 @@ class Amset(object):
         """
         N_II = abs(self.calc_doping[c][T]["n"]) * self.charge["n"] ** 2 + \
                abs(self.calc_doping[c][T]["p"]) * self.charge["p"] ** 2 + \
-               self.N_dis / self.structure.volume ** (1 / 3) * 1e8 * self.charge["dislocations"] ** 2
+               self.N_dis / self.structure.volume ** (1 / 3) * 1e8 * \
+               self.charge["dislocations"] ** 2
         # N_dis is a given 2D concentration of charged dislocations in 1/cm**2
         return N_II
-
 
     def pre_init_egrid(self):
         """
@@ -1474,16 +1698,19 @@ class Amset(object):
         }
         self.kgrid_to_egrid_idx = {"n": [], "p": []}
         self.Efrequency = {"n": [], "p": []}
-        self.sym_freq = {"n": [], "p":[]}
+        self.sym_freq = {"n": [], "p": []}
         E_idx = {"n": [], "p": []}
         for tp in ["n", "p"]:
             for ib, en_vec in enumerate(self.kgrid[tp]["energy"]):
                 self.egrid[tp]["all_en_flat"] += list(en_vec)
-                self.egrid[tp]["all_ks_flat"] += list(self.kgrid[tp]["kpoints"][ib])
+                self.egrid[tp]["all_ks_flat"] += list(
+                    self.kgrid[tp]["kpoints"][ib])
                 E_idx[tp] += [(ib, iek) for iek in range(len(en_vec))]
             ieidxs = np.argsort(self.egrid[tp]["all_en_flat"])
-            self.egrid[tp]["all_en_flat"] = [self.egrid[tp]["all_en_flat"][ie] for ie in ieidxs]
-            self.egrid[tp]["all_ks_flat"] = [self.egrid[tp]["all_ks_flat"][ie] for ie in ieidxs]
+            self.egrid[tp]["all_en_flat"] = [self.egrid[tp]["all_en_flat"][ie]
+                                             for ie in ieidxs]
+            self.egrid[tp]["all_ks_flat"] = [self.egrid[tp]["all_ks_flat"][ie]
+                                             for ie in ieidxs]
             E_idx[tp] = [E_idx[tp][ie] for ie in ieidxs]
 
         # setting up energy grid and DOS:
@@ -1493,16 +1720,21 @@ class Amset(object):
             last_is_counted = False
             while i < len(self.egrid[tp]["all_en_flat"]) - 1:
                 sum_E = self.egrid[tp]["all_en_flat"][i]
-                sum_nksym = len(remove_duplicate_kpoints(self.bs.get_sym_eq_kpoints(self.egrid[tp]["all_ks_flat"][i])))
+                sum_nksym = len(remove_duplicate_kpoints(
+                    self.band_structure.get_sym_eq_kpoints(
+                        self.egrid[tp]["all_ks_flat"][i])))
                 counter = 1.0  # because the ith member is already included in sum_E
                 current_ib_ie_idx = [E_idx[tp][i]]
                 j = i
                 while j < len(self.egrid[tp]["all_en_flat"]) - 1 and \
-                        abs(self.egrid[tp]["all_en_flat"][i] - self.egrid[tp]["all_en_flat"][j + 1]) < self.dE_min:
+                        abs(self.egrid[tp]["all_en_flat"][i] -
+                            self.egrid[tp]["all_en_flat"][j + 1]) < self.dE_min:
                     counter += 1
                     current_ib_ie_idx.append(E_idx[tp][j + 1])
                     sum_E += self.egrid[tp]["all_en_flat"][j + 1]
-                    sum_nksym += len(remove_duplicate_kpoints(self.bs.get_sym_eq_kpoints(self.egrid[tp]["all_ks_flat"][i+1])))
+                    sum_nksym += len(remove_duplicate_kpoints(
+                        self.band_structure.get_sym_eq_kpoints(
+                            self.egrid[tp]["all_ks_flat"][i + 1])))
 
                     if j + 1 == len(self.egrid[tp]["all_en_flat"]) - 1:
                         last_is_counted = True
@@ -1511,20 +1743,25 @@ class Amset(object):
                 self.kgrid_to_egrid_idx[tp].append(current_ib_ie_idx)
                 self.sym_freq[tp].append(sum_nksym / counter)
                 energy_counter.append(counter)
-                self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(sum_E / counter)][1])
+                self.egrid[tp]["DOS"].append(
+                    self.dos[self.get_Eidx_in_dos(sum_E / counter)][1])
                 i = j + 1
 
             if not last_is_counted:
-                self.egrid[tp]["energy"].append(self.egrid[tp]["all_en_flat"][-1])
+                self.egrid[tp]["energy"].append(
+                    self.egrid[tp]["all_en_flat"][-1])
                 self.kgrid_to_egrid_idx[tp].append([E_idx[tp][-1]])
-                self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(self.egrid[tp]["energy"][-1])][1])
+                self.egrid[tp]["DOS"].append(self.dos[self.get_Eidx_in_dos(
+                    self.egrid[tp]["energy"][-1])][1])
             self.egrid[tp]["size"] = len(self.egrid[tp]["energy"])
-            self.Efrequency[tp] = [len(Es) for Es in self.kgrid_to_egrid_idx[tp]]
+            self.Efrequency[tp] = [len(Es) for Es in
+                                   self.kgrid_to_egrid_idx[tp]]
             if len(self.Efrequency[tp]) < min_nE:
-                warnings.warn("The final {}-egrid have fewer than {} energy values".format(tp, min_nE))
+                warnings.warn(
+                    "The final {}-egrid have fewer than {} energy values".format(
+                        tp, min_nE))
                 corrupt_tps.append(tp)
         return corrupt_tps
-
 
     def init_egrid(self):
         """
@@ -1540,7 +1777,8 @@ class Amset(object):
         if "n" in corrupt_tps and "p" in corrupt_tps:
             return corrupt_tps
         for tp in ['n', 'p']:
-            self.egrid[tp]["relaxation time constant"] = {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
+            self.egrid[tp]["relaxation time constant"] = {
+                c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
 
         self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
         self.calculate_property(prop_name="f", prop_func=f0, for_all_E=True)
@@ -1550,7 +1788,14 @@ class Amset(object):
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
         self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi,
-                T: f0(E, fermi, T) * (1 - f0(E, fermi, T)), for_all_E=True)
+                                                                      T: f0(E,
+                                                                            fermi,
+                                                                            T) * (
+                                                                                 1 - f0(
+                                                                             E,
+                                                                             fermi,
+                                                                             T)),
+                                for_all_E=True)
         for c in self.dopings:
             for T in self.temperatures:
                 fermi = self.fermi_level[c][T]
@@ -1558,12 +1803,12 @@ class Amset(object):
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             E = self.kgrid[tp]["energy"][ib][ik]
-                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E,fermi,T)
+                            self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E, fermi, T)
 
         self.calculate_property(prop_name="beta",
                                 prop_func=self.inverse_screening_length)
         self.logger.debug('inverse screening length, beta is \n{}'.format(
-                                                        self.egrid["beta"]))
+            self.egrid["beta"]))
         self.calculate_property(prop_name="N_II",
                                 prop_func=self.calculate_N_II)
         self.calculate_property(prop_name="Seebeck_integral_numerator",
@@ -1571,7 +1816,6 @@ class Amset(object):
         self.calculate_property(prop_name="Seebeck_integral_denominator",
                                 prop_func=self.seeb_int_denom)
         return corrupt_tps
-
 
     def get_Eidx_in_dos(self, E, Estep=None):
         """
@@ -1586,9 +1830,8 @@ class Amset(object):
         """
         if not Estep:
             Estep = max(self.dE_min, 0.0001)
-        calculated_index =  int(round((E - self.dos_emin) / Estep))
-        return min(calculated_index, len(self.dos_emesh)-1)
-
+        calculated_index = int(round((E - self.dos_emin) / Estep))
+        return min(calculated_index, len(self.dos_emesh) - 1)
 
     def G(self, tp, ib, ik, ib_prm, ik_prm, X):
         """
@@ -1606,7 +1849,6 @@ class Amset(object):
         return (a * self.kgrid[tp]["a"][ib_prm][ik_prm] + \
                 X * c * self.kgrid[tp]["c"][ib_prm][ik_prm]) ** 2
 
-
     def remove_indexes(self, rm_idx_list, rearranged_props):
         """
         The k-points with velocity < 1 cm/s (either in valence or conduction band) are taken out as those are
@@ -1621,15 +1863,17 @@ class Amset(object):
                 rm_idx_list_ib = list(set(rm_idx_list[tp][ib]))
                 rm_idx_list_ib.sort(reverse=True)
                 rm_idx_list[tp][ib] = rm_idx_list_ib
-                self.logger.debug("# of {}-type kpoints indexes with low velocity or off-energy: {}".format(tp,len(rm_idx_list_ib)))
+                self.logger.debug(
+                    "# of {}-type kpoints indexes with low velocity or off-energy: {}".format(
+                        tp, len(rm_idx_list_ib)))
             for prop in rearranged_props:
                 self.kgrid[tp][prop] = \
                     np.array([np.delete(self.kgrid[tp][prop][ib],
                                         rm_idx_list[tp][ib], axis=0) \
-                                for ib in range(self.cbm_vbm[tp]["included"])])
+                              for ib in range(self.cbm_vbm[tp]["included"])])
 
-
-    def initialize_var(self, grid, names, val_type="scalar", initval=0.0, is_nparray=True, c_T_idx=False):
+    def initialize_var(self, grid, names, val_type="scalar", initval=0.0,
+                       is_nparray=True, c_T_idx=False):
         """
         Initializes a variable/key within the self.kgrid variable
 
@@ -1654,18 +1898,24 @@ class Amset(object):
             for tp in ["n", "p"]:
                 self[grid][tp][name] = 0.0
                 if grid == "kgrid":
-                    init_content = [[initial_val for _ in range(len(self[grid][tp]["kpoints"][j]))]
-                                    for j in range(self.cbm_vbm[tp]["included"])]
+                    init_content = [[initial_val for _ in
+                                     range(len(self[grid][tp]["kpoints"][j]))]
+                                    for j in
+                                    range(self.cbm_vbm[tp]["included"])]
                 elif grid == "egrid":
-                    init_content = [initial_val for _ in self[grid][tp]["energy"]]
+                    init_content = [initial_val for _ in
+                                    self[grid][tp]["energy"]]
                 else:
-                    raise TypeError('The argument "grid" must be set to either "kgrid" or "egrid"')
+                    raise TypeError(
+                        'The argument "grid" must be set to either "kgrid" or "egrid"')
                 if is_nparray:
                     if not c_T_idx:
                         self[grid][tp][name] = np.array(init_content)
                     else:
-                        self[grid][tp][name] = {c: {T: np.array(init_content) for T in self.temperatures} for c in
-                                                    self.dopings}
+                        self[grid][tp][name] = {
+                            c: {T: np.array(init_content) for T in
+                                self.temperatures} for c in
+                            self.dopings}
                 else:
                     # TODO: if not is_nparray both temperature values will be equal probably because both are equal to init_content that are a list and FOREVER they will change together. Keep is_nparray as True as it makes a copy, otherwise you are doomed! See if you can fix this later
                     if val_type not in ["scalar"] and c_T_idx:
@@ -1675,9 +1925,11 @@ class Amset(object):
                         if not c_T_idx:
                             self[grid][tp][name] = init_content
                         else:
-                            self[grid][tp][name] = {c: {T: init_content for T in self.temperatures} for c in
-                                                    self.dopings}
-
+                            self[grid][tp][name] = {
+                                c: {T: init_content for T in self.temperatures}
+                                for
+                                c in
+                                self.dopings}
 
     def calc_parabolic_energy(self, xkpt, tp, ib):
         """
@@ -1692,10 +1944,10 @@ class Amset(object):
             (energy(eV), velocity (cm/s), effective mass) from a parabolic band
         """
         energy, velocity, effective_m = get_parabolic_energy(
-            self.get_cartesian_coords(xkpt)/A_to_nm, parabolic_bands=self.parabolic_bands,
+            self.get_cartesian_coords(xkpt) / A_to_nm,
+            parabolic_bands=self.parabolic_bands,
             type=tp, ib=ib, bandgap=self.dft_gap + self.scissor)
         return energy, velocity, effective_m
-
 
     def init_kgrid(self, kpts, important_points, delete_off_points=True):
         """
@@ -1722,46 +1974,59 @@ class Amset(object):
         self.num_bands = {"n": 1, "p": 1}
         for tp in ["n", "p"]:
             self.num_bands[tp] = self.cbm_vbm[tp]["included"]
-            self.kgrid[tp]["kpoints"] = [kpts[tp] for ib in range(self.num_bands[tp])]
+            self.kgrid[tp]["kpoints"] = [kpts[tp] for ib in
+                                         range(self.num_bands[tp])]
 
-        self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)", "norm(k)"], "scalar", 0.0, is_nparray=False)
-        self.initialize_var("kgrid", ["velocity"], "vector", 0.0, is_nparray=False)
+        self.initialize_var("kgrid", ["energy", "a", "c", "norm(v)", "norm(k)"],
+                            "scalar", 0.0, is_nparray=False)
+        self.initialize_var("kgrid", ["velocity"], "vector", 0.0,
+                            is_nparray=False)
 
         start_time = time.time()
         rm_idx_list = {"n": [[] for i in range(self.cbm_vbm["n"]["included"])],
                        "p": [[] for i in range(self.cbm_vbm["p"]["included"])]}
-        self.initialize_var("kgrid", ["old cartesian kpoints", "cartesian kpoints"], "vector", 0.0, is_nparray=False, c_T_idx=False)
-        self.initialize_var("kgrid", ["norm(k)"], "scalar", 0.0, is_nparray=False, c_T_idx=False)
-        self.logger.debug("The DFT gap right before calculating final energy values: {}".format(self.dft_gap))
+        self.initialize_var("kgrid",
+                            ["old cartesian kpoints", "cartesian kpoints"],
+                            "vector", 0.0, is_nparray=False, c_T_idx=False)
+        self.initialize_var("kgrid", ["norm(k)"], "scalar", 0.0,
+                            is_nparray=False, c_T_idx=False)
+        self.logger.debug(
+            "The DFT gap right before calculating final energy values: {}".format(
+                self.dft_gap))
 
         for i, tp in enumerate(["p", "n"]):
-            self.cbm_vbm[tp]["cartesian k"] = self.get_cartesian_coords(self.cbm_vbm[tp]["kpoint"])/A_to_nm
+            self.cbm_vbm[tp]["cartesian k"] = self.get_cartesian_coords(
+                self.cbm_vbm[tp]["kpoint"]) / A_to_nm
             self.cbm_vbm[tp]["all cartesian k"] = remove_duplicate_kpoints(
-                self.bs.get_sym_eq_kpoints(self.cbm_vbm[tp]["cartesian k"],
-                                           cartesian=True))
+                self.band_structure.get_sym_eq_kpoints(
+                    self.cbm_vbm[tp]["cartesian k"],
+                    cartesian=True))
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
                 for ik, k in enumerate(self.kgrid[tp]['kpoints'][ib]):
                     self.kgrid[tp]["old cartesian kpoints"][ib][ik] = \
-                        self.get_cartesian_coords(self.kgrid[tp]["kpoints"][ib][ik]) / A_to_nm
+                        self.get_cartesian_coords(
+                            self.kgrid[tp]["kpoints"][ib][ik]) / A_to_nm
 
-                s_orbital, p_orbital = get_dft_orbitals(
-                    projected_eigenvalues=self.projected_eigenvalues,
-                    num_kpoints=len(self.kpoints),
-                    bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib,
-                    lorbit=self.lorbit)
+                s_orbital, p_orbital = get_band_orbital_contributions(
+                    self.band_structure,
+                    self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib)
                 orbitals = {"s": s_orbital, "p": p_orbital}
-                fit_orbs = {orb: griddata(points=np.array(self.DFT_cartesian_kpts),
-                                          values=np.array(orbitals[orb]),
-                    xi=np.array(self.kgrid[tp]["old cartesian kpoints"][ib]),
-                                          method='nearest') for orb in orbitals.keys()}
+                fit_orbs = {
+                    orb: griddata(points=np.array(self.cartesian_kpoints),
+                                  values=np.array(orbitals[orb]),
+                                  xi=np.array(
+                                      self.kgrid[tp]["old cartesian kpoints"][
+                                          ib]),
+                                  method='nearest') for orb in orbitals.keys()}
 
                 if self.interpolation == "boltztrap1":
                     iband = i * self.cbm_vbm["p"]["included"] + ib
                 else:
-                    iband = self.cbm_vbm[tp]["bidx"] + (i-1)*self.cbm_vbm["p"]["included"]+ib
+                    iband = self.cbm_vbm[tp]["bidx"] + (i - 1) * \
+                            self.cbm_vbm["p"]["included"] + ib
                 self.kgrid[tp]["energy"][ib], \
-                        self.kgrid[tp]["velocity"][ib] = \
+                self.kgrid[tp]["velocity"][ib] = \
                     interpolate_bs(self.kgrid[tp]["kpoints"][ib],
                                    self.interp_params, iband=iband, sgn=sgn,
                                    method=self.interpolation,
@@ -1771,61 +2036,80 @@ class Amset(object):
                                    return_mass=False)
 
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(
-                    self.kgrid[tp]["old cartesian kpoints"][ib]) # made a copy
+                    self.kgrid[tp]["old cartesian kpoints"][ib])  # made a copy
 
                 # compare to a for-loop this map reduce time and memory usage:
                 self.kgrid[tp]["cartesian kpoints"][ib] = list(
                     map(lambda k: self.get_cartesian_coords(get_closest_k(
-                        k, self.bs.get_sym_eq_kpoints(important_points[tp][0]),
-                        return_diff=True))/ A_to_nm , self.kgrid[tp]["kpoints"][ib]))
+                        k, self.band_structure.get_sym_eq_kpoints(
+                            important_points[tp][0]),
+                        return_diff=True)) / A_to_nm,
+                        self.kgrid[tp]["kpoints"][ib]))
 
-
-                self.kgrid[tp]["norm(k)"][ib] = np.linalg.norm(self.kgrid[tp]["cartesian kpoints"][ib], axis=1)
+                self.kgrid[tp]["norm(k)"][ib] = np.linalg.norm(
+                    self.kgrid[tp]["cartesian kpoints"][ib], axis=1)
 
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     if self.parabolic_bands is not None:
                         self.kgrid[tp]["energy"][ib][ik], \
-                                self.kgrid[tp]["velocity"][ib][ik], _ = \
-                                get_parabolic_energy(
-                                    self.kgrid[tp]["cartesian kpoints"][ib][ik],
-                                   parabolic_bands=self.parabolic_bands, type=tp, ib=ib,
-                                        bandgap=self.dft_gap + self.scissor)
+                        self.kgrid[tp]["velocity"][ib][ik], _ = \
+                            get_parabolic_energy(
+                                self.kgrid[tp]["cartesian kpoints"][ib][ik],
+                                parabolic_bands=self.parabolic_bands, type=tp,
+                                ib=ib,
+                                bandgap=self.dft_gap + self.scissor)
 
                     # self.kgrid[tp]["norm(v)"][ib][ik] = norm(self.kgrid[tp]["velocity"][ib][ik])
-                    if (len(rm_idx_list[tp][ib]) + 20 < len(self.kgrid[tp]['kpoints'][ib])) and (
-                            (self.kgrid[tp]["velocity"][ib][ik] < self.v_min).all()
+                    if (len(rm_idx_list[tp][ib]) + 20 < len(
+                            self.kgrid[tp]['kpoints'][ib])) and (
+                            (self.kgrid[tp]["velocity"][ib][
+                                 ik] < self.v_min).all()
                             # if all members are small, that point should be removed otherwise scattering blows up and I get nan mobilities
-                        or \
-                            (abs(self.kgrid[tp]["energy"][ib][ik] - self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
-                        or \
-                            ((self.max_normk[tp]) and (self.kgrid[tp]["norm(k)"][ib][ik] > self.max_normk[tp]) and (self.parabolic_bands0 is None))
-                        or \
+                            or \
+                            (abs(self.kgrid[tp]["energy"][ib][ik] -
+                                 self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
+                            or \
+                            ((self.max_normk[tp]) and (
+                                    self.kgrid[tp]["norm(k)"][ib][ik] >
+                                    self.max_normk[tp]) and (
+                                     self.parabolic_bands0 is None))
+                            or \
                             (self.kgrid[tp]["norm(k)"][ib][ik] < 1e-3)
                     ):
                         rm_idx_list[tp][ib].append(ik)
                     if self.parabolic_bands is None:
-                        self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik]/ (fit_orbs["s"][ik]**2 + fit_orbs["p"][ik]**2)**0.5
+                        self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik] / (
+                                fit_orbs["s"][ik] ** 2 + fit_orbs["p"][
+                            ik] ** 2) ** 0.5
                         if np.isnan(self.kgrid[tp]["a"][ib][ik]):
-                            self.kgrid[tp]["a"][ib][ik] = np.mean(self.kgrid[tp]["a"][ib][:ik])
-                        self.kgrid[tp]["c"][ib][ik] = (1 - self.kgrid[tp]["a"][ib][ik]**2)**0.5
+                            self.kgrid[tp]["a"][ib][ik] = np.mean(
+                                self.kgrid[tp]["a"][ib][:ik])
+                        self.kgrid[tp]["c"][ib][ik] = (1 -
+                                                       self.kgrid[tp]["a"][ib][
+                                                           ik] ** 2) ** 0.5
                     else:
                         self.kgrid[tp]["a"][ib][ik] = 1.0  # parabolic: s-only
                         self.kgrid[tp]["c"][ib][ik] = 0.0
                 self.kgrid[tp]["norm(v)"][ib] = np.linalg.norm(
-                                    self.kgrid[tp]["velocity"][ib], axis=1)
-            self.logger.debug("average of the {}-type group velocity in kgrid:\n {}".format(
-                        tp, np.mean(self.kgrid[tp]["velocity"][0], axis=0)))
+                    self.kgrid[tp]["velocity"][ib], axis=1)
+            self.logger.debug(
+                "average of the {}-type group velocity in kgrid:\n {}".format(
+                    tp, np.mean(self.kgrid[tp]["velocity"][0], axis=0)))
 
         rearranged_props = ["velocity", "energy", "a", "c", "kpoints",
                             "cartesian kpoints", "old cartesian kpoints",
                             "norm(v)", "norm(k)"]
 
-        self.logger.debug("time to calculate E, v, m_eff at all k-points: \n {}".format(time.time()-start_time))
+        self.logger.debug(
+            "time to calculate E, v, m_eff at all k-points: \n {}".format(
+                time.time() - start_time))
         start_time = time.time()
 
         for tp in ["n", "p"]:
-            rm_idx_list[tp] = [rm_idx_list[tp][0] for _ in range(self.cbm_vbm[tp]["included"])]
-        self.rm_idx_list = deepcopy(rm_idx_list) # format: [tp][ib][ik]; instance variable only used in k-integration
+            rm_idx_list[tp] = [rm_idx_list[tp][0] for _ in
+                               range(self.cbm_vbm[tp]["included"])]
+        self.rm_idx_list = deepcopy(
+            rm_idx_list)  # format: [tp][ib][ik]; instance variable only used in k-integration
         if delete_off_points:
             self.remove_indexes(rm_idx_list, rearranged_props=rearranged_props)
         del rm_idx_list
@@ -1833,16 +2117,21 @@ class Amset(object):
             self.logger.debug(
                 "average of the {}-type group velocity in kgrid after removing points:\n {}".format(
                     tp, np.mean(self.kgrid[tp]["velocity"][0], axis=0)))
-        self.logger.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin, self.dos_emax))
+        self.logger.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin,
+                                                                  self.dos_emax))
 
         self.logger.debug('current cbm_vbm:\n{}'.format(self.cbm_vbm))
         for tp in ["n", "p"]:
             for ib in range(len(self.kgrid[tp]["energy"])):
-                self.logger.info("Final # of {}-kpts in band #{}: {}".format(tp, ib, len(self.kgrid[tp]["kpoints"][ib])))
+                self.logger.info(
+                    "Final # of {}-kpts in band #{}: {}".format(tp, ib, len(
+                        self.kgrid[tp]["kpoints"][ib])))
 
             if len(self.kgrid[tp]["kpoints"][0]) < 5:
                 corrupt_tps.append(tp)
-        self.logger.debug("time to calculate energy, velocity, m* for all: {} seconds".format(time.time() - start_time))
+        self.logger.debug(
+            "time to calculate energy, velocity, m* for all: {} seconds".format(
+                time.time() - start_time))
 
         # sort "energy", "kpoints", etc based on energy in ascending order and keep track of old indexes
         e_sort_idx_2 = self.sort_vars_based_on_energy(args=rearranged_props,
@@ -1853,18 +2142,20 @@ class Amset(object):
         for tp in ['n', 'p']:
             for ib in range(self.num_bands[tp]):
                 self.pos_idx_2[tp][ib] = \
-                    np.array(range(len(e_sort_idx_2[tp][ib])))[e_sort_idx_2[tp][ib]].argsort()
+                    np.array(range(len(e_sort_idx_2[tp][ib])))[
+                        e_sort_idx_2[tp][ib]].argsort()
 
         for tp in ["n", "p"]:
             self.kgrid[tp]["size"] = [len(self.kgrid[tp]["kpoints"][ib]) \
-                                      for ib in range(len(self.kgrid[tp]["kpoints"]))]
+                                      for ib in
+                                      range(len(self.kgrid[tp]["kpoints"]))]
 
         self.initialize_var("kgrid", ["W_POP"], "scalar", 0.0, c_T_idx=False)
         self.initialize_var("kgrid", ["N_POP"], "scalar", 0.0, c_T_idx=True)
         self.initialize_var(grid="kgrid", names=[
-                "_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th",
-                "g_POP", "f0", "f", "f_th", "relaxation time", "df0dk",
-                "electric force","thermal force"], val_type="vector",
+            "_all_elastic", "S_i", "S_i_th", "S_o", "S_o_th", "g", "g_th",
+            "g_POP", "f0", "f", "f_th", "relaxation time", "df0dk",
+            "electric force", "thermal force"], val_type="vector",
                             initval=self.gs, is_nparray=True, c_T_idx=True)
 
         for tp in ["n", "p"]:
@@ -1878,7 +2169,6 @@ class Amset(object):
                             [1 / (np.exp(hbar * W_POP / (k_B * T)) - 1) for
                              W_POP in self.kgrid[tp]["W_POP"][ib]])
         return corrupt_tps
-
 
     def sort_vars_based_on_energy(self, args, ascending=True):
         """
@@ -1895,18 +2185,20 @@ class Amset(object):
                 also returns the indexes in the order that results in sorted
                 energy.
         """
-        ikidxs = {'n': {ib: [] for ib in range(self.num_bands['n'])}, 'p': {ib: [] for ib in range(self.num_bands['p'])}}
+        ikidxs = {'n': {ib: [] for ib in range(self.num_bands['n'])},
+                  'p': {ib: [] for ib in range(self.num_bands['p'])}}
         for tp in ["n", "p"]:
             for ib in range(self.cbm_vbm[tp]["included"]):
                 ikidxs[tp][ib] = np.argsort(self.kgrid[tp]["energy"][ib])
                 if not ascending:
                     ikidxs[tp][ib].reverse()
                 for arg in args:
-                    self.kgrid[tp][arg][ib] = np.array([self.kgrid[tp][arg][ib][ik] for ik in ikidxs[tp][ib]])
+                    self.kgrid[tp][arg][ib] = np.array(
+                        [self.kgrid[tp][arg][ib][ik] for ik in ikidxs[tp][ib]])
         return ikidxs
 
-
-    def generate_angles_and_indexes_for_integration(self, avg_Ediff_tolerance=0.02):
+    def generate_angles_and_indexes_for_integration(self,
+                                                    avg_Ediff_tolerance=0.02):
         """
         Generates the indexes of k' points that have the same energy (for elastic scattering) as E(k) or
         have energy equal to E(k) plus or minus of the energy of the optical phonon for inelastic scattering.
@@ -1916,7 +2208,8 @@ class Amset(object):
             avg_Ediff_tolerance (float): in eV the average allowed energy difference between the target E(k') and
                 what it actially is (e.g. to prevent/identify large energy differences if enforced scattering)
         """
-        self.initialize_var("kgrid", ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"], "scalar", [], is_nparray=False,
+        self.initialize_var("kgrid", ["X_E_ik", "X_Eplus_ik", "X_Eminus_ik"],
+                            "scalar", [], is_nparray=False,
                             c_T_idx=False)
 
         # elastic scattering
@@ -1925,19 +2218,28 @@ class Amset(object):
                 self.nforced_scat = {"n": 0.0, "p": 0.0}
                 self.ediff_scat = {"n": [], "p": []}
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                    self.kgrid[tp]["X_E_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                            E_change=0.0, forced_min_npoints=self.nE_min, tolerance=self.dE_min)
-                enforced_ratio = self.nforced_scat[tp] / sum([len(points) for points in self.kgrid[tp]["X_E_ik"][ib]])
-                self.logger.info("enforced scattering ratio for {}-type elastic scattering at band {}:\n {}".format(
+                    self.kgrid[tp]["X_E_ik"][ib][
+                        ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
+                                                          E_change=0.0,
+                                                          forced_min_npoints=self.nE_min,
+                                                          tolerance=self.dE_min)
+                enforced_ratio = self.nforced_scat[tp] / sum(
+                    [len(points) for points in self.kgrid[tp]["X_E_ik"][ib]])
+                self.logger.info(
+                    "enforced scattering ratio for {}-type elastic scattering at band {}:\n {}".format(
                         tp, ib, enforced_ratio))
                 if enforced_ratio > 0.9:
-                    warnings.warn("the k-grid is too coarse for an acceptable simulation of elastic scattering in {};"
-                        .format(self.tp_title[tp]))
+                    warnings.warn(
+                        "the k-grid is too coarse for an acceptable simulation of elastic scattering in {};"
+                            .format(_doping_names[tp]))
 
-                avg_Ediff = sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 1)
+                avg_Ediff = sum(self.ediff_scat[tp]) / max(
+                    len(self.ediff_scat[tp]), 1)
                 if avg_Ediff > avg_Ediff_tolerance:
-                    warnings.warn("{}-type average energy difference of the enforced scattered k-points is more than"
-                                  " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
+                    warnings.warn(
+                        "{}-type average energy difference of the enforced scattered k-points is more than"
+                        " {}, try running with a more dense k-point mesh".format(
+                            tp, avg_Ediff_tolerance))
 
         # inelastic scattering
         if "POP" in self.inelastic_scats:
@@ -1947,30 +2249,50 @@ class Amset(object):
                     self.nforced_scat = {"n": 0.0, "p": 0.0}
                     self.ediff_scat = {"n": [], "p": []}
                     for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
-                        self.kgrid[tp]["X_Eplus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change= + hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min, tolerance=None)
-                        self.kgrid[tp]["X_Eminus_ik"][ib][ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
-                                E_change= - hbar * self.kgrid[tp]["W_POP"][ib][ik],forced_min_npoints=self.nE_min, tolerance=None)
+                        self.kgrid[tp]["X_Eplus_ik"][ib][
+                            ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
+                                                              E_change=+ hbar *
+                                                                       self.kgrid[
+                                                                           tp][
+                                                                           "W_POP"][
+                                                                           ib][
+                                                                           ik],
+                                                              forced_min_npoints=self.nE_min,
+                                                              tolerance=None)
+                        self.kgrid[tp]["X_Eminus_ik"][ib][
+                            ik] = self.get_X_ib_ik_near_new_E(tp, ib, ik,
+                                                              E_change=- hbar *
+                                                                       self.kgrid[
+                                                                           tp][
+                                                                           "W_POP"][
+                                                                           ib][
+                                                                           ik],
+                                                              forced_min_npoints=self.nE_min,
+                                                              tolerance=None)
                     enforced_ratio = self.nforced_scat[tp] / (
-                        sum([len(points) for points in self.kgrid[tp]["X_Eplus_ik"][ib]]) + \
-                        sum([len(points) for points in self.kgrid[tp]["X_Eminus_ik"][ib]]))
+                            sum([len(points) for points in
+                                 self.kgrid[tp]["X_Eplus_ik"][ib]]) + \
+                            sum([len(points) for points in
+                                 self.kgrid[tp]["X_Eminus_ik"][ib]]))
                     self.logger.info(
-                        "enforced scattering ratio: {}-type inelastic at band {}:\n{}".format(tp, ib, enforced_ratio))
+                        "enforced scattering ratio: {}-type inelastic at band {}:\n{}".format(
+                            tp, ib, enforced_ratio))
 
                     if enforced_ratio > 0.9:
                         # TODO: this should be an exception but for now I turned to warning for testing.
                         warnings.warn(
                             "the k-grid is too coarse for an acceptable simulation of POP scattering in {};"
                             " you can try this k-point grid but without POP as an inelastic scattering.".format(
-                                self.tp_title[tp]))
+                                _doping_names[tp]))
 
-                    avg_Ediff = sum(self.ediff_scat[tp]) / max(len(self.ediff_scat[tp]), 1)
+                    avg_Ediff = sum(self.ediff_scat[tp]) / max(
+                        len(self.ediff_scat[tp]), 1)
                     if avg_Ediff > avg_Ediff_tolerance:
                         # TODO: this should be an exception but for now I turned to warning for testing.
                         warnings.warn(
                             "{}-type average energy difference of the enforced scattered k-points is more than"
-                            " {}, try running with a more dense k-point mesh".format(tp, avg_Ediff_tolerance))
-
+                            " {}, try running with a more dense k-point mesh".format(
+                                tp, avg_Ediff_tolerance))
 
     def unique_X_ib_ik_symmetrically_equivalent(self, tp, ib, ik):
         """
@@ -1989,7 +2311,8 @@ class Amset(object):
         frac_k = self.kgrid[tp]["kpoints"][ib][ik]
         fractional_ks = np.dot(frac_k, self.rotations)
         k = self.kgrid[tp]["kpoints"][ib][ik]
-        seks = [self.get_cartesian_coords(frac_k) / A_to_nm for frac_k in fractional_ks]
+        seks = [self.get_cartesian_coords(frac_k) / A_to_nm for frac_k in
+                fractional_ks]
 
         all_Xs = []
         new_X_ib_ik = []
@@ -2003,8 +2326,8 @@ class Amset(object):
         all_Xs.sort()
         return new_X_ib_ik
 
-
-    def get_X_ib_ik_near_new_E(self, tp, ib, ik, E_change, forced_min_npoints=0, tolerance=None):
+    def get_X_ib_ik_near_new_E(self, tp, ib, ik, E_change, forced_min_npoints=0,
+                               tolerance=None):
         """
         Returns the sorted (based on angle, X) list of angle and band and
         k-point indexes of all the points that are within tolerance of E + E_change
@@ -2032,42 +2355,52 @@ class Amset(object):
         nk = len(self.kgrid[tp]["kpoints"][ib])
 
         for ib_prm in range(self.cbm_vbm[tp]["included"]):
-            ik_closest_E = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
+            ik_closest_E = np.abs(
+                self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
 
             for step, start in [(1, 0), (-1, -1)]:
                 ik_prm = ik_closest_E + start  # go up from ik_closest_E, down from ik_closest_E - 1
-                while ik_prm >= 0 and ik_prm < nk and abs(self.kgrid[tp]["energy"][ib_prm][ik_prm] - E_prm) < tolerance:
+                while ik_prm >= 0 and ik_prm < nk and abs(
+                        self.kgrid[tp]["energy"][ib_prm][
+                            ik_prm] - E_prm) < tolerance:
                     k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
                     X_ib_ik = (cos_angle(k, k_prm), ib_prm, ik_prm)
-                    if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][ik_prm] - self.kgrid[tp]["old cartesian kpoints"][ib][ik]) < 2*self.max_normk[tp]:
+                    if norm(self.kgrid[tp]["old cartesian kpoints"][ib_prm][
+                                ik_prm] -
+                            self.kgrid[tp]["old cartesian kpoints"][ib][
+                                ik]) < 2 * self.max_normk[tp]:
                         result.append(X_ib_ik)
                     ik_prm += step
 
         if E_change != 0.0:
             ib_prm = ib
-            ik_closest_E = np.abs(self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
+            ik_closest_E = np.abs(
+                self.kgrid[tp]["energy"][ib_prm] - E_prm).argmin()
 
             for step, start in [(1, 0), (-1, -1)]:
                 # step -1 is in case we reached the end (ik_prm == nk - 1) when
                 #  we choose from the lower energy k-points
                 ik_prm = ik_closest_E + start  # go up from ik_closest_E
-                while ik_prm >= 0 and ik_prm < nk and len(result) - 1 < forced_min_npoints:
+                while ik_prm >= 0 and ik_prm < nk and len(
+                        result) - 1 < forced_min_npoints:
                     # add all the k-points that have the same energy as E_prime E(k_pm); these values are stored in X_E_ik
                     for X_ib_ik in self.kgrid[tp]["X_E_ik"][ib_prm][ik_prm]:
                         X, ib_pmpm, ik_pmpm = X_ib_ik
                         X_ib_ik_new = (
-                        cos_angle(k, self.kgrid[tp]["cartesian kpoints"][ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm)
-                        if (X_ib_ik_new[1], X_ib_ik_new[2]) not in [(entry[1], entry[2]) for entry in result]:
+                            cos_angle(k, self.kgrid[tp]["cartesian kpoints"][
+                                ib_pmpm][ik_pmpm]), ib_pmpm, ik_pmpm)
+                        if (X_ib_ik_new[1], X_ib_ik_new[2]) not in [
+                            (entry[1], entry[2]) for entry in result]:
                             result.append(X_ib_ik_new)
                         self.nforced_scat[tp] += 1
 
                     self.ediff_scat[tp].append(
-                        self.kgrid[tp]["energy"][ib][ik] - self.kgrid[tp]["energy"][ib_prm][ik_prm])
+                        self.kgrid[tp]["energy"][ib][ik] -
+                        self.kgrid[tp]["energy"][ib_prm][ik_prm])
                     ik_prm += step
 
         result.sort(key=lambda x: x[0])
         return result
-
 
     def s_el_eq(self, sname, tp, c, T, k, k_prm):
         """
@@ -2081,34 +2414,43 @@ class Amset(object):
             k (list): list containing fractional coordinates of the k vector
             k_prm (list): list containing fractional coordinates of the k prime vector
         """
-        norm_diff_k = norm(k - k_prm)  # the slope for PIE and IMP don't match with bs_is_isotropic
+        norm_diff_k = norm(
+            k - k_prm)  # the slope for PIE and IMP don't match with bs_is_isotropic
         if norm_diff_k == 0.0:
-            warnings.warn("WARNING!!! same k and k' vectors as input of the elastic scattering equation")
-            return 0.#0
+            warnings.warn(
+                "WARNING!!! same k and k' vectors as input of the elastic scattering equation")
+            return 0.  # 0
 
         if sname.upper() in ["IMP"]:  # ionized impurity scattering
             unit_conversion = 0.001 / e ** 2
             return unit_conversion * e ** 4 * self.egrid["N_II"][c][T] / \
                    (4.0 * pi ** 2 * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar) \
-                   / ((norm_diff_k ** 2 + self.egrid["beta"][c][T][tp] ** 2) ** 2)
+                   / ((norm_diff_k ** 2 + self.egrid["beta"][c][T][
+                tp] ** 2) ** 2)
 
-        elif sname.upper() in ["ACD"]:  # acoustic deformation potential scattering
+        elif sname.upper() in [
+            "ACD"]:  # acoustic deformation potential scattering
             unit_conversion = 1e18 * e
-            return unit_conversion * k_B * T * self.E_D[tp] ** 2 / (4.0 * pi ** 2 * hbar * self.C_el)
+            return unit_conversion * k_B * T * self.E_D[tp] ** 2 / (
+                    4.0 * pi ** 2 * hbar * self.C_el)
 
         elif sname.upper() in ["PIE"]:  # piezoelectric scattering
             unit_conversion = 1e9 / e
             return unit_conversion * e ** 2 * k_B * T * self.P_PIE ** 2 \
-                   / (norm_diff_k ** 2 * 4.0 * pi ** 2 * hbar * epsilon_0 * self.epsilon_s)
+                   / (
+                           norm_diff_k ** 2 * 4.0 * pi ** 2 * hbar * epsilon_0 * self.epsilon_s)
 
         elif sname.upper() in ["DIS"]:
             return self.gs
 
         else:
-            raise ValueError("The elastic scattering name {} is not supported!".format(sname))
+            raise ValueError(
+                "The elastic scattering name {} is not supported!".format(
+                    sname))
 
-
-    def integrate_func_over_E(self, func, tp, fermi, T, interpolation_nsteps=None, xDOS=True, normalize_energy=False):
+    def integrate_func_over_E(self, func, tp, fermi, T,
+                              interpolation_nsteps=None, xDOS=True,
+                              normalize_energy=False):
         """
         Integrates a single function (func) over the egrid.
 
@@ -2126,7 +2468,8 @@ class Amset(object):
             (float): The integral value of func, integrated over the egrid.
         """
         if not interpolation_nsteps:
-            interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
+            interpolation_nsteps = max(200, int(
+                500.0 / len(self.egrid[tp]["energy"])))
         integral = 0.0
         if normalize_energy:
             fermi -= self.cbm_vbm[tp]["energy"]
@@ -2136,14 +2479,16 @@ class Amset(object):
             if normalize_energy:
                 E -= self.cbm_vbm[tp]["energy"]
             if xDOS:
-                dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
+                dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][
+                    ie]) / interpolation_nsteps
                 for i in range(interpolation_nsteps):
-                    integral += dE * (self.egrid[tp]["DOS"][ie] + i * dS) * func(E + i * dE, fermi, T)
+                    integral += dE * (
+                            self.egrid[tp]["DOS"][ie] + i * dS) * func(
+                        E + i * dE, fermi, T)
             else:
                 for i in range(interpolation_nsteps):
                     integral += dE * func(E + i * dE, fermi, T)
         return integral
-
 
     def find_dv(self, grid):
         dv = np.zeros(grid[:, :, :, 0].shape)
@@ -2154,39 +2499,38 @@ class Amset(object):
             for j in range(N[1]):
                 for k in range(N[2]):
                     if i > 0:
-                        dx1 = (grid[i,j,k,0] - grid[i-1,j,k,0]) / 2
+                        dx1 = (grid[i, j, k, 0] - grid[i - 1, j, k, 0]) / 2
                     else:
-                        dx1 = grid[i,j,k,0] - (-0.5)
+                        dx1 = grid[i, j, k, 0] - (-0.5)
                     if i < N[0] - 1:
-                        dx2 = (grid[i+1,j,k,0] - grid[i,j,k,0]) / 2
+                        dx2 = (grid[i + 1, j, k, 0] - grid[i, j, k, 0]) / 2
                     else:
-                        dx2 = 0.5 - grid[i,j,k,0]
+                        dx2 = 0.5 - grid[i, j, k, 0]
 
                     if j > 0:
-                        dy1 = (grid[i,j,k,1] - grid[i,j-1,k,1]) / 2
+                        dy1 = (grid[i, j, k, 1] - grid[i, j - 1, k, 1]) / 2
                     else:
-                        dy1 = grid[i,j,k,1] - (-0.5)
+                        dy1 = grid[i, j, k, 1] - (-0.5)
                     if j < N[1] - 1:
-                        dy2 = (grid[i,j+1,k,1] - grid[i,j,k,1]) / 2
+                        dy2 = (grid[i, j + 1, k, 1] - grid[i, j, k, 1]) / 2
                     else:
-                        dy2 = 0.5 - grid[i,j,k,1]
+                        dy2 = 0.5 - grid[i, j, k, 1]
 
                     if k > 0:
-                        dz1 = (grid[i,j,k,2] - grid[i,j,k-1,2]) / 2
+                        dz1 = (grid[i, j, k, 2] - grid[i, j, k - 1, 2]) / 2
                     else:
-                        dz1 = grid[i,j,k,2] - (-0.5)
+                        dz1 = grid[i, j, k, 2] - (-0.5)
                     if k < N[2] - 1:
-                        dz2 = (grid[i,j,k+1,2] - grid[i,j,k,2]) / 2
+                        dz2 = (grid[i, j, k + 1, 2] - grid[i, j, k, 2]) / 2
                     else:
-                        dz2 = 0.5 - grid[i,j,k,2]
+                        dz2 = 0.5 - grid[i, j, k, 2]
                     # find fractional volume
-                    dv[i,j,k] = (dx1 + dx2) * (dy1 + dy2) * (dz1 + dz2)
+                    dv[i, j, k] = (dx1 + dx2) * (dy1 + dy2) * (dz1 + dz2)
 
         # convert from fractional to cartesian (k space) volume
         dv *= self.structure.lattice.reciprocal_lattice.volume / (
                 A_to_m * m_to_cm) ** 3
         return dv
-
 
     def integrate_over_k(self, func_grid, tp):
         """
@@ -2209,8 +2553,8 @@ class Amset(object):
         """
         if func_grid.ndim == 3:
             return np.sum(func_grid * self.dv_grid[tp])
-        return [np.sum(func_grid[:,:,:,i] * self.dv_grid[tp]) for i in range(func_grid.shape[3])]
-
+        return [np.sum(func_grid[:, :, :, i] * self.dv_grid[tp]) for i in
+                range(func_grid.shape[3])]
 
     def integrate_over_E(self, props, tp, c, T, xDOS=False, xvel=False,
                          interpolation_nsteps=None):
@@ -2241,32 +2585,52 @@ class Amset(object):
         imax_occ = len(self.Efrequency[tp][:-1])
 
         if not interpolation_nsteps:
-            interpolation_nsteps = max(200, int(500.0 / len(self.egrid[tp]["energy"])))
+            interpolation_nsteps = max(200, int(
+                500.0 / len(self.egrid[tp]["energy"])))
         diff = [0.0 for _ in props]
         integral = self.gs
         for ie in range(imax_occ):
             E = self.egrid[tp]["energy"][ie]
-            dE = abs(self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
+            dE = abs(
+                self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
             if xDOS:
-                dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
+                dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][
+                    ie]) / interpolation_nsteps
             if xvel:
-                dv = (self.egrid[tp]["velocity"][ie + 1] - self.egrid[tp]["velocity"][ie]) / interpolation_nsteps
+                dv = (self.egrid[tp]["velocity"][ie + 1] -
+                      self.egrid[tp]["velocity"][ie]) / interpolation_nsteps
             for j, p in enumerate(props):
                 if "/" in p:
                     diff[j] = (self.egrid[tp][p.split("/")[-1]][c][T][ie + 1] -
-                               self.egrid[tp][p.split("/")[-1]][c][T][ie]) / interpolation_nsteps
+                               self.egrid[tp][p.split("/")[-1]][c][T][
+                                   ie]) / interpolation_nsteps
                 elif "1 -" in p:
-                    diff[j] = (1 - self.egrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ie + 1] - (1- \
-                               self.egrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ie])) / interpolation_nsteps
+                    diff[j] = (1 - self.egrid[tp][
+                        p.split("-")[-1].replace(" ", "")][c][T][ie + 1] - (1 - \
+                                                                            self.egrid[
+                                                                                tp][
+                                                                                p.split(
+                                                                                    "-")[
+                                                                                    -1].replace(
+                                                                                    " ",
+                                                                                    "")][
+                                                                                c][
+                                                                                T][
+                                                                                ie])) / interpolation_nsteps
                 else:
-                    diff[j] = (self.egrid[tp][p][c][T][ie + 1] - self.egrid[tp][p][c][T][ie]) / interpolation_nsteps
+                    diff[j] = (self.egrid[tp][p][c][T][ie + 1] -
+                               self.egrid[tp][p][c][T][
+                                   ie]) / interpolation_nsteps
             for i in range(interpolation_nsteps):
                 multi = dE
                 for j, p in enumerate(props):
                     if p[0] == "/":
-                        multi /= self.egrid[tp][p.split("/")[-1]][c][T][ie] + diff[j] * i
+                        multi /= self.egrid[tp][p.split("/")[-1]][c][T][ie] + \
+                                 diff[j] * i
                     elif "1 -" in p:
-                        multi *= 1 - self.egrid[tp][p.split("-")[-1].replace(" ", "")][c][T][ie] + diff[j] * i
+                        multi *= 1 - self.egrid[tp][
+                            p.split("-")[-1].replace(" ", "")][c][T][ie] + diff[
+                                     j] * i
                     else:
                         multi *= self.egrid[tp][p][c][T][ie] + diff[j] * i
                 if xDOS:
@@ -2276,9 +2640,8 @@ class Amset(object):
                 integral += multi
         return np.array(integral)
 
-
-
-    def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T, sname=None, g_suffix=""):
+    def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T,
+                         sname=None, g_suffix=""):
         """
         integrate numerically with a simple trapezoidal algorithm.
 
@@ -2301,9 +2664,12 @@ class Amset(object):
         """
         summation = 0.0
         if len(X_E_index[ib][ik]) == 0:
-            raise ValueError("enforcing scattering points did NOT work, {}[{}][{}] is empty".format(X_E_index, ib, ik))
+            raise ValueError(
+                "enforcing scattering points did NOT work, {}[{}][{}] is empty".format(
+                    X_E_index, ib, ik))
         X, ib_prm, ik_prm = X_E_index[ib][ik][0]
-        current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix)
+        current_integrand = integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X,
+                                      sname=sname, g_suffix=g_suffix)
 
         ikp = 0
         while ikp < len(X_E_index[ib][ik]) - 1:
@@ -2315,22 +2681,26 @@ class Amset(object):
                 ikp += 1
                 loop_found = True
                 X, ib_prm, ik_prm = X_E_index[ib][ik][ikp]
-                same_X_ks.append(self.kgrid[tp]['cartesian kpoints'][ib_prm][ik_prm])
-                same_X_ks_integrands.append(integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname, g_suffix=g_suffix))
-                DeltaX = X_E_index[ib][ik][ikp + 1][0] - X_E_index[ib][ik][ikp][0]
+                same_X_ks.append(
+                    self.kgrid[tp]['cartesian kpoints'][ib_prm][ik_prm])
+                same_X_ks_integrands.append(
+                    integrand(tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=sname,
+                              g_suffix=g_suffix))
+                DeltaX = X_E_index[ib][ik][ikp + 1][0] - X_E_index[ib][ik][ikp][
+                    0]
 
             if len(same_X_ks) > 1:
-                m = np.sum(same_X_ks, axis=0)/len(same_X_ks)
+                m = np.sum(same_X_ks, axis=0) / len(same_X_ks)
                 same_X_ks = np.array(same_X_ks) - m
                 same_X_ks_sort, ks_indexes = sort_angles(same_X_ks)
                 same_X_ks_sort = np.vstack((same_X_ks_sort, same_X_ks_sort[0]))
                 ks_indexes.append(ks_indexes[0])
                 sm = 0.0
                 for j in range(len(ks_indexes) - 1):
-                    angle = get_angle(same_X_ks_sort[j+1], same_X_ks_sort[j])
-                    sm += (same_X_ks_integrands[ks_indexes[j+1]] + \
-                           same_X_ks_integrands[ks_indexes[j]])/2.0 * angle
-                dum = sm/(2*pi)/2.0
+                    angle = get_angle(same_X_ks_sort[j + 1], same_X_ks_sort[j])
+                    sm += (same_X_ks_integrands[ks_indexes[j + 1]] + \
+                           same_X_ks_integrands[ks_indexes[j]]) / 2.0 * angle
+                dum = sm / (2 * pi) / 2.0
                 ikp += 1
 
             if not loop_found:
@@ -2349,9 +2719,8 @@ class Amset(object):
             summation += dum * DeltaX  # In case of two points with the same X, DeltaX==0 so no duplicates
         return summation
 
-
-
-    def el_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
+    def el_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None,
+                       g_suffix=""):
         """
         Returns the evaluated (float) expression inside the elastic equations
             to be integrated over angles, dX.
@@ -2374,14 +2743,16 @@ class Amset(object):
         k_prm = self.kgrid[tp]["cartesian kpoints"][ib_prm][ik_prm]
         if k[0] == k_prm[0] and k[1] == k_prm[1] and k[2] == k_prm[2]:
             return np.array(
-                [0.0, 0.0, 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
+                [0.0, 0.0,
+                 0.0])  # self-scattering is not defined;regardless, the returned integrand must be a vector
 
+        return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][
+            ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
+               * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (
+                       self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
 
-        return (1 - X) * self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.s_el_eq(sname, tp, c, T, k, k_prm) \
-               * self.G(tp, ib, ik, ib_prm, ik_prm, X) / (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm] / sq3)
-
-
-    def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None, g_suffix=""):
+    def inel_integrand_X(self, tp, c, T, ib, ik, ib_prm, ik_prm, X, sname=None,
+                         g_suffix=""):
         """
         Returns the evaluated (float) expression of the S_o & S_i(g) integrals.
 
@@ -2401,13 +2772,17 @@ class Amset(object):
         Returns (float): the integrand for POP scattering (to be integrated
             over X)
         """
-        if tp == "n" and 'minus' in sname and self.kgrid[tp]["energy"][ib][ik]-hbar*self.kgrid[tp]["W_POP"][ib][ik]<self.cbm_vbm[tp]["energy"]:
+        if tp == "n" and 'minus' in sname and self.kgrid[tp]["energy"][ib][
+            ik] - hbar * self.kgrid[tp]["W_POP"][ib][ik] < self.cbm_vbm[tp][
+            "energy"]:
             return 0.0
-        if tp == "p" and 'plus' in sname and self.kgrid[tp]["energy"][ib][ik]+hbar*self.kgrid[tp]["W_POP"][ib][ik]>self.cbm_vbm[tp]["energy"]:
+        if tp == "p" and 'plus' in sname and self.kgrid[tp]["energy"][ib][
+            ik] + hbar * self.kgrid[tp]["W_POP"][ib][ik] > self.cbm_vbm[tp][
+            "energy"]:
             return 0.0
         if abs(self.kgrid[tp]['energy'][ib_prm][ik_prm] - \
-                self.kgrid[tp]['energy'][ib][ik]) < \
-                                hbar*self.kgrid[tp]["W_POP"][ib][ik]/2:
+               self.kgrid[tp]['energy'][ib][ik]) < \
+                hbar * self.kgrid[tp]["W_POP"][ib][ik] / 2:
             return 0.0
 
         k = self.kgrid[tp]["cartesian kpoints"][ib][ik]
@@ -2426,8 +2801,13 @@ class Amset(object):
         if norm_diff < 1e-4:
             return 0.0
 
-        integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm]**2*self.G(tp, ib, ik, ib_prm, ik_prm, X)/\
-                (self.kgrid[tp]["norm(v)"][ib_prm][ik_prm]*norm_diff**2/sq3)
+        integ = self.kgrid[tp]["norm(k)"][ib_prm][ik_prm] ** 2 * self.G(tp, ib,
+                                                                        ik,
+                                                                        ib_prm,
+                                                                        ik_prm,
+                                                                        X) / \
+                (self.kgrid[tp]["norm(v)"][ib_prm][
+                     ik_prm] * norm_diff ** 2 / sq3)
 
         if "S_i" in sname:
             integ *= X * self.kgrid[tp]["g" + g_suffix][c][T][ib_prm][ik_prm]
@@ -2436,19 +2816,21 @@ class Amset(object):
             elif "plus" in sname:
                 integ *= (1 - f) * (1 + N_POP) + f * N_POP
             else:
-                raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
+                raise ValueError(
+                    '"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         elif "S_o" in sname:
             if "minus" in sname:
-                integ *= (1 - f_prm) * (1 + N_POP) + f_prm * N_POP # interestingly f or f_prm does NOT make any difference (maybe close energies?)
+                integ *= (1 - f_prm) * (
+                        1 + N_POP) + f_prm * N_POP  # interestingly f or f_prm does NOT make any difference (maybe close energies?)
             elif "plus" in sname:
                 integ *= (1 - f_prm) * N_POP + f_prm * (1 + N_POP)
             else:
-                raise ValueError('"plus" or "minus" must be in sname for phonon absorption and emission respectively')
+                raise ValueError(
+                    '"plus" or "minus" must be in sname for phonon absorption and emission respectively')
         else:
-            raise ValueError('Unsupported inelastic scattering name: {}'.format(sname))
+            raise ValueError(
+                'Unsupported inelastic scattering name: {}'.format(sname))
         return integ
-
-
 
     def s_inel_eq_isotropic(self, once_called=False):
         """
@@ -2466,10 +2848,12 @@ class Amset(object):
             for c in self.dopings:
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["kpoints"])):
-                        results = [calculate_Sio(tp, c, T, ib, ik,
-                                    once_called, self.kgrid, self.cbm_vbm,
-                                    self.epsilon_s, self.epsilon_inf) for ik in
-                                    range(len(self.kgrid[tp]["kpoints"][ib]))]
+                        results = [calculate_sio(tp, c, T, ib, ik,
+                                                 once_called, self.kgrid,
+                                                 self.cbm_vbm,
+                                                 self.epsilon_s,
+                                                 self.epsilon_inf) for ik in
+                                   range(len(self.kgrid[tp]["kpoints"][ib]))]
                         rlts = np.mean(np.array(results), axis=0)
                         if len(list(rlts)) != 4:
                             print(rlts)
@@ -2481,15 +2865,17 @@ class Amset(object):
                             if not once_called:
                                 if (res[2] < 0.1).any():
                                     # for the even of ill-defined scattering to avoid POP mobility blowing up
-                                    self.kgrid[tp]["S_o"][c][T][ib][ik] = rlts[2]
+                                    self.kgrid[tp]["S_o"][c][T][ib][ik] = rlts[
+                                        2]
                                 else:
                                     self.kgrid[tp]["S_o"][c][T][ib][ik] = res[2]
 
                                 if (res[3] < 0.1).any():
-                                    self.kgrid[tp]["S_o_th"][c][T][ib][ik] = rlts[3]
+                                    self.kgrid[tp]["S_o_th"][c][T][ib][ik] = \
+                                        rlts[3]
                                 else:
-                                    self.kgrid[tp]["S_o_th"][c][T][ib][ik] = res[3]
-
+                                    self.kgrid[tp]["S_o_th"][c][T][ib][ik] = \
+                                        res[3]
 
     def s_inelastic(self, sname=None, g_suffix=""):
         """
@@ -2511,12 +2897,20 @@ class Amset(object):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             summation = np.array([0.0, 0.0, 0.0])
                             for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
-                                summation += self.integrate_over_X(tp, self.kgrid[tp][X_E_index_name],
+                                summation += self.integrate_over_X(tp,
+                                                                   self.kgrid[
+                                                                       tp][
+                                                                       X_E_index_name],
                                                                    self.inel_integrand_X,
-                                                                   ib=ib, ik=ik, c=c, T=T, sname=sname + X_E_index_name,
+                                                                   ib=ib, ik=ik,
+                                                                   c=c, T=T,
+                                                                   sname=sname + X_E_index_name,
                                                                    g_suffix=g_suffix)
-                            self.kgrid[tp][sname][c][T][ib][ik] = summation * e ** 2 * self.kgrid[tp]["W_POP"][ib][ik] / (4 * pi * hbar) * (1 / self.epsilon_inf - 1 / self.epsilon_s) / epsilon_0 * 100 / e
-
+                            self.kgrid[tp][sname][c][T][ib][
+                                ik] = summation * e ** 2 * \
+                                      self.kgrid[tp]["W_POP"][ib][ik] / (
+                                              4 * pi * hbar) * (
+                                              1 / self.epsilon_inf - 1 / self.epsilon_s) / epsilon_0 * 100 / e
 
     def s_el_eq_isotropic(self, sname, tp, c, T, ib, ik):
         """
@@ -2536,42 +2930,54 @@ class Amset(object):
 
         Returns (float): scalar (since assumed isotropic) scattering rate.
         """
-        v = self.kgrid[tp]["norm(v)"][ib][ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
+        v = self.kgrid[tp]["norm(v)"][ib][
+                ik] / sq3  # because of isotropic assumption, we treat the BS as 1D
         knrm = self.kgrid[tp]["norm(k)"][ib][ik]
         par_c = self.kgrid[tp]["c"][ib][ik]
 
         if sname.upper() == "ACD":
             # The following two lines are from [R]: page 38, eq. (112)
-            return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) / (3 * pi * hbar ** 2 * self.C_el * v) \
+            return (k_B * T * self.E_D[tp] ** 2 * knrm ** 2) / (
+                    3 * pi * hbar ** 2 * self.C_el * v) \
                    * (3 - 8 * par_c ** 2 + 6 * par_c ** 4) * e * 1e11
 
         elif sname.upper() == "IMP":
             # The following is a variation of Dingle's theory; see eq. (90) in [R]
             beta = self.egrid["beta"][c][T][tp]
-            B_II = (4 * knrm ** 2 / beta ** 2) / (1 + 4 * knrm ** 2 / beta ** 2) + 8 * (beta ** 2 + 2 * knrm ** 2) / (
-            beta ** 2 + 4 * knrm ** 2) * par_c ** 2 + \
-                   (3 * beta ** 4 + 6 * beta ** 2 * knrm ** 2 - 8 * knrm ** 4) / (
-                   (beta ** 2 + 4 * knrm ** 2) * knrm ** 2) * par_c ** 4
-            D_II = 1 + 2 * beta ** 2 * par_c ** 2 / knrm ** 2 + 3 * beta ** 4 * par_c ** 4 / (4 * knrm ** 4)
+            B_II = (4 * knrm ** 2 / beta ** 2) / (
+                    1 + 4 * knrm ** 2 / beta ** 2) + 8 * (
+                           beta ** 2 + 2 * knrm ** 2) / (
+                           beta ** 2 + 4 * knrm ** 2) * par_c ** 2 + \
+                   (
+                           3 * beta ** 4 + 6 * beta ** 2 * knrm ** 2 - 8 * knrm ** 4) / (
+                           (beta ** 2 + 4 * knrm ** 2) * knrm ** 2) * par_c ** 4
+            D_II = 1 + 2 * beta ** 2 * par_c ** 2 / knrm ** 2 + 3 * beta ** 4 * par_c ** 4 / (
+                    4 * knrm ** 4)
 
             return abs((e ** 4 * abs(self.egrid["N_II"][c][T])) / (
-                8 * pi * v * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2 *
-                knrm ** 2) * (D_II * log(1 + 4 * knrm ** 2 / beta ** 2) - B_II)) / (1e10*e**2)
+                    8 * pi * v * self.epsilon_s ** 2 * epsilon_0 ** 2 * hbar ** 2 *
+                    knrm ** 2) * (D_II * log(
+                1 + 4 * knrm ** 2 / beta ** 2) - B_II)) / (1e10 * e ** 2)
 
         elif sname.upper() == "PIE":
             # equation (108) of the reference [R]
             return (e ** 2 * k_B * T * self.P_PIE ** 2) / (
-                6 * pi * hbar ** 2 * self.epsilon_s * epsilon_0 * v) * (
-                       3 - 6 * par_c ** 2 + 4 * par_c ** 4) * 100 / e
+                    6 * pi * hbar ** 2 * self.epsilon_s * epsilon_0 * v) * (
+                           3 - 6 * par_c ** 2 + 4 * par_c ** 4) * 100 / e
 
         elif sname.upper() == "DIS":
             # See table 1 of the reference [A]
             return (self.N_dis * e ** 4 * knrm) / (
-            hbar ** 2 * epsilon_0 ** 2 * self.epsilon_s ** 2 * (self.structure.lattice.c * A_to_nm) ** 2 * v) \
+                    hbar ** 2 * epsilon_0 ** 2 * self.epsilon_s ** 2 * (
+                    self.structure.lattice.c * A_to_nm) ** 2 * v) \
                    / (self.egrid["beta"][c][T][tp] ** 4 * (
-            1 + (4 * knrm ** 2) / (self.egrid["beta"][c][T][tp] ** 2)) ** 1.5)/(1e3*e**2)
+                    1 + (4 * knrm ** 2) / (
+                    self.egrid["beta"][c][T][tp] ** 2)) ** 1.5) / (
+                           1e3 * e ** 2)
         else:
-            raise ValueError('The elastic scattering name "{}" is NOT supported.'.format(sname))
+            raise ValueError(
+                'The elastic scattering name "{}" is NOT supported.'.format(
+                    sname))
 
     def s_elastic(self, sname):
         """
@@ -2665,7 +3071,6 @@ class Amset(object):
                             self.egrid[tp][prop_name][c][T][ie] /= \
                                 len(self.kgrid_to_egrid_idx[tp][ie])
 
-
     def find_fermi(self, c, T, rtol=0.01, rtol_loose=0.03, step=0.1, nstep=50):
         """
         Finds the Fermi level at a given c and T at egrid (i.e. DOS)
@@ -2687,19 +3092,21 @@ class Amset(object):
         """
         relative_error = self.gl
         typ = get_tp(c)
-        fermi = self.cbm_vbm[typ]["energy"] + 0.01 # initialize fermi non-zero
+        fermi = self.cbm_vbm[typ]["energy"] + 0.01  # initialize fermi non-zero
 
         conversion = 1.0 / (self.structure.volume * (A_to_m * m_to_cm) ** 3)
 
         dos_e = np.array([d[0] for d in self.dos])
         dos_de = np.array([self.dos[i + 1][0] - self.dos[i][0] \
                            for i, _ in enumerate(self.dos[:-1])] + [0.0])
-        dos_dos = np.array([d[1] for d in self.dos]) # left is faster, trapezoidal makes no difference
+        dos_dos = np.array([d[1] for d in
+                            self.dos])  # left is faster, trapezoidal makes no difference
 
         # fix energy, energy diff. and dos for integration at all fermi levels
-        es = np.repeat(dos_e.reshape((len(dos_e), 1)), 2*nstep+1, axis=1)
-        de = np.repeat(dos_de.reshape((len(dos_de), 1)), 2*nstep+1, axis=1)
-        tdos = np.repeat(dos_dos.reshape((len(dos_dos), 1)), 2*nstep+1, axis=1)
+        es = np.repeat(dos_e.reshape((len(dos_e), 1)), 2 * nstep + 1, axis=1)
+        de = np.repeat(dos_de.reshape((len(dos_de), 1)), 2 * nstep + 1, axis=1)
+        tdos = np.repeat(dos_dos.reshape((len(dos_dos), 1)), 2 * nstep + 1,
+                         axis=1)
 
         ## debug plot to make sure CBM/VBM recognized correctly in DOS
         PLOT_CALCULATED_DOS = False
@@ -2709,8 +3116,8 @@ class Amset(object):
                               'interpolation=boltztrap1, make sure to set '
                               'run_type="BOLTZ" when running BoltztrapRunner')
             import matplotlib.pyplot as plt
-            start_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"]-1.)
-            end_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"]+1.)
+            start_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"] - 1.)
+            end_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"] + 1.)
             plt.scatter(dos_e[start_idx: end_idx], dos_dos[start_idx: end_idx])
             plt.scatter(dos_e[self.cbm_dos_idx], 0, s=100, marker='s')
             plt.scatter(dos_e[self.vbm_dos_idx], 0, s=100, marker='s')
@@ -2720,16 +3127,17 @@ class Amset(object):
         self.logger.debug("Calculating the fermi level at T={} K".format(T))
         midgap_idx = int((self.vbm_dos_idx + self.cbm_dos_idx) / 2)
         for i in range(20):
-            fermi_range = np.linspace(fermi-nstep*step, fermi+nstep*step, 2*nstep+1)
+            fermi_range = np.linspace(fermi - nstep * step,
+                                      fermi + nstep * step, 2 * nstep + 1)
             n_dopings = -conversion \
                         * np.sum(tdos[midgap_idx:] \
-                        * f0(es[midgap_idx:], fermi_range, T) \
-                        * de[midgap_idx:], axis=0)
+                                 * f0(es[midgap_idx:], fermi_range, T) \
+                                 * de[midgap_idx:], axis=0)
             p_dopings = conversion \
-                        * np.sum(tdos[:midgap_idx+1] \
-                        * (1 - f0(es[:midgap_idx+1], fermi_range, T)) \
-                                 * de[:midgap_idx+1], axis=0)
-            relative_error = abs((n_dopings+p_dopings)/c - 1.0)
+                        * np.sum(tdos[:midgap_idx + 1] \
+                                 * (1 - f0(es[:midgap_idx + 1], fermi_range, T)) \
+                                 * de[:midgap_idx + 1], axis=0)
+            relative_error = abs((n_dopings + p_dopings) / c - 1.0)
             fermi_idx = np.argmin(relative_error)
             fermi = fermi_range[fermi_idx]
             self.calc_doping[c][T]['n'] = n_dopings[fermi_idx]
@@ -2738,19 +3146,22 @@ class Amset(object):
                 if np.isnan(self.calc_doping[c][T][tp]):
                     self.calc_doping[c][T][tp] = 10
             if relative_error[fermi_idx] < rtol:
-                self.logger.info("fermi at {0:.2e} 1/cm3 and {1} K: {2:.6f}".format(c, T, fermi))
+                self.logger.info(
+                    "fermi at {0:.2e} 1/cm3 and {1} K: {2:.6f}".format(c, T,
+                                                                       fermi))
                 return fermi
             step /= 10.0
 
         if relative_error[fermi_idx] > rtol_loose:
             raise AmsetError(self.logger,
                              'The calculated concentration is not within {0:.2f}% of'
-            ' the given value ({1:.2e}) at T={2}'.format(rtol_loose*100, c, T))
+                             ' the given value ({1:.2e}) at T={2}'.format(
+                                 rtol_loose * 100, c, T))
         elif relative_error[fermi_idx] > rtol:
-            self.logger.warning('Fermi calculated with a loose tolerance of {0:.2f}%'
-                                ' at c={1:.2e}, T={2}K'.format(rtol_loose, c, T))
+            self.logger.warning(
+                'Fermi calculated with a loose tolerance of {0:.2f}%'
+                ' at c={1:.2e}, T={2}K'.format(rtol_loose, c, T))
         return fermi
-
 
     def inverse_screening_length(self, c, T):
         """
@@ -2766,12 +3177,11 @@ class Amset(object):
         """
         beta = {}
         for tp in ["n", "p"]:
-            integral = self.integrate_over_E(props=["f0","1 - f0"],
+            integral = self.integrate_over_E(props=["f0", "1 - f0"],
                                              tp=tp, c=c, T=T, xDOS=True)
-            beta[tp] = (e**2 / (self.epsilon_s * epsilon_0 * k_B * T) \
+            beta[tp] = (e ** 2 / (self.epsilon_s * epsilon_0 * k_B * T) \
                         * integral / self.structure.volume * 1e12 / e) ** 0.5
         return beta
-
 
     def solve_BTE_iteratively(self):
         """
@@ -2797,30 +3207,80 @@ class Amset(object):
                         self.s_inel_eq_isotropic(once_called=True)
                 else:
                     for g_suffix in ["", "_th"]:
-                        self.s_inelastic(sname="S_i" + g_suffix, g_suffix=g_suffix)
+                        self.s_inelastic(sname="S_i" + g_suffix,
+                                         g_suffix=g_suffix)
             for c in self.dopings:
                 for T in self.temperatures:
                     for tp in ["n", "p"]:
                         g_old = np.array(self.kgrid[tp]["g"][c][T][0])
                         for ib in range(self.cbm_vbm[tp]["included"]):
-                            self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
-                                    self.kgrid[tp]["electric force"][c][T][ib]) / (
-                                    self.kgrid[tp]["S_o"][c][T][ib] + self.gs + 1.0)
+                            self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp][
+                                                                     "S_i"][c][
+                                                                     T][ib] +
+                                                                 self.kgrid[tp][
+                                                                     "electric force"][
+                                                                     c][T][
+                                                                     ib]) / (
+                                                                        self.kgrid[
+                                                                            tp][
+                                                                            "S_o"][
+                                                                            c][
+                                                                            T][
+                                                                            ib] + self.gs + 1.0)
 
-                            self.kgrid[tp]["g"][c][T][ib] = (self.kgrid[tp]["S_i"][c][T][ib] +
-                                    self.kgrid[tp]["electric force"][c][
-                                    T][ib]) / (self.kgrid[tp]["S_o"][c][T][ib] +
-                                    self.kgrid[tp]["_all_elastic"][c][T][ib])
+                            self.kgrid[tp]["g"][c][T][ib] = (self.kgrid[tp][
+                                                                 "S_i"][c][T][
+                                                                 ib] +
+                                                             self.kgrid[tp][
+                                                                 "electric force"][
+                                                                 c][
+                                                                 T][ib]) / (
+                                                                    self.kgrid[
+                                                                        tp][
+                                                                        "S_o"][
+                                                                        c][
+                                                                        T][
+                                                                        ib] +
+                                                                    self.kgrid[
+                                                                        tp][
+                                                                        "_all_elastic"][
+                                                                        c][
+                                                                        T][
+                                                                        ib])
 
-                            self.kgrid[tp]["g_th"][c][T][ib] = (self.kgrid[tp]["S_i_th"][c][T][ib] +
-                                    self.kgrid[tp]["thermal force"][c][T][ib]) / (
-                                    self.kgrid[tp]["S_o_th"][c][T][ib] + self.kgrid[tp]["_all_elastic"][c][T][ib])
+                            self.kgrid[tp]["g_th"][c][T][ib] = (self.kgrid[tp][
+                                                                    "S_i_th"][
+                                                                    c][T][ib] +
+                                                                self.kgrid[tp][
+                                                                    "thermal force"][
+                                                                    c][T][
+                                                                    ib]) / (
+                                                                       self.kgrid[
+                                                                           tp][
+                                                                           "S_o_th"][
+                                                                           c][
+                                                                           T][
+                                                                           ib] +
+                                                                       self.kgrid[
+                                                                           tp][
+                                                                           "_all_elastic"][
+                                                                           c][
+                                                                           T][
+                                                                           ib])
 
-                            self.kgrid[tp]["f"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g"][c][T][ib]
-                            self.kgrid[tp]["f_th"][c][T][ib] = self.kgrid[tp]["f0"][c][T][ib] + self.kgrid[tp]["g_th"][c][T][ib]
+                            self.kgrid[tp]["f"][c][T][ib] = \
+                                self.kgrid[tp]["f0"][c][T][ib] + \
+                                self.kgrid[tp]["g"][c][T][ib]
+                            self.kgrid[tp]["f_th"][c][T][ib] = \
+                                self.kgrid[tp]["f0"][c][T][ib] + \
+                                self.kgrid[tp]["g_th"][c][T][ib]
 
-                        avg_g_diff = np.mean([abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik]) for ik in range(len(g_old))])
-                        self.logger.info("Average difference in {0}-type g term at c={1:.2e} and T={2}: {3}".format(tp, c, T, avg_g_diff))
+                        avg_g_diff = np.mean(
+                            [abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik])
+                             for ik in range(len(g_old))])
+                        self.logger.info(
+                            "Average difference in {0}-type g term at c={1:.2e} and T={2}: {3}".format(
+                                tp, c, T, avg_g_diff))
 
         for prop in ["electric force", "thermal force", "g", "g_POP", "g_th",
                      "S_i", "S_o", "S_i_th", "S_o_th"]:
@@ -2831,54 +3291,77 @@ class Amset(object):
                 for T in self.temperatures:
                     for ie in range(len(self.egrid[tp]["g_POP"][c][T])):
                         if norm(self.egrid[tp]["g_POP"][c][T][ie]) > 1:
-                            self.egrid[tp]["g_POP"][c][T][ie] = [1e-5, 1e-5, 1e-5]
-
+                            self.egrid[tp]["g_POP"][c][T][ie] = [1e-5, 1e-5,
+                                                                 1e-5]
 
     def calculate_transport_properties_with_E(self):
         """
         Mobility and Seebeck coefficient are calculated by integrating the
         perturbation of electron distribution and group velocity over the energy
             """
-        valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
-                  self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
+        valley_transport = {tp: {
+            el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures}
+                      for
+                      c in
+                      self.dopings} for el_mech in self.transport_labels} for tp
+            in
+            ["n", "p"]}
 
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
                     # mobility numerators
                     for mu_el in self.elastic_scats:
-                        valley_transport[tp][mu_el][c][T] = (-1) * default_small_E / hbar * \
-                            self.integrate_over_E(props=["/" + mu_el, "df0dk"], tp=tp, c=c, T=T,
-                                        xDOS=False, xvel=True)
+                        valley_transport[tp][mu_el][c][T] = (
+                                                                -1) * default_small_E / hbar * \
+                                                            self.integrate_over_E(
+                                                                props=[
+                                                                    "/" + mu_el,
+                                                                    "df0dk"],
+                                                                tp=tp, c=c, T=T,
+                                                                xDOS=False,
+                                                                xvel=True)
 
                     for mu_inel in self.inelastic_scats:
-                        valley_transport[tp][mu_inel][c][T] = self.integrate_over_E(props=[
-                                "g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False, xvel=True)
+                        valley_transport[tp][mu_inel][c][
+                            T] = self.integrate_over_E(props=[
+                            "g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False,
+                            xvel=True)
                         mu_overall_valley = self.integrate_over_E(props=["g"],
-                               tp=tp, c=c, T=T, xDOS=False, xvel=True)
+                                                                  tp=tp, c=c,
+                                                                  T=T,
+                                                                  xDOS=False,
+                                                                  xvel=True)
 
                     # TODO: make sure that units of J_th is correct and at the end (after we divide by the denominator), we arrive at A/cm2
-                    valley_transport[tp]["J_th"][c][T] = self.integrate_over_E(props=["g_th"],
-                                                   tp=tp, c=c, T=T,
-                                                   xDOS=False, xvel=True)
+                    valley_transport[tp]["J_th"][c][T] = self.integrate_over_E(
+                        props=["g_th"],
+                        tp=tp, c=c, T=T,
+                        xDOS=False, xvel=True)
 
                     faulty_overall_mobility = False
                     temp_avg = np.array([0.0, 0.0, 0.0])
                     for transport in self.elastic_scats + self.inelastic_scats:
-                        temp_avg += 1/ valley_transport[tp][transport][c][T]
-                        if norm(mu_overall_valley) > norm(valley_transport[tp][transport][c][T]):
+                        temp_avg += 1 / valley_transport[tp][transport][c][T]
+                        if norm(mu_overall_valley) > norm(
+                                valley_transport[tp][transport][c][T]):
                             faulty_overall_mobility = True  # because the overall mobility should be lower than all
                     valley_transport[tp]['average'][c][T] = 1 / temp_avg
 
-                    if norm(mu_overall_valley) == 0.0 or faulty_overall_mobility:
-                        valley_transport[tp]['overall'][c][T] = valley_transport[tp]['average'][c][T]
+                    if norm(
+                            mu_overall_valley) == 0.0 or faulty_overall_mobility:
+                        valley_transport[tp]['overall'][c][T] = \
+                            valley_transport[tp]['average'][c][T]
                     else:
-                        valley_transport[tp]["overall"][c][T] = mu_overall_valley
-                    self.egrid[tp]["relaxation time constant"][c][T] = self.mobility[tp]["overall"][c][T] \
-                            * 1e-4 * m_e * self.cbm_vbm[tp]["eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
-                    valley_transport[tp]["seebeck"][c][T] = self.egrid["Seebeck_integral_numerator"][c][T][tp]
+                        valley_transport[tp]["overall"][c][
+                            T] = mu_overall_valley
+                    self.egrid[tp]["relaxation time constant"][c][T] = \
+                        self.mobility[tp]["overall"][c][T] \
+                        * 1e-4 * m_e * self.cbm_vbm[tp][
+                            "eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
+                    valley_transport[tp]["seebeck"][c][T] = \
+                        self.egrid["Seebeck_integral_numerator"][c][T][tp]
         return valley_transport
-
 
     def as_dict(self):
         """
@@ -2886,115 +3369,87 @@ class Amset(object):
 
         Returns (dict):
         """
-        out_d = {'kgrid0': self.kgrid0,
-                 'egrid0': self.egrid0,
-                 'kgrid_tp': self.kgrid_tp,
-                 'cbm_vbm': self.cbm_vbm,
-                 'mobility': self.mobility,
-                 'seebeck': self.seebeck,
-                 'elastic_scats': self.elastic_scats,
-                 'inelastic_scats': self.inelastic_scats,
-                 'dopings': self.dopings,
-                 'temperatures': self.temperatures,
-                 'material_params': self.material_params,
-                 'performance_params': self.performance_params,
-                 'model_params': self.model_params,
-                 'all_types': self.all_types,
-                 'Efrequency0': self.Efrequency0,
-                 }
-        for tp in ['p', 'n']:
-            for mu in out_d['mobility'][tp]:
-                for c in out_d['mobility'][tp][mu]:
-                    for T in out_d['mobility'][tp][mu][c]:
-                        out_d['mobility'][tp][mu][c][T] = \
-                            list(out_d['mobility'][tp][mu][c][T])
-            for c in out_d['seebeck'][tp]:
-                for T in out_d['seebeck'][tp][c]:
-                    out_d['seebeck'][tp][c][T] = list(
-                        out_d['seebeck'][tp][c][T])
-            for key in out_d['cbm_vbm'][tp]:
-                if isinstance(out_d['cbm_vbm'][tp][key], np.ndarray):
-                    out_d['cbm_vbm'][tp][key] = list(out_d['cbm_vbm'][tp][key])
+        out_d = super(Amset, self).as_dict()
+        out_d['logger'] = True  # cannot be converted to JSON
+
+        # TODO: Fix this so that the non-private attributes are not overwritten
+        out_d['performance_params'] = self._performance_params
+        out_d['model_params'] = self._model_params
+        out_d['material_params'] = self._material_params
+
+        for arg in _inst_args:
+            if hasattr(self, arg):
+                out_d[arg] = getattr(self, arg)
+
         return out_d
 
+    @classmethod
+    def from_dict(cls, d):
+        decoded = {k: MontyDecoder().process_decoded(v) for k, v in d.items()
+                   if not k.startswith("@")}
+        amset = cls(**{k: v for k, v in decoded.items() if k not in _inst_args})
 
-    def to_file(self, path=None, dir_name='run_data', fname='amsetrun',
-                force_write=True):
-        """
-        Serializes everything calculated into a json file. Readable by the
-        Amset.from_file() method for post-processing (e.g. plotting).
-
-        Args:
-            path (str): the full path to the folder where .json file is saved
-            dir_name (str): the folder where .json file is saved
-            fname (str): the json file where data is saved; no .json needed!
-            force_write (bool): whether to overwrite the previous file if it
-                exists. If set to False, a new file with _n suffix is created
-                where n is 1, 2, 3, ....
-
-        Returns (None):
-        """
-        path = os.path.join(path or self.calc_dir, dir_name)
-        if not os.path.exists(path):
-            os.makedirs(name=path)
-        if not force_write:
-            n = 1
-            fname0 = fname
-            while os.path.exists(os.path.join(path, '{}.json'.format(fname))):
-                warnings.warn('The file, {} exists. Amset outputs will be '
-                              'written in {}'.format(fname,
-                                                     fname0 + '_' + str(n)))
-                fname = fname0 + '_' + str(n)
-                n += 1
-        dumpfn(self.as_dict(), os.path.join(path, '{}.json'.format(fname)))
-
-
-    @staticmethod
-    def from_file(path=None, dir_name="run_data", filename="amsetrun.json"):
-        """
-        Load an Amset instance from a json file written by the Amset.to_file()
-        method. This way, for example, the class attributes such as .mobility
-        can be directly accessed or the plot() method can be called.
-
-        Args:
-            path (str): path to the folder containing the saved json file.
-            dir_name (str): the name of the folder containing the save json
-                file (ignored if path is already set).
-            filename (str): the name of the json file used to save Amset
-                via the Amset.to_file() method.
-
-        Returns (instantiated Amset class): some of the most important (not all)
-            attributes will be populated.
-        """
-        # TODO: add compression (.gz at the end of filename), had some issues implementing it
-        # TODO: make this better, maybe organize these class attributes a bit?
-        if not path:
-            path = os.path.join(os.getcwd(), dir_name)
-        d = loadfn(os.path.join(path, filename))
-        amset = Amset(calc_dir=path,
-                      material_params=d['material_params'],
-                      model_params=d['model_params'],
-                      dopings=d['dopings'],
-                      temperatures=d['temperatures'])
-        amset.kgrid0 = d['kgrid0']
-        amset.egrid0 = d['egrid0']
-        amset.kgrid_tp = d['kgrid_tp']
-        amset.cbm_vbm = d['cbm_vbm']
-        amset.mobility = d['mobility']
-        amset.seebeck = d['seebeck']
-        amset.elastic_scats = d['elastic_scats']
-        amset.inelastic_scats = d['inelastic_scats']
-        amset.dopings = [float(dope) for dope in d['dopings']]
-        amset.temperatures = [float(T) for T in d['temperatures']]
-        amset.material_params = d['material_params']
-        amset.performance_params = d['performance_params']
-        amset.model_params = d['model_params']
-        amset.all_types = list(set([get_tp(c) for c in amset.dopings]))
-        amset.Efrequency0 = d['Efrequency0']
+        for k in _inst_args:
+            if k in decoded:
+                setattr(amset, k, decoded[k])
         return amset
 
-    def to_json(self, kgrid=True, trimmed=False, max_ndata=None, n0=0,
-                valleys=True, path=None, dir_name="run_data"):
+    def to_file(self, filename='amset.json.gz', directory='run_data',
+                overwrite=True):
+        """Serialize the AMSET run to a JSON file.
+
+        Can be loaded by the ``Amset.from_file()`` method for post-processing
+        (e.g. plotting).
+
+        Args:
+            filename (str): The JSON file name.
+            directory (str): The directory in which to save the file.
+                Folders will be created if they do not already exist.
+                The directory should be relative to Amset.calc_dir.
+            overwrite (bool): Whether to overwrite the JSON file if it exists.
+                If set to False, a new file with the suffix '_n' is created,
+                where n is 1, 2, 3, etc.
+
+        Returns:
+            (str): The full path to saved file.
+        """
+        directory = path_join(self.calc_dir, directory)
+
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        filepath = path_join(directory, filename)
+        if not overwrite and os.path.exists(filepath):
+            self.logger.info("{} already exists, refusing to overwrite".format(
+                filepath))
+            pre = filename.split('.')[0]  # filename with no extension
+            suf = ".".join(filename.split('.')[1:])  # file extension
+            # gets the first filename that doesn't exist from an generator
+            file_gen = (path_join(directory, '{}_{}.{}'.format(pre, i, suf))
+                        for i in count())
+            filepath = next(f for f in file_gen if not os.path.exists(f))
+
+        self.logger.info("Writing AMSET data to {}".format(filepath))
+        dumpfn(self, filepath)
+        return filepath
+
+    @staticmethod
+    def from_file(filepath):
+        """Load an AMSET run from a JSON file.
+
+        The AMSET json can file written using the ``Amset.to_file()``
+        method.
+
+        Args:
+            filepath (str): Full path to the AMSET json file.
+
+        Returns:
+            (Amset): An Amset object.
+        """
+        return loadfn(filepath)
+
+    def grids_to_json(self, kgrid=True, trimmed=False, max_ndata=None, n0=0,
+                      valleys=True, path=None, dir_name="run_data"):
         """
         Writes the kgrid and egird to json files
 
@@ -3042,9 +3497,10 @@ class Amset(object):
                                                  n0:n0 + nmax]
                         except:
                             if key not in ['mobility']:
-                                self.logger.warning('in to_json: cutting {} '
-                                                    'in egrid failed!'.format(
-                                    key))
+                                self.logger.warning(
+                                    'in grids_to_json: cutting {} '
+                                    'in egrid failed!'.format(
+                                        key))
 
         with open(os.path.join(path, "egrid.json"), 'w') as fp:
             json.dump(egrid, fp, sort_keys=True, indent=4, ensure_ascii=False,
@@ -3092,7 +3548,7 @@ class Amset(object):
                             except:
                                 if key not in ['mobility']:
                                     self.logger.warning(
-                                        'in to_json: cutting {} '
+                                        'in grids_to_json: cutting {} '
                                         'in kgrid failed!'.format(key))
 
             with open(os.path.join(path, "kgrid.json"), 'w') as fp:
@@ -3104,8 +3560,8 @@ class Amset(object):
                           sort_keys=True, indent=4,
                           ensure_ascii=False, cls=MontyEncoder)
 
-
-    def to_csv(self, path=None, dir_name="run_data", csv_filename='amset_results.csv'):
+    def to_csv(self, path=None, dir_name="run_data",
+               csv_filename='amset_results.csv'):
         """
         Writes the calculated transport properties to a csv file. These
         properties are overall mobility and those values calculated assuming
@@ -3126,16 +3582,18 @@ class Amset(object):
             os.makedirs(name=path)
         with open(os.path.join(path, csv_filename), 'w') as csvfile:
             fieldnames = ['type', 'c(cm-3)', 'T(K)', 'overall', 'average'] + \
-                         self.elastic_scats + self.inelastic_scats + ['Seebeck (uV/K)']
+                         self.elastic_scats + self.inelastic_scats + [
+                             'Seebeck (uV/K)']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for c in self.dopings:
                 tp = get_tp(c)
                 for T in self.temperatures:
                     row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
-                    for p in ['overall', 'average'] + self.elastic_scats + self.inelastic_scats:
-                        row[p] = sum(self.mobility[tp][p][c][T])/3
-                    row['Seebeck (uV/K)'] = sum(self.seebeck[tp][c][T])/3
+                    for p in ['overall',
+                              'average'] + self.elastic_scats + self.inelastic_scats:
+                        row[p] = sum(self.mobility[tp][p][c][T]) / 3
+                    row['Seebeck (uV/K)'] = sum(self.seebeck[tp][c][T]) / 3
                     writer.writerow(row)
 
     def plot(self, **kwargs):
@@ -3147,8 +3605,7 @@ class Amset(object):
         """
         get_amset_plots(amset=self, **kwargs)
 
-
-    def find_fermi_k(self, tolerance=0.001, num_bands = None):
+    def find_fermi_k(self, tolerance=0.001, num_bands=None):
         """
         **method used only by "k"-integration method.**
 
@@ -3160,7 +3617,8 @@ class Amset(object):
 
         """
         num_bands = num_bands or self.num_bands
-        closest_energy = {c: {T: None for T in self.temperatures} for c in self.dopings}
+        closest_energy = {c: {T: None for T in self.temperatures} for c in
+                          self.dopings}
         self.f0_array = {c: {T: {tp: list(range(num_bands[tp])) \
                                  for tp in ['n', 'p']} \
                              for T in self.temperatures} \
@@ -3174,32 +3632,45 @@ class Amset(object):
                                               self.cbm_vbm[tp]['energy'] + 2.1,
                                               step)
                 diff = 1000.0 * abs(c)
-                while(diff > tol):
+                while (diff > tol):
                     # try a number for fermi level
                     diffs = {}
                     for e_f in range_of_energies:
                         # calculate distribution in both conduction and valence bands
-                        f_con = 1 / (np.exp((self.energy_array['n'] - e_f) / (k_B * T)) + 1)
-                        f_val = 1 / (np.exp((self.energy_array['p'] - e_f) / (k_B * T)) + 1)
+                        f_con = 1 / (np.exp(
+                            (self.energy_array['n'] - e_f) / (k_B * T)) + 1)
+                        f_val = 1 / (np.exp(
+                            (self.energy_array['p'] - e_f) / (k_B * T)) + 1)
                         # density of states in k space is V/8pi^3 per spin, but total states per real volume per k volume is 2/8pi^3
-                        dens_of_states = 1 / (4*np.pi**3)
+                        dens_of_states = 1 / (4 * np.pi ** 3)
                         # see if it is close to concentration
-                        n_concentration = self.integrate_over_states(f_con * dens_of_states, 'n')[0]
-                        p_concentration = self.integrate_over_states((1 - f_val) * dens_of_states, 'p')[0]
-                        diffs[e_f] = abs((p_concentration - n_concentration) - c)
+                        n_concentration = \
+                            self.integrate_over_states(f_con * dens_of_states,
+                                                       'n')[
+                                0]
+                        p_concentration = \
+                            self.integrate_over_states(
+                                (1 - f_val) * dens_of_states,
+                                'p')[0]
+                        diffs[e_f] = abs(
+                            (p_concentration - n_concentration) - c)
                     # compare all the numbers and zoom in on the closest
                     closest_energy[c][T] = min(diffs, key=diffs.get)
-                    range_of_energies = np.arange(closest_energy[c][T] - step, closest_energy[c][T] + step, step / 10)
+                    range_of_energies = np.arange(closest_energy[c][T] - step,
+                                                  closest_energy[c][T] + step,
+                                                  step / 10)
                     step /= 10
                     diff = diffs[closest_energy[c][T]]
                 # find the calculated concentrations (dopings) of each type at the determined fermi level
                 e_f = closest_energy[c][T]
                 for j, tp in enumerate(['n', 'p']):
                     for ib in list(range(num_bands[tp])):
-                        self.f0_array[c][T][tp][ib] = 1 / (np.exp((self.energy_array[tp][ib][:,:,:,0] - e_f) / (k_B * T)) + 1)
-                    self.calc_doping[c][T][tp] = self.integrate_over_states(j - np.array(self.f0_array[c][T][tp]), tp)
+                        self.f0_array[c][T][tp][ib] = 1 / (np.exp(
+                            (self.energy_array[tp][ib][:, :, :, 0] - e_f) / (
+                                    k_B * T)) + 1)
+                    self.calc_doping[c][T][tp] = self.integrate_over_states(
+                        j - np.array(self.f0_array[c][T][tp]), tp)
         return closest_energy
-
 
     def get_scalar_output(self, vec, dir):
         """
@@ -3222,7 +3693,6 @@ class Amset(object):
         if dir == 'avg':
             return sum(vec) / 3
 
-
     def calc_v_vec(self, tp):
         """
         **method used only by "k"-integration method.**
@@ -3236,13 +3706,20 @@ class Amset(object):
         v_vec_all_bands = []
         v_norm_all_bands = []
         for ib in range(self.num_bands[tp]):
-            v_norm_k_ordered = (v_vec_k_ordered[:,0]**2 + v_vec_k_ordered[:,1]**2 + v_vec_k_ordered[:,2]**2)**0.5
-            v_vec_all_bands.append(self.grid_from_ordered_list(v_vec_k_ordered, tp, none_missing=True))
-            v_norm_all_bands.append(self.grid_from_ordered_list(v_norm_k_ordered, tp, none_missing=True, scalar=True))
+            v_norm_k_ordered = (v_vec_k_ordered[:, 0] ** 2 + v_vec_k_ordered[:,
+                                                             1] ** 2 + v_vec_k_ordered[
+                                                                       :,
+                                                                       2] ** 2) ** 0.5
+            v_vec_all_bands.append(
+                self.grid_from_ordered_list(v_vec_k_ordered, tp,
+                                            none_missing=True))
+            v_norm_all_bands.append(
+                self.grid_from_ordered_list(v_norm_k_ordered, tp,
+                                            none_missing=True, scalar=True))
         return np.array(v_vec_all_bands), np.array(v_norm_all_bands)
 
-
-    def array_from_kgrid(self, prop_name, tp, c=None, T=None, denom=False, none_missing=False, fill=None):
+    def array_from_kgrid(self, prop_name, tp, c=None, T=None, denom=False,
+                         none_missing=False, fill=None):
         """
         **method used only by "k"-integration method.**
 
@@ -3261,12 +3738,18 @@ class Amset(object):
 
         """
         if c:
-            return np.array([self.grid_from_energy_list(self.kgrid[tp][prop_name][c][T][ib], tp, ib, denom=denom, none_missing=none_missing, fill=fill) for ib in range(self.num_bands[tp])])
+            return np.array([self.grid_from_energy_list(
+                self.kgrid[tp][prop_name][c][T][ib], tp, ib, denom=denom,
+                none_missing=none_missing, fill=fill) for ib in
+                range(self.num_bands[tp])])
         else:
-            return np.array([self.grid_from_energy_list(self.kgrid[tp][prop_name][ib], tp, ib, denom=denom, none_missing=none_missing, fill=fill) for ib in range(self.num_bands[tp])])
+            return np.array([self.grid_from_energy_list(
+                self.kgrid[tp][prop_name][ib], tp, ib, denom=denom,
+                none_missing=none_missing, fill=fill) for ib in
+                range(self.num_bands[tp])])
 
-
-    def grid_from_energy_list(self, props, tp, ib, denom=False, none_missing=False, fill=None):
+    def grid_from_energy_list(self, props, tp, ib, denom=False,
+                              none_missing=False, fill=None):
         """
         **method used only by "k"-integration method.**
 
@@ -3289,24 +3772,29 @@ class Amset(object):
         adjusted_props = list(props)
         # step 0 is reverse second sort
         adjusted_props = np.array(adjusted_props)[self.pos_idx_2[tp][ib]]
-        adjusted_props = [adjusted_props[i] for i in range(adjusted_props.shape[0])]
+        adjusted_props = [adjusted_props[i] for i in
+                          range(adjusted_props.shape[0])]
 
         # reverse what has been done: step 1 is add new points back
         if not none_missing:
             insert_list = False
-            if type(adjusted_props[0]) == np.ndarray or type(adjusted_props[0]) == list:
+            if type(adjusted_props[0]) == np.ndarray or type(
+                    adjusted_props[0]) == list:
                 if len(adjusted_props[0]) == 3:
                     insert_list = True
             for ik in self.rm_idx_list[tp][ib]:
-                adjusted_props.insert(ik, fill) if not insert_list else adjusted_props.insert(ik, [fill,fill,fill])
+                adjusted_props.insert(ik,
+                                      fill) if not insert_list else adjusted_props.insert(
+                    ik, [fill, fill, fill])
 
         # step 2 is reorder based on first sort
         adjusted_props = np.array(adjusted_props)[self.pos_idx[tp]]
         # then call grid_from_ordered_list
-        return self.grid_from_ordered_list(adjusted_props, tp, denom=denom, none_missing=True)
+        return self.grid_from_ordered_list(adjusted_props, tp, denom=denom,
+                                           none_missing=True)
 
-
-    def grid_from_ordered_list(self, props, tp, denom=False, none_missing=False, scalar=False):
+    def grid_from_ordered_list(self, props, tp, denom=False, none_missing=False,
+                               scalar=False):
         """
         **method used only by "k"-integration method.**
 
@@ -3338,9 +3826,9 @@ class Amset(object):
         for i in range(N[0]):
             for j in range(N[1]):
                 for k in range(N[2]):
-                    grid[i,j,k] = adjusted_props[i*N[1]*N[2] + j*N[2] + k]
+                    grid[i, j, k] = adjusted_props[
+                        i * N[1] * N[2] + j * N[2] + k]
         return grid
-
 
     def integrate_over_states(self, integrand_grid, tp='all'):
         """
@@ -3354,7 +3842,8 @@ class Amset(object):
 
         """
         integrand_grid = np.array(integrand_grid)
-        if type(integrand_grid[0][0,0,0]) == list or type(integrand_grid[0][0,0,0]) == np.ndarray:
+        if type(integrand_grid[0][0, 0, 0]) == list or type(
+                integrand_grid[0][0, 0, 0]) == np.ndarray:
             result = np.zeros(3)
         else:
             result = 0
@@ -3363,8 +3852,8 @@ class Amset(object):
             result += self.integrate_over_k(integrand_grid[ib], tp)
         return result
 
-
-    def calculate_transport_properties_with_k(self, test_anisotropic, important_points):
+    def calculate_transport_properties_with_k(self, test_anisotropic,
+                                              important_points):
         """
         **method used only by "k"-integration method.**
 
@@ -3379,9 +3868,17 @@ class Amset(object):
 
         """
         # calculate mobility by averaging velocity per electric field strength
-        mu_num = {tp: {el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in self.dopings} for el_mech in self.elastic_scats} for tp in ["n", "p"]}
-        valley_transport = {tp: {el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures} for c in
-                  self.dopings} for el_mech in self.transport_labels} for tp in ["n", "p"]}
+        mu_num = {tp: {
+            el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in
+                      self.dopings} for el_mech in self.elastic_scats} for tp in
+            ["n", "p"]}
+        valley_transport = {tp: {
+            el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures}
+                      for
+                      c in
+                      self.dopings} for el_mech in self.transport_labels} for tp
+            in
+            ["n", "p"]}
 
         for c in self.dopings:
             for T in self.temperatures:
@@ -3392,11 +3889,14 @@ class Amset(object):
                     N = self.kgrid_array[tp].shape
 
                     # get quantities that are independent of mechanism
-                    num_k = [len(self.kgrid[tp]["energy"][ib]) for ib in range(self.num_bands[tp])]
+                    num_k = [len(self.kgrid[tp]["energy"][ib]) for ib in
+                             range(self.num_bands[tp])]
                     df0dk = self.array_from_kgrid('df0dk', tp, c, T)
                     v = self.array_from_kgrid('velocity', tp)
                     f0_removed = self.array_from_kgrid('f0', tp, c, T)
-                    f0_all = 1 / (np.exp((self.energy_array[tp] - self.fermi_level[c][T]) / (k_B * T)) + 1)
+                    f0_all = 1 / (np.exp(
+                        (self.energy_array[tp] - self.fermi_level[c][T]) / (
+                                k_B * T)) + 1)
 
                     np.set_printoptions(precision=3)
 
@@ -3405,9 +3905,11 @@ class Amset(object):
 
                         v_vec, v_norm = self.calc_v_vec(tp)
 
-                        #TODO: get f through solving the BTE anisotropically
-                        #k_hat = np.array([self.k_hat_array[tp] for ib in range(self.num_bands[tp])])
-                        k_hat_cartesian = np.array([self.k_hat_array_cartesian[tp] for ib in range(self.num_bands[tp])])
+                        # TODO: get f through solving the BTE anisotropically
+                        # k_hat = np.array([self.k_hat_array[tp] for ib in range(self.num_bands[tp])])
+                        k_hat_cartesian = np.array(
+                            [self.k_hat_array_cartesian[tp] for ib in
+                             range(self.num_bands[tp])])
                         g = self.array_from_kgrid("g", tp, c, T)
                         # x is the cosine of the angle between the force and k, or negative the cosine of the angle
                         # between the electric fields and k
@@ -3417,38 +3919,58 @@ class Amset(object):
                         if tp == 'n':
                             print('v')
                             print(v_vec.shape)
-                            print(v_vec[0, (N[0]-1)/2, (N[1]-1)/2, :])
+                            print(v_vec[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                             print('k_hat_cartesian')
-                            print(k_hat_cartesian[0, (N[0]-1)/2, (N[1]-1)/2, :])
+                            print(k_hat_cartesian[0, (N[0] - 1) / 2,
+                                  (N[1] - 1) / 2, :])
                             print('g')
-                            print(g[0, (N[0]-1)/2, (N[1]-1)/2, :])
+                            print(g[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
 
                             print('v*f0_all')
-                            print((v_vec * f0_all)[0, (N[0]-1)/2, (N[1]-1)/2, :])
+                            print((v_vec * f0_all)[0, (N[0] - 1) / 2,
+                                  (N[1] - 1) / 2, :])
                             print('v*f_T')
-                            print((v_vec * f_T)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                            print(
+                                (v_vec * f_T)[0, (N[0] - 1) / 2, (N[1] - 1) / 2,
+                                :])
                             print('v*(f_T-f0_all)')
-                            print((v_vec * k_hat_cartesian * g)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                            print(
+                                (v_vec * k_hat_cartesian * g)[0, (N[0] - 1) / 2,
+                                (N[1] - 1) / 2, :])
                             print('v*f_T*d3k')
-                            print(((v_vec * f_T)[0] * self.dv_grid['n'][:,:,:,np.newaxis])[(N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                            print(((v_vec * f_T)[0] * self.dv_grid['n'][:, :, :,
+                                                      np.newaxis])[
+                                  (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                             print("sum")
-                            print(np.sum(((v_vec * f_T)[0] * self.dv_grid['n'][:,:,:,np.newaxis]), axis=(0,1,2)))
+                            print(np.sum(((v_vec * f_T)[0] * self.dv_grid['n'][
+                                                             :, :, :,
+                                                             np.newaxis]),
+                                         axis=(0, 1, 2)))
 
                         # from equation 44 in Rode, overall
-                        #nu_el = self.array_from_kgrid('_all_elastic', tp, c, T, denom=True)
+                        # nu_el = self.array_from_kgrid('_all_elastic', tp, c, T, denom=True)
                         # numerator = -self.integrate_over_states(v * self.k_hat_array[tp] * (-1 / hbar) * df0dk / nu_el, tp)
                         # denominator = self.integrate_over_states(f0, tp) * hbar * default_small_E
-                        numerator = self.integrate_over_states(v_vec / default_small_E * f_T, tp)
-                        numerator2 = self.integrate_over_states(v_vec / default_small_E * f0_all, tp)
-                        numerator3 = self.integrate_over_states(v_vec / default_small_E * (f_T - f0_all), tp)
-                        numerator4 = self.integrate_over_states(v_vec / default_small_E * (x * g), tp)
-                        numerator5 = self.integrate_over_states(v_norm * x * x * g, tp) / default_small_E
-                        numerator6 = self.integrate_over_states(v_norm * x**2 * g, tp) / default_small_E
-                        denominator = self.integrate_over_states(j + ((-1) ** j) * f_T, tp)
-                        self.mobility[tp]['overall'][c][T] = numerator / denominator
+                        numerator = self.integrate_over_states(
+                            v_vec / default_small_E * f_T, tp)
+                        numerator2 = self.integrate_over_states(
+                            v_vec / default_small_E * f0_all, tp)
+                        numerator3 = self.integrate_over_states(
+                            v_vec / default_small_E * (f_T - f0_all), tp)
+                        numerator4 = self.integrate_over_states(
+                            v_vec / default_small_E * (x * g), tp)
+                        numerator5 = self.integrate_over_states(
+                            v_norm * x * x * g, tp) / default_small_E
+                        numerator6 = self.integrate_over_states(
+                            v_norm * x ** 2 * g, tp) / default_small_E
+                        denominator = self.integrate_over_states(
+                            j + ((-1) ** j) * f_T, tp)
+                        self.mobility[tp]['overall'][c][
+                            T] = numerator / denominator
 
                         if tp == 'n':
-                            print('ANISOTROPIC numerator, numerator without g, and denominator:')
+                            print(
+                                'ANISOTROPIC numerator, numerator without g, and denominator:')
                             print(numerator)
                             print(numerator2)
                             print(numerator3)
@@ -3458,125 +3980,155 @@ class Amset(object):
                             print(denominator)
 
                         if tp == 'n':
-                            denominator_iso = self.integrate_over_states(f0_all, tp)
+                            denominator_iso = self.integrate_over_states(f0_all,
+                                                                         tp)
                         if tp == 'p':
-                            denominator_iso = self.integrate_over_states(1-f0_all, tp)
-                        numerator_iso = self.integrate_over_states(g * v_norm, tp) / 3 / default_small_E
+                            denominator_iso = self.integrate_over_states(
+                                1 - f0_all, tp)
+                        numerator_iso = self.integrate_over_states(g * v_norm,
+                                                                   tp) / 3 / default_small_E
 
                         if tp == 'n':
                             print('v')
                             print(v[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                             print('g*v')
-                            print((g*v)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
+                            print((g * v)[0, (N[0] - 1) / 2, (N[1] - 1) / 2, :])
                             print('ISOTROPIC numerator and denominator:')
                             print(numerator_iso)
                             print(denominator_iso)
 
-                        k_norm = np.sqrt(self.kgrid_array_cartesian[tp][:,:,:,0]**2 + self.kgrid_array_cartesian[tp][:,:,:,1]**2 + self.kgrid_array_cartesian[tp][:,:,:,2]**2) / (A_to_m * m_to_cm)
+                        k_norm = np.sqrt(
+                            self.kgrid_array_cartesian[tp][:, :, :, 0] ** 2 +
+                            self.kgrid_array_cartesian[tp][:, :, :, 1] ** 2 +
+                            self.kgrid_array_cartesian[tp][:, :, :, 2] ** 2) / (
+                                         A_to_m * m_to_cm)
                         print('norm(k)')
-                        print(k_norm[(N[0] - 1) / 2, (N[1] - 1) / 2, :])   # 1/cm
-                        print(self.structure.lattice.reciprocal_lattice.volume)   # in 1/A^3
-                        k_0 = (self.structure.lattice.reciprocal_lattice.volume)**(1./3) / (A_to_m * m_to_cm)
+                        print(k_norm[(N[0] - 1) / 2, (N[1] - 1) / 2, :])  # 1/cm
+                        print(
+                            self.structure.lattice.reciprocal_lattice.volume)  # in 1/A^3
+                        k_0 = (
+                                  self.structure.lattice.reciprocal_lattice.volume) ** (
+                                      1. / 3) / (A_to_m * m_to_cm)
                         print('k_0')
-                        print(k_0)   # in 1/cm
+                        print(k_0)  # in 1/cm
                         print('test integral of e^(-r) * cos^2(theta)')
-                        aa = 10 / (k_0 / 2)   # in cm
-                        print(self.integrate_over_k(np.exp(-aa * k_norm) * k_hat_cartesian[0, :, :, :, 2]**2 * aa**3, tp))
+                        aa = 10 / (k_0 / 2)  # in cm
+                        print(self.integrate_over_k(
+                            np.exp(-aa * k_norm) * k_hat_cartesian[0, :, :, :,
+                                                   2] ** 2 * aa ** 3, tp))
 
                     if self.bs_is_isotropic and not test_anisotropic:
                         if tp == get_tp(c):
-                            self.logger.info('calculating mobility by integrating over'
-                                         ' k-grid and isotropic BS assumption...')
-                            self.logger.debug('current valley is at {}'.format(important_points))
-                            self.logger.debug('the denominator is:\n{}'.format(self.denominator))
+                            self.logger.info(
+                                'calculating mobility by integrating over'
+                                ' k-grid and isotropic BS assumption...')
+                            self.logger.debug('current valley is at {}'.format(
+                                important_points))
+                            self.logger.debug('the denominator is:\n{}'.format(
+                                self.denominator))
 
                         for el_mech in self.elastic_scats:
-                            nu_el = self.array_from_kgrid(el_mech, tp, c, T, denom=True)
+                            nu_el = self.array_from_kgrid(el_mech, tp, c, T,
+                                                          denom=True)
                             # this line should have -e / hbar except that hbar is in units of eV*s so in those units e=1
                             g = -1 / hbar * df0dk / nu_el
-                            valley_transport[tp][el_mech][c][T] = self.integrate_over_states(g * v, tp)
+                            valley_transport[tp][el_mech][c][
+                                T] = self.integrate_over_states(g * v, tp)
                             # from equation 45 in Rode, inelastic mechanisms
                         for inel_mech in self.inelastic_scats:
-                            g = self.array_from_kgrid("g_"+inel_mech, tp, c, T)
-                            valley_transport[tp][inel_mech][c][T] = self.integrate_over_states(g * v, tp)
+                            g = self.array_from_kgrid("g_" + inel_mech, tp, c,
+                                                      T)
+                            valley_transport[tp][inel_mech][c][
+                                T] = self.integrate_over_states(g * v, tp)
 
                         # from equation 45 in Rode, overall
                         g = self.array_from_kgrid("g", tp, c, T)
-                        valley_transport[tp]['overall'][c][T] = self.integrate_over_states(g * v, tp)
+                        valley_transport[tp]['overall'][c][
+                            T] = self.integrate_over_states(g * v, tp)
                         g_th = self.array_from_kgrid("g", tp, c, T)
-                        valley_transport[tp]["J_th"][c][T] = self.integrate_over_states(g_th * v, tp)
-                        valley_transport[tp]["seebeck"][c][T] = self.integrate_over_states(f0_all*(1-f0_all)*E_array, tp)/(k_B*T)
+                        valley_transport[tp]["J_th"][c][
+                            T] = self.integrate_over_states(g_th * v, tp)
+                        valley_transport[tp]["seebeck"][c][
+                            T] = self.integrate_over_states(
+                            f0_all * (1 - f0_all) * E_array, tp) / (k_B * T)
 
                     # figure out average mobility
                     faulty_overall_mobility = False
-                    mu_overrall_norm = norm(valley_transport[tp]['overall'][c][T])
+                    mu_overrall_norm = norm(
+                        valley_transport[tp]['overall'][c][T])
                     mu_average = np.array([0.0, 0.0, 0.0])
                     for transport in self.elastic_scats + self.inelastic_scats:
                         # averaging all mobility values via Matthiessen's rule
-                        mu_average += 1 / (np.array(valley_transport[tp][transport][c][T]) + 1e-32)
-                        if mu_overrall_norm > norm(valley_transport[tp][transport][c][T]):
+                        mu_average += 1 / (np.array(
+                            valley_transport[tp][transport][c][T]) + 1e-32)
+                        if mu_overrall_norm > norm(
+                                valley_transport[tp][transport][c][T]):
                             faulty_overall_mobility = True  # because the overall mobility should be lower than all
                         valley_transport[tp]["average"][c][T] = 1 / mu_average
 
                     # Decide if the overall mobility make sense or it should be equal to average (e.g. when POP is off)
-                    if (mu_overrall_norm == 0.0 or faulty_overall_mobility) and not test_anisotropic:
-                        self.logger.warning('There may be a problem with overall '
-                                        'mobility; setting it to average...')
-                        valley_transport[tp]['overall'][c][T] = valley_transport[tp]["average"][c][T]
+                    if (
+                            mu_overrall_norm == 0.0 or faulty_overall_mobility) and not test_anisotropic:
+                        self.logger.warning(
+                            'There may be a problem with overall '
+                            'mobility; setting it to average...')
+                        valley_transport[tp]['overall'][c][T] = \
+                            valley_transport[tp]["average"][c][T]
 
         return valley_transport
 
+# if __name__ == "__main__":
+#
+#     # inputs
+#     mass = 0.25
+#     use_parabolic_bands = False
+#     model_params = {'bs_is_isotropic': True,
+#                     'elastic_scats': ['ACD', 'IMP', 'PIE'],
+#                     'inelastic_scats': ['POP']
+#                     }
+#     if use_parabolic_bands:
+#         model_params["parabolic_bands"] = [[
+#             [[0.0, 0.0, 0.0], [0.0, mass]],
+#         ]]
+#     performance_params = {"dE_min": 0.0001, "nE_min": 5,
+#                           "BTE_iters": 5,
+#                           "max_nbands": 1,
+#                           "max_normk": None,
+#                           "n_jobs": -1,
+#                           "max_nvalleys": 1,
+#                           "interpolation": "boltztrap1",
+#                           "max_Ecut": 1.0,
+#                           "dos_kdensity": 50
+#                           }
+#     material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73,
+#                        # experimental from [R]
+#                        "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6},
+#                        "P_PIE": 0.052,
+#                        "user_bandgap": 1.54,
+#                        # "important_points": {'n': [[0. , 0.5, 0. ]],
+#                        #                      'p': [[0. , 0.0, 0. ]]},
+#                        }
+#     input_dir = "../test_files/GaAs_mp-2534"
+#     # coeff_file = None
+#     coeff_file = os.path.join(input_dir, "fort.123")
+#
+#     # instantiate and run AMSET:
+#     amset = Amset.from_vasprun(
+#         os.path.join(input_dir, "vasprun.xml"),
+#         material_params=material_params, calc_dir='.',
+#         model_params=model_params,
+#         performance_params=performance_params,
+#         dopings=[-3e13],
+#         temperatures=[300, 600],
+#         integration='e',
+#     )
+#     amset.run_profiled(coeff_file, kgrid_tp='very fine')
 
-
-if __name__ == "__main__":
-
-    # inputs
-    mass = 0.25
-    use_parabolic_bands = False
-    model_params = {'bs_is_isotropic': True,
-                    'elastic_scats': ['ACD', 'IMP', 'PIE'],
-                    'inelastic_scats': ['POP']
-                    }
-    if use_parabolic_bands:
-        model_params["parabolic_bands"] = [[
-            [[0.0, 0.0, 0.0], [0.0, mass]],
-        ]]
-    performance_params = {"dE_min": 0.0001, "nE_min": 5,
-                          "BTE_iters": 5,
-                          "max_nbands": 1,
-                          "max_normk": None,
-                          "n_jobs": -1,
-                          "max_nvalleys": 1,
-                          "interpolation": "boltztrap1",
-                          "max_Ecut": 1.0,
-                          "dos_kdensity": 50
-                          }
-    material_params = {"epsilon_s": 12.9, "epsilon_inf": 10.9, "W_POP": 8.73, # experimental from [R]
-            "C_el": 139.7, "E_D": {"n": 8.6, "p": 8.6}, "P_PIE": 0.052
-            , "user_bandgap": 1.54,
-            # "important_points": {'n': [[0. , 0.5, 0. ]], 'p': [[0. , 0.0, 0. ]]},
-                       }
-    input_dir = "../test_files/GaAs_mp-2534"
-    # coeff_file = None
-    coeff_file = os.path.join(input_dir, "fort.123")
-
-    # instantiate and run AMSET:
-    amset = Amset(calc_dir='.',
-                  vasprun_file=os.path.join(input_dir, "vasprun.xml"),
-                  material_params=material_params,
-                  model_params=model_params,
-                  performance_params=performance_params,
-                  dopings = [-3e13],
-                  temperatures = [300, 600],
-                  integration='e',
-                  )
-    amset.run_profiled(coeff_file, kgrid_tp='very fine')
-
-    # amset.write_input_files()
-    # amset.to_csv()
-    # amset.as_dict()
-    # amset.to_file()
-    # amset.plot(k_plots=['energy'], e_plots='all', mode='offline',
-    #            carrier_types=amset.all_types)
-    #
-    # amset.to_json(kgrid=True, trimmed=True, max_ndata=100, n0=0)
+# amset.write_input_files()
+# amset.to_csv()
+# amset.as_dict()
+# amset.to_file()
+# amset.plot(k_plots=['energy'], e_plots='all', mode='offline',
+#            carrier_types=amset.all_types)
+#
+# amset.grids_to_json(kgrid=True, trimmed=True, max_ndata=100, n0=0)
