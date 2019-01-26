@@ -329,13 +329,6 @@ class Amset(MSONable, LoggableMixin):
         self.seebeck = {'n': None, 'p': None}
         self.start_time = None
 
-        self.logger.info('integration: {}'.format(self.integration))
-        self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
-        self.logger.debug('direct lattice matrix:\n{}'.format(
-            self.structure.lattice.matrix))
-        self.logger.info("cell volume = {} A**3".format(self.structure.volume))
-        self.logger.info("original cbm_vbm:\n {}".format(cbm_vbm))
-
     @staticmethod
     def from_vasprun(vasprun, material_params, **kwargs):
         if isinstance(vasprun, str):
@@ -387,6 +380,12 @@ class Amset(MSONable, LoggableMixin):
 
         self.logger.info('Running Amset on {}'.format(
             self.structure.composition.reduced_formula))
+        self.logger.info('integration: {}'.format(self.integration))
+        self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
+        self.logger.debug('direct lattice matrix:\n{}'.format(
+            self.structure.lattice.matrix))
+        self.logger.info("cell volume = {} A**3".format(self.structure.volume))
+        self.logger.info("original cbm_vbm:\n {}".format(self.cbm_vbm))
         self.kgrid_tp = kgrid_tp
         self.logger.info(
             'Running on "{}" mesh for each valley'.format(kgrid_tp))
@@ -395,6 +394,7 @@ class Amset(MSONable, LoggableMixin):
         self.logger.info('max_nbands={}'.format(self.max_nbands))
         self.logger.info('max_nvalleys={}'.format(self.max_nvalleys))
         self.logger.info('max_normk={}'.format(self.max_normk))
+
         coeff_file = self._initialize_transport_vars(coeff_file=coeff_file)
         # make the reference energy consistent w/ interpolation rather than DFT
         self.update_cbm_vbm_dos(coeff_file=coeff_file)

@@ -21,6 +21,7 @@ CHECK_BOLTZTRAP2 = True
 
 warnings.simplefilter("ignore")
 
+
 class AmsetToolsTest(unittest.TestCase):
 
     def listalmostequal(self, list1, list2, places=3):
