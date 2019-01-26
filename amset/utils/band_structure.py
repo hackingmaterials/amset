@@ -125,7 +125,7 @@ def insert_intermediate_kpoints(kpts, n=2):
     return new_kpts
 
 
-def get_dft_orbitals(band_structure, band_index):
+def get_band_orbital_contributions(band_structure, band_index):
     """Gets the s and p orbital contribution at each k-point in a band.
 
     The band structure must contain the orbital projections. E.g., for VASP
