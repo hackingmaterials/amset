@@ -125,39 +125,37 @@ def insert_intermediate_kpoints(kpts, n=2):
     return new_kpts
 
 
-def get_dft_orbitals(band_structure, bidx):
-    """
-    The contribution from s and p orbitals at a given band for kpoints
-    that were used in the DFT run . This is
-    just to parse the total orbital contributions out of Vasprun depending
-    on LORBIT.
+def get_dft_orbitals(band_structure, band_index):
+    """Gets the s and p orbital contribution at each k-point in a band.
+
+    The band structure must contain the orbital projections. E.g., for VASP
+    calculations, the calculation must have been run with LORBIT = 10 or 11,
+    and the vasprun loaded in pymatgen using::
+
+        vr = Vasprun("vasprun.xml", parse_projected_eigen=True)
+        bs = vr.get_band_structure()
 
     Args:
-        band_structure (BandStructure): Pymatgen band structure object
+        band_structure (BandStructure): A pymatgen band structure object
             with projections.
-        bidx (idx): band index
+        band_index (int): A band index (zero indexed).
 
     Returns:
-        ([float], [float]) two lists: s&p orbital scores at the band # bidx
+        (list[float], list[float]): The absolute s and p orbital contributions
+        to the band for all k-points. Formatted as::
+
+            (s_orbital_contributions, p_orbital_contributions)
     """
-    # projected indexes : Spin; kidx; bidx; s,py,pz,px,dxy,dyz,dz2,dxz,dx2
-    s_orbital = [0.0] * len(band_structure.kpoints)
-    p_orbital = [0.0] * len(band_structure.kpoints)
+    # TODO: Make compatible with spin polarization
+    proj = band_structure.projections[Spin.up][band_index]
 
-    # TODO: Do we need to transpose? And make compatible with spin polarization
-    projected_eigenvalues = np.transpose(band_structure.projections[Spin.up],
-                                         axes=(1, 0, 3, 2))
+    s_orbital = np.sum(proj, axis=2)[:, 0]
+    if proj.shape[1] > 5:
+        # lm decomposed projections therefore sum across px, py, and pz
+        p_orbital = np.sum(np.sum(proj, axis=2)[:, 1:4], axis=1)
+    else:
+        p_orbital = np.sum(proj, axis=2)[:, 1]
 
-    lorbit = 11 if len(sum(projected_eigenvalues[0][10])) > 5 else 10
-    for ik in range(len(band_structure.kpoints)):
-        s_orbital[ik] = sum(projected_eigenvalues[ik][bidx])[0]
-        if lorbit == 10:
-            p_orbital[ik] = sum(projected_eigenvalues[ik][bidx])[1]
-        elif lorbit == 11:
-            p_orbital[ik] = sum(sum(
-                projected_eigenvalues[ik][bidx])[1:4])
-        else:
-            raise AmsetError('Not sure what to do with band projections')
     return s_orbital, p_orbital
 
 
