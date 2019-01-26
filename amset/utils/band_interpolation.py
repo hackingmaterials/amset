@@ -1,15 +1,16 @@
-import numpy as np
 import warnings
+from multiprocessing import cpu_count
+from multiprocessing.pool import Pool
+
+import numpy as np
 
 from amset.utils.analytical_band_from_bzt1 import Analytical_bands, get_energy
 from amset.utils.band_structure import kpts_to_first_BZ, get_bindex_bspin, \
     get_closest_k
 from amset.utils.constants import Ry_to_eV, hbar, A_to_m, m_to_cm, e, m_e, \
-    Hartree_to_eV
+    Hartree_to_eV, k_B
 from amset.utils.detect_peaks import detect_peaks
 from amset.utils.general import outer, AmsetError, norm
-from multiprocessing import cpu_count
-from multiprocessing.pool import Pool
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
@@ -18,7 +19,8 @@ try:
     import BoltzTraP2.dft
     from BoltzTraP2 import sphere, fite
 except ImportError:
-    warnings.warn('BoltzTraP2 not imported; "boltztrap2" interpolation not available.')
+    warnings.warn(
+        'BoltzTraP2 not imported; "boltztrap2" interpolation not available.')
 
 
 def get_energy_args(coeff_file, ibands):
@@ -38,7 +40,7 @@ def get_energy_args(coeff_file, ibands):
         raise ValueError('try reducing max_Ecut to include fewer bands', e)
 
     nstv, vec, vec2 = analytical_bands.get_star_functions(
-            latt_points, nsym, symop, nwave, br_dir=br_dir)
+        latt_points, nsym, symop, nwave, br_dir=br_dir)
     out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
     for nw in range(nwave):
         for i in range(nstv[nw]):
@@ -78,16 +80,18 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
         velocities ([3x1 array]): velocity vectors
         masses ([3x3 matrix]): list of effective mass tensors
     """
-    #TODO: effective mass is still inconsistent between btp1 and btp2 w/o any transformation used since it is not used in Amset ok but has to be checked with the right transformation
+    # TODO: effective mass is still inconsistent between btp1 and btp2 w/o any
+    #  transformation used since it is not used in Amset ok but has to be
+    #  checked with the right transformation
     if matrix is None:
         matrix = np.eye(3)
     if not sgn:
         if scissor == 0.0:
-            sgn=0.0
+            sgn = 0.0
         else:
             raise ValueError('To apply scissor "sgn" is required: -1 or +1')
     masses = []
-    if method=="boltztrap1":
+    if method == "boltztrap1":
         engre, nwave, nsym, nstv, vec, vec2, out_vec2, br_dir = interp_params
         energies = []
         velocities = []
@@ -95,23 +99,26 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
             results = []
             for kpt in kpts:
                 result = get_energy(kpt, engre[iband], nwave, nsym,
-                                             nstv, vec, vec2, out_vec2, br_dir,
-                                             return_dde=return_mass)
+                                    nstv, vec, vec2, out_vec2, br_dir,
+                                    return_dde=return_mass)
                 results.append(result)
         else:
+
             inputs = [(kpt, engre[iband], nwave, nsym, nstv, vec, vec2,
-                                            out_vec2, br_dir) for kpt in kpts]
+                       out_vec2, br_dir) for kpt in kpts]
             with Pool(n_jobs if n_jobs != -1 else cpu_count()) as p:
                 results = p.starmap(get_energy, inputs)
         for result in results:
             energy = result[0] * Ry_to_eV - sgn * scissor / 2.0
-            velocity = abs(np.dot(matrix/np.linalg.norm(matrix), result[1])) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+            velocity = abs(np.dot(matrix / np.linalg.norm(matrix), result[
+                1])) / hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
             if return_mass:
-                effective_m = 1/(result[2]/ 0.52917721067**2*Ry_to_eV) * e / A_to_m**2 * hbar**2 / m_e
+                effective_m = 1 / (result[
+                                       2] / 0.52917721067 ** 2 * Ry_to_eV) * e / A_to_m ** 2 * hbar ** 2 / m_e
                 masses.append(effective_m)
             energies.append(energy)
             velocities.append(velocity)
-    elif method=="boltztrap2":
+    elif method == "boltztrap2":
         if n_jobs != 1:
             warnings.warn('n_jobs={}: Parallel not implemented w/ boltztrap2'
                           .format(n_jobs))
@@ -119,9 +126,12 @@ def interpolate_bs(kpts, interp_params, iband, sgn=None, method="boltztrap1",
         fitted = fite.getBands(np.array(kpts), equivalences, lattvec, coeffs,
                                curvature=return_mass)
         energies = fitted[0][iband - 1] * Hartree_to_eV - sgn * scissor / 2.
-        velocities = abs(np.matmul(matrix/np.linalg.norm(matrix), fitted[1][:, iband - 1, :]).T) * Hartree_to_eV / hbar * A_to_m * m_to_cm / 0.52917721067
+        velocities = abs(np.matmul(matrix / np.linalg.norm(matrix),
+                                   fitted[1][:, iband - 1,
+                                   :]).T) * Hartree_to_eV / hbar * A_to_m * m_to_cm / 0.52917721067
         if return_mass:
-            masses = 1/(fitted[2][:, :, iband - 1, :].T/ 0.52917721067**2*Hartree_to_eV)* e / A_to_m**2 * hbar**2/m_e
+            masses = 1 / (fitted[2][:, :, iband - 1,
+                          :].T / 0.52917721067 ** 2 * Hartree_to_eV) * e / A_to_m ** 2 * hbar ** 2 / m_e
     else:
         raise AmsetError("Unsupported interpolation method: {}".format(method))
     if return_mass:
@@ -161,8 +171,8 @@ def get_dos_boltztrap2(params, st, mesh, estep=0.001, vbmidx=None,
     energies *= Hartree_to_eV  # shape==(bands, nkpoints)
     nbands = energies.shape[0]
     if vbmidx:
-        ib_start = max(0, vbmidx-4)
-        ib_end = min(energies.shape[0], vbmidx+1+4)
+        ib_start = max(0, vbmidx - 4)
+        ib_end = min(energies.shape[0], vbmidx + 1 + 4)
         energies[vbmidx + 1:, :] += scissor / 2.
         energies[:vbmidx + 1, :] -= scissor / 2.
         energies = energies[ib_start:ib_end, :]
@@ -218,11 +228,13 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
     Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
     """
     lattice_matrix = bs.structure.lattice.reciprocal_lattice.matrix
+
     def to_cart(k):
         """
         convert fractional k-points to cartesian coordinates in (1/nm) units
         """
-        return np.dot(lattice_matrix, k)*10.
+        return np.dot(lattice_matrix, k) * 10.
+
     Ecut = Ecut or 10 * k_B * 300
     if not isinstance(Ecut, dict):
         Ecut = {'n': Ecut, 'p': Ecut}
@@ -246,26 +258,27 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
                                         ibands=[vbm_idx + 1 - nbelow_vbm,
                                                 cbm_idx + 1 + nabove_cbm])
 
-    for ip, tp in enumerate(["p", "n"]): # hence iband == 0 or 1
-        if method=="boltztrap1":
+    for ip, tp in enumerate(["p", "n"]):  # hence iband == 0 or 1
+        if method == "boltztrap1":
             iband = ip
         else:
-            iband = ip*(cbm_idx+nabove_cbm) + (1-ip)*(vbm_idx-nbelow_vbm) + 1
-        band , _, _ = interpolate_bs(hs_kpoints, interp_params, iband=iband,
-                                      method=method, scissor=scissor,
-                                      matrix=bs.structure.lattice.matrix,
-                                      n_jobs=n_jobs, sgn=(-1)**ip)
-        global_ext_idx = (1-iband) * np.argmax(band) + iband * np.argmin(band)
+            iband = ip * (cbm_idx + nabove_cbm) + (1 - ip) * (
+                    vbm_idx - nbelow_vbm) + 1
+        band, _, _ = interpolate_bs(hs_kpoints, interp_params, iband=iband,
+                                    method=method, scissor=scissor,
+                                    matrix=bs.structure.lattice.matrix,
+                                    n_jobs=n_jobs, sgn=(-1) ** ip)
+        global_ext_idx = (1 - iband) * np.argmax(band) + iband * np.argmin(band)
         if eref is None:
             global_extrema[tp]['energy'] = band[global_ext_idx]
             global_extrema[tp]['kpoint'] = hs_kpoints[global_ext_idx]
         extrema_idx = detect_peaks(band, mph=None, mpd=1,
-                               valley=ip==1)
+                                   valley=ip == 1)
 
         # making sure CBM & VBM are always included regardless of min_normdiff
         extrema_energies = [band[i] for i in extrema_idx]
         sorted_idx = np.argsort(extrema_energies)
-        if tp=='p':
+        if tp == 'p':
             sorted_idx = sorted_idx[::-1]
         extrema_idx = extrema_idx[sorted_idx]
 
@@ -277,10 +290,12 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
                 for kp in extrema_init:
                     kp = np.array(kp)
                     if norm(to_cart(get_closest_k(k_localext,
-                                          np.vstack(
-                                              (bs.get_sym_eq_kpoints(-kp),
-                                               bs.get_sym_eq_kpoints(kp))),
-                                          return_diff=True))) <= min_normdiff:
+                                                  np.vstack(
+                                                      (bs.get_sym_eq_kpoints(
+                                                          -kp),
+                                                       bs.get_sym_eq_kpoints(
+                                                           kp))),
+                                                  return_diff=True))) <= min_normdiff:
                         far_enough = False
                 if far_enough:
                     extrema_init.append(k_localext)
@@ -293,17 +308,18 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
                                            bs.get_sym_eq_kpoints(kp))))
         for k_ext_found in extrema_init:
             kp = get_closest_k(k_ext_found, all_hisymks, return_diff=False)
-            if norm(to_cart(kp - k_ext_found)) < min_normdiff/10.0:
+            if norm(to_cart(kp - k_ext_found)) < min_normdiff / 10.0:
                 final_extrema[tp].append(kp)
             else:
                 final_extrema[tp].append(k_ext_found)
         # sort the extrema based on their energy (i.e. importance)
-        subband, _, _ = interpolate_bs(final_extrema[tp], interp_params, iband=iband,
-                                    method=method, scissor=scissor,
-                                    matrix=bs.structure.lattice.matrix,
-                                    n_jobs=n_jobs, sgn=(-1) ** ip)
+        subband, _, _ = interpolate_bs(final_extrema[tp], interp_params,
+                                       iband=iband,
+                                       method=method, scissor=scissor,
+                                       matrix=bs.structure.lattice.matrix,
+                                       n_jobs=n_jobs, sgn=(-1) ** ip)
         sorted_idx = np.argsort(subband)
-        if iband==0:
+        if iband == 0:
             sorted_idx = sorted_idx[::-1]
         final_extrema[tp] = [final_extrema[tp][i] for i in sorted_idx]
 

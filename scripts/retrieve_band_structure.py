@@ -2,9 +2,9 @@ import numpy as np
 import os
 from time import time
 from amset.utils.constants import comp_to_dirname
-from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
 from matminer import PlotlyFig
 from BoltzTraP2 import sphere, fite
+from pymatgen.electronic_structure.boltztrap2 import VasprunLoader
 from pymatgen.io.vasp import Vasprun
 from amset.utils.band_interpolation import get_energy_args, interpolate_bs
 from amset.utils.band_structure import get_bindex_bspin
@@ -54,7 +54,7 @@ def retrieve_bs_boltztrap1(coeff_file, bs, ibands, matrix=None):
 def retrieve_bs_boltztrap2(vrun, bs, ibands, matrix=None):
     pf = PlotlyFig(filename='Energy-bt2')
     sym_line_kpoints = [k.frac_coords for k in bs.kpoints]
-    bz_data = PymatgenLoader(vrun)
+    bz_data = VasprunLoader(vrun_obj=vrun)
     equivalences = sphere.get_equivalences(atoms=bz_data.atoms, nkpt=len(bz_data.kpoints) * 5, magmom=None)
     lattvec = bz_data.get_lattvec()
     coeffs = fite.fitde3D(bz_data, equivalences)
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     vrun = vruns[COMPOUND]
     cube_path = coeff_files[COMPOUND]
 
-    # bs = vrun.get_band_structure(
+    # band_structure = vrun.get_band_structure(
     #     kpoints_filename=os.path.join(test_dir, kpoints_path), line_mode=True)
     bs = vrun.get_band_structure()
 

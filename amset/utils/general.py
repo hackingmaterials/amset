@@ -24,35 +24,6 @@ class AmsetError(Exception):
         return "AmsetError : " + self.msg
 
 
-def setup_custom_logger(name, filepath, filename, level=None):
-    """
-    Custom logger with both screen and file handlers. This is particularly
-    useful if there are other programs (e.g. BoltzTraP2) that call on logging
-    in which case the log results and their levels are distict and clear.
-
-    Args:
-        name (str): logger name to distinguish between different codes.
-        filepath (str): path to the folder where the logfile is meant to be
-        filename (str): log file filename
-        level (int): log level in logging package; example: logging.DEBUG
-
-    Returns: a logging instance with customized formatter and handlers
-    """
-    importlib.reload(logging)
-    level = level or logging.DEBUG
-    logger = logging.getLogger(name)
-    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
-    handler = logging.FileHandler(os.path.join(filepath, filename), mode='w')
-    handler.setFormatter(formatter)
-    screen_handler = logging.StreamHandler(stream=sys.stdout)
-    screen_handler.setFormatter(formatter)
-    logger.setLevel(level)
-    logger.addHandler(screen_handler)
-    logger.addHandler(handler)
-    return logger
-
-
 def remove_from_grid(grid, grid_rm_list):
     """
     Deletes dictionaries storing properties that are no longer needed from
@@ -132,3 +103,21 @@ def sort_angles(vecs):
     vecs.extend(sorted_vecs)
     indexes.extend(final_idx)
     return np.array(vecs), indexes
+
+
+def get_tp(doping_concentration):
+    """Get the doping type.
+
+    Args:
+        doping_concentration: The carrier concentration.
+
+    Returns:
+        (str): "n" for n-type doping (i.e. doping_concentration < 0) and
+        "p" for p-type doping (doping_concentration > 0).
+    """
+    if doping_concentration < 0:
+        return "n"
+    elif doping_concentration > 0:
+        return "p"
+    else:
+        raise ValueError("The carrier concentration cannot be zero.")

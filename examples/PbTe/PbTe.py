@@ -20,13 +20,14 @@ if __name__ == "__main__":
     PbTe_dir = os.path.join("..", "..", "test_files", "PbTe_mp-19717")
     coeff_file = os.path.join(PbTe_dir, "fort.123")
 
-    amset = Amset(calc_dir='.',
-                  vasprun_file=os.path.join(PbTe_dir, "vasprun.xml"),
-                  material_params=material_params,
-                  model_params = model_params,
-                  performance_params={"max_nbands": 1, "max_nvalleys": 1},
-                  dopings= [1e19],
-                  temperatures=[300, 600])
+    amset = Amset.from_vasprun(
+        os.path.join(PbTe_dir, "vasprun.xml"),
+        material_params=material_params,
+        calc_dir='.',
+        model_params=model_params,
+        performance_params={"max_nbands": 1, "max_nvalleys": 1},
+        dopings=[1e19],
+        temperatures=[300, 600])
 
     # running Amset
     amset.run_profiled(coeff_file=coeff_file, kgrid_tp="coarse")
@@ -38,4 +39,4 @@ if __name__ == "__main__":
                show_interactive=True,
                carrier_types=amset.all_types)
     amset.to_file()
-    amset.to_json(kgrid=True, trimmed=True, max_ndata=50, n0=0)
+    amset.grids_to_json(kgrid=True, trimmed=True, max_ndata=50, n0=0)
