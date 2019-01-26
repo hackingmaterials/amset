@@ -39,4 +39,4 @@ if __name__ == "__main__":
                show_interactive=True,
                carrier_types=amset.all_types)
     amset.to_file()
-    amset.to_json(kgrid=True, trimmed=True, max_ndata=50, n0=0)
+    amset.grids_to_json(kgrid=True, trimmed=True, max_ndata=50, n0=0)

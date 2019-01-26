@@ -58,7 +58,7 @@ class AmsetTest(unittest.TestCase):
             model_params=model_params,
             performance_params=self.performance_params,
             dopings=[c], temperatures=temperatures, integration='k',
-            loglevel=LOGLEVEL)
+            log_level=LOGLEVEL)
         amset.run(os.path.join(self.GaAs_dir, 'fort.123'), kgrid_tp='coarse')
 
         # check fermi level
@@ -101,7 +101,7 @@ class AmsetTest(unittest.TestCase):
             model_params=self.model_params,
             performance_params=performance_params,
             dopings=[-2e15], temperatures=[300], integration='e',
-            loglevel=LOGLEVEL)
+            log_level=LOGLEVEL)
         amset.run(os.path.join(self.GaAs_dir, 'fort.123'),
                   kgrid_tp='very coarse')
         kgrid = amset.kgrid
@@ -128,7 +128,7 @@ class AmsetTest(unittest.TestCase):
         amset.as_dict()
         amset.to_file(dir_name='run_data')
         amset.to_csv()
-        amset.to_json()
+        amset.grids_to_json()
 
         # deserialization test:
         amset.from_file(path=os.path.join(amset.calc_dir, 'run_data'))
@@ -151,7 +151,7 @@ class AmsetTest(unittest.TestCase):
                           'inelastic_scats': ['POP']},
             performance_params=self.performance_params,
             dopings=[-2e15], temperatures=[300], integration='e',
-            loglevel=LOGLEVEL)
+            log_level=LOGLEVEL)
         amset.run(os.path.join(self.GaAs_dir, 'fort.123'), kgrid_tp='coarse')
 
         # check mobility values
@@ -184,7 +184,7 @@ class AmsetTest(unittest.TestCase):
             model_params=self.model_params,
             performance_params=performance_params,
             dopings=[-3e13], temperatures=[300], integration='k',
-            loglevel=LOGLEVEL)
+            log_level=LOGLEVEL)
         amset.run(os.path.join(self.GaAs_dir, 'fort.123'),
                   kgrid_tp='very coarse')
         mobility = amset.mobility
@@ -217,7 +217,7 @@ class AmsetTest(unittest.TestCase):
             model_params=self.model_params,
             performance_params=self.performance_params,
             dopings=[-2e15], temperatures=[300], integration='e',
-            loglevel=LOGLEVEL)
+            log_level=LOGLEVEL)
         amset.run(os.path.join(self.InP_dir, 'fort.123'),
                   kgrid_tp='very coarse')
 

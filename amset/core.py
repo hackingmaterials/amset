@@ -2,10 +2,14 @@
 from __future__ import absolute_import
 import cProfile
 import json
+from itertools import count
+
 import numpy as np
 import os
 import time
 import warnings
+
+from os.path import join as path_join
 
 from amset.logging import LoggableMixin
 from amset.utils.analytical_band_from_bzt1 import Analytical_bands
@@ -36,7 +40,7 @@ from amset.valley import Valley
 from collections import OrderedDict
 from copy import deepcopy
 from math import log, pi
-from monty.json import MontyEncoder
+from monty.json import MontyEncoder, MSONable, MontyDecoder, getargspec
 from monty.serialization import dumpfn, loadfn
 from multiprocessing import cpu_count
 from pprint import pformat
@@ -60,10 +64,12 @@ __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 __status__ = "Development"
 
-doping_names = {"n": "conduction band(s)", "p": "valence band(s)"}
+_doping_names = {"n": "conduction band(s)", "p": "valence band(s)"}
+_inst_args = ['kgrid0', 'egrid0', 'kgrid_tp', 'cbm_vbm', 'mobility',
+                  'seebeck', 'elastic_scats', 'inelastic_scats', 'Efrequency0']
 
 
-class Amset(LoggableMixin):
+class Amset(MSONable, LoggableMixin):
     """ Runs Amset on a pymatgen from a VASP run (i.e. vasprun.xml). Amset is
     an ab initio model for calculating the mobility and Seebeck coefficient
     using Bolƒtzmann transport equation (BTE). The band structure in the
@@ -199,22 +205,22 @@ class Amset(LoggableMixin):
 
             Amset.to_csv(): transport properties at different c&T
             Amset.as_dict(): most commonly used attributes as python dictionary
-            Amset.to_json(): details of relaxation time, scattering rates, group
-                velocities, etc in both kgrid and egrid
+            Amset.grids_to_json(): details of relaxation time, scattering rates,
+                group velocities, etc in both kgrid and egrid
             Amset.to_file(): writes everything to a json file to be used again
                 later (via Amset.from_file() e.g. for plotting). to_file is
-                more complete than to_json and is readable by from_file
+                more complete than grids_to_json and is readable by from_file
             Amset.plot(): convenience function to plot the mobilities, energy,
                 perturbation function, scattering rates, etc.
      """
 
-    def __init__(self, band_structure, num_electrons, projected_eigenvalues,
-                 material_params, calc_dir=None,
+    def __init__(self, band_structure, num_electrons, material_params, calc_dir=None,
                  model_params=None, performance_params=None,
                  dopings=None, temperatures=None, integration='e', logger=True,
                  log_level=None, timeout_hours=48):
 
         self._logger = self.get_logger(logger, level=log_level)
+        self._log_level = log_level
 
         if integration != 'e':
             self.log_raise(ValueError, 'Only "e" integration supported.')
@@ -223,15 +229,22 @@ class Amset(LoggableMixin):
             self.log_raise(ValueError, 'Band structure is metallic. This is not'
                                        'supported by AMSET.')
 
-        self.bs = band_structure
-        self.nbands = self.bs.nb_bands
-        self.nelec = num_electrons
-        self.projected_eigenvalues = projected_eigenvalues
+        self.band_structure = band_structure
+        self.nbands = self.band_structure.nb_bands
+        self.num_electrons = num_electrons
+
+        # TODO use these rather than set material params etc.
+        # also remove deepcopy
+        self._material_params = deepcopy(material_params)
+        self._model_params = deepcopy(model_params)
+        self._performance_params = deepcopy(performance_params)
+
         self.structure = band_structure.structure
         self.calc_dir = calc_dir if calc_dir else '.'
-        self.dopings = map(int, dopings) if dopings else [-1e20, 1e20]
+        self.dopings = list(map(int, dopings)) if dopings else [-1e20, 1e20]
         self.all_types = list(set([get_tp(c) for c in self.dopings]))
-        self.temps = map(int, temperatures) if temperatures else [300, 600]
+        self.temperatures = list(map(int, temperatures)) if temperatures else \
+            [300, 600]
         self.integration = integration
         self.timeout_hours = timeout_hours * 3600.0
         self.kpoints = [k.frac_coords for k in band_structure.kpoints]
@@ -255,13 +268,10 @@ class Amset(LoggableMixin):
             coeffs = fite.fitde3D(bz2_data, equivalences)
             self.interp_params = (equivalences, lattvec, coeffs)
 
-        # fix projected_eigenvalues
-        self.lorbit = 11 if len(
-            sum(projected_eigenvalues[Spin.up][0][10])) > 5 else 10
-
         cbm = band_structure.get_cbm()
         vbm = band_structure.get_vbm()
-        eigs = np.array([self.bs.bands[s] for s in Spin if s in self.bs.bands])
+        eigs = np.array([self.band_structure.bands[s] for s in Spin
+                         if s in self.band_structure.bands])
         self.dos_emin = np.min(eigs)
         self.dos_emax = np.max(eigs)
 
@@ -312,7 +322,7 @@ class Amset(LoggableMixin):
         self.num_bands = {tp: self.cbm_vbm[tp]["included"] for tp in ['n', 'p']}
         self.kgrid_tp = None
         self.seebeck = {'n': None, 'p': None}
-        self.start_time = time.time()
+        self.start_time = None
 
         self.logger.info('integration: {}'.format(self.integration))
         self.logger.info("number of cpu used (n_jobs): {}".format(self.n_jobs))
@@ -326,16 +336,9 @@ class Amset(LoggableMixin):
         if isinstance(vasprun, str):
             vasprun = Vasprun(vasprun, parse_projected_eigen=True)
 
-        projected_eigenvalues = vasprun.projected_eigenvalues
         band_structure = vasprun.get_band_structure()
-
-        lorbit = 11 if len(
-            sum(projected_eigenvalues[Spin.up][0][10])) > 5 else 10
-        # handle projections
         num_electrons = vasprun.parameters['NELECT']
-
-        return Amset(band_structure, num_electrons, projected_eigenvalues,
-                     material_params, **kwargs)
+        return Amset(band_structure, num_electrons, material_params, **kwargs)
 
     def run_profiled(self, coeff_file=None, kgrid_tp="coarse", nfuncs=15):
         """
@@ -355,9 +358,9 @@ class Amset(LoggableMixin):
 
     def _check_timeout_hours(self):
         if time.time() - self.start_time > self.timeout_hours:
-            raise AmsetError(self.logger, 'The calculations exceeded the '
-                                          'timeout_hours of {:.4f} hours'.format(
-                self.timeout_hours / 3600.0))
+            self.log_raise(RuntimeError,
+                           'The calculations exceeded the timeout_hours of '
+                           '{:.4f} hours'.format(self.timeout_hours / 3600.0))
 
     def run(self, coeff_file=None, kgrid_tp="coarse"):
         """
@@ -375,6 +378,8 @@ class Amset(LoggableMixin):
         Returns (None):
             many instance variables get updated with calculated properties.
         """
+        self.start_time = time.time()
+
         self.logger.info('Running Amset on {}'.format(
             self.structure.composition.reduced_formula))
         self.kgrid_tp = kgrid_tp
@@ -429,11 +434,11 @@ class Amset(LoggableMixin):
                                   num_bands=self.init_nbands,
                                   nbelow_vbm=0,
                                   nabove_cbm=0)
-            self.fermi_level = {c: {T: None for T in self.temps} \
+            self.fermi_level = {c: {T: None for T in self.temperatures} \
                                 for c in self.dopings}
 
             for c in self.dopings:
-                for T in self.temps:
+                for T in self.temperatures:
                     self.fermi_level[c][T] = self.find_fermi(c, T)
         self.logger.info('fermi level = {}'.format(self.fermi_level))
         self.logger.info(
@@ -467,10 +472,10 @@ class Amset(LoggableMixin):
         self.logger.debug(self.count_mobility)
 
         self.denominator = {
-            c: {T: {'p': 0.0, 'n': 0.0} for T in self.temps} for c in
+            c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in
             self.dopings}
         self.seeb_denom = {
-            c: {T: {'p': 0.0, 'n': 0.0} for T in self.temps} for c in
+            c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in
             self.dopings}
 
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(
@@ -513,7 +518,7 @@ class Amset(LoggableMixin):
                         # different valleys but among symmetrically
                         # equivalent k-points of the same valley so the
                         # cutoff would make sense
-                        for k in self.bs.get_sym_eq_kpoints(
+                        for k in self.band_structure.get_sym_eq_kpoints(
                                 important_points[tp][0], cartesian=False):
                             kdiff = get_closest_k(
                                 k, self.all_important_pts[tp], return_diff=True,
@@ -627,7 +632,7 @@ class Amset(LoggableMixin):
                 self.map_to_egrid(prop_name="relaxation time")
 
                 for c in self.dopings:
-                    for T in self.temps:
+                    for T in self.temperatures:
                         seeb_integ = \
                             self.egrid["Seebeck_integral_numerator"][c][T][tp] / \
                             self.egrid["Seebeck_integral_denominator"][c][T][tp]
@@ -713,14 +718,14 @@ class Amset(LoggableMixin):
 
                 self.logger.info('Mobility Labels: {}'.format(self.mo_labels))
                 for tp in ['p', 'n']:
-                    valley_ndegen = self.bs.get_kpoint_degeneracy(
+                    valley_ndegen = self.band_structure.get_kpoint_degeneracy(
                         important_points[tp][0])
                     self.logger.debug(
                         'valley_ndegen = {} for {}'.format(valley_ndegen,
                                                            important_points[tp][
                                                                0]))
                     for c in self.dopings:
-                        for T in self.temps:
+                        for T in self.temperatures:
                             self.kgrid[tp]["relaxation time"][c][T][ib] = \
                                 1 / (self.kgrid[tp]["_all_elastic"][c][T][ib] \
                                      + self.kgrid[tp]["S_o"][c][T][ib] \
@@ -780,7 +785,7 @@ class Amset(LoggableMixin):
                                     k[i] = round(k[i], 2)
                             # TODO: here the numerator of band/valleys is initiated by w/o valley_ndegen which results
                             # in valleys.json mobility values being lower; write a function that goes over all values of
-                            # valley transport and multiplies them by valley_ndegen = self.bs.get_kpoint_degeneracy(k)
+                            # valley transport and multiplies them by valley_ndegen = self.band_structure.get_kpoint_degeneracy(k)
                             self.valleys[tp]['band {}'.format(self.ibrun)][
                                 '{};{};{}'.format(k[0], k[1], k[2])] = \
                                 valley_transport[tp]
@@ -796,7 +801,7 @@ class Amset(LoggableMixin):
 
         for tp in ['p', 'n']:
             for c in self.dopings:
-                for T in self.temps:
+                for T in self.temperatures:
                     for mu in self.mo_labels + ["J_th"]:
                         self.mobility[tp][mu][c][T] /= self.denominator[c][T][
                             tp]
@@ -813,12 +818,12 @@ class Amset(LoggableMixin):
 
         # finalize Seebeck values:
         sigma = {
-            tp: {c: {T: 0.0 for T in self.temps} for c in self.dopings}
+            tp: {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
             for
             tp in ['p', 'n']}
         for tp in ['p', 'n']:
             for c in self.dopings:
-                for T in self.temps:
+                for T in self.temperatures:
                     self.logger.debug(
                         '3 terms of {0}-type seebeck at c={1:.2e}, T={2}'.format(
                             tp, c, T))
@@ -883,13 +888,13 @@ class Amset(LoggableMixin):
         if not coeff_file and self.interpolation == "boltztrap1":
             self.logger.warning(
                 '\nRunning BoltzTraP to generate the cube file...')
-            boltztrap_runner = BoltztrapRunner(bs=self.bs,
-                                               nelec=self.nelec,
+            boltztrap_runner = BoltztrapRunner(bs=self.band_structure,
+                                               nelec=self.num_electrons,
                                                run_type='BANDS',
                                                doping=[1e20],
                                                tgrid=300,
                                                tmax=max(
-                                                   self.temps + [300]),
+                                                   self.temperatures + [300]),
                                                )  # do NOT set scissor in runner
             boltztrap_runner.run(path_dir=self.calc_dir)
             coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
@@ -914,12 +919,12 @@ class Amset(LoggableMixin):
                                                                     "J_th"]
         self.mobility = {
             tp: {el_mech: {c: {T: np.array([0., 0., 0.], dtype='float') \
-                               for T in self.temps} \
+                               for T in self.temperatures} \
                            for c in self.dopings} \
                  for el_mech in self.transport_labels} \
             for tp in ["n", "p"]}
         self.calc_doping = {c: {T: {'n': None, 'p': None} \
-                                for T in self.temps} \
+                                for T in self.temperatures} \
                             for c in self.dopings}
         self.ibrun = 0  # counter of the ibands_tuple (band-valley walker)
         self.count_mobility = [{'n': True, 'p': True} \
@@ -937,7 +942,7 @@ class Amset(LoggableMixin):
         """
         for tp in ['p', 'n']:
             for c in self.dopings:
-                for T in self.temps:
+                for T in self.temperatures:
                     fermi = self.fermi_level[c][T]
 
                     # TODO: note that now I only calculate one mobility, define a relative energy term for both n- and p-SPB later
@@ -976,7 +981,7 @@ class Amset(LoggableMixin):
         self.dv_grid = {}
         kpts = {}
         if self.integration == 'e':
-            kpts = generate_adaptive_kmesh(self.bs, important_points, kgrid_tp)
+            kpts = generate_adaptive_kmesh(self.band_structure, important_points, kgrid_tp)
         for tp in ['n', 'p']:
             points_1d = generate_k_mesh_axes(important_points[tp], kgrid_tp,
                                              one_list=True)
@@ -1031,7 +1036,7 @@ class Amset(LoggableMixin):
                 for valley in range(len(self.parabolic_bands0[ib])):
                     self.parabolic_bands[ib][valley][
                         0] = remove_duplicate_kpoints(
-                        self.bs.get_sym_eq_kpoints(
+                        self.band_structure.get_sym_eq_kpoints(
                             self.parabolic_bands0[ib][valley][0],
                             cartesian=True))
 
@@ -1119,7 +1124,7 @@ class Amset(LoggableMixin):
                 for valley in range(len(self.parabolic_bands0[ib])):
                     self.parabolic_bands[ib][valley][
                         0] = remove_duplicate_kpoints(
-                        self.bs.get_sym_eq_kpoints(
+                        self.band_structure.get_sym_eq_kpoints(
                             self.parabolic_bands0[ib][valley][0],
                             cartesian=True))
 
@@ -1209,10 +1214,10 @@ class Amset(LoggableMixin):
                         width=self.dos_bwidth,
                         scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
                     self.logger.debug("dos_nbands: {} \n".format(dos_nbands))
-                    self.dos_start = min(self.bs.as_dict()["bands"]["1"][bmin]) \
+                    self.dos_start = min(self.band_structure.as_dict()["bands"]["1"][bmin]) \
                                      + self.offset_from_vrun['p']
                     self.dos_end = max(
-                        self.bs.as_dict()["bands"]["1"][bmin + dos_nbands]) \
+                        self.band_structure.as_dict()["bands"]["1"][bmin + dos_nbands]) \
                                    + self.offset_from_vrun['n']
                 elif self.interpolation == "boltztrap2":
                     emesh, dos, dos_nbands = get_dos_boltztrap2(
@@ -1282,7 +1287,7 @@ class Amset(LoggableMixin):
     def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0,
                                   interpolation="boltztrap1", **kwargs):
         """
-        As the name suggests, given some pre-populated variables such as bs and
+        As the name suggests, given some pre-populated variables such as band_structure and
         cbm_vbm and the rest of input args, it calculates the k-coordinates of
         the band structure extrema (valence band maxima or conduction band
         minima) at the specified bands which are the "important" points. Note
@@ -1313,7 +1318,7 @@ class Amset(LoggableMixin):
                 eref = {typ: self.cbm_vbm[typ]['energy'] for typ in ['p', 'n']}
             else:
                 eref = None
-            self.important_pts, new_cbm_vbm = get_bs_extrema(self.bs,
+            self.important_pts, new_cbm_vbm = get_bs_extrema(self.band_structure,
                                                              coeff_file,
                                                              interp_params=self.interp_params,
                                                              method=interpolation,
@@ -1485,7 +1490,7 @@ class Amset(LoggableMixin):
         c_factor = max(1., max(
             [log(abs(ci) / 1e19) for ci in self.dopings] + [1.]) ** 0.5)
         Ecut = params.get("Ecut",
-                          c_factor * 5 * k_B * max(self.temps + [600]))
+                          c_factor * 5 * k_B * max(self.temperatures + [600]))
         self.max_Ecut = params.get("Ecut",
                                    1.5)  # TODO-AF: set this default Encut based on maximum energy range that the current BS covers between
         Ecut = min(Ecut, self.max_Ecut)
@@ -1632,12 +1637,12 @@ class Amset(LoggableMixin):
             for tp in ["n", "p"]:
                 self.egrid[tp][prop_name] = \
                     {c: {T: [self.gs] * len(self.egrid[tp]["energy"]) \
-                         for T in self.temps} for c in self.dopings}
+                         for T in self.temperatures} for c in self.dopings}
         else:
-            self.egrid[prop_name] = {c: {T: self.gs for T in self.temps
+            self.egrid[prop_name] = {c: {T: self.gs for T in self.temperatures
                                          } for c in self.dopings}
         for c in self.dopings:
-            for T in self.temps:
+            for T in self.temperatures:
                 if for_all_E:
                     fermi = self.fermi_level[c][T]
                     for tp in ["n", "p"]:
@@ -1707,7 +1712,7 @@ class Amset(LoggableMixin):
             while i < len(self.egrid[tp]["all_en_flat"]) - 1:
                 sum_E = self.egrid[tp]["all_en_flat"][i]
                 sum_nksym = len(remove_duplicate_kpoints(
-                    self.bs.get_sym_eq_kpoints(
+                    self.band_structure.get_sym_eq_kpoints(
                         self.egrid[tp]["all_ks_flat"][i])))
                 counter = 1.0  # because the ith member is already included in sum_E
                 current_ib_ie_idx = [E_idx[tp][i]]
@@ -1719,7 +1724,7 @@ class Amset(LoggableMixin):
                     current_ib_ie_idx.append(E_idx[tp][j + 1])
                     sum_E += self.egrid[tp]["all_en_flat"][j + 1]
                     sum_nksym += len(remove_duplicate_kpoints(
-                        self.bs.get_sym_eq_kpoints(
+                        self.band_structure.get_sym_eq_kpoints(
                             self.egrid[tp]["all_ks_flat"][i + 1])))
 
                     if j + 1 == len(self.egrid[tp]["all_en_flat"]) - 1:
@@ -1764,7 +1769,7 @@ class Amset(LoggableMixin):
             return corrupt_tps
         for tp in ['n', 'p']:
             self.egrid[tp]["relaxation time constant"] = {
-                c: {T: 0.0 for T in self.temps} for c in self.dopings}
+                c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
 
         self.calculate_property(prop_name="f0", prop_func=f0, for_all_E=True)
         self.calculate_property(prop_name="f", prop_func=f0, for_all_E=True)
@@ -1783,7 +1788,7 @@ class Amset(LoggableMixin):
                                                                              T)),
                                 for_all_E=True)
         for c in self.dopings:
-            for T in self.temps:
+            for T in self.temperatures:
                 fermi = self.fermi_level[c][T]
                 for tp in ["n", "p"]:
                     for ib in range(len(self.kgrid[tp]["energy"])):
@@ -1900,7 +1905,7 @@ class Amset(LoggableMixin):
                     else:
                         self[grid][tp][name] = {
                             c: {T: np.array(init_content) for T in
-                                self.temps} for c in
+                                self.temperatures} for c in
                             self.dopings}
                 else:
                     # TODO: if not is_nparray both temperature values will be equal probably because both are equal to init_content that are a list and FOREVER they will change together. Keep is_nparray as True as it makes a copy, otherwise you are doomed! See if you can fix this later
@@ -1912,7 +1917,7 @@ class Amset(LoggableMixin):
                             self[grid][tp][name] = init_content
                         else:
                             self[grid][tp][name] = {
-                                c: {T: init_content for T in self.temps}
+                                c: {T: init_content for T in self.temperatures}
                                 for
                                 c in
                                 self.dopings}
@@ -1984,8 +1989,8 @@ class Amset(LoggableMixin):
             self.cbm_vbm[tp]["cartesian k"] = self.get_cartesian_coords(
                 self.cbm_vbm[tp]["kpoint"]) / A_to_nm
             self.cbm_vbm[tp]["all cartesian k"] = remove_duplicate_kpoints(
-                self.bs.get_sym_eq_kpoints(self.cbm_vbm[tp]["cartesian k"],
-                                           cartesian=True))
+                self.band_structure.get_sym_eq_kpoints(self.cbm_vbm[tp]["cartesian k"],
+                                                       cartesian=True))
             sgn = (-1) ** i
             for ib in range(self.cbm_vbm[tp]["included"]):
                 for ik, k in enumerate(self.kgrid[tp]['kpoints'][ib]):
@@ -1994,10 +1999,8 @@ class Amset(LoggableMixin):
                             self.kgrid[tp]["kpoints"][ib][ik]) / A_to_nm
 
                 s_orbital, p_orbital = get_dft_orbitals(
-                    projected_eigenvalues=self.projected_eigenvalues,
-                    num_kpoints=len(self.kpoints),
-                    bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib,
-                    lorbit=self.lorbit)
+                    band_structure=self.band_structure,
+                    bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib)
                 orbitals = {"s": s_orbital, "p": p_orbital}
                 fit_orbs = {
                     orb: griddata(points=np.array(self.cartesian_kpoints),
@@ -2028,7 +2031,7 @@ class Amset(LoggableMixin):
                 # compare to a for-loop this map reduce time and memory usage:
                 self.kgrid[tp]["cartesian kpoints"][ib] = list(
                     map(lambda k: self.get_cartesian_coords(get_closest_k(
-                        k, self.bs.get_sym_eq_kpoints(important_points[tp][0]),
+                        k, self.band_structure.get_sym_eq_kpoints(important_points[tp][0]),
                         return_diff=True)) / A_to_nm,
                         self.kgrid[tp]["kpoints"][ib]))
 
@@ -2150,7 +2153,7 @@ class Amset(LoggableMixin):
                 self.kgrid[tp]["W_POP"][ib] = \
                     [self.W_POP] * len(self.kgrid[tp]["kpoints"][ib])
                 for c in self.dopings:
-                    for T in self.temps:
+                    for T in self.temperatures:
                         self.kgrid[tp]["N_POP"][c][T][ib] = np.array(
                             [1 / (np.exp(hbar * W_POP / (k_B * T)) - 1) for
                              W_POP in self.kgrid[tp]["W_POP"][ib]])
@@ -2217,7 +2220,7 @@ class Amset(LoggableMixin):
                 if enforced_ratio > 0.9:
                     warnings.warn(
                         "the k-grid is too coarse for an acceptable simulation of elastic scattering in {};"
-                            .format(doping_names[tp]))
+                            .format(_doping_names[tp]))
 
                 avg_Ediff = sum(self.ediff_scat[tp]) / max(
                     len(self.ediff_scat[tp]), 1)
@@ -2269,7 +2272,7 @@ class Amset(LoggableMixin):
                         warnings.warn(
                             "the k-grid is too coarse for an acceptable simulation of POP scattering in {};"
                             " you can try this k-point grid but without POP as an inelastic scattering.".format(
-                                doping_names[tp]))
+                                _doping_names[tp]))
 
                     avg_Ediff = sum(self.ediff_scat[tp]) / max(
                         len(self.ediff_scat[tp]), 1)
@@ -2832,7 +2835,7 @@ class Amset(LoggableMixin):
         """
         for tp in ["n", "p"]:
             for c in self.dopings:
-                for T in self.temps:
+                for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["kpoints"])):
                         results = [calculate_Sio(tp, c, T, ib, ik,
                                                  once_called, self.kgrid,
@@ -2878,7 +2881,7 @@ class Amset(LoggableMixin):
         """
         for tp in ["n", "p"]:
             for c in self.dopings:
-                for T in self.temps:
+                for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["energy"])):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             summation = np.array([0.0, 0.0, 0.0])
@@ -2982,7 +2985,7 @@ class Amset(LoggableMixin):
 
         for tp in ["n", "p"]:
             for c in self.dopings:
-                for T in self.temps:
+                for T in self.temperatures:
                     valley = Valley(
                         self.kgrid[tp]["cartesian kpoints"][0],
                         self.kgrid[tp]['norm(k)'][0],
@@ -3049,7 +3052,7 @@ class Amset(LoggableMixin):
                                 is_nparray=True, c_T_idx=True)
             for tp in ["n", "p"]:
                 for c in self.dopings:
-                    for T in self.temps:
+                    for T in self.temperatures:
                         for ie, en in enumerate(self.egrid[tp]["energy"]):
                             for ib, ik in self.kgrid_to_egrid_idx[tp][ie]:
                                 self.egrid[tp][prop_name][c][T][ie] += \
@@ -3196,7 +3199,7 @@ class Amset(LoggableMixin):
                         self.s_inelastic(sname="S_i" + g_suffix,
                                          g_suffix=g_suffix)
             for c in self.dopings:
-                for T in self.temps:
+                for T in self.temperatures:
                     for tp in ["n", "p"]:
                         g_old = np.array(self.kgrid[tp]["g"][c][T][0])
                         for ib in range(self.cbm_vbm[tp]["included"]):
@@ -3274,7 +3277,7 @@ class Amset(LoggableMixin):
 
         for tp in ["n", "p"]:
             for c in self.dopings:
-                for T in self.temps:
+                for T in self.temperatures:
                     for ie in range(len(self.egrid[tp]["g_POP"][c][T])):
                         if norm(self.egrid[tp]["g_POP"][c][T][ie]) > 1:
                             self.egrid[tp]["g_POP"][c][T][ie] = [1e-5, 1e-5,
@@ -3286,7 +3289,7 @@ class Amset(LoggableMixin):
         perturbation of electron distribution and group velocity over the energy
             """
         valley_transport = {tp: {
-            el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temps}
+            el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures}
                       for
                       c in
                       self.dopings} for el_mech in self.transport_labels} for tp
@@ -3294,7 +3297,7 @@ class Amset(LoggableMixin):
             ["n", "p"]}
 
         for c in self.dopings:
-            for T in self.temps:
+            for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
                     # mobility numerators
                     for mu_el in self.elastic_scats:
@@ -3355,114 +3358,87 @@ class Amset(LoggableMixin):
 
         Returns (dict):
         """
-        out_d = {'kgrid0': self.kgrid0,
-                 'egrid0': self.egrid0,
-                 'kgrid_tp': self.kgrid_tp,
-                 'cbm_vbm': self.cbm_vbm,
-                 'mobility': self.mobility,
-                 'seebeck': self.seebeck,
-                 'elastic_scats': self.elastic_scats,
-                 'inelastic_scats': self.inelastic_scats,
-                 'dopings': self.dopings,
-                 'temps': self.temps,
-                 'material_params': self.material_params,
-                 'performance_params': self.performance_params,
-                 'model_params': self.model_params,
-                 'all_types': self.all_types,
-                 'Efrequency0': self.Efrequency0,
-                 }
-        for tp in ['p', 'n']:
-            for mu in out_d['mobility'][tp]:
-                for c in out_d['mobility'][tp][mu]:
-                    for T in out_d['mobility'][tp][mu][c]:
-                        out_d['mobility'][tp][mu][c][T] = \
-                            list(out_d['mobility'][tp][mu][c][T])
-            for c in out_d['seebeck'][tp]:
-                for T in out_d['seebeck'][tp][c]:
-                    out_d['seebeck'][tp][c][T] = list(
-                        out_d['seebeck'][tp][c][T])
-            for key in out_d['cbm_vbm'][tp]:
-                if isinstance(out_d['cbm_vbm'][tp][key], np.ndarray):
-                    out_d['cbm_vbm'][tp][key] = list(out_d['cbm_vbm'][tp][key])
+        out_d = super(Amset, self).as_dict()
+        out_d['logger'] = True  # cannot be converted to JSON
+
+        # TODO: Fix this so that the non-private attributes are not overwritten
+        out_d['performance_params'] = self._performance_params
+        out_d['model_params'] = self._model_params
+        out_d['material_params'] = self._material_params
+
+        for arg in _inst_args:
+            if hasattr(self, arg):
+                out_d[arg] = getattr(self, arg)
+
         return out_d
 
-    def to_file(self, path=None, dir_name='run_data', fname='amsetrun',
-                force_write=True):
-        """
-        Serializes everything calculated into a json file. Readable by the
-        Amset.from_file() method for post-processing (e.g. plotting).
+    @classmethod
+    def from_dict(cls, d):
+        decoded = {k: MontyDecoder().process_decoded(v) for k, v in d.items()
+                   if not k.startswith("@")}
+        amset = cls(**{k: v for k, v in decoded.items() if k not in _inst_args})
 
-        Args:
-            path (str): the full path to the folder where .json file is saved
-            dir_name (str): the folder where .json file is saved
-            fname (str): the json file where data is saved; no .json needed!
-            force_write (bool): whether to overwrite the previous file if it
-                exists. If set to False, a new file with _n suffix is created
-                where n is 1, 2, 3, ....
-
-        Returns (None):
-        """
-        path = os.path.join(path or self.calc_dir, dir_name)
-        if not os.path.exists(path):
-            os.makedirs(name=path)
-        if not force_write:
-            n = 1
-            fname0 = fname
-            while os.path.exists(os.path.join(path, '{}.json'.format(fname))):
-                warnings.warn('The file, {} exists. Amset outputs will be '
-                              'written in {}'.format(fname,
-                                                     fname0 + '_' + str(n)))
-                fname = fname0 + '_' + str(n)
-                n += 1
-        dumpfn(self.as_dict(), os.path.join(path, '{}.json'.format(fname)))
-
-    @staticmethod
-    def from_file(path=None, dir_name="run_data", filename="amsetrun.json"):
-        """
-        Load an Amset instance from a json file written by the Amset.to_file()
-        method. This way, for example, the class attributes such as .mobility
-        can be directly accessed or the plot() method can be called.
-
-        Args:
-            path (str): path to the folder containing the saved json file.
-            dir_name (str): the name of the folder containing the save json
-                file (ignored if path is already set).
-            filename (str): the name of the json file used to save Amset
-                via the Amset.to_file() method.
-
-        Returns (instantiated Amset class): some of the most important (not all)
-            attributes will be populated.
-        """
-        # TODO: add compression (.gz at the end of filename), had some issues implementing it
-        # TODO: make this better, maybe organize these class attributes a bit?
-        if not path:
-            path = os.path.join(os.getcwd(), dir_name)
-        d = loadfn(os.path.join(path, filename))
-        amset = Amset(d['bs'], d['nelec'], d['projection_eigenvalues'],
-                      material_params=d['material_params'],
-                      calc_dir=path,
-                      model_params=d['model_params'],
-                      dopings=d['dopings'],
-                      temperatures=d['temps'])
-        amset.kgrid0 = d['kgrid0']
-        amset.egrid0 = d['egrid0']
-        amset.kgrid_tp = d['kgrid_tp']
-        amset.cbm_vbm = d['cbm_vbm']
-        amset.mobility = d['mobility']
-        amset.seebeck = d['seebeck']
-        amset.elastic_scats = d['elastic_scats']
-        amset.inelastic_scats = d['inelastic_scats']
-        amset.dopings = [float(dope) for dope in d['dopings']]
-        amset.temps = [float(T) for T in d['temps']]
-        amset.material_params = d['material_params']
-        amset.performance_params = d['performance_params']
-        amset.model_params = d['model_params']
-        amset.all_types = list(set([get_tp(c) for c in amset.dopings]))
-        amset.Efrequency0 = d['Efrequency0']
+        for k in _inst_args:
+            if k in decoded:
+                setattr(amset, k, decoded[k])
         return amset
 
-    def to_json(self, kgrid=True, trimmed=False, max_ndata=None, n0=0,
-                valleys=True, path=None, dir_name="run_data"):
+    def to_file(self, filename='amset.json.gz', directory='run_data',
+                overwrite=True):
+        """Serialize the AMSET run to a JSON file.
+
+        Can be loaded by the ``Amset.from_file()`` method for post-processing
+        (e.g. plotting).
+
+        Args:
+            filename (str): The JSON file name.
+            directory (str): The directory in which to save the file.
+                Folders will be created if they do not already exist.
+                The directory should be relative to Amset.calc_dir.
+            overwrite (bool): Whether to overwrite the JSON file if it exists.
+                If set to False, a new file with the suffix '_n' is created,
+                where n is 1, 2, 3, etc.
+
+        Returns:
+            (str): The full path to saved file.
+        """
+        directory = path_join(self.calc_dir, directory)
+
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        filepath = path_join(directory, filename)
+        if not overwrite and os.path.exists(filepath):
+            self.logger.info("{} already exists, refusing to overwrite".format(
+                filepath))
+            pre = filename.split('.')[0]  # filename with no extension
+            suf = ".".join(filename.split('.')[1:])  # file extension
+            # gets the first filename that doesn't exist from an generator
+            file_gen = (path_join(directory, '{}_{}.{}'.format(pre, i, suf))
+                        for i in count())
+            filepath = next(f for f in file_gen if not os.path.exists(f))
+
+        self.logger.info("Writing AMSET data to {}".format(filepath))
+        dumpfn(self, filepath)
+        return filepath
+
+    @staticmethod
+    def from_file(filepath):
+        """Load an AMSET run from a JSON file.
+
+        The AMSET json can file written using the ``Amset.to_file()``
+        method.
+
+        Args:
+            filepath (str): Full path to the AMSET json file.
+
+        Returns:
+            (Amset): An Amset object.
+        """
+        return loadfn(filepath)
+
+    def grids_to_json(self, kgrid=True, trimmed=False, max_ndata=None, n0=0,
+                      valleys=True, path=None, dir_name="run_data"):
         """
         Writes the kgrid and egird to json files
 
@@ -3492,7 +3468,7 @@ class Amset(LoggableMixin):
                         continue
                     try:
                         for c in self.dopings:
-                            for T in self.temps:
+                            for T in self.temperatures:
                                 if tp == "n":
                                     egrid[tp][key][c][T] = \
                                         self.egrid[tp][key][c][T][n0:n0 + nmax]
@@ -3510,9 +3486,10 @@ class Amset(LoggableMixin):
                                                  n0:n0 + nmax]
                         except:
                             if key not in ['mobility']:
-                                self.logger.warning('in to_json: cutting {} '
-                                                    'in egrid failed!'.format(
-                                    key))
+                                self.logger.warning(
+                                    'in grids_to_json: cutting {} '
+                                    'in egrid failed!'.format(
+                                        key))
 
         with open(os.path.join(path, "egrid.json"), 'w') as fp:
             json.dump(egrid, fp, sort_keys=True, indent=4, ensure_ascii=False,
@@ -3531,7 +3508,7 @@ class Amset(LoggableMixin):
                             continue
                         try:
                             for c in self.dopings:
-                                for T in self.temps:
+                                for T in self.temperatures:
                                     if tp == "n":
                                         kgrid[tp][key][c][T] = [
                                             self.kgrid[tp][key][c][T][b][
@@ -3560,7 +3537,7 @@ class Amset(LoggableMixin):
                             except:
                                 if key not in ['mobility']:
                                     self.logger.warning(
-                                        'in to_json: cutting {} '
+                                        'in grids_to_json: cutting {} '
                                         'in kgrid failed!'.format(key))
 
             with open(os.path.join(path, "kgrid.json"), 'w') as fp:
@@ -3600,7 +3577,7 @@ class Amset(LoggableMixin):
             writer.writeheader()
             for c in self.dopings:
                 tp = get_tp(c)
-                for T in self.temps:
+                for T in self.temperatures:
                     row = {'type': tp, 'c(cm-3)': abs(c), 'T(K)': T}
                     for p in ['overall',
                               'average'] + self.elastic_scats + self.inelastic_scats:
@@ -3629,16 +3606,16 @@ class Amset(LoggableMixin):
 
         """
         num_bands = num_bands or self.num_bands
-        closest_energy = {c: {T: None for T in self.temps} for c in
+        closest_energy = {c: {T: None for T in self.temperatures} for c in
                           self.dopings}
         self.f0_array = {c: {T: {tp: list(range(num_bands[tp])) \
                                  for tp in ['n', 'p']} \
-                             for T in self.temps} \
+                             for T in self.temperatures} \
                          for c in self.dopings}
         for c in self.dopings:
             tp = get_tp(c)
             tol = tolerance * abs(c)
-            for T in self.temps:
+            for T in self.temperatures:
                 step = 0.1
                 range_of_energies = np.arange(self.cbm_vbm[tp]['energy'] - 2,
                                               self.cbm_vbm[tp]['energy'] + 2.1,
@@ -3881,11 +3858,11 @@ class Amset(LoggableMixin):
         """
         # calculate mobility by averaging velocity per electric field strength
         mu_num = {tp: {
-            el_mech: {c: {T: [0, 0, 0] for T in self.temps} for c in
+            el_mech: {c: {T: [0, 0, 0] for T in self.temperatures} for c in
                       self.dopings} for el_mech in self.elastic_scats} for tp in
             ["n", "p"]}
         valley_transport = {tp: {
-            el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temps}
+            el_mech: {c: {T: np.array([0., 0., 0.]) for T in self.temperatures}
                       for
                       c in
                       self.dopings} for el_mech in self.transport_labels} for tp
@@ -3893,7 +3870,7 @@ class Amset(LoggableMixin):
             ["n", "p"]}
 
         for c in self.dopings:
-            for T in self.temps:
+            for T in self.temperatures:
                 for j, tp in enumerate(["n", "p"]):
                     E_array = self.array_from_kgrid('energy', tp)
                     if not self.count_mobility[self.ibrun][tp]:
@@ -4089,7 +4066,6 @@ class Amset(LoggableMixin):
 
         return valley_transport
 
-
 # if __name__ == "__main__":
 #
 #     # inputs
@@ -4137,11 +4113,11 @@ class Amset(LoggableMixin):
 #     )
 #     amset.run_profiled(coeff_file, kgrid_tp='very fine')
 
-    # amset.write_input_files()
-    # amset.to_csv()
-    # amset.as_dict()
-    # amset.to_file()
-    # amset.plot(k_plots=['energy'], e_plots='all', mode='offline',
-    #            carrier_types=amset.all_types)
-    #
-    # amset.to_json(kgrid=True, trimmed=True, max_ndata=100, n0=0)
+# amset.write_input_files()
+# amset.to_csv()
+# amset.as_dict()
+# amset.to_file()
+# amset.plot(k_plots=['energy'], e_plots='all', mode='offline',
+#            carrier_types=amset.all_types)
+#
+# amset.grids_to_json(kgrid=True, trimmed=True, max_ndata=100, n0=0)

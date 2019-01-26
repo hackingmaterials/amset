@@ -20,7 +20,7 @@ from pymatgen.io.vasp import Vasprun
 class PymatgenLoader(object):
 
     def __init__(self, band_structure, num_electrons):
-        self.kpoints = [k.frac_coords for k in band_structure.kpoints]
+        self.kpoints = np.array([k.frac_coords for k in band_structure.kpoints])
         self.structure = band_structure.structure
 
         self.atoms = AseAtomsAdaptor.get_atoms(self.structure)
@@ -86,7 +86,7 @@ class BandstructureLoader:
             try:
                 self.structure = pmg_bs_obj.structure
             except:
-                BaseException('No structure found in the bs obj.')
+                BaseException('No structure found in the band_structure obj.')
 
         self.atoms = AseAtomsAdaptor.get_atoms(self.structure)
 
@@ -95,7 +95,7 @@ class BandstructureLoader:
             self.ebands = e * units.eV
             self.dosweight = 2.0
         elif len(pmg_bs_obj.bands) == 2:
-            raise BaseException("spin bs case not implemented")
+            raise BaseException("spin band_structure case not implemented")
 
         self.lattvec = self.atoms.get_cell().T * units.Angstrom
         self.mommat = None
