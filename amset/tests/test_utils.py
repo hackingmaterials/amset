@@ -7,7 +7,7 @@ from amset.utils.band_structure import kpts_to_first_BZ, get_closest_k, \
     remove_duplicate_kpoints, get_bindex_bspin
 from amset.utils.band_interpolation import get_energy_args, interpolate_bs, \
     get_bs_extrema
-from pymatgen.io.vasp import Vasprun
+from pymatgen.io.vasp.outputs import Vasprun
 
 tdir = os.path.join(os.path.dirname(__file__), '..', '..', 'test_files')
 vruns = {c: Vasprun(os.path.join(tdir, comp_to_dirname[c], 'vasprun.xml'))
@@ -19,8 +19,6 @@ CHECK_BOLTZTRAP2 = True
 
 
 class AmsetToolsTest(unittest.TestCase):
-    def setUp(self):
-        pass
 
     def listalmostequal(self, list1, list2, places=3):
         for l1, l2 in zip(list1, list2):
@@ -166,7 +164,7 @@ class AmsetToolsTest(unittest.TestCase):
             bz2_data = PymatgenLoader.from_vasprun(vruns['GaAs'])
             equivalences = sphere.get_equivalences(atoms=bz2_data.atoms,
                                                    nkpt=len(
-                                                       bz2_data.kpoints) * 5,
+                                                       bz2_data.kpoints) * 10,
                                                    magmom=None)
             lattvec = bz2_data.get_lattvec()
             coeffs = fite.fitde3D(bz2_data, equivalences)
