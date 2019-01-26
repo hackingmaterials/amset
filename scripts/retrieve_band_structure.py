@@ -95,7 +95,7 @@ if __name__ == "__main__":
     vrun = vruns[COMPOUND]
     cube_path = coeff_files[COMPOUND]
 
-    # bs = vrun.get_band_structure(
+    # band_structure = vrun.get_band_structure(
     #     kpoints_filename=os.path.join(test_dir, kpoints_path), line_mode=True)
     bs = vrun.get_band_structure()
 

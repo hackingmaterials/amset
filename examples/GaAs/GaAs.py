@@ -48,6 +48,6 @@ if __name__ == "__main__":
     amset.write_input_files()
     amset.to_csv()
     amset.to_file()
-    amset.to_json(kgrid=True, trimmed=True, max_ndata=50, n0=0)
+    amset.grids_to_json(kgrid=True, trimmed=True, max_ndata=50, n0=0)
     amset.plot(k_plots=['energy'], e_plots='all',
                carrier_types=amset.all_types, save_format=None)

@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     interp_params = get_energy_args(coeff_file,
                                     ibands=[vbm_idx + 1, vbm_idx + 2])
-    # bsd['vb0'] = bs.bands[vbm_spin][vbm_idx] - vbm
+    # bsd['vb0'] = band_structure.bands[vbm_spin][vbm_idx] - vbm
     bsd['vb0'], _, _ = interpolate_bs(bsd['kpoints'], interp_params, iband=0,
                                       method="boltztrap1", scissor=0.0,
                                       matrix=vrun.final_structure.lattice.matrix,
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     vbm = max(bsd['vb0'])
     bsd['vb0'] -= vbm
 
-    # bsd['cb0'] = bs.bands[cbm_spin][cbm_idx] - vbm
+    # bsd['cb0'] = band_structure.bands[cbm_spin][cbm_idx] - vbm
     bsd['cb0'], _, _ = interpolate_bs(bsd['kpoints'], interp_params, iband=1,
                                       method="boltztrap1", scissor=0.0,
                                       matrix=vrun.final_structure.lattice.matrix,

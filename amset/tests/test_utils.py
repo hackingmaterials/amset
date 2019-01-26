@@ -166,7 +166,7 @@ class AmsetToolsTest(unittest.TestCase):
             bz2_data = PymatgenLoader.from_vasprun(vruns['GaAs'])
             equivalences = sphere.get_equivalences(atoms=bz2_data.atoms,
                                                    nkpt=len(
-                                                       bz2_data.kpoints) * 10,
+                                                       bz2_data.kpoints) * 5,
                                                    magmom=None)
             lattvec = bz2_data.get_lattvec()
             coeffs = fite.fitde3D(bz2_data, equivalences)

@@ -125,7 +125,7 @@ def insert_intermediate_kpoints(kpts, n=2):
     return new_kpts
 
 
-def get_dft_orbitals(projected_eigenvalues, num_kpoints, bidx, lorbit):
+def get_dft_orbitals(band_structure, bidx):
     """
     The contribution from s and p orbitals at a given band for kpoints
     that were used in the DFT run . This is
@@ -133,26 +133,31 @@ def get_dft_orbitals(projected_eigenvalues, num_kpoints, bidx, lorbit):
     on LORBIT.
 
     Args:
-        projected_eigenvalues (): projected_eigenvalues from vasprun
-        num_kpoints (): number of actual_kpoints from vasprun
+        band_structure (BandStructure): Pymatgen band structure object
+            with projections.
         bidx (idx): band index
-        lorbit (int): the LORBIT flag that was used when vasprun.xml generated
 
     Returns:
         ([float], [float]) two lists: s&p orbital scores at the band # bidx
     """
     # projected indexes : Spin; kidx; bidx; s,py,pz,px,dxy,dyz,dz2,dxz,dx2
-    s_orbital = [0.0] * num_kpoints
-    p_orbital = [0.0] * num_kpoints
-    for ik in range(num_kpoints):
-        s_orbital[ik] = sum(projected_eigenvalues[Spin.up][ik][bidx])[0]
+    s_orbital = [0.0] * len(band_structure.kpoints)
+    p_orbital = [0.0] * len(band_structure.kpoints)
+
+    # TODO: Do we need to transpose? And make compatible with spin polarization
+    projected_eigenvalues = np.transpose(band_structure.projections[Spin.up],
+                                         axes=(1, 0, 2, 3))
+
+    lorbit = 11 if len(sum(projected_eigenvalues[0][10])) > 5 else 10
+    for ik in range(len(band_structure.kpoints)):
+        s_orbital[ik] = sum(projected_eigenvalues[ik][bidx])[0]
         if lorbit == 10:
-            p_orbital[ik] = sum(projected_eigenvalues[Spin.up][ik][bidx])[1]
+            p_orbital[ik] = sum(projected_eigenvalues[ik][bidx])[1]
         elif lorbit == 11:
             p_orbital[ik] = sum(sum(
-                projected_eigenvalues[Spin.up][ik][bidx])[1:4])
+                projected_eigenvalues[ik][bidx])[1:4])
         else:
-            raise AmsetError('Not sure what to do with lorbit={}'.format(lorbit))
+            raise AmsetError('Not sure what to do with band projections')
     return s_orbital, p_orbital
 
 
@@ -166,7 +171,7 @@ def generate_adaptive_kmesh(bs, important_points, kgrid_tp, ibz=True):
     the transport properties.
 
     Args:
-        bs (pymatgen.BandStructure): the bandstructure with bs.structure
+        bs (pymatgen.BandStructure): the bandstructure with band_structure.structure
             present that are used for structural symmetry and getting the
             symmetrically equivalent points
         important_points ({"n": [[3x1 array]], "p": [[3x1 array]]}): list

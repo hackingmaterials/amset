@@ -61,7 +61,7 @@ def get_energy(xkpt, engre, nwave, nsym, nstv, vec, vec2=None, out_vec2=None,
 
     if br_dir is not None:
         temps = np.sin(arg)
-        # np.newaxis adds a new dimensions so that the shape of temps (nwave,2)
+        # np.newaxis adds a new dimensions so that the shape of temperatures (nwave,2)
         # converts to (nwave,2,1) so it can be projected to vec2 (nwave, 2, 3)
         dspwre = np.sum(vec2 * temps[:, :, np.newaxis], axis=1)
         dspwre /= nstv[:, np.newaxis]
