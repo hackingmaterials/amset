@@ -19,7 +19,7 @@ from amset.utils.band_interpolation import interpolate_bs, get_energy_args, \
     get_bs_extrema, get_dos_boltztrap2
 from amset.utils.band_structure import get_bindex_bspin, \
     remove_duplicate_kpoints, \
-    get_closest_k, generate_adaptive_kmesh, get_dft_orbitals
+    get_closest_k, generate_adaptive_kmesh, get_band_orbital_contributions
 from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, A_to_nm, e, k_B, \
     epsilon_0, default_small_E, dTdz, sq3
 from amset.utils.general import norm, cos_angle, remove_from_grid, get_angle, \
@@ -1998,9 +1998,9 @@ class Amset(MSONable, LoggableMixin):
                         self.get_cartesian_coords(
                             self.kgrid[tp]["kpoints"][ib][ik]) / A_to_nm
 
-                s_orbital, p_orbital = get_dft_orbitals(
-                    band_structure=self.band_structure,
-                    bidx=self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib)
+                s_orbital, p_orbital = get_band_orbital_contributions(
+                    self.band_structure,
+                    self.cbm_vbm[tp]["bidx"] - 1 - sgn * ib)
                 orbitals = {"s": s_orbital, "p": p_orbital}
                 fit_orbs = {
                     orb: griddata(points=np.array(self.cartesian_kpoints),
