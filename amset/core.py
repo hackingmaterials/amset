@@ -220,7 +220,12 @@ class Amset(MSONable, LoggableMixin):
         self._logger = self.get_logger(logger, level=log_level)
         self._log_level = log_level
 
-        if integration != 'e':
+        if integration == 'k':
+            self.logger.warning(
+                "k-integration is not fully implemented! The results may be"
+                "unreliable, especially for non-cubic systems. 'e'-integration "
+                "is recommended.")
+        elif integration != 'e':
             self.log_raise(ValueError, 'Only "e" integration supported.')
 
         if band_structure.is_metal():
