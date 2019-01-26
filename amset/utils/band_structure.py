@@ -146,7 +146,7 @@ def get_dft_orbitals(band_structure, bidx):
 
     # TODO: Do we need to transpose? And make compatible with spin polarization
     projected_eigenvalues = np.transpose(band_structure.projections[Spin.up],
-                                         axes=(1, 0, 2, 3))
+                                         axes=(1, 0, 3, 2))
 
     lorbit = 11 if len(sum(projected_eigenvalues[0][10])) > 5 else 10
     for ik in range(len(band_structure.kpoints)):
