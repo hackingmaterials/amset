@@ -1,14 +1,12 @@
-# %load ./../functions/detect_peaks.py
-"""Detect peaks in data based on their amplitude and other features."""
+"""
+Detect peaks in data based on their amplitude and other features.
 
-
-# from __future__ import division, print_function
-import numpy as np
-
-"""Amset disclaimer: This helpful script was directly copied from the following
+This helpful script was directly copied from the following
 link and is not a submodule of Amset and all credits goes to Marcos Duarte
 http://nbviewer.jupyter.org/github/demotu/BMC/blob/master/notebooks/DetectPeaks.ipynb
 """
+
+import numpy as np
 
 __author__ = "Marcos Duarte, https://github.com/demotu/BMC"
 __version__ = "1.0.4"
@@ -59,11 +57,11 @@ def detect_peaks(x, mph=None, mpd=1, threshold=0, edge='rising',
 
     References
     ----------
-    .. [1] http://nbviewer.ipython.org/github/demotu/BMC/blob/master/notebooks/DetectPeaks.ipynb
+    .. [1] http://nbviewer.ipython.org/github/demotu/BMC/blob/master/notebooks/
+           DetectPeaks.ipynb
 
     Examples
     --------
-    >>> from detect_peaks import detect_peaks
     >>> x = np.random.randn(100)
     >>> x[60:81] = np.nan
     >>> # detect all peaks and plot data
@@ -108,11 +106,11 @@ def detect_peaks(x, mph=None, mpd=1, threshold=0, edge='rising',
         ine = np.where((np.hstack((dx, 0)) < 0) & (np.hstack((0, dx)) > 0))[0]
     else:
         if edge.lower() in ['rising', 'both']:
-            ire = \
-            np.where((np.hstack((dx, 0)) <= 0) & (np.hstack((0, dx)) > 0))[0]
+            ire = np.where((np.hstack((dx, 0)) <= 0) &
+                           (np.hstack((0, dx)) > 0))[0]
         if edge.lower() in ['falling', 'both']:
-            ife = \
-            np.where((np.hstack((dx, 0)) < 0) & (np.hstack((0, dx)) >= 0))[0]
+            ife = np.where((np.hstack((dx, 0)) < 0) &
+                           (np.hstack((0, dx)) >= 0))[0]
     ind = np.unique(np.hstack((ine, ire, ife)))
     # handle NaN's
     if ind.size and indnan.size:
@@ -181,5 +179,4 @@ def _plot(x, mph, mpd, threshold, edge, valley, ax, ind):
         mode = 'Valley detection' if valley else 'Peak detection'
         ax.set_title("%s (mph=%s, mpd=%d, threshold=%s, edge='%s')"
                      % (mode, str(mph), mpd, str(threshold), edge))
-        # plt.grid()
         plt.show()

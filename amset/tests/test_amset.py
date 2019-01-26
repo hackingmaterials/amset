@@ -2,6 +2,8 @@
 
 import json
 import logging
+import warnings
+
 import numpy as np
 import os
 import shutil
@@ -12,6 +14,8 @@ from copy import deepcopy
 test_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'test_files')
 
 LOGLEVEL = logging.DEBUG
+
+warnings.simplefilter("ignore")
 
 
 class AmsetTest(unittest.TestCase):

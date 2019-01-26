@@ -36,12 +36,12 @@ from amset.utils.band_structure import get_bindex_bspin, \
 from amset.utils.constants import hbar, m_e, A_to_m, m_to_cm, A_to_nm, e, k_B, \
     epsilon_0, default_small_E, dTdz, sq3
 from amset.utils.general import norm, cos_angle, remove_from_grid, get_angle, \
-    sort_angles, AmsetError
+    sort_angles, AmsetError, get_tp
 from amset.utils.k_integration import generate_k_mesh_axes, create_grid, \
     array_to_kgrid, normalize_array
-from amset.utils.plotting import get_amset_plots
-from amset.utils.transport import f0, df0dE, fermi_integral, calculate_Sio, \
-    get_tp, free_e_dos
+from amset.plotting import get_amset_plots
+from amset.utils.transport import f0, df0de, fermi_integral, calculate_sio, \
+    free_e_dos
 from amset.valley import Valley
 from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
 from pymatgen.io.vasp import Vasprun, Spin, Kpoints
@@ -653,7 +653,7 @@ class Amset(MSONable, LoggableMixin):
                                                                             fermi,
                                                                             T) * 1.0
                                     self.kgrid[tp]["df0dk"][c][T][ib][
-                                        ik] = hbar * df0dE(E, fermi,
+                                        ik] = hbar * df0de(E, fermi,
                                                            T) * v  # in cm
                                     self.kgrid[tp]["electric force"][c][T][ib][
                                         ik] = \
@@ -1270,12 +1270,12 @@ class Amset(MSONable, LoggableMixin):
             for idx in range(self.cbm_dos_idx, self.get_Eidx_in_dos(
                     self.cbm_vbm["n"]["energy"] + 2.0)):
                 dos[idx] = max(dos[idx], free_e_dos(
-                    E=self.dos_emesh[idx] - self.cbm_vbm["n"]["energy"]))
+                    energy=self.dos_emesh[idx] - self.cbm_vbm["n"]["energy"]))
             for idx in range(
                     self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"] - 2.0),
                     self.vbm_dos_idx):
                 dos[idx] = max(dos[idx], free_e_dos(
-                    E=self.cbm_vbm["p"]["energy"] - self.dos_emesh[idx]))
+                    energy=self.cbm_vbm["p"]["energy"] - self.dos_emesh[idx]))
             for idos in range(self.dos_start, self.dos_end):
                 integ += (dos[idos + 1] + dos[idos]) / 2 * (
                         emesh[idos + 1] - emesh[idos])
@@ -2848,7 +2848,7 @@ class Amset(MSONable, LoggableMixin):
             for c in self.dopings:
                 for T in self.temperatures:
                     for ib in range(len(self.kgrid[tp]["kpoints"])):
-                        results = [calculate_Sio(tp, c, T, ib, ik,
+                        results = [calculate_sio(tp, c, T, ib, ik,
                                                  once_called, self.kgrid,
                                                  self.cbm_vbm,
                                                  self.epsilon_s,

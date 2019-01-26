@@ -43,6 +43,7 @@ class TestLogging(unittest.TestCase):
         with open(log_file, 'r') as f:
             lines = f.readlines()
 
+        print(lines)
         self.assertTrue("logging" in lines[0])
         self.assertTrue("debug" in lines[1])
         self.assertTrue("warning" in lines[2])

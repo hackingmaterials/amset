@@ -2,3 +2,5 @@ numpy
 pymatgen
 scipy
 monty
+matplotlib
+matminer

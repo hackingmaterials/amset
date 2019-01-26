@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import os
 import unittest
@@ -17,6 +19,7 @@ coeff_files = {c: os.path.join(tdir, comp_to_dirname[c], 'fort.123')
 
 CHECK_BOLTZTRAP2 = True
 
+warnings.simplefilter("ignore")
 
 class AmsetToolsTest(unittest.TestCase):
 
