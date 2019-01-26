@@ -159,9 +159,9 @@ class AmsetToolsTest(unittest.TestCase):
         self.listalmostequal(np.mean(cb_vel1, axis=0), expected_cb_v, 0)
 
         if CHECK_BOLTZTRAP2:
-            from amset.utils.pymatgen_loader_for_bzt2 import PymatgenLoader
+            from pymatgen.electronic_structure.boltztrap2 import VasprunLoader
             from BoltzTraP2 import sphere, fite
-            bz2_data = PymatgenLoader.from_vasprun(vruns['GaAs'])
+            bz2_data = VasprunLoader(vruns['GaAs'])
             equivalences = sphere.get_equivalences(atoms=bz2_data.atoms,
                                                    nkpt=len(
                                                        bz2_data.kpoints) * 10,
