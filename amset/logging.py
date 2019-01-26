@@ -26,20 +26,19 @@ def initialize_logger(name, filepath='.', filename=None, level=None):
     filename = filename or name + ".log"
 
     logger = logging.getLogger(name)
+    logger.handlers = []  # reset logging handlers if they already exist
 
-    if not len(logger.handlers):
-        # if logger already exists and has handlers we don't add more
-        formatter = logging.Formatter(
-            fmt='%(asctime)s %(levelname)-8s %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S')
+    formatter = logging.Formatter(
+        fmt='%(asctime)s %(levelname)-8s %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S')
 
-        handler = logging.FileHandler(os.path.join(filepath, filename),
-                                      mode='w')
-        handler.setFormatter(formatter)
-        screen_handler = logging.StreamHandler(stream=sys.stdout)
-        screen_handler.setFormatter(formatter)
-        logger.addHandler(screen_handler)
-        logger.addHandler(handler)
+    handler = logging.FileHandler(os.path.join(filepath, filename),
+                                  mode='w')
+    handler.setFormatter(formatter)
+    screen_handler = logging.StreamHandler(stream=sys.stdout)
+    screen_handler.setFormatter(formatter)
+    logger.addHandler(screen_handler)
+    logger.addHandler(handler)
 
     logger.setLevel(level)
     return logger
