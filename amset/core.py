@@ -21,11 +21,12 @@ from monty.json import MontyEncoder, MSONable, MontyDecoder
 from monty.serialization import dumpfn, loadfn
 from scipy.interpolate import griddata
 
+from amset.interpolate import Interpolater
 from amset.logging import LoggableMixin
 from amset.scattering.elastic import (
     IonizedImpurityScattering, AcousticDeformationScattering,
     PiezoelectricScattering, DislocationScattering)
-from amset.utils.analytical_band_from_bzt1 import Analytical_bands
+from amset.utils.analytical_band_from_bzt1 import AnalyticalBands
 from amset.utils.band_interpolation import interpolate_bs, get_energy_args, \
     get_bs_extrema, get_dos_boltztrap2
 from amset.utils.band_parabolic import get_dos_from_parabolic_bands, \
@@ -260,18 +261,10 @@ class Amset(MSONable, LoggableMixin):
         self.set_material_params(material_params)
         self.set_performance_params(performance_params)
 
-        self.interp_params = None
-        if self.interpolation == "boltztrap2":
-            bz2_data = BandstructureLoader(
-                band_structure, structure=band_structure.structure,
-                nelect=num_electrons)
-            equivalences = sphere.get_equivalences(atoms=bz2_data.atoms,
-                                                   nkpt=len(
-                                                       bz2_data.kpoints) * 5,
-                                                   magmom=None)
-            lattvec = bz2_data.get_lattvec()
-            coeffs = fite.fitde3D(bz2_data, equivalences)
-            self.interp_params = (equivalences, lattvec, coeffs)
+        self.interpolater = Interpolater(
+            self.interpolation, band_structure, num_electrons,
+            coeff_file=None, max_temperature=max(self.temperatures),
+            calc_dir=calc_dir)
 
         cbm = band_structure.get_cbm()
         vbm = band_structure.get_vbm()
@@ -890,32 +883,8 @@ class Amset(MSONable, LoggableMixin):
             self.cbm_vbm["p"]["energy"] = 0.0
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = \
                 self.parabolic_bands0[0][0][0]
-        if not coeff_file and self.interpolation == "boltztrap1":
-            self.logger.warning(
-                '\nRunning BoltzTraP to generate the cube file...')
-            boltztrap_runner = BoltztrapRunner(bs=self.band_structure,
-                                               nelec=self.num_electrons,
-                                               run_type='BANDS',
-                                               doping=[1e20],
-                                               tgrid=300,
-                                               tmax=max(
-                                                   self.temperatures + [300]),
-                                               )  # do NOT set scissor in runner
-            boltztrap_runner.run(path_dir=self.calc_dir)
-            coeff_file = os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
-            self.logger.warning(
-                'BoltzTraP run finished, I suggest to set the following '
-                'to skip this step next time:\n{}="{}"'.format(
-                    "coeff_file",
-                    os.path.join(self.calc_dir, 'boltztrap', 'fort.123')
-                ))
-            if not os.path.exists(coeff_file):
-                raise AmsetError(self.logger,
-                                 '{} does not exist! generating the cube file '
-                                 '(i.e. fort.123) requires a modified version of BoltzTraP. '
-                                 'Contact {}'.format(coeff_file,
-                                                     "frankyricci@gmail.com"))
-                # 'Contact {}'.format(coeff_file, __email__))
+
+        self.interpolater.initialize()
         # initialize transport variables
         self.mo_labels = self.elastic_scats + self.inelastic_scats + ['overall',
                                                                       'average']
@@ -1025,17 +994,9 @@ class Amset(MSONable, LoggableMixin):
             calculations reference energy and the interpolation method.
         """
         if self.parabolic_bands0 is None:
-            if self.interpolation == "boltztrap1":
-                self.logger.debug(
-                    "start interpolating bands from {}".format(coeff_file))
-            self.all_ibands = [self.cbm_vbm0['p']["bidx"],
-                               self.cbm_vbm0['n']["bidx"]]
-
-            self.all_ibands.sort()
-            self.logger.debug("all_ibands: {}".format(self.all_ibands))
-            if self.interpolation == "boltztrap1":
-                self.interp_params = get_energy_args(coeff_file,
-                                                     self.all_ibands)
+            band_indices = [self.cbm_vbm0['p']["bidx"],
+                            self.cbm_vbm0['n']["bidx"]]
+            band_indices.sort()
         else:
             self.parabolic_bands = np.array(self.parabolic_bands0)
             for ib in range(len(self.parabolic_bands0)):
@@ -1106,18 +1067,18 @@ class Amset(MSONable, LoggableMixin):
             if self.interpolation == 'boltztrap1':
                 self.logger.debug(
                     "start interpolating bands from {}".format(coeff_file))
-                analytical_bands = Analytical_bands(coeff_file=coeff_file)
-                self.all_ibands = []
+                analytical_bands = AnalyticalBands(coeff_file=coeff_file)
+                self.band_indices = []
                 for ib in range(num_bands['p']):
-                    self.all_ibands.append(
+                    self.band_indices.append(
                         self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
                 for ib in range(num_bands['n']):
-                    self.all_ibands.append(
+                    self.band_indices.append(
                         self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
-                self.all_ibands.sort()
-                self.logger.debug("all_ibands: {}".format(self.all_ibands))
+                self.band_indices.sort()
+                self.logger.debug("band_indices: {}".format(self.band_indices))
                 self.interp_params = get_energy_args(coeff_file,
-                                                     self.all_ibands)
+                                                     self.band_indices)
             elif self.interpolation != 'boltztrap2':
                 raise ValueError(
                     'Unsupported interpolation method: "{}"'.format(

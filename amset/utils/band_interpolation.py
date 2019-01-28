@@ -4,7 +4,7 @@ from multiprocessing.pool import Pool
 
 import numpy as np
 
-from amset.utils.analytical_band_from_bzt1 import Analytical_bands, get_energy
+from amset.utils.analytical_band_from_bzt1 import AnalyticalBands, get_energy
 from amset.utils.band_structure import kpts_to_first_BZ, get_bindex_bspin, \
     get_closest_k
 from amset.utils.constants import Ry_to_eV, hbar, A_to_m, m_to_cm, e, m_e, \
@@ -23,24 +23,23 @@ except ImportError:
         'BoltzTraP2 not imported; "boltztrap2" interpolation not available.')
 
 
-def get_energy_args(coeff_file, ibands):
+def get_energy_args(analytical_bands, ibands):
     """
     Args:
-        coeff_file (str): the address to the cube (*.123) file
+        analytical_bands (AnalyticalBands): An AnalyticalBands instance.
         ibands ([int]): list of band numbers to be calculated; note that the
             first band index is 1 not 0
 
     Returns (tuple): necessary inputs for calc_analytical_energy or get_energy
     """
-    analytical_bands = Analytical_bands(coeff_file=coeff_file)
     try:
-        engre, latt_points, nwave, nsym, nsymop, symop, br_dir = \
-            analytical_bands.get_engre(iband=ibands)
+        engre, latt_points, nwave, nsym, symop, br_dir = \
+            analytical_bands.get_interpolation_coefficients(iband=ibands)
     except TypeError as e:
         raise ValueError('try reducing max_Ecut to include fewer bands', e)
 
     nstv, vec, vec2 = analytical_bands.get_star_functions(
-        latt_points, nsym, symop, nwave, br_dir=br_dir)
+        latt_points, nsym, symop, nwave, cell_matrix=br_dir)
     out_vec2 = np.zeros((nwave, max(nstv), 3, 3))
     for nw in range(nwave):
         for i in range(nstv[nw]):
