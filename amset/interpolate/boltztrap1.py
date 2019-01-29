@@ -21,9 +21,8 @@ from amset.utils.general import outer
 from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
 
 BoltzTraP1Parameters = namedtuple(
-    'BoltzTrapP1Parameters',
-    ['num_g_vectors', 'g_vectors', 'num_symmetries', 'cell_matrix', 'sym_ops',
-     'coefficients', 'min_band', 'max_band', 'allowed_ibands',
+    'BoltzTraP1Parameters',
+    ['num_symmetries', 'coefficients', 'min_band', 'max_band', 'allowed_ibands',
      'num_star_vectors', 'star_vectors', 'star_vector_products',
      'star_vector_products_sq'])
 
@@ -61,19 +60,17 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
         max_temperature (int, optional): The maximum temperature at which to
             run BoltzTraP1 (if required). This will be used by BoltzTraP1 to
             decide how many bands to interpolate.
-        lattice_matrix (np.ndarray): 3x3 array of the direct lattice matrix used
-            to convert the velocity from fractional to cartesian coordinates.
     """
 
     def __init__(self, band_structure, num_electrons, coeff_file=None,
-                 max_temperature=None, lattice_matrix=None, n_jobs=-1,
+                 max_temperature=None, n_jobs=-1,
                  **kwargs):
         super(BoltzTraP1Interpolater, self).__init__(
             band_structure, num_electrons, **kwargs)
         self._coeff_file = coeff_file
         self._max_temperature = max_temperature
         self._n_jobs = multiprocessing.cpu_count() if n_jobs == -1 else n_jobs
-        self._lattice_matrix = lattice_matrix
+        self._lattice_matrix = band_structure.structure.lattice.matrix
         self._parameters = None
 
     def initialize(self):
@@ -93,6 +90,84 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
 
         self._parameters = BoltzTraP1Interpolater._get_interpolation_parameters(
             self._coeff_file)
+
+    def get_energy(self, kpoint, iband, return_velocity=True,
+                   return_effective_mass=False):
+        """Gets the interpolated energy for a specific k-point and band.
+
+        Args:
+            kpoint (np.ndarray): The k-point fractional coordinates.
+            iband (int): The band index (1-indexed).
+            return_velocity (bool, optional): Whether to return the band
+                velocity.
+            return_effective_mass (bool, optional): Whether to return the band
+                effective mass.
+
+        Returns:
+            (tuple[int or np.ndarray]): A tuple containing the band energy, and
+            optionally the velocity and effective mass if asked for. The
+            velocities and effective masses are given as the full 3x3 tensors
+            along cartesian directions.
+        """
+        if not self._parameters:
+            self.initialize()
+
+        return BoltzTraP1Interpolater._get_energy_wrapper(
+            self._get_interpolation_coefficients(iband),
+            self._parameters, self._lattice_matrix, kpoint,
+            return_velocity=return_velocity,
+            return_effective_mass=return_effective_mass)
+
+    def get_energies(self, kpoints, iband, scissor=0.0, is_cb=None,
+                     return_effective_mass=True):
+        """Gets the interpolated energies for multiple k-points in a band.
+
+        Args:
+            kpoints (np.ndarray): The k-points in fractional coordinates.
+            iband (int): The band index (1-indexed).
+            scissor (float, optional): The amount by which the band gap is
+                scissored.
+            is_cb (bool, optional): Whether the band of interest is a conduction
+                band. Ignored if ``scissor == 0``.
+            return_effective_mass (bool, optional): Whether to return the band
+                effective masses.
+
+        Returns:
+            (tuple[np.ndarray]): A tuple containing the band energies,
+             velocities and, optionally, the effective masses if asked for, for
+             each k-point. The velocities and effective masses are given as
+             the full 3x3 tensors along cartesian directions.
+        """
+        if not self._parameters:
+            self.initialize()
+
+        self.logger.debug("Interpolating bands from coefficient file")
+        self.logger.debug("band_indices: {}".format(iband))
+
+        if scissor != 0.0 and is_cb is None:
+            raise ValueError('To apply scissor set is_cb.')
+        else:
+            # shift will be zero if scissor is 0
+            shift = -1 if is_cb else 1 * scissor / 2.0
+
+        coefficients = self._get_interpolation_coefficients(iband)
+        fun = partial(_get_energy_wrapper,
+                      coefficients, self._parameters, self._lattice_matrix)
+
+        if self._n_jobs == 1:
+            results = list(map(fun, kpoints))
+        else:
+            with multiprocessing.Pool(self._n_jobs) as p:
+                results = p.map(fun, kpoints, chunksize=int(len(kpoints)/4))
+
+        energies = [r[0] - shift for r in results]
+        velocities = [r[1] for r in results]
+
+        if return_effective_mass:
+            masses = [r[2] for r in results]
+            return energies, velocities, masses
+
+        return energies, velocities
 
     def _generate_coeff_file(self):
         """Generate the band structure coefficients needed for interpolation.
@@ -144,13 +219,8 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
 
         Returns:
             (BoltzTraP1Parameters): The interpolation parameters as a
-            ``BoltzTrapP1Parameters`` ``namedtuple``  object with the variables:
+            ``BoltzTraP1Parameters`` ``namedtuple``  object with the variables:
 
-            - ``num_g_vectors`` (int): The total number of G vectors.
-            - ``g_vectors`` (np.ndarray): The G vectors.
-            - ``num_symmetries`` (int): The number of symmetries.
-            - ``cell_matrix`` (np.ndarray): The cell matrix.
-            - ``sym_ops`` (np.ndarray): The symmetry operation matrices.
             - ``coefficients`` (np.ndarray): The band structure coefficients.
             - ``min_band`` (int): The index of the first band for which
               coefficients have been calculated (determined by the settings used
@@ -234,9 +304,7 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
                     star_vector_products[nw, i], star_vector_products[nw, i])
 
         return BoltzTraP1Parameters(
-            num_g_vectors=num_g_vectors, g_vectors=g_vectors,
-            num_symmetries=num_symmetries, cell_matrix=cell_matrix,
-            sym_ops=sym_ops, coefficients=np.array(coefficients),
+            num_symmetries=num_symmetries, coefficients=np.array(coefficients),
             min_band=min_band, max_band=max_band, allowed_ibands=allowed_ibands,
             num_star_vectors=num_star_vectors, star_vectors=star_vectors,
             star_vector_products=star_vector_products,
@@ -278,105 +346,57 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
         else:
             return self._parameters.coefficients[iband]
 
-    def get_energy(self, kpoint, iband, return_velocity=True,
-                   return_effective_mass=False):
-        """Gets the interpolated energy for a specific k-point and band.
 
-        Args:
-            kpoint (np.ndarray): The k-point fractional coordinates.
-            iband (int): The band index (1-indexed).
-            return_velocity (bool, optional): Whether to return the band
-                velocity.
-            return_effective_mass (bool, optional): Whether to return the band
-                effective mass.
+def _get_energy_wrapper(coefficients, parameters, matrix, kpoint,
+                        return_velocity=True, return_effective_mass=True):
+    """Wrapper for parallelising the integration energy calculation.
 
-        Returns:
-            (tuple[int or np.ndarray]): A tuple containing the band energy, and
-            optionally the velocity and effective mass if asked for. The
-            velocities and effective masses are given as the full 3x3 tensors
-            along cartesian directions.
-        """
-        if not self._parameters:
-            self.initialize()
+    Args:
+        coefficients (np.ndarray): The integration coefficients.
+        parameters (BoltzTrap1Parameters): The interpolation parameters.
+        kpoint (np.ndarray): The k-point fractional coordinates.
+        matrix (np.ndarray): 3x3 array of the direct lattice matrix
+            used to convert the velocity from fractional to cartesian
+            coordinates.
+        return_velocity (bool, optional): Whether to return the band
+            velocity.
+        return_effective_mass (bool, optional): Whether to return the band
+            effective mass.
 
-        arg = 2 * np.pi * self._parameters.star_vectors.dot(kpoint)
-        cos_arg = np.cos(arg)
-        spwre = (np.sum(cos_arg, axis=1) - (self._parameters.num_symmetries -
-                                            self._parameters.num_star_vectors)
-                 ) / self._parameters.num_star_vectors
+    Returns:
+        (tuple[int or np.ndarray]): A tuple containing the band energy, and
+        optionally the velocity and effective mass if asked for. The
+        velocities and effective masses are given as the full 3x3 tensors
+        along cartesian directions.
+    """
 
-        coefficients = self._get_interpolation_coefficients(iband)
+    arg = 2 * np.pi * parameters.star_vectors.dot(kpoint)
+    cos_arg = np.cos(arg)
+    spwre = (np.sum(cos_arg, axis=1) - (parameters.num_symmetries -
+                                        parameters.num_star_vectors)
+             ) / parameters.num_star_vectors
 
-        energy = spwre.dot(coefficients)
-        to_return = [energy * Ry_to_eV]
+    energy = spwre.dot(coefficients)
+    to_return = [energy * Ry_to_eV]
 
-        if return_velocity:
-            sin_arg = np.sin(arg)
-            dspwre = np.sum(self._parameters.star_vector_products *
-                            sin_arg[:, :, np.newaxis], axis=1
-                            ) / self._parameters.num_star_vectors[:, np.newaxis]
-            factor = hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
-            matrix_norm = self._lattice_matrix / np.linalg.norm(
-                self._lattice_matrix)
-            first_derivative = np.dot(dspwre.T, coefficients)
-            to_return.append(np.dot(matrix_norm, first_derivative) / factor)
+    if return_velocity:
+        sin_arg = np.sin(arg)
+        dspwre = np.sum(parameters.star_vector_products *
+                        sin_arg[:, :, np.newaxis], axis=1
+                        ) / parameters.num_star_vectors[:, np.newaxis]
+        factor = hbar / 0.52917721067 * A_to_m * m_to_cm * Ry_to_eV
+        matrix_norm = matrix / np.linalg.norm(matrix)
+        first_derivative = np.dot(dspwre.T, coefficients)
+        to_return.append(np.dot(matrix_norm, first_derivative) / factor)
 
-        if return_effective_mass:
-            ddspwre = np.sum(
-                self._parameters.star_vector_products_sq *
-                -cos_arg[:, :, np.newaxis, np.newaxis], axis=1
-                ) / self._parameters.num_star_vectors[:, np.newaxis, np.newaxis]
-            factor_a = 0.52917721067 ** 2 * Ry_to_eV
-            factor_b = A_to_m ** 2 * hbar ** 2 / m_e
-            second_derivative = np.dot(ddspwre.T, coefficients)
-            to_return.append(1 / (second_derivative / factor_a) * e / factor_b)
+    if return_effective_mass:
+        ddspwre = np.sum(
+            parameters.star_vector_products_sq *
+            -cos_arg[:, :, np.newaxis, np.newaxis], axis=1
+        ) / parameters.num_star_vectors[:, np.newaxis, np.newaxis]
+        factor_a = 0.52917721067 ** 2 * Ry_to_eV
+        factor_b = A_to_m ** 2 * hbar ** 2 / m_e
+        second_derivative = np.dot(ddspwre.T, coefficients)
+        to_return.append(1 / (second_derivative / factor_a) * e / factor_b)
 
-        return tuple(to_return)
-
-    def get_energies(self, kpoints, iband, scissor=0.0, is_cb=None,
-                     return_effective_mass=True):
-        """Gets the interpolated energies for multiple k-points in a band.
-
-        Args:
-            kpoints (np.ndarray): The k-points in fractional coordinates.
-            iband (int): The band index (1-indexed).
-            scissor (float, optional): The amount by which the band gap is
-                scissored.
-            is_cb (bool, optional): Whether the band of interest is a conduction
-                band. Ignored if ``scissor == 0``.
-            return_effective_mass (bool, optional): Whether to return the band
-                effective masses.
-
-        Returns:
-            (tuple[np.ndarray]): A tuple containing the band energies,
-             velocities and, optionally, the effective masses if asked for, for
-             each k-point. The velocities and effective masses are given as
-             the full 3x3 tensors along cartesian directions.
-        """
-        self.logger.debug("Interpolating bands from coefficient file")
-        self.logger.debug("band_indices: {}".format(iband))
-
-        if scissor != 0.0 and is_cb is None:
-            raise ValueError('To apply scissor set is_cb.')
-        else:
-            # shift will be zero if scissor is 0
-            shift = -1 if is_cb else 1 * scissor / 2.0
-
-        fun = partial(self.get_energy,
-                      return_second_derivative=return_effective_mass)
-        inputs = [(k, iband) for k in kpoints]
-
-        if self._n_jobs == 1:
-            results = list(starmap(fun, inputs))
-        else:
-            with multiprocessing.Pool(self._n_jobs) as p:
-                results = p.starmap(fun, inputs)
-
-        energies = [r[0] - shift for r in results]
-        velocities = [r[1] for r in results]
-
-        if return_effective_mass:
-            masses = [r[2] for r in results]
-            return energies, velocities, masses
-
-        return energies, velocities
+    return tuple(to_return)
