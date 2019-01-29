@@ -5,10 +5,12 @@ from amset.logging import LoggableMixin
 
 class AbstractInterpolater(MSONable, LoggableMixin, ABC):
 
-    def __init__(self, band_structure, num_electrons, calc_dir='.'):
+    def __init__(self, band_structure, num_electrons, calc_dir='.',
+                 logger=True, log_level=None):
         self._band_structure = band_structure
         self._num_electrons = num_electrons
         self._calc_dir = calc_dir
+        self._logger = self.get_logger(logger, level=log_level)
 
     @abstractmethod
     def initialize(self):
