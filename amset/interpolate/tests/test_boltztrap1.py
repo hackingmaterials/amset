@@ -271,3 +271,7 @@ class TestBoltzTraP1Interpolater(unittest.TestCase):
             effective_masses[0], self.correct_effective_masses)
         self.assertAlmostEqual(effective_masses[10][10][0][0],
                                0.008700893167441466)
+
+    def test_get_dos(self):
+        e_mesh, dos, nbands = self.interpolater.get_dos([10, 10, 10])
+
