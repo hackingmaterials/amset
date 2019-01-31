@@ -11,7 +11,7 @@ from amset.scattering.elastic import (
 
 from monty.serialization import loadfn
 
-test_dir = os.path.dirname(__file__)
+test_dir = os.path.dirname(os.path.abspath(__file__))
 
 props = {
     "epsilon_s": 12.18,
