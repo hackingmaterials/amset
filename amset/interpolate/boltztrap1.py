@@ -115,10 +115,14 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
                 effective mass.
 
         Returns:
-            (tuple[int or np.ndarray]): A tuple containing the band energy, and
-            optionally the velocity and effective mass if asked for. The
-            velocities and effective masses are given as the full 3x3 tensors
-            along cartesian directions.
+            Union[int, tuple[int or np.ndarray]]: The band energies as a
+            numpy array. If ``return_velocity`` or ``return_effective_mass`` are
+            ``True`` a tuple is returned, formatted as::
+
+                (energy, Optional[velocity], Optional[effecitve_mass])
+
+            The velocity and effective mass are given as the 1x3 trace and
+            full 3x3 tensor, respectively (along cartesian directions).
         """
         to_return = _get_energy_wrapper(
             self._get_interpolation_coefficients(iband),
@@ -150,10 +154,14 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
                 effective masses.
 
         Returns:
-            (tuple[np.ndarray]): A tuple containing the band energies,
-             velocities and, optionally, the effective masses if asked for, for
-             each k-point. The velocities and effective masses are given as
-             the full 3x3 tensors along cartesian directions.
+            Union[np.ndarray, tuple[np.ndarray]]: The band energies as a
+            numpy array. If ``return_velocity`` or ``return_effective_mass`` are
+            ``True`` a tuple is returned, formatted as::
+
+                (energies, Optional[velocities], Optional[effective_masses])
+
+            The velocities and effective masses are given as the 1x3 trace and
+            full 3x3 tensor, respectively (along cartesian directions).
         """
         self.logger.debug("Interpolating bands from coefficient file")
         self.logger.debug("band_indices: {}".format(iband))
@@ -396,8 +404,8 @@ def _get_energy_wrapper(coefficients, parameters_id, matrix, kpoint,
     Returns:
         (tuple[int or np.ndarray]): A tuple containing the band energy, and
         optionally the velocity and effective mass if asked for. The
-        velocities and effective masses are given as the full 3x3 tensors
-        along cartesian directions.
+        velocities and effective masses are given as the 1x3 trace and
+        full 3x3 tensor, respectively (along cartesian directions).
     """
     parameters = _parameters[parameters_id]
 
