@@ -20,9 +20,14 @@ class TestBoltzTraP1Interpolater(unittest.TestCase):
     """
 
     def setUp(self):
-        self.correct_energies = np.array(loadfn("bzt1_energies.json"))
-        self.correct_velocities = loadfn("bzt1_velocities.json")
-        self.correct_effective_masses = loadfn("bzt1_effective_masses.json")
+        self.correct_energies = np.array(
+            loadfn(os.path.join(test_dir, "bzt1_energies.json")))
+        self.correct_velocities = loadfn(
+            os.path.join(test_dir, "bzt1_velocities.json"))
+        self.correct_effective_masses = loadfn(
+            os.path.join(test_dir, "bzt1_effective_masses.json"))
+        self.correct_dos_energies, self.correct_dos = loadfn(
+            os.path.join(test_dir, "dos.json"))
 
         coeff_file = os.path.join(amset_files, 'fort.123')
         vr = Vasprun(os.path.join(amset_files, 'vasprun.xml'))
@@ -273,5 +278,11 @@ class TestBoltzTraP1Interpolater(unittest.TestCase):
                                0.008700893167441466)
 
     def test_get_dos(self):
-        e_mesh, dos, nbands = self.interpolater.get_dos([10, 10, 10])
+        """Test generating the interpolated DOS."""
+        energies, densities = self.interpolater.get_dos(
+            [10, 10, 10], emin=-10, emax=10, width=0.075)
+        np.testing.assert_array_almost_equal(energies,
+                                             self.correct_dos_energies)
+        np.testing.assert_array_almost_equal(densities,
+                                             self.correct_dos)
 
