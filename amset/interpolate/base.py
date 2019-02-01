@@ -1,3 +1,5 @@
+from itertools import product
+
 import numpy as np
 
 from abc import ABC, abstractmethod
@@ -14,7 +16,7 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
 
     def __init__(self, band_structure: BandStructure, num_electrons: int,
                  calc_dir: str = '.', logger: Union[bool, Logger] = True,
-                 log_level: Optional[int] = None, symprec: float = 0.01):
+                 log_level: Optional[int] = None, symprec: float = 0.001):
         self._band_structure = band_structure
         self._num_electrons = num_electrons
         self._calc_dir = calc_dir
@@ -85,7 +87,7 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
     def get_dos(self, kpoint_mesh: List[int], emin: float = None,
                 emax: float = None, estep: float = 0.001,
                 width: float = 0.2, scissor: float = 0.0
-                ) -> Tuple[np.ndarray, np.ndarray, int]:
+                ) -> Tuple[np.ndarray, np.ndarray]:
         """Calculates the density of states using the interpolated bands.
 
         Args:
@@ -102,21 +104,17 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         Returns:
             The density of states data, formatted as::
 
-                (energies, densities, num_bands_considered)
+                (energies, densities)
 
         """
         mesh_data = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
         ir_kpts = mesh_data[:, 0]
         weights = mesh_data[:, 1] / mesh_data[:, 1].sum()
 
-        # (bands, nkpoints)
         energies = self.get_energies(ir_kpts, scissor=scissor)
 
-        if not emin:
-            emin = np.min(energies)
-
-        if not emax:
-            emax = np.max(energies)
+        emin = emin if emin else np.min(energies)
+        emax = emax if emax else np.max(energies)
 
         height = 1.0 / (width * np.sqrt(2 * np.pi))
         e_points = int(round((emax - emin) / estep))
@@ -128,4 +126,5 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
                 g = height * np.exp(
                     -((e_mesh - energies[b, ik]) / width) ** 2 / 2.)
                 dos += w * g
-        return e_mesh, dos, energies.shape[0]
+
+        return e_mesh, dos
