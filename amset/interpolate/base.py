@@ -16,7 +16,7 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
 
     def __init__(self, band_structure: BandStructure, num_electrons: int,
                  calc_dir: str = '.', logger: Union[bool, Logger] = True,
-                 log_level: Optional[int] = None, symprec: float = 0.001):
+                 log_level: Optional[int] = None, symprec: float = 0.01):
         self._band_structure = band_structure
         self._num_electrons = num_electrons
         self._calc_dir = calc_dir
@@ -117,14 +117,14 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         emax = emax if emax else np.max(energies)
 
         height = 1.0 / (width * np.sqrt(2 * np.pi))
-        e_points = int(round((emax - emin) / estep))
-        e_mesh = np.linspace(emin, emax, num=e_points, endpoint=True)
-        dos = np.zeros(len(e_mesh))
+        epoints = int(round((emax - emin) / estep))
+        emesh = np.linspace(emin, emax, num=epoints, endpoint=True)
+        dos = np.zeros(len(emesh))
 
         for ik, w in enumerate(weights):
             for b in range(energies.shape[0]):
                 g = height * np.exp(
-                    -((e_mesh - energies[b, ik]) / width) ** 2 / 2.)
+                    -((emesh - energies[b, ik]) / width) ** 2 / 2.)
                 dos += w * g
 
-        return e_mesh, dos
+        return emesh, dos
