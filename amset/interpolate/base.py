@@ -14,7 +14,7 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
 
     def __init__(self, band_structure: BandStructure, num_electrons: int,
                  calc_dir: str = '.', logger: Union[bool, Logger] = True,
-                 log_level: Optional[int] = None, symprec: float = 0.1):
+                 log_level: Optional[int] = None, symprec: float = 0.01):
         self._band_structure = band_structure
         self._num_electrons = num_electrons
         self._calc_dir = calc_dir
@@ -82,13 +82,18 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         """
         pass
 
-    def get_dos(self, kpoint_mesh: List[int], estep: float = 0.001,
+    def get_dos(self, kpoint_mesh: List[int], emin: float = None,
+                emax: float = None, estep: float = 0.001,
                 width: float = 0.2, scissor: float = 0.0
                 ) -> Tuple[np.ndarray, np.ndarray, int]:
         """Calculates the density of states using the interpolated bands.
 
         Args:
             kpoint_mesh: The k-point mesh as a 1x3 array. E.g.,``[6, 6, 6]``.
+            emin: The minium energy. If ``None`` it will be calculated
+                automatically from the band energies.
+            emax: The maximum energy. If ``None`` it will be calculated
+                automatically from the band energies.
             estep: The energy step, where smaller numbers give more
                 accuracy but are more expensive.
             width: The gaussian smearing width.
@@ -107,12 +112,15 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         # (bands, nkpoints)
         energies = self.get_energies(ir_kpts, scissor=scissor)
 
-        e_min = np.min(energies)
-        e_max = np.max(energies)
+        if not emin:
+            emin = np.min(energies)
+
+        if not emax:
+            emax = np.max(energies)
 
         height = 1.0 / (width * np.sqrt(2 * np.pi))
-        e_points = int(round((e_max - e_min) / estep))
-        e_mesh = np.linspace(e_min, e_max, num=e_points, endpoint=True)
+        e_points = int(round((emax - emin) / estep))
+        e_mesh = np.linspace(emin, emax, num=e_points, endpoint=True)
         dos = np.zeros(len(e_mesh))
 
         for ik, w in enumerate(weights):
