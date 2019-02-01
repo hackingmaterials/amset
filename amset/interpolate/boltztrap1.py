@@ -1,6 +1,7 @@
 """
 Class to interpolate a band structure using BoltzTraP1
 """
+from itertools import starmap, repeat
 from typing import Optional, List, Union, Tuple, Any, Iterable, Collection, \
     Sequence
 
@@ -130,9 +131,9 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
             full 3x3 tensor, respectively (along cartesian directions).
         """
         to_return = _get_energy_wrapper(
-            self._get_interpolation_coefficients(iband),
+            kpoint, self._get_interpolation_coefficients(iband),
             self._parameters_id, self._lattice_matrix,
-            kpoint, return_velocity=return_velocity,
+            return_velocity=return_velocity,
             return_effective_mass=return_effective_mass)
 
         return _simplify_return_data(tuple(to_return))
@@ -169,65 +170,56 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
             The velocities and effective masses are given as the 1x3 trace and
             full 3x3 tensor, respectively (along cartesian directions).
         """
-        self.logger.debug("Interpolating bands from coefficient file")
-        self.logger.debug("Band indices: {}".format(
-            iband if iband else sorted(self.parameters.allowed_ibands)))
-
-        def prep_data_to_return(data, shift=None):
-            # slightly convoluted data processing to handle compiling the data
-            # for multiple bands. Relies on the fact that the first item
-            # of the data will always be the energies, and the 2nd and 3rd
-            # will depend on whether we are getting the velocity and
-            # effective masses.
-            if shift:
-                # shift eigenvalues by scissor if required
-                data_to_return = [np.array([d[0] + shift for d in data])]
-            else:
-                data_to_return = [np.array([d[0] for d in data])]
-
-            if return_velocity:
-                data_to_return.append(np.array([d[1] for d in data]))
-
-            if return_effective_mass:
-                index = 2 if return_velocity else 1
-                data_to_return.append(np.array([d[index] for d in data]))
-
-            return _simplify_return_data(tuple(data_to_return))
-
-        def get_band_data(coefficients, band_index):
-            fun = partial(_get_energy_wrapper, coefficients,
-                          self._parameters_id, self._lattice_matrix,
-                          return_velocity=return_velocity,
-                          return_effective_mass=return_effective_mass)
-
-            if self._n_jobs == 1:
-                results = list(map(fun, kpoints))
-            else:
-                with multiprocessing.Pool(self._n_jobs) as p:
-                    results = p.map(fun, kpoints)
-
-            # TODO: Make compatible with spin polarization
-            # shift will be zero if scissor is 0
-            is_cb = band_index > max(self._band_structure.get_vbm()
-                                     ['band_index'][Spin.up])
-            shift = (1 if is_cb else -1) * scissor / 2
-
-            return prep_data_to_return(results, shift=shift)
-
-        all_coefficients = self._get_interpolation_coefficients(iband)
-
         if isinstance(iband, int):
-            return get_band_data(all_coefficients, iband)
+            iband = [iband]
+        elif not iband:
+            iband = sorted(self.parameters.allowed_ibands)
 
+        self.logger.debug("Interpolating bands from coefficient file")
+        self.logger.debug("Band indices: {}".format(iband))
+
+        # flatten the data so we can calculate the integrated values for
+        # multple bands simultaneously
+        coefficients = self._get_interpolation_coefficients(iband)
+        coefficients = coefficients if len(iband) > 1 else [coefficients]
+        flat_coefficients = [c for c in coefficients for _ in kpoints]
+        flat_kpoints = [k for _ in iband for k in kpoints]
+
+        args = zip(flat_kpoints, flat_coefficients, repeat(self._parameters_id),
+                   repeat(self._lattice_matrix), repeat(return_velocity),
+                   repeat(return_effective_mass))
+
+        if self._n_jobs == 1:
+            results = list(starmap(_get_energy_wrapper, args))
         else:
-            bands = iband if iband else self.parameters.allowed_ibands
-            band_results = [get_band_data(c, i) for c, i
-                            in zip(all_coefficients, bands)]
+            with multiprocessing.Pool(self._n_jobs) as p:
+                results = p.starmap(_get_energy_wrapper, args)
 
-            if not return_velocity and not return_effective_mass:
-                return np.array(band_results)
+        # TODO: Make compatible with spin polarization
+        # shift will be zero if scissor is 0
+        vbm = max(self._band_structure.get_vbm()['band_index'][Spin.up])
+        shift = np.array([(1 if band_index > vbm else -1) * scissor / 2
+                          for band_index in iband for _ in kpoints])
 
-            return prep_data_to_return(band_results)
+        energies = np.array([d[0] for d in results])
+        energies += shift
+
+        shape = (len(iband), len(kpoints)) if len(iband) > 1 else (
+            len(kpoints), )
+        data_to_return = [energies.reshape(shape)]
+
+        if return_velocity:
+            velocities = np.array([d[1] for d in results])
+            data_to_return.append(velocities.reshape(
+                shape + velocities.shape[1:]))
+
+        if return_effective_mass:
+            index = 2 if return_velocity else 1
+            effective_masses = np.array([d[index] for d in results])
+            data_to_return.append(effective_masses.reshape(
+                shape + effective_masses.shape[1:]))
+
+        return _simplify_return_data(tuple(data_to_return))
 
     @property
     def parameters(self) -> BoltzTraP1Parameters:
@@ -421,20 +413,20 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
             return self.parameters.coefficients[iband]
 
 
-def _get_energy_wrapper(coefficients: np.ndarray, parameters_id: str,
-                        matrix: np.ndarray, kpoint: np.ndarray,
+def _get_energy_wrapper(kpoint: np.ndarray, coefficients: np.ndarray,
+                        parameters_id: str, matrix: np.ndarray,
                         return_velocity: bool = False,
                         return_effective_mass: bool = False
                         ) -> Tuple[Union[float, np.ndarray], ...]:
     """Wrapper for parallelising the integration energy calculation.
 
     Args:
-        coefficients: The integration coefficients.
         parameters_id: Key for global parameters dictionary. Used to share large
             parameters data in memory across multiple processes.
-        kpoint: The k-point fractional coordinates.
         matrix: 3x3 array of the direct lattice matrix used to convert the
             velocity from fractional to cartesian coordinates.
+        kpoint: The k-point fractional coordinates.
+        coefficients: The integration coefficients.
         return_velocity: Whether to return the band velocity.
         return_effective_mass: Whether to return the band effective mass.
 
