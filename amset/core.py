@@ -1213,7 +1213,6 @@ class Amset(MSONable, LoggableMixin):
                     parabolic_bands=self.parabolic_bands,
                     bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
                         "energy"], width=self.dos_bwidth, SPB_DOS=False)
-                self.dos_normalization_factor = len(
                     self.parabolic_bands) * 2 * 2
                 self.dos_start = self.dos_emin
                 self.dos_end = self.dos_emax
