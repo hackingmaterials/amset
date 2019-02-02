@@ -285,4 +285,3 @@ class TestBoltzTraP1Interpolater(unittest.TestCase):
                                              self.correct_dos_energies)
         np.testing.assert_array_almost_equal(densities,
                                              self.correct_dos)
-

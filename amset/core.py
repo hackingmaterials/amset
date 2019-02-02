@@ -1515,20 +1515,6 @@ class Amset(MSONable, LoggableMixin):
         else:
             raise KeyError
 
-    def read_vrun(self, vasprun_file=None, filename="vasprun.xml"):
-        """
-        Reads the vasprun file and populates some instance variables such as
-        volume, interp_params, _vrun, etc to be used by other methods.
-
-        Args:
-            vasprun_file (str): full path to the vasprun file. If provided,
-                the filename will be ignored.
-            filename (str): if vasprun_file is None, this filename will be
-                looked for inside calc_dir to be used as the vasprun file
-
-        Returns (None):
-        """
-
     def get_cartesian_coords(self, frac_k, reciprocal=True):
         """
         Transformation from fractional too cartesian. Note that this is
