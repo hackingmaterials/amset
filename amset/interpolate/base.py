@@ -1,5 +1,3 @@
-from itertools import product
-
 import numpy as np
 
 from abc import ABC, abstractmethod
@@ -86,8 +84,8 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
 
     def get_dos(self, kpoint_mesh: List[int], emin: float = None,
                 emax: float = None, estep: float = 0.001,
-                width: float = 0.2, scissor: float = 0.0
-                ) -> Tuple[np.ndarray, np.ndarray]:
+                width: float = 0.2, scissor: float = 0.0,
+                normalize: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         """Calculates the density of states using the interpolated bands.
 
         Args:
@@ -100,6 +98,7 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
                 accuracy but are more expensive.
             width: The gaussian smearing width.
             scissor: The amount by which the band gap is scissored.
+            normalize: Whether to normalize the DOS.
 
         Returns:
             The density of states data, formatted as::
@@ -112,6 +111,7 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         weights = mesh_data[:, 1] / mesh_data[:, 1].sum()
 
         energies = self.get_energies(ir_kpts, scissor=scissor)
+        nbands = energies.shape[0]
 
         emin = emin if emin else np.min(energies)
         emax = emax if emax else np.max(energies)
@@ -122,9 +122,13 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         dos = np.zeros(len(emesh))
 
         for ik, w in enumerate(weights):
-            for b in range(energies.shape[0]):
+            for b in range(nbands):
                 g = height * np.exp(
                     -((emesh - energies[b, ik]) / width) ** 2 / 2.)
                 dos += w * g
+
+        if normalize:
+            normalization_factor = nbands * (1 if self._soc else 2)
+
 
         return emesh, dos
