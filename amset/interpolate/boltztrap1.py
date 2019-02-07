@@ -1,29 +1,26 @@
 """
 Class to interpolate a band structure using BoltzTraP1
 """
+
+import os
+import multiprocessing
+import numpy as np
+
 from itertools import starmap, repeat
-from typing import Optional, List, Union, Tuple, Any, Iterable, Collection, \
-    Sequence
+from typing import Optional, List, Union, Tuple
+from collections import namedtuple
 
 from pymatgen import Spin
+from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
 from pymatgen.electronic_structure.bandstructure import BandStructure
-
-__author__ = "Alex Ganose, Francesco Ricci and Alireza Faghaninia"
-__copyright__ = "Copyright 2019, HackingMaterials"
-__maintainer__ = "Alex Ganose"
-
-import multiprocessing
-import os
-
-from collections import namedtuple
-from functools import partial
-
-import numpy as np
 
 from amset.interpolate.base import AbstractInterpolater
 from amset.utils.constants import Ry_to_eV, hbar, A_to_m, m_to_cm, m_e, e
 from amset.utils.general import outer
-from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
+
+__author__ = "Alex Ganose, Francesco Ricci and Alireza Faghaninia"
+__copyright__ = "Copyright 2019, HackingMaterials"
+__maintainer__ = "Alex Ganose"
 
 BoltzTraP1Parameters = namedtuple(
     'BoltzTraP1Parameters',
@@ -80,7 +77,6 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
         self._coeff_file = coeff_file
         self._max_temperature = max_temperature
         self._n_jobs = multiprocessing.cpu_count() if n_jobs == -1 else n_jobs
-        self._lattice_matrix = band_structure.structure.lattice.matrix
         self._parameters_id = None
 
     def initialize(self):
@@ -107,36 +103,6 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
         global _parameters
         _parameters[self._parameters_id] = self._get_interpolation_parameters(
             self._coeff_file)
-
-    def get_energy(self, kpoint: np.ndarray, iband: int,
-                   return_velocity: bool = False,
-                   return_effective_mass: bool = False
-                   ) -> Union[float, Tuple[Union[float, np.ndarray], ...]]:
-        """Gets the interpolated energy for a specific k-point and band.
-
-        Args:
-            kpoint: The k-point fractional coordinates.
-            iband: The band index (0-indexed).
-            return_velocity: Whether to return the band velocity.
-            return_effective_mass: Whether to return the band effective mass.
-
-        Returns:
-            The band energies as a numpy array. If ``return_velocity`` or
-            ``return_effective_mass`` are ``True`` a tuple is returned,
-            formatted as::
-
-               (energy, Optional[velocity], Optional[effecitve_mass])
-
-            The velocity and effective mass are given as the 1x3 trace and
-            full 3x3 tensor, respectively (along cartesian directions).
-        """
-        to_return = _get_energy_wrapper(
-            kpoint, self._get_interpolation_coefficients(iband),
-            self._parameters_id, self._lattice_matrix,
-            return_velocity=return_velocity,
-            return_effective_mass=return_effective_mass)
-
-        return _simplify_return_data(tuple(to_return))
 
     def get_energies(self, kpoints: np.ndarray,
                      iband: Optional[Union[int, List[int]]] = None,
@@ -179,7 +145,7 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
         self.logger.debug("Band indices: {}".format(iband))
 
         # flatten the data so we can calculate the integrated values for
-        # multple bands simultaneously
+        # multiple bands simultaneously
         coefficients = self._get_interpolation_coefficients(iband)
         coefficients = coefficients if len(iband) > 1 else [coefficients]
         flat_coefficients = [c for c in coefficients for _ in kpoints]
@@ -195,17 +161,21 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
             with multiprocessing.Pool(self._n_jobs) as p:
                 results = p.starmap(_get_energy_wrapper, args)
 
-        # TODO: Make compatible with spin polarization
-        # shift will be zero if scissor is 0
-        vbm = max(self._band_structure.get_vbm()['band_index'][Spin.up])
-        shift = np.array([(1 if band_index > vbm else -1) * scissor / 2
-                          for band_index in iband for _ in kpoints])
-
+        # BoltzTraP1 energies can be shifted relative to the vasprun eigenvalues
+        # here we shift the energies back in line
         energies = np.array([d[0] for d in results])
-        energies += shift
+        energies += (self._band_structure.bands[Spin.up][iband[0]][0] -
+                     energies[0])
+
+        # Apply scissor; shift will be zero if scissor is 0
+        # TODO: Make compatible with spin polarization
+        vbm = max(self._band_structure.get_vbm()['band_index'][Spin.up])
+        scissor_shift = np.array([(1 if band_index > vbm else -1) * scissor / 2
+                                  for band_index in iband for _ in kpoints])
+        energies += scissor_shift
 
         shape = (len(iband), len(kpoints)) if len(iband) > 1 else (
-            len(kpoints), )
+            len(kpoints),)
         data_to_return = [energies.reshape(shape)]
 
         if return_velocity:
@@ -219,12 +189,12 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
             data_to_return.append(effective_masses.reshape(
                 shape + effective_masses.shape[1:]))
 
-        return _simplify_return_data(tuple(data_to_return))
+        return self._simplify_return_data(tuple(data_to_return))
 
     @property
     def parameters(self) -> BoltzTraP1Parameters:
         """Get the BoltzTraP1Parameters."""
-        if not self._parameters_id:
+        if not self._parameters_id or self._parameters_id not in _parameters:
             self.initialize()
 
         return _parameters[self._parameters_id]
@@ -466,25 +436,3 @@ def _get_energy_wrapper(kpoint: np.ndarray, coefficients: np.ndarray,
                          (dd_energy * m_e * A_to_m ** 2 * Ry_to_eV))
 
     return tuple(to_return)
-
-
-def _simplify_return_data(data: Sequence[Any]) -> Union[Any, Sequence[Any]]:
-    """Helper function to prepare data to be returned.
-
-    Takes a collection of objects and:
-
-    - If the collection contains only a single item, return just that.
-    - Otherwise return the full collection.
-
-    Args:
-        data: The data.
-
-    Returns:
-        The first element of the collection if it only has one element, else
-        the full collection.
-    """
-
-    if len(data) == 1:
-        return data[0]
-    else:
-        return tuple(data)
