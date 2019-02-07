@@ -8,6 +8,12 @@ from pymatgen.io.vasp.outputs import Vasprun
 from amset.interpolate.boltztrap1 import BoltzTraP1Interpolater
 from amset.interpolate.boltztrap2 import BoltzTraP2Interpolater
 
+"""
+This script is to compare the energy, velocity and effective mass calculated 
+from the band structures interpolated via BoltzTraP1 vs. BoltzTraP2 to check
+their consistency. 
+"""
+
 
 vr = Vasprun("vasprun.xml")
 bs = vr.get_band_structure()
