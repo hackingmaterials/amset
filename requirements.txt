@@ -4,3 +4,4 @@ scipy
 monty
 matplotlib
 matminer
+BoltzTraP2
