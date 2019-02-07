@@ -23,7 +23,7 @@ if __name__ == "__main__":
         data_files=['LICENSE', 'requirements-optional.txt'],
         zip_safe=False,
         install_requires=['numpy', 'pymatgen', 'scipy', 'monty',
-                          'matplotlib', 'matminer'],
+                          'matplotlib', 'matminer', 'BoltzTraP2'],
         extras_require={'docs': ['sphinx']},
         classifiers=['Programming Language :: Python :: 3.6',
                      'Development Status :: 4 - Beta',
