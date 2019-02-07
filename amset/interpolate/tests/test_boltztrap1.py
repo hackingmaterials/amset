@@ -16,19 +16,10 @@ amset_files = os.path.join(test_dir, '..', '..', '..', 'test_files',
 class TestBoltzTraP1Interpolater(unittest.TestCase):
     """Tests for interpolating a band structure using BoltzTraP1.
 
-    Note these tests do not cover regenerating the
+    Note these tests do not cover regenerating the coefficient file.
     """
 
     def setUp(self):
-        self.correct_energies = np.array(
-            loadfn(os.path.join(test_dir, "bzt1_energies.json")))
-        self.correct_velocities = loadfn(
-            os.path.join(test_dir, "bzt1_velocities.json"))
-        self.correct_effective_masses = loadfn(
-            os.path.join(test_dir, "bzt1_effective_masses.json"))
-        self.correct_dos_energies, self.correct_dos = loadfn(
-            os.path.join(test_dir, "dos.json"))
-
         coeff_file = os.path.join(amset_files, 'fort.123')
         vr = Vasprun(os.path.join(amset_files, 'vasprun.xml'))
         bs = vr.get_band_structure()
@@ -85,41 +76,6 @@ class TestBoltzTraP1Interpolater(unittest.TestCase):
         self.assertRaises(
             ValueError, self.interpolater._get_interpolation_coefficients, 24)
 
-    def test_get_energy(self):
-        """Test getting the interpolated energy, velocity and effective mass."""
-
-        # test just getting energy
-        energy = self.interpolater.get_energy(
-            self.kpoints[10], 25, return_velocity=False,
-            return_effective_mass=False)
-        self.assertEqual(energy, self.correct_energies[10])
-
-        # test energy + velocity
-        energy, velocity = self.interpolater.get_energy(
-            self.kpoints[10], 25, return_velocity=True,
-            return_effective_mass=False)
-        self.assertEqual(energy, self.correct_energies[10])
-        np.testing.assert_array_almost_equal(
-            velocity, self.correct_velocities[10])
-
-        # test energy + effective_mass
-        energy, effective_mass = self.interpolater.get_energy(
-            self.kpoints[10], 25, return_velocity=False,
-            return_effective_mass=True)
-        self.assertEqual(energy, self.correct_energies[10])
-        np.testing.assert_array_almost_equal(
-            effective_mass, self.correct_effective_masses[10])
-
-        # test energy + velocity + effective_mass
-        energy, velocity, effective_mass = self.interpolater.get_energy(
-            self.kpoints[10], 25, return_velocity=True,
-            return_effective_mass=True)
-        self.assertEqual(energy, self.correct_energies[10])
-        np.testing.assert_array_almost_equal(
-            velocity, self.correct_velocities[10])
-        np.testing.assert_array_almost_equal(
-            effective_mass, self.correct_effective_masses[10])
-
     def test_get_energies_non_parallel(self):
         """Test getting the interpolated energy, velocity and effective mass."""
 
@@ -127,33 +83,37 @@ class TestBoltzTraP1Interpolater(unittest.TestCase):
         energies = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=False,
             return_effective_mass=False)
-        np.testing.assert_array_almost_equal(energies, self.correct_energies)
+        self.assertEqual(energies.shape, (138, ))
+        self.assertAlmostEqual(energies[0], 3.8524)
 
         # test energy + velocity
         energies, velocities = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=True,
             return_effective_mass=False)
-        np.testing.assert_array_almost_equal(energies, self.correct_energies)
-        np.testing.assert_array_almost_equal(
-            velocities, self.correct_velocities)
+        self.assertEqual(energies.shape, (138, ))
+        self.assertAlmostEqual(energies[0], 3.8524)
+        self.assertEqual(velocities.shape, (138, 3))
+        self.assertAlmostEqual(velocities[10][0], 5367132.495161134)
 
         # test energy + effective_mass
         energies, effective_masses = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=False,
             return_effective_mass=True)
-        np.testing.assert_array_almost_equal(energies, self.correct_energies)
-        np.testing.assert_array_almost_equal(
-            effective_masses, self.correct_effective_masses)
+        self.assertEqual(energies.shape, (138, ))
+        self.assertAlmostEqual(energies[0], 3.8524)
+        self.assertEqual(effective_masses.shape, (138, 3, 3))
+        self.assertAlmostEqual(effective_masses[10][0][0], 0.21494134163522982)
 
         # test energy + velocity + effective_mass
         energies, velocities, effective_masses = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=True,
             return_effective_mass=True)
-        np.testing.assert_array_almost_equal(energies, self.correct_energies)
-        np.testing.assert_array_almost_equal(
-            velocities, self.correct_velocities)
-        np.testing.assert_array_almost_equal(
-            effective_masses, self.correct_effective_masses)
+        self.assertEqual(energies.shape, (138, ))
+        self.assertAlmostEqual(energies[0], 3.8524)
+        self.assertEqual(velocities.shape, (138, 3))
+        self.assertAlmostEqual(velocities[10][0], 5367132.495161134)
+        self.assertEqual(effective_masses.shape, (138, 3, 3))
+        self.assertAlmostEqual(effective_masses[10][0][0], 0.21494134163522982)
 
     def test_get_energies_parallel(self):
         """Test getting the interpolated energy etc using interpolation."""
@@ -162,33 +122,37 @@ class TestBoltzTraP1Interpolater(unittest.TestCase):
         energies = self.interpolater_parallel.get_energies(
             self.kpoints, 25, return_velocity=False,
             return_effective_mass=False)
-        np.testing.assert_array_almost_equal(energies, self.correct_energies)
+        self.assertEqual(energies.shape, (138, ))
+        self.assertAlmostEqual(energies[0], 3.8524)
 
         # test energy + velocity
         energies, velocities = self.interpolater_parallel.get_energies(
             self.kpoints, 25, return_velocity=True,
             return_effective_mass=False)
-        np.testing.assert_array_almost_equal(energies, self.correct_energies)
-        np.testing.assert_array_almost_equal(
-            velocities, self.correct_velocities)
+        self.assertEqual(energies.shape, (138, ))
+        self.assertAlmostEqual(energies[0], 3.8524)
+        self.assertEqual(velocities.shape, (138, 3))
+        self.assertAlmostEqual(velocities[10][0], 5367132.495161134)
 
         # test energy + effective_mass
         energies, effective_masses = self.interpolater_parallel.get_energies(
             self.kpoints, 25, return_velocity=False,
             return_effective_mass=True)
-        np.testing.assert_array_almost_equal(energies, self.correct_energies)
-        np.testing.assert_array_almost_equal(
-            effective_masses, self.correct_effective_masses)
+        self.assertEqual(energies.shape, (138, ))
+        self.assertAlmostEqual(energies[0], 3.8524)
+        self.assertEqual(effective_masses.shape, (138, 3, 3))
+        self.assertAlmostEqual(effective_masses[10][0][0], 0.21494134163522982)
 
         # test energy + velocity + effective_mass
         energies, velocities, effective_masses = self.interpolater_parallel \
             .get_energies(self.kpoints, 25, return_velocity=True,
                           return_effective_mass=True)
-        np.testing.assert_array_almost_equal(energies, self.correct_energies)
-        np.testing.assert_array_almost_equal(
-            velocities, self.correct_velocities)
-        np.testing.assert_array_almost_equal(
-            effective_masses, self.correct_effective_masses)
+        self.assertEqual(energies.shape, (138, ))
+        self.assertAlmostEqual(energies[0], 3.8524)
+        self.assertEqual(velocities.shape, (138, 3))
+        self.assertAlmostEqual(velocities[10][0], 5367132.495161134)
+        self.assertEqual(effective_masses.shape, (138, 3, 3))
+        self.assertAlmostEqual(effective_masses[10][0][0], 0.21494134163522982)
 
     def test_get_energies_scissor(self):
         """Test scissoring of band energies."""
@@ -197,14 +161,14 @@ class TestBoltzTraP1Interpolater(unittest.TestCase):
         energies = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=False,
             return_effective_mass=False, scissor=1.)
-        np.testing.assert_array_almost_equal(energies,
-                                             self.correct_energies - 0.5)
+        self.assertEqual(energies.shape, (138, ))
+        self.assertAlmostEqual(energies[0], 3.8524-0.5)
 
         # test conduction band
-        energy = self.interpolater.get_energies(
+        energies = self.interpolater.get_energies(
             self.kpoints, 33, return_velocity=False,
-            return_effective_mass=False, scissor=1)[0]
-        self.assertEqual(energy, 2.4918577339679757)
+            return_effective_mass=False, scissor=1)
+        self.assertAlmostEqual(energies[0], 7.3017 + 0.5)
 
     def test_get_energies_multiple_bands(self):
         """Test getting the interpolated data for multiple bands."""
@@ -213,75 +177,73 @@ class TestBoltzTraP1Interpolater(unittest.TestCase):
         energies = self.interpolater.get_energies(
             self.kpoints, [25, 35], return_velocity=False,
             return_effective_mass=False)
-        self.assertEqual(energies.shape, (2, 138))
-        np.testing.assert_array_almost_equal(energies[0], self.correct_energies)
-        self.assertAlmostEqual(energies[1][10], 3.636558462592982)
+        self.assertEqual(energies.shape, (2, 138, ))
+        self.assertAlmostEqual(energies[0][0], 3.8524)
+        self.assertAlmostEqual(energies[1][0], 9.594402132547742)
 
         # test energy + velocity
         energies, velocities = self.interpolater.get_energies(
             self.kpoints, [25, 35], return_velocity=True,
             return_effective_mass=False)
-        self.assertEqual(energies.shape, (2, 138))
+        self.assertEqual(energies.shape, (2, 138, ))
+        self.assertAlmostEqual(energies[0][0], 3.8524)
+        self.assertAlmostEqual(energies[1][0], 9.594402132547742)
         self.assertEqual(velocities.shape, (2, 138, 3))
-        np.testing.assert_array_almost_equal(energies[0], self.correct_energies)
-        self.assertAlmostEqual(energies[1][10], 3.636558462592982)
-        np.testing.assert_array_almost_equal(
-            velocities[0], self.correct_velocities)
+        self.assertAlmostEqual(velocities[0][10][0], 5367132.495161134)
         self.assertAlmostEqual(velocities[1][10][0], 116714019.90442546)
 
         # test energy + effective_mass
         energies, effective_masses = self.interpolater.get_energies(
             self.kpoints, [25, 35], return_velocity=False,
             return_effective_mass=True)
-        self.assertEqual(energies.shape, (2, 138))
+        self.assertEqual(energies.shape, (2, 138, ))
+        self.assertAlmostEqual(energies[0][0], 3.8524)
+        self.assertAlmostEqual(energies[1][0], 9.594402132547742)
         self.assertEqual(effective_masses.shape, (2, 138, 3, 3))
-        np.testing.assert_array_almost_equal(energies[0], self.correct_energies)
-        self.assertAlmostEqual(energies[1][10], 3.636558462592982)
-        np.testing.assert_array_almost_equal(
-            effective_masses[0], self.correct_effective_masses)
-        self.assertAlmostEqual(effective_masses[1][10][0][0],
-                               0.008700893167441466)
+        self.assertAlmostEqual(effective_masses[0][10][0][0], 0.214941341635229)
+        self.assertAlmostEqual(effective_masses[1][10][0][0], 0.008700893167441)
 
         # test energy + velocity + effective_mass
         energies, velocities, effective_masses = self.interpolater.get_energies(
             self.kpoints, [25, 35], return_velocity=True,
             return_effective_mass=True)
-        self.assertEqual(energies.shape, (2, 138))
+        self.assertEqual(energies.shape, (2, 138, ))
+        self.assertAlmostEqual(energies[0][0], 3.8524)
+        self.assertAlmostEqual(energies[1][0], 9.594402132547742)
         self.assertEqual(velocities.shape, (2, 138, 3))
-        self.assertEqual(effective_masses.shape, (2, 138, 3, 3))
-        np.testing.assert_array_almost_equal(energies[0], self.correct_energies)
-        self.assertAlmostEqual(energies[1][10], 3.636558462592982)
-        np.testing.assert_array_almost_equal(
-            velocities[0], self.correct_velocities)
+        self.assertAlmostEqual(velocities[0][10][0], 5367132.495161134)
         self.assertAlmostEqual(velocities[1][10][0], 116714019.90442546)
-        np.testing.assert_array_almost_equal(
-            effective_masses[0], self.correct_effective_masses)
-        self.assertAlmostEqual(effective_masses[1][10][0][0],
-                               0.008700893167441466)
+        self.assertEqual(effective_masses.shape, (2, 138, 3, 3))
+        self.assertAlmostEqual(effective_masses[0][10][0][0], 0.214941341635229)
+        self.assertAlmostEqual(effective_masses[1][10][0][0], 0.008700893167441)
 
     def test_get_energies_all_bands(self):
         # test all bands
         energies, velocities, effective_masses = self.interpolater.get_energies(
             self.kpoints, None, return_velocity=True,
             return_effective_mass=True)
-        self.assertEqual(energies.shape, (11, 138))
+        self.assertEqual(energies.shape, (11, 138, ))
+        self.assertAlmostEqual(energies[0][0], 3.8524)
+        self.assertAlmostEqual(energies[10][0], 9.594402132547742)
         self.assertEqual(velocities.shape, (11, 138, 3))
-        self.assertEqual(effective_masses.shape, (11, 138, 3, 3))
-        np.testing.assert_array_almost_equal(energies[0], self.correct_energies)
-        self.assertAlmostEqual(energies[10][10], 3.636558462592982)
-        np.testing.assert_array_almost_equal(
-            velocities[0], self.correct_velocities)
+        self.assertAlmostEqual(velocities[0][10][0], 5367132.495161134)
         self.assertAlmostEqual(velocities[10][10][0], 116714019.90442546)
-        np.testing.assert_array_almost_equal(
-            effective_masses[0], self.correct_effective_masses)
-        self.assertAlmostEqual(effective_masses[10][10][0][0],
-                               0.008700893167441466)
+        self.assertEqual(effective_masses.shape, (11, 138, 3, 3))
+        self.assertAlmostEqual(effective_masses[0][10][0][0], 0.214941341635229)
+        self.assertAlmostEqual(effective_masses[10][10][0][0], 0.008700893167441)
 
     def test_get_dos(self):
         """Test generating the interpolated DOS."""
-        energies, densities = self.interpolater.get_dos(
-            [10, 10, 10], emin=-10, emax=10, width=0.075)
-        np.testing.assert_array_almost_equal(energies,
-                                             self.correct_dos_energies)
-        np.testing.assert_array_almost_equal(densities,
-                                             self.correct_dos)
+        dos = self.interpolater.get_dos([10, 10, 10], emin=-10, emax=10,
+                                        width=0.075)
+        self.assertEqual(dos.shape, (20000, 2))
+        self.assertEqual(dos[0][0], -10)
+        self.assertAlmostEqual(dos[15000][1], 3.5363070379322012)
+
+        # test normalising the DOS
+        dos = self.interpolater.get_dos([10, 10, 10], emin=-10, emax=10,
+                                        width=0.075, normalize=True)
+        self.assertEqual(dos.shape, (20000, 2))
+        self.assertEqual(dos[0][0], -10)
+        self.assertAlmostEqual(dos[15000][1], 0.01461288834807165)
+
