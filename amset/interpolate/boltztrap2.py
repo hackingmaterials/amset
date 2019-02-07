@@ -2,7 +2,6 @@
 Class to interpolate a band structure using BoltzTraP2
 """
 
-import multiprocessing
 import numpy as np
 
 from typing import Optional, Union, List, Tuple
@@ -34,10 +33,9 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
         num_electrons (num_electrons): The number of electrons in the system.
     """
 
-    def __init__(self, band_structure, num_electrons, n_jobs=-1, **kwargs):
+    def __init__(self, band_structure, num_electrons, **kwargs):
         super(BoltzTraP2Interpolater, self).__init__(
             band_structure, num_electrons, **kwargs)
-        self._n_jobs = multiprocessing.cpu_count() if n_jobs == -1 else n_jobs
         self._parameters = None
 
     def initialize(self):
