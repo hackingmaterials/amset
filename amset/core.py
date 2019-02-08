@@ -21,7 +21,6 @@ from monty.json import MontyEncoder, MSONable, MontyDecoder
 from monty.serialization import dumpfn, loadfn
 from scipy.interpolate import griddata
 
-from amset.interpolate import Interpolater
 from amset.logging import LoggableMixin
 from amset.scattering.elastic import (
     IonizedImpurityScattering, AcousticDeformationScattering,

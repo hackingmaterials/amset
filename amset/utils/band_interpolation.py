@@ -311,6 +311,7 @@ def get_bs_extrema(bs, coeff_file=None, interp_params=None, method="boltztrap1",
                 final_extrema[tp].append(kp)
             else:
                 final_extrema[tp].append(k_ext_found)
+
         # sort the extrema based on their energy (i.e. importance)
         subband, _, _ = interpolate_bs(final_extrema[tp], interp_params,
                                        iband=iband,

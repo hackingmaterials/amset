@@ -15,8 +15,6 @@ def get_parabolic_energy(kpt, parabolic_bands, type, ib=0, bandgap=1, all_values
     """
     Args:
         kpt (list): coordinates of a given k-point in the actual cartesian coordinates and NOT fractional coordinates
-        rotations: symmetry rotation operations
-        translations: symmetry translational operations
         parabolic_bands [[lists]]: each member of the first list represents a band: in each band a list of lists of lists
             should contain a list of two-member lists: the two members are: the coordinates of extrema k-point and its
             symmetrically equivalent points and another two members list of
