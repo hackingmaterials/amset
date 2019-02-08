@@ -23,17 +23,12 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         self._band_structure = band_structure
         self._num_electrons = num_electrons
         self._calc_dir = calc_dir
-        self._logger = self.get_logger(logger)
+        self._logger = self.get_logger(logger, level=log_level)
         self._symprec = symprec
         self._soc = soc
         self._lattice_matrix = band_structure.structure.lattice.matrix
         self._sga = SpacegroupAnalyzer(band_structure.structure,
                                        symprec=symprec)
-
-    @abstractmethod
-    def initialize(self):
-        """Initialise the interpolater."""
-        pass
 
     @abstractmethod
     def get_energies(self, kpoints: np.ndarray,
