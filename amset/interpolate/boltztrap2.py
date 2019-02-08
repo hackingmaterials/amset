@@ -10,6 +10,7 @@ from BoltzTraP2 import sphere, fite
 
 from amset.utils.constants import Hartree_to_eV, hbar, A_to_m, m_to_cm, m_e, e
 from pymatgen import Spin
+from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.boltztrap2 import BandstructureLoader
 from amset.interpolate.base import AbstractInterpolater
 
@@ -29,11 +30,12 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
         Communications 231, 140–145 (2018)
 
     Args:
-        band_structure (BandStructure): A pymatgen band structure object.
-        num_electrons (num_electrons): The number of electrons in the system.
+        band_structure: A pymatgen band structure object.
+        num_electrons: The number of electrons in the system.
     """
 
-    def __init__(self, band_structure, num_electrons, **kwargs):
+    def __init__(self, band_structure: BandStructure, num_electrons: int,
+                 **kwargs):
         super(BoltzTraP2Interpolater, self).__init__(
             band_structure, num_electrons, **kwargs)
         self._parameters = None
@@ -66,9 +68,8 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
         Args:
             kpoints: The k-points in fractional coordinates.
             iband: A band index or list of band indicies for which to get the
-                energies. Band indices are 0-indexed unlike in BoltzTraP1 where
-                they are 1 indexed. If ``None``, the energies for all
-                available bands will be returned.
+                energies. If ``None``, the energies for all available bands will
+                be returned.
             scissor: The amount by which the band gap is scissored.
             return_velocity: Whether to return the band velocities.
             return_effective_mass: Whether to return the band effective masses.
