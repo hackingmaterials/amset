@@ -10,8 +10,14 @@ from scipy.integrate import trapz
 from monty.json import MSONable
 
 from amset.logging import LoggableMixin
+from amset.utils.band_structure import kpts_to_first_bz, get_closest_k
+from amset.utils.constants import k_B
+from amset.utils.detect_peaks import detect_peaks
+from amset.utils.general import norm
+from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 
 class AbstractInterpolater(MSONable, LoggableMixin, ABC):
@@ -29,9 +35,11 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         self._lattice_matrix = band_structure.structure.lattice.matrix
         self._sga = SpacegroupAnalyzer(band_structure.structure,
                                        symprec=symprec)
+        self._vbm_idx = max(self._band_structure.get_vbm()
+                            ['band_index'][Spin.up])
 
     @abstractmethod
-    def get_energies(self, kpoints: np.ndarray,
+    def get_energies(self, kpoints: Union[np.ndarray, List],
                      iband: Optional[Union[int, List[int]]] = None,
                      scissor: float = 0.0,
                      return_velocity: bool = False,
@@ -82,7 +90,6 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
             The density of states data, formatted as::
 
                 (energies, densities)
-
         """
         mesh_data = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
         ir_kpts = np.asarray(list(map(list, mesh_data[:, 0])))
@@ -124,6 +131,103 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
             dos /= integ * normalization_factor
 
         return np.column_stack((emesh, dos))
+
+    def get_extrema(self, iband, line_density=30, min_normdiff=4.0,
+                    e_cut=10 * k_B * 300, return_global=False, scissor=0.0):
+        """
+        Returns a dictionary of p-type (valence) and n-type (conduction) band
+            extrema k-points by looking at the 1st and 2nd derivatives of the
+            bands
+
+        Args:
+            iband: A band index for which to get the extrema. Band indices are
+                0-indexed.
+            line_density (int): maximum number of k-points between each two
+                consecutive high-symmetry k-points
+            min_normdiff (float): the minimum allowed distance
+                norm(cartesian k in 1/nm) in extrema; this is important to avoid
+                numerical instability errors or finding peaks that are too close
+                to each other for Amset formulation to be relevant.
+            e_cut (float or dict): max energy difference with CBM/VBM allowed
+                for extrema. Valid examples: 0.25 or {'n': 0.5, 'p': 0.25} , ...
+            return_global (bool): in addition to the extrema, return the actual
+                CBM (global minimum) and VBM (global maximum) w/ their k-point
+            scissor (float): the amount by which the band gap is altered/
+                scissored.
+
+        Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
+        """
+
+        # TODO: Rewrite this to accept multiple bands
+
+        bs = self._band_structure
+        is_cb = iband > self._vbm_idx
+
+        def to_cart(k):
+            """Convert fractional k-points to cartesian coordinates in 1/nm."""
+            return np.dot(bs.structure.lattice.reciprocal_lattice.matrix,
+                          k) * 10
+
+        def kpoints_are_separated(a_kpoint, list_kpoints):
+            sym_kpoints = [k for lk in list_kpoints for dk in (lk, -lk)
+                           for k in bs.get_sym_eq_kpoints(dk)]
+            if sym_kpoints:
+                return norm(to_cart(get_closest_k(
+                    a_kpoint, sym_kpoints, return_diff=True))) > min_normdiff
+            else:
+                return True
+
+        hsk = HighSymmKpath(bs.structure)
+        kpoints = kpts_to_first_bz(hsk.get_kpoints(
+            line_density=line_density)[0])
+        band = self.get_energies(kpoints, iband=iband,
+                                 scissor=scissor)
+
+        global_extrema_idx = np.argmin(band) if is_cb else np.argmax(band)
+        global_extrema = {'energy': band[global_extrema_idx],
+                          'kpoint': kpoints[global_extrema_idx]}
+
+        # order the extrema by energy to ensure VBM/CBM always included
+        extrema_idx = detect_peaks(band, mph=None, mpd=1, valley=is_cb)
+        extrema_idx = sorted(extrema_idx,
+                             key=lambda x: band[x], reverse=not is_cb)
+
+        # filter those too far away in energy
+        extrema_idx = [x for x in extrema_idx
+                       if abs(band[x] - global_extrema['energy']) < e_cut]
+
+        # continuously filter to only include extrema separated in k-space
+        tmp_extrema = []
+        for kpoint_idx in extrema_idx:
+            if kpoints_are_separated(kpoints[kpoint_idx], tmp_extrema):
+                tmp_extrema.append(kpoints[kpoint_idx])
+
+        # check to see if one of the actual high-symmetry k-points can be used
+        # Is this to improve performance due to greater symmetry?
+        # TODO: Check this is necessary
+        all_high_sym_kpoints = [k for lk in hsk.kpath['kpoints'].values()
+                                for dk in (lk, -lk)
+                                for k in bs.get_sym_eq_kpoints(dk)]
+
+        extrema = []
+        for kpoint in tmp_extrema:
+            high_sym_k = get_closest_k(kpoint, all_high_sym_kpoints)
+
+            if norm(to_cart(high_sym_k - kpoint)) < min_normdiff / 10.0:
+                extrema.append(high_sym_k)
+            else:
+                extrema.append(kpoint)
+        extrema = np.array(extrema)
+
+        # sort the extrema based on their energy (i.e. importance)
+        band = self.get_energies(extrema, iband=iband, scissor=scissor)
+        sorted_idx = np.argsort(band) if is_cb else np.argsort(band)[::-1]
+        extrema = extrema[sorted_idx]
+
+        if return_global:
+            return extrema, global_extrema
+        else:
+            return extrema
 
     @staticmethod
     def _simplify_return_data(data: Sequence[Any]) -> Union[Any, Sequence[Any]]:
