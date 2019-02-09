@@ -2,6 +2,7 @@ import numpy as np
 
 from amset.utils.general import AmsetError, norm
 from pymatgen import Spin
+from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.util.coord import pbc_diff
 
@@ -11,7 +12,7 @@ Brillouin zone and even parsing s- and p-orbital contribution from vasprun.xml
 """
 
 
-def kpts_to_first_BZ(kpts):
+def kpts_to_first_bz(kpts):
     """
     Brings a list of k-points to the 1st Brillouin Zone (BZ);
     i.e. -0.5 <= the fractional coordinates <= 0.5
@@ -29,7 +30,7 @@ def kpts_to_first_BZ(kpts):
             while k[alpha] < -0.50:
                 k[alpha] += 1.00
         new_kpts.append(k)
-    return new_kpts
+    return np.array(new_kpts)
 
 
 def get_closest_k(kpoint, ref_ks, return_diff=False, exclude_self=False):
@@ -50,9 +51,10 @@ def get_closest_k(kpoint, ref_ks, return_diff=False, exclude_self=False):
     """
     if len(list(kpoint)) != 3 or len(list(ref_ks[0])) != 3:
         raise AmsetError('k-point coordinates must be 3-dimensional')
+
     norms = [norm(ki-kpoint) for ki in ref_ks]
     if exclude_self:
-        norms = [norm if norm>0.001 else 1e10 for norm in norms]
+        norms = [x if x > 0.001 else 1e10 for x in norms]
     min_dist_ik = np.array(norms).argmin()
     if return_diff:
         return kpoint - ref_ks[min_dist_ik]
