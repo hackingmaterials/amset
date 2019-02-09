@@ -2,8 +2,6 @@ import os
 import unittest
 import numpy as np
 
-from monty.serialization import loadfn
-from numpy.testing import assert_array_equal
 
 from amset.interpolate.parabolic import ParabolicInterpolater
 from pymatgen.io.vasp import Vasprun
