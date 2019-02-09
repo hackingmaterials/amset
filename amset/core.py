@@ -30,6 +30,7 @@ from amset.utils.band_interpolation import interpolate_bs, get_energy_args, \
     get_bs_extrema, get_dos_boltztrap2
 from amset.utils.band_parabolic import get_dos_from_parabolic_bands, \
     get_parabolic_energy
+from amset.interpolate import get_interpolater
 from amset.utils.band_structure import get_bindex_bspin, \
     remove_duplicate_kpoints, \
     get_closest_k, generate_adaptive_kmesh, get_band_orbital_contributions
@@ -43,7 +44,6 @@ from amset.plotting import get_amset_plots
 from amset.utils.transport import f0, df0de, fermi_integral, calculate_sio, \
     free_e_dos
 from amset.valley import Valley
-from pymatgen.electronic_structure.boltztrap import BoltztrapRunner
 from pymatgen.io.vasp import Vasprun, Spin, Kpoints
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
@@ -136,6 +136,15 @@ class Amset(MSONable, LoggableMixin):
                 at the k-point where the CBM/VBM is located
 
             example of material_params: {"epsilon_s": 10.3, "user_bandgap": 1.}
+        interpolation (str): The band structure interpolation method.
+              Options are "boltztrap1", "boltztrap2" (default), and "parabolic".
+        parabolic_bands (None or list): None is recommended; otherwise
+              set to simulate a band structure with one or multiple parabolic
+              bands; For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]] denotes
+              a single parabolic band, with a single extremum at
+              Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
+              has an effective mass of 0.09. Coordinates are fractional. For
+              more information see the docs for get_parabolic_energy function.
         model_params (dict): parameters related to the model and the
             formulation:
 
@@ -148,13 +157,6 @@ class Amset(MSONable, LoggableMixin):
               be include; for example: ["ACD", "IMP", "PIE"]
             - "inelastic_scats" ([str]): list of inelastic scattering mechanisms
                to be included; for example: ["POP"]
-            - "parabolic_bands" (None or list): None is recommended; otherwise
-              set to simulate a band structure with one or multiple parabolic
-              bands; For example, [[[[0.0, 0.0, 0.0], [0.0, 0.09]]]] denotes
-              a single parabolic band, with a single extremum at
-              Gamma ([0, 0, 0]) that is 0.0 eV above/below the CBM/VBM and
-              has an effective mass of 0.09. Coordinates are fractional. For
-              more information see the docs for get_parabolic_energy function.
 
         performance_params (dict): parameters related to convergence, speed,
             etc; the options are:
@@ -177,8 +179,6 @@ class Amset(MSONable, LoggableMixin):
             - "n_jobs" (int>=1): the number of jobs in parallelization.
               Currently, it is only relevant to interpolation method of
               "boltztrap1"
-            - "interpolation" (str): the band structure interpolation method.
-              Current options are "boltztrap1" and "boltztrap2".
 
         dopings ([float]): list of input carrier concentrations; c<0 for
             electrons and c>0 for holes
@@ -212,7 +212,8 @@ class Amset(MSONable, LoggableMixin):
      """
 
     def __init__(self, band_structure, num_electrons, material_params,
-                 calc_dir=None,
+                 interpolation: str = 'boltztrap2', coeff_file=None,
+                 parabolic_bands=None, calc_dir=None,
                  model_params=None, performance_params=None,
                  dopings=None, temperatures=None, integration='e', logger=True,
                  log_level=None, timeout_hours=48):
@@ -233,7 +234,6 @@ class Amset(MSONable, LoggableMixin):
                                        'supported by AMSET.')
 
         self.band_structure = band_structure
-        self.nbands = self.band_structure.nb_bands
         self.num_electrons = num_electrons
 
         # TODO use these rather than set material params etc.
@@ -241,6 +241,9 @@ class Amset(MSONable, LoggableMixin):
         self._material_params = deepcopy(material_params)
         self._model_params = deepcopy(model_params)
         self._performance_params = deepcopy(performance_params)
+        self._interpolation = interpolation
+        self._coeff_file = coeff_file
+        self._parabolic_bands = parabolic_bands
 
         self.structure = band_structure.structure
         self.calc_dir = calc_dir if calc_dir else '.'
@@ -259,11 +262,10 @@ class Amset(MSONable, LoggableMixin):
         self.set_model_params(model_params)
         self.set_material_params(material_params)
         self.set_performance_params(performance_params)
-
-        self.interpolater = Interpolater(
-            self.interpolation, band_structure, num_electrons,
-            coeff_file=None, max_temperature=max(self.temperatures),
-            calc_dir=calc_dir)
+        self.interpolater = get_interpolater(
+            band_structure, num_electrons, coeff_file=coeff_file,
+            parabolic_band_parameters=parabolic_bands,
+            interpolation_type=interpolation)
 
         cbm = band_structure.get_cbm()
         vbm = band_structure.get_vbm()
@@ -282,19 +284,18 @@ class Amset(MSONable, LoggableMixin):
             self.scissor = self.user_bandgap - self.dft_gap
             self.logger.info('scissor is set to {}'.format(self.scissor))
 
-        # I think we add 1 to band indicies to be consistent with BoltzTraP?
         cbm_vbm = {"n": {"kpoint": self.kpoints[cbm["kpoint_index"][0]],
                          "energy": cbm["energy"],
-                         "bidx": get_bindex_bspin(vbm, is_cbm=False)[0] + 2,
+                         "bidx": get_bindex_bspin(vbm, is_cbm=False)[0] + 1,
                          "included": 0,
                          "eff_mass_xx": [0.0, 0.0, 0.0]},
                    "p": {"kpoint": self.kpoints[vbm["kpoint_index"][0]],
                          "energy": vbm["energy"],
-                         "bidx": get_bindex_bspin(vbm, is_cbm=False)[0] + 1,
+                         "bidx": get_bindex_bspin(vbm, is_cbm=False)[0],
                          "included": 0,
                          "eff_mass_xx": [0.0, 0.0, 0.0]}}
 
-        if self.parabolic_bands0 is None:
+        if self.parabolic_bands is None:
             # normalise the band energies to the band edge
             max_cb = np.min(eigs[0], axis=1) - cbm['energy']
             min_vb = np.max(eigs[0], axis=1) - vbm['energy']
@@ -305,8 +306,8 @@ class Amset(MSONable, LoggableMixin):
             cbm_vbm['p']['included'] = len(
                 max_cb[(min_vb <= 0) & (min_vb >= -self.Ecut["p"])])
         else:
-            cbm_vbm["n"]["included"] = len(self.parabolic_bands0)
-            cbm_vbm["p"]["included"] = len(self.parabolic_bands0)
+            cbm_vbm["n"]["included"] = len(self.parabolic_bands)
+            cbm_vbm["p"]["included"] = len(self.parabolic_bands)
 
         self.init_nbands = {'n': cbm_vbm['n']['included'],
                             'p': cbm_vbm['p']['included']}
@@ -330,7 +331,7 @@ class Amset(MSONable, LoggableMixin):
         num_electrons = vasprun.parameters['NELECT']
         return Amset(band_structure, num_electrons, material_params, **kwargs)
 
-    def run_profiled(self, coeff_file=None, kgrid_tp="coarse", nfuncs=15):
+    def run_profiled(self, kgrid_tp="coarse", nfuncs=15):
         """
         Very similar to the run method except that it is time-profiled: it
             shows the total and per-call time elapsed in running each function.
@@ -340,7 +341,7 @@ class Amset(MSONable, LoggableMixin):
             nfuncs (int): only print the nfuncs most time-consuming functions
         """
         profiler = cProfile.Profile()
-        profiler.runcall(lambda: self.run(coeff_file, kgrid_tp=kgrid_tp))
+        profiler.runcall(lambda: self.run(kgrid_tp=kgrid_tp))
         stats = Stats(profiler, stream=stdout)
         stats.strip_dirs()
         stats.sort_stats('cumulative')
@@ -352,16 +353,13 @@ class Amset(MSONable, LoggableMixin):
                            'The calculations exceeded the timeout_hours of '
                            '{:.4f} hours'.format(self.timeout_hours / 3600.0))
 
-    def run(self, coeff_file=None, kgrid_tp="coarse"):
+    def run(self, kgrid_tp="coarse"):
         """
         Function to run Amset and log the main outputs, populate the two main
             grid variables: k-points grid (kgrid) and energy grid (egrid) and
             class attributes such as Amset.mobility and Amset.seebeck.
 
         Args:
-            coeff_file: the path to fort.123* file containing the coefficients of
-                the interpolated band structure generated by a modified version of
-                BoltzTraP. If None, BoltzTraP will run to generate the file.
             kgrid_tp (str): define the density of k-point mesh.
                 options: 'very coarse', 'coarse', 'fine'
 
@@ -387,61 +385,45 @@ class Amset(MSONable, LoggableMixin):
         self.logger.info('max_nvalleys={}'.format(self.max_nvalleys))
         self.logger.info('max_normk={}'.format(self.max_normk))
 
-        coeff_file = self._initialize_transport_vars(coeff_file=coeff_file)
-        # make the reference energy consistent w/ interpolation rather than DFT
-        self.update_cbm_vbm_dos(coeff_file=coeff_file)
+        self._initialize_transport_vars()
+        self._update_cbm_vbm()
 
         # with ibands_tuple, for each couple of conduction/valence bands we
         # only use 1 band together (i.e. always ib==0)
         for tp in ['p', 'n']:
             self.cbm_vbm[tp]['included'] = 1
-        self.logger.debug("cbm_vbm after updating:\n {}".format(self.cbm_vbm))
-        gap = self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"]
-        gap_orig = self.dft_gap + self.scissor
-        if abs(gap_orig - gap) > 0.1:
-            raise AmsetError(self.logger, 'The band gap calculated based '
-                                          'on the interpolation method does not match with '
-                                          'the input bandgap! {}!={}'.format(
-                gap, gap_orig))
 
         self._check_timeout_hours()
+        self.dos = self._calculate_dos()
         if self.integration == 'k':
-            kpts = self.generate_kmesh(important_points={'n': [[0.0, 0.0, 0.0]],
-                                                         'p': [
-                                                             [0.0, 0.0, 0.0]]},
-                                       kgrid_tp=kgrid_tp)
+            kpts = self.generate_kmesh(
+                important_points={'n': [[0.0, 0.0, 0.0]],
+                                  'p': [[0.0, 0.0, 0.0]]},
+                kgrid_tp=kgrid_tp)
 
-            # the purpose of the following line is just to generate self.energy
-            # _array that find_fermi_k function uses
-            _, _ = self.get_energy_array(coeff_file, kpts,
-                                         once_called=False,
-                                         return_energies=True,
-                                         num_bands=self.init_nbands,
-                                         nbelow_vbm=0,
-                                         nabove_cbm=0)
+            # the purpose of the following line is just to generate
+            # self.energy_array that find_fermi_k function uses
+            self.get_energy_array(kpts, return_energies=True,
+                                  num_bands=self.init_nbands)
             self.fermi_level = self.find_fermi_k(num_bands=self.init_nbands)
+
         elif self.integration == 'e':
             kpts = self.generate_kmesh(
                 important_points={'n': [[0.0, 0.0, 0.0]],
                                   'p': [[0.0, 0.0, 0.0]]},
                 kgrid_tp='very coarse')
-            self.get_energy_array(coeff_file, kpts,
-                                  once_called=False,
-                                  return_energies=False,
-                                  num_bands=self.init_nbands,
-                                  nbelow_vbm=0,
-                                  nabove_cbm=0)
-            self.fermi_level = {c: {T: None for T in self.temperatures} \
+
+            self.get_energy_array(kpts, return_energies=False,
+                                  num_bands=self.init_nbands)
+
+            self.fermi_level = {c: {T: self.find_fermi(c, T)
+                                    for T in self.temperatures}
                                 for c in self.dopings}
 
-            for c in self.dopings:
-                for T in self.temperatures:
-                    self.fermi_level[c][T] = self.find_fermi(c, T)
         self.logger.info('fermi level = {}'.format(self.fermi_level))
-        self.logger.info(
-            'initial number of bands:\n{}'.format(self.init_nbands))
-        self.logger.debug(
-            'here is the calculated dopings"\n{}'.format(self.calc_doping))
+        self.logger.info('initial number of bands: {}'.format(self.init_nbands))
+        self.logger.debug('calculated dopings: {}'.format(self.calc_doping))
+
         vibands = list(range(self.init_nbands['p']))
         cibands = list(range(self.init_nbands['n']))
 
@@ -480,7 +462,7 @@ class Amset(MSONable, LoggableMixin):
             self._check_timeout_hours()
             self.logger.info(
                 'going over conduction and valence # {}'.format(self.ibrun))
-            self.all_important_pts = self.find_all_important_points(coeff_file,
+            self.all_important_pts = self.find_all_important_points(
                                                                     nbelow_vbm=self.nbelow_vbm,
                                                                     nabove_cbm=self.nabove_cbm,
                                                                     interpolation=self.interpolation)
@@ -500,7 +482,6 @@ class Amset(MSONable, LoggableMixin):
                 self.count_mobility[self.ibrun] = self.count_mobility0[
                     self.ibrun]
                 important_points = {'n': None, 'p': None}
-                once_called = True
                 for tp in ['p', 'n']:
                     try:
                         important_points[tp] = [self.important_pts[tp][ivalley]]
@@ -556,11 +537,8 @@ class Amset(MSONable, LoggableMixin):
                     continue
                 kpts = self.generate_kmesh(important_points=important_points,
                                            kgrid_tp=kgrid_tp)
-                kpts, energies = self.get_energy_array(coeff_file, kpts,
-                                                       once_called=once_called,
+                kpts, energies = self.get_energy_array(kpts,
                                                        return_energies=True,
-                                                       nbelow_vbm=self.nbelow_vbm,
-                                                       nabove_cbm=self.nabove_cbm,
                                                        num_bands={'p': 1,
                                                                   'n': 1})
                 self._check_timeout_hours()
@@ -864,26 +842,15 @@ class Amset(MSONable, LoggableMixin):
         self.logger.info('\nfinal mobility:\n{}'.format(pformat(self.mobility)))
         self.logger.info('\nfinal Seebeck:\n{}'.format(pformat(self.seebeck)))
 
-    def _initialize_transport_vars(self, coeff_file):
+    def _initialize_transport_vars(self):
         """
         Variables related to transport such as cbm_vbm, mobility, etc. This
         internal method is supposed to be called after read_vrun.
-
-        Args:
-            coeff_file: the path to fort.123* file containing the coefficients of
-                the interpolated band structure generated by a modified version of
-                BoltzTraP. If None, BoltzTraP will run to generate the file.
-
-        Returns (str): instance variables get updated/created and returns
-            coeff_file (if it was None and updated in this function)
         """
         if self.parabolic_bands0 is not None:
-            self.cbm_vbm["n"]["energy"] = self.dft_gap
-            self.cbm_vbm["p"]["energy"] = 0.0
             self.cbm_vbm["n"]["kpoint"] = self.cbm_vbm["p"]["kpoint"] = \
-                self.parabolic_bands0[0][0][0]
+                self.parabolic_bands[0][0][0]
 
-        self.interpolater.initialize()
         # initialize transport variables
         self.mo_labels = self.elastic_scats + self.inelastic_scats + ['overall',
                                                                       'average']
@@ -903,7 +870,6 @@ class Amset(MSONable, LoggableMixin):
         self.count_mobility = [{'n': True, 'p': True} \
                                for _ in range(max(self.init_nbands['p'],
                                                   self.init_nbands['n']))]
-        return coeff_file
 
     def calculate_spb_transport(self):
         """
@@ -978,66 +944,33 @@ class Amset(MSONable, LoggableMixin):
             self.dv_grid[tp] = self.find_dv(self.kgrid_array[tp])
         return kpts
 
-    def update_cbm_vbm_dos(self, coeff_file=None):
-        """
-        Updates the energy and mass values of the CBM/VBM (in cbm_vbm var) and
-        dos limits according to the iterpolation method and the references used
+    def _update_cbm_vbm(self):
+        """Updates the energy of the CBM/VBM using the interpolated energies."""
+        for tp in ("p", "n"):
+            energy, effective_mass = self.interpolater.get_energies(
+                [self.cbm_vbm0[tp]['kpoint']], self.cbm_vbm0[tp]['bidx'],
+                scissor=self.scissor, return_effective_mass=True)
 
-        Args:
-            coeff_file (str): path to the boltztrap1 .123 coefficient file;
-                ignored if interpolation is not boltztrap1
-
-        Returns (None):
-            updates cbm_vbm and some other class attributes such as
-            offset_from_vbm which is the energy difference between the DFT
-            calculations reference energy and the interpolation method.
-        """
-        if self.parabolic_bands0 is None:
-            band_indices = [self.cbm_vbm0['p']["bidx"],
-                            self.cbm_vbm0['n']["bidx"]]
-            band_indices.sort()
-        else:
-            self.parabolic_bands = np.array(self.parabolic_bands0)
-            for ib in range(len(self.parabolic_bands0)):
-                for valley in range(len(self.parabolic_bands0[ib])):
-                    self.parabolic_bands[ib][valley][
-                        0] = remove_duplicate_kpoints(
-                        self.band_structure.get_sym_eq_kpoints(
-                            self.parabolic_bands0[ib][valley][0],
-                            cartesian=True))
-
-        for i, tp in enumerate(["p", "n"]):
-            sgn = (-1.0) ** i
-            iband = i if self.interpolation == "boltztrap1" else \
-                self.cbm_vbm0[tp]["bidx"]
-            if self.parabolic_bands is not None:
-                energy, velocity, effective_m = self.calc_parabolic_energy(
-                    self.cbm_vbm0[tp]["kpoint"], tp, 0)
-            else:
-                energies, velocities, masses = interpolate_bs(
-                    [self.cbm_vbm0[tp]["kpoint"]], self.interp_params,
-                    iband=iband, sgn=sgn, method=self.interpolation,
-                    scissor=self.scissor, matrix=self.structure.lattice.matrix)
-                energy = energies[0]
-                effective_m = masses[0]
-            self.offset_from_vrun[tp] = energy - self.cbm_vbm0[tp]["energy"]
+            self.offset_from_vrun[tp] = energy[0] - self.cbm_vbm0[tp]["energy"]
             self.logger.debug(
                 "offset from vasprun energy values for {}-type = {} eV".format(
                     tp, self.offset_from_vrun[tp]))
-            self.cbm_vbm0[tp]["energy"] = energy
-            self.cbm_vbm0[tp]["eff_mass_xx"] = effective_m.diagonal()
-        if self.parabolic_bands is None:
-            self.dos_emax += self.offset_from_vrun['n']
-            self.dos_emin += self.offset_from_vrun['p']
-        for tp in ['p', 'n']:
-            self.cbm_vbm[tp]['energy'] = self.cbm_vbm0[tp]['energy']
-            self.cbm_vbm[tp]['eff_mass_xx'] = self.cbm_vbm0[tp]['eff_mass_xx']
-        self._avg_eff_mass = {tp: abs(np.mean(self.cbm_vbm0[tp]["eff_mass_xx"]))
-                              for tp in ["n", "p"]}
+            self.cbm_vbm0[tp].update({'energy': energy,
+                                      'eff_mass_xx': effective_mass.diagonal()})
+            self.cbm_vbm[tp].update({'energy': energy,
+                                     'eff_mass_xx': effective_mass.diagonal()})
 
-    def get_energy_array(self, coeff_file, kpts, once_called=False,
-                         return_energies=False, num_bands=None,
-                         nbelow_vbm=0, nabove_cbm=0):
+        self.logger.debug("cbm_vbm after updating:\n {}".format(self.cbm_vbm))
+
+        new_gap = self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"]["energy"]
+        old_gap = self.dft_gap + self.scissor
+        if abs(old_gap - new_gap) > 0.1:
+            self.log_raise(RuntimeError,
+                           'The interpolated band gap is very different to the'
+                           'the input band gap! {}!={}'.format(
+                               new_gap, old_gap))
+
+    def get_energy_array(self, kpoints, return_energies=False, num_bands=None):
         """
         Multi-purpose function to populate energy_array instance variable as
         well as the dos and dos_* instance variables when the function is called
@@ -1045,15 +978,9 @@ class Amset(MSONable, LoggableMixin):
         (kpts) that may be different for n-type and p-type.
 
         Args:
-            coeff_file (str): the path to the file containing the boltztrap1
-                interpolation coefficients. Only relevant to boltztrap1
-                interpolation method.
-            kpts ({"n": [3x1 array], "p": [3x1 array]}): k-point meshes
-            once_called (bool): whether this function is called once before
+            kpoints ({"n": [3x1 array], "p": [3x1 array]}): k-point meshes
             return_energies (bool): whether to return sorted energy values
             num_bands ({"n": int, "p": int}): number of bands for n- and p-type
-            nbelow_vbm (int): number of bands below the VBM
-            nabove_cbm (int): number of bands ablove the CBM
 
         Returns:
             depending on return_energies only returns back the kpts with k-point
@@ -1061,197 +988,74 @@ class Amset(MSONable, LoggableMixin):
             sorted energy values.
         """
         num_bands = num_bands or self.num_bands
-        start_time = time.time()
-        if self.parabolic_bands0 is None:
-            if self.interpolation == 'boltztrap1':
-                self.logger.debug(
-                    "start interpolating bands from {}".format(coeff_file))
-                analytical_bands = AnalyticalBands(coeff_file=coeff_file)
-                self.band_indices = []
-                for ib in range(num_bands['p']):
-                    self.band_indices.append(
-                        self.cbm_vbm0['p']["bidx"] - nbelow_vbm - ib)
-                for ib in range(num_bands['n']):
-                    self.band_indices.append(
-                        self.cbm_vbm0['n']["bidx"] + nabove_cbm + ib)
-                self.band_indices.sort()
-                self.logger.debug("band_indices: {}".format(self.band_indices))
-                self.interp_params = get_energy_args(coeff_file,
-                                                     self.band_indices)
-            elif self.interpolation != 'boltztrap2':
-                raise ValueError(
-                    'Unsupported interpolation method: "{}"'.format(
-                        self.interpolation))
-        else:
-            # first modify the self.parabolic_bands to include all symmetrically equivalent k-points (k_i)
-            # these points will be used later to generate energy based on the minimum norm(k-k_i)
-            self.parabolic_bands = np.array(self.parabolic_bands0)
-            for ib in range(len(self.parabolic_bands0)):
-                for valley in range(len(self.parabolic_bands0[ib])):
-                    self.parabolic_bands[ib][valley][
-                        0] = remove_duplicate_kpoints(
-                        self.band_structure.get_sym_eq_kpoints(
-                            self.parabolic_bands0[ib][valley][0],
-                            cartesian=True))
 
-        self.logger.debug(
-            "time to get engre and calculate the outvec2: {} seconds".format(
-                time.time() - start_time))
-        start_time = time.time()
-        energies = {"n": [0.0] * len(kpts['n']), "p": [0.0] * len(kpts['p'])}
-        energies_sorted = {"n": [0.0] * len(kpts['n']),
-                           "p": [0.0] * len(kpts['p'])}
-        velocities = {"n": [[0.0, 0.0, 0.0] for _ in kpts['n']],
-                      "p": [[0.0, 0.0, 0.0] for _ in kpts['p']]}
+        energies = {"n": [0.0] * len(kpoints['n']),
+                    "p": [0.0] * len(kpoints['p'])}
+        energies_sorted = deepcopy(energies)
+
+        # both pos_idx and energy_array are only needed by k-integration methods
+        # TODO: Refactor these into their own methods
         self.pos_idx = {'n': [], 'p': []}
         self.energy_array = {'n': [], 'p': []}
 
-        if return_energies:
-            for i, tp in enumerate(["p", "n"]):
-                sgn = (-1) ** i
-                for ib in range(num_bands[tp]):
-                    if self.parabolic_bands is not None:
-                        for ik in range(len(kpts[tp])):
-                            energies[tp][ik], _, _ = self.calc_parabolic_energy(
-                                kpts[tp][ik], tp, ib)
-                    else:
-                        if self.interpolation == "boltztrap1":
-                            iband = i * num_bands['p'] + ib
-                        else:
-                            iband = ib + self.cbm_vbm[tp]["bidx"] \
-                                    + (i - 1) * self.cbm_vbm["p"]["included"]
-                        energies[tp], velocities[tp] = interpolate_bs(
-                            kpts[tp], interp_params=self.interp_params,
-                            iband=iband, sgn=sgn, method=self.interpolation,
-                            scissor=self.scissor, return_mass=False,
-                            matrix=self.structure.lattice.matrix,
-                            n_jobs=self.n_jobs)
-                        self._check_timeout_hours()
-                    if self.integration == 'k':
-                        self.energy_array[tp].append(
-                            self.grid_from_ordered_list(energies[tp], tp,
-                                                        none_missing=True))
+        start_time = time.time()
+        if not return_energies:
+            return kpoints
 
-                    # we only need the 1st band energies to order k-points:
-                    if ib == 0:
-                        e_sort_idx = np.array(
-                            energies[tp]).argsort() if tp == "n" else np.array(
-                            energies[tp]).argsort()[::-1]
-                        energies_sorted[tp] = [energies[tp][ie] for ie in
-                                               e_sort_idx]
-                        energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
-                        self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[
-                            e_sort_idx].argsort()
-                        kpts[tp] = [kpts[tp][ie] for ie in e_sort_idx]
+        for i, tp in enumerate(["p", "n"]):
+            for ib in range(num_bands[tp]):
+                iband = (ib + self.cbm_vbm[tp]["bidx"]
+                         + (i - 1) * self.cbm_vbm["p"]["included"])
+                energies[tp] = self.interpolater.get_energies(
+                    kpoints, iband, scissor=self.scissor)
+                self._check_timeout_hours()
 
-            self.logger.debug("time to calculate ibz energy, velocity info "
-                              "and store them to variables: \n {}".format(
-                time.time() - start_time))
-            if self.parabolic_bands is not None:
-                all_bands_energies = {"n": [], "p": []}
-                for tp in ["p", "n"]:
-                    all_bands_energies[tp] = energies[tp]
-                    for ib in range(1, len(self.parabolic_bands)):
-                        for ik in range(len(kpts[tp])):
-                            energy, velocity, effective_m = get_parabolic_energy(
-                                self.get_cartesian_coords(kpts[ik]) / A_to_nm,
-                                parabolic_bands=self.parabolic_bands, type=tp,
-                                ib=ib, bandgap=self.dft_gap + self.scissor)
-                            all_bands_energies[tp].append(energy)
-                if not once_called:
-                    self.dos_emin = min(all_bands_energies["p"])
-                    self.dos_emax = max(all_bands_energies["n"])
+                if self.integration == 'k':
+                    self.energy_array[tp].append(
+                        self.grid_from_ordered_list(energies[tp], tp,
+                                                    none_missing=True))
 
-            del e_sort_idx
-            self.energy_array = {tp: np.array(self.energy_array[tp]) for tp in
-                                 ['p', 'n']}
+                # we only need the 1st band energies to order k-points:
+                if ib == 0:
+                    e_sort_idx = np.array(
+                        energies[tp]).argsort() if tp == "n" else np.array(
+                        energies[tp]).argsort()[::-1]
+                    energies_sorted[tp] = [energies[tp][ie] for ie in
+                                           e_sort_idx]
+                    energies[tp] = [energies[tp][ie] for ie in e_sort_idx]
+                    self.pos_idx[tp] = np.array(range(len(e_sort_idx)))[
+                        e_sort_idx].argsort()
+                    kpoints[tp] = [kpoints[tp][ie] for ie in e_sort_idx]
 
-        if not once_called:
-            dos_kmesh = Kpoints.automatic_density_by_vol(self.structure,
-                                                         kppvol=self.dos_kdensity).kpts[
-                0]
-            self.logger.info('kmesh used for dos: {}'.format(dos_kmesh))
-            if self.parabolic_bands is None:
-                if self.interpolation == "boltztrap1":
-                    emesh, dos, dos_nbands, bmin = analytical_bands.get_dos_from_scratch(
-                        self.structure, dos_kmesh, self.dos_emin,
-                        self.dos_emax, int(round((self.dos_emax - self.dos_emin) \
-                                                 / max(self.dE_min, 0.0001))),
-                        width=self.dos_bwidth,
-                        scissor=self.scissor, vbmidx=self.cbm_vbm["p"]["bidx"])
-                    self.logger.debug("dos_nbands: {} \n".format(dos_nbands))
-                    self.dos_start = min(
-                        self.band_structure.as_dict()["bands"]["1"][bmin]) \
-                                     + self.offset_from_vrun['p']
-                    self.dos_end = max(
-                        self.band_structure.as_dict()["bands"]["1"][
-                            bmin + dos_nbands]) \
-                                   + self.offset_from_vrun['n']
-                elif self.interpolation == "boltztrap2":
-                    emesh, dos, dos_nbands = get_dos_boltztrap2(
-                        self.interp_params, self.structure,
-                        mesh=dos_kmesh, estep=max(self.dE_min, 0.0001),
-                        vbmidx=self.cbm_vbm["p"]["bidx"] - 1,
-                        width=self.dos_bwidth, scissor=self.scissor)
-                    self.dos_start = emesh[0]
-                    self.dos_emin = emesh[0]
-                    self.dos_end = emesh[-1]
-                    self.dos_emax = emesh[-1]
-                else:
-                    raise ValueError('Unsupported interpolation: "{}"'.format(
-                        self.interpolation))
-                self.dos_normalization_factor = dos_nbands if self.soc else dos_nbands * 2
-            else:
-                self.logger.debug("here self.parabolic_bands: \n {}".format(
-                    self.parabolic_bands))
-                emesh, dos = get_dos_from_parabolic_bands(
-                    self.structure, self.structure.lattice.reciprocal_lattice,
-                    dos_kmesh, self.dos_emin, self.dos_emax,
-                    int(round((self.dos_emax - self.dos_emin) \
-                              / max(self.dE_min, 0.0001))),
-                    parabolic_bands=self.parabolic_bands,
-                    bandgap=self.cbm_vbm["n"]["energy"] - self.cbm_vbm["p"][
-                        "energy"], width=self.dos_bwidth, SPB_DOS=False)
-                    self.parabolic_bands) * 2 * 2
-                self.dos_start = self.dos_emin
-                self.dos_end = self.dos_emax
+        self.energy_array = {tp: np.array(self.energy_array[tp])
+                             for tp in ('p', 'n')}
+        self.logger.debug("time to calculate ibz energy: {}".format(
+            time.time() - start_time))
 
-            self.logger.debug("DOS normalization factor: {}".format(
-                self.dos_normalization_factor))
-            integ = 0.0
-            self.dos_start = abs(emesh - self.dos_start).argmin()
-            self.dos_end = abs(emesh - self.dos_end).argmin()
-            self.dos_emesh = np.array(emesh)
-            self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
-            self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
+        return kpoints, energies_sorted
 
-            # dos be at least spb:
-            for idx in range(self.cbm_dos_idx, self.get_Eidx_in_dos(
-                    self.cbm_vbm["n"]["energy"] + 2.0)):
-                dos[idx] = max(dos[idx], free_e_dos(
-                    energy=self.dos_emesh[idx] - self.cbm_vbm["n"]["energy"]))
-            for idx in range(
-                    self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"] - 2.0),
-                    self.vbm_dos_idx):
-                dos[idx] = max(dos[idx], free_e_dos(
-                    energy=self.cbm_vbm["p"]["energy"] - self.dos_emesh[idx]))
-            for idos in range(self.dos_start, self.dos_end):
-                integ += (dos[idos + 1] + dos[idos]) / 2 * (
-                        emesh[idos + 1] - emesh[idos])
-            self.logger.debug(
-                "dos integral from {} index to {}: {}".format(self.dos_start,
-                                                              self.dos_end,
-                                                              integ))
-            dos = [g / integ * self.dos_normalization_factor for g in dos]
-            self.dos = zip(emesh, dos)
-            self.dos = [list(a) for a in self.dos]
+    def _calculate_dos(self) -> np.ndarray:
+        """Calculate the density of states.
 
-        if return_energies:
-            return kpts, energies_sorted
-        else:
-            return kpts
+        Returns:
+            The density of states data, formatted as::
 
-    def find_all_important_points(self, coeff_file, nbelow_vbm=0, nabove_cbm=0,
+                (energies, densities)
+        """
+        kpoint_mesh = Kpoints.automatic_density_by_vol(
+            self.structure, kppvol=self.dos_kdensity).kpts[0]
+        self.logger.info('kmesh used for dos: {}'.format(kpoint_mesh))
+
+        dos = self.interpolater.get_dos(
+            kpoint_mesh, estep=max(self.dE_min, 0.0001),
+            width=self.dos_bwidth, scissor=self.scissor, normalize=True)
+
+        self.logger.debug("dos_emin = {} and dos_emax= {}".format(
+            dos[:, 0].min(), dos[:, 0].max()))
+
+        return dos
+
+    def find_all_important_points(self, nbelow_vbm=0, nabove_cbm=0,
                                   interpolation="boltztrap1", **kwargs):
         """
         As the name suggests, given some pre-populated variables such as band_structure and
@@ -1276,18 +1080,13 @@ class Amset(MSONable, LoggableMixin):
             list of band extrema (i.e. important k-points) for the selected
             conduction ("n") and valence ("p") band.
         """
-        if interpolation == "boltztrap1":
-            ibands = [self.cbm_vbm['p']['bidx'] - nbelow_vbm,
-                      self.cbm_vbm['n']['bidx'] + nabove_cbm]
-            self.interp_params = get_energy_args(coeff_file, ibands)
         if self.important_pts is None or nbelow_vbm + nabove_cbm > 0:
             if self.parabolic_bands0 is None:
                 eref = {typ: self.cbm_vbm[typ]['energy'] for typ in ['p', 'n']}
             else:
                 eref = None
-            self.important_pts, new_cbm_vbm = get_bs_extrema(
+            self.important_pts, new_cbm_vbm = self.interpolater.get_extrema(
                 self.band_structure,
-                coeff_file,
                 interp_params=self.interp_params,
                 method=interpolation,
                 Ecut=self.Ecut,
@@ -1485,13 +1284,6 @@ class Amset(MSONable, LoggableMixin):
             self.max_nvalleys = {
                 tp: self.max_nvalleys if tp in self.all_types else 1 for tp in
                 ['p', 'n']}
-        self.interpolation = params.get("interpolation", "boltztrap1")
-        if self.interpolation == "boltztrap2":
-            try:
-                import BoltzTraP2
-            except ImportError:
-                self.logger.error('Failed to import BoltzTraP2! '
-                                  '"boltztrap2" interpolation not available.')
         self.performance_params = {
             "dE_min": self.dE_min,
             "Ecut": self.Ecut,
@@ -1503,7 +1295,6 @@ class Amset(MSONable, LoggableMixin):
             "max_normk0": self.max_normk0,
             "max_nvalleys": self.max_nvalleys,
             "n_jobs": self.n_jobs,
-            "interpolation": self.interpolation
         }
 
     def __getitem__(self, key):
@@ -1775,8 +1566,8 @@ class Amset(MSONable, LoggableMixin):
         """
         if not Estep:
             Estep = max(self.dE_min, 0.0001)
-        calculated_index = int(round((E - self.dos_emin) / Estep))
-        return min(calculated_index, len(self.dos_emesh) - 1)
+        calculated_index = int(round((E - self.dos[:, 0].mindos[:, 0].min()()) / Estep))
+        return min(calculated_index, len(self.dos[:, 0]) - 1)
 
     def G(self, tp, ib, ik, ib_prm, ik_prm, X):
         """
@@ -2062,8 +1853,6 @@ class Amset(MSONable, LoggableMixin):
             self.logger.debug(
                 "average of the {}-type group velocity in kgrid after removing points:\n {}".format(
                     tp, np.mean(self.kgrid[tp]["velocity"][0], axis=0)))
-        self.logger.debug("dos_emin = {} and dos_emax= {}".format(self.dos_emin,
-                                                                  self.dos_emax))
 
         self.logger.debug('current cbm_vbm:\n{}'.format(self.cbm_vbm))
         for tp in ["n", "p"]:
