@@ -104,7 +104,7 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
         _parameters[self._parameters_id] = self._get_interpolation_parameters(
             self._coeff_file)
 
-    def get_energies(self, kpoints: np.ndarray,
+    def get_energies(self, kpoints: Union[np.ndarray, List],
                      iband: Optional[Union[int, List[int]]] = None,
                      scissor: float = 0.0,
                      return_velocity: bool = False,
@@ -169,9 +169,9 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
 
         # Apply scissor; shift will be zero if scissor is 0
         # TODO: Make compatible with spin polarization
-        vbm = max(self._band_structure.get_vbm()['band_index'][Spin.up])
-        scissor_shift = np.array([(1 if band_index > vbm else -1) * scissor / 2
-                                  for band_index in iband for _ in kpoints])
+        scissor_shift = np.array(
+            [(1 if band_index > self._vbm_idx else -1) * scissor / 2
+             for band_index in iband for _ in kpoints])
         energies += scissor_shift
 
         shape = (len(iband), len(kpoints)) if len(iband) > 1 else (
