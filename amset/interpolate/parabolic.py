@@ -66,21 +66,19 @@ class ParabolicInterpolater(AbstractInterpolater):
                 self._parameters[ib][valley][0] = remove_duplicate_kpoints(
                     equivalent_points)
 
-        self._vbm = max(self._band_structure.get_vbm()['band_index'][Spin.up])
-
         # mapping of the band index to parabolic band coefficient index.
         # e.g. if the vbm is band 30 and there are 2 parabolic bands, the
         # mapping will be: {29: 1, 30: 0, 31: 0, 32: 1}
         # i.e. the VB and CB use the first coefficient and VB-1 and CB+1 use the
         # second coefficient.
-        self._allowed_bands = np.arange(self._vbm + 1 - self._nbands / 2,
-                                        self._vbm + 1 + self._nbands / 2,
+        self._allowed_bands = np.arange(self._vbm_idx + 1 - self._nbands / 2,
+                                        self._vbm_idx + 1 + self._nbands / 2,
                                         dtype=int)
         self._band_mapping = dict(zip(self._allowed_bands,
                                       list(range(len(band_parameters)))[::-1] +
                                       list(range(len(band_parameters)))))
 
-    def get_energies(self, kpoints: np.ndarray,
+    def get_energies(self, kpoints: Union[np.ndarray, List],
                      iband: Optional[Union[int, List[int]]] = None,
                      scissor: float = 0.0,
                      return_velocity: bool = False,
@@ -113,7 +111,7 @@ class ParabolicInterpolater(AbstractInterpolater):
         """
         # TODO: Make compatible with spin polarization
         bandgap = self._band_structure.get_band_gap()['energy'] + scissor
-        e_vbm = self._band_structure.get_vbm()['energy'] - scissor / 2
+        vbm_e = self._band_structure.get_vbm()['energy'] - scissor / 2
 
         if isinstance(iband, int):
             iband = [iband]
@@ -147,8 +145,8 @@ class ParabolicInterpolater(AbstractInterpolater):
                         closest_eff_mass = effective_mass
                         closest_offset = offset
 
-            sgn = -1 if band_index <= self._vbm else + 1
-            energy = e_vbm if sgn < 0 else e_vbm + bandgap
+            sgn = -1 if band_index <= self._vbm_idx else + 1
+            energy = vbm_e if sgn < 0 else vbm_e + bandgap
             energy += sgn * (closest_offset + hbar ** 2 * min_kdist ** 2 /
                              (2 * m_e * closest_eff_mass) * e * 1e18)
 
