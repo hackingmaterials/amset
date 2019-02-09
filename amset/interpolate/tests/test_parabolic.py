@@ -164,3 +164,26 @@ class TestParabolicInterpolater(unittest.TestCase):
         self.assertEqual(dos.shape, (20000, 2))
         self.assertEqual(dos[0][0], -10)
         self.assertAlmostEqual(dos[15000][1], 0.060981124751112205)
+
+    # def test_get_extrema(self):
+    #     """Test getting the band structure extrema."""
+    #
+    #     # test VBM
+    #     extrema = self.interpolater.get_extrema(31, e_cut=1.)
+    #     print(extrema)
+    #     np.testing.assert_array_almost_equal(extrema[0], [0., 0.0, 0.0], 10)
+    #     np.testing.assert_array_almost_equal(extrema[1],
+    #                                          [0.28291, 0., -0.40218], 4)
+    #     np.testing.assert_array_almost_equal(extrema[2],
+    #                                          [-0.25765, 0.25148, 0.], 4)
+    #     np.testing.assert_array_almost_equal(extrema[3],
+    #                                          [-0.49973, -0.49973, 0.], 4)
+    #
+    #     # test CBM
+    #     extrema = self.interpolater.get_extrema(32, e_cut=1.)
+    #     np.testing.assert_array_almost_equal(extrema[0], [0., 0.0, 0.0], 10)
+    #     np.testing.assert_array_almost_equal(extrema[1], [0., 0.0, 0.5], 10)
+    #     np.testing.assert_array_almost_equal(extrema[2],
+    #                                          [-0.49973, -0.49973, 0.], 4)
+    #     np.testing.assert_array_almost_equal(extrema[3],
+    #                                          [0.49047, 0.49047, 0.49818], 4)
