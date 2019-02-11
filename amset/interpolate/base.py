@@ -4,7 +4,7 @@ import numpy as np
 
 from abc import ABC, abstractmethod
 from logging import Logger
-from typing import Optional, Union, Tuple, List, Sequence, Any
+from typing import Optional, Union, Tuple, List, Sequence, Any, Dict
 from scipy.integrate import trapz
 
 from monty.json import MSONable
@@ -15,7 +15,8 @@ from amset.utils.constants import k_B
 from amset.utils.detect_peaks import detect_peaks
 from amset.utils.general import norm
 from pymatgen import Spin
-from pymatgen.electronic_structure.bandstructure import BandStructure
+from pymatgen.electronic_structure.bandstructure import BandStructure, \
+    BandStructureSymmLine
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
@@ -132,30 +133,37 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
 
         return np.column_stack((emesh, dos))
 
-    def get_extrema(self, iband, line_density=30, min_normdiff=4.0,
-                    e_cut=10 * k_B * 300, return_global=False, scissor=0.0):
-        """
-        Returns a dictionary of p-type (valence) and n-type (conduction) band
-            extrema k-points by looking at the 1st and 2nd derivatives of the
-            bands
+    def get_extrema(self, iband: int, line_density: int = 30,
+                    min_norm_diff: float = 4.0, e_cut: float = 10 * k_B * 300,
+                    return_global_extrema: bool = False, scissor: float = 0.0
+                    ) -> Union[List[int], Tuple[List[int], Dict[str, Any]]]:
+        """Gets band extrema by exploring the high-symmetry k-point path.
+
+        If the band is a valence band, maxima will be returned. For conduction
+        bands, minima will be returned.
 
         Args:
             iband: A band index for which to get the extrema. Band indices are
                 0-indexed.
-            line_density (int): maximum number of k-points between each two
+            line_density: The maximum number of k-points between each two
                 consecutive high-symmetry k-points
-            min_normdiff (float): the minimum allowed distance
-                norm(cartesian k in 1/nm) in extrema; this is important to avoid
-                numerical instability errors or finding peaks that are too close
-                to each other for Amset formulation to be relevant.
-            e_cut (float or dict): max energy difference with CBM/VBM allowed
-                for extrema. Valid examples: 0.25 or {'n': 0.5, 'p': 0.25} , ...
-            return_global (bool): in addition to the extrema, return the actual
-                CBM (global minimum) and VBM (global maximum) w/ their k-point
-            scissor (float): the amount by which the band gap is altered/
-                scissored.
+            min_norm_diff: The minimum allowed distance (in 1/nm) between
+                extrema. Required to avoid numerical instability errors
+                and finding peaks that are too close to each other for the Amset
+                formulation to be relevant.
+            e_cut: The maximum energy cut-off from the global extrema point.
+            return_global_extrema: Whether to return the global extrema k-point
+                and energy.
+            scissor: The amount by which the band gap is scissored.
 
-        Returns (dict): {'n': list of extrema fractional coordinates, 'p': same}
+        Returns:
+            The band extrema as a list of k-points. If ``return_global_extrema``
+            is ``True``, the data will be returned as a tuple of::
+
+                (extrema, global_extrema)
+
+            Where ``global_extrema`` is a dictionary with the keys ``"k-point"``
+            and ``"energy"``.
         """
 
         # TODO: Rewrite this to accept multiple bands
@@ -173,13 +181,13 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
                            for k in bs.get_sym_eq_kpoints(dk)]
             if sym_kpoints:
                 return norm(to_cart(get_closest_k(
-                    a_kpoint, sym_kpoints, return_diff=True))) > min_normdiff
+                    a_kpoint, sym_kpoints, return_diff=True))) > min_norm_diff
             else:
                 return True
 
         hsk = HighSymmKpath(bs.structure)
         kpoints = kpts_to_first_bz(hsk.get_kpoints(
-            line_density=line_density)[0])
+            line_density=line_density, coords_are_cartesian=False)[0])
         band = self.get_energies(kpoints, iband=iband,
                                  scissor=scissor)
 
@@ -196,27 +204,11 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         extrema_idx = [x for x in extrema_idx
                        if abs(band[x] - global_extrema['energy']) < e_cut]
 
-        # continuously filter to only include extrema separated in k-space
-        tmp_extrema = []
-        for kpoint_idx in extrema_idx:
-            if kpoints_are_separated(kpoints[kpoint_idx], tmp_extrema):
-                tmp_extrema.append(kpoints[kpoint_idx])
-
-        # check to see if one of the actual high-symmetry k-points can be used
-        # Is this to improve performance due to greater symmetry?
-        # TODO: Check this is necessary
-        all_high_sym_kpoints = [k for lk in hsk.kpath['kpoints'].values()
-                                for dk in (lk, -lk)
-                                for k in bs.get_sym_eq_kpoints(dk)]
-
+        # filter to only include extrema separated in k-space
         extrema = []
-        for kpoint in tmp_extrema:
-            high_sym_k = get_closest_k(kpoint, all_high_sym_kpoints)
-
-            if norm(to_cart(high_sym_k - kpoint)) < min_normdiff / 10.0:
-                extrema.append(high_sym_k)
-            else:
-                extrema.append(kpoint)
+        for kpoint_idx in extrema_idx:
+            if kpoints_are_separated(kpoints[kpoint_idx], extrema):
+                extrema.append(kpoints[kpoint_idx])
         extrema = np.array(extrema)
 
         # sort the extrema based on their energy (i.e. importance)
@@ -224,10 +216,34 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         sorted_idx = np.argsort(band) if is_cb else np.argsort(band)[::-1]
         extrema = extrema[sorted_idx]
 
-        if return_global:
+        if return_global_extrema:
             return extrema, global_extrema
         else:
             return extrema
+
+    def get_line_mode_band_structure(self, line_density: int = 50,
+                                     scissor: float = 0.
+                                     ) -> BandStructureSymmLine:
+        """Gets the interpolated band structure along high symmetry directions.
+
+        Args:
+            line_density: The maximum number of k-points between each two
+                consecutive high-symmetry k-points
+            scissor: The amount by which the band gap is scissored.
+
+        Returns:
+            The line mode band structure.
+        """
+        hsk = HighSymmKpath(self._band_structure.structure)
+        kpoints = hsk.get_kpoints(line_density=line_density,
+                                  coords_are_cartesian=False)[0]
+        energies = self.get_energies(kpoints, scissor=scissor)
+        return BandStructureSymmLine(kpoints, {Spin.up: energies},
+                                     self._band_structure.structure.lattice,
+                                     self._band_structure.efermi,
+                                     hsk.kpath['kpoints'],
+                                     structure=self._band_structure.structure,
+                                     coords_are_cartesian=False)
 
     @staticmethod
     def _simplify_return_data(data: Sequence[Any]) -> Union[Any, Sequence[Any]]:
