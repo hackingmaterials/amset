@@ -82,7 +82,7 @@ def remove_duplicate_kpoints(kpts, dk=0.01, periodic=True):
             if np.allclose(diff_func(kpts[i], kpts[j]), [0, 0, 0], atol=dk):
                 rm_list.append(i)
                 break
-    return [list(k) for k in np.delete(kpts, rm_list, axis=0)]
+    return np.array([list(k) for k in np.delete(kpts, rm_list, axis=0)])
 
 
 def get_bindex_bspin(extremum, is_cbm):
