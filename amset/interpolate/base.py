@@ -167,25 +167,18 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         """
 
         # TODO: Rewrite this to accept multiple bands
-
-        bs = self._band_structure
         is_cb = iband > self._vbm_idx
-
-        def to_cart(k):
-            """Convert fractional k-points to cartesian coordinates in 1/nm."""
-            return np.dot(bs.structure.lattice.reciprocal_lattice.matrix,
-                          k) * 10
 
         def kpoints_are_separated(a_kpoint, list_kpoints):
             sym_kpoints = [k for lk in list_kpoints for dk in (lk, -lk)
-                           for k in bs.get_sym_eq_kpoints(dk)]
+                           for k in self._band_structure.get_sym_eq_kpoints(dk)]
             if sym_kpoints:
-                return norm(to_cart(get_closest_k(
+                return norm(self._to_cart(get_closest_k(
                     a_kpoint, sym_kpoints, return_diff=True))) > min_norm_diff
             else:
                 return True
 
-        hsk = HighSymmKpath(bs.structure)
+        hsk = HighSymmKpath(self._band_structure.structure)
         kpoints = kpts_to_first_bz(hsk.get_kpoints(
             line_density=line_density, coords_are_cartesian=False)[0])
         band = self.get_energies(kpoints, iband=iband,
@@ -266,3 +259,8 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
             return data[0]
         else:
             return tuple(data)
+
+    def _to_cart(self, k):
+        """Convert fractional k-points to cartesian coordinates in 1/nm."""
+        return np.dot(self._band_structure.structure.lattice.
+                      reciprocal_lattice.matrix, k) * 10
