@@ -252,17 +252,17 @@ class TestBoltzTraP1Interpolater(unittest.TestCase):
         extrema = self.interpolater.get_extrema(31, e_cut=1.)
         np.testing.assert_array_almost_equal(extrema[0], [0., 0.0, 0.0], 10)
         np.testing.assert_array_almost_equal(extrema[1],
-                                             [0.28291, 0., -0.40218], 4)
+                                             [0.0972, 0.4028, 0.0972], 4)
         np.testing.assert_array_almost_equal(extrema[2],
-                                             [-0.25765, 0.25148, 0.], 4)
+                                             [0.5, 0.5, -0.5], 10)
         np.testing.assert_array_almost_equal(extrema[3],
-                                             [-0.49973, -0.49973, 0.], 4)
+                                             [-0.0365, 0.0365, 0.5], 4)
 
         # test CBM
         extrema = self.interpolater.get_extrema(32, e_cut=1.)
         np.testing.assert_array_almost_equal(extrema[0], [0., 0.0, 0.0], 10)
         np.testing.assert_array_almost_equal(extrema[1], [0., 0.0, 0.5], 10)
         np.testing.assert_array_almost_equal(extrema[2],
-                                             [-0.49973, -0.49973, 0.], 4)
+                                             [0.5, 0.5, -0.5], 4)
         np.testing.assert_array_almost_equal(extrema[3],
-                                             [0.49047, 0.49047, 0.49818], 4)
+                                             [0.4167, 0.4167, -0.0019], 4)
