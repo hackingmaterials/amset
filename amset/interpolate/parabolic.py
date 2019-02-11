@@ -4,14 +4,14 @@ Class to interpolate a parabolic band structure.
 
 import numpy as np
 
-from typing import Optional, Union, List, Tuple
+from typing import Optional, Union, List, Tuple, Dict, Any
+
+from pymatgen.electronic_structure.bandstructure import BandStructure
 
 from amset.utils.band_structure import remove_duplicate_kpoints
-from amset.utils.constants import hbar, m_e, e
+from amset.utils.constants import hbar, m_e, e, k_B
 from amset.utils.general import norm
-from pymatgen import Spin
 from amset.interpolate.base import AbstractInterpolater
-from pymatgen.electronic_structure.bandstructure import BandStructure
 
 __author__ = "Alex Ganose and Alireza Faghaninia"
 __copyright__ = "Copyright 2019, HackingMaterials"
@@ -54,15 +54,11 @@ class ParabolicInterpolater(AbstractInterpolater):
         self._nbands = len(self._parameters) * 2
 
         # modify the band_parameters to include all symmetrically
-        # equivalent k-points (k_i) these points will be used later to
-        # generate energy based on the minimum norm(k-k_i)
+        # equivalent k-points
         for ib in range(len(band_parameters)):
             for valley in range(len(band_parameters[ib])):
-                cart_kpoint = np.dot(band_structure.structure.lattice.
-                                     reciprocal_lattice.matrix,
-                                     band_parameters[ib][valley][0]),
                 equivalent_points = self._band_structure.get_sym_eq_kpoints(
-                            cart_kpoint, cartesian=True)[0]
+                            band_parameters[ib][valley][0])
                 self._parameters[ib][valley][0] = remove_duplicate_kpoints(
                     equivalent_points)
 
@@ -124,9 +120,6 @@ class ParabolicInterpolater(AbstractInterpolater):
                                self._allowed_bands[0], self._allowed_bands[-1]))
 
         def get_energy(kpoint, band_index):
-            kpoint = np.dot(self._band_structure.structure.lattice.
-                            reciprocal_lattice.matrix, np.array(kpoint))
-
             min_kdist = float('inf')
             parabolic_index = self._band_mapping[band_index]
 
@@ -139,7 +132,7 @@ class ParabolicInterpolater(AbstractInterpolater):
             for ks, offset, effective_mass in self._parameters[parabolic_index]:
                 # ks is k-points symmetrically equivalent to extrema
                 for k in ks:
-                    distance = norm(kpoint - k)
+                    distance = norm(self._to_cart(k - kpoint))
                     if distance < min_kdist:
                         min_kdist = distance
                         closest_eff_mass = effective_mass
@@ -147,6 +140,8 @@ class ParabolicInterpolater(AbstractInterpolater):
 
             sgn = -1 if band_index <= self._vbm_idx else + 1
             energy = vbm_e if sgn < 0 else vbm_e + bandgap
+
+            # calculate energy and convert to eV.
             energy += sgn * (closest_offset + hbar ** 2 * min_kdist ** 2 /
                              (2 * m_e * closest_eff_mass) * e * 1e18)
 
@@ -181,3 +176,44 @@ class ParabolicInterpolater(AbstractInterpolater):
                 shape + effective_masses.shape[2:]))
 
         return self._simplify_return_data(to_return)
+
+    def get_extrema(self, iband: int, e_cut: float = 10 * k_B * 300,
+                    return_global_extrema: bool = False, scissor: float = 0.0,
+                    **kwargs
+                    ) -> Union[List[int], Tuple[List[int], Dict[str, Any]]]:
+        """Gets band extrema from the band parameters.
+
+        If the band is a valence band, maxima will be returned. For conduction
+        bands, minima will be returned.
+
+        Args:
+            iband: A band index for which to get the extrema. Band indices are
+                0-indexed.
+            e_cut: The maximum energy cut-off from the global extrema point.
+            return_global_extrema: Whether to return the global extrema k-point
+                and energy.
+            scissor: The amount by which the band gap is scissored.
+
+        Returns:
+            The band extrema as a list of k-points. If ``return_global_extrema``
+            is ``True``, the data will be returned as a tuple of::
+
+                (extrema, global_extrema)
+
+            Where ``global_extrema`` is a dictionary with the keys ``"k-point"``
+            and ``"energy"``.
+        """
+        # sort band parameters by offset
+        band_parameters = sorted(self._parameters[self._band_mapping[iband]],
+                                 key=lambda x: x[1])
+        global_extrema = {'kpoint': band_parameters[0][0][0],
+                          'energy': self.get_energies(band_parameters[0][0],
+                                                      iband=iband,
+                                                      scissor=scissor)[0]}
+        extrema = [x[0][0] for x in band_parameters
+                   if abs(x[1] - band_parameters[0][1]) < e_cut]
+
+        if return_global_extrema:
+            return extrema, global_extrema
+        else:
+            return extrema
