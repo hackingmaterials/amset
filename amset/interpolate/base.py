@@ -14,6 +14,7 @@ from amset.utils.band_structure import kpts_to_first_bz, get_closest_k
 from amset.utils.constants import k_B
 from amset.utils.detect_peaks import detect_peaks
 from amset.utils.general import norm
+from amset.utils.transport import free_e_dos
 from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure, \
     BandStructureSymmLine
@@ -72,7 +73,7 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
     def get_dos(self, kpoint_mesh: List[int], emin: float = None,
                 emax: float = None, estep: float = 0.001,
                 width: float = 0.2, scissor: float = 0.0,
-                normalize: bool = False) -> np.ndarray:
+                normalize: bool = False, vbm_e=None, cbm_e=None) -> np.ndarray:
         """Calculates the density of states using the interpolated bands.
 
         Args:
@@ -93,8 +94,8 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
                 (energies, densities)
         """
         mesh_data = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
-        ir_kpts = np.asarray(list(map(list, mesh_data[:, 0])))
-        weights = mesh_data[:, 1] / mesh_data[:, 1].sum()
+        # ir_kpts = np.asarray(list(map(list, mesh_data[:, 0])))
+        # weights = mesh_data[:, 1] / mesh_data[:, 1].sum()
 
         ir_kpts = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
         ir_kpts = [k[0] for k in ir_kpts]
@@ -121,15 +122,23 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
 
         if normalize:
             # taken from old amset. Might reintroduce if needed to pass tests
-            # for idx in range(self.cbm_dos_idx, self.get_Eidx_in_dos(
-            #         self.cbm_vbm["n"]["energy"] + 2.0)):
-            #     dos[idx] = max(dos[idx], free_e_dos(
-            #         energy=self.dos_emesh[idx] - self.cbm_vbm["n"]["energy"]))
-            # for idx in range(
-            #         self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"] - 2.0),
-            #         self.vbm_dos_idx):
-            #     dos[idx] = max(dos[idx], free_e_dos(
-            #         energy=self.cbm_vbm["p"]["energy"] - self.dos_emesh[idx]))
+            def get_energy_idx(energy):
+                calculated_index = int(round((energy - emesh.min()) / estep))
+                return min(calculated_index, len(emesh) - 1)
+
+            # vbm_e = self._band_structure.get_vbm()["energy"] - scissor / 2
+            # print(vbm_e)
+            # cbm_e = vbm_e + self._band_structure.get_band_gap()['energy'] + scissor / 2
+            # print(cbm_e)
+
+            vbm_dos_idx = get_energy_idx(vbm_e)
+            cbm_dos_idx = get_energy_idx(cbm_e)
+
+            for idx in range(cbm_dos_idx, get_energy_idx(cbm_e + 2.0)):
+                dos[idx] = max(dos[idx], free_e_dos(energy=emesh[idx] - cbm_e))
+
+            for idx in range(get_energy_idx(vbm_e - 2.0), vbm_dos_idx):
+                dos[idx] = max(dos[idx], free_e_dos(energy=vbm_e - emesh[idx]))
 
             normalization_factor = nbands * (1 if self._soc else 2)
             integ = trapz(dos, x=emesh)
@@ -270,3 +279,6 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         """Convert fractional k-points to cartesian coordinates in 1/nm."""
         return np.dot(self._band_structure.structure.lattice.
                       reciprocal_lattice.matrix, k) * 10
+
+
+
