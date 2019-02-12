@@ -407,6 +407,15 @@ class Amset(MSONable, LoggableMixin):
             self.fermi_level = self.find_fermi_k(num_bands=self.init_nbands)
 
         elif self.integration == 'e':
+            kpts = self.generate_kmesh(
+                important_points={'n': [[0.0, 0.0, 0.0]],
+                                  'p': [[0.0, 0.0, 0.0]]},
+                kgrid_tp="very coarse")
+
+            # the purpose of the following line is just to generate
+            # self.energy_array that find_fermi_k function uses
+            self.get_energy_array(kpts, return_energies=False,
+                                  num_bands=self.init_nbands)
             self.fermi_level = {c: {T: self.find_fermi(c, T)
                                     for T in self.temperatures}
                                 for c in self.dopings}
@@ -524,12 +533,18 @@ class Amset(MSONable, LoggableMixin):
                     self.logger.info(
                         'skipping this valley as it is unimportant for both n and p type...')
                     continue
+                print("\n\n\n\n\n{}\n\n\n\n\n".format(self.cbm_vbm))
                 kpts = self.generate_kmesh(important_points=important_points,
                                            kgrid_tp=kgrid_tp)
                 kpts, energies = self.get_energy_array(kpts,
                                                        return_energies=True,
                                                        num_bands={'p': 1,
                                                                   'n': 1})
+                kpts["n"] = loadfn("old_kpts_n.json.gz")
+                kpts["p"] = loadfn("old_kpts_p.json.gz")
+                energies["n"] = loadfn("old_energy_n.json.gz")
+                energies["p"] = loadfn("old_energy_p.json.gz")
+
                 self._check_timeout_hours()
 
                 if min(energies['n']) - self.cbm_vbm['n']['energy'] > self.Ecut[
@@ -1043,9 +1058,9 @@ class Amset(MSONable, LoggableMixin):
             width=self.dos_bwidth, scissor=self.scissor, normalize=True,
             vbm_e=self.cbm_vbm['p']['energy'], cbm_e=self.cbm_vbm['n']['energy'])
 
+        dos = np.array(loadfn("old_dos.json.gz"))
         self.logger.debug("dos_emin = {} and dos_emax= {}".format(
             dos[:, 0].min(), dos[:, 0].max()))
-
         return dos
 
     def find_all_important_points(self, nbelow_vbm=0, nabove_cbm=0, **kwargs):
@@ -1730,9 +1745,12 @@ class Amset(MSONable, LoggableMixin):
                     self.interpolater.get_energies(
                         self.kgrid[tp]["kpoints"][ib], iband,
                         scissor=self.scissor, return_velocity=True)
-                dumpfn(self.kgrid[tp]["kpoints"][ib], "new_kpts_{}.json.gz".format(tp))
-                dumpfn(self.kgrid[tp]["energy"][ib], "new_energy_{}.json.gz".format(tp))
-                dumpfn(self.kgrid[tp]["velocity"][ib], "new_velocity_{}.json.gz".format(tp))
+                # dumpfn(self.kgrid[tp]["kpoints"][ib], "new_kpts_{}.json.gz".format(tp))
+                # dumpfn(self.kgrid[tp]["energy"][ib], "new_energy_{}.json.gz".format(tp))
+                # dumpfn(self.kgrid[tp]["velocity"][ib], "new_velocity_{}.json.gz".format(tp))
+                self.kgrid[tp]["kpoints"][ib] = loadfn("old_kpts_{}.json.gz".format(tp))
+                self.kgrid[tp]["energy"][ib] = loadfn("old_energy_{}.json.gz".format(tp))
+                self.kgrid[tp]["velocity"][ib] = loadfn("old_velocity_{}.json.gz".format(tp))
 
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(
                     self.kgrid[tp]["old cartesian kpoints"][ib])  # made a copy
@@ -2736,7 +2754,7 @@ class Amset(MSONable, LoggableMixin):
         dumpfn(self.dos, "new_dos.json.gz")
 
         ## debug plot to make sure CBM/VBM recognized correctly in DOS
-        PLOT_CALCULATED_DOS = True
+        PLOT_CALCULATED_DOS = False
         if PLOT_CALCULATED_DOS:
             ## if not commented, make sure run_type='BOLTZ' in BoltztrapRunner
             self.logger.debug('PLOT_CALCULATED_DOS is set to True, if '

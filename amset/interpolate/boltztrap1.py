@@ -174,20 +174,20 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
              for band_index in iband for _ in kpoints])
         energies += scissor_shift
 
-        shape = (len(kpoints), len(iband)) if len(iband) > 1 else (
+        shape = (len(iband), len(kpoints)) if len(iband) > 1 else (
             len(kpoints),)
-        # data_to_return = [energies]
-        if len(iband) == 1:
-            data_to_return = [energies]
-        else:
-            data_to_return = [energies.reshape(shape).swapaxes(0, 1)]
+        data_to_return = [energies.reshape(shape).tolist()]
+        # if len(iband) == 1:
+        #     data_to_return = [energies]
+        # else:
+        #     data_to_return = [energies.reshape(shape).swapaxes(0, 1)]
 
         if return_velocity:
             velocities = np.array([d[1] for d in results])
             # data_to_return.append(velocities.reshape(
             #     shape + velocities.shape[1:]))
             if len(iband) == 1:
-                data_to_return.append(velocities)
+                data_to_return.append([np.array(v) for v in velocities])
                 print("not reshaping velocities")
             else:
                 data_to_return = [velocities.reshape(shape + velocities.shape[1:]).swapaxes(0, 1)]
