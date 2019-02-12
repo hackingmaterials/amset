@@ -103,7 +103,7 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         w_sum = float(sum(weights))
         weights = [w/w_sum for w in weights]
 
-        energies = self.get_energies(ir_kpts, scissor=scissor)
+        energies = np.array(self.get_energies(ir_kpts, scissor=scissor))
         nbands = energies.shape[0]
 
         emin = emin if emin else np.min(energies)
