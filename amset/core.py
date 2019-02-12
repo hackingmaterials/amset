@@ -2839,6 +2839,7 @@ class Amset(MSONable, LoggableMixin):
             for g_suffix in ["", "_th"]:
                 self.s_inelastic(sname="S_o" + g_suffix, g_suffix=g_suffix)
 
+        self.logger.debug("\n\n\n\n\n\n{}\n\n\n\n\n".format(self.cbm_vbm0))
         # solve BTE to calculate S_i scattering rate and perturbation (g) in an iterative manner
         for iter in range(self.BTE_iters):
             self._check_timeout_hours()
