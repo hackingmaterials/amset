@@ -1,6 +1,9 @@
 # coding: utf-8
 from __future__ import absolute_import
 
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
 import cProfile
 import json
 import os
@@ -1036,7 +1039,8 @@ class Amset(MSONable, LoggableMixin):
 
         dos = self.interpolater.get_dos(
             kpoint_mesh, estep=max(self.dE_min, 0.0001),
-            width=self.dos_bwidth, scissor=self.scissor, normalize=True)
+            width=self.dos_bwidth, scissor=self.scissor, normalize=True,
+            vbm_e=self.cbm_vbm['p']['energy'], cbm_e=self.cbm_vbm['n']['energy'])
 
         self.logger.debug("dos_emin = {} and dos_emax= {}".format(
             dos[:, 0].min(), dos[:, 0].max()))
@@ -2718,8 +2722,24 @@ class Amset(MSONable, LoggableMixin):
         tdos = np.repeat(dos_dos.reshape((len(dos_dos), 1)), 2 * nstep + 1,
                          axis=1)
 
+        print(self.cbm_vbm)
         self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
         self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
+
+        ## debug plot to make sure CBM/VBM recognized correctly in DOS
+        PLOT_CALCULATED_DOS = True
+        if PLOT_CALCULATED_DOS:
+            ## if not commented, make sure run_type='BOLTZ' in BoltztrapRunner
+            self.logger.debug('PLOT_CALCULATED_DOS is set to True, if '
+                              'interpolation=boltztrap1, make sure to set '
+                              'run_type="BOLTZ" when running BoltztrapRunner')
+            start_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"] - 1.)
+            end_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"] + 1.)
+            plt.scatter(dos_e[start_idx: end_idx], dos_dos[start_idx: end_idx])
+            plt.scatter(dos_e[self.cbm_dos_idx], 0, s=100, marker='s')
+            plt.scatter(dos_e[self.vbm_dos_idx], 0, s=100, marker='s')
+            plt.show()
+            # plt.savefig(os.path.join(self.calc_dir, 'test_bsdos.png'))
 
         self.logger.debug("Calculating the fermi level at T={} K".format(T))
         midgap_idx = int((self.vbm_dos_idx + self.cbm_dos_idx) / 2)

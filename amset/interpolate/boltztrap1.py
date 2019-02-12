@@ -164,8 +164,8 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
         # BoltzTraP1 energies can be shifted relative to the vasprun eigenvalues
         # here we shift the energies back in line
         energies = np.array([d[0] for d in results])
-        energies += (self._band_structure.bands[Spin.up][iband[0]][0] -
-                     energies[0])
+        # energies += (self._band_structure.bands[Spin.up][iband[0]][0] -
+        #              energies[0])
 
         # Apply scissor; shift will be zero if scissor is 0
         # TODO: Make compatible with spin polarization
