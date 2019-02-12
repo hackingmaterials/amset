@@ -214,21 +214,23 @@ class AmsetTest(unittest.TestCase):
                        'overall': 32195.345065
                        }
 
+        coeff_file = os.path.join(self.InP_dir, 'fort.123')
         amset = Amset.from_vasprun(
             os.path.join(self.InP_dir, 'vasprun.xml'),
-            material_params=self.InP_params,
+            self.InP_params, interpolation='boltztrap1',
+            coeff_file=coeff_file,
             calc_dir=self.temp_dir,
             model_params=self.model_params,
             performance_params=self.performance_params,
             dopings=[-2e15], temperatures=[300], integration='e',
             log_level=LOGLEVEL)
-        amset.run(os.path.join(self.InP_dir, 'fort.123'),
-                  kgrid_tp='very coarse')
+        amset.run(kgrid_tp='very coarse')
 
         # check isotropy of transport and mobility values
         for mu in expected_mu.keys():
+            print(mu)
             self.assertLessEqual(
-                np.std(amset.mobility['n'][mu][-2e15][300]) / \
+                np.std(amset.mobility['n'][mu][-2e15][300]) /
                 np.mean(amset.mobility['n'][mu][-2e15][300]), 0.06
             )
             self.assertLessEqual(abs(

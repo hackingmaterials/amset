@@ -96,6 +96,12 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         ir_kpts = np.asarray(list(map(list, mesh_data[:, 0])))
         weights = mesh_data[:, 1] / mesh_data[:, 1].sum()
 
+        ir_kpts = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
+        ir_kpts = [k[0] for k in ir_kpts]
+        weights = [k[1] for k in ir_kpts]
+        w_sum = float(sum(weights))
+        weights = [w/w_sum for w in weights]
+
         energies = self.get_energies(ir_kpts, scissor=scissor)
         nbands = energies.shape[0]
 
