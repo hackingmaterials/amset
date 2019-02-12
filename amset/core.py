@@ -1,6 +1,10 @@
 # coding: utf-8
 from __future__ import absolute_import
 
+import matplotlib
+
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
 import cProfile
 import json
 import os
@@ -3109,7 +3113,7 @@ class Amset(MSONable, LoggableMixin):
                          axis=1)
 
         ## debug plot to make sure CBM/VBM recognized correctly in DOS
-        PLOT_CALCULATED_DOS = False
+        PLOT_CALCULATED_DOS = True
         if PLOT_CALCULATED_DOS:
             ## if not commented, make sure run_type='BOLTZ' in BoltztrapRunner
             self.logger.debug('PLOT_CALCULATED_DOS is set to True, if '
@@ -3118,7 +3122,7 @@ class Amset(MSONable, LoggableMixin):
             import matplotlib.pyplot as plt
             start_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"] - 1.)
             end_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"] + 1.)
-            plt.scatter(dos_e[start_idx: end_idx], dos_dos[start_idx: end_idx])
+            plt.plot(dos_e[start_idx: end_idx], dos_dos[start_idx: end_idx])
             plt.scatter(dos_e[self.cbm_dos_idx], 0, s=100, marker='s')
             plt.scatter(dos_e[self.vbm_dos_idx], 0, s=100, marker='s')
             plt.show()
