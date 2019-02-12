@@ -22,10 +22,11 @@ def initialize_logger(name, filepath='.', filename=None, level=None):
         (Logger): A logging instance with customized formatter and handlers.
     """
 
-    level = level or logging.INFO
+    level = level or logging.DEBUG
     filename = filename or name + ".log"
 
     logger = logging.getLogger(name)
+    logger.setLevel(level)
     logger.handlers = []  # reset logging handlers if they already exist
 
     formatter = logging.Formatter(
@@ -40,7 +41,6 @@ def initialize_logger(name, filepath='.', filename=None, level=None):
     logger.addHandler(screen_handler)
     logger.addHandler(handler)
 
-    logger.setLevel(level)
     return logger
 
 
@@ -98,7 +98,6 @@ class LoggableMixin:
             if not logger.handlers:
                 initialize_null_logger(logger_base_name)
 
-        logger.setLevel(logging.INFO)
         return logger
 
     def log_raise(self, exception, msg, *args, **kwargs):
