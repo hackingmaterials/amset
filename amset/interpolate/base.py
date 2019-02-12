@@ -144,7 +144,8 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
             integ = trapz(dos, x=emesh)
             self.logger.info("dos integral from {:.3f} to {:.3f} "
                              "eV: {:.3f}".format(emin, emax, integ))
-            dos /= integ * normalization_factor
+            print(normalization_factor)
+            dos *= normalization_factor / integ
 
         return np.column_stack((emesh, dos))
 

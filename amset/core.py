@@ -997,6 +997,7 @@ class Amset(MSONable, LoggableMixin):
             for ib in range(num_bands[tp]):
                 iband = (ib + self.cbm_vbm[tp]["bidx"]
                          + (i - 1) * self.cbm_vbm[tp]["included"])
+                iband = 8 if tp == "p" else 9
                 energies[tp] = self.interpolater.get_energies(
                     kpoints[tp], iband, scissor=self.scissor)
                 self._check_timeout_hours()
@@ -1722,10 +1723,15 @@ class Amset(MSONable, LoggableMixin):
 
                 iband = self.cbm_vbm[tp]["bidx"] + (i - 1) * \
                         self.cbm_vbm["p"]["included"] + ib
+                iband = 8 if tp == "p" else 9
+                print("tp: {}\tib: {}".format(tp, ib))
+                print(self.kgrid[tp]["kpoints"][ib])
                 self.kgrid[tp]["energy"][ib], self.kgrid[tp]["velocity"][ib] = \
                     self.interpolater.get_energies(
                         self.kgrid[tp]["kpoints"][ib], iband,
                         scissor=self.scissor, return_velocity=True)
+                dumpfn(self.kgrid[tp]["energy"][ib], "new_energy_{}.json.gz".format(ib))
+                dumpfn(self.kgrid[tp]["velocity"][ib], "new_velocity_{}.json.gz".format(ib))
 
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(
                     self.kgrid[tp]["old cartesian kpoints"][ib])  # made a copy
@@ -2713,8 +2719,9 @@ class Amset(MSONable, LoggableMixin):
         dos_e = np.array([d[0] for d in self.dos])
         dos_de = np.array([self.dos[i + 1][0] - self.dos[i][0] \
                            for i, _ in enumerate(self.dos[:-1])] + [0.0])
-        dos_dos = np.array([d[1] for d in
-                            self.dos])  # left is faster, trapezoidal makes no difference
+
+        # left is faster, trapezoidal makes no difference
+        dos_dos = self.dos[:, 1]
 
         # fix energy, energy diff. and dos for integration at all fermi levels
         es = np.repeat(dos_e.reshape((len(dos_e), 1)), 2 * nstep + 1, axis=1)
@@ -2725,6 +2732,7 @@ class Amset(MSONable, LoggableMixin):
         print(self.cbm_vbm)
         self.vbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"])
         self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
+        dumpfn(self.dos, "new_dos.json.gz")
 
         ## debug plot to make sure CBM/VBM recognized correctly in DOS
         PLOT_CALCULATED_DOS = True
@@ -2735,7 +2743,7 @@ class Amset(MSONable, LoggableMixin):
                               'run_type="BOLTZ" when running BoltztrapRunner')
             start_idx = self.get_Eidx_in_dos(self.cbm_vbm["p"]["energy"] - 1.)
             end_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"] + 1.)
-            plt.scatter(dos_e[start_idx: end_idx], dos_dos[start_idx: end_idx])
+            plt.plot(dos_e[start_idx: end_idx], dos_dos[start_idx: end_idx])
             plt.scatter(dos_e[self.cbm_dos_idx], 0, s=100, marker='s')
             plt.scatter(dos_e[self.vbm_dos_idx], 0, s=100, marker='s')
             plt.show()
