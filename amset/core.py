@@ -1730,8 +1730,9 @@ class Amset(MSONable, LoggableMixin):
                     self.interpolater.get_energies(
                         self.kgrid[tp]["kpoints"][ib], iband,
                         scissor=self.scissor, return_velocity=True)
-                dumpfn(self.kgrid[tp]["energy"][ib], "new_energy_{}.json.gz".format(ib))
-                dumpfn(self.kgrid[tp]["velocity"][ib], "new_velocity_{}.json.gz".format(ib))
+                dumpfn(self.kgrid[tp]["kpoints"][ib], "new_kpts_{}.json.gz".format(tp))
+                dumpfn(self.kgrid[tp]["energy"][ib], "new_energy_{}.json.gz".format(tp))
+                dumpfn(self.kgrid[tp]["velocity"][ib], "new_velocity_{}.json.gz".format(tp))
 
                 self.kgrid[tp]["cartesian kpoints"][ib] = np.array(
                     self.kgrid[tp]["old cartesian kpoints"][ib])  # made a copy

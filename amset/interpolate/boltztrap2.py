@@ -123,7 +123,8 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
             velocities = fitted[1][:, iband, :].transpose((1, 0, 2))
             velocities = abs(np.matmul(matrix_norm, velocities)) * factor
             velocities = velocities.transpose((0, 2, 1))
-            to_return.append(velocities.reshape(shape + velocities.shape[2:]))
+            to_return.append(velocities)
+            # to_return.append(velocities.reshape(shape + velocities.shape[2:]))
 
         if return_effective_mass:
             factor = 0.52917721067 ** 2 * e * hbar ** 2 / (
