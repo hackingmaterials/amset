@@ -228,7 +228,7 @@ def generate_adaptive_kmesh(bs, important_points, kgrid_tp, ibz=True):
             mesh = np.array([0.001, 0.01])
             nkk = 5
         else:
-            raise AmsetError('Unsupported kgrid_tp: {}'.format(kgrid_tp))
+            raise AmsetError('Unsupported kgrid_type: {}'.format(kgrid_tp))
         # just to find a set of + or - kpoint signs when ibzkpt is generated:
         sg = SpacegroupAnalyzer(bs.structure)
         kpts_and_weights = sg.get_ir_reciprocal_mesh(mesh=(nkk, nkk, nkk),
