@@ -70,14 +70,15 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
 
     def __init__(self, band_structure: BandStructure, num_electrons: int,
                  coeff_file: Optional[str] = None,
-                 max_temperature: Optional[int] = None, n_jobs: int = 1,
+                 max_temperature: Optional[int] = None, n_jobs: int = -1,
                  **kwargs):
-        super(BoltzTraP1Interpolater, self).__init__(
-            band_structure, num_electrons, **kwargs)
         self._coeff_file = coeff_file
         self._max_temperature = max_temperature
         self._n_jobs = multiprocessing.cpu_count() if n_jobs == -1 else n_jobs
         self._parameters_id = None
+
+        super(BoltzTraP1Interpolater, self).__init__(
+            band_structure, num_electrons, **kwargs)
 
     def initialize(self):
         """Initialise the interpolater.
@@ -103,6 +104,8 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
         global _parameters
         _parameters[self._parameters_id] = self._get_interpolation_parameters(
             self._coeff_file)
+
+        super(BoltzTraP1Interpolater, self).initialize()
 
     def get_energies(self, kpoints: Union[np.ndarray, List],
                      iband: Optional[Union[int, List[int]]] = None,
@@ -164,8 +167,7 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
         # BoltzTraP1 energies can be shifted relative to the vasprun eigenvalues
         # here we shift the energies back in line
         energies = np.array([d[0] for d in results])
-        # energies += (self._band_structure.bands[Spin.up][iband[0]][0] -
-        #              energies[0])
+        energies += self._offset
 
         # Apply scissor; shift will be zero if scissor is 0
         # TODO: Make compatible with spin polarization
@@ -176,22 +178,12 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
 
         shape = (len(iband), len(kpoints)) if len(iband) > 1 else (
             len(kpoints),)
-        data_to_return = [energies.reshape(shape).tolist()]
-        # if len(iband) == 1:
-        #     data_to_return = [energies]
-        # else:
-        #     data_to_return = [energies.reshape(shape).swapaxes(0, 1)]
+        data_to_return = [energies.reshape(shape)]
 
         if return_velocity:
             velocities = np.array([d[1] for d in results])
-            # data_to_return.append(velocities.reshape(
-            #     shape + velocities.shape[1:]))
-            if len(iband) == 1:
-                data_to_return.append([np.array(v) for v in velocities])
-                print("not reshaping velocities")
-            else:
-                data_to_return = [velocities.reshape(shape + velocities.shape[1:]).swapaxes(0, 1)]
-            # data_to_return.append(velocities[0, :, :])
+            data_to_return.append(velocities.reshape(
+                shape + velocities.shape[1:]))
 
         if return_effective_mass:
             index = 2 if return_velocity else 1

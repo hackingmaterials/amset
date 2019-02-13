@@ -6,6 +6,7 @@ import numpy as np
 
 from typing import Optional, Union, List, Tuple, Dict, Any
 
+from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
 from amset.utils.band_structure import remove_duplicate_kpoints
@@ -48,8 +49,6 @@ class ParabolicInterpolater(AbstractInterpolater):
 
     def __init__(self, band_structure: BandStructure, num_electrons: int,
                  band_parameters: List[List], **kwargs):
-        super(ParabolicInterpolater, self).__init__(
-            band_structure, num_electrons, **kwargs)
         self._parameters = np.array(band_parameters)
         self._nbands = len(self._parameters) * 2
 
@@ -57,22 +56,25 @@ class ParabolicInterpolater(AbstractInterpolater):
         # equivalent k-points
         for ib in range(len(band_parameters)):
             for valley in range(len(band_parameters[ib])):
-                equivalent_points = self._band_structure.get_sym_eq_kpoints(
+                equivalent_points = band_structure.get_sym_eq_kpoints(
                             band_parameters[ib][valley][0])
                 self._parameters[ib][valley][0] = remove_duplicate_kpoints(
                     equivalent_points)
 
+        vbm_idx = max(band_structure.get_vbm()['band_index'][Spin.up])
         # mapping of the band index to parabolic band coefficient index.
         # e.g. if the vbm is band 30 and there are 2 parabolic bands, the
         # mapping will be: {29: 1, 30: 0, 31: 0, 32: 1}
         # i.e. the VB and CB use the first coefficient and VB-1 and CB+1 use the
         # second coefficient.
-        self._allowed_bands = np.arange(self._vbm_idx + 1 - self._nbands / 2,
-                                        self._vbm_idx + 1 + self._nbands / 2,
+        self._allowed_bands = np.arange(vbm_idx + 1 - self._nbands / 2,
+                                        vbm_idx + 1 + self._nbands / 2,
                                         dtype=int)
         self._band_mapping = dict(zip(self._allowed_bands,
                                       list(range(len(band_parameters)))[::-1] +
                                       list(range(len(band_parameters)))))
+        super(ParabolicInterpolater, self).__init__(
+            band_structure, num_electrons, **kwargs)
 
     def get_energies(self, kpoints: Union[np.ndarray, List],
                      iband: Optional[Union[int, List[int]]] = None,
