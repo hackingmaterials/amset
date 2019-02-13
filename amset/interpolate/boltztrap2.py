@@ -36,9 +36,9 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
 
     def __init__(self, band_structure: BandStructure, num_electrons: int,
                  **kwargs):
+        self._parameters = None
         super(BoltzTraP2Interpolater, self).__init__(
             band_structure, num_electrons, **kwargs)
-        self._parameters = None
 
     def initialize(self):
         """Initialise the interpolater.
@@ -56,6 +56,7 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
         coeffs = fite.fitde3D(bz2_data, equivalences)
 
         self._parameters = (equivalences, lattvec, coeffs)
+        super(BoltzTraP2Interpolater, self).initialize()
 
     def get_energies(self, kpoints: Union[np.ndarray, List],
                      iband: Optional[Union[int, List[int]]] = None,
@@ -103,8 +104,7 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
 
         # BoltzTraP2 energies can be shifted slighty relative to the vasprun
         # eigenvalues here we shift the energies back in line
-        energies += (self._band_structure.bands[Spin.up][iband[0]][0] -
-                     energies[0][0])
+        energies += self._offset
 
         # Apply scissor; shift will be zero if scissor is 0
         # TODO: Make compatible with spin polarization
@@ -123,8 +123,7 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
             velocities = fitted[1][:, iband, :].transpose((1, 0, 2))
             velocities = abs(np.matmul(matrix_norm, velocities)) * factor
             velocities = velocities.transpose((0, 2, 1))
-            to_return.append(velocities)
-            # to_return.append(velocities.reshape(shape + velocities.shape[2:]))
+            to_return.append(velocities.reshape(shape + velocities.shape[2:]))
 
         if return_effective_mass:
             factor = 0.52917721067 ** 2 * e * hbar ** 2 / (

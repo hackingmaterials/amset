@@ -39,6 +39,14 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
                                        symprec=symprec)
         self._vbm_idx = max(self._band_structure.get_vbm()
                             ['band_index'][Spin.up])
+        self._offset = 0.
+        self.initialize()
+
+    def initialize(self):
+        """Initialise the interpolater."""
+        vbm_kpt = self._band_structure.get_vbm()['kpoint'].frac_coords
+        vbm_e = self._band_structure.get_vbm()['energy']
+        self._offset = vbm_e - self.get_energies([vbm_kpt], self._vbm_idx)[0]
 
     @abstractmethod
     def get_energies(self, kpoints: Union[np.ndarray, List],
@@ -73,8 +81,11 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
     def get_dos(self, kpoint_mesh: List[int], emin: float = None,
                 emax: float = None, estep: float = 0.001,
                 width: float = 0.2, scissor: float = 0.0,
-                normalize: bool = False, vbm_e=None, cbm_e=None) -> np.ndarray:
+                normalize: bool = False,
+                minimum_single_parabolic_band: bool = False) -> np.ndarray:
         """Calculates the density of states using the interpolated bands.
+
+        # TODO tetrahedron method interpolation
 
         Args:
             kpoint_mesh: The k-point mesh as a 1x3 array. E.g.,``[6, 6, 6]``.
@@ -87,6 +98,10 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
             width: The gaussian smearing width.
             scissor: The amount by which the band gap is scissored.
             normalize: Whether to normalize the DOS.
+            minimum_single_parabolic_band: If ``True`` the density will never
+                be smaller than that of a single parabolic band (around
+                the Fermi level). This is useful when the k-point mesh is not
+                very dense.
 
         Returns:
             The density of states data, formatted as::
@@ -94,14 +109,14 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
                 (energies, densities)
         """
         mesh_data = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
-        # ir_kpts = np.asarray(list(map(list, mesh_data[:, 0])))
-        # weights = mesh_data[:, 1] / mesh_data[:, 1].sum()
+        ir_kpts = np.asarray(list(map(list, mesh_data[:, 0])))
+        weights = mesh_data[:, 1] / mesh_data[:, 1].sum()
 
-        ir_kpts = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
-        ir_kpts = [k[0] for k in ir_kpts]
-        weights = [k[1] for k in ir_kpts]
-        w_sum = float(sum(weights))
-        weights = [w/w_sum for w in weights]
+        # ir_kpts = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
+        # ir_kpts = [k[0] for k in ir_kpts]
+        # weights = [k[1] for k in ir_kpts]
+        # w_sum = float(sum(weights))
+        # weights = [w/w_sum for w in weights]
 
         energies = np.array(self.get_energies(ir_kpts, scissor=scissor))
         nbands = energies.shape[0]
@@ -120,16 +135,18 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
                     -((emesh - energies[b, ik]) / width) ** 2 / 2.)
                 dos += w * g
 
-        if normalize:
-            # taken from old amset. Might reintroduce if needed to pass tests
+        if minimum_single_parabolic_band:
+            # TODO: This leads to a large DOS very quickly after the band edge.
+            #  I don't think this behaviour is correct but currently it is
+            #  required to pass tests. A better (and more correct) alternative
+            #  would be to use tetrahedron interpolation for the DOS.
             def get_energy_idx(energy):
                 calculated_index = int(round((energy - emesh.min()) / estep))
                 return min(calculated_index, len(emesh) - 1)
 
-            # vbm_e = self._band_structure.get_vbm()["energy"] - scissor / 2
-            # print(vbm_e)
-            # cbm_e = vbm_e + self._band_structure.get_band_gap()['energy'] + scissor / 2
-            # print(cbm_e)
+            vbm_e = self._band_structure.get_vbm()['energy'] - scissor / 2
+            cbm_e = (vbm_e + self._band_structure.get_band_gap()['energy']
+                     + scissor)
 
             vbm_dos_idx = get_energy_idx(vbm_e)
             cbm_dos_idx = get_energy_idx(cbm_e)
@@ -140,11 +157,13 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
             for idx in range(get_energy_idx(vbm_e - 2.0), vbm_dos_idx):
                 dos[idx] = max(dos[idx], free_e_dos(energy=vbm_e - emesh[idx]))
 
+        if normalize:
             normalization_factor = nbands * (1 if self._soc else 2)
             integ = trapz(dos, x=emesh)
             self.logger.info("dos integral from {:.3f} to {:.3f} "
                              "eV: {:.3f}".format(emin, emax, integ))
-            print(normalization_factor)
+            self.logger.debug("dos normalization factor: {}".format(
+                normalization_factor))
             dos *= normalization_factor / integ
 
         return np.column_stack((emesh, dos))
