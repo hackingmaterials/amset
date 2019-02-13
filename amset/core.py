@@ -56,7 +56,7 @@ __email__ = "aganose@lbl.gov"
 __status__ = "Development"
 
 _doping_names = {"n": "conduction band(s)", "p": "valence band(s)"}
-_inst_args = ['kgrid0', 'egrid0', 'kgrid_tp', 'cbm_vbm', 'mobility',
+_inst_args = ['kgrid0', 'egrid0', 'kgrid_type', 'cbm_vbm', 'mobility',
               'seebeck', 'elastic_scats', 'inelastic_scats', 'Efrequency0']
 
 
@@ -241,7 +241,7 @@ class Amset(MSONable, LoggableMixin):
         self._interpolation = interpolation
         self._coeff_file = coeff_file
         self._parabolic_bands = parabolic_bands
-        self.kgrid_tp = kgrid_type
+        self.kgrid_type = kgrid_type
 
         self.structure = band_structure.structure
         self.calc_dir = calc_dir if calc_dir else '.'
@@ -370,7 +370,7 @@ class Amset(MSONable, LoggableMixin):
         self.logger.info("cell volume = {} A**3".format(self.structure.volume))
         self.logger.info("original cbm_vbm:\n {}".format(self.cbm_vbm))
         self.logger.info(
-            'Running on "{}" mesh for each valley'.format(self.kgrid_tp))
+            'Running on "{}" mesh for each valley'.format(self.kgrid_type))
         self.logger.info(
             'band interpolation="{}" method'.format(self._interpolation))
         self.logger.info('max_nbands={}'.format(self.max_nbands))
@@ -392,7 +392,7 @@ class Amset(MSONable, LoggableMixin):
             kpts = self.generate_kmesh(
                 important_points={'n': [[0.0, 0.0, 0.0]],
                                   'p': [[0.0, 0.0, 0.0]]},
-                kgrid_tp=self.kgrid_tp)
+                kgrid_tp=self.kgrid_type)
 
             # the purpose of the following line is just to generate
             # self.energy_array that find_fermi_k function uses
@@ -528,7 +528,7 @@ class Amset(MSONable, LoggableMixin):
                         'skipping this valley as it is unimportant for both n and p type...')
                     continue
                 kpts = self.generate_kmesh(important_points=important_points,
-                                           kgrid_tp=self.kgrid_tp)
+                                           kgrid_tp=self.kgrid_type)
                 kpts, energies = self.get_energy_array(kpts,
                                                        return_energies=True,
                                                        num_bands={'p': 1,

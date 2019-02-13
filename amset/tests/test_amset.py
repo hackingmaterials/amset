@@ -79,7 +79,7 @@ class AmsetTest(unittest.TestCase):
             diff = abs(amset.fermi_level[c][T] - expected_fermi_level)
             avg = (amset.fermi_level[c][T] + expected_fermi_level) / 2
 
-            # setting kgrid_tp tp fine or very fine would drive the difference
+            # setting kgrid_type tp fine or very fine would drive the difference
             # closer to zero; however we set a loose 6.5% for quicker testing:
             self.assertTrue(diff / avg < 0.065)
 
