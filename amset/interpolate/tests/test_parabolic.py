@@ -2,7 +2,6 @@ import os
 import unittest
 import numpy as np
 
-
 from amset.interpolate.parabolic import ParabolicInterpolater
 from pymatgen.io.vasp import Vasprun
 
@@ -48,7 +47,8 @@ class TestParabolicInterpolater(unittest.TestCase):
         self.assertEqual(energies.shape, (138,))
         self.assertAlmostEqual(energies[0], 4.742)
         self.assertEqual(velocities.shape, (138, 3))
-        self.assertAlmostEqual(velocities[10][0], 292836222.3145536)
+        self.assertAlmostEqual(velocities[10][0], 2.928362223145536e+8,
+                               places=0)
 
         # test energy + effective_mass
         energies, effective_masses = self.interpolater.get_energies(
@@ -66,7 +66,8 @@ class TestParabolicInterpolater(unittest.TestCase):
         self.assertEqual(energies.shape, (138,))
         self.assertAlmostEqual(energies[0], 4.742)
         self.assertEqual(velocities.shape, (138, 3))
-        self.assertAlmostEqual(velocities[10][0], 292836222.3145536)
+        self.assertAlmostEqual(velocities[10][0], 2.928362223145536e+8,
+                               places=0)
         self.assertEqual(effective_masses.shape, (138, 3, 3))
         self.assertAlmostEqual(effective_masses[10][0][0], -0.2)
 
@@ -106,8 +107,8 @@ class TestParabolicInterpolater(unittest.TestCase):
         self.assertAlmostEqual(energies[0][0], 4.742)
         self.assertAlmostEqual(energies[1][0], 7.5015)
         self.assertEqual(velocities.shape, (2, 138, 3))
-        self.assertAlmostEqual(velocities[0][10][0], 292836222.3145536)
-        self.assertAlmostEqual(velocities[1][10][0], 292836222.3145536)
+        self.assertAlmostEqual(velocities[0][10][0], 2.928362223145536e+8, 1)
+        self.assertAlmostEqual(velocities[1][10][0], 2.928362223145536e+8, 1)
 
         # test energy + effective_mass
         energies, effective_masses = self.interpolater.get_energies(
@@ -128,8 +129,8 @@ class TestParabolicInterpolater(unittest.TestCase):
         self.assertAlmostEqual(energies[0][0], 4.742)
         self.assertAlmostEqual(energies[1][0], 7.5015)
         self.assertEqual(velocities.shape, (2, 138, 3))
-        self.assertAlmostEqual(velocities[0][10][0], 292836222.3145536)
-        self.assertAlmostEqual(velocities[1][10][0], 292836222.3145536)
+        self.assertAlmostEqual(velocities[0][10][0], 2.928362223145536e+8, 1)
+        self.assertAlmostEqual(velocities[1][10][0], 2.928362223145536e+8, 1)
         self.assertEqual(effective_masses.shape, (2, 138, 3, 3))
         self.assertAlmostEqual(effective_masses[0][10][0][0], -0.2)
         self.assertAlmostEqual(effective_masses[1][10][0][0], 0.2)
@@ -143,8 +144,8 @@ class TestParabolicInterpolater(unittest.TestCase):
         self.assertAlmostEqual(energies[0][0], 4.242)
         self.assertAlmostEqual(energies[1][0], 4.742)
         self.assertEqual(velocities.shape, (4, 138, 3))
-        self.assertAlmostEqual(velocities[0][10][0], 585672444.6291072)
-        self.assertAlmostEqual(velocities[1][10][0], 292836222.3145536)
+        self.assertAlmostEqual(velocities[0][10][0], 5.856724446291072e+8, 1)
+        self.assertAlmostEqual(velocities[1][10][0], 2.928362223145536e+8, 1)
         self.assertEqual(effective_masses.shape, (4, 138, 3, 3))
         self.assertAlmostEqual(effective_masses[0][10][0][0], -0.1)
         self.assertAlmostEqual(effective_masses[1][10][0][0], -0.2)

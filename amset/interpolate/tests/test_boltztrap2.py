@@ -39,23 +39,24 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
             self.kpoints, 25, return_velocity=False,
             return_effective_mass=False)
         self.assertEqual(energies.shape, (138,))
-        self.assertEqual(energies[0], 3.852399483908641)
+        self.assertAlmostEqual(energies[0], 3.852399483908641)
 
         # test energy + velocity
         energies, velocities = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=True,
             return_effective_mass=False)
         self.assertEqual(energies.shape, (138,))
-        self.assertEqual(energies[0], 3.852399483908641)
+        self.assertAlmostEqual(energies[0], 3.852399483908641)
         self.assertEqual(velocities.shape, (138, 3))
-        self.assertAlmostEqual(velocities[10][0], 5401166.156893334)
+        self.assertAlmostEqual(velocities[10][0], 5.401166156893334e+6,
+                               places=0)
 
         # test energy + effective_mass
         energies, effective_masses = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=False,
             return_effective_mass=True)
         self.assertEqual(energies.shape, (138,))
-        self.assertEqual(energies[0], 3.852399483908641)
+        self.assertAlmostEqual(energies[0], 3.852399483908641)
         self.assertEqual(effective_masses.shape, (138, 3, 3))
         self.assertAlmostEqual(effective_masses[10][0][0], 0.1121284806813247)
 
@@ -64,9 +65,10 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
             self.kpoints, 25, return_velocity=True,
             return_effective_mass=True)
         self.assertEqual(energies.shape, (138,))
-        self.assertEqual(energies[0], 3.852399483908641)
+        self.assertAlmostEqual(energies[0], 3.852399483908641)
         self.assertEqual(velocities.shape, (138, 3))
-        self.assertAlmostEqual(velocities[10][0], 5401166.156893334)
+        self.assertAlmostEqual(velocities[10][0], 5.401166156893334e+6,
+                               places=0)
         self.assertEqual(effective_masses.shape, (138, 3, 3))
         self.assertAlmostEqual(effective_masses[10][0][0], 0.1121284806813247)
 
@@ -78,7 +80,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
             self.kpoints, 25, return_velocity=False,
             return_effective_mass=False, scissor=1.)
         self.assertEqual(energies.shape, (138,))
-        self.assertEqual(energies[0], 3.852399483908641 - 0.5)
+        self.assertAlmostEqual(energies[0], 3.852399483908641 - 0.5)
 
         # test conduction band
         energies = self.interpolater.get_energies(
@@ -95,7 +97,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
             self.kpoints, [25, 35], return_velocity=False,
             return_effective_mass=False)
         self.assertEqual(energies.shape, (2, 138,))
-        self.assertEqual(energies[0][0], 3.852399483908641)
+        self.assertAlmostEqual(energies[0][0], 3.852399483908641)
         self.assertAlmostEqual(energies[1][0], 9.594401616456384)
 
         # test energy + velocity
@@ -103,18 +105,20 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
             self.kpoints, [25, 35], return_velocity=True,
             return_effective_mass=False)
         self.assertEqual(energies.shape, (2, 138,))
-        self.assertEqual(energies[0][0], 3.852399483908641)
+        self.assertAlmostEqual(energies[0][0], 3.852399483908641)
         self.assertAlmostEqual(energies[1][0], 9.594401616456384)
         self.assertEqual(velocities.shape, (2, 138, 3))
-        self.assertAlmostEqual(velocities[0][10][0], 5401166.156893334)
-        self.assertAlmostEqual(velocities[1][10][0], 116867208.31758736)
+        self.assertAlmostEqual(velocities[0][10][0], 5.401166156893334e+6,
+                               places=0)
+        self.assertAlmostEqual(velocities[1][10][0], 1.1686720831758736e+8,
+                               places=0)
 
         # test energy + effective_mass
         energies, effective_masses = self.interpolater.get_energies(
             self.kpoints, [25, 35], return_velocity=False,
             return_effective_mass=True)
         self.assertEqual(energies.shape, (2, 138,))
-        self.assertEqual(energies[0][0], 3.852399483908641)
+        self.assertAlmostEqual(energies[0][0], 3.852399483908641)
         self.assertAlmostEqual(energies[1][0], 9.594401616456384)
         self.assertEqual(effective_masses.shape, (2, 138, 3, 3))
         self.assertAlmostEqual(effective_masses[0][10][0][0], 0.11212848068132)
@@ -125,11 +129,13 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
             self.kpoints, [25, 35], return_velocity=True,
             return_effective_mass=True)
         self.assertEqual(energies.shape, (2, 138,))
-        self.assertEqual(energies[0][0], 3.852399483908641)
+        self.assertAlmostEqual(energies[0][0], 3.852399483908641)
         self.assertAlmostEqual(energies[1][0], 9.594401616456384)
         self.assertEqual(velocities.shape, (2, 138, 3))
-        self.assertAlmostEqual(velocities[0][10][0], 5401166.156893334)
-        self.assertAlmostEqual(velocities[1][10][0], 116867208.31758736)
+        self.assertAlmostEqual(velocities[0][10][0], 5.401166156893334e+6,
+                               places=0)
+        self.assertAlmostEqual(velocities[1][10][0], 1.1686720831758736e+8,
+                               places=0)
         self.assertEqual(effective_masses.shape, (2, 138, 3, 3))
         self.assertAlmostEqual(effective_masses[0][10][0][0], 0.11212848068132)
         self.assertAlmostEqual(effective_masses[1][10][0][0], 0.004528551672350)
@@ -143,8 +149,10 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         self.assertAlmostEqual(energies[25][0], 3.852399483908641)
         self.assertAlmostEqual(energies[35][0], 9.594401616456384)
         self.assertEqual(velocities.shape, (96, 138, 3))
-        self.assertAlmostEqual(velocities[25][10][0], 5401166.156893334)
-        self.assertAlmostEqual(velocities[35][10][0], 116867208.31758736)
+        self.assertAlmostEqual(velocities[25][10][0], 5.401166156893334e+6,
+                               places=0)
+        self.assertAlmostEqual(velocities[35][10][0], 1.1686720831758736e+8,
+                               places=0)
         self.assertEqual(effective_masses.shape, (96, 138, 3, 3))
         self.assertAlmostEqual(effective_masses[25][10][0][0], 0.11212848068132)
         self.assertAlmostEqual(effective_masses[35][10][0][0], 0.00452855167235)
