@@ -23,20 +23,18 @@ class AmsetToolsTest(unittest.TestCase):
     def test_kpts_to_first_BZ(self):
         kpts_orig = [[0.51, 1.00, -0.50], [1.40, -1.20, 0.49]]
         kpts_trns = [[-0.49, 0.00, -0.50], [0.40, -0.20, 0.49]]
-        # self.assertListEqual() #doesn't work as they differ at 7th decimal
-        for ik, k in enumerate(kpts_to_first_bz(kpts_orig)):
-            np.testing.assert_array_almost_equal(kpts_trns[ik], k, 7)
-        self.assertTrue(isinstance(kpts_to_first_bz(kpts_orig), list))
+
+        np.testing.assert_array_almost_equal(kpts_to_first_bz(kpts_orig),
+                                             kpts_trns, 7)
 
     def test_get_closest_k(self):
         kpts = np.array([[0.51, -0.5, 0.5], [0.4, 0.5, 0.51]])
-        np.testing.assert_array_equal([0.4, 0.5, 0.51],
-                                      get_closest_k(np.array([0.5, 0.5, 0.5]),
-                                                    kpts, return_diff=False))
-        np.testing.assert_array_almost_equal([0.1, 0.0, -0.01],
-                                             get_closest_k(
-                                                 np.array([0.5, 0.5, 0.5]),
-                                                 kpts, return_diff=True))
+        np.testing.assert_array_equal(
+            [0.4, 0.5, 0.51], get_closest_k(np.array([0.5, 0.5, 0.5]),
+                                            kpts, return_diff=False))
+        np.testing.assert_array_almost_equal(
+            [0.1, 0.0, -0.01], get_closest_k(np.array([0.5, 0.5, 0.5]),
+                                             kpts, return_diff=True))
 
     def test_remove_duplicate_kpoints(self):
         kpts_orig = [[0.0, 0.0, 0.0],
@@ -49,4 +47,5 @@ class AmsetToolsTest(unittest.TestCase):
         kpts_out = [[0.0, 0.0, 0.00999],
                     [0.25, 0.25, 0.25],
                     [0.5, 0.5, -0.5]]
-        self.assertListEqual(kpts_out, remove_duplicate_kpoints(kpts_orig))
+        np.testing.assert_array_almost_equal(
+            remove_duplicate_kpoints(kpts_orig), kpts_out)
