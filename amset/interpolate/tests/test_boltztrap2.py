@@ -58,7 +58,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         self.assertEqual(energies.shape, (138,))
         self.assertAlmostEqual(energies[0], 3.852399483908641)
         self.assertEqual(effective_masses.shape, (138, 3, 3))
-        self.assertAlmostEqual(effective_masses[10][0][0], 0.1121284806813247)
+        self.assertAlmostEqual(effective_masses[10][0][0], 0.2242569613626494)
 
         # test energy + velocity + effective_mass
         energies, velocities, effective_masses = self.interpolater.get_energies(
@@ -70,7 +70,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         self.assertAlmostEqual(velocities[10][0], 5.401166156893334e+6,
                                places=0)
         self.assertEqual(effective_masses.shape, (138, 3, 3))
-        self.assertAlmostEqual(effective_masses[10][0][0], 0.1121284806813247)
+        self.assertAlmostEqual(effective_masses[10][0][0], 0.2242569613626494)
 
     def test_get_energies_scissor(self):
         """Test scissoring of band energies."""
@@ -121,8 +121,8 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         self.assertAlmostEqual(energies[0][0], 3.852399483908641)
         self.assertAlmostEqual(energies[1][0], 9.594401616456384)
         self.assertEqual(effective_masses.shape, (2, 138, 3, 3))
-        self.assertAlmostEqual(effective_masses[0][10][0][0], 0.11212848068132)
-        self.assertAlmostEqual(effective_masses[1][10][0][0], 0.004528551672350)
+        self.assertAlmostEqual(effective_masses[0][10][0][0], 0.224256961362649)
+        self.assertAlmostEqual(effective_masses[1][10][0][0], 0.009057103344700)
 
         # test energy + velocity + effective_mass
         energies, velocities, effective_masses = self.interpolater.get_energies(
@@ -137,8 +137,8 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         self.assertAlmostEqual(velocities[1][10][0], 1.1686720831758736e+8,
                                places=0)
         self.assertEqual(effective_masses.shape, (2, 138, 3, 3))
-        self.assertAlmostEqual(effective_masses[0][10][0][0], 0.11212848068132)
-        self.assertAlmostEqual(effective_masses[1][10][0][0], 0.004528551672350)
+        self.assertAlmostEqual(effective_masses[0][10][0][0], 0.224256961362649)
+        self.assertAlmostEqual(effective_masses[1][10][0][0], 0.009057103344700)
 
     def test_get_energies_all_bands(self):
         # test all bands
@@ -154,8 +154,8 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         self.assertAlmostEqual(velocities[35][10][0], 1.1686720831758736e+8,
                                places=0)
         self.assertEqual(effective_masses.shape, (96, 138, 3, 3))
-        self.assertAlmostEqual(effective_masses[25][10][0][0], 0.11212848068132)
-        self.assertAlmostEqual(effective_masses[35][10][0][0], 0.00452855167235)
+        self.assertAlmostEqual(effective_masses[25][10][0][0], 0.22425696136264)
+        self.assertAlmostEqual(effective_masses[35][10][0][0], 0.00905710334470)
 
     def test_get_dos(self):
         """Test generating the interpolated DOS."""

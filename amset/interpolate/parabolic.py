@@ -58,10 +58,12 @@ class ParabolicInterpolater(AbstractInterpolater):
             for valley in range(len(band_parameters[ib])):
                 equivalent_points = band_structure.get_sym_eq_kpoints(
                             band_parameters[ib][valley][0])
+                equivalent_points.sort(axis=0)
                 self._parameters[ib][valley][0] = remove_duplicate_kpoints(
-                    equivalent_points)
+                    equivalent_points[::-1])
 
         vbm_idx = max(band_structure.get_vbm()['band_index'][Spin.up])
+
         # mapping of the band index to parabolic band coefficient index.
         # e.g. if the vbm is band 30 and there are 2 parabolic bands, the
         # mapping will be: {29: 1, 30: 0, 31: 0, 32: 1}
