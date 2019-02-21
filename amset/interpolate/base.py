@@ -10,7 +10,7 @@ from scipy.integrate import trapz
 from monty.json import MSONable
 
 from amset.logging import LoggableMixin
-from amset.utils.band_structure import kpts_to_first_bz, get_closest_k
+from amset.utils.band_structure import kpoints_to_first_bz, get_closest_k
 from amset.utils.constants import k_B
 from amset.utils.detect_peaks import detect_peaks
 from amset.utils.general import norm
@@ -208,7 +208,7 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
                 return True
 
         hsk = HighSymmKpath(self._band_structure.structure)
-        kpoints = kpts_to_first_bz(hsk.get_kpoints(
+        kpoints = kpoints_to_first_bz(hsk.get_kpoints(
             line_density=line_density, coords_are_cartesian=False)[0])
         band = self.get_energies(kpoints, iband=iband,
                                  scissor=scissor)

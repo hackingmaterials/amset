@@ -5,3 +5,4 @@ monty
 matplotlib
 matminer
 BoltzTraP2
+spglib==1.12.2

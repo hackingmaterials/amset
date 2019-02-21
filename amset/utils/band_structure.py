@@ -1,36 +1,35 @@
+"""
+For functions that deal with band structure, k-points operations, k-point grid,
+Brillouin zone and even parsing s- and p-orbital contribution from vasprun.xml
+"""
+
 import numpy as np
 
-from amset.utils.general import AmsetError, norm
+from typing import List
+
 from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.util.coord import pbc_diff
 
-"""
-For functions that deal with band structure, k-points operations, k-point grid, 
-Brillouin zone and even parsing s- and p-orbital contribution from vasprun.xml
-"""
+from amset.utils.general import AmsetError, norm
 
 
-def kpts_to_first_bz(kpts):
-    """
-    Brings a list of k-points to the 1st Brillouin Zone (BZ);
-    i.e. -0.5 <= the fractional coordinates <= 0.5
+def kpoints_to_first_bz(kpoints: List[List[float]]) -> np.ndarray:
+    """Translate fractional k-points to the first Brillouin zone.
+
+    I.e. all k-points will be moved to have fractional coordinates:
+
+        -0.5 <= fractional coordinates <= 0.5
 
     Args:
-        kpts ([3x1 list or array]): list of k-points fractional coordinates
+        kpoints: The k-points in fractional coordinates.
 
-    Returns ([3x1 list or array]): list of transformed coordinates
+    Returns:
+        The translated k-points.
     """
-    new_kpts = []
-    for i, k in enumerate(kpts):
-        for alpha in range(3):
-            while k[alpha] > 0.50:
-                k[alpha] -= 1.00
-            while k[alpha] < -0.50:
-                k[alpha] += 1.00
-        new_kpts.append(k)
-    return np.array(new_kpts)
+    kpoints = np.asarray(kpoints)
+    return kpoints - np.round(kpoints)
 
 
 def get_closest_k(kpoint, ref_ks, return_diff=False, exclude_self=False):
@@ -50,7 +49,8 @@ def get_closest_k(kpoint, ref_ks, return_diff=False, exclude_self=False):
     Returns (1x3 array):
     """
     if len(list(kpoint)) != 3 or len(list(ref_ks[0])) != 3:
-        raise AmsetError('k-point coordinates must be 3-dimensional')
+        raise AmsetError(ValueError,
+                         'k-point coordinates must be 3-dimensional')
 
     norms = [norm(ki-kpoint) for ki in ref_ks]
     if exclude_self:
@@ -103,28 +103,6 @@ def get_bindex_bspin(extremum, is_cbm):
         bidx = extremum["band_index"][Spin.down][idx]
         bspin = Spin.down
     return bidx, bspin
-
-
-def insert_intermediate_kpoints(kpts, n=2):
-    """
-    Insert n k-points in between each two k-points from kpts and return the
-        latter bigger list. This can be used for example to make a finer-mesh
-        HighSymmKpath
-
-    Args:
-        kpts ([[float]]): list of coordinates of k-points
-        n (int): the number of k-points inserted between each pair of k-points
-
-    Returns ([[float]]): the final list of k-point coordinates
-    """
-    n += 1
-    new_kpts = []
-    for i in range(len(kpts)-1):
-        step = (kpts[i+1] - kpts[i])/n
-        for j in range(n):
-            new_kpts.append(kpts[i] + j*step)
-    new_kpts.append(kpts[-1])
-    return new_kpts
 
 
 def get_band_orbital_contributions(band_structure, band_index):
