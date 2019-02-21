@@ -163,7 +163,7 @@ class TestParabolicInterpolater(unittest.TestCase):
                                         width=0.075, normalize=True)
         self.assertEqual(dos.shape, (20000, 2))
         self.assertEqual(dos[0][0], -10)
-        self.assertAlmostEqual(dos[10000][1], 0.2397190555784462, places=2)
+        self.assertAlmostEqual(dos[10000][1], 0.24211053798473875)
 
         # test single parabolic band DOS
         dos = self.interpolater.get_dos([10, 10, 10], emin=-10, emax=10,
@@ -179,16 +179,16 @@ class TestParabolicInterpolater(unittest.TestCase):
         # test VBM
         extrema = self.interpolater.get_extrema(31, e_cut=1)
         self.assertEqual(len(extrema), 2)
-        np.testing.assert_array_almost_equal(extrema[0], [0.5, 0.5, 0.5], 10)
+        np.testing.assert_array_almost_equal(extrema[0], [-0.5, 0.5, -0.5], 10)
         np.testing.assert_array_almost_equal(extrema[1], [0., 0., 0.], 10)
 
         # test CBM
         extrema = self.interpolater.get_extrema(32, e_cut=1.)
         self.assertEqual(len(extrema), 2)
-        np.testing.assert_array_almost_equal(extrema[0], [0.5, 0.5, 0.5], 10)
+        np.testing.assert_array_almost_equal(extrema[0], [-0.5, 0.5, -0.5], 10)
         np.testing.assert_array_almost_equal(extrema[1], [0., 0., 0.], 10)
 
         # test cut-off
         extrema = self.interpolater.get_extrema(32, e_cut=0.2)
         self.assertEqual(len(extrema), 1)
-        np.testing.assert_array_almost_equal(extrema[0], [0.5, 0.5, 0.5], 10)
+        np.testing.assert_array_almost_equal(extrema[0], [-0.5, 0.5, -0.5], 10)

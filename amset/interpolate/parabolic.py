@@ -9,7 +9,8 @@ from typing import Optional, Union, List, Tuple, Dict, Any
 from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
-from amset.utils.band_structure import remove_duplicate_kpoints
+from amset.utils.band_structure import remove_duplicate_kpoints, \
+    kpoints_to_first_bz
 from amset.utils.constants import hbar, m_e, e, k_B
 from amset.utils.general import norm
 from amset.interpolate.base import AbstractInterpolater
@@ -59,8 +60,8 @@ class ParabolicInterpolater(AbstractInterpolater):
                 equivalent_points = band_structure.get_sym_eq_kpoints(
                             band_parameters[ib][valley][0])
                 equivalent_points.sort(axis=0)
-                self._parameters[ib][valley][0] = remove_duplicate_kpoints(
-                    equivalent_points[::-1])
+                self._parameters[ib][valley][0] = kpoints_to_first_bz(
+                    remove_duplicate_kpoints(equivalent_points[::-1]))
 
         vbm_idx = max(band_structure.get_vbm()['band_index'][Spin.up])
 

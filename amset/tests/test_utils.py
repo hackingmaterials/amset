@@ -5,7 +5,7 @@ import os
 import unittest
 
 from amset.utils.constants import comp_to_dirname
-from amset.utils.band_structure import kpts_to_first_bz, get_closest_k, \
+from amset.utils.band_structure import kpoints_to_first_bz, get_closest_k, \
     remove_duplicate_kpoints
 from pymatgen.io.vasp.outputs import Vasprun
 
@@ -24,7 +24,7 @@ class AmsetToolsTest(unittest.TestCase):
         kpts_orig = [[0.51, 1.00, -0.50], [1.40, -1.20, 0.49]]
         kpts_trns = [[-0.49, 0.00, -0.50], [0.40, -0.20, 0.49]]
 
-        np.testing.assert_array_almost_equal(kpts_to_first_bz(kpts_orig),
+        np.testing.assert_array_almost_equal(kpoints_to_first_bz(kpts_orig),
                                              kpts_trns, 7)
 
     def test_get_closest_k(self):
