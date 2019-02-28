@@ -62,7 +62,7 @@ def generate_k_mesh_axes(important_pts, kgrid_tp='coarse', one_list=True):
                 elif kgrid_tp == 'very coarse':
                     mesh = [0.001, 0.01]
                 else:
-                    raise ValueError('Unsupported value for kgrid_tp: {}'.format(kgrid_tp))
+                    raise ValueError('Unsupported value for kgrid_type: {}'.format(kgrid_tp))
                 for step in mesh:
                     points_1d[dir].append(center[dim] + step)
                     points_1d[dir].append(center[dim] - step)

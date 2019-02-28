@@ -6,6 +6,8 @@ TODO: check final mobilities using both methods, against isotropic
       formalism to see which one is more accurate
 """
 import copy
+from abc import ABC, abstractmethod
+
 import numpy as np
 
 from monty.json import MSONable
@@ -14,7 +16,7 @@ from scipy.integrate import trapz
 from amset.utils.constants import pi
 
 
-class AbstractScattering(MSONable):
+class AbstractScattering(MSONable, ABC):
     """Abstract class for defining charge-carrier scattering processes.
 
     This class provides helper functions for integrating scattering rates over
@@ -46,9 +48,11 @@ class AbstractScattering(MSONable):
             raise ValueError("valley angle_k_prime_mapping required to "
                              "calculate anisotropic scattering")
 
+    @abstractmethod
     def integrand_angle(self, kpoint, kpoint_prime, angle, **kwargs):
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def calculate_isotropic(self):
         """Calculates the isotropic scattering rate for all k-points.
 
@@ -58,8 +62,9 @@ class AbstractScattering(MSONable):
             array refers to the cartesian lattice direction, e.g. x, y, and z.
             For the isotropic case, all three directions will be the same value.
         """
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def calculate_anisotropic(self):
         """Calculates the anistropic scattering rate for all k-points.
 
@@ -71,7 +76,7 @@ class AbstractScattering(MSONable):
             N is the number of k-points in the valley. The second axis of the
             array refers to the cartesian lattice direction, e.g. x, y, and z.
         """
-        raise NotImplementedError
+        pass
 
     def calculate_scattering(self):
         """Calculates carrier scattering rates for all k-points in the valley.
