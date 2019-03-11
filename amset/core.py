@@ -1,10 +1,6 @@
 # coding: utf-8
 from __future__ import absolute_import
 
-import matplotlib
-
-matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt
 import cProfile
 import json
 import os
@@ -364,6 +360,7 @@ class Amset(MSONable, LoggableMixin):
             many instance variables get updated with calculated properties.
         """
         self.start_time = time.time()
+
 
         self.logger.info('Running Amset on {}'.format(
             self.structure.composition.reduced_formula))
@@ -2730,7 +2727,7 @@ class Amset(MSONable, LoggableMixin):
         self.cbm_dos_idx = self.get_Eidx_in_dos(self.cbm_vbm["n"]["energy"])
 
         ## debug plot to make sure CBM/VBM recognized correctly in DOS
-        PLOT_CALCULATED_DOS = True
+        PLOT_CALCULATED_DOS = False
         if PLOT_CALCULATED_DOS:
             import matplotlib.pyplot as plt
             ## if not commented, make sure run_type='BOLTZ' in BoltztrapRunner
