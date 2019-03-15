@@ -111,12 +111,13 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
                      iband: Optional[Union[int, List[int]]] = None,
                      scissor: float = 0.0,
                      return_velocity: bool = False,
-                     return_effective_mass: bool = False
+                     return_effective_mass: bool = False,
+                     coords_are_cartesian: bool = False
                      ) -> Union[np.ndarray, Tuple[np.ndarray]]:
         """Gets the interpolated energies for multiple k-points in a band.
 
         Args:
-            kpoints: The k-points in fractional coordinates.
+            kpoints: The k-point coordinates.
             iband: A band index or list of band indicies for which to get the
                 energies. Band indices are 0-indexed unlike in BoltzTraP1 where
                 they are 1 indexed. If ``None``, the energies for all
@@ -124,6 +125,8 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
             scissor: The amount by which the band gap is scissored.
             return_velocity: Whether to return the band velocities.
             return_effective_mass: Whether to return the band effective masses.
+            coords_are_cartesian: Whether the kpoints are in cartesian or
+                fractional coordinates.
 
         Returns:
             The band energies as a numpy array. If iband is an integer
@@ -139,6 +142,10 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
             The velocities and effective masses are given as the 1x3 trace and
             full 3x3 tensor, respectively (along cartesian directions).
         """
+        if coords_are_cartesian:
+            kpoints = self._band_structure.structure.lattice. \
+                reciprocal_lattice.get_fractional_coords(kpoints)
+
         if isinstance(iband, int):
             iband = [iband]
         elif not iband:
