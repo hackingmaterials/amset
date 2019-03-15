@@ -1,3 +1,4 @@
+import itertools
 import logging
 
 import numpy as np
@@ -5,9 +6,12 @@ import numpy as np
 from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Optional, Union, Tuple, List, Sequence, Any, Dict
+
+from BoltzTraP2.bandlib import DOS, smoothen_DOS
 from scipy.integrate import trapz
 
 from monty.json import MSONable
+from scipy.ndimage import gaussian_filter1d
 
 from amset.logging import LoggableMixin
 from amset.utils.band_structure import kpoints_to_first_bz, get_closest_k
@@ -46,25 +50,28 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         """Initialise the interpolater."""
         vbm_kpt = self._band_structure.get_vbm()['kpoint'].frac_coords
         vbm_e = self._band_structure.get_vbm()['energy']
-        self._offset = vbm_e - self.get_energies([vbm_kpt], self._vbm_idx)[0]
+        self._offset += vbm_e - self.get_energies([vbm_kpt], self._vbm_idx)[0]
 
     @abstractmethod
     def get_energies(self, kpoints: Union[np.ndarray, List],
                      iband: Optional[Union[int, List[int]]] = None,
                      scissor: float = 0.0,
                      return_velocity: bool = False,
-                     return_effective_mass: bool = False
+                     return_effective_mass: bool = False,
+                     coords_are_cartesian: bool = False,
                      ) -> Union[np.ndarray, Tuple[np.ndarray]]:
         """Gets the interpolated energies for multiple k-points in a band.
 
         Args:
-            kpoints: The k-points in fractional coordinates.
+            kpoints: The k-point coordinates.
             iband: A band index or list of band indicies for which to get the
                 energies. Band indices are 0-indexed. If ``None``, the energies
                 for all available bands will be returned.
             scissor: The amount by which the band gap is scissored.
             return_velocity: Whether to return the band velocities.
             return_effective_mass: Whether to return the band effective masses.
+            coords_are_cartesian: Whether the kpoints are in cartesian or
+                fractional coordinates.
 
         Returns:
             The band energies as a numpy array. If ``return_velocity`` or
@@ -80,8 +87,7 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
 
     def get_dos(self, kpoint_mesh: List[int], emin: float = None,
                 emax: float = None, estep: float = 0.001,
-                width: float = 0.2, scissor: float = 0.0,
-                normalize: bool = False,
+                width: float = 0.05, scissor: float = 0.0,
                 minimum_single_parabolic_band: bool = False) -> np.ndarray:
         """Calculates the density of states using the interpolated bands.
 
@@ -110,24 +116,22 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         """
         mesh_data = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
         ir_kpts = np.asarray(list(map(list, mesh_data[:, 0])))
-        weights = mesh_data[:, 1] / mesh_data[:, 1].sum()
 
         energies = np.array(self.get_energies(ir_kpts, scissor=scissor))
-        nbands = energies.shape[0]
 
+        nbands = energies.shape[0]
+        nkpts = energies.shape[1]
         emin = emin if emin else np.min(energies)
         emax = emax if emax else np.max(energies)
-
-        height = 1.0 / (width * np.sqrt(2 * np.pi))
         epoints = int(round((emax - emin) / estep))
-        emesh = np.linspace(emin, emax, num=epoints, endpoint=True)
-        dos = np.zeros(len(emesh))
 
-        for ik, w in enumerate(weights):
-            for b in range(nbands):
-                g = height * np.exp(
-                    -((emesh - energies[b, ik]) / width) ** 2 / 2.)
-                dos += w * g
+        weights = mesh_data[:, 1]
+        all_energies = np.array([[energies[nb][nk] for nb in range(nbands)]
+                                 for nk in range(nkpts)
+                                 for _ in range(weights[nk])])
+
+        emesh, dos = DOS(all_energies, erange=(emin, emax), npts=epoints)
+        dos = gaussian_filter1d(dos, width / (emesh[1] - emesh[0]))
 
         if minimum_single_parabolic_band:
             # TODO: This leads to a large DOS very quickly after the band edge.
@@ -151,14 +155,16 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
             for idx in range(get_energy_idx(vbm_e - 2.0), vbm_dos_idx):
                 dos[idx] = max(dos[idx], free_e_dos(energy=vbm_e - emesh[idx]))
 
-        if normalize:
-            normalization_factor = nbands * (1 if self._soc else 2)
             integ = trapz(dos, x=emesh)
             self.logger.info("dos integral from {:.3f} to {:.3f} "
                              "eV: {:.3f}".format(emin, emax, integ))
-            self.logger.debug("dos normalization factor: {}".format(
-                normalization_factor))
-            dos *= normalization_factor / integ
+            dos /= integ
+
+        normalization_factor = 1 if self._soc else 2
+        dos *= normalization_factor
+
+        self.logger.debug("dos normalization factor: {}".format(
+            normalization_factor))
 
         return np.column_stack((emesh, dos))
 
@@ -257,15 +263,17 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
             The line mode band structure.
         """
         hsk = HighSymmKpath(self._band_structure.structure)
-        kpoints = hsk.get_kpoints(line_density=line_density,
-                                  coords_are_cartesian=False)[0]
-        energies = self.get_energies(kpoints, scissor=scissor)
+        kpoints, labels = hsk.get_kpoints(line_density=line_density,
+                                          coords_are_cartesian=True)
+        labels_dict = {label: kpoint for kpoint, label
+                       in zip(kpoints, labels) if label != ''}
+        energies = self.get_energies(kpoints, scissor=scissor,
+                                     coords_are_cartesian=True)
         return BandStructureSymmLine(kpoints, {Spin.up: energies},
                                      self._band_structure.structure.lattice,
                                      self._band_structure.efermi,
-                                     hsk.kpath['kpoints'],
-                                     structure=self._band_structure.structure,
-                                     coords_are_cartesian=False)
+                                     labels_dict,
+                                     coords_are_cartesian=True)
 
     @staticmethod
     def _simplify_return_data(data: Sequence[Any]) -> Union[Any, Sequence[Any]]:
@@ -293,6 +301,3 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         """Convert fractional k-points to cartesian coordinates in 1/nm."""
         return np.dot(self._band_structure.structure.lattice.
                       reciprocal_lattice.matrix, k) * 10
-
-
-

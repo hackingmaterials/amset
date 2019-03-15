@@ -1,6 +1,9 @@
 # coding: utf-8
 from __future__ import absolute_import
 
+import matplotlib
+matplotlib.use("TkAgg")
+
 import cProfile
 import json
 import os
@@ -1043,8 +1046,8 @@ class Amset(MSONable, LoggableMixin):
 
         dos = self.interpolater.get_dos(
             kpoint_mesh, estep=max(self.dE_min, 0.0001),
-            width=self.dos_bwidth, scissor=self.scissor, normalize=True,
-            minimum_single_parabolic_band=True)
+            width=self.dos_bwidth, scissor=self.scissor,
+            minimum_single_parabolic_band=False)
 
         self.logger.debug("dos_emin = {} and dos_emax= {}".format(
             dos[:, 0].min(), dos[:, 0].max()))
