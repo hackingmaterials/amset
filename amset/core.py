@@ -2,6 +2,8 @@
 from __future__ import absolute_import
 
 import matplotlib
+from scipy.integrate import quad
+
 matplotlib.use("TkAgg")
 
 import cProfile
@@ -22,7 +24,7 @@ from sys import stdout
 import numpy as np
 from monty.json import MontyEncoder, MSONable, MontyDecoder
 from monty.serialization import dumpfn, loadfn
-from scipy.interpolate import griddata
+from scipy.interpolate import griddata, interp1d
 
 from amset.logging import LoggableMixin
 from amset.scattering.elastic import (
@@ -364,7 +366,6 @@ class Amset(MSONable, LoggableMixin):
         """
         self.start_time = time.time()
 
-
         self.logger.info('Running Amset on {}'.format(
             self.structure.composition.reduced_formula))
         self.logger.info('integration: {}'.format(self.integration))
@@ -604,9 +605,10 @@ class Amset(MSONable, LoggableMixin):
 
                 for c in self.dopings:
                     for T in self.temperatures:
-                        seeb_integ = \
-                            self.egrid["Seebeck_integral_numerator"][c][T][tp] / \
-                            self.egrid["Seebeck_integral_denominator"][c][T][tp]
+                        seeb_integ = (
+                            self.egrid["Seebeck_integral_numerator"][c][T][tp] /
+                            self.egrid["Seebeck_integral_denominator"][c][T][tp])
+
                         fermi = self.fermi_level[c][T]
                         for tp in ["n", "p"]:
                             fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
@@ -615,12 +617,11 @@ class Amset(MSONable, LoggableMixin):
                                         len(self.kgrid[tp]["kpoints"][ib])):
                                     E = self.kgrid[tp]["energy"][ib][ik]
                                     v = self.kgrid[tp]["velocity"][ib][ik]
-                                    self.kgrid[tp]["f0"][c][T][ib][ik] = f0(E,
-                                                                            fermi,
-                                                                            T) * 1.0
-                                    self.kgrid[tp]["df0dk"][c][T][ib][
-                                        ik] = hbar * df0de(E, fermi,
-                                                           T) * v  # in cm
+                                    self.kgrid[tp]["f0"][c][T][ib][ik] = f0(
+                                        E, fermi, T) * 1.0
+                                    self.kgrid[tp]["df0dk"][c][T][ib][ik] = (
+                                        hbar * df0de(E, fermi, T) * v)  # in cm
+
                                     self.kgrid[tp]["electric force"][c][T][ib][
                                         ik] = \
                                         -1 * self.kgrid[tp]["df0dk"][c][T][ib][
@@ -628,13 +629,11 @@ class Amset(MSONable, LoggableMixin):
                                         default_small_E / hbar  # in 1/s
                                     E_norm = E - self.cbm_vbm[tp]["energy"]
                                     self.kgrid[tp]["thermal force"][c][T][ib][
-                                        ik] = \
-                                        -v * f0(E_norm, fermi_norm, T) * (
-                                                1 - f0(
-                                            E_norm, fermi_norm,
-                                            T)) * dTdz / T * (
-                                                E_norm / (k_B * T) - seeb_integ
-                                        )
+                                        ik] = (-v * (f0(E_norm, fermi_norm, T) *
+                                               (1 - f0(E_norm, fermi_norm, T)) *
+                                               (dTdz / T) * (E_norm / (k_B * T)
+                                                             - seeb_integ)))
+
                         # - norm(v)/sq3 * f0(E_norm, fermi_norm, T) * (1 - f0(
                         if self.integration == 'k':
                             dop_tp = get_tp(c)
@@ -645,21 +644,22 @@ class Amset(MSONable, LoggableMixin):
                                 electrons = self.integrate_over_states(f0_all,
                                                                        dop_tp)
                                 self.logger.info(
-                                    'k-integral of f0 above band gap at c={:.2e}, T={}: {}'.format(
-                                        c, T, electrons))
+                                    'k-integral of f0 above band gap at c='
+                                    '{:.2e}, T={}: {}'.format(c, T, electrons))
                             if c > 0:
                                 holes = self.integrate_over_states(1 - f0_all,
                                                                    dop_tp)
                                 self.logger.info(
-                                    'k-integral of 1-f0 below band gap at c={:.2e}, T={}: {}'.format(
-                                        c, T, holes))
+                                    'k-integral of 1-f0 below band gap at c='
+                                    '{:.2e}, T={}: {}'.format(c, T, holes))
 
                 self.map_to_egrid(prop_name="f0", c_and_T_idx=True,
                                   prop_type="vector")
                 self.map_to_egrid(prop_name="df0dk", c_and_T_idx=True,
                                   prop_type="vector")
 
-                # solve BTE in presence of electric and thermal driving force to get perturbation to Fermi-Dirac: g
+                # solve BTE in presence of electric and thermal driving force
+                # to get perturbation to Fermi-Dirac: g
                 self.solve_BTE_iteratively()
                 if self.integration == 'k':
                     test_k_anisotropic = False  # for k-integration
@@ -673,71 +673,79 @@ class Amset(MSONable, LoggableMixin):
                                          'type for e-integration of transport')
                     valley_transport = self.calculate_transport_properties_with_E()
                 else:
-                    raise AmsetError(self.logger, 'Unsupported integration '
-                                                  'method: {}'.format(
-                        self.integration))
-                self.logger.info('finished calculating the mobility of the '
-                                 'valley {} and band (p, n) {}'.format(
-                    important_points, self.ibands_tuple[self.ibrun]))
+                    self.log_raise(ValueError,
+                                   'Unsupported integration method: {}'.format(
+                                       self.integration))
+
+                self.logger.info(
+                    'finished calculating the mobility of the valley {} and '
+                    'band (p, n) {}'.format(
+                        important_points, self.ibands_tuple[self.ibrun]))
+
                 self.logger.info('count_mobility: {}'.format(
                     self.count_mobility[self.ibrun]))
                 self.logger.info('transport properties of the current valley'
                                  '\n{}'.format(pformat(valley_transport)))
 
-                if self.ibrun == 0 and ivalley == 0:  # 1-valley only since it's SPB
+                if self.ibrun == 0 and ivalley == 0:
+                    # 1-valley only since it's SPB
                     self.calculate_spb_transport()
 
                 self.logger.info('Mobility Labels: {}'.format(self.mo_labels))
+
                 for tp in ['p', 'n']:
                     valley_ndegen = self.band_structure.get_kpoint_degeneracy(
                         important_points[tp][0])
+
                     self.logger.debug(
-                        'valley_ndegen = {} for {}'.format(valley_ndegen,
-                                                           important_points[tp][
-                                                               0]))
+                        'valley_ndegen = {} for {}'.format(
+                            valley_ndegen, important_points[tp][0]))
+
                     for c in self.dopings:
                         for T in self.temperatures:
-                            self.kgrid[tp]["relaxation time"][c][T][ib] = \
-                                1 / (self.kgrid[tp]["_all_elastic"][c][T][ib] \
-                                     + self.kgrid[tp]["S_o"][c][T][ib] \
-                                     + self.kgrid[tp]["S_i"][c][T][ib])
+                            self.kgrid[tp]["relaxation time"][c][T][ib] = (
+                                1 / (self.kgrid[tp]["_all_elastic"][c][T][ib] +
+                                     self.kgrid[tp]["S_o"][c][T][ib] +
+                                     self.kgrid[tp]["S_i"][c][T][ib]))
 
                             if self.count_mobility[self.ibrun][tp]:
                                 if self.integration == 'k':
-                                    f0_all = 1. / (np.exp((self.energy_array[
-                                                               'n'] -
-                                                           self.fermi_level[c][
-                                                               T]) / (
-                                                                  k_B * T)) + 1.)
-                                    f0p_all = 1. / (np.exp((self.energy_array[
-                                                                'p'] -
-                                                            self.fermi_level[c][
-                                                                T]) / (
-                                                                   k_B * T)) + 1.)
+                                    f0_all = (
+                                        1. / (np.exp((self.energy_array['n'] -
+                                                      self.fermi_level[c][T]) /
+                                                     (k_B * T)) + 1.))
+
+                                    f0p_all = (
+                                        1. / (np.exp((self.energy_array['p'] -
+                                                      self.fermi_level[c][T]) /
+                                                     (k_B * T)) + 1.))
+
                                     finteg = f0_all if tp == 'n' else 1 - f0p_all
-                                    self.denominator[c][T][
-                                        tp] += 3 * default_small_E * self.integrate_over_states(
-                                        finteg, tp) + 1e-10
-                                    self.seeb_denom[c][T][
-                                        tp] += self.integrate_over_states(
-                                        finteg * (1 - finteg), tp)
+
+                                    self.denominator[c][T][tp] += (
+                                        3 * default_small_E *
+                                        self.integrate_over_states(finteg, tp)
+                                        + 1e-10)
+
+                                    self.seeb_denom[c][T][tp] += (
+                                        self.integrate_over_states(
+                                            finteg * (1 - finteg), tp))
+
                                 elif self.integration == 'e':
+
                                     finteg = "f0" if tp == "n" else "1 - f0"
-                                    self.denominator[c][T][
-                                        tp] += 3 * default_small_E * self.integrate_over_E(
-                                        props=[finteg], tp=tp, c=c, T=T,
-                                        xDOS=False, xvel=False) * valley_ndegen
-                                    self.seeb_denom[c][T][tp] += \
-                                        self.egrid[
-                                            "Seebeck_integral_denominator"][
-                                            c][T][tp] * valley_ndegen
+
+                                    self.denominator[c][T][tp] += (
+                                        3 * default_small_E *
+                                        self.integrate_over_E(
+                                            props=[finteg], tp=tp, c=c, T=T,
+                                            xDOS=False, xvel=False)
+                                        * valley_ndegen)
+
                                 for mu in self.mo_labels + ["J_th"]:
-                                    self.mobility[tp][mu][c][T] += \
-                                        valley_transport[tp][mu][c][
-                                            T] * valley_ndegen
-                                self.mobility[tp]['seebeck'][c][T] += \
-                                    valley_transport[tp]['seebeck'][c][
-                                        T]  # seeb is multiplied by DOS so no need for degeneracy
+                                    self.mobility[tp][mu][c][T] += (
+                                        valley_transport[tp][mu][c][T] *
+                                        valley_ndegen)
 
                 self.map_to_egrid(prop_name="relaxation time")
 
@@ -745,6 +753,7 @@ class Amset(MSONable, LoggableMixin):
                     for tp in ['p', 'n']:
                         if self.count_mobility[self.ibrun][tp]:
                             k = important_points[tp][0]
+
                             for i in range(3):
                                 if abs(k[i]) < 1e-4:
                                     k[i] = 0.0
@@ -754,76 +763,79 @@ class Amset(MSONable, LoggableMixin):
                                     k[i] = round(k[i], 1)
                                 elif k[i] != round(k[i], 2):
                                     k[i] = round(k[i], 2)
-                            # TODO: here the numerator of band/valleys is initiated by w/o valley_ndegen which results
-                            # in valleys.json mobility values being lower; write a function that goes over all values of
-                            # valley transport and multiplies them by valley_ndegen = self.band_structure.get_kpoint_degeneracy(k)
+
+                            # TODO: here the numerator of band/valleys is
+                            #  initiated by w/o valley_ndegen which results in
+                            #  valleys.json mobility values being lower;
+                            #  write a function that goes over all values of
+                            #  valley transport and multiplies them by
+                            #  valley_ndegen =
+                            #  self.band_structure.get_kpoint_degeneracy(k)
                             self.valleys[tp]['band {}'.format(self.ibrun)][
                                 '{};{};{}'.format(k[0], k[1], k[2])] = \
                                 valley_transport[tp]
 
                 kgrid_rm_list = ["f_th", "S_i_th", "S_o_th"]
                 self.kgrid = remove_from_grid(self.kgrid, kgrid_rm_list)
+
                 if ivalley == 0 and self.ibrun == 0:
-                    # TODO: make it possible for the user to choose which valley(s) to plot
+                    # TODO: make it possible for the user to choose
+                    #  which valley(s) to plot
                     self.kgrid0 = deepcopy(self.kgrid)
                     self.egrid0 = deepcopy(self.egrid)
                     self.Efrequency0 = deepcopy(self.Efrequency)
+
         self.logger.debug('here denominator:\n{}'.format(self.denominator))
 
         for tp in ['p', 'n']:
             for c in self.dopings:
                 for T in self.temperatures:
                     for mu in self.mo_labels + ["J_th"]:
-                        self.mobility[tp][mu][c][T] /= self.denominator[c][T][
-                            tp]
+                        self.mobility[tp][mu][c][T] /= (
+                            self.denominator[c][T][tp])
+
                         for band in list(self.valleys[tp].keys()):
                             for valley_k in list(self.valleys[tp][band].keys()):
-                                self.valleys[tp][band][valley_k][mu][c][T] /= \
-                                    self.denominator[c][T][tp]
-                    self.mobility[tp]["seebeck"][c][T] /= self.seeb_denom[c][T][
-                        tp]
-                    for band in list(self.valleys[tp].keys()):
-                        for valley_k in list(self.valleys[tp][band].keys()):
-                            self.valleys[tp][band][valley_k]["seebeck"][c][T] /= \
-                                self.seeb_denom[c][T][tp]
+                                self.valleys[tp][band][valley_k][mu][c][T] /= (
+                                    self.denominator[c][T][tp])
 
         # finalize Seebeck values:
-        sigma = {
-            tp: {c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
-            for
-            tp in ['p', 'n']}
+        sigma = {tp: {c: {T: 0.0 for T in self.temperatures}
+                      for c in self.dopings}
+                 for tp in ['p', 'n']}
+
         for tp in ['p', 'n']:
             for c in self.dopings:
                 for T in self.temperatures:
                     self.logger.debug(
                         '3 terms of {0}-type seebeck at c={1:.2e}, T={2}'.format(
                             tp, c, T))
+
+                    integral_term = (
+                        self.egrid["Seebeck_integral_numerator"][c][T][tp] /
+                        self.egrid["Seebeck_integral_denominator"][c][T][tp])
+
+                    self.mobility[tp]['seebeck'][c][T] = integral_term
                     self.logger.debug('seebeck integral term: {}'.format(
-                        str(self.mobility[tp]['seebeck'][c][T] * (-1e6) * k_B)))
-                    self.mobility[tp]['seebeck'][c][T] -= \
-                        (self.fermi_level[c][T] - self.cbm_vbm[tp]["energy"]) \
-                        / (k_B * T)
-                    self.logger.debug(
-                        'seebeck term Fermi level w.r.t. the CBM/VBM: {}'.format(
-                            str((self.fermi_level[c][T] - self.cbm_vbm[tp][
-                                "energy"]) / (k_B * T) * (-1e6) * k_B)))
-                    self.mobility[tp]['seebeck'][c][T] *= (-1e6) * k_B
-                    self.mobility[tp]["seebeck"][c][
-                        T] -= 0  # TODO: J_th term is too large, see why (e.g. in SnS)
-                    # self.mobility[tp]["seebeck"][c][T] += 1e6 * self.mobility[tp]["J_th"][c][T]\
-                    #     /(self.mobility[tp]["overall"][c][T]*e*float(1+abs(self.calc_doping[c][T][tp])))/dTdz
-                    self.logger.debug('seebeck term J_th: {}'.format(str(
-                        1e6 * self.mobility[tp]["J_th"][c][T] / (
-                                self.mobility[tp]["overall"][c][
-                                    T] * e * float(
-                            1 + abs(self.calc_doping[c][T][tp]))) / dTdz)))
-                    for band in list(self.valleys[tp].keys()):
-                        for valley_k in list(self.valleys[tp][band].keys()):
-                            self.valleys[tp][band][valley_k]["seebeck"][c][
-                                T] -= (self.fermi_level[c][T] -
-                                       self.cbm_vbm[tp]["energy"]) / (k_B * T)
-                            self.valleys[tp][band][valley_k]["seebeck"][c][
-                                T] *= (-1e6) * k_B
+                        integral_term * -1e6 * k_B))
+
+                    fermi_term = ((self.fermi_level[c][T] -
+                                   self.cbm_vbm[tp]["energy"]) / (k_B * T))
+                    self.mobility[tp]['seebeck'][c][T] -= fermi_term
+                    self.logger.debug('seebeck term Fermi level w.r.t the CBM/'
+                                      'VBM: {}'.format(fermi_term * -1e6 * k_B))
+
+                    # k_e in eV/K therefore equal to k_B/e
+                    # 1e6 term converts from V/K to uV/K
+                    self.mobility[tp]['seebeck'][c][T] *= -1e6 * k_B
+
+                    # TODO: J_th term is too large, see why (e.g. in SnS)
+                    j_th_term = (1e6 * self.mobility[tp]["J_th"][c][T] /
+                                 (self.mobility[tp]["overall"][c][T] * e *
+                                  (1 + abs(self.calc_doping[c][T][tp]))) / dTdz)
+                    self.mobility[tp]["seebeck"][c][T] -= j_th_term
+                    self.logger.debug('seebeck term J_th: {}'.format(j_th_term))
+
             self.seebeck[tp] = self.mobility[tp].pop('seebeck')
             sigma[tp][c][T] = sum(
                 self.mobility[tp]['overall'][c][T]) / 3. * e * abs(
@@ -1248,7 +1260,8 @@ class Amset(MSONable, LoggableMixin):
             self.Ecut = Ecut
         else:
             Ecut = min(Ecut, self.max_Ecut)
-            self.Ecut = {tp: Ecut if tp in self.all_types else Ecut * 2. / 3. for tp
+            self.Ecut = {tp: Ecut if tp in self.all_types else Ecut * 2. / 3.
+                         for tp
                          in ["n", "p"]}
 
         for tp in ["n", "p"]:
@@ -1256,7 +1269,7 @@ class Amset(MSONable, LoggableMixin):
         self.dos_bwidth = params.get("dos_bwidth", 0.075)
         self.dos_kdensity = params.get("dos_kdensity", 5500)
         # self.dos_kdensity = params.get("dos_kdensity", 1500) # just for rapid testing
-        self.v_min = 1000
+        self.v_min = 1
         self.gs = float(
             1e-32)  # small value (e.g. used for an initial non-zero val)
         self.gl = float(1e32)  # global large value
@@ -1328,8 +1341,8 @@ class Amset(MSONable, LoggableMixin):
         Returns (dict: {"n": float, "p": float}): Seebeck integral numerator
             integrated over the energy scale (egrid).
         """
-        fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T)) * E / (
-                k_B * T)
+        fn = lambda E, fermi, T: (f0(E, fermi, T) * (1 - f0(E, fermi, T)) *
+                                  (E / (k_B * T)))
         return {t: self.integrate_func_over_E(func=fn, tp=t, T=T,
                                               fermi=self.fermi_level[c][T],
                                               normalize_energy=True,
@@ -1350,8 +1363,13 @@ class Amset(MSONable, LoggableMixin):
             (dict: {"n": float, "p": float}): Seebeck integral denominator
             integrated over the energy scale (egrid).
         """
-        return {t: self.gs + self.integrate_over_E(
-            props=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in ["n", "p"]}
+        fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T))
+        return {t: self.gs + self.integrate_func_over_E(
+            func=fn, tp=t, T=T, fermi=self.fermi_level[c][T],
+            normalize_energy=True, xDOS=True) for t in ["n", "p"]}
+
+        # return {t: self.gs + self.integrate_over_E(
+        #     props=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in ["n", "p"]}
 
     def calculate_property(self, prop_name, prop_func, for_all_E=False):
         """
@@ -1746,22 +1764,18 @@ class Amset(MSONable, LoggableMixin):
 
                 for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                     # self.kgrid[tp]["norm(v)"][ib][ik] = norm(self.kgrid[tp]["velocity"][ib][ik])
-                    if (len(rm_idx_list[tp][ib]) + 20 < len(
-                            self.kgrid[tp]['kpoints'][ib])) and (
-                            (self.kgrid[tp]["velocity"][ib][
-                                 ik] < self.v_min).all()
-                            # if all members are small, that point should be removed otherwise scattering blows up and I get nan mobilities
-                            or \
-                            (abs(self.kgrid[tp]["energy"][ib][ik] -
-                                 self.cbm_vbm[tp]["energy"]) > self.Ecut[tp]) \
-                            or \
-                            ((self.max_normk[tp]) and (
-                                    self.kgrid[tp]["norm(k)"][ib][ik] >
-                                    self.max_normk[tp]) and (
-                                     self._parabolic_bands is None))
-                            or \
-                            (self.kgrid[tp]["norm(k)"][ib][ik] < 1e-3)
-                    ):
+                    # if all members are small, that point should be removed otherwise scattering blows up and I get nan mobilities
+                    if ((len(rm_idx_list[tp][ib]) + 20 <
+                         len(self.kgrid[tp]['kpoints'][ib])) and
+                            ((self.kgrid[tp]["velocity"][ib][ik] <
+                              self.v_min).all() or
+                             (abs(self.kgrid[tp]["energy"][ib][ik] -
+                                  self.cbm_vbm[tp]["energy"]) > self.Ecut[tp])
+                             or ((self.max_normk[tp]) and
+                                 (self.kgrid[tp]["norm(k)"][ib][ik] >
+                                  self.max_normk[tp]) and
+                                 (self._parabolic_bands is None)) or
+                             (self.kgrid[tp]["norm(k)"][ib][ik] < 1e-3))):
                         rm_idx_list[tp][ib].append(ik)
                     if self._parabolic_bands is None:
                         self.kgrid[tp]["a"][ib][ik] = fit_orbs["s"][ik] / (
@@ -2132,47 +2146,40 @@ class Amset(MSONable, LoggableMixin):
                 "The elastic scattering name {} is not supported!".format(
                     sname))
 
-    def integrate_func_over_E(self, func, tp, fermi, T,
-                              interpolation_nsteps=None, xDOS=True,
+    def integrate_func_over_E(self, func, tp, fermi, T, xDOS=True,
                               normalize_energy=False):
         """
         Integrates a single function (func) over the egrid.
 
         Args:
-            func (object): a function object
-            tp (str): options are "n" or "p"
-            fermi (float): the fermi level
-            T (int): the temperature in Kelvin
-            interpolation_nsteps (None or int): the resolution of integration
-            xDOS (bool): whether to multiply each energy value by its density
-                of states (DOS)
-            normalize_energy (bool): whether to set the CBM/VBM as the reference
+            func (Callable): A callable function that has the call signature::
+
+                func(energy, fermi_level, temperature)
+
+            tp (str): Doping type. Options are "n" or "p".
+            fermi (float): The fermi level.
+            T (int): The temperature in Kelvin.
+            xDOS (bool): Whether to multiply each energy value by the density
+                of states at that energy.
+            normalize_energy (bool): Whether to set the CBM/VBM as the reference
+                (depending on the doping type).
 
         Returns:
             (float): The integral value of func, integrated over the egrid.
         """
-        if not interpolation_nsteps:
-            interpolation_nsteps = max(200, int(
-                500.0 / len(self.egrid[tp]["energy"])))
-        integral = 0.0
+        energies = self.egrid[tp]["energy"]
+
         if normalize_energy:
             fermi -= self.cbm_vbm[tp]["energy"]
-        for ie in range(len(self.egrid[tp]["energy"]) - 1):
-            E = self.egrid[tp]["energy"][ie]
-            dE = (self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
-            if normalize_energy:
-                E -= self.cbm_vbm[tp]["energy"]
-            if xDOS:
-                dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][
-                    ie]) / interpolation_nsteps
-                for i in range(interpolation_nsteps):
-                    integral += dE * (
-                            self.egrid[tp]["DOS"][ie] + i * dS) * func(
-                        E + i * dE, fermi, T)
-            else:
-                for i in range(interpolation_nsteps):
-                    integral += dE * func(E + i * dE, fermi, T)
-        return integral
+            energies -= self.cbm_vbm[tp]["energy"]
+
+        if xDOS:
+            dos_func = interp1d(energies, self.egrid[tp]['DOS'])
+
+        def f(energy):
+            return func(energy, fermi, T) * (dos_func(energy) if xDOS else 1)
+
+        return quad(f, min(energies), max(energies))[0]
 
     def find_dv(self, grid):
         dv = np.zeros(grid[:, :, :, 0].shape)
@@ -2581,20 +2588,18 @@ class Amset(MSONable, LoggableMixin):
                         for ik in range(len(self.kgrid[tp]["kpoints"][ib])):
                             summation = np.array([0.0, 0.0, 0.0])
                             for X_E_index_name in ["X_Eplus_ik", "X_Eminus_ik"]:
-                                summation += self.integrate_over_X(tp,
-                                                                   self.kgrid[
-                                                                       tp][
-                                                                       X_E_index_name],
-                                                                   self.inel_integrand_X,
-                                                                   ib=ib, ik=ik,
-                                                                   c=c, T=T,
-                                                                   sname=sname + X_E_index_name,
-                                                                   g_suffix=g_suffix)
-                            self.kgrid[tp][sname][c][T][ib][
-                                ik] = summation * e ** 2 * \
-                                      self.kgrid[tp]["W_POP"][ib][ik] / (
-                                              4 * pi * hbar) * (
-                                              1 / self.epsilon_inf - 1 / self.epsilon_s) / epsilon_0 * 100 / e
+                                summation += self.integrate_over_X(
+                                    tp, self.kgrid[tp][X_E_index_name],
+                                    self.inel_integrand_X, ib=ib, ik=ik, c=c,
+                                    T=T, sname=sname + X_E_index_name,
+                                    g_suffix=g_suffix)
+
+                            self.kgrid[tp][sname][c][T][ib][ik] = (
+                                    summation * e ** 2 *
+                                    self.kgrid[tp]["W_POP"][ib][ik] /
+                                    (4 * pi * hbar) * (1 / self.epsilon_inf - 1
+                                                       / self.epsilon_s) /
+                                    epsilon_0 * 100 / e)
 
     def s_elastic(self, sname):
         """
@@ -2835,72 +2840,38 @@ class Amset(MSONable, LoggableMixin):
                     for tp in ["n", "p"]:
                         g_old = np.array(self.kgrid[tp]["g"][c][T][0])
                         for ib in range(self.cbm_vbm[tp]["included"]):
-                            self.kgrid[tp]["g_POP"][c][T][ib] = (self.kgrid[tp][
-                                                                     "S_i"][c][
-                                                                     T][ib] +
-                                                                 self.kgrid[tp][
-                                                                     "electric force"][
-                                                                     c][T][
-                                                                     ib]) / (
-                                                                        self.kgrid[
-                                                                            tp][
-                                                                            "S_o"][
-                                                                            c][
-                                                                            T][
-                                                                            ib] + self.gs + 1.0)
+                            self.kgrid[tp]["g_POP"][c][T][ib] = ((
+                                self.kgrid[tp]["S_i"][c][T][ib] +
+                                self.kgrid[tp]["electric force"][c][T][ib]) /
+                                (self.kgrid[tp]["S_o"][c][T][ib] +
+                                 self.gs + 1.0))
 
-                            self.kgrid[tp]["g"][c][T][ib] = (self.kgrid[tp][
-                                                                 "S_i"][c][T][
-                                                                 ib] +
-                                                             self.kgrid[tp][
-                                                                 "electric force"][
-                                                                 c][
-                                                                 T][ib]) / (
-                                                                    self.kgrid[
-                                                                        tp][
-                                                                        "S_o"][
-                                                                        c][
-                                                                        T][
-                                                                        ib] +
-                                                                    self.kgrid[
-                                                                        tp][
-                                                                        "_all_elastic"][
-                                                                        c][
-                                                                        T][
-                                                                        ib])
+                            self.kgrid[tp]["g"][c][T][ib] = ((
+                                self.kgrid[tp]["S_i"][c][T][ib] +
+                                self.kgrid[tp]["electric force"][c][T][ib]) /
+                                (self.kgrid[tp]["S_o"][c][T][ib] +
+                                 self.kgrid[tp]["_all_elastic"][c][T][ib]))
 
-                            self.kgrid[tp]["g_th"][c][T][ib] = (self.kgrid[tp][
-                                                                    "S_i_th"][
-                                                                    c][T][ib] +
-                                                                self.kgrid[tp][
-                                                                    "thermal force"][
-                                                                    c][T][
-                                                                    ib]) / (
-                                                                       self.kgrid[
-                                                                           tp][
-                                                                           "S_o_th"][
-                                                                           c][
-                                                                           T][
-                                                                           ib] +
-                                                                       self.kgrid[
-                                                                           tp][
-                                                                           "_all_elastic"][
-                                                                           c][
-                                                                           T][
-                                                                           ib])
+                            self.kgrid[tp]["g_th"][c][T][ib] = ((
+                                self.kgrid[tp]["S_i_th"][c][T][ib] +
+                                self.kgrid[tp]["thermal force"][c][T][ib]) /
+                                (self.kgrid[tp]["S_o_th"][c][T][ib] +
+                                 self.kgrid[tp]["_all_elastic"][c][T][ib]))
 
-                            self.kgrid[tp]["f"][c][T][ib] = \
-                                self.kgrid[tp]["f0"][c][T][ib] + \
-                                self.kgrid[tp]["g"][c][T][ib]
-                            self.kgrid[tp]["f_th"][c][T][ib] = \
-                                self.kgrid[tp]["f0"][c][T][ib] + \
-                                self.kgrid[tp]["g_th"][c][T][ib]
+                            self.kgrid[tp]["f"][c][T][ib] = (
+                                self.kgrid[tp]["f0"][c][T][ib] +
+                                self.kgrid[tp]["g"][c][T][ib])
+
+                            self.kgrid[tp]["f_th"][c][T][ib] = (
+                                self.kgrid[tp]["f0"][c][T][ib] +
+                                self.kgrid[tp]["g_th"][c][T][ib])
 
                         avg_g_diff = np.mean(
                             [abs(g_old[ik] - self.kgrid[tp]["g"][c][T][0][ik])
                              for ik in range(len(g_old))])
                         self.logger.info(
-                            "Average difference in {0}-type g term at c={1:.2e} and T={2}: {3}".format(
+                            "Average difference in {0}-type g term at "
+                            "c={1:.2e} and T={2}: {3}".format(
                                 tp, c, T, avg_g_diff))
 
         for prop in ["electric force", "thermal force", "g", "g_POP", "g_th",
@@ -2934,30 +2905,26 @@ class Amset(MSONable, LoggableMixin):
                     # mobility numerators
                     for mu_el in self.elastic_scats:
                         valley_transport[tp][mu_el][c][T] = (
-                                                                -1) * default_small_E / hbar * \
-                                                            self.integrate_over_E(
-                                                                props=[
-                                                                    "/" + mu_el,
-                                                                    "df0dk"],
-                                                                tp=tp, c=c, T=T,
-                                                                xDOS=False,
-                                                                xvel=True)
+                                -1 * default_small_E / hbar *
+                                self.integrate_over_E(
+                                    props=["/" + mu_el, "df0dk"],
+                                    tp=tp, c=c, T=T, xDOS=False,
+                                    xvel=True))
 
                     for mu_inel in self.inelastic_scats:
-                        valley_transport[tp][mu_inel][c][
-                            T] = self.integrate_over_E(props=[
-                            "g_" + mu_inel], tp=tp, c=c, T=T, xDOS=False,
-                            xvel=True)
-                        mu_overall_valley = self.integrate_over_E(props=["g"],
-                                                                  tp=tp, c=c,
-                                                                  T=T,
-                                                                  xDOS=False,
-                                                                  xvel=True)
+                        valley_transport[tp][mu_inel][c][T] = (
+                            self.integrate_over_E(
+                                props=["g_" + mu_inel], tp=tp, c=c, T=T,
+                                xDOS=False, xvel=True))
 
-                    # TODO: make sure that units of J_th is correct and at the end (after we divide by the denominator), we arrive at A/cm2
+                    mu_overall_valley = self.integrate_over_E(
+                        props=["g"], tp=tp, c=c, T=T, xDOS=False, xvel=True)
+
+                    # TODO: make sure that units of J_th is correct and at the
+                    #  end (after we divide by the denominator), we arrive at
+                    #  A/cm2
                     valley_transport[tp]["J_th"][c][T] = self.integrate_over_E(
-                        props=["g_th"],
-                        tp=tp, c=c, T=T,
+                        props=["g_th"], tp=tp, c=c, T=T,
                         xDOS=False, xvel=True)
 
                     faulty_overall_mobility = False
@@ -2966,22 +2933,24 @@ class Amset(MSONable, LoggableMixin):
                         temp_avg += 1 / valley_transport[tp][transport][c][T]
                         if norm(mu_overall_valley) > norm(
                                 valley_transport[tp][transport][c][T]):
-                            faulty_overall_mobility = True  # because the overall mobility should be lower than all
+                            # because the overall mobility should be lower
+                            # than all
+                            faulty_overall_mobility = True
                     valley_transport[tp]['average'][c][T] = 1 / temp_avg
 
-                    if norm(
-                            mu_overall_valley) == 0.0 or faulty_overall_mobility:
-                        valley_transport[tp]['overall'][c][T] = \
-                            valley_transport[tp]['average'][c][T]
+                    if (norm(mu_overall_valley) == 0.0 or
+                            faulty_overall_mobility):
+                        valley_transport[tp]['overall'][c][T] = (
+                            valley_transport[tp]['average'][c][T])
                     else:
-                        valley_transport[tp]["overall"][c][
-                            T] = mu_overall_valley
-                    self.egrid[tp]["relaxation time constant"][c][T] = \
-                        self.mobility[tp]["overall"][c][T] \
-                        * 1e-4 * m_e * self.cbm_vbm[tp][
-                            "eff_mass_xx"] / e  # 1e-4 to convert cm2/V.s to m2/V.s
-                    valley_transport[tp]["seebeck"][c][T] = \
-                        self.egrid["Seebeck_integral_numerator"][c][T][tp]
+                        valley_transport[tp]["overall"][c][T] = (
+                            mu_overall_valley)
+
+                    # 1e-4 to convert cm2/V.s to m2/V.s
+                    self.egrid[tp]["relaxation time constant"][c][T] = (
+                        self.mobility[tp]["overall"][c][T] * 1e-4 * m_e *
+                        self.cbm_vbm[tp]["eff_mass_xx"] / e)
+
         return valley_transport
 
     def as_dict(self):
