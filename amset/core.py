@@ -605,12 +605,11 @@ class Amset(MSONable, LoggableMixin):
 
                 for c in self.dopings:
                     for T in self.temperatures:
-                        seeb_integ = (
-                            self.egrid["Seebeck_integral_numerator"][c][T][tp] /
-                            self.egrid["Seebeck_integral_denominator"][c][T][tp])
-
                         fermi = self.fermi_level[c][T]
                         for tp in ["n", "p"]:
+                            seeb_integ = (
+                                self.egrid["Seebeck_integral_numerator"][c][T][tp] /
+                                self.egrid["Seebeck_integral_denominator"][c][T][tp])
                             fermi_norm = fermi - self.cbm_vbm[tp]["energy"]
                             for ib in range(len(self.kgrid[tp]["energy"])):
                                 for ik in range(
@@ -629,7 +628,7 @@ class Amset(MSONable, LoggableMixin):
                                         default_small_E / hbar  # in 1/s
                                     E_norm = E - self.cbm_vbm[tp]["energy"]
                                     self.kgrid[tp]["thermal force"][c][T][ib][
-                                        ik] = (-v * (f0(E_norm, fermi_norm, T) *
+                                        ik] = (v * (f0(E_norm, fermi_norm, T) *
                                                (1 - f0(E_norm, fermi_norm, T)) *
                                                (dTdz / T) * (E_norm / (k_B * T)
                                                              - seeb_integ)))
@@ -742,9 +741,13 @@ class Amset(MSONable, LoggableMixin):
                                             xDOS=False, xvel=False)
                                         * valley_ndegen)
 
-                                for mu in self.mo_labels + ["J_th"]:
+                                for mu in self.mo_labels:
                                     self.mobility[tp][mu][c][T] += (
                                         valley_transport[tp][mu][c][T] *
+                                        valley_ndegen)
+
+                                self.mobility[tp]["J_th"][c][T] += (
+                                        valley_transport[tp]["J_th"][c][T] /
                                         valley_ndegen)
 
                 self.map_to_egrid(prop_name="relaxation time")
@@ -790,7 +793,7 @@ class Amset(MSONable, LoggableMixin):
         for tp in ['p', 'n']:
             for c in self.dopings:
                 for T in self.temperatures:
-                    for mu in self.mo_labels + ["J_th"]:
+                    for mu in self.mo_labels:
                         self.mobility[tp][mu][c][T] /= (
                             self.denominator[c][T][tp])
 
@@ -812,8 +815,8 @@ class Amset(MSONable, LoggableMixin):
                             tp, c, T))
 
                     integral_term = (
-                        self.egrid["Seebeck_integral_numerator"][c][T][tp] /
-                        self.egrid["Seebeck_integral_denominator"][c][T][tp])
+                        self.seeb_int_num(c, T, full_energy_range=True)[tp] /
+                        self.seeb_int_denom(c, T, full_energy_range=True)[tp])
 
                     self.mobility[tp]['seebeck'][c][T] = integral_term
                     self.logger.debug('seebeck integral term: {}'.format(
@@ -830,16 +833,18 @@ class Amset(MSONable, LoggableMixin):
                     self.mobility[tp]['seebeck'][c][T] *= -1e6 * k_B
 
                     # TODO: J_th term is too large, see why (e.g. in SnS)
-                    j_th_term = (1e6 * self.mobility[tp]["J_th"][c][T] /
-                                 (self.mobility[tp]["overall"][c][T] * e *
-                                  (1 + abs(self.calc_doping[c][T][tp]))) / dTdz)
-                    self.mobility[tp]["seebeck"][c][T] -= j_th_term
+                    cond = (self.mobility[tp]["overall"][c][T] * e *
+                            (1 + abs(self.calc_doping[c][T][tp])))
+                    j_th_term = 1e6 * ((self.mobility[tp]["J_th"][c][T] / cond)
+                                       / dTdz)
+                    self.mobility[tp]["seebeck"][c][T] += j_th_term
                     self.logger.debug('seebeck term J_th: {}'.format(j_th_term))
 
+                    sigma[tp][c][T] = sum(
+                        self.mobility[tp]['overall'][c][T]) / 3. * e * abs(
+                        self.calc_doping[c][T][tp])
+
             self.seebeck[tp] = self.mobility[tp].pop('seebeck')
-            sigma[tp][c][T] = sum(
-                self.mobility[tp]['overall'][c][T]) / 3. * e * abs(
-                self.calc_doping[c][T][tp])
 
         self.logger.debug('here is the conductivity, sigma:\n{}'.format(sigma))
         # seebeck = deepcopy(self.seebeck)
@@ -1327,7 +1332,7 @@ class Amset(MSONable, LoggableMixin):
         else:
             return np.dot(self.structure.lattice.matrix, np.array(frac_k))
 
-    def seeb_int_num(self, c, T):
+    def seeb_int_num(self, c, T, full_energy_range=True, xDOS=True):
         """
         Returns the numerator of the integral term in eq (52) of [R] for
         calculation of the Seebeck coefficient.
@@ -1337,18 +1342,21 @@ class Amset(MSONable, LoggableMixin):
         Args:
             c (int): the carrier concentration <0 for electrons, >0 for holes
             T (int): temperature in Kelvin
+            full_energy_range (bool): Whether to calculate the integral
+                over the full energy range of the DOS or just the energies
+                in egrid.
 
         Returns (dict: {"n": float, "p": float}): Seebeck integral numerator
             integrated over the energy scale (egrid).
         """
         fn = lambda E, fermi, T: (f0(E, fermi, T) * (1 - f0(E, fermi, T)) *
                                   (E / (k_B * T)))
-        return {t: self.integrate_func_over_E(func=fn, tp=t, T=T,
-                                              fermi=self.fermi_level[c][T],
-                                              normalize_energy=True,
-                                              xDOS=True) for t in ["n", "p"]}
+        return {t: self.integrate_func_over_E(
+            func=fn, tp=t, T=T, fermi=self.fermi_level[c][T],
+            normalize_energy=True, xDOS=xDOS,
+            full_energy_range=full_energy_range) for t in ["n", "p"]}
 
-    def seeb_int_denom(self, c, T):
+    def seeb_int_denom(self, c, T, full_energy_range=True, xDOS=True):
         """
         Returns the denominator of the integral term in eq (52) of [R] for
         calculation of the Seebeck coefficient.
@@ -1358,6 +1366,9 @@ class Amset(MSONable, LoggableMixin):
         Args:
             c (int): the carrier concentration <0 for electrons, >0 for holes
             T (int): temperature in Kelvin
+            full_energy_range (bool): Whether to calculate the integral
+                over the full energy range of the DOS or just the energies
+                in egrid.
 
         Returns:
             (dict: {"n": float, "p": float}): Seebeck integral denominator
@@ -1366,7 +1377,8 @@ class Amset(MSONable, LoggableMixin):
         fn = lambda E, fermi, T: f0(E, fermi, T) * (1 - f0(E, fermi, T))
         return {t: self.gs + self.integrate_func_over_E(
             func=fn, tp=t, T=T, fermi=self.fermi_level[c][T],
-            normalize_energy=True, xDOS=True) for t in ["n", "p"]}
+            normalize_energy=True, xDOS=xDOS,
+            full_energy_range=full_energy_range) for t in ["p", "n"]}
 
         # return {t: self.gs + self.integrate_over_E(
         #     props=["f0x1-f0"], tp=t, c=c, T=T, xDOS=True) for t in ["n", "p"]}
@@ -1398,9 +1410,8 @@ class Amset(MSONable, LoggableMixin):
                     fermi = self.fermi_level[c][T]
                     for tp in ["n", "p"]:
                         for ie, E in enumerate(self.egrid[tp]["energy"]):
-                            self.egrid[tp][prop_name][c][T][ie] = prop_func(E,
-                                                                            fermi,
-                                                                            T)
+                            self.egrid[tp][prop_name][c][T][ie] = prop_func(
+                                E, fermi, T)
                 else:
                     self.egrid[prop_name][c][T] = prop_func(c, T)
 
@@ -1518,6 +1529,7 @@ class Amset(MSONable, LoggableMixin):
         corrupt_tps = self.pre_init_egrid()
         if "n" in corrupt_tps and "p" in corrupt_tps:
             return corrupt_tps
+
         for tp in ['n', 'p']:
             self.egrid[tp]["relaxation time constant"] = {
                 c: {T: 0.0 for T in self.temperatures} for c in self.dopings}
@@ -1529,15 +1541,12 @@ class Amset(MSONable, LoggableMixin):
         for prop in ["f", "f_th"]:
             self.map_to_egrid(prop_name=prop, c_and_T_idx=True)
 
-        self.calculate_property(prop_name="f0x1-f0", prop_func=lambda E, fermi,
-                                                                      T: f0(E,
-                                                                            fermi,
-                                                                            T) * (
-                                                                                 1 - f0(
-                                                                             E,
-                                                                             fermi,
-                                                                             T)),
-                                for_all_E=True)
+        self.calculate_property(
+            prop_name="f0x1-f0",
+            prop_func=lambda E, fermi, T: f0(E, fermi, T) *
+                                          (1 - f0(E, fermi, T)),
+            for_all_E=True)
+
         for c in self.dopings:
             for T in self.temperatures:
                 fermi = self.fermi_level[c][T]
@@ -2147,7 +2156,7 @@ class Amset(MSONable, LoggableMixin):
                     sname))
 
     def integrate_func_over_E(self, func, tp, fermi, T, xDOS=True,
-                              normalize_energy=False):
+                              normalize_energy=False, full_energy_range=False):
         """
         Integrates a single function (func) over the egrid.
 
@@ -2163,23 +2172,32 @@ class Amset(MSONable, LoggableMixin):
                 of states at that energy.
             normalize_energy (bool): Whether to set the CBM/VBM as the reference
                 (depending on the doping type).
+            full_energy_range (bool): Wether to integrate over the full energy
+                range covered by the DOS, or just the energies in egrid.
 
         Returns:
             (float): The integral value of func, integrated over the egrid.
         """
-        energies = self.egrid[tp]["energy"]
+
+        if full_energy_range:
+            energies = deepcopy(self.dos[:, 0])
+            dos = deepcopy(self.dos[:, 1])
+        else:
+            energies = deepcopy(self.egrid[tp]["energy"])
+            dos = deepcopy(self.egrid[tp]["DOS"])
 
         if normalize_energy:
             fermi -= self.cbm_vbm[tp]["energy"]
             energies -= self.cbm_vbm[tp]["energy"]
 
         if xDOS:
-            dos_func = interp1d(energies, self.egrid[tp]['DOS'])
+            dos_func = interp1d(energies, dos)
 
         def f(energy):
             return func(energy, fermi, T) * (dos_func(energy) if xDOS else 1)
 
-        return quad(f, min(energies), max(energies))[0]
+        return quad(f, max([fermi - 3, min(energies)]),
+                    min([fermi + 3, max(energies)]), limit=200)[0]
 
     def find_dv(self, grid):
         dv = np.zeros(grid[:, :, :, 0].shape)
@@ -2276,42 +2294,40 @@ class Amset(MSONable, LoggableMixin):
         imax_occ = len(self.Efrequency[tp][:-1])
 
         if not interpolation_nsteps:
-            interpolation_nsteps = max(200, int(
-                500.0 / len(self.egrid[tp]["energy"])))
+            interpolation_nsteps = max(
+                200, int(500.0 / len(self.egrid[tp]["energy"])))
+
         diff = [0.0 for _ in props]
         integral = self.gs
+
         for ie in range(imax_occ):
             E = self.egrid[tp]["energy"][ie]
-            dE = abs(
-                self.egrid[tp]["energy"][ie + 1] - E) / interpolation_nsteps
+            dE = abs(self.egrid[tp]["energy"][ie + 1] -
+                     E) / interpolation_nsteps
+
             if xDOS:
-                dS = (self.egrid[tp]["DOS"][ie + 1] - self.egrid[tp]["DOS"][
-                    ie]) / interpolation_nsteps
+                dS = (self.egrid[tp]["DOS"][ie + 1] -
+                      self.egrid[tp]["DOS"][ie]) / interpolation_nsteps
+
             if xvel:
                 dv = (self.egrid[tp]["velocity"][ie + 1] -
                       self.egrid[tp]["velocity"][ie]) / interpolation_nsteps
+
             for j, p in enumerate(props):
                 if "/" in p:
                     diff[j] = (self.egrid[tp][p.split("/")[-1]][c][T][ie + 1] -
                                self.egrid[tp][p.split("/")[-1]][c][T][
                                    ie]) / interpolation_nsteps
                 elif "1 -" in p:
-                    diff[j] = (1 - self.egrid[tp][
-                        p.split("-")[-1].replace(" ", "")][c][T][ie + 1] - (1 - \
-                                                                            self.egrid[
-                                                                                tp][
-                                                                                p.split(
-                                                                                    "-")[
-                                                                                    -1].replace(
-                                                                                    " ",
-                                                                                    "")][
-                                                                                c][
-                                                                                T][
-                                                                                ie])) / interpolation_nsteps
+                    diff[j] = (1 - self.egrid[tp][p.split("-")[-1].replace(
+                        " ", "")][c][T][ie + 1] -
+                               (1 - self.egrid[tp][p.split("-")[-1].replace(
+                                   " ", "")][c][T][ie])) / interpolation_nsteps
                 else:
                     diff[j] = (self.egrid[tp][p][c][T][ie + 1] -
-                               self.egrid[tp][p][c][T][
-                                   ie]) / interpolation_nsteps
+                               self.egrid[tp][p][c][T][ie]
+                               ) / interpolation_nsteps
+
             for i in range(interpolation_nsteps):
                 multi = dE
                 for j, p in enumerate(props):
@@ -2324,11 +2340,15 @@ class Amset(MSONable, LoggableMixin):
                                      j] * i
                     else:
                         multi *= self.egrid[tp][p][c][T][ie] + diff[j] * i
+
                 if xDOS:
                     multi *= self.egrid[tp]["DOS"][ie] + dS * i
+
                 if xvel:
                     multi *= self.egrid[tp]["velocity"][ie] + dv * i
+
                 integral += multi
+
         return np.array(integral)
 
     def integrate_over_X(self, tp, X_E_index, integrand, ib, ik, c, T,
@@ -2853,7 +2873,7 @@ class Amset(MSONable, LoggableMixin):
                                  self.kgrid[tp]["_all_elastic"][c][T][ib]))
 
                             self.kgrid[tp]["g_th"][c][T][ib] = ((
-                                self.kgrid[tp]["S_i_th"][c][T][ib] +
+                                self.kgrid[tp]["S_i_th"][c][T][ib] -
                                 self.kgrid[tp]["thermal force"][c][T][ib]) /
                                 (self.kgrid[tp]["S_o_th"][c][T][ib] +
                                  self.kgrid[tp]["_all_elastic"][c][T][ib]))
@@ -2899,6 +2919,8 @@ class Amset(MSONable, LoggableMixin):
             in
             ["n", "p"]}
 
+        conversion = 1.0 / (self.structure.volume * (A_to_m * m_to_cm) ** 3)
+
         for c in self.dopings:
             for T in self.temperatures:
                 for j, tp in enumerate(["p", "n"]):
@@ -2925,7 +2947,7 @@ class Amset(MSONable, LoggableMixin):
                     #  A/cm2
                     valley_transport[tp]["J_th"][c][T] = self.integrate_over_E(
                         props=["g_th"], tp=tp, c=c, T=T,
-                        xDOS=False, xvel=True)
+                        xDOS=True, xvel=True) * conversion * (e / 3)
 
                     faulty_overall_mobility = False
                     temp_avg = np.array([0.0, 0.0, 0.0])
