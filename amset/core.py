@@ -725,25 +725,23 @@ class Amset(MSONable, LoggableMixin):
 
                                     finteg = f0_all if tp == 'n' else 1 - f0p_all
 
-                                    self.denominator[c][T][tp] += (
-                                        3 * default_small_E *
-                                        self.integrate_over_states(finteg, tp)
-                                        + 1e-10)
+                                    mobility_denom = (
+                                        1e-10 + 3 * default_small_E *
+                                        self.integrate_over_states(finteg, tp))
 
-                                    self.seeb_denom[c][T][tp] += (
-                                        self.integrate_over_states(
-                                            finteg * (1 - finteg), tp))
+                                    self.denominator[c][T][tp] += mobility_denom
 
                                 elif self.integration == 'e':
 
                                     finteg = "f0" if tp == "n" else "1 - f0"
-
-                                    self.denominator[c][T][tp] += (
+                                    mobility_denom = (
                                         3 * default_small_E *
                                         self.integrate_over_E(
                                             props=[finteg], tp=tp, c=c, T=T,
-                                            xDOS=False, xvel=False)
-                                        * valley_ndegen)
+                                            xDOS=False, xvel=False))
+
+                                    self.denominator[c][T][tp] += (
+                                        mobility_denom * valley_ndegen)
 
                                 for mu in self.mo_labels:
                                     self.mobility[tp][mu][c][T] += (
@@ -751,7 +749,8 @@ class Amset(MSONable, LoggableMixin):
                                         valley_ndegen)
 
                                 valley_sigma = (
-                                    valley_transport[tp]['overall'][c][T] * e *
+                                    (valley_transport[tp]['overall'][c][T] /
+                                     mobility_denom) * e *
                                     (1 + abs(self.calc_doping[c][T][tp])))
                                 valley_seebeck = (
                                     self.calculate_seebeck_for_valley(
@@ -759,10 +758,14 @@ class Amset(MSONable, LoggableMixin):
                                         valley_sigma))
 
                                 self.seeb_denom[c][T][tp] += (
-                                    valley_sigma * valley_ndegen)
+                                        1)
                                 self.seeb_num[c][T][tp] += (
-                                    valley_seebeck * valley_sigma *
-                                    valley_ndegen)
+                                        valley_seebeck)
+                                # self.seeb_denom[c][T][tp] += (
+                                #     valley_sigma * valley_ndegen)
+                                # self.seeb_num[c][T][tp] += (
+                                #     valley_seebeck * valley_sigma *
+                                #     valley_ndegen)
 
                 self.map_to_egrid(prop_name="relaxation time")
 
@@ -816,6 +819,7 @@ class Amset(MSONable, LoggableMixin):
                                 self.valleys[tp][band][valley_k][mu][c][T] /= (
                                     self.denominator[c][T][tp])
 
+                    print(self.seeb_denom[c][T][tp])
                     self.mobility[tp]['seebeck'][c][T] = (
                         self.seeb_num[c][T][tp] / self.seeb_denom[c][T][tp])
 
@@ -3092,7 +3096,7 @@ class Amset(MSONable, LoggableMixin):
                                                 len(egrid["p"]["energy"])])]))
             for tp in ["n", "p"]:
                 for key in egrid[tp]:
-                    if key in ['size', 'J_th', 'relaxation time constant',
+                    if key in ['size', 'relaxation time constant',
                                'conductivity', 'seebeck', 'TE_power_factor']:
                         continue
                     try:
