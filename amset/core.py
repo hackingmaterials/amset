@@ -456,6 +456,10 @@ class Amset(MSONable, LoggableMixin):
             c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in
             self.dopings}
 
+        self.seeb_num = {
+            c: {T: {'p': 0.0, 'n': 0.0} for T in self.temperatures} for c in
+            self.dopings}
+
         for self.ibrun, (self.nbelow_vbm, self.nabove_cbm) in enumerate(
                 ibands_tuple):
             self._check_timeout_hours()
@@ -746,9 +750,19 @@ class Amset(MSONable, LoggableMixin):
                                         valley_transport[tp][mu][c][T] *
                                         valley_ndegen)
 
-                                self.mobility[tp]["J_th"][c][T] += (
-                                        valley_transport[tp]["J_th"][c][T] /
-                                        valley_ndegen)
+                                valley_sigma = (
+                                    valley_transport[tp]['overall'][c][T] * e *
+                                    (1 + abs(self.calc_doping[c][T][tp])))
+                                valley_seebeck = (
+                                    self.calculate_seebeck_for_valley(
+                                        tp, c, T, valley_transport,
+                                        valley_sigma))
+
+                                self.seeb_denom[c][T][tp] += (
+                                    valley_sigma * valley_ndegen)
+                                self.seeb_num[c][T][tp] += (
+                                    valley_seebeck * valley_sigma *
+                                    valley_ndegen)
 
                 self.map_to_egrid(prop_name="relaxation time")
 
@@ -802,49 +816,15 @@ class Amset(MSONable, LoggableMixin):
                                 self.valleys[tp][band][valley_k][mu][c][T] /= (
                                     self.denominator[c][T][tp])
 
+                    self.mobility[tp]['seebeck'][c][T] = (
+                        self.seeb_num[c][T][tp] / self.seeb_denom[c][T][tp])
+
+            self.seebeck[tp] = self.mobility[tp].pop('seebeck')
+
         # finalize Seebeck values:
         sigma = {tp: {c: {T: 0.0 for T in self.temperatures}
                       for c in self.dopings}
                  for tp in ['p', 'n']}
-
-        for tp in ['p', 'n']:
-            for c in self.dopings:
-                for T in self.temperatures:
-                    self.logger.debug(
-                        '3 terms of {0}-type seebeck at c={1:.2e}, T={2}'.format(
-                            tp, c, T))
-
-                    integral_term = (
-                        self.seeb_int_num(c, T, full_energy_range=True)[tp] /
-                        self.seeb_int_denom(c, T, full_energy_range=True)[tp])
-
-                    self.mobility[tp]['seebeck'][c][T] = integral_term
-                    self.logger.debug('seebeck integral term: {}'.format(
-                        integral_term * -1e6 * k_B))
-
-                    fermi_term = ((self.fermi_level[c][T] -
-                                   self.cbm_vbm[tp]["energy"]) / (k_B * T))
-                    self.mobility[tp]['seebeck'][c][T] -= fermi_term
-                    self.logger.debug('seebeck term Fermi level w.r.t the CBM/'
-                                      'VBM: {}'.format(fermi_term * -1e6 * k_B))
-
-                    # k_e in eV/K therefore equal to k_B/e
-                    # 1e6 term converts from V/K to uV/K
-                    self.mobility[tp]['seebeck'][c][T] *= -1e6 * k_B
-
-                    # TODO: J_th term is too large, see why (e.g. in SnS)
-                    cond = (self.mobility[tp]["overall"][c][T] * e *
-                            (1 + abs(self.calc_doping[c][T][tp])))
-                    j_th_term = 1e6 * ((self.mobility[tp]["J_th"][c][T] / cond)
-                                       / dTdz)
-                    self.mobility[tp]["seebeck"][c][T] += j_th_term
-                    self.logger.debug('seebeck term J_th: {}'.format(j_th_term))
-
-                    sigma[tp][c][T] = sum(
-                        self.mobility[tp]['overall'][c][T]) / 3. * e * abs(
-                        self.calc_doping[c][T][tp])
-
-            self.seebeck[tp] = self.mobility[tp].pop('seebeck')
 
         self.logger.debug('here is the conductivity, sigma:\n{}'.format(sigma))
         # seebeck = deepcopy(self.seebeck)
@@ -883,6 +863,32 @@ class Amset(MSONable, LoggableMixin):
         self.count_mobility = [{'n': True, 'p': True} \
                                for _ in range(max(self.init_nbands['p'],
                                                   self.init_nbands['n']))]
+
+    def calculate_seebeck_for_valley(self, tp, c, T, valley_transport,
+                                     valley_sigma):
+        self.logger.debug(
+            '3 terms of {0}-type seebeck at c={1:.2e}, T={2}'.format(
+                tp, c, T))
+
+        integral_term = (
+                self.seeb_int_num(c, T, full_energy_range=True)[tp] /
+                self.seeb_int_denom(c, T, full_energy_range=True)[tp])
+        self.logger.debug('seebeck integral term: {}'.format(
+            integral_term * -1e6 * k_B))
+
+        fermi_term = ((self.fermi_level[c][T] -
+                       self.cbm_vbm[tp]["energy"]) / (k_B * T))
+        self.logger.debug('seebeck term Fermi level w.r.t the CBM/'
+                          'VBM: {}'.format(fermi_term * -1e6 * k_B))
+
+        j_th_term = 1e6 * (((valley_transport[tp]["J_th"][c][T] / 4) /
+                            valley_sigma)
+                           / dTdz)
+        self.logger.debug('seebeck term J_th: {}'.format(j_th_term))
+
+        # k_e in eV/K therefore equal to k_B/e
+        # 1e6 term converts from V/K to uV/K
+        return -1e6 * k_B * (integral_term - fermi_term) + j_th_term
 
     def calculate_spb_transport(self):
         """
