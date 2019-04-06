@@ -165,21 +165,6 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         self.assertEqual(dos[0][0], -10)
         self.assertAlmostEqual(dos[15000][1], 3.5362612128412807)
 
-        # test normalising the DOS
-        dos = self.interpolater.get_dos([10, 10, 10], emin=-10, emax=10,
-                                        width=0.075)
-        self.assertEqual(dos.shape, (20000, 2))
-        self.assertEqual(dos[0][0], -10)
-        self.assertAlmostEqual(dos[15000][1], 21.641789697605823)
-
-        # test single parabolic band DOS
-        dos = self.interpolater.get_dos([10, 10, 10], emin=-10, emax=10,
-                                        width=0.075,
-                                        minimum_single_parabolic_band=True)
-        self.assertEqual(dos.shape, (20000, 2))
-        self.assertEqual(dos[0][0], -10)
-        self.assertAlmostEqual(dos[15000][1], 2.093830973742877)
-
     def test_get_extrema(self):
         """Test getting the band structure extrema."""
 
