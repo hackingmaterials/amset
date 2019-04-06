@@ -146,8 +146,10 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
             kpoints = self._band_structure.structure.lattice. \
                 reciprocal_lattice.get_fractional_coords(kpoints)
 
+        iband_was_int = False
         if isinstance(iband, int):
             iband = [iband]
+            iband_was_int = True
         elif not iband:
             iband = sorted(self.parameters.allowed_ibands)
 
@@ -183,8 +185,8 @@ class BoltzTraP1Interpolater(AbstractInterpolater):
              for band_index in iband for _ in kpoints])
         energies += scissor_shift
 
-        shape = (len(iband), len(kpoints)) if len(iband) > 1 else (
-            len(kpoints),)
+        shape = ((len(iband), len(kpoints)) if len(iband) > 1 and iband_was_int
+                 else (len(kpoints),))
         data_to_return = [energies.reshape(shape)]
 
         if return_velocity:

@@ -121,8 +121,10 @@ class ParabolicInterpolater(AbstractInterpolater):
         bandgap = self._band_structure.get_band_gap()['energy'] + scissor
         vbm_e = self._band_structure.get_vbm()['energy'] - scissor / 2
 
+        iband_was_int = False
         if isinstance(iband, int):
             iband = [iband]
+            iband_was_int = True
         elif not iband:
             iband = self._allowed_bands
 
@@ -176,8 +178,8 @@ class ParabolicInterpolater(AbstractInterpolater):
         effective_masses = np.array([[x[2] for x in band_data]
                                      for band_data in all_data])
 
-        shape = (len(iband), len(kpoints)) if len(iband) > 1 else (
-            len(kpoints),)
+        shape = ((len(iband), len(kpoints)) if len(iband) > 1 and iband_was_int
+                 else (len(kpoints),))
         to_return = [energies.reshape(shape)]
 
         if return_velocity:

@@ -98,8 +98,10 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
         if not self._parameters:
             self.initialize()
 
+        iband_was_int = False
         if isinstance(iband, int):
             iband = [iband]
+            iband_was_int = True
         elif not iband:
             iband = list(range(len(self._parameters[2])))
 
@@ -118,8 +120,9 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
             [[(1 if band_index > self._vbm_idx else -1) * scissor / 2
               for _ in kpoints] for band_index in iband])
 
-        shape = (len(iband), len(kpoints)) if len(iband) > 1 else (
-            len(kpoints),)
+        shape = ((len(iband), len(kpoints)) if
+                 len(iband) > 1 or not iband_was_int else (len(kpoints),))
+        # print(shape)
         to_return = [energies.reshape(shape)]
 
         if return_velocity:

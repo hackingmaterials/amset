@@ -1,4 +1,3 @@
-import itertools
 import logging
 
 import numpy as np
@@ -7,23 +6,24 @@ from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Optional, Union, Tuple, List, Sequence, Any, Dict
 
-from BoltzTraP2.bandlib import DOS, smoothen_DOS
-from scipy.integrate import trapz
+from BoltzTraP2.bandlib import DOS
 
 from monty.json import MSONable
 from scipy.ndimage import gaussian_filter1d
+from spglib import spglib
 
 from amset.logging import LoggableMixin
 from amset.utils.band_structure import kpoints_to_first_bz, get_closest_k
-from amset.utils.constants import k_B
+from amset.utils.constants import k_B, A_to_nm
 from amset.utils.detect_peaks import detect_peaks
 from amset.utils.general import norm
-from amset.utils.transport import free_e_dos
+
 from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure, \
     BandStructureSymmLine
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.symmetry.bandstructure import HighSymmKpath
+from pymatgen.util.coord import pbc_diff
 
 
 class AbstractInterpolater(MSONable, LoggableMixin, ABC):
@@ -85,16 +85,21 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         """
         pass
 
-    def get_dos(self, kpoint_mesh: List[int], emin: float = None,
-                emax: float = None, estep: float = 0.001,
+    def get_dos(self, kpoint_mesh: List[int],
+                iband: Optional[Union[int, List[int]]] = None,
+                emin: float = None, emax: float = None, estep: float = 0.001,
                 width: float = 0.05, scissor: float = 0.0,
-                minimum_single_parabolic_band: bool = False) -> np.ndarray:
+                integral_sphere: Optional[Tuple[List[float], float]] = None
+                ) -> np.ndarray:
         """Calculates the density of states using the interpolated bands.
 
-        # TODO tetrahedron method interpolation
+        # TODO: tetrahedron method interpolation for better DOS at coarser kgrid
 
         Args:
             kpoint_mesh: The k-point mesh as a 1x3 array. E.g.,``[6, 6, 6]``.
+            iband: A band index or list of band indicies for which to calculate
+                the DOS. Band indices are 0-indexed. If ``None``, the energies
+                for all available bands will be returned.
             emin: The minium energy. If ``None`` it will be calculated
                 automatically from the band energies.
             emax: The maximum energy. If ``None`` it will be calculated
@@ -103,29 +108,59 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
                 accuracy but are more expensive.
             width: The gaussian smearing width.
             scissor: The amount by which the band gap is scissored.
-            normalize: Whether to normalize the DOS.
-            minimum_single_parabolic_band: If ``True`` the density will never
-                be smaller than that of a single parabolic band (around
-                the Fermi level). This is useful when the k-point mesh is not
-                very dense.
+            integral_sphere: Whether to limit the calculation of DOS to a
+                particular region of k-space. The sphere is defined by
+                its center in fractional coordinates and the radius in
+                1/nm. For example::
+
+                    ([0.5, 0.5, 0.5], 5)
+
+                Defines a sphere centered at [0.5, 0.5, 0.5] with a radius of
+                5 nm$^-1$.
 
         Returns:
             The density of states data, formatted as::
 
                 (energies, densities)
         """
-        mesh_data = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
-        ir_kpts = np.asarray(list(map(list, mesh_data[:, 0])))
 
-        energies = np.array(self.get_energies(ir_kpts, scissor=scissor))
+        if integral_sphere:
+            # get full k-point mesh (not IR reduced)
+            _, grid = spglib.get_ir_reciprocal_mesh(
+                kpoint_mesh, self._sga._cell, self._symprec)
+            mesh_data = grid / kpoint_mesh
+
+            # calculate the distances in nm of each k-point and sphere centre
+            diff_frac = (
+                self._band_structure.structure.lattice.reciprocal_lattice.
+                get_cartesian_coords(pbc_diff(mesh_data, integral_sphere[0])))
+            k_distance_nm = 1 / A_to_nm * np.linalg.norm(diff_frac, axis=1)
+
+            # only include k-points within distance tolerance
+            kpoints = [k for k, d in zip(mesh_data, k_distance_nm)
+                       if d <= integral_sphere[1]]
+            weights = np.ones(len(kpoints), dtype=int)
+            normalization_factor = len(kpoints) / len(mesh_data)
+
+        else:
+            mesh_data = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
+            kpoints = np.asarray(list(map(list, mesh_data[:, 0])))
+            weights = mesh_data[:, 1]
+            normalization_factor = 1
+
+        if isinstance(iband, int):
+            iband = [iband]
+
+        energies = np.array(self.get_energies(kpoints, scissor=scissor,
+                                              iband=iband))
 
         nbands = energies.shape[0]
         nkpts = energies.shape[1]
-        emin = emin if emin else np.min(energies)
-        emax = emax if emax else np.max(energies)
+        emin = emin if emin else np.min(energies) - width * 5
+        emax = emax if emax else np.max(energies) + width * 5
         epoints = int(round((emax - emin) / estep))
 
-        weights = mesh_data[:, 1]
+        # BoltzTraP DOS weights don't work so include the degeneracy manually
         all_energies = np.array([[energies[nb][nk] for nb in range(nbands)]
                                  for nk in range(nkpts)
                                  for _ in range(weights[nk])])
@@ -133,34 +168,7 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         emesh, dos = DOS(all_energies, erange=(emin, emax), npts=epoints)
         dos = gaussian_filter1d(dos, width / (emesh[1] - emesh[0]))
 
-        if minimum_single_parabolic_band:
-            # TODO: This leads to a large DOS very quickly after the band edge.
-            #  I don't think this behaviour is correct but currently it is
-            #  required to pass tests. A better (and more correct) alternative
-            #  would be to use tetrahedron interpolation for the DOS.
-            def get_energy_idx(energy):
-                calculated_index = int(round((energy - emesh.min()) / estep))
-                return min(calculated_index, len(emesh) - 1)
-
-            vbm_e = self._band_structure.get_vbm()['energy'] - scissor / 2
-            cbm_e = (vbm_e + self._band_structure.get_band_gap()['energy']
-                     + scissor)
-
-            vbm_dos_idx = get_energy_idx(vbm_e)
-            cbm_dos_idx = get_energy_idx(cbm_e)
-
-            for idx in range(cbm_dos_idx, get_energy_idx(cbm_e + 2.0)):
-                dos[idx] = max(dos[idx], free_e_dos(energy=emesh[idx] - cbm_e))
-
-            for idx in range(get_energy_idx(vbm_e - 2.0), vbm_dos_idx):
-                dos[idx] = max(dos[idx], free_e_dos(energy=vbm_e - emesh[idx]))
-
-            integ = trapz(dos, x=emesh)
-            self.logger.info("dos integral from {:.3f} to {:.3f} "
-                             "eV: {:.3f}".format(emin, emax, integ))
-            dos /= integ
-
-        normalization_factor = 1 if self._soc else 2
+        normalization_factor *= 1 if self._soc else 2
         dos *= normalization_factor
 
         self.logger.debug("dos normalization factor: {}".format(
@@ -249,25 +257,34 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
         else:
             return extrema
 
-    def get_line_mode_band_structure(self, line_density: int = 50,
-                                     scissor: float = 0.
-                                     ) -> BandStructureSymmLine:
+    def get_line_mode_band_structure(
+            self, line_density: int = 50, scissor: float = 0.,
+            iband: Optional[Union[int, List[int]]] = None
+            ) -> BandStructureSymmLine:
         """Gets the interpolated band structure along high symmetry directions.
 
         Args:
             line_density: The maximum number of k-points between each two
                 consecutive high-symmetry k-points
             scissor: The amount by which the band gap is scissored.
+            iband: A band index or list of band indicies for which to calculate
+                the DOS. Band indices are 0-indexed. If ``None``, the energies
+                for all available bands will be returned.
 
         Returns:
             The line mode band structure.
         """
-        hsk = HighSymmKpath(self._band_structure.structure)
+        if isinstance(iband, int):
+            iband = [iband]
+
+        hsk = HighSymmKpath(self._band_structure.structure,
+                            symprec=self._symprec)
         kpoints, labels = hsk.get_kpoints(line_density=line_density,
                                           coords_are_cartesian=True)
         labels_dict = {label: kpoint for kpoint, label
                        in zip(kpoints, labels) if label != ''}
-        energies = self.get_energies(kpoints, scissor=scissor,
+
+        energies = self.get_energies(kpoints, iband=iband, scissor=scissor,
                                      coords_are_cartesian=True)
         return BandStructureSymmLine(kpoints, {Spin.up: energies},
                                      self._band_structure.structure.lattice,
@@ -276,7 +293,8 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
                                      coords_are_cartesian=True)
 
     @staticmethod
-    def _simplify_return_data(data: Sequence[Any]) -> Union[Any, Sequence[Any]]:
+    def _simplify_return_data(data: Sequence[Any],
+                              ) -> Union[Any, Sequence[Any]]:
         """Helper function to prepare data to be returned.
 
         Takes a collection of objects and:
