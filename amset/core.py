@@ -764,14 +764,10 @@ class Amset(MSONable, LoggableMixin):
                                         valley_sigma))
 
                                 self.seeb_denom[c][T][tp] += (
-                                        1)
+                                    valley_sigma * valley_ndegen)
                                 self.seeb_num[c][T][tp] += (
-                                        valley_seebeck)
-                                # self.seeb_denom[c][T][tp] += (
-                                #     valley_sigma * valley_ndegen)
-                                # self.seeb_num[c][T][tp] += (
-                                #     valley_seebeck * valley_sigma *
-                                #     valley_ndegen)
+                                    valley_seebeck * valley_sigma *
+                                    valley_ndegen)
 
                 self.map_to_egrid(prop_name="relaxation time")
 
