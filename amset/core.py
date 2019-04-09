@@ -1,13 +1,8 @@
 # coding: utf-8
 from __future__ import absolute_import
 
-import matplotlib
 from BoltzTraP2.bandlib import DOS
-from scipy.integrate import quad, trapz
 from scipy.ndimage import gaussian_filter1d
-
-matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt
 
 import cProfile
 import json
@@ -28,6 +23,7 @@ import numpy as np
 from monty.json import MontyEncoder, MSONable, MontyDecoder
 from monty.serialization import dumpfn, loadfn
 from scipy.interpolate import griddata, interp1d
+from scipy.integrate import trapz
 
 from amset.logging import LoggableMixin
 from amset.scattering.elastic import (
@@ -48,13 +44,6 @@ from amset.utils.transport import f0, df0de, fermi_integral, calculate_sio
 from amset.valley import Valley
 from pymatgen.io.vasp import Vasprun, Spin, Kpoints
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-
-try:
-    from BoltzTraP2 import sphere, fite
-    from pymatgen.electronic_structure.boltztrap2 import BandstructureLoader
-except ImportError:
-    warnings.warn(
-        'BoltzTraP2 not imported; "boltztrap2" interpolation not available.')
 
 __author__ = "Alireza Faghaninia, Alex Ganose, Jason Frost, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
@@ -637,6 +626,7 @@ class Amset(MSONable, LoggableMixin):
                                             ik] * \
                                         default_small_E / hbar  # in 1/s
                                     E_norm = E - self.cbm_vbm[tp]["energy"]
+
                                     self.kgrid[tp]["thermal force"][c][T][ib][
                                         ik] = (v * (f0(E_norm, fermi_norm, T) *
                                                (1 - f0(E_norm, fermi_norm, T)) *
