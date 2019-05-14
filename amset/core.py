@@ -825,13 +825,13 @@ class Amset(MSONable, LoggableMixin):
             self.seebeck[tp] = self.mobility[tp].pop('seebeck')
 
         # finalize Seebeck values:
-        seebeck = deepcopy(self.seebeck)
-        for c in self.dopings:
-            for T in self.temperatures:
-                self.seebeck['n'][c][T] = ((
-                    sigma['n'][c][T] * seebeck['n'][c][T] -
-                    sigma['p'][c][T] * seebeck['p'][c][T]) /
-                    (sigma['n'][c][T] + sigma['p'][c][T]))
+        # seebeck = deepcopy(self.seebeck)
+        # for c in self.dopings:
+        #     for T in self.temperatures:
+        #         self.seebeck['n'][c][T] = ((
+        #             sigma['n'][c][T] * seebeck['n'][c][T] -
+        #             sigma['p'][c][T] * seebeck['p'][c][T]) /
+        #             (sigma['n'][c][T] + sigma['p'][c][T]))
 
         self.logger.info('run finished.')
         self.logger.info('\nfinal mobility:\n{}'.format(pformat(self.mobility)))
@@ -1263,19 +1263,18 @@ class Amset(MSONable, LoggableMixin):
         params = params or {}
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 5)
-        c_factor = max(1., max(
-            [log(abs(ci) / 1e19) for ci in self.dopings] + [1.]) ** 0.5)
-        Ecut = params.get("Ecut",
-                          c_factor * 5 * k_B * max(self.temperatures + [600]))
-        self.max_Ecut = params.get("Ecut",
-                                   1.5)  # TODO-AF: set this default Encut based on maximum energy range that the current BS covers between
+        c_factor = max(1., max([log(abs(ci) / 1e19)
+                                for ci in self.dopings] + [1.]) ** 0.5)
+        Ecut = params.get("Ecut", c_factor * 5 * k_B *
+                          max(self.temperatures + [600]))
+
+        self.max_Ecut = params.get("Ecut", 1.5)
         if isinstance(Ecut, dict):
             self.Ecut = Ecut
         else:
             Ecut = min(Ecut, self.max_Ecut)
             self.Ecut = {tp: Ecut if tp in self.all_types else Ecut * 2. / 3.
-                         for tp
-                         in ["n", "p"]}
+                         for tp in ["n", "p"]}
 
         for tp in ["n", "p"]:
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
@@ -2318,9 +2317,11 @@ class Amset(MSONable, LoggableMixin):
 
         if valley_dos:
             dos_func = interp1d(self.egrid[tp]["valley_DOS"][:, 0],
-                                self.egrid[tp]["valley_DOS"][:, 1])
+                                self.egrid[tp]["valley_DOS"][:, 1],
+                                bounds_error=False, fill_value=0)
         else:
-            dos_func = interp1d(self.dos[:, 0], self.dos[:, 1])
+            dos_func = interp1d(self.dos[:, 0], self.dos[:, 1],
+                                bounds_error=False, fill_value=0)
 
         for ie in range(len(energies)):
             for prop in props:

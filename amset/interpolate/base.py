@@ -126,8 +126,8 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
 
         if integral_sphere:
             # get full k-point mesh (not IR reduced)
-            _, grid = spglib.get_ir_reciprocal_mesh(
-                kpoint_mesh, self._sga._cell, self._symprec)
+            mapping, grid = spglib.get_ir_reciprocal_mesh(
+                kpoint_mesh, self._sga._cell, symprec=self._symprec)
             mesh_data = grid / kpoint_mesh
 
             # calculate the distances in nm of each k-point and sphere centre
@@ -136,11 +136,12 @@ class AbstractInterpolater(MSONable, LoggableMixin, ABC):
                 get_cartesian_coords(pbc_diff(mesh_data, integral_sphere[0])))
             k_distance_nm = 1 / A_to_nm * np.linalg.norm(diff_frac, axis=1)
 
-            # only include k-points within distance tolerance
-            kpoints = [k for k, d in zip(mesh_data, k_distance_nm)
-                       if d <= integral_sphere[1]]
-            weights = np.ones(len(kpoints), dtype=int)
-            normalization_factor = len(kpoints) / len(mesh_data)
+            # only include k-points within distance tolerance, only include
+            # each symmetry inequivalent k-point once but store the weight
+            in_sphere = np.where(k_distance_nm <= integral_sphere[1])
+            indices, weights = np.unique(mapping[in_sphere], return_counts=True)
+            kpoints = mesh_data[indices]
+            normalization_factor = sum(weights) / len(mesh_data)
 
         else:
             mesh_data = np.array(self._sga.get_ir_reciprocal_mesh(kpoint_mesh))
