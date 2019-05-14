@@ -102,13 +102,16 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
         if isinstance(iband, int):
             iband = [iband]
             iband_was_int = True
-        elif not iband:
+        if not iband:
             iband = list(range(len(self._parameters[2])))
 
-        fitted = fite.getBands(np.array(kpoints), *self._parameters,
+        parameters = (self._parameters[0], self._parameters[1],
+                      self._parameters[2][iband])
+
+        fitted = fite.getBands(np.array(kpoints), *parameters,
                                curvature=return_effective_mass)
 
-        energies = fitted[0][iband] * Hartree_to_eV
+        energies = fitted[0] * Hartree_to_eV
 
         # BoltzTraP2 energies can be shifted slighty relative to the vasprun
         # eigenvalues here we shift the energies back in line
@@ -122,14 +125,13 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
 
         shape = ((len(iband), len(kpoints)) if
                  len(iband) > 1 or not iband_was_int else (len(kpoints),))
-        # print(shape)
         to_return = [energies.reshape(shape)]
 
         if return_velocity:
             factor = Hartree_to_eV * m_to_cm * A_to_m / (hbar * 0.52917721067)
             matrix_norm = (self._lattice_matrix / np.linalg.norm(
                 self._lattice_matrix))
-            velocities = fitted[1][:, iband, :].transpose((1, 0, 2))
+            velocities = fitted[1][:, :, :].transpose((1, 0, 2))
             velocities = abs(np.matmul(matrix_norm, velocities)) * factor
             velocities = velocities.transpose((0, 2, 1))
             to_return.append(velocities.reshape(shape + velocities.shape[2:]))
@@ -137,7 +139,7 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
         if return_effective_mass:
             factor = 0.52917721067 ** 2 * e * hbar ** 2 / (
                     Hartree_to_eV * A_to_m ** 2 * m_e)
-            effective_masses = fitted[2][:, :, iband, :].transpose(1, 0, 2, 3)
+            effective_masses = fitted[2][:, :, :, :].transpose(1, 0, 2, 3)
             effective_masses = factor / effective_masses
             effective_masses = effective_masses.transpose((2, 3, 0, 1))
             to_return.append(effective_masses.reshape(
