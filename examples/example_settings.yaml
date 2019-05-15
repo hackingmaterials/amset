@@ -1,26 +1,26 @@
 material:
     # band gap settings
-    scissor: 0.0                  # in eV
-    user_bandgap: 3.0             # in eV
+    scissor: 0.0                      # in eV
+    user_bandgap: 3.0                 # in eV
     
     # general parameters
     high_frequency_dielectric: 3
     static_dielectric: 6
 
     # ACD parameters
-    elastic_constant: 150          # in GPa
-    deformation_potential_vbm: 9   # in eV
-    deformation_potential_cbm: 9   # in eV
+    elastic_constant: 150             # in GPa
+    deformation_potential_vbm: 9      # in eV
+    deformation_potential_cbm: 9      # in eV
 
     # PIE parameters
-    piezeoelectric_coefficient: 0.15
+    piezeoelectric_coefficient: 0.15  # in ?
 
     # IMP parameters
     acceptor_charge: 1
     donor_charge: 1
 
     # POP parameters
-    pop_frequency: 10             # in ?
+    pop_frequency: 10                 # in ?
 
     # DIS parameters
     n_dislocations: 0.1
@@ -28,15 +28,15 @@ material:
 
 model:
     # options include ACD, PIE, IMP, DIS, and POP. E.g.:
-    # scatterings: ACD POP IMP
+    # scatterings: ACD, POP, IMP
     # alternatively, set to auto to automatically determine
     # scatterings based on material parameters
     # could allow "inv_dos" or "CRTA" + rate. E.g. scatterings: inv_dos 1E-14
     scatterings: auto
 
 performance:
-    energy_tol: 0.0001  # in eV
-    energy_cutoff: 1.5  # in eV
-    g_tol: 1            # in %
+    energy_tol: 0.0001                # in eV
+    energy_cutoff: 1.5                # in eV
+    g_tol: 1                          # in %
     dos_npoints: 4000
 
