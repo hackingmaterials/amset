@@ -1,0 +1,10 @@
+# this is a test settings file
+material:
+
+    # band gap settings
+    scissor: 3.0                  # in eV
+    user_bandgap: 0.0             # in eV
+
+    # general parameters
+    high_frequency_dielectric: 10
+    static_dielectric: 12
