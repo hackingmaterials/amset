@@ -102,7 +102,7 @@ class BoltzTraP2Interpolater(AbstractInterpolater):
         if isinstance(iband, int):
             iband = [iband]
             iband_was_int = True
-        elif not iband:
+        elif iband is None:
             iband = list(range(len(self._parameters[2])))
 
         fitted = fite.getBands(np.array(kpoints), *self._parameters,
