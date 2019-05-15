@@ -1,13 +1,8 @@
 # coding: utf-8
 from __future__ import absolute_import
 
-import matplotlib
 from BoltzTraP2.bandlib import DOS
-from scipy.integrate import quad, trapz
 from scipy.ndimage import gaussian_filter1d
-
-matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt
 
 import cProfile
 import json
@@ -28,6 +23,7 @@ import numpy as np
 from monty.json import MontyEncoder, MSONable, MontyDecoder
 from monty.serialization import dumpfn, loadfn
 from scipy.interpolate import griddata, interp1d
+from scipy.integrate import trapz
 
 from amset.logging import LoggableMixin
 from amset.scattering.elastic import (
@@ -48,13 +44,6 @@ from amset.utils.transport import f0, df0de, fermi_integral, calculate_sio
 from amset.valley import Valley
 from pymatgen.io.vasp import Vasprun, Spin, Kpoints
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-
-try:
-    from BoltzTraP2 import sphere, fite
-    from pymatgen.electronic_structure.boltztrap2 import BandstructureLoader
-except ImportError:
-    warnings.warn(
-        'BoltzTraP2 not imported; "boltztrap2" interpolation not available.')
 
 __author__ = "Alireza Faghaninia, Alex Ganose, Jason Frost, Anubhav Jain"
 __copyright__ = "Copyright 2017, HackingMaterials"
@@ -637,6 +626,7 @@ class Amset(MSONable, LoggableMixin):
                                             ik] * \
                                         default_small_E / hbar  # in 1/s
                                     E_norm = E - self.cbm_vbm[tp]["energy"]
+
                                     self.kgrid[tp]["thermal force"][c][T][ib][
                                         ik] = (v * (f0(E_norm, fermi_norm, T) *
                                                (1 - f0(E_norm, fermi_norm, T)) *
@@ -764,14 +754,10 @@ class Amset(MSONable, LoggableMixin):
                                         valley_sigma))
 
                                 self.seeb_denom[c][T][tp] += (
-                                        1)
+                                    valley_sigma * valley_ndegen)
                                 self.seeb_num[c][T][tp] += (
-                                        valley_seebeck)
-                                # self.seeb_denom[c][T][tp] += (
-                                #     valley_sigma * valley_ndegen)
-                                # self.seeb_num[c][T][tp] += (
-                                #     valley_seebeck * valley_sigma *
-                                #     valley_ndegen)
+                                    valley_seebeck * valley_sigma *
+                                    valley_ndegen)
 
                 self.map_to_egrid(prop_name="relaxation time")
 
@@ -839,13 +825,13 @@ class Amset(MSONable, LoggableMixin):
             self.seebeck[tp] = self.mobility[tp].pop('seebeck')
 
         # finalize Seebeck values:
-        seebeck = deepcopy(self.seebeck)
-        for c in self.dopings:
-            for T in self.temperatures:
-                self.seebeck['n'][c][T] = ((
-                    sigma['n'][c][T] * seebeck['n'][c][T] -
-                    sigma['p'][c][T] * seebeck['p'][c][T]) /
-                    (sigma['n'][c][T] + sigma['p'][c][T]))
+        # seebeck = deepcopy(self.seebeck)
+        # for c in self.dopings:
+        #     for T in self.temperatures:
+        #         self.seebeck['n'][c][T] = ((
+        #             sigma['n'][c][T] * seebeck['n'][c][T] -
+        #             sigma['p'][c][T] * seebeck['p'][c][T]) /
+        #             (sigma['n'][c][T] + sigma['p'][c][T]))
 
         self.logger.info('run finished.')
         self.logger.info('\nfinal mobility:\n{}'.format(pformat(self.mobility)))
@@ -1277,19 +1263,18 @@ class Amset(MSONable, LoggableMixin):
         params = params or {}
         self.dE_min = params.get("dE_min", 0.0001)
         self.nE_min = params.get("nE_min", 5)
-        c_factor = max(1., max(
-            [log(abs(ci) / 1e19) for ci in self.dopings] + [1.]) ** 0.5)
-        Ecut = params.get("Ecut",
-                          c_factor * 5 * k_B * max(self.temperatures + [600]))
-        self.max_Ecut = params.get("Ecut",
-                                   1.5)  # TODO-AF: set this default Encut based on maximum energy range that the current BS covers between
+        c_factor = max(1., max([log(abs(ci) / 1e19)
+                                for ci in self.dopings] + [1.]) ** 0.5)
+        Ecut = params.get("Ecut", c_factor * 5 * k_B *
+                          max(self.temperatures + [600]))
+
+        self.max_Ecut = params.get("Ecut", 1.5)
         if isinstance(Ecut, dict):
             self.Ecut = Ecut
         else:
             Ecut = min(Ecut, self.max_Ecut)
             self.Ecut = {tp: Ecut if tp in self.all_types else Ecut * 2. / 3.
-                         for tp
-                         in ["n", "p"]}
+                         for tp in ["n", "p"]}
 
         for tp in ["n", "p"]:
             self.logger.debug("{}-Ecut: {} eV \n".format(tp, self.Ecut[tp]))
@@ -2332,9 +2317,11 @@ class Amset(MSONable, LoggableMixin):
 
         if valley_dos:
             dos_func = interp1d(self.egrid[tp]["valley_DOS"][:, 0],
-                                self.egrid[tp]["valley_DOS"][:, 1])
+                                self.egrid[tp]["valley_DOS"][:, 1],
+                                bounds_error=False, fill_value=0)
         else:
-            dos_func = interp1d(self.dos[:, 0], self.dos[:, 1])
+            dos_func = interp1d(self.dos[:, 0], self.dos[:, 1],
+                                bounds_error=False, fill_value=0)
 
         for ie in range(len(energies)):
             for prop in props:
