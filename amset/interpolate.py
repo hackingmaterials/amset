@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from typing import Optional, Union, Tuple, List, Dict
 
 import numpy as np
@@ -74,28 +75,43 @@ class Interpolater(MSONable):
                  num_electrons: int,
                  soc: bool = False,
                  magmom: Optional[np.ndarray] = None,
-                 mommat: Optional[np.ndarray] = None):
+                 mommat: Optional[np.ndarray] = None,
+                 interpolate_projections: bool = False):
         self._band_structure = band_structure
         self._num_electrons = num_electrons
         self._soc = soc
         self._spins = self._band_structure.bands.keys()
+        self._interpolate_projections = interpolate_projections
         self._lattice_matrix = (band_structure.structure.lattice.matrix *
                                 units.Angstrom)
+        self._coefficients = {}
+        self._projection_coefficients = defaultdict(dict)
 
         kpoints = np.array([k.frac_coords for k in band_structure.kpoints])
         atoms = AseAtomsAdaptor.get_atoms(band_structure.structure)
 
-        logger.info("Getting interpolation coefficients")
+        logger.info("Getting band interpolation coefficients")
 
         self._equivalences = sphere.get_equivalences(
             atoms=atoms, nkpt=kpoints.shape[0] * 5, magmom=magmom)
-        self._coefficients = {}
 
         for spin in self._spins:
             energies = band_structure.bands[spin] * units.eV
             data = DFTData(kpoints, energies, self._lattice_matrix,
                            mommat=mommat)
             self._coefficients[spin] = fite.fitde3D(data, self._equivalences)
+
+        if self._interpolate_projections:
+            logger.info("Getting projection interpolation coefficients")
+
+            for spin in self._spins:
+                for label, projection in _get_projections(
+                        band_structure.projections[spin]):
+
+                    data = DFTData(kpoints, projection, self._lattice_matrix,
+                                   mommat=mommat)
+                    self._projection_coefficients[spin][label] = fite.fitde3D(
+                        data, self._equivalences)
 
     def get_energies(self,
                      kpoints: Union[np.ndarray, List],
@@ -104,6 +120,7 @@ class Interpolater(MSONable):
                      bandgap: float = None,
                      return_velocity: bool = False,
                      return_effective_mass: bool = False,
+                     return_projections: bool = False,
                      coords_are_cartesian: bool = False,
                      atomic_units: bool = False
                      ) -> Union[Dict[Spin, np.ndarray],
@@ -126,6 +143,7 @@ class Interpolater(MSONable):
                 effect for metallic systems.
             return_velocity: Whether to return the band velocities.
             return_effective_mass: Whether to return the band effective masses.
+            return_projections: Whether to return the interpolated projections.
             coords_are_cartesian: Whether the kpoints are in cartesian or
                 fractional coordinates.
             atomic_units: Return the energies, velocities, and effective_massses
@@ -135,15 +153,20 @@ class Interpolater(MSONable):
         Returns:
             The band energies as dictionary of::
 
-                {Spin: energies}
+                {spin: energies}
 
-            If ``return_velocity`` or ``return_effective_mass`` a tuple is
-            returned, formatted as::
+            If ``return_velocity``, ``return_effective_mass`` or
+            ``return_projections`` a tuple is returned, formatted as::
 
-                (energies, Optional[velocities], Optional[effective_masses])
+                (energies, Optional[velocities], Optional[effective_masses],
+                 Optional[projections])
 
             The velocities and effective masses are given as the 1x3 trace and
-            full 3x3 tensor, respectively (along cartesian directions).
+            full 3x3 tensor, respectively (along cartesian directions). The
+            projections are summed for each orbital type (s, p, d) across all
+            atoms, and are given as::
+
+                {spin: {orbital: projections}}
         """
 
         # only calculate the energies for the bands within the energy cutoff
@@ -163,9 +186,12 @@ class Interpolater(MSONable):
             kpoints = self._band_structure.structure.lattice. \
                 reciprocal_lattice.get_fractional_coords(kpoints)
 
+        kpoints = np.asarray(kpoints)
+
         energies = {}
         velocities = {}
         effective_masses = {}
+        projections = defaultdict(dict)
         for spin in self._spins:
             ibands = np.any((self._band_structure.bands[spin] > min_e) &
                             (self._band_structure.bands[spin] < max_e), axis=1)
@@ -175,7 +201,7 @@ class Interpolater(MSONable):
                 np.where(ibands).max() + 1))
 
             fitted = fite.getBands(
-                np.asarray(kpoints), self._equivalences, self._lattice_matrix,
+                kpoints, self._equivalences, self._lattice_matrix,
                 self._coefficients[spin][ibands],
                 curvature=return_effective_mass)
 
@@ -207,7 +233,15 @@ class Interpolater(MSONable):
                     effective_masses[spin] = _convert_effective_masses(
                         effective_masses[spin])
 
-        if not return_velocity and not return_effective_mass:
+            if return_projections:
+                for label, proj_coeffs in self._projection_coefficients[spin]:
+                    fitted = fite.getBands(
+                        kpoints, self._equivalences, self._lattice_matrix,
+                        proj_coeffs[ibands], curvature=False)
+                    projections[spin][label] = fitted[0]
+
+        if not (return_velocity and return_effective_mass and
+                return_projections):
             return energies
 
         to_return = [energies]
@@ -217,6 +251,9 @@ class Interpolater(MSONable):
 
         if return_effective_mass:
             to_return.append(effective_masses)
+
+        if return_projections:
+            to_return.append(projections)
 
         return tuple(to_return)
 
@@ -374,6 +411,8 @@ def _convert_velocities(velocities: np.ndarray,
                         lattice_matrix: np.ndarray) -> np.ndarray:
     """Convert velocities from atomic units to ?.
 
+    TODO: Tidy this function using BoltzTraP2 units.
+
     Args:
         velocities: The velocities in atomic units.
         lattice_matrix: The lattice matrix in Angstrom.
@@ -392,11 +431,23 @@ def _convert_velocities(velocities: np.ndarray,
 
 
 def _convert_effective_masses(effective_masses: np.ndarray) -> np.ndarray:
+
     factor = 0.52917721067 ** 2 * e * hbar ** 2 / (
             Hartree_to_eV * A_to_m ** 2 * m_e)
-    effective_masses = effective_masses.transpose(1, 0, 2, 3)
+    effective_masses = effective_masses.transpose((1, 0, 2, 3))
     effective_masses = factor / effective_masses
     effective_masses = effective_masses.transpose((2, 3, 0, 1))
 
     return effective_masses
 
+
+def _get_projections(projections):
+    s_orbital = np.sum(projections, axis=3)[:, :, 0]
+
+    if projections.shape[2] > 5:
+        # lm decomposed projections therefore sum across px, py, and pz
+        p_orbital = np.sum(np.sum(projections, axis=3)[:, :, 1:4], axis=2)
+    else:
+        p_orbital = np.sum(projections, axis=3)[:, :, 1]
+
+    return ("s", s_orbital), ("p", p_orbital)
