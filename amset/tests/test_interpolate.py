@@ -186,25 +186,3 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
                                              [0.5, 0.5, -0.5], 4)
         np.testing.assert_array_almost_equal(extrema[3],
                                              [0.4167, 0.4167, -0.0019], 4)
-
-        # def get_extrema(folder):
-        #     path = os.path.join(test_dir, '..', '..', '..', 'test_files',
-        #                         folder)
-        #     vr = Vasprun(os.path.join(path, 'vasprun.xml'))
-        #     bs = vr.get_band_structure()
-        #     num_electrons = vr.parameters['NELECT']
-        #     interpolater = BoltzTraP2Interpolater(bs, num_electrons)
-        #     vbm = max(bs.get_vbm()['band_index'][Spin.up])
-        #     return {'p': interpolater.get_extrema(vbm, e_cut=1.),
-        #             'n': interpolater.get_extrema(vbm + 1, e_cut=1.)}
-        #
-        # inp_extrema = get_extrema('InP_mp-20351')
-        # print(inp_extrema)
-        # np.testing.assert_array_almost_equal(inp_extrema['n'][0],
-        #                                      [0., 0.0, 0.], 10)
-        # np.testing.assert_array_almost_equal(inp_extrema['n'][1],
-        #                                      [0., 0.5, 0.], 10)
-        # np.testing.assert_array_almost_equal(inp_extrema['p'][0],
-        #                                      [0., 0.0, 0.], 10)
-        # np.testing.assert_array_almost_equal(inp_extrema['p'][1],
-        #                                      [-0.3843, -0.0325, 0.], 4)
