@@ -1,6 +1,6 @@
 material:
     # band gap settings
-    scissor: 0.0                      # in eV
+    scissor: null                     # in eV
     user_bandgap: 3.0                 # in eV
     
     # general parameters
