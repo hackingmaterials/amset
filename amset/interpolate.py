@@ -1,4 +1,5 @@
 import logging
+import multiprocessing
 from collections import defaultdict
 from typing import Optional, Union, Tuple, List, Dict
 
@@ -8,48 +9,22 @@ from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units, sphere, fite
 from BoltzTraP2.bandlib import DOS
+from spglib import spglib
+
+from amset.band_structure import ElectronicStructure
 from amset.utils.constants import Hartree_to_eV, m_to_cm, A_to_m, hbar, e, m_e
+from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (BandStructure,
                                                          BandStructureSymmLine)
+from pymatgen.electronic_structure.dos import FermiDos, Dos
 from pymatgen.io.ase import AseAtomsAdaptor
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from pymatgen.io.vasp import Kpoints
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 logger = logging.getLogger(__name__)
 
 spin_name = {Spin.up: "spin up", Spin.down: "spin down"}
-
-
-class DFTData(object):
-    """DFTData object used for BoltzTraP2 interpolation.
-
-    Note that the units used by BoltzTraP are different to those used by VASP.
-
-    Args:
-        kpoints: The k-points in fractional coordinates.
-        energies: The band energies in Hartree, formatted as (nbands, nkpoints).
-        lattice_matrix: The lattice matrix in Bohr^3.
-        mommat: The band structure derivatives.
-    """
-
-    def __init__(self,
-                 kpoints: np.ndarray,
-                 energies: np.ndarray,
-                 lattice_matrix: np.ndarray,
-                 mommat: Optional[np.ndarray] = None):
-        self.kpoints = kpoints
-        self.ebands = energies
-        self.lattice_matrix = lattice_matrix
-        self.volume = np.abs(np.linalg.det(self.lattice_matrix))
-        self.mommat = mommat
-
-    def get_lattvec(self) -> np.ndarray:
-        """Get the lattice matrix.
-
-        This method is required by BoltzTraP2.
-        """
-        return self.lattice_matrix
 
 
 class Interpolater(MSONable):
@@ -65,14 +40,20 @@ class Interpolater(MSONable):
     Args:
         band_structure: A pymatgen band structure object.
         num_electrons: The number of electrons in the system.
+        interpolation_factor: Factor used to determine the accuracy of the
+            band structure interpolation. Also controls the k-point mesh density
+            for :meth:`Interpolater.get_electronic_structure`.
         soc: Whether the system was calculated using spin–orbit coupling.
         magmom: The magnetic moments for each atom.
         mommat: The band structure derivatives.
+        interpolate_projections: Whether to interpolate the band structure
+            projections.
     """
 
     def __init__(self,
                  band_structure: BandStructure,
                  num_electrons: int,
+                 interpolation_factor: float = 20,
                  soc: bool = False,
                  magmom: Optional[np.ndarray] = None,
                  mommat: Optional[np.ndarray] = None,
@@ -93,7 +74,12 @@ class Interpolater(MSONable):
         logger.info("Getting band interpolation coefficients")
 
         self._equivalences = sphere.get_equivalences(
-            atoms=atoms, nkpt=kpoints.shape[0] * 5, magmom=magmom)
+            atoms=atoms, nkpt=kpoints.shape[0] * interpolation_factor,
+            magmom=magmom)
+
+        # get the interpolation mesh used by BoltzTraP2
+        self.interpolation_mesh = 2 * np.max(
+            np.abs(np.vstack(self._equivalences)), axis=0) + 1
 
         for spin in self._spins:
             energies = band_structure.bands[spin] * units.eV
@@ -104,14 +90,142 @@ class Interpolater(MSONable):
         if self._interpolate_projections:
             logger.info("Getting projection interpolation coefficients")
 
+            if not band_structure.projections:
+                raise ValueError(
+                    "interpolate_projections is True but band structure has no "
+                    "projections")
+
             for spin in self._spins:
                 for label, projection in _get_projections(
                         band_structure.projections[spin]):
-
                     data = DFTData(kpoints, projection, self._lattice_matrix,
                                    mommat=mommat)
                     self._projection_coefficients[spin][label] = fite.fitde3D(
                         data, self._equivalences)
+
+    def get_electronic_structure(self,
+                                 energy_cutoff: Optional[float] = None,
+                                 scissor: float = None,
+                                 bandgap: float = None,
+                                 dos_estep: float = 0.01,
+                                 dos_width: float = 0.05,
+                                 symprec: float = 0.01,
+                                 nworkers: int = -1
+                                 ) -> ElectronicStructure:
+        """
+
+        Args:
+            energy_cutoff: The energy cut-off to determine which bands are
+                included in the interpolation. If the energy of a band falls
+                within the cut-off at any k-point it will be included. For
+                metals the range is defined as the Fermi level ± energy_cutoff.
+                For gapped materials, the energy range is from the VBM -
+                energy_cutoff to the CBM + energy_cutoff.
+            scissor: The amount by which the band gap is scissored. Cannot
+                be used in conjunction with the ``bandgap`` option. Has no
+                effect for metallic systems.
+            bandgap: Automatically adjust the band gap to this value. Cannot
+                be used in conjunction with the ``scissor`` option. Has no
+                effect for metallic systems.
+            dos_estep: The DOS energy step, where smaller numbers give more
+                accuracy but are more expensive.
+            dos_width: The DOS gaussian smearing width in eV.
+            symprec: The symmetry tolerance used when determining the symmetry
+                inequivalent k-points on which to interpolate.
+            nworkers:
+
+        Returns:
+
+        """
+        if self._band_structure.is_metal() and (bandgap or scissor):
+            raise ValueError("{} option set but system is metallic".format(
+                "bandgap" if bandgap else "scissor"))
+
+        if not self._interpolate_projections:
+            raise ValueError("Band structure projections needed to obtain full"
+                             "electronic structure. Reinitialise the "
+                             "interpolater with interpolate_projections=True")
+
+        nworkers = multiprocessing.cpu_count() if nworkers == -1 else nworkers
+
+        # determine energy cutoffs
+        if energy_cutoff and self._band_structure.is_metal():
+            min_e = self._band_structure.efermi - energy_cutoff
+            max_e = self._band_structure.efermi + energy_cutoff
+        elif energy_cutoff:
+            min_e = self._band_structure.get_vbm()['energy'] - energy_cutoff
+            max_e = self._band_structure.get_cbm()['energy'] + energy_cutoff
+        else:
+            min_e = min([self._band_structure.bands[spin].min()
+                         for spin in self._spins])
+            max_e = max([self._band_structure.bands[spin].max()
+                         for spin in self._spins])
+
+        logger.info("Interpolating on a {} k-point mesh".format(
+            "x".join(self.interpolation_mesh)))
+
+        energies = {}
+        vvelocities = {}
+        projections = defaultdict(dict)
+        for spin in self._spins:
+            ibands = np.any((self._band_structure.bands[spin] > min_e) &
+                            (self._band_structure.bands[spin] < max_e), axis=1)
+
+            logger.info("Interpolating {} bands {}-{}".format(
+                spin_name[spin], np.where(ibands)[0].min() + 1,
+                np.where(ibands)[0].max() + 1))
+
+            energies[spin], vvelocities[spin] = fite.getBTPbands(
+                self._equivalences, self._coefficients[spin][ibands],
+                self._lattice_matrix, nworkers=nworkers)
+
+            if not self._band_structure.is_metal():
+                vb_idx = max(self._band_structure.get_vbm()["band_index"][spin])
+
+                # need to know the index of the valence band after discounting
+                # bands during the interpolation. As ibands is just a list of
+                # True/False, we can count the number of Trues up to
+                # and including the VBM to get the new number of valence bands
+                new_vb_idx = sum(ibands[: vb_idx + 1])
+                energies[spin] = _shift_energies(
+                    energies[spin], new_vb_idx, scissor=scissor,
+                    bandgap=bandgap)
+
+            for label, proj_coeffs in self._projection_coefficients[spin]:
+                projections[spin][label] = fite.getBTPbands(
+                    self._equivalences, proj_coeffs[ibands],
+                    self._lattice_matrix, nworkers=nworkers)[0]
+
+        all_energies = np.vstack([energies[spin] for spin in self._spins])
+
+        # add a few multiples of dos_width to emin and emax to account for tails
+        dos_emin = np.min(energies) - dos_width * 5
+        dos_emax = np.max(energies) + dos_width * 5
+        npts = int(round((dos_emax - dos_emin) / dos_estep))
+        emesh, densities = DOS(all_energies, erange=(dos_emin, dos_emax),
+                               npts=npts)
+
+        densities = gaussian_filter1d(densities, dos_width /
+                                      (emesh[1] - emesh[0]))
+        densities *= 1 if self._soc or len(self._spins) == 2 else 1
+        dos = Dos(self._band_structure.efermi * units.eV, emesh * units.eV,
+                  densities)
+
+        # integrate up to Fermi level to get number of electrons
+        nelect = (densities[emesh <= self._band_structure.efermi].sum() /
+                  (emesh[1] - emesh[0]))
+        fermi_dos = FermiDos(dos, self._band_structure.structure, nelecs=nelect)
+
+        # get the actual k-points used in the BoltzTraP2 interpolation
+        # unfortunately, BoltzTraP2 doesn't expose this information so we
+        # have to get it ourselves
+        ir_kpts, weights, full_kpts, ir_kpts_idx, ir_to_full_idx = _get_kpoints(
+            self.interpolation_mesh, self._band_structure.structure,
+            symprec=symprec, return_full_kpoints=True)
+
+        return ElectronicStructure(
+            energies, vvelocities, projections, self.interpolation_mesh,
+            full_kpts, ir_kpts, weights, ir_kpts_idx, ir_to_full_idx, fermi_dos)
 
     def get_energies(self,
                      kpoints: Union[np.ndarray, List],
@@ -127,6 +241,9 @@ class Interpolater(MSONable):
                                 Tuple[Dict[Spin, np.ndarray]], ...]:
         """Gets the interpolated energies for multiple k-points in a band.
 
+        Note, the accuracy of the interpolation is dependant on the
+        ``interpolate_factor`` used to initialize the Interpolater.
+
         Args:
             kpoints: The k-point coordinates.
             energy_cutoff: The energy cut-off to determine which bands are
@@ -136,10 +253,10 @@ class Interpolater(MSONable):
                 For gapped materials, the energy range is from the VBM -
                 energy_cutoff to the CBM + energy_cutoff.
             scissor: The amount by which the band gap is scissored. Cannot
-                be used in conjuction with the ``bandgap`` option. Has no
+                be used in conjunction with the ``bandgap`` option. Has no
                 effect for metallic systems.
             bandgap: Automatically adjust the band gap to this value. Cannot
-                be used in conjuction with the ``scissor`` option. Has no
+                be used in conjunction with the ``scissor`` option. Has no
                 effect for metallic systems.
             return_velocity: Whether to return the band velocities.
             return_effective_mass: Whether to return the band effective masses.
@@ -148,7 +265,7 @@ class Interpolater(MSONable):
                 fractional coordinates.
             atomic_units: Return the energies, velocities, and effective_massses
                 in atomic units. If False, energies will be in eV, velocities in
-                ?, and effective masses in units of electron rest mass, m0.
+                cm/s, and effective masses in units of electron rest mass, m0.
 
         Returns:
             The band energies as dictionary of::
@@ -168,6 +285,9 @@ class Interpolater(MSONable):
 
                 {spin: {orbital: projections}}
         """
+        if self._band_structure.is_metal() and (bandgap or scissor):
+            raise ValueError("{} option set but system is metallic".format(
+                "bandgap" if bandgap else "scissor"))
 
         # only calculate the energies for the bands within the energy cutoff
         if energy_cutoff and self._band_structure.is_metal():
@@ -197,8 +317,8 @@ class Interpolater(MSONable):
                             (self._band_structure.bands[spin] < max_e), axis=1)
 
             logger.info("Interpolating {} bands {}-{}".format(
-                spin_name[spin], np.where(ibands).min() + 1,
-                np.where(ibands).max() + 1))
+                spin_name[spin], np.where(ibands)[0].min() + 1,
+                np.where(ibands)[0].max() + 1))
 
             fitted = fite.getBands(
                 kpoints, self._equivalences, self._lattice_matrix,
@@ -235,12 +355,11 @@ class Interpolater(MSONable):
 
             if return_projections:
                 for label, proj_coeffs in self._projection_coefficients[spin]:
-                    fitted = fite.getBands(
+                    projections[spin][label] = fite.getBands(
                         kpoints, self._equivalences, self._lattice_matrix,
-                        proj_coeffs[ibands], curvature=False)
-                    projections[spin][label] = fitted[0]
+                        proj_coeffs[ibands], curvature=False)[0]
 
-        if not (return_velocity and return_effective_mass and
+        if not (return_velocity or return_effective_mass or
                 return_projections):
             return energies
 
@@ -257,18 +376,22 @@ class Interpolater(MSONable):
 
         return tuple(to_return)
 
-    def get_dos(self, kpoint_mesh: List[int],
+    def get_dos(self,
+                kpoint_mesh: Union[float, int, List[int]],
                 energy_cutoff: Optional[float] = None,
                 scissor: Optional[float] = None,
                 bandgap: Optional[float] = None,
                 estep: float = 0.01,
                 width: float = 0.05,
                 symprec: float = 0.01
-                ) -> Tuple[np.ndarray, np.ndarray]:
+                ) -> Dos:
         """Calculates the density of states using the interpolated bands.
 
         Args:
             kpoint_mesh: The k-point mesh as a 1x3 array. E.g.,``[6, 6, 6]``.
+                Alternatively, if a single value is provided this will be
+                treated as a reciprocal density and the k-point mesh dimensions
+                generated automatically.
             energy_cutoff: The energy cut-off to determine which bands are
                 included in the interpolation. If the energy of a band falls
                 within the cut-off at any k-point it will be included. For
@@ -276,31 +399,27 @@ class Interpolater(MSONable):
                 For gapped materials, the energy range is from the VBM -
                 energy_cutoff to the CBM + energy_cutoff.
             scissor: The amount by which the band gap is scissored. Cannot
-                be used in conjuction with the ``bandgap`` option. Has no
+                be used in conjunction with the ``bandgap`` option. Has no
                 effect for metallic systems.
             bandgap: Automatically adjust the band gap to this value. Cannot
-                be used in conjuction with the ``scissor`` option. Has no
+                be used in conjunction with the ``scissor`` option. Has no
                 effect for metallic systems.
             estep: The energy step, where smaller numbers give more
                 accuracy but are more expensive.
-            width: The gaussian smearing width.
+            width: The gaussian smearing width in eV.
             symprec: The symmetry tolerance used when determining the symmetry
                 inequivalent k-points on which to interpolate.
 
         Returns:
-            The density of states data, formatted as::
-
-                (energies, densities)
+            The density of states.
         """
-        sga = SpacegroupAnalyzer(self._band_structure.structure,
-                                 symprec=symprec)
-        mesh_data = np.array(sga.get_ir_reciprocal_mesh(kpoint_mesh))
-        kpoints = np.asarray(list(map(list, mesh_data[:, 0])))
-        weights = mesh_data[:, 1]
+        kpoints, weights = _get_kpoints(
+            kpoint_mesh, self._band_structure.structure, symprec=symprec)
 
         energies = self.get_energies(
             kpoints, scissor=scissor, bandgap=bandgap,
             energy_cutoff=energy_cutoff, atomic_units=False)
+
         energies = np.vstack([energies[spin] for spin in self._spins])
 
         nbands = energies.shape[0]
@@ -309,20 +428,20 @@ class Interpolater(MSONable):
         emax = np.max(energies) + width * 5
         epoints = int(round((emax - emin) / estep))
 
-        # BoltzTraP DOS weights don't work as you'd expect so we include the
-        # degeneracy manually
+        # BoltzTraP DOS kpoint_weights don't work as you'd expect so we include
+        # the degeneracy manually
         all_energies = np.array([[energies[nb][nk] for nb in range(nbands)]
                                  for nk in range(nkpts)
                                  for _ in range(weights[nk])])
 
         emesh, dos = DOS(all_energies, erange=(emin, emax), npts=epoints)
         dos = gaussian_filter1d(dos, width / (emesh[1] - emesh[0]))
+        dos *= 1 if self._soc or len(self._spins) == 2 else 1
 
-        dos *= 1 if self._soc else len(self._spins)
+        return Dos(self._band_structure.efermi, emesh, dos)
 
-        return emesh, dos
-
-    def get_line_mode_band_structure(self, line_density: int = 50,
+    def get_line_mode_band_structure(self,
+                                     line_density: int = 50,
                                      energy_cutoff: Optional[float] = None,
                                      scissor: Optional[float] = None,
                                      bandgap: Optional[float] = None,
@@ -340,10 +459,10 @@ class Interpolater(MSONable):
                 For gapped materials, the energy range is from the VBM -
                 energy_cutoff to the CBM + energy_cutoff.
             scissor: The amount by which the band gap is scissored. Cannot
-                be used in conjuction with the ``bandgap`` option. Has no
+                be used in conjunction with the ``bandgap`` option. Has no
                 effect for metallic systems.
             bandgap: Automatically adjust the band gap to this value. Cannot
-                be used in conjuction with the ``scissor`` option. Has no
+                be used in conjunction with the ``scissor`` option. Has no
                 effect for metallic systems.
             symprec: The symmetry tolerance used to determine the space group
                 and high-symmetry path.
@@ -368,6 +487,37 @@ class Interpolater(MSONable):
             self._band_structure.efermi, labels_dict, coords_are_cartesian=True)
 
 
+class DFTData(object):
+    """DFTData object used for BoltzTraP2 interpolation.
+
+    Note that the units used by BoltzTraP are different to those used by VASP.
+
+    Args:
+        kpoints: The k-points in fractional coordinates.
+        energies: The band energies in Hartree, formatted as (nbands, nkpoints).
+        lattice_matrix: The lattice matrix in Bohr^3.
+        mommat: The band structure derivatives.
+    """
+
+    def __init__(self,
+                 kpoints: np.ndarray,
+                 energies: np.ndarray,
+                 lattice_matrix: np.ndarray,
+                 mommat: Optional[np.ndarray] = None):
+        self.kpoints = kpoints
+        self.ebands = energies
+        self.lattice_matrix = lattice_matrix
+        self.volume = np.abs(np.linalg.det(self.lattice_matrix))
+        self.mommat = mommat
+
+    def get_lattvec(self) -> np.ndarray:
+        """Get the lattice matrix.
+
+        This method is required by BoltzTraP2.
+        """
+        return self.lattice_matrix
+
+
 def _shift_energies(energies: np.ndarray,
                     vb_idx: int,
                     scissor: Optional[float] = None,
@@ -379,10 +529,10 @@ def _shift_energies(energies: np.ndarray,
         vb_idx: The band index of the valence band maximum in the energies
             array.
         scissor: The amount by which the band gap is scissored. Cannot
-            be used in conjuction with the ``bandgap`` option. Has no
+            be used in conjunction with the ``bandgap`` option. Has no
             effect for metallic systems.
         bandgap: Automatically adjust the band gap to this value. Cannot
-            be used in conjuction with the ``scissor`` option. Has no
+            be used in conjunction with the ``scissor`` option. Has no
             effect for metallic systems.
 
     Returns:
@@ -418,7 +568,7 @@ def _convert_velocities(velocities: np.ndarray,
         lattice_matrix: The lattice matrix in Angstrom.
 
     Returns:
-        The velocities in ?.
+        The velocities in cm/s.
     """
     matrix_norm = (lattice_matrix / np.linalg.norm(lattice_matrix))
 
@@ -431,7 +581,6 @@ def _convert_velocities(velocities: np.ndarray,
 
 
 def _convert_effective_masses(effective_masses: np.ndarray) -> np.ndarray:
-
     factor = 0.52917721067 ** 2 * e * hbar ** 2 / (
             Hartree_to_eV * A_to_m ** 2 * m_e)
     effective_masses = effective_masses.transpose((1, 0, 2, 3))
@@ -441,7 +590,7 @@ def _convert_effective_masses(effective_masses: np.ndarray) -> np.ndarray:
     return effective_masses
 
 
-def _get_projections(projections):
+def _get_projections(projections: np.ndarray):
     s_orbital = np.sum(projections, axis=3)[:, :, 0]
 
     if projections.shape[2] > 5:
@@ -451,3 +600,60 @@ def _get_projections(projections):
         p_orbital = np.sum(projections, axis=3)[:, :, 1]
 
     return ("s", s_orbital), ("p", p_orbital)
+
+
+def _get_kpoints(kpoint_mesh: Union[float, int, List[int]],
+                 structure: Structure,
+                 symprec: float = 0.01,
+                 return_full_kpoints: bool = False
+                 ) -> Tuple[np.ndarray, ...]:
+    """Gets the symmetry inequivalent k-points from a k-point mesh.
+
+    Follows the same process as SpacegroupAnalyzer.get_ir_reciprocal_mesh
+    but is faster and allows returning of the full k-point mesh and mapping.
+
+    Args:
+        kpoint_mesh: The k-point mesh as a 1x3 array. E.g.,``[6, 6, 6]``.
+            Alternatively, if a single value is provided this will be
+            treated as a reciprocal density and the k-point mesh dimensions
+            generated automatically.
+        structure: A structure.
+        symprec: Symmetry tolerance used when determining the symmetry
+            inequivalent k-points on which to interpolate.
+        return_full_kpoints: Whether to return the full list of k-points
+            covering the entire Brillouin zone and the indices of
+            inequivalent k-points.
+
+    Returns:
+        The irreducible k-points and their weights as tuple, formatted as::
+
+            (ir_kpoints, weights)
+
+        If return_full_kpoints, the data will be returned as::
+
+            (ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx)
+
+        Where ``ir_kpoints_idx`` is the index of the unique irreducible k-points
+        in ``full_kpoints``. ``ir_to_full_idx`` is a list of indices that can be
+        used to construct the full Brillouin zone from the ir_mesh. Note the
+        ir -> full conversion will only work with calculated scalar properties
+        such as energy (not vector properties such as velocity).
+    """
+    if isinstance(kpoint_mesh, (int, float)):
+        # TODO: Update this to use reciprocal length as in kgrid
+        kpoint_mesh = Kpoints.automatic_density_by_vol(structure, kpoint_mesh)
+
+    atoms = AseAtomsAdaptor().get_atoms(structure)
+
+    mapping, grid = spglib.get_ir_reciprocal_mesh(
+        kpoint_mesh, atoms, symprec=symprec)
+    full_kpoints = grid / kpoint_mesh
+
+    ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
+        mapping, return_inverse=True, return_counts=True)
+    ir_kpoints = full_kpoints[ir_kpoints_idx]
+
+    if return_full_kpoints:
+        return ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx
+    else:
+        return ir_kpoints, weights
