@@ -22,7 +22,7 @@ amset_defaults = {
     },
 
     "performance": {
-        "energy_tol": 0.0001,
+        "energy_tol": 0.001,
         "energy_cutoff": 1.5,
         "g_tol": 1,
         "dos_npoints": 4000
