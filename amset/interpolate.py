@@ -1,3 +1,8 @@
+"""
+This module implements a class to perform band structure interpolation using
+BolzTraP2.
+"""
+
 import logging
 import multiprocessing
 from collections import defaultdict
@@ -11,7 +16,7 @@ from BoltzTraP2 import units, sphere, fite
 from BoltzTraP2.bandlib import DOS
 from spglib import spglib
 
-from amset.band_structure import ElectronicStructure
+from amset.electronic_structure import ElectronicStructure
 from amset.utils.constants import Hartree_to_eV, m_to_cm, A_to_m, hbar, e, m_e
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
@@ -112,7 +117,15 @@ class Interpolater(MSONable):
                                  symprec: float = 0.01,
                                  nworkers: int = -1
                                  ) -> ElectronicStructure:
-        """
+        """Gets an ElectronicStructure object using the interpolated bands.
+
+        Note, the interpolation mesh is determined using by
+        ``interpolate_factor`` option in the ``Inteprolater`` constructor.
+
+        This method is much faster than the ``get_energies`` function but
+        doesn't provide as much flexibility.
+
+        The degree of parallelization is controlled by the ``nworkers`` option.
 
         Args:
             energy_cutoff: The energy cut-off to determine which bands are
@@ -132,11 +145,15 @@ class Interpolater(MSONable):
             dos_width: The DOS gaussian smearing width in eV.
             symprec: The symmetry tolerance used when determining the symmetry
                 inequivalent k-points on which to interpolate.
-            nworkers:
+            nworkers: The number of processors used to perform the
+                interpolation. If set to ``-1``, the number of workers will
+                be set to the number of CPU cores.
 
         Returns:
-
+            The electronic structure (including energies, velocities, density of
+            states and k-point information) as an ElectronicStructure object.
         """
+
         if self._band_structure.is_metal() and (bandgap or scissor):
             raise ValueError("{} option set but system is metallic".format(
                 "bandgap" if bandgap else "scissor"))
@@ -511,10 +528,7 @@ class DFTData(object):
         self.mommat = mommat
 
     def get_lattvec(self) -> np.ndarray:
-        """Get the lattice matrix.
-
-        This method is required by BoltzTraP2.
-        """
+        """Get the lattice matrix. This method is required by BoltzTraP2."""
         return self.lattice_matrix
 
 
@@ -559,7 +573,7 @@ def _shift_energies(energies: np.ndarray,
 
 def _convert_velocities(velocities: np.ndarray,
                         lattice_matrix: np.ndarray) -> np.ndarray:
-    """Convert velocities from atomic units to ?.
+    """Convert velocities from atomic units to cm/s.
 
     TODO: Tidy this function using BoltzTraP2 units.
 
@@ -581,6 +595,16 @@ def _convert_velocities(velocities: np.ndarray,
 
 
 def _convert_effective_masses(effective_masses: np.ndarray) -> np.ndarray:
+    """Convert effective masses to units of electron rest mass.
+
+    TODO: Tidy this function using BoltzTraP2 units.
+
+    Args:
+        effective_masses: The effective masses in atomic units.
+
+    Returns:
+        The effective masses in units of electron rest masss.
+    """
     factor = 0.52917721067 ** 2 * e * hbar ** 2 / (
             Hartree_to_eV * A_to_m ** 2 * m_e)
     effective_masses = effective_masses.transpose((1, 0, 2, 3))
@@ -590,7 +614,18 @@ def _convert_effective_masses(effective_masses: np.ndarray) -> np.ndarray:
     return effective_masses
 
 
-def _get_projections(projections: np.ndarray):
+def _get_projections(projections: np.ndarray
+                     ) -> Tuple[Tuple[str, np.ndarray], ...]:
+    """Extracts and sums the band structure projections for a band.
+
+    Args:
+        projections: The projections for a band.
+
+    Returns:
+        The projection labels and orbital projections, as::
+
+            ("s", s_orbital_projections), ("p", p_orbital_projections)
+    """
     s_orbital = np.sum(projections, axis=3)[:, :, 0]
 
     if projections.shape[2] > 5:
