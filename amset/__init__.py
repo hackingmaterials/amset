@@ -1,9 +1,15 @@
 __version__ = "0.1.0"
 
 amset_defaults = {
-    "material": {
+
+    "general": {
         "scissor": None,
         "user_bandgap": None,
+        "interpolation_factor": None,
+        "scattering": "auto",
+    },
+
+    "material": {
         "high_frequency_dielectric": None,
         "static_dielectric": None,
         "elastic_constant": None,
@@ -17,14 +23,14 @@ amset_defaults = {
         "dislocation_charge": None
     },
 
-    "model": {
-        "scatterings": "auto",
-    },
-
     "performance": {
         "energy_tol": 0.001,
         "energy_cutoff": 1.5,
         "g_tol": 1,
-        "dos_npoints": 4000
+        "dos_estep": 0.01,
+        "dos_width": 0.05,
+        "symprec": 0.01,
+        "nworkers": -1
     }
 }
+
