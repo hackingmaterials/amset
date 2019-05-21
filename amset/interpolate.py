@@ -16,7 +16,7 @@ from BoltzTraP2 import units, sphere, fite
 from BoltzTraP2.bandlib import DOS
 from spglib import spglib
 
-from amset.electronic_structure import ElectronicStructure
+from amset.core import ElectronicStructure
 from amset.utils.constants import Hartree_to_eV, m_to_cm, A_to_m, hbar, e, m_e
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
@@ -165,21 +165,27 @@ class Interpolater(MSONable):
 
         nworkers = multiprocessing.cpu_count() if nworkers == -1 else nworkers
 
+        logger.info("Interpolating on a {} k-point mesh".format(
+            "x".join(self.interpolation_mesh)))
+
         # determine energy cutoffs
         if energy_cutoff and self._band_structure.is_metal():
+            logger.info("Limiting interpolation to bands within {} eV of the "
+                        "Fermi level".format(energy_cutoff))
             min_e = self._band_structure.efermi - energy_cutoff
             max_e = self._band_structure.efermi + energy_cutoff
+
         elif energy_cutoff:
+            logger.info("Limiting interpolation to bands within {} eV of the "
+                        "VBM and CBM".format(energy_cutoff))
             min_e = self._band_structure.get_vbm()['energy'] - energy_cutoff
             max_e = self._band_structure.get_cbm()['energy'] + energy_cutoff
+
         else:
             min_e = min([self._band_structure.bands[spin].min()
                          for spin in self._spins])
             max_e = max([self._band_structure.bands[spin].max()
                          for spin in self._spins])
-
-        logger.info("Interpolating on a {} k-point mesh".format(
-            "x".join(self.interpolation_mesh)))
 
         energies = {}
         vvelocities = {}
@@ -207,6 +213,8 @@ class Interpolater(MSONable):
                 energies[spin] = _shift_energies(
                     energies[spin], new_vb_idx, scissor=scissor,
                     bandgap=bandgap)
+
+            logger.info("Interpolating {} projections".format(spin_name[spin]))
 
             for label, proj_coeffs in self._projection_coefficients[spin]:
                 projections[spin][label] = fite.getBTPbands(
