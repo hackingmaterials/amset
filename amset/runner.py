@@ -10,6 +10,7 @@ from typing import Optional, Any, Dict, Union, List
 from monty.json import MSONable
 
 from amset.interpolate import Interpolater
+from amset.scatter import Scatterer
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.io.vasp import Vasprun
 from amset import __version__, amset_defaults
@@ -61,7 +62,6 @@ class AmsetRunner(MSONable):
             prefix: Optional[str] = None,
             write_input: bool = True,
             write_mesh: bool = True):
-
         _log_amset_intro()
         # _log_scattering_check(self.scattering, self.material_parameters)
         # _log_structure_information(self._band_structure)
@@ -78,6 +78,14 @@ class AmsetRunner(MSONable):
             dos_estep=self.performance_parameters["dos_estep"],
             dos_width=self.performance_parameters["dos_width"],
             symprec=self.performance_parameters["symprec"],
+            nworkers=self.performance_parameters["nworkers"])
+
+        scatterer = Scatterer(
+            self.scattering,
+            energy_tol=self.performance_parameters["energy_tol"],
+            g_tol=self.performance_parameters["g_tol"])
+        electronic_structure.scattering_rates = scatterer.get_scattering_rates(
+            electronic_structure,
             nworkers=self.performance_parameters["nworkers"])
 
     @staticmethod
@@ -107,6 +115,8 @@ class AmsetRunner(MSONable):
 
         return AmsetRunner(band_structure, nelect, material_parameters,
                            soc=soc, **kwargs)
+
+    # from folder constructor
 
 
 def _log_amset_intro():
