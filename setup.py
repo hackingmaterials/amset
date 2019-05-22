@@ -24,7 +24,7 @@ if __name__ == "__main__":
         zip_safe=False,
         install_requires=['numpy', 'pymatgen', 'scipy', 'monty',
                           'matplotlib', 'matminer', 'BoltzTraP2',
-                          'spglib>=1.12.2'],
+                          'spglib>=1.12.2', "sklearn", "tqdm"],
         extras_require={'docs': ['sphinx']},
         classifiers=['Programming Language :: Python :: 3.6',
                      'Development Status :: 4 - Beta',

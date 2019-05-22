@@ -1,3 +1,8 @@
+import numpy as np
+
+from multiprocessing.sharedctypes import RawArray
+
+
 def initialize_logger(name, filepath='.', filename=None, level=None):
     """Initialize the default logger with stdout and file handlers.
 
@@ -31,3 +36,16 @@ def initialize_logger(name, filepath='.', filename=None, level=None):
     logger.addHandler(handler)
 
     return logger
+
+
+def create_shared_array(data, return_buffer=False):
+    data = np.asarray(data)
+    shared_data = RawArray("d", np.prod(data.shape))
+    buffered_data = np.frombuffer(shared_data).reshape(data.shape)
+    buffered_data[:] = data[:]
+
+    if return_buffer:
+        return shared_data, buffered_data
+    else:
+        return shared_data
+

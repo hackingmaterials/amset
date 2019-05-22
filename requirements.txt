@@ -5,4 +5,6 @@ monty
 matplotlib
 matminer
 BoltzTraP2
+tqdm
+sklearn
 spglib>=1.12.2

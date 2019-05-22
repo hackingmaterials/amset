@@ -10,7 +10,7 @@ from typing import Optional, Any, Dict, Union, List
 from monty.json import MSONable
 
 from amset.interpolate import Interpolater
-from amset.scatter import Scatterer
+from amset.scatter import ScatteringCalculator
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.io.vasp import Vasprun
 from amset import __version__, amset_defaults
@@ -23,7 +23,7 @@ class AmsetRunner(MSONable):
     def __init__(self,
                  band_structure: BandStructure,
                  num_electrons: int,
-                 material_parameters: Dict[str, Any],
+                 material_properties: Dict[str, Any],
                  doping: Optional[Union[List, np.ndarray]] = None,
                  temperatures: Optional[Union[List, np.ndarray]] = None,
                  scattering: Optional[Union[str, List[str], float]] = "auto",
@@ -53,9 +53,9 @@ class AmsetRunner(MSONable):
         # if the user doesn't specify a value then use the default
         params = copy.deepcopy(amset_defaults)
         self.performance_parameters = params["performance"]
-        self.material_parameters = params["materials"]
+        self.material_properties = params["materials"]
         self.performance_parameters.update(performance_parameters)
-        self.material_parameters.update(material_parameters)
+        self.material_properties.update(material_properties)
 
     def run(self,
             directory: Union[str, Path] = '.',
@@ -63,9 +63,18 @@ class AmsetRunner(MSONable):
             write_input: bool = True,
             write_mesh: bool = True):
         _log_amset_intro()
-        # _log_scattering_check(self.scattering, self.material_parameters)
         # _log_structure_information(self._band_structure)
         # _log_settings(self)
+
+        # initialize scattering first so we can check that materials properties
+        # and desired scattering rates are consistent
+        scatter = ScatteringCalculator(
+            self.material_properties, self.doping, self.temperatures,
+            scattering=self.scattering,
+            energy_tol=self.performance_parameters["energy_tol"],
+            g_tol=self.performance_parameters["g_tol"],
+            use_symmetry=self.performance_parameters["symprec"] is not None,
+            nworkers=self.performance_parameters["nworkers"])
 
         interpolater = Interpolater(
             self._band_structure, num_electrons=self._num_electrons,
@@ -80,13 +89,10 @@ class AmsetRunner(MSONable):
             symprec=self.performance_parameters["symprec"],
             nworkers=self.performance_parameters["nworkers"])
 
-        scatterer = Scatterer(
-            self.scattering,
-            energy_tol=self.performance_parameters["energy_tol"],
-            g_tol=self.performance_parameters["g_tol"])
-        electronic_structure.scattering_rates = scatterer.get_scattering_rates(
-            electronic_structure,
-            nworkers=self.performance_parameters["nworkers"])
+        electronic_structure.scattering_rates = scatter.\
+            calculate_scattering_rates(electronic_structure)
+
+        solver = BoltzTraPSolver()
 
     @staticmethod
     def from_vasprun(vasprun: Union[str, Path, Vasprun],
