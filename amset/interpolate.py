@@ -5,10 +5,12 @@ BolzTraP2.
 
 import logging
 import multiprocessing
+
+import numpy as np
+
 from collections import defaultdict
 from typing import Optional, Union, Tuple, List, Dict
 
-import numpy as np
 from monty.json import MSONable
 from scipy.ndimage import gaussian_filter1d
 
@@ -16,16 +18,17 @@ from BoltzTraP2 import units, sphere, fite
 from BoltzTraP2.bandlib import DOS
 from spglib import spglib
 
-from amset.core import ElectronicStructure
-from amset.utils.constants import Hartree_to_eV, m_to_cm, A_to_m, hbar, e, m_e
-from pymatgen import Structure
+from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.core import Spin
-from pymatgen.electronic_structure.bandstructure import (BandStructure,
-                                                         BandStructureSymmLine)
+from pymatgen.electronic_structure.bandstructure import (
+    BandStructure, BandStructureSymmLine)
 from pymatgen.electronic_structure.dos import FermiDos, Dos
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.io.vasp import Kpoints
 from pymatgen.symmetry.bandstructure import HighSymmKpath
+
+from amset.core import ElectronicStructure
+from amset.constants import hartree_to_ev, m_to_cm, A_to_m, hbar, e, m_e
 
 logger = logging.getLogger(__name__)
 
@@ -594,7 +597,7 @@ def _convert_velocities(velocities: np.ndarray,
     """
     matrix_norm = (lattice_matrix / np.linalg.norm(lattice_matrix))
 
-    factor = Hartree_to_eV * m_to_cm * A_to_m / (hbar * 0.52917721067)
+    factor = hartree_to_ev * m_to_cm * A_to_m / (hbar * 0.52917721067)
     velocities = velocities.transpose((1, 0, 2))
     velocities = np.abs(np.matmul(matrix_norm, velocities)) * factor
     velocities = velocities.transpose((0, 2, 1))
@@ -614,7 +617,7 @@ def _convert_effective_masses(effective_masses: np.ndarray) -> np.ndarray:
         The effective masses in units of electron rest masss.
     """
     factor = 0.52917721067 ** 2 * e * hbar ** 2 / (
-            Hartree_to_eV * A_to_m ** 2 * m_e)
+            hartree_to_ev * A_to_m ** 2 * m_e)
     effective_masses = effective_masses.transpose((1, 0, 2, 3))
     effective_masses = factor / effective_masses
     effective_masses = effective_masses.transpose((2, 3, 0, 1))
