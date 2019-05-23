@@ -89,10 +89,13 @@ class AmsetRunner(MSONable):
             symprec=self.performance_parameters["symprec"],
             nworkers=self.performance_parameters["nworkers"])
 
-        electronic_structure.scattering_rates = scatter.\
-            calculate_scattering_rates(electronic_structure)
+        electronic_structure.set_doping_and_temperatures(
+            self.doping, self.temperatures)
 
-        solver = BoltzTraPSolver()
+        electronic_structure.set_scattering_rates(
+            scatter.calculate_scattering_rates(electronic_structure))
+
+        # solver = BoltzTraPSolver()
 
     @staticmethod
     def from_vasprun(vasprun: Union[str, Path, Vasprun],

@@ -233,9 +233,10 @@ class Interpolater(MSONable):
         emesh, densities = DOS(all_energies, erange=(dos_emin, dos_emax),
                                npts=npts)
 
+        dos_weight = 1 if self._soc or len(self._spins) == 2 else 1
         densities = gaussian_filter1d(densities, dos_width /
                                       (emesh[1] - emesh[0]))
-        densities *= 1 if self._soc or len(self._spins) == 2 else 1
+        densities *= dos_weight
         dos = Dos(self._band_structure.efermi * units.eV, emesh * units.eV,
                   densities)
 
@@ -253,7 +254,8 @@ class Interpolater(MSONable):
 
         return ElectronicStructure(
             energies, vvelocities, projections, self.interpolation_mesh,
-            full_kpts, ir_kpts, weights, ir_kpts_idx, ir_to_full_idx, fermi_dos)
+            full_kpts, ir_kpts, weights, ir_kpts_idx, ir_to_full_idx, fermi_dos,
+            dos_weight)
 
     def get_energies(self,
                      kpoints: Union[np.ndarray, List],
