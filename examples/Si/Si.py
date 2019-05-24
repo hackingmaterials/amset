@@ -21,8 +21,10 @@ settings = {
         "g_tol": 1,
         "symprec": None,
         "nworkers": -1,
-        "log_traceback": True
 
+    },
+    "output": {
+        "log_traceback": True
     }
 }
 
@@ -30,5 +32,6 @@ warnings.simplefilter("ignore")
 
 initialize_amset_logger(log_traceback=settings["output"]["log_traceback"])
 
-runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml", settings)
+runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml.gz", settings)
+
 runner.run()
