@@ -47,11 +47,11 @@ class AmsetRunner(MSONable):
         self.doping = doping
         self.temperatures = temperatures
 
-        if not self.doping:
+        if self.doping is None:
             self.doping = np.concatenate([np.logspace(16, 21, 6),
                                           -np.logspace(16, 21, 6)])
 
-        if not self.temperatures:
+        if self.temperatures is None:
             self.temperatures = np.array([300])
 
         # set materials and performance parameters
@@ -81,7 +81,7 @@ class AmsetRunner(MSONable):
             use_symmetry=self.performance_parameters["symprec"] is not None,
             nworkers=self.performance_parameters["nworkers"])
 
-        star_log(logger, "INTERPOLATION")
+        star_log("INTERPOLATION")
 
         interpolater = Interpolater(
             self._band_structure, num_electrons=self._num_electrons,
@@ -99,17 +99,37 @@ class AmsetRunner(MSONable):
         electronic_structure.set_doping_and_temperatures(
             self.doping, self.temperatures)
 
-        star_log(logger, "SCATTERING")
+        star_log("SCATTERING")
 
         electronic_structure.set_scattering_rates(
             scatter.calculate_scattering_rates(electronic_structure),
             [m.name for m in scatter.scatterers])
+
+        star_log('BTE')
 
         # TODO: make these options configurable
         solver = BTESolver(calculate_mobility=True,
                            separate_scattering_mobilities=True)
         sigma, seebeck, kappa, hall, mobility = solver.solve_bte(
             electronic_structure)
+
+        star_log('RESULTS')
+
+        # if calculate_mobility:
+        #
+        # logger.info("Average conductivity Calculated Fermi levels:")
+
+        # fermi_level_info = []
+        # for c, t in np.ndindex(self.fermi_levels.shape):
+        #     # do minus -c as FermiDos treats negative concentrations as electron
+        #     # doping and +ve as hole doping (the opposite to amset).
+        #     self.fermi_levels[c, t] = self.dos.get_fermi(
+        #         -doping[c], temperatures[t])
+        #     fermi_level_info.append("{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
+        #         doping[c], temperatures[t], self.fermi_levels[c, t]))
+        #
+        # log_list(logger, fermi_level_info)
+
 
     @staticmethod
     def from_vasprun(vasprun: Union[str, Path, Vasprun],
