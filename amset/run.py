@@ -17,7 +17,7 @@ from monty.json import MSONable
 from amset.interpolate import Interpolater
 from amset.io import load_settings_from_file
 from amset.scatter import ScatteringCalculator
-from amset.solve import BTESolver
+from amset.bte import BTESolver
 from amset.util import validate_settings, star_log, tensor_average, log_list
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.io.vasp import Vasprun

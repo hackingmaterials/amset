@@ -123,7 +123,7 @@ def _calculate_mobility(electronic_structure: ElectronicStructure,
             l0, l1, l2, electronic_structure.doping[[n]],
             electronic_structure.temperatures[[t]], volume)
 
-        # convert mobility cm^2/V.s
+        # convert mobility to cm^2/V.s
         mobility[n, t] = (sigma[0, ...] * 0.01 / (e * carriers[0]))
 
     return mobility
