@@ -1,9 +1,12 @@
 import collections
 import copy
 import datetime
+import io
 import logging
 import math
 import os
+from io import StringIO
+
 import scipy
 import sys
 import textwrap
@@ -12,6 +15,7 @@ import time
 from multiprocessing.sharedctypes import RawArray
 
 import numpy as np
+import tqdm
 
 from amset import amset_defaults
 from amset.constants import output_width
@@ -134,7 +138,7 @@ class WrappingFormatter(logging.Formatter):
 
 
 def log_time_taken(t0: float):
-    logger.info("  └── Time: {:.4f} s".format(time.perf_counter() - t0))
+    logger.info("  └── time: {:.4f} s".format(time.perf_counter() - t0))
 
 
 def star_log(text):
