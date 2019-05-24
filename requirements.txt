@@ -7,4 +7,5 @@ matminer
 BoltzTraP2
 tqdm
 sklearn
+tabulate
 spglib>=1.12.2
