@@ -3,16 +3,20 @@ general:
 
     # band gap settings
     scissor: null                     # in eV
-    user_bandgap: 3.0                 # in eV
+    bandgap: 3.0                 # in eV
 
     # options include ACD, PIE, IMP, DIS, and POP. E.g.:
-    # scatterings: ACD, POP, IMP
+    # scattering_type: ACD, POP, IMP
     # alternatively, set to auto to automatically determine
-    # scatterings based on material parameters
-    # could allow "inv_dos" or "CRTA" + rate. E.g. scatterings: inv_dos 1E-14
-    scattering: auto
+    # scattering_type based on material parameters
+    # could allow "inv_dos" or "CRTA" + rate. E.g.:
+    # scattering_type: inv_dos 1E-14
+    scattering_type: auto
 
     interpolation_factor: 10
+
+    doping: 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21
+    temperatures: 300
 
 material:
     # dielectric constants
@@ -43,6 +47,6 @@ performance:
     energy_cutoff: 1.5                # in eV
     g_tol: 1                          # in %
     dos_estep: 0.01                   # in eV
-    dos_width: 0.05                   # in eV
+    dos_width: 0.01                   # in eV
     symprec: 0.01                     # in Angstrom
     nworkers: -1
