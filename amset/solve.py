@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Union, List
 
 import numpy as np
@@ -8,6 +9,7 @@ from monty.json import MSONable
 
 from amset.constants import e
 from amset.core import ElectronicStructure
+from amset.util import log_time_taken
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +23,17 @@ class BTESolver(MSONable):
         self.calculate_mobility = calculate_mobility
 
     def solve_bte(self, electronic_structure: ElectronicStructure):
-        if not all([electronic_structure.doping,
-                    electronic_structure.temperatures,
-                    electronic_structure.scattering_rates]):
+        if not all([electronic_structure.doping is not None,
+                    electronic_structure.temperatures is not None,
+                    electronic_structure.scattering_rates is not None]):
             raise ValueError("Electronic structure must contain dopings "
                              "temperatures and scattering_type rates")
 
+        logger.info("Calculating conductivity, Seebeck, kappa and Hall tensor")
+        t0 = time.perf_counter()
         sigma, seebeck, kappa, hall = _calculate_transport_properties(
             electronic_structure)
+        log_time_taken(t0)
 
         if not self.calculate_mobility:
             return sigma, seebeck, kappa, hall
@@ -38,16 +43,21 @@ class BTESolver(MSONable):
                         "mobility")
             return sigma, seebeck, kappa, hall, None
 
-        # solve mobility
+        logger.info("Calculating overall mobility")
+        t0 = time.perf_counter()
         mobility = {"total": _calculate_mobility(
             electronic_structure,
             list(range(len(electronic_structure.scattering_labels))))}
+        log_time_taken(t0)
 
         if self.separate_scattering_mobilities:
+            logger.info("Calculating individual scattering rate mobilities")
+            t0 = time.perf_counter()
             for rate_idx, name in enumerate(
                     electronic_structure.scattering_labels):
                 mobility[name] = _calculate_mobility(
                     electronic_structure, rate_idx)
+            log_time_taken(t0)
 
         return sigma, seebeck, kappa, hall, mobility
 
@@ -63,7 +73,7 @@ def _calculate_mobility(electronic_structure: ElectronicStructure,
     all_vv = electronic_structure.velocities_product
     all_energies = electronic_structure.energies
 
-    mobility = np.zeros(n_t_size + (3,))
+    mobility = np.zeros(n_t_size + (3, 3))
     for n, t in np.ndindex(n_t_size):
         energies = []
         vv = []
@@ -72,30 +82,32 @@ def _calculate_mobility(electronic_structure: ElectronicStructure,
             cb_idx = electronic_structure.vb_idx[spin] + 1
             if n > 0:
                 # electrons
-                energies.append(all_energies[spin][:cb_idx])
-                vv.append(all_vv[spin][:cb_idx])
-                rates.append(np.sum(all_rates[spin][rate_idx, :cb_idx], axis=0))
-            else:
-                # holes
                 energies.append(all_energies[spin][cb_idx:])
                 vv.append(all_vv[spin][cb_idx:])
-                rates.append(np.sum(all_rates[spin][rate_idx, cb_idx:], axis=0))
+                rates.append(np.sum(all_rates[spin][rate_idx, n, t, cb_idx:],
+                                    axis=0))
+            else:
+                # holes
+                energies.append(all_energies[spin][:cb_idx])
+                vv.append(all_vv[spin][:cb_idx])
+                rates.append(np.sum(all_rates[spin][rate_idx, n, t, :cb_idx],
+                                    axis=0))
 
         energies = np.vstack(energies)
         vv = np.vstack(vv)
         lifetimes = 1 / np.vstack(rates)
+
+        # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
+        fermi = electronic_structure.fermi_levels[n, t][None] * units.eV
+        temp = electronic_structure.temperatures[t][None]
 
         # obtain the Fermi integrals the temperature and doping
         epsilon, dos, vvdos, cdos = BTPDOS(
             energies, vv, scattering_model=lifetimes,
             npts=len(electronic_structure.dos.energies))
 
-        # todo, this properly
-        fermi_level = [5.940700 * units.eV]
-        temp = np.array([300.])
-
         carriers, l0, l1, l2, lm11 = fermiintegrals(
-            epsilon, dos, vvdos, mur=fermi_level, Tr=temp,
+            epsilon, dos, vvdos, mur=fermi, Tr=temp,
             dosweight=electronic_structure.dos_weight)
 
         volume = (electronic_structure.structure.lattice.volume *
@@ -105,13 +117,13 @@ def _calculate_mobility(electronic_structure: ElectronicStructure,
         carriers = ((-carriers[0, ...] - electronic_structure.dos.nelecs) /
                     (volume / (units.Meter / 100.) ** 3))
 
-        # Compute the Onsager coefficients from those Fermi integrals
+        # Compute the Onsager coefficients from Fermi integrals
         sigma, _, _, _ = calc_Onsager_coefficients(
-            l0, l1, l2, fermi_level, temp, volume)
+            l0, l1, l2, electronic_structure.doping[[n]],
+            electronic_structure.temperatures[[t]], volume)
 
-        # todo: Store sigma in correct array
-        sigma = sigma[0, ...]
-        mobility[n, t] = (sigma * 0.01 / (e * carriers[0]))[0]
+        # convert mobility cm^2/V.s
+        mobility[n, t] = (sigma[0, ...] * 0.01 / (e * carriers[0]))
 
     return mobility
 
@@ -125,10 +137,10 @@ def _calculate_transport_properties(electronic_structure):
     n_t_size = (len(electronic_structure.doping),
                 len(electronic_structure.temperatures))
 
-    sigma = np.zeros(n_t_size + (3,))
-    seebeck = np.zeros(n_t_size + (3,))
-    kappa = np.zeros(n_t_size + (3,))
-    hall = np.zeros(n_t_size + (3,))
+    sigma = np.zeros(n_t_size + (3, 3))
+    seebeck = np.zeros(n_t_size + (3, 3))
+    kappa = np.zeros(n_t_size + (3, 3))
+    hall = np.zeros(n_t_size + (3, 3))
 
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in np.ndindex(n_t_size):
@@ -137,34 +149,24 @@ def _calculate_transport_properties(electronic_structure):
             for s in electronic_structure.spins]
         lifetimes = 1 / np.vstack(sum_rates)
 
-        # obtain the Fermi integrals the temperature and doping
+        # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
+        fermi = electronic_structure.fermi_levels[n, t][None] * units.eV
+        temp = electronic_structure.temperatures[t][None]
+
+        # obtain the Fermi integrals
         epsilon, dos, vvdos, cdos = BTPDOS(
             energies, vv, scattering_model=lifetimes,
             npts=len(electronic_structure.dos.energies))
 
-        # todo, this properly
-        fermi_level = [5.940700 * units.eV]
-        temp = np.array([300.])
-
-        carriers, l0, l1, l2, lm11 = fermiintegrals(
-            epsilon, dos, vvdos, mur=fermi_level, Tr=temp,
+        _, l0, l1, l2, lm11 = fermiintegrals(
+            epsilon, dos, vvdos, mur=fermi, Tr=temp,
             dosweight=electronic_structure.dos_weight)
 
         volume = (electronic_structure.structure.lattice.volume *
                   units.Angstrom ** 3)
 
-        # Rescale the carrier count into a volumetric density in cm**(-3)
-        carriers = ((-carriers[0, ...] - electronic_structure.dos.nelecs) /
-                    (volume / (units.Meter / 100.) ** 3))
-
-        # Compute the Onsager coefficients from those Fermi integrals
-        sigma, seebeck, kappa, hall = calc_Onsager_coefficients(
-            l0, l1, l2, fermi_level, temp, volume)
-
-        # todo: Store sigma in correct array
-
-        sigma = sigma[0, ...]
-        mobility = sigma * 0.01 / (e * carriers[0])
-        print("mobility: {}".format(mobility[0]))
+        # Compute the Onsager coefficients from Fermi integrals
+        sigma[n, t], seebeck[n, t], kappa[n, t], hall[n, t] = \
+            calc_Onsager_coefficients(l0, l1, l2, fermi, temp, volume)
 
     return sigma, seebeck, kappa, hall
