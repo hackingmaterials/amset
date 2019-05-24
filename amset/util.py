@@ -18,6 +18,8 @@ from pymatgen import Spin
 
 spin_name = {Spin.up: "spin-up", Spin.down: "spin-down"}
 
+logger = logging.getLogger(__name__)
+
 
 def initialize_amset_logger(filepath='.', filename=None, level=None,
                             log_traceback=False):
@@ -130,18 +132,18 @@ class WrappingFormatter(logging.Formatter):
                 self.wrapper.fill(s) for s in text.splitlines()])
 
 
-def log_time_taken(logger: logging.Logger, t0: float):
+def log_time_taken(t0: float):
     logger.info("  └── Time: {:.4f} s".format(time.perf_counter() - t0))
 
 
-def star_log(logger, text):
+def star_log(text):
     width = output_width - 2
     nstars = (width - (len(text) + 2))/2
     logger.info("\n  {} {} {}".format(
         '*' * math.ceil(nstars), text, '*' * math.floor(nstars)))
 
 
-def log_list(logger, list_strings, prefix="  "):
+def log_list(list_strings, prefix="  "):
     for i, text in enumerate(list_strings):
         if i == len(list_strings) - 1:
             pipe = "└"
