@@ -1,11 +1,8 @@
-import copy
-import collections
 import logging
+
 from typing import Any, Dict
-
 from monty.serialization import loadfn, dumpfn
-
-from amset import amset_defaults
+from amset.util import validate_settings
 
 logger = logging.getLogger(__name__)
 
@@ -26,22 +23,9 @@ def load_settings_from_file(filename: str) -> Dict[str, Any]:
         defaults.
     """
     logger.info("Loading settings from: {}".format(filename))
+    settings = loadfn(filename)
 
-    def recursive_update(d, u):
-        """ Recursive dict update."""
-        for k, v in u.items():
-            if isinstance(v, collections.Mapping):
-                d[k] = recursive_update(d.get(k, {}), v)
-            else:
-                d[k] = v
-        return d
-
-    settings = copy.deepcopy(amset_defaults)
-    user_settings = loadfn(filename)
-
-    recursive_update(settings, user_settings)
-
-    return settings
+    return validate_settings(settings)
 
 
 def write_settings_to_file(settings: Dict[str, Any], filename: str):
@@ -53,4 +37,3 @@ def write_settings_to_file(settings: Dict[str, Any], filename: str):
     """
     logger.info("Writing settings to: {}".format(filename))
     dumpfn(settings, filename, indent=4, default_flow_style=False)
-
