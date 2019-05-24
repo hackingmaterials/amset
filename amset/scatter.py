@@ -10,7 +10,6 @@ import sys
 
 from abc import ABC, abstractmethod
 from multiprocessing import Queue, Process, cpu_count
-from time import sleep
 
 import numpy as np
 
@@ -93,11 +92,11 @@ class ScatteringCalculator(MSONable):
                     spin, b_idx, kpoints_idx, nsplits, electronic_structure)
 
                 logger.debug("  ├── Max rate: {:.4g}".format(
-                    (rates[spin][:, :, :, b_idx] * integral_conversion).max()))
+                    (rates[spin][:, :, :, b_idx] * integral_conversion[:, :, :, None, None]).max()))
                 logger.debug("  └── Min rate: {:.4g}".format(
-                    (rates[spin][:, :, :, b_idx] * integral_conversion).min()))
+                    (rates[spin][:, :, :, b_idx] * integral_conversion[:, :, :, None, None]).min()))
 
-            rates[spin] *= integral_conversion
+            rates[spin] *= integral_conversion[:, :, :, None, None]
 
         # if the k-point density is low, some k-points may not have
         # other k-points within the energy tolerance leading to zero rates
@@ -126,7 +125,10 @@ class ScatteringCalculator(MSONable):
         s_c_factor = create_shared_array(
             electronic_structure.c_factor[spin][b_idx, kpoints_idx])
 
-        red_band_rates = np.zeros(nkpoints)
+        red_band_rates = np.zeros(
+            (len(self.scatterers), len(electronic_structure.doping),
+             len(electronic_structure.temperatures), nkpoints))
+
         rlat = electronic_structure.structure.lattice.reciprocal_lattice.matrix
 
         # spawn as many worker processes as needed, put all bands in the queue,
@@ -157,7 +159,7 @@ class ScatteringCalculator(MSONable):
         # The results are processed as soon as they are ready.
         pbar = tqdm(total=nkpoints, ncols=output_width)
         for _ in range(nsplits):
-            s, red_band_rates[s] = oqueue.get()
+            s, red_band_rates[:, :, :, s] = oqueue.get()
             pbar.update(s.stop - s.start)
         pbar.close()
 
@@ -166,7 +168,7 @@ class ScatteringCalculator(MSONable):
 
         if self.use_symmetry:
             all_band_rates = red_band_rates[
-                electronic_structure.ir_to_full_kpoint_mapping]
+                :, :, :, electronic_structure.ir_to_full_kpoint_mapping]
 
         else:
             all_band_rates = red_band_rates
