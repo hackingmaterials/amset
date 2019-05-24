@@ -5,12 +5,14 @@ BolzTraP2.
 
 import logging
 import multiprocessing
+import time
 
 import numpy as np
 
 from collections import defaultdict
 from typing import Optional, Union, Tuple, List, Dict
 
+import scipy
 from monty.json import MSONable
 from scipy.ndimage import gaussian_filter1d
 
@@ -18,6 +20,7 @@ from BoltzTraP2 import units, sphere, fite
 from BoltzTraP2.bandlib import DOS
 from spglib import spglib
 
+from amset.util import log_time_taken, star_log, spin_name, log_list
 from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
@@ -31,8 +34,6 @@ from amset.core import ElectronicStructure
 from amset.constants import hartree_to_ev, m_to_cm, A_to_m, hbar, e, m_e
 
 logger = logging.getLogger(__name__)
-
-spin_name = {Spin.up: "spin up", Spin.down: "spin down"}
 
 
 class Interpolater(MSONable):
@@ -81,6 +82,7 @@ class Interpolater(MSONable):
 
         logger.info("Getting band interpolation coefficients")
 
+        t0 = time.perf_counter()
         self._equivalences = sphere.get_equivalences(
             atoms=atoms, nkpt=kpoints.shape[0] * interpolation_factor,
             magmom=magmom)
@@ -94,6 +96,8 @@ class Interpolater(MSONable):
             data = DFTData(kpoints, energies, self._lattice_matrix,
                            mommat=mommat)
             self._coefficients[spin] = fite.fitde3D(data, self._equivalences)
+
+        log_time_taken(logger, t0)
 
         if self._interpolate_projections:
             logger.info("Getting projection interpolation coefficients")
@@ -110,13 +114,14 @@ class Interpolater(MSONable):
                                    mommat=mommat)
                     self._projection_coefficients[spin][label] = fite.fitde3D(
                         data, self._equivalences)
+            log_time_taken(logger, t0)
 
     def get_electronic_structure(self,
                                  energy_cutoff: Optional[float] = None,
                                  scissor: float = None,
                                  bandgap: float = None,
                                  dos_estep: float = 0.01,
-                                 dos_width: float = 0.05,
+                                 dos_width: float = 0.01,
                                  symprec: float = 0.01,
                                  nworkers: int = -1
                                  ) -> ElectronicStructure:
@@ -168,19 +173,18 @@ class Interpolater(MSONable):
 
         nworkers = multiprocessing.cpu_count() if nworkers == -1 else nworkers
 
-        logger.info("Interpolating on a {} k-point mesh".format(
-            "x".join(self.interpolation_mesh)))
+        str_kmesh = "x".join(map(str, self.interpolation_mesh))
+        logger.info("Interpolation parameters:")
+        log_list(logger,
+                 ["k-point mesh: {}".format(str_kmesh),
+                  "energy cutoff: {} eV".format(energy_cutoff)])
 
         # determine energy cutoffs
         if energy_cutoff and self._band_structure.is_metal():
-            logger.info("Limiting interpolation to bands within {} eV of the "
-                        "Fermi level".format(energy_cutoff))
             min_e = self._band_structure.efermi - energy_cutoff
             max_e = self._band_structure.efermi + energy_cutoff
 
         elif energy_cutoff:
-            logger.info("Limiting interpolation to bands within {} eV of the "
-                        "VBM and CBM".format(energy_cutoff))
             min_e = self._band_structure.get_vbm()['energy'] - energy_cutoff
             max_e = self._band_structure.get_cbm()['energy'] + energy_cutoff
 
@@ -201,9 +205,11 @@ class Interpolater(MSONable):
                 spin_name[spin], np.where(ibands)[0].min() + 1,
                 np.where(ibands)[0].max() + 1))
 
-            energies[spin], vvelocities[spin] = fite.getBTPbands(
+            t0 = time.perf_counter()
+            energies[spin], vvelocities[spin], _ = fite.getBTPbands(
                 self._equivalences, self._coefficients[spin][ibands],
                 self._lattice_matrix, nworkers=nworkers)
+            log_time_taken(logger, t0)
 
             if not self._band_structure.is_metal():
                 vb_idx = max(self._band_structure.get_vbm()["band_index"][spin])
@@ -218,32 +224,49 @@ class Interpolater(MSONable):
                     bandgap=bandgap)
 
             logger.info("Interpolating {} projections".format(spin_name[spin]))
+            t0 = time.perf_counter()
 
-            for label, proj_coeffs in self._projection_coefficients[spin]:
+            for label, proj_coeffs in self._projection_coefficients[
+                    spin].items():
                 projections[spin][label] = fite.getBTPbands(
                     self._equivalences, proj_coeffs[ibands],
                     self._lattice_matrix, nworkers=nworkers)[0]
 
+            log_time_taken(logger, t0)
+
+        star_log(logger, "DOS")
+
         all_energies = np.vstack([energies[spin] for spin in self._spins])
+        all_energies /= units.eV  # convert from Hartree to eV for DOS
 
         # add a few multiples of dos_width to emin and emax to account for tails
-        dos_emin = np.min(energies) - dos_width * 5
-        dos_emax = np.max(energies) + dos_width * 5
+        dos_emin = np.min(all_energies) - dos_width * 5
+        dos_emax = np.max(all_energies) + dos_width * 5
         npts = int(round((dos_emax - dos_emin) / dos_estep))
-        emesh, densities = DOS(all_energies, erange=(dos_emin, dos_emax),
+
+        logger.debug("DOS parameters:")
+        log_list(logger,
+                 ["emin: {:.2f} eV".format(dos_emin),
+                  "emax: {:.2f} eV".format(dos_emax),
+                  "broadening width: {} eV".format(dos_width)])
+
+        emesh, densities = DOS(all_energies.T, erange=(dos_emin, dos_emax),
                                npts=npts)
 
-        dos_weight = 1 if self._soc or len(self._spins) == 2 else 1
         densities = gaussian_filter1d(densities, dos_width /
                                       (emesh[1] - emesh[0]))
+
+        dos_weight = 1 if self._soc or len(self._spins) == 2 else 2
         densities *= dos_weight
-        dos = Dos(self._band_structure.efermi * units.eV, emesh * units.eV,
-                  densities)
+        dos = Dos(self._band_structure.efermi, emesh, {Spin.up: densities})
 
         # integrate up to Fermi level to get number of electrons
-        nelect = (densities[emesh <= self._band_structure.efermi].sum() /
-                  (emesh[1] - emesh[0]))
-        fermi_dos = FermiDos(dos, self._band_structure.structure, nelecs=nelect)
+        energy_mask = emesh <= (self._band_structure.efermi + dos_width)
+        nelect = scipy.trapz(densities[energy_mask], emesh[energy_mask])
+
+        logger.debug("DOS contains {:.3f} electrons".format(nelect))
+        fermi_dos = FermiDos(dos, structure=self._band_structure.structure,
+                             nelecs=nelect)
 
         # get the actual k-points used in the BoltzTraP2 interpolation
         # unfortunately, BoltzTraP2 doesn't expose this information so we
@@ -268,7 +291,7 @@ class Interpolater(MSONable):
                      coords_are_cartesian: bool = False,
                      atomic_units: bool = False
                      ) -> Union[Dict[Spin, np.ndarray],
-                                Tuple[Dict[Spin, np.ndarray]], ...]:
+                                Tuple[Dict[Spin, np.ndarray], ...]]:
         """Gets the interpolated energies for multiple k-points in a band.
 
         Note, the accuracy of the interpolation is dependant on the
@@ -692,6 +715,9 @@ def _get_kpoints(kpoint_mesh: Union[float, int, List[int]],
         kpoint_mesh = Kpoints.automatic_density_by_vol(structure, kpoint_mesh)
 
     atoms = AseAtomsAdaptor().get_atoms(structure)
+
+    if not symprec:
+        symprec = 0.1
 
     mapping, grid = spglib.get_ir_reciprocal_mesh(
         kpoint_mesh, atoms, symprec=symprec)
