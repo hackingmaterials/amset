@@ -97,7 +97,7 @@ class Interpolater(MSONable):
                            mommat=mommat)
             self._coefficients[spin] = fite.fitde3D(data, self._equivalences)
 
-        log_time_taken(logger, t0)
+        log_time_taken(t0)
 
         if self._interpolate_projections:
             logger.info("Getting projection interpolation coefficients")
@@ -114,7 +114,7 @@ class Interpolater(MSONable):
                                    mommat=mommat)
                     self._projection_coefficients[spin][label] = fite.fitde3D(
                         data, self._equivalences)
-            log_time_taken(logger, t0)
+            log_time_taken(t0)
 
     def get_electronic_structure(self,
                                  energy_cutoff: Optional[float] = None,
@@ -175,8 +175,7 @@ class Interpolater(MSONable):
 
         str_kmesh = "x".join(map(str, self.interpolation_mesh))
         logger.info("Interpolation parameters:")
-        log_list(logger,
-                 ["k-point mesh: {}".format(str_kmesh),
+        log_list(["k-point mesh: {}".format(str_kmesh),
                   "energy cutoff: {} eV".format(energy_cutoff)])
 
         # determine energy cutoffs
@@ -197,6 +196,7 @@ class Interpolater(MSONable):
         energies = {}
         vvelocities = {}
         projections = defaultdict(dict)
+        new_vb_idx = {}
         for spin in self._spins:
             ibands = np.any((self._band_structure.bands[spin] > min_e) &
                             (self._band_structure.bands[spin] < max_e), axis=1)
@@ -209,18 +209,17 @@ class Interpolater(MSONable):
             energies[spin], vvelocities[spin], _ = fite.getBTPbands(
                 self._equivalences, self._coefficients[spin][ibands],
                 self._lattice_matrix, nworkers=nworkers)
-            log_time_taken(logger, t0)
+            log_time_taken(t0)
 
             if not self._band_structure.is_metal():
                 vb_idx = max(self._band_structure.get_vbm()["band_index"][spin])
-
                 # need to know the index of the valence band after discounting
                 # bands during the interpolation. As ibands is just a list of
                 # True/False, we can count the number of Trues up to
                 # and including the VBM to get the new number of valence bands
-                new_vb_idx = sum(ibands[: vb_idx + 1])
+                new_vb_idx[spin] = sum(ibands[: vb_idx + 1])
                 energies[spin] = _shift_energies(
-                    energies[spin], new_vb_idx, scissor=scissor,
+                    energies[spin], new_vb_idx[spin], scissor=scissor,
                     bandgap=bandgap)
 
             logger.info("Interpolating {} projections".format(spin_name[spin]))
@@ -232,9 +231,9 @@ class Interpolater(MSONable):
                     self._equivalences, proj_coeffs[ibands],
                     self._lattice_matrix, nworkers=nworkers)[0]
 
-            log_time_taken(logger, t0)
+            log_time_taken(t0)
 
-        star_log(logger, "DOS")
+        star_log("DOS")
 
         all_energies = np.vstack([energies[spin] for spin in self._spins])
         all_energies /= units.eV  # convert from Hartree to eV for DOS
@@ -245,8 +244,7 @@ class Interpolater(MSONable):
         npts = int(round((dos_emax - dos_emin) / dos_estep))
 
         logger.debug("DOS parameters:")
-        log_list(logger,
-                 ["emin: {:.2f} eV".format(dos_emin),
+        log_list(["emin: {:.2f} eV".format(dos_emin),
                   "emax: {:.2f} eV".format(dos_emax),
                   "broadening width: {} eV".format(dos_width)])
 
@@ -278,7 +276,7 @@ class Interpolater(MSONable):
         return ElectronicStructure(
             energies, vvelocities, projections, self.interpolation_mesh,
             full_kpts, ir_kpts, weights, ir_kpts_idx, ir_to_full_idx, fermi_dos,
-            dos_weight)
+            dos_weight, self._band_structure.is_metal(), vb_idx=new_vb_idx)
 
     def get_energies(self,
                      kpoints: Union[np.ndarray, List],
