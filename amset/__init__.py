@@ -4,9 +4,11 @@ amset_defaults = {
 
     "general": {
         "scissor": None,
-        "user_bandgap": None,
-        "interpolation_factor": None,
-        "scattering": "auto",
+        "bandgap": None,
+        "interpolation_factor": 10,
+        "scattering_type": "auto",
+        "doping": [1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21],
+        "temperatures": [300]
     },
 
     "material": {
@@ -27,10 +29,11 @@ amset_defaults = {
         "energy_tol": 0.001,
         "energy_cutoff": 1.5,
         "g_tol": 1,
-        "dos_estep": 0.01,
-        "dos_width": 0.05,
+        "dos_estep": 0.001,
+        "dos_width": 0.01,
         "symprec": 0.01,
-        "nworkers": -1
+        "nworkers": -1,
+        "log_traceback": False
     }
 }
 
