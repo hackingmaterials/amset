@@ -33,6 +33,11 @@ amset_defaults = {
         "dos_width": 0.01,
         "symprec": 0.01,
         "nworkers": -1,
+    },
+
+    "output": {
+        "calculate_mobility": True,
+        "raw_output": False,
         "log_traceback": False
     }
 }
