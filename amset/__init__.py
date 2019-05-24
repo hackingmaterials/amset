@@ -37,6 +37,7 @@ amset_defaults = {
 
     "output": {
         "calculate_mobility": True,
+        "separate_scattering_mobilities": True,
         "raw_output": False,
         "log_traceback": False
     }
