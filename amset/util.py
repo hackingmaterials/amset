@@ -4,6 +4,7 @@ import datetime
 import logging
 import math
 import os
+import scipy
 import sys
 import textwrap
 import time
@@ -42,7 +43,7 @@ def initialize_amset_logger(filepath='.', filename=None, level=None,
     logger.setLevel(level)
     logger.handlers = []  # reset logging handlers if they already exist
 
-    formatter = WrappingFormatter(fmt='  %(message)s')
+    formatter = WrappingFormatter(fmt='%(message)s')
 
     handler = logging.FileHandler(os.path.join(filepath, filename),
                                   mode='w')
@@ -126,10 +127,10 @@ class WrappingFormatter(logging.Formatter):
         text = super().format(record)
         if "└" in text or "├" in text:
             # don't have blank line when reporting time
-            return text
+            return "  " + text
         else:
             return "\n" + "\n".join([
-                self.wrapper.fill(s) for s in text.splitlines()])
+                self.wrapper.fill("  " + s) for s in text.splitlines()])
 
 
 def log_time_taken(t0: float):
@@ -139,7 +140,7 @@ def log_time_taken(t0: float):
 def star_log(text):
     width = output_width - 2
     nstars = (width - (len(text) + 2))/2
-    logger.info("\n  {} {} {}".format(
+    logger.info("\n{} {} {}".format(
         '*' * math.ceil(nstars), text, '*' * math.floor(nstars)))
 
 
@@ -151,3 +152,6 @@ def log_list(list_strings, prefix="  "):
             pipe = "├"
         logger.info("{}{}── {}".format(prefix, pipe, text))
 
+
+def tensor_average(tensor):
+    return np.average(scipy.linalg.eigvalsh(tensor))
