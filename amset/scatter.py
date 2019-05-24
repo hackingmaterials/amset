@@ -7,6 +7,7 @@ import inspect
 import logging
 import math
 import sys
+import time
 
 from abc import ABC, abstractmethod
 from multiprocessing import Queue, Process, cpu_count
@@ -25,7 +26,7 @@ from tqdm import tqdm
 
 from amset.constants import k_B, e, hbar, over_sqrt_pi, A_to_nm, output_width
 from amset.core import ElectronicStructure
-from amset.util import create_shared_array, spin_name
+from amset.util import create_shared_array, spin_name, log_list
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 
@@ -72,11 +73,10 @@ class ScatteringCalculator(MSONable):
 
         batch_size = min(500., 1 / (self.energy_tol * 2))
         nsplits = math.ceil(nkpoints/batch_size)
-        logger.info("# k-points at which to calculate the scattering: "
-                    "{}".format(nkpoints))
-        logger.info(
-            "Calculating scattering rates in batches of {:.0f} k-points, using "
-            "an energy tolerance of {} eV".format(batch_size, self.energy_tol))
+        logger.info("Scattering information:")
+        log_list(["energy tolerance: {} eV".format(self.energy_tol),
+                  "# k-points: {}".format(nkpoints),
+                  "batch size: {}".format(batch_size)])
 
         integral_conversion = (2 * np.pi) ** 3 / (
             electronic_structure.structure.lattice.volume *
@@ -88,13 +88,18 @@ class ScatteringCalculator(MSONable):
                 logger.info("Calculating rates for {} band {}".format(
                     spin_name[spin], b_idx + 1))
 
+                t0 = time.perf_counter()
                 rates[spin][:, :, :, b_idx, :] = self.calculate_band_rates(
                     spin, b_idx, kpoints_idx, nsplits, electronic_structure)
 
-                logger.debug("  ├── Max rate: {:.4g}".format(
-                    (rates[spin][:, :, :, b_idx] * integral_conversion[:, :, :, None, None]).max()))
-                logger.debug("  └── Min rate: {:.4g}".format(
-                    (rates[spin][:, :, :, b_idx] * integral_conversion[:, :, :, None, None]).min()))
+                log_list([
+                    "max rate: {:.4g}".format(
+                        (rates[spin][:, :, :, b_idx] *
+                         integral_conversion[:, :, :, None, None]).max()),
+                    "min rate: {:.4g}".format(
+                        (rates[spin][:, :, :, b_idx] *
+                         integral_conversion[:, :, :, None, None]).min()),
+                    "time: {:.4f} s".format(time.perf_counter() - t0)])
 
             rates[spin] *= integral_conversion[:, :, :, None, None]
 
@@ -157,7 +162,12 @@ class ScatteringCalculator(MSONable):
             w.start()
 
         # The results are processed as soon as they are ready.
-        pbar = tqdm(total=nkpoints, ncols=output_width)
+
+        desc = "    ├── Progress".format(
+            spin_name[spin], b_idx + 1)
+        pbar = tqdm(total=nkpoints, ncols=output_width, desc=desc,
+                    bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}',
+                    file=sys.stdout)
         for _ in range(nsplits):
             s, red_band_rates[:, :, :, s] = oqueue.get()
             pbar.update(s.stop - s.start)
