@@ -3,11 +3,14 @@ import copy
 import datetime
 import logging
 
+
 import numpy as np
 
 from pathlib import Path
 from os.path import join as joinpath
 from typing import Optional, Any, Dict, Union, List
+
+from tabulate import tabulate
 
 from monty.json import MSONable
 
@@ -15,7 +18,7 @@ from amset.interpolate import Interpolater
 from amset.io import load_settings_from_file
 from amset.scatter import ScatteringCalculator
 from amset.solve import BTESolver
-from amset.util import validate_settings, star_log
+from amset.util import validate_settings, star_log, tensor_average, log_list
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.io.vasp import Vasprun
 from amset import __version__, amset_defaults
@@ -31,8 +34,10 @@ class AmsetRunner(MSONable):
                  material_properties: Dict[str, Any],
                  doping: Optional[Union[List, np.ndarray]] = None,
                  temperatures: Optional[Union[List, np.ndarray]] = None,
-                 scattering_type: Optional[Union[str, List[str], float]] = "auto",
+                 scattering_type: Optional[Union[str, List[str],
+                                                 float]] = "auto",
                  performance_parameters: Optional[Dict[str, float]] = None,
+                 output_parameters: Optional[Dict[str, Any]] = None,
                  interpolation_factor: int = 10,
                  scissor: Optional[float] = None,
                  user_bandgap: Optional[float] = None,
@@ -59,8 +64,10 @@ class AmsetRunner(MSONable):
         params = copy.deepcopy(amset_defaults)
         self.performance_parameters = params["performance"]
         self.material_properties = params["material"]
+        self.output_parameters = params["output"]
         self.performance_parameters.update(performance_parameters)
         self.material_properties.update(material_properties)
+        self.output_parameters.update(output_parameters)
 
     def run(self,
             directory: Union[str, Path] = '.',
@@ -107,28 +114,40 @@ class AmsetRunner(MSONable):
 
         star_log('BTE')
 
-        # TODO: make these options configurable
-        solver = BTESolver(calculate_mobility=True,
-                           separate_scattering_mobilities=True)
-        sigma, seebeck, kappa, hall, mobility = solver.solve_bte(
+        solver = BTESolver(
+            separate_scattering_mobilities=self.output_parameters[
+                "separate_scattering_mobilities"],
+            calculate_mobility=self.output_parameters["calculate_mobility"])
+        sigma, seebeck, kappa, mobility = solver.solve_bte(
             electronic_structure)
 
         star_log('RESULTS')
 
-        # if calculate_mobility:
-        #
-        # logger.info("Average conductivity Calculated Fermi levels:")
+        results_summary = []
+        if self.output_parameters["calculate_mobility"]:
+            logger.info("Average conductivity (σ), Seebeck (S) and mobility (μ)"
+                        " results:")
+            headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]",
+                       "μ [cm²/Vs]")
+            for c, t in np.ndindex(electronic_structure.fermi_levels.shape):
+                results_summary.append(
+                    (self.doping[c], self.temperatures[t],
+                     tensor_average(sigma[c, t]), tensor_average(seebeck[c, t]),
+                     tensor_average(mobility["overall"][c, t])))
 
-        # fermi_level_info = []
-        # for c, t in np.ndindex(self.fermi_levels.shape):
-        #     # do minus -c as FermiDos treats negative concentrations as electron
-        #     # doping and +ve as hole doping (the opposite to amset).
-        #     self.fermi_levels[c, t] = self.dos.get_fermi(
-        #         -doping[c], temperatures[t])
-        #     fermi_level_info.append("{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
-        #         doping[c], temperatures[t], self.fermi_levels[c, t]))
-        #
-        # log_list(logger, fermi_level_info)
+        else:
+            logger.info("Average conductivity (σ) and Seebeck (S) results:")
+            headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]")
+            for c, t in np.ndindex(electronic_structure.fermi_levels.shape):
+                results_summary.append(
+                    (self.doping[c], self.temperatures[t],
+                     tensor_average(sigma[c, t]), tensor_average(seebeck[c, t]),
+                     tensor_average(mobility["overall"][c, t])))
+
+        logger.info(tabulate(
+            results_summary, headers=headers, numalign="center",
+            stralign="center", floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f")))
+
 
 
     @staticmethod
@@ -169,6 +188,7 @@ class AmsetRunner(MSONable):
             temperatures=settings["general"]["temperatures"],
             scattering_type=settings["general"]["scattering_type"],
             performance_parameters=settings["performance"],
+            output_parameters=settings["output"],
             interpolation_factor=settings["general"]["interpolation_factor"],
             scissor=settings["general"]["scissor"],
             user_bandgap=settings["general"]["bandgap"])
