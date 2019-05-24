@@ -31,7 +31,10 @@ class ElectronicStructure(MSONable):
                  ir_kpoints_idx: np.ndarray,
                  ir_to_full_kpoint_mapping: np.ndarray,
                  dos: FermiDos,
-                 dos_weight: int):
+                 dos_weight: int,
+                 is_metal: bool,
+                 vb_idx: Optional[Dict[Spin, int]] = None
+                 ):
         self.energies = energies
         self.velocities_product = vvelocities_product
         self.kpoint_mesh = kpoint_mesh
@@ -44,6 +47,8 @@ class ElectronicStructure(MSONable):
         self._projections = projections
         self.dos = dos
         self.dos_weight = dos_weight
+        self.is_metal = is_metal
+        self.vb_idx = None if is_metal else vb_idx
         self.spins = self.energies.keys()
         self.kpoint_norms = np.linalg.norm(full_kpoints, axis=1)
 
@@ -79,10 +84,9 @@ class ElectronicStructure(MSONable):
             self.fermi_levels[c, t] = self.dos.get_fermi(
                 -doping[c], temperatures[t])
             fermi_level_info.append("{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
-                doping[c], temperatures[c], self.fermi_levels[c, t]))
+                doping[c], temperatures[t], self.fermi_levels[c, t]))
 
-        log_list(logger, fermi_level_info)
-
+        log_list(fermi_level_info)
 
     def set_scattering_rates(self,
                              scattering_rates: Dict[Spin, np.ndarray],
