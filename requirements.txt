@@ -1,5 +1,5 @@
 numpy
-pymatgen
+pymatgen>=2019.5.8
 scipy
 monty
 matplotlib
