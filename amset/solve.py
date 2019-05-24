@@ -29,23 +29,24 @@ class BTESolver(MSONable):
             raise ValueError("Electronic structure must contain dopings "
                              "temperatures and scattering_type rates")
 
-        logger.info("Calculating conductivity, Seebeck, kappa and Hall tensor")
+        logger.info("Calculating conductivity, Seebeck, and electronic thermal "
+                    "conductivity tensors.")
         t0 = time.perf_counter()
-        sigma, seebeck, kappa, hall = _calculate_transport_properties(
+        sigma, seebeck, kappa = _calculate_transport_properties(
             electronic_structure)
         log_time_taken(t0)
 
         if not self.calculate_mobility:
-            return sigma, seebeck, kappa, hall
+            return sigma, seebeck, kappa
 
         if electronic_structure.is_metal:
             logger.info("System is metallic, refusing to calculate carrier "
                         "mobility")
-            return sigma, seebeck, kappa, hall, None
+            return sigma, seebeck, kappa, None
 
         logger.info("Calculating overall mobility")
         t0 = time.perf_counter()
-        mobility = {"total": _calculate_mobility(
+        mobility = {"overall": _calculate_mobility(
             electronic_structure,
             list(range(len(electronic_structure.scattering_labels))))}
         log_time_taken(t0)
@@ -59,7 +60,7 @@ class BTESolver(MSONable):
                     electronic_structure, rate_idx)
             log_time_taken(t0)
 
-        return sigma, seebeck, kappa, hall, mobility
+        return sigma, seebeck, kappa, mobility
 
 
 def _calculate_mobility(electronic_structure: ElectronicStructure,
@@ -140,7 +141,6 @@ def _calculate_transport_properties(electronic_structure):
     sigma = np.zeros(n_t_size + (3, 3))
     seebeck = np.zeros(n_t_size + (3, 3))
     kappa = np.zeros(n_t_size + (3, 3))
-    hall = np.zeros(n_t_size + (3, 3))
 
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in np.ndindex(n_t_size):
@@ -166,7 +166,13 @@ def _calculate_transport_properties(electronic_structure):
                   units.Angstrom ** 3)
 
         # Compute the Onsager coefficients from Fermi integrals
-        sigma[n, t], seebeck[n, t], kappa[n, t], hall[n, t] = \
+        # Don't store the Hall coefficient as we don't have the curvature
+        # information.
+        # TODO: Fix Hall coefficient
+        sigma[n, t], seebeck[n, t], kappa[n, t], _ = \
             calc_Onsager_coefficients(l0, l1, l2, fermi, temp, volume)
 
-    return sigma, seebeck, kappa, hall
+        # convert seebeck to µV/K
+        seebeck *= 1e6
+
+    return sigma, seebeck, kappa
