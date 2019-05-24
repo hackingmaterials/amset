@@ -1,16 +1,17 @@
 """
-TODO: add from dict and to dict methods which help load/save scattering and
+TODO: add from dict and to dict methods which help load/save scattering_type and
       doping info
 """
 
 import itertools
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 import numpy as np
 
 from monty.json import MSONable
 
+from amset.util import log_list
 from pymatgen import Spin
 from pymatgen.electronic_structure.dos import FermiDos
 
@@ -56,6 +57,7 @@ class ElectronicStructure(MSONable):
             self.c_factor[spin] = (1 - self.a_factor[spin] ** 2) ** 0.5
 
         self.scattering_rates = None
+        self.scattering_labels = None
         self.doping = None
         self.temperatures = None
         self.fermi_levels = None
@@ -67,19 +69,38 @@ class ElectronicStructure(MSONable):
         self.temperatures = temperatures
 
         self.fermi_levels = np.zeros((len(doping), len(temperatures)))
-        for c, t in itertools.product(doping, temperatures):
-            self.fermi_levels[c, t] = self.dos.get_fermi(c, t)
+
+        logger.info("Calculated Fermi levels:")
+
+        fermi_level_info = []
+        for c, t in np.ndindex(self.fermi_levels.shape):
+            # do minus -c as FermiDos treats negative concentrations as electron
+            # doping and +ve as hole doping (the opposite to amset).
+            self.fermi_levels[c, t] = self.dos.get_fermi(
+                -doping[c], temperatures[t])
+            fermi_level_info.append("{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
+                doping[c], temperatures[c], self.fermi_levels[c, t]))
+
+        log_list(logger, fermi_level_info)
+
 
     def set_scattering_rates(self,
-                             scattering_rates: Dict[Spin, np.ndarray]):
+                             scattering_rates: Dict[Spin, np.ndarray],
+                             scattering_labels: List[str]):
         for spin in self.spins:
             expected_shape = ((len(self.doping), len(self.temperatures)) +
                               self.energies[spin].shape)
-            if scattering_rates[spin].shape != expected_shape:
+            if scattering_rates[spin].shape[1:] != expected_shape:
                 raise ValueError(
-                    "Shape of scattering rates array does not match the number"
-                    " of dopings, temperatures, bands, or kpoints!")
+                    "Shape of scattering_type rates array does not match the "
+                    "number of dopings, temperatures, bands, or kpoints")
+
+            if scattering_rates[spin].shape[0] != len(scattering_labels):
+                raise ValueError(
+                    "Number of scattering_type rates does not match number of "
+                    "scattering_type labels")
 
         self.scattering_rates = scattering_rates
+        self.scattering_labels = scattering_labels
 
 
