@@ -9,17 +9,17 @@ settings = {
         "interpolation_factor": 3,
         "scattering_type": "auto",
         "doping": [1e15],
-        "temperatures": [200, 300]
+        "temperatures": [300]
     },
     "material": {
-        "deformation_potential": 6.5,
+        "deformation_potential": (6.5, 6.5),
         "elastic_constant": 190,
     },
     "performance": {
         "energy_tol": 0.001,
         "energy_cutoff": 1.5,
         "g_tol": 1,
-        "symprec": None,
+        "symprec": 0.01,
         "nworkers": -1,
 
     },
