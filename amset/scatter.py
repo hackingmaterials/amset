@@ -25,7 +25,7 @@ from sklearn.utils import gen_even_slices
 from tqdm import tqdm
 
 from amset.constants import k_B, e, hbar, over_sqrt_pi, A_to_nm, output_width
-from amset.core import ElectronicStructure
+from amset.data import AmsetData
 from amset.util import create_shared_array, spin_name, log_list
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
@@ -53,23 +53,25 @@ class ScatteringCalculator(MSONable):
         self.nworkers = nworkers if nworkers != -1 else cpu_count()
         self.use_symmetry = use_symmetry
         self.scatterers = get_scatterers(
-            scattering_type, materials_properties, doping, temperatures)
+            scattering_type, materials_properties)
 
     def calculate_scattering_rates(self,
-                                   electronic_structure: ElectronicStructure,
+                                   amset_data: AmsetData,
                                    ):
-        prefactors = np.array([m.prefactor for m in self.scatterers])
+        # prefactors has shape (spin, nscatterers, ndoping, ntemp, nbands)
+        prefactors = {
+            s: np.array([m.prefactor(amset_data, s) for m in self.scatterers])
+            for s in amset_data.spins}
 
-        # rates has shape (nscatterers, ndoping, ntemp, nbands, nkpoints)
-        rates = {s: np.zeros(prefactors.shape +
-                             electronic_structure.energies[s].shape)
-                 for s in electronic_structure.spins}
+        # rates has shape (spin, nscatterers, ndoping, ntemp, nbands, nkpoints)
+        rates = {
+            s: np.zeros(prefactors[s].shape + (len(amset_data.full_kpoints), ))
+            for s in amset_data.spins}
 
         if self.use_symmetry:
-            kpoints_idx = electronic_structure.ir_kpoints_idx
+            nkpoints = len(amset_data.ir_kpoints_idx)
         else:
-            kpoints_idx = np.arange(len(electronic_structure.full_kpoints))
-        nkpoints = len(kpoints_idx)
+            nkpoints = len(amset_data.full_kpoints)
 
         batch_size = min(500., 1 / (self.energy_tol * 2))
         nsplits = math.ceil(nkpoints/batch_size)
@@ -79,62 +81,68 @@ class ScatteringCalculator(MSONable):
                   "batch size: {}".format(batch_size)])
 
         integral_conversion = (2 * np.pi) ** 3 / (
-            electronic_structure.structure.lattice.volume *
+            amset_data.structure.lattice.volume *
             A_to_nm ** 3) / (nkpoints * self.energy_tol)
-        integral_conversion *= prefactors
+        integral_conversion = {s: integral_conversion * prefactors[s]
+                               for s in amset_data.spins}
 
-        for spin in electronic_structure.spins:
-            for b_idx in range(len(electronic_structure.energies[spin])):
+        for spin in amset_data.spins:
+            for b_idx in range(len(amset_data.energies[spin])):
                 logger.info("Calculating rates for {} band {}".format(
                     spin_name[spin], b_idx + 1))
 
                 t0 = time.perf_counter()
                 rates[spin][:, :, :, b_idx, :] = self.calculate_band_rates(
-                    spin, b_idx, kpoints_idx, nsplits, electronic_structure)
+                    spin, b_idx, nsplits, amset_data)
 
                 log_list([
                     "max rate: {:.4g}".format(
                         (rates[spin][:, :, :, b_idx] *
-                         integral_conversion[:, :, :, None, None]).max()),
+                         integral_conversion[
+                             spin][:, :, :, b_idx, None]).max()),
                     "min rate: {:.4g}".format(
                         (rates[spin][:, :, :, b_idx] *
-                         integral_conversion[:, :, :, None, None]).min()),
+                         integral_conversion[
+                             spin][:, :, :, b_idx, None]).min()),
                     "time: {:.4f} s".format(time.perf_counter() - t0)])
 
-            rates[spin] *= integral_conversion[:, :, :, None, None]
+            rates[spin] *= integral_conversion[spin][:, :, :, :, None]
 
         # if the k-point density is low, some k-points may not have
         # other k-points within the energy tolerance leading to zero rates
-        rates = _interpolate_zero_rates(
-            rates, electronic_structure.full_kpoints)
+        rates = _interpolate_zero_rates(rates, amset_data.full_kpoints)
 
         return rates
 
     def calculate_band_rates(self,
                              spin: Spin,
                              b_idx: int,
-                             kpoints_idx: np.ndarray,
                              nsplits: int,
-                             electronic_structure: ElectronicStructure,
+                             amset_data: AmsetData,
                              energy_diff: float = 0):
+        if self.use_symmetry:
+            kpoints_idx = amset_data.ir_kpoints_idx
+        else:
+            kpoints_idx = np.arange(len(amset_data.full_kpoints))
+
         nkpoints = len(kpoints_idx)
 
-        band_energies = electronic_structure.energies[spin][b_idx, kpoints_idx]
+        band_energies = amset_data.energies[spin][b_idx, kpoints_idx]
         ball_tree = BallTree(band_energies[:, None], leaf_size=100)
 
         s_energies = create_shared_array(band_energies)
-        s_kpoints = create_shared_array(electronic_structure.full_kpoints)
-        s_k_norms = create_shared_array(electronic_structure.kpoint_norms)
+        s_kpoints = create_shared_array(amset_data.full_kpoints)
+        s_k_norms = create_shared_array(amset_data.kpoint_norms)
         s_a_factor = create_shared_array(
-            electronic_structure.a_factor[spin][b_idx, kpoints_idx])
+            amset_data.a_factor[spin][b_idx, kpoints_idx])
         s_c_factor = create_shared_array(
-            electronic_structure.c_factor[spin][b_idx, kpoints_idx])
+            amset_data.c_factor[spin][b_idx, kpoints_idx])
 
         red_band_rates = np.zeros(
-            (len(self.scatterers), len(electronic_structure.doping),
-             len(electronic_structure.temperatures), nkpoints))
+            (len(self.scatterers), len(amset_data.doping),
+             len(amset_data.temperatures), nkpoints))
 
-        rlat = electronic_structure.structure.lattice.reciprocal_lattice.matrix
+        rlat = amset_data.structure.lattice.reciprocal_lattice.matrix
 
         # spawn as many worker processes as needed, put all bands in the queue,
         # and let them work until all the required rates have been computed.
@@ -156,14 +164,15 @@ class ScatteringCalculator(MSONable):
                 target=scattering_worker,
                 args=(self.scatterers, ball_tree, self.energy_tol * units.eV,
                       energy_diff, s_energies, s_kpoints, s_k_norms, s_a_factor,
-                      s_c_factor, len(band_energies), rlat, iqueue, oqueue)))
+                      s_c_factor, len(band_energies), rlat, amset_data.doping,
+                      amset_data.temperatures, iqueue, oqueue)))
 
         for w in workers:
             w.start()
 
         # The results are processed as soon as they are ready.
 
-        desc = "    ├── Progress".format(
+        desc = "    ├── progress".format(
             spin_name[spin], b_idx + 1)
         pbar = tqdm(total=nkpoints, ncols=output_width, desc=desc,
                     bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}',
@@ -178,7 +187,7 @@ class ScatteringCalculator(MSONable):
 
         if self.use_symmetry:
             all_band_rates = red_band_rates[
-                :, :, :, electronic_structure.ir_to_full_kpoint_mapping]
+                :, :, :, amset_data.ir_to_full_kpoint_mapping]
 
         else:
             all_band_rates = red_band_rates
@@ -192,27 +201,12 @@ class AbstractScatteringMechanism(ABC):
     required_properties: Tuple[str]
     inelastic = False
 
-    def __init__(self,
-                 temperature_dependent: bool,
-                 prefactor: float,
-                 doping: np.ndarray,
-                 temperatures: np.ndarray):
-        self._doping = doping
-        self._temperatures = temperatures
-        self._temperature_dependent = temperature_dependent
-        self._prefactor = prefactor
-
-    @property
-    def prefactor(self):
-        if self._temperature_dependent:
-            return (np.ones((len(self._doping), len(self._temperatures)))
-                    * self._prefactor * self._temperatures[None, :])
-        else:
-            return (np.ones((len(self._doping), len(self._temperatures)))
-                    * self._prefactor)
+    @abstractmethod
+    def prefactor(self, amset_data: AmsetData, spin: Spin):
+        pass
 
     @abstractmethod
-    def factor(self, **kwargs):
+    def factor(self, *args):
         pass
 
 
@@ -222,19 +216,49 @@ class AcousticDeformationPotentialScattering(AbstractScatteringMechanism):
     required_properties = ("deformation_potential", "elastic_constant")
 
     def __init__(self,
-                 deformation_potential: float,
+                 deformation_potential: Union[Tuple[float, float], float],
                  elastic_constant: float,
-                 doping: np.ndarray,
-                 temperatures: np.ndarray):
-        self.deformation_potential = deformation_potential
+                 *args):
+        super().__init__(*args)
+        self.deformation_potential: Union[Dict, float] = deformation_potential
         self.elastic_constant = elastic_constant
-        prefactor = (1e18 * e * k_B * self.deformation_potential ** 2
-                     / (4.0 * np.pi ** 2 * hbar * self.elastic_constant))
-        super().__init__(True, prefactor, doping, temperatures)
 
-    def factor(self, k_diff_sq):
-        return np.ones((len(self._doping), len(self._temperatures),
-                        k_diff_sq.shape[0]))
+    def prefactor(self, amset_data: AmsetData, spin: Spin):
+        is_metal = amset_data.is_metal
+        prefactor = (1e18 * e * k_B /
+                     (4.0 * np.pi ** 2 * hbar * self.elastic_constant))
+
+        prefactor *= np.ones(
+            (len(amset_data.doping), len(amset_data.temperatures),
+             len(amset_data.energies[spin]))
+            ) * amset_data.temperatures[None, :, None]
+
+        if is_metal and isinstance(self.deformation_potential, tuple):
+            logger.warning(
+                "System is metallic but deformation potentials for both "
+                "the valence and conduction bands have been set. Using the "
+                "valence band value for all bands")
+            prefactor *= self.deformation_potential[0]
+
+        elif not is_metal and isinstance(self.deformation_potential, tuple):
+            cb_idx = amset_data.vb_idx[spin] + 1
+            prefactor[:, :, :cb_idx] *= self.deformation_potential[0] ** 2
+            prefactor[:, :, cb_idx:] *= self.deformation_potential[1] ** 2
+
+        elif not is_metal:
+            logger.warning(
+                "System is semiconducting but only one deformation potential "
+                "has been set. Using this value for all bands.")
+            prefactor *= self.deformation_potential ** 2
+
+        else:
+            prefactor *= self.deformation_potential ** 2
+
+        return prefactor
+
+    def factor(self, doping: np.ndarray, temperatures: np.ndarray,
+               k_diff_sq: np.ndarray):
+        return np.ones((len(doping), len(temperatures), k_diff_sq.shape[0]))
 
 
 class IonizedImpurityScattering(AbstractScatteringMechanism):
@@ -247,7 +271,7 @@ class IonizedImpurityScattering(AbstractScatteringMechanism):
                  acceptor_charge: int,
                  donor_charge: int,
                  static_dielectric: float,
-                 electronic_structure: ElectronicStructure,
+                 amset_data: AmsetData,
                  doping: np.ndarray,
                  temperatures: np.ndarray):
         self.acceptor_charge = acceptor_charge
@@ -318,8 +342,6 @@ class PolarOpticalScattering(AbstractScatteringMechanism):
 
 def get_scatterers(scatttering_type: Union[str, List[str], float],
                    materials_properties: Dict[str, Any],
-                   doping: np.ndarray,
-                   temperatures: np.ndarray
                    ) -> List[AbstractScatteringMechanism]:
     # dynamically determine the available scattering mechanism subclasses
     scattering_mechanisms = {
@@ -330,7 +352,7 @@ def get_scatterers(scatttering_type: Union[str, List[str], float],
 
     if scatttering_type == "auto":
         logger.info("Examining materials properties to determine possible "
-                    "scattering_type mechanisms")
+                    "scattering mechanisms")
 
         scatttering_type = [
             name for name, mechanism in scattering_mechanisms.items()
@@ -360,15 +382,14 @@ def get_scatterers(scatttering_type: Union[str, List[str], float],
     for name in scatttering_type:
         mechanism = scattering_mechanisms[name]
         scatterers.append(mechanism(
-            *[materials_properties[p] for p in mechanism.required_properties] +
-            [doping, temperatures]))
+            *[materials_properties[p] for p in mechanism.required_properties]))
     return scatterers
 
 
 def scattering_worker(scatterers, ball_tree, energy_tol, energy_diff,
                       senergies, skpoints, skpoint_norms, sa_factor, sc_factor,
-                      nkpoints, reciprocal_lattice_matrix, iqueue,
-                      oqueue):
+                      nkpoints, reciprocal_lattice_matrix, doping, temperatures,
+                      iqueue, oqueue):
     energies = np.frombuffer(senergies).reshape(nkpoints)
     kpoints = np.frombuffer(skpoints).reshape(-1, 3)
     kpoint_norms = np.frombuffer(skpoint_norms)
@@ -402,14 +423,15 @@ def scattering_worker(scatterers, ball_tree, energy_tol, energy_diff,
             band_rates = get_band_rates(
                 scatterers, ediff, energy_tol, s, k_idx,  k_p_idx,
                 kpoints, kpoint_norms, a_factor, c_factor,
-                reciprocal_lattice_matrix)
+                reciprocal_lattice_matrix, doping, temperatures)
 
         oqueue.put((s, band_rates))
 
 
-def get_ir_band_rates(iband, ediff, energy_tol, s, k_idx, k_p_idx, kpoints,
-                      kpoint_norms,
-                      a_factor, c_factor, ir_kpoints_idx, grouped_ir_to_full):
+def get_ir_band_rates(scatterers, ediff, energy_tol, s, k_idx, k_p_idx, kpoints,
+                      kpoint_norms, a_factor, c_factor, ir_kpoints_idx,
+                      reciprocal_lattice_matrix, doping, temperatures,
+                      grouped_ir_to_full):
     from numpy.core.umath_tests import inner1d
 
     # k_idx and k_p_idx are currently their reduced form. E.g., span 0 to
@@ -438,8 +460,8 @@ def get_ir_band_rates(iband, ediff, energy_tol, s, k_idx, k_p_idx, kpoints,
     k_angles = k_dot / (kpoint_norms[full_rows] * kpoint_norms[full_cols])
     k_angles[np.isnan(k_angles)] = 1.
 
-    a_vals = a_factor[iband, k_idx] * a_factor[iband, k_p_idx]
-    c_vals = c_factor[iband, k_idx] * c_factor[iband, k_p_idx]
+    a_vals = a_factor[k_idx] * a_factor[k_p_idx]
+    c_vals = c_factor[k_idx] * c_factor[k_p_idx]
 
     overlap = (a_vals[expand_rows] + c_vals[expand_rows]
                * k_angles) ** 2
@@ -459,7 +481,7 @@ def get_ir_band_rates(iband, ediff, energy_tol, s, k_idx, k_p_idx, kpoints,
 
 def get_band_rates(scatterers, ediff, energy_tol, s, k_idx, k_p_idx,
                    kpoints, kpoint_norms, a_factor, c_factor,
-                   reciprocal_lattice_matrix):
+                   reciprocal_lattice_matrix, doping, temperatures):
     from numpy.core.umath_tests import inner1d
 
     mask = k_idx != k_p_idx
@@ -480,7 +502,8 @@ def get_band_rates(scatterers, ediff, energy_tol, s, k_idx, k_p_idx,
 
     # factors is array with shape:
     # (n_scatterers, n_doping, n_temperatures, n_k_diff_sq)
-    factors = np.array([m.factor(k_diff_sq) for m in scatterers])
+    factors = np.array([m.factor(doping, temperatures, k_diff_sq)
+                        for m in scatterers])
 
     rates = weighted_overlap * factors
 
@@ -494,8 +517,6 @@ def get_band_rates(scatterers, ediff, energy_tol, s, k_idx, k_p_idx,
     for s, n, t in np.ndindex(band_rates.shape[:-1]):
         band_rates[s, n, t, unique_rows] = np.bincount(
             k_idx, weights=rates[s, n, t])[unique_rows]
-
-    # sleep(1000)
 
     return band_rates
 
