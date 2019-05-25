@@ -8,7 +8,7 @@ from BoltzTraP2.bandlib import fermiintegrals, BTPDOS, calc_Onsager_coefficients
 from monty.json import MSONable
 
 from amset.constants import e
-from amset.core import ElectronicStructure
+from amset.data import AmsetData
 from amset.util import log_time_taken
 
 logger = logging.getLogger(__name__)
@@ -22,10 +22,10 @@ class BTESolver(MSONable):
         self.separate_scattering_mobilities = separate_scattering_mobilities
         self.calculate_mobility = calculate_mobility
 
-    def solve_bte(self, electronic_structure: ElectronicStructure):
-        if not all([electronic_structure.doping is not None,
-                    electronic_structure.temperatures is not None,
-                    electronic_structure.scattering_rates is not None]):
+    def solve_bte(self, amset_data: AmsetData):
+        if not all([amset_data.doping is not None,
+                    amset_data.temperatures is not None,
+                    amset_data.scattering_rates is not None]):
             raise ValueError("Electronic structure must contain dopings "
                              "temperatures and scattering_type rates")
 
@@ -33,13 +33,13 @@ class BTESolver(MSONable):
                     "conductivity tensors.")
         t0 = time.perf_counter()
         sigma, seebeck, kappa = _calculate_transport_properties(
-            electronic_structure)
+            amset_data)
         log_time_taken(t0)
 
         if not self.calculate_mobility:
             return sigma, seebeck, kappa
 
-        if electronic_structure.is_metal:
+        if amset_data.is_metal:
             logger.info("System is metallic, refusing to calculate carrier "
                         "mobility")
             return sigma, seebeck, kappa, None
@@ -47,40 +47,40 @@ class BTESolver(MSONable):
         logger.info("Calculating overall mobility")
         t0 = time.perf_counter()
         mobility = {"overall": _calculate_mobility(
-            electronic_structure,
-            list(range(len(electronic_structure.scattering_labels))))}
+            amset_data,
+            list(range(len(amset_data.scattering_labels))))}
         log_time_taken(t0)
 
         if self.separate_scattering_mobilities:
             logger.info("Calculating individual scattering rate mobilities")
             t0 = time.perf_counter()
             for rate_idx, name in enumerate(
-                    electronic_structure.scattering_labels):
+                    amset_data.scattering_labels):
                 mobility[name] = _calculate_mobility(
-                    electronic_structure, rate_idx)
+                    amset_data, rate_idx)
             log_time_taken(t0)
 
         return sigma, seebeck, kappa, mobility
 
 
-def _calculate_mobility(electronic_structure: ElectronicStructure,
+def _calculate_mobility(amset_data: AmsetData,
                         rate_idx: Union[int, List[int], np.ndarray]):
     if isinstance(rate_idx, int):
         rate_idx = [rate_idx]
 
-    n_t_size = (len(electronic_structure.doping),
-                len(electronic_structure.temperatures))
-    all_rates = electronic_structure.scattering_rates
-    all_vv = electronic_structure.velocities_product
-    all_energies = electronic_structure.energies
+    n_t_size = (len(amset_data.doping),
+                len(amset_data.temperatures))
+    all_rates = amset_data.scattering_rates
+    all_vv = amset_data.velocities_product
+    all_energies = amset_data.energies
 
     mobility = np.zeros(n_t_size + (3, 3))
     for n, t in np.ndindex(n_t_size):
         energies = []
         vv = []
         rates = []
-        for spin in electronic_structure.spins:
-            cb_idx = electronic_structure.vb_idx[spin] + 1
+        for spin in amset_data.spins:
+            cb_idx = amset_data.vb_idx[spin] + 1
             if n > 0:
                 # electrons
                 energies.append(all_energies[spin][cb_idx:])
@@ -99,29 +99,29 @@ def _calculate_mobility(electronic_structure: ElectronicStructure,
         lifetimes = 1 / np.vstack(rates)
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
-        fermi = electronic_structure.fermi_levels[n, t][None] * units.eV
-        temp = electronic_structure.temperatures[t][None]
+        fermi = amset_data.fermi_levels[n, t][None] * units.eV
+        temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals the temperature and doping
         epsilon, dos, vvdos, cdos = BTPDOS(
             energies, vv, scattering_model=lifetimes,
-            npts=len(electronic_structure.dos.energies))
+            npts=len(amset_data.dos.energies))
 
         carriers, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
-            dosweight=electronic_structure.dos_weight)
+            dosweight=amset_data.dos_weight)
 
-        volume = (electronic_structure.structure.lattice.volume *
+        volume = (amset_data.structure.lattice.volume *
                   units.Angstrom ** 3)
 
         # Rescale the carrier count into a volumetric density in cm**(-3)
-        carriers = ((-carriers[0, ...] - electronic_structure.dos.nelecs) /
+        carriers = ((-carriers[0, ...] - amset_data.dos.nelecs) /
                     (volume / (units.Meter / 100.) ** 3))
 
         # Compute the Onsager coefficients from Fermi integrals
         sigma, _, _, _ = calc_Onsager_coefficients(
-            l0, l1, l2, electronic_structure.doping[[n]],
-            electronic_structure.temperatures[[t]], volume)
+            l0, l1, l2, amset_data.doping[[n]],
+            amset_data.temperatures[[t]], volume)
 
         # convert mobility to cm^2/V.s
         mobility[n, t] = (sigma[0, ...] * 0.01 / (e * carriers[0]))
@@ -129,14 +129,14 @@ def _calculate_mobility(electronic_structure: ElectronicStructure,
     return mobility
 
 
-def _calculate_transport_properties(electronic_structure):
-    energies = np.vstack([electronic_structure.energies[spin]
-                          for spin in electronic_structure.spins])
-    vv = np.vstack([electronic_structure.velocities_product[spin]
-                    for spin in electronic_structure.spins])
+def _calculate_transport_properties(amset_data):
+    energies = np.vstack([amset_data.energies[spin]
+                          for spin in amset_data.spins])
+    vv = np.vstack([amset_data.velocities_product[spin]
+                    for spin in amset_data.spins])
 
-    n_t_size = (len(electronic_structure.doping),
-                len(electronic_structure.temperatures))
+    n_t_size = (len(amset_data.doping),
+                len(amset_data.temperatures))
 
     sigma = np.zeros(n_t_size + (3, 3))
     seebeck = np.zeros(n_t_size + (3, 3))
@@ -145,24 +145,24 @@ def _calculate_transport_properties(electronic_structure):
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in np.ndindex(n_t_size):
         sum_rates = [np.sum(
-            electronic_structure.scattering_rates[s][:, n, t], axis=0)
-            for s in electronic_structure.spins]
+            amset_data.scattering_rates[s][:, n, t], axis=0)
+            for s in amset_data.spins]
         lifetimes = 1 / np.vstack(sum_rates)
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
-        fermi = electronic_structure.fermi_levels[n, t][None] * units.eV
-        temp = electronic_structure.temperatures[t][None]
+        fermi = amset_data.fermi_levels[n, t][None] * units.eV
+        temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals
         epsilon, dos, vvdos, cdos = BTPDOS(
             energies, vv, scattering_model=lifetimes,
-            npts=len(electronic_structure.dos.energies))
+            npts=len(amset_data.dos.energies))
 
         _, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
-            dosweight=electronic_structure.dos_weight)
+            dosweight=amset_data.dos_weight)
 
-        volume = (electronic_structure.structure.lattice.volume *
+        volume = (amset_data.structure.lattice.volume *
                   units.Angstrom ** 3)
 
         # Compute the Onsager coefficients from Fermi integrals
