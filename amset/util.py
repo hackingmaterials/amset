@@ -1,21 +1,16 @@
 import collections
 import copy
 import datetime
-import io
 import logging
 import math
 import os
-from io import StringIO
-
-import scipy
 import sys
 import textwrap
 import time
-
 from multiprocessing.sharedctypes import RawArray
 
 import numpy as np
-import tqdm
+import scipy
 
 from amset import amset_defaults
 from amset.constants import output_width
@@ -43,9 +38,9 @@ def initialize_amset_logger(filepath='.', filename=None, level=None,
     level = level or logging.DEBUG
     filename = filename or "amset.log"
 
-    logger = logging.getLogger("amset")
-    logger.setLevel(level)
-    logger.handlers = []  # reset logging handlers if they already exist
+    log = logging.getLogger("amset")
+    log.setLevel(level)
+    log.handlers = []  # reset logging handlers if they already exist
 
     formatter = WrappingFormatter(fmt='%(message)s')
 
@@ -54,8 +49,8 @@ def initialize_amset_logger(filepath='.', filename=None, level=None,
     handler.setFormatter(formatter)
     screen_handler = logging.StreamHandler(stream=sys.stdout)
     screen_handler.setFormatter(formatter)
-    logger.addHandler(screen_handler)
-    logger.addHandler(handler)
+    log.addHandler(screen_handler)
+    log.addHandler(handler)
 
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):
@@ -67,15 +62,15 @@ def initialize_amset_logger(filepath='.', filename=None, level=None,
                                                       now.strftime("%H:%M"))
 
         if log_traceback:
-            logger.error("\n  ERROR: {}".format(exit_msg),
+            log.error("\n  ERROR: {}".format(exit_msg),
                          exc_info=(exc_type, exc_value, exc_traceback))
         else:
-            logger.error("\n  ERROR: {}\n\n  {}".format(
+            log.error("\n  ERROR: {}\n\n  {}".format(
                 str(exc_value), exit_msg))
 
     sys.excepthook = handle_exception
 
-    return logger
+    return log
 
 
 def create_shared_array(data, return_buffer=False):
@@ -143,9 +138,9 @@ def log_time_taken(t0: float):
 
 def star_log(text):
     width = output_width - 2
-    nstars = (width - (len(text) + 2))/2
+    nstars = (width - (len(text) + 2)) / 2
     logger.info("\n{} {} {}".format(
-        '*' * math.ceil(nstars), text, '*' * math.floor(nstars)))
+        '~' * math.ceil(nstars), text, '~' * math.floor(nstars)))
 
 
 def log_list(list_strings, prefix="  "):
