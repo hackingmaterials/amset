@@ -82,7 +82,7 @@ class ScatteringCalculator(MSONable):
 
         integral_conversion = (2 * np.pi) ** 3 / (
             amset_data.structure.lattice.volume *
-            A_to_nm ** 3) / (nkpoints * self.energy_tol)
+            A_to_nm ** 3) / (len(amset_data.full_kpoints) * self.energy_tol)
         integral_conversion = {s: integral_conversion * prefactors[s]
                                for s in amset_data.spins}
 
@@ -160,12 +160,17 @@ class ScatteringCalculator(MSONable):
             iqueue.put(None)
 
         for i in range(self.nworkers):
-            workers.append(Process(
-                target=scattering_worker,
-                args=(self.scatterers, ball_tree, self.energy_tol * units.eV,
-                      energy_diff, s_energies, s_kpoints, s_k_norms, s_a_factor,
-                      s_c_factor, len(band_energies), rlat, amset_data.doping,
-                      amset_data.temperatures, iqueue, oqueue)))
+            args = (self.scatterers, ball_tree, self.energy_tol * units.eV,
+                    energy_diff, s_energies, s_kpoints, s_k_norms, s_a_factor,
+                    s_c_factor, len(band_energies), rlat, amset_data.doping,
+                    amset_data.temperatures, iqueue, oqueue)
+            if self.use_symmetry:
+                kwargs = {"grouped_ir_to_full": amset_data.grouped_ir_to_full,
+                          "ir_kpoints_idx": amset_data.ir_kpoints_idx}
+                workers.append(Process(target=scattering_worker, args=args,
+                                       kwargs=kwargs))
+            else:
+                workers.append(Process(target=scattering_worker, args=args))
 
         for w in workers:
             w.start()
@@ -389,7 +394,8 @@ def get_scatterers(scatttering_type: Union[str, List[str], float],
 def scattering_worker(scatterers, ball_tree, energy_tol, energy_diff,
                       senergies, skpoints, skpoint_norms, sa_factor, sc_factor,
                       nkpoints, reciprocal_lattice_matrix, doping, temperatures,
-                      iqueue, oqueue):
+                      iqueue, oqueue, ir_kpoints_idx=None,
+                      grouped_ir_to_full=None):
     energies = np.frombuffer(senergies).reshape(nkpoints)
     kpoints = np.frombuffer(skpoints).reshape(-1, 3)
     kpoint_norms = np.frombuffer(skpoint_norms)
@@ -413,11 +419,11 @@ def scattering_worker(scatterers, ball_tree, energy_tol, energy_diff,
 
         if nkpoints != kpoints.shape[0]:
             # working with symmetry reduced k-points
-            raise ValueError("symmetry not yet supported")
-            # band_rates = get_ir_band_rates(
-            #     b_idx, ediff, energy_tol, s, k_idx,  k_p_idx, kpoints,
-            #     kpoint_norms, a_factor, c_factor, ir_kpoints_idx,
-            #     grouped_ir_to_full)
+            band_rates = get_ir_band_rates(
+                scatterers, ediff, energy_tol, s, k_idx,  k_p_idx,
+                kpoints, kpoint_norms, a_factor, c_factor,
+                reciprocal_lattice_matrix, doping, temperatures,
+                ir_kpoints_idx, grouped_ir_to_full)
         else:
             # no symmetry, use the full BZ mesh
             band_rates = get_band_rates(
@@ -429,52 +435,61 @@ def scattering_worker(scatterers, ball_tree, energy_tol, energy_diff,
 
 
 def get_ir_band_rates(scatterers, ediff, energy_tol, s, k_idx, k_p_idx, kpoints,
-                      kpoint_norms, a_factor, c_factor, ir_kpoints_idx,
+                      kpoint_norms, a_factor, c_factor,
                       reciprocal_lattice_matrix, doping, temperatures,
-                      grouped_ir_to_full):
+                      ir_kpoints_idx, grouped_ir_to_full):
     from numpy.core.umath_tests import inner1d
 
     # k_idx and k_p_idx are currently their reduced form. E.g., span 0 to
     # n_ir_kpoints-1; find actual columns of k_p_idx in the full Brillouin zone
     # by lookup
-    full_cols_grouped = grouped_ir_to_full[k_p_idx]
+    full_k_p_idx_grouped = grouped_ir_to_full[k_p_idx]
 
     # get the reduced k_idx including duplicate k_idx for the full k_prime
-    repeated_rows = np.repeat(k_idx, [len(g) for g in full_cols_grouped])
-    expand_rows = np.repeat(np.arange(
-        len(k_idx)), [len(g) for g in full_cols_grouped])
+    repeated_k_idx = np.repeat(k_idx, [len(g) for g in full_k_p_idx_grouped])
+    expand_k_idx = np.repeat(np.arange(
+        len(k_idx)), [len(g) for g in full_k_p_idx_grouped])
 
     # flatten the list of mapped columns
-    full_cols = np.concatenate(full_cols_grouped)
+    full_k_p_idx = np.concatenate(full_k_p_idx_grouped)
 
     # get the indices of the k_idx in the full Brillouin zone
-    full_rows = ir_kpoints_idx[repeated_rows]
+    full_k_idx = ir_kpoints_idx[repeated_k_idx]
 
-    mask = full_rows != full_cols
-    full_rows = full_rows[mask]
-    full_cols = full_cols[mask]
-    expand_rows = expand_rows[mask]
+    mask = full_k_idx != full_k_p_idx
+    full_k_idx = full_k_idx[mask]
+    full_k_p_idx = full_k_p_idx[mask]
+    expand_k_idx = expand_k_idx[mask]
 
-    k_dot = inner1d(kpoints[full_rows],
-                    kpoints[full_cols])
-    k_angles = k_dot / (kpoint_norms[full_rows] * kpoint_norms[full_cols])
+    k_dot = inner1d(kpoints[full_k_idx], kpoints[full_k_p_idx])
+    k_angles = k_dot / (kpoint_norms[full_k_idx] * kpoint_norms[full_k_p_idx])
     k_angles[np.isnan(k_angles)] = 1.
 
     a_vals = a_factor[k_idx] * a_factor[k_p_idx]
     c_vals = c_factor[k_idx] * c_factor[k_p_idx]
 
-    overlap = (a_vals[expand_rows] + c_vals[expand_rows]
-               * k_angles) ** 2
-    weights = w0gauss(ediff / energy_tol)
+    overlap = (a_vals[expand_k_idx] + c_vals[expand_k_idx] * k_angles) ** 2
+    weighted_overlap = w0gauss(ediff / energy_tol)[expand_k_idx] * overlap
 
-    k_idx -= s.start
-    repeated_rows = repeated_rows[mask] - s.start
-    r = overlap * prefactor * weights[expand_rows]
+    k_diff_sq = np.dot(pbc_diff(kpoints[full_k_idx], kpoints[full_k_p_idx]),
+                       reciprocal_lattice_matrix) ** 2
 
-    unique_rows = np.unique(k_idx)
-    band_rates = np.zeros(s.stop - s.start)
-    band_rates[unique_rows] = np.bincount(repeated_rows,
-                                          weights=r)[unique_rows]
+    # factors has shape: (n_scatterers, n_doping, n_temperatures, n_k_diff_sq)
+    factors = np.array([m.factor(doping, temperatures, k_diff_sq)
+                        for m in scatterers])
+
+    rates = weighted_overlap * factors
+
+    repeated_k_idx = repeated_k_idx[mask] - s.start
+    unique_rows = np.unique(repeated_k_idx)
+
+    # band rates has shape (n_scatterers, n_doping, n_temperatures, n_kpoints)
+    band_rates = np.zeros((list(factors.shape[:-1]) + [s.stop - s.start]))
+
+    # could vectorize this using numpy apply along axis if need be
+    for s, n, t in np.ndindex(band_rates.shape[:-1]):
+        band_rates[s, n, t, unique_rows] = np.bincount(
+            repeated_k_idx, weights=rates[s, n, t])[unique_rows]
 
     return band_rates
 
