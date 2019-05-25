@@ -14,7 +14,7 @@ from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import DOS
-from amset.util import log_list
+from amset.util import log_list, groupby
 from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.dos import FermiDos, Dos
 
@@ -75,6 +75,9 @@ class AmsetData(MSONable):
         self.doping = None
         self.temperatures = None
         self.fermi_levels = None
+
+        self.grouped_ir_to_full = groupby(
+            np.arange(len(full_kpoints)), ir_to_full_kpoint_mapping)
 
     def calculate_dos(self, dos_estep: float = 0.01, dos_width: float = 0.01):
         """
