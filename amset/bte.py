@@ -27,7 +27,7 @@ class BTESolver(MSONable):
                     amset_data.temperatures is not None,
                     amset_data.scattering_rates is not None]):
             raise ValueError("Electronic structure must contain dopings "
-                             "temperatures and scattering_type rates")
+                             "temperatures and scattering rates")
 
         logger.info("Calculating conductivity, Seebeck, and electronic thermal "
                     "conductivity tensors.")
