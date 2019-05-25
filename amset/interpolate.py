@@ -12,7 +12,6 @@ import numpy as np
 from collections import defaultdict
 from typing import Optional, Union, Tuple, List, Dict
 
-import scipy
 from monty.json import MSONable
 from scipy.ndimage import gaussian_filter1d
 
@@ -20,17 +19,17 @@ from BoltzTraP2 import units, sphere, fite
 from BoltzTraP2.bandlib import DOS
 from spglib import spglib
 
-from amset.util import log_time_taken, star_log, spin_name, log_list
+from amset.util import log_time_taken, spin_name, log_list
 from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure, BandStructureSymmLine)
-from pymatgen.electronic_structure.dos import FermiDos, Dos
+from pymatgen.electronic_structure.dos import Dos
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.io.vasp import Kpoints
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
-from amset.core import ElectronicStructure
+from amset.data import AmsetData
 from amset.constants import hartree_to_ev, m_to_cm, A_to_m, hbar, e, m_e
 
 logger = logging.getLogger(__name__)
@@ -51,7 +50,7 @@ class Interpolater(MSONable):
         num_electrons: The number of electrons in the system.
         interpolation_factor: Factor used to determine the accuracy of the
             band structure interpolation. Also controls the k-point mesh density
-            for :meth:`Interpolater.get_electronic_structure`.
+            for :meth:`Interpolater.get_amset_data`.
         soc: Whether the system was calculated using spin–orbit coupling.
         magmom: The magnetic moments for each atom.
         mommat: The band structure derivatives.
@@ -116,16 +115,14 @@ class Interpolater(MSONable):
                         data, self._equivalences)
             log_time_taken(t0)
 
-    def get_electronic_structure(self,
-                                 energy_cutoff: Optional[float] = None,
-                                 scissor: float = None,
-                                 bandgap: float = None,
-                                 dos_estep: float = 0.01,
-                                 dos_width: float = 0.01,
-                                 symprec: float = 0.01,
-                                 nworkers: int = -1
-                                 ) -> ElectronicStructure:
-        """Gets an ElectronicStructure object using the interpolated bands.
+    def get_amset_data(self,
+                       energy_cutoff: Optional[float] = None,
+                       scissor: float = None,
+                       bandgap: float = None,
+                       symprec: float = 0.01,
+                       nworkers: int = -1
+                       ) -> AmsetData:
+        """Gets an AmsetData object using the interpolated bands.
 
         Note, the interpolation mesh is determined using by
         ``interpolate_factor`` option in the ``Inteprolater`` constructor.
@@ -148,9 +145,6 @@ class Interpolater(MSONable):
             bandgap: Automatically adjust the band gap to this value. Cannot
                 be used in conjunction with the ``scissor`` option. Has no
                 effect for metallic systems.
-            dos_estep: The DOS energy step, where smaller numbers give more
-                accuracy but are more expensive.
-            dos_width: The DOS gaussian smearing width in eV.
             symprec: The symmetry tolerance used when determining the symmetry
                 inequivalent k-points on which to interpolate.
             nworkers: The number of processors used to perform the
@@ -159,7 +153,7 @@ class Interpolater(MSONable):
 
         Returns:
             The electronic structure (including energies, velocities, density of
-            states and k-point information) as an ElectronicStructure object.
+            states and k-point information) as an AmsetData object.
         """
 
         if self._band_structure.is_metal() and (bandgap or scissor):
@@ -233,39 +227,6 @@ class Interpolater(MSONable):
 
             log_time_taken(t0)
 
-        star_log("DOS")
-
-        all_energies = np.vstack([energies[spin] for spin in self._spins])
-        all_energies /= units.eV  # convert from Hartree to eV for DOS
-
-        # add a few multiples of dos_width to emin and emax to account for tails
-        dos_emin = np.min(all_energies) - dos_width * 5
-        dos_emax = np.max(all_energies) + dos_width * 5
-        npts = int(round((dos_emax - dos_emin) / dos_estep))
-
-        logger.debug("DOS parameters:")
-        log_list(["emin: {:.2f} eV".format(dos_emin),
-                  "emax: {:.2f} eV".format(dos_emax),
-                  "broadening width: {} eV".format(dos_width)])
-
-        emesh, densities = DOS(all_energies.T, erange=(dos_emin, dos_emax),
-                               npts=npts)
-
-        densities = gaussian_filter1d(densities, dos_width /
-                                      (emesh[1] - emesh[0]))
-
-        dos_weight = 1 if self._soc or len(self._spins) == 2 else 2
-        densities *= dos_weight
-        dos = Dos(self._band_structure.efermi, emesh, {Spin.up: densities})
-
-        # integrate up to Fermi level to get number of electrons
-        energy_mask = emesh <= (self._band_structure.efermi + dos_width)
-        nelect = scipy.trapz(densities[energy_mask], emesh[energy_mask])
-
-        logger.debug("DOS contains {:.3f} electrons".format(nelect))
-        fermi_dos = FermiDos(dos, structure=self._band_structure.structure,
-                             nelecs=nelect)
-
         # get the actual k-points used in the BoltzTraP2 interpolation
         # unfortunately, BoltzTraP2 doesn't expose this information so we
         # have to get it ourselves
@@ -273,10 +234,11 @@ class Interpolater(MSONable):
             self.interpolation_mesh, self._band_structure.structure,
             symprec=symprec, return_full_kpoints=True)
 
-        return ElectronicStructure(
-            energies, vvelocities, projections, self.interpolation_mesh,
-            full_kpts, ir_kpts, weights, ir_kpts_idx, ir_to_full_idx, fermi_dos,
-            dos_weight, self._band_structure.is_metal(), vb_idx=new_vb_idx)
+        return AmsetData(
+            self._band_structure.structure, energies, vvelocities, projections,
+            self.interpolation_mesh, full_kpts, ir_kpts, weights, ir_kpts_idx,
+            ir_to_full_idx, self._band_structure.efermi,
+            self._band_structure.is_metal(), self._soc, vb_idx=new_vb_idx)
 
     def get_energies(self,
                      kpoints: Union[np.ndarray, List],
