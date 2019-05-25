@@ -154,3 +154,18 @@ def log_list(list_strings, prefix="  "):
 
 def tensor_average(tensor):
     return np.average(scipy.linalg.eigvalsh(tensor))
+
+def groupby(a, b):
+    # Get argsort indices, to be used to sort a and b in the next steps
+    sidx = b.argsort(kind='mergesort')
+    a_sorted = a[sidx]
+    b_sorted = b[sidx]
+
+    # Get the group limit indices (start, stop of groups)
+    cut_idx = np.flatnonzero(
+        np.r_[True, b_sorted[1:] != b_sorted[:-1], True])
+
+    # Split input array with those start, stop ones
+    out = np.array(
+        [a_sorted[i:j] for i, j in zip(cut_idx[:-1], cut_idx[1:])])
+    return out
