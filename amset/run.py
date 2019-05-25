@@ -95,21 +95,24 @@ class AmsetRunner(MSONable):
             interpolation_factor=self.interpolation_factor, soc=self._soc,
             interpolate_projections=True)
 
-        electronic_structure = interpolater.get_electronic_structure(
+        amset_data = interpolater.get_amset_data(
             energy_cutoff=self.performance_parameters["energy_cutoff"],
             scissor=self._scissor, bandgap=self._user_bandgap,
-            dos_estep=self.performance_parameters["dos_estep"],
-            dos_width=self.performance_parameters["dos_width"],
             symprec=self.performance_parameters["symprec"],
             nworkers=self.performance_parameters["nworkers"])
 
-        electronic_structure.set_doping_and_temperatures(
+        star_log("DOS")
+
+        amset_data.calculate_dos(
+            dos_estep=self.performance_parameters["dos_estep"],
+            dos_width=self.performance_parameters["dos_width"])
+        amset_data.set_doping_and_temperatures(
             self.doping, self.temperatures)
 
         star_log("SCATTERING")
 
-        electronic_structure.set_scattering_rates(
-            scatter.calculate_scattering_rates(electronic_structure),
+        amset_data.set_scattering_rates(
+            scatter.calculate_scattering_rates(amset_data),
             [m.name for m in scatter.scatterers])
 
         star_log('BTE')
@@ -119,7 +122,7 @@ class AmsetRunner(MSONable):
                 "separate_scattering_mobilities"],
             calculate_mobility=self.output_parameters["calculate_mobility"])
         sigma, seebeck, kappa, mobility = solver.solve_bte(
-            electronic_structure)
+            amset_data)
 
         star_log('RESULTS')
 
@@ -129,7 +132,7 @@ class AmsetRunner(MSONable):
                         " results:")
             headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]",
                        "μ [cm²/Vs]")
-            for c, t in np.ndindex(electronic_structure.fermi_levels.shape):
+            for c, t in np.ndindex(amset_data.fermi_levels.shape):
                 results_summary.append(
                     (self.doping[c], self.temperatures[t],
                      tensor_average(sigma[c, t]), tensor_average(seebeck[c, t]),
@@ -138,7 +141,7 @@ class AmsetRunner(MSONable):
         else:
             logger.info("Average conductivity (σ) and Seebeck (S) results:")
             headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]")
-            for c, t in np.ndindex(electronic_structure.fermi_levels.shape):
+            for c, t in np.ndindex(amset_data.fermi_levels.shape):
                 results_summary.append(
                     (self.doping[c], self.temperatures[t],
                      tensor_average(sigma[c, t]), tensor_average(seebeck[c, t]),
@@ -147,8 +150,6 @@ class AmsetRunner(MSONable):
         logger.info(tabulate(
             results_summary, headers=headers, numalign="center",
             stralign="center", floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f")))
-
-
 
     @staticmethod
     def from_vasprun(vasprun: Union[str, Path, Vasprun],
@@ -229,9 +230,9 @@ def _log_amset_intro():
               
                                                   v{}
                                              
-    A. Ganose, A. Faghaninia, J. Park, F. Ricci, R. Woods-Robinson, 
+    A. Ganose, A. Faghaninia, J. Park, F. Ricci, R. Woods-Robinson,
     J. Frost,  K. Persson, G. Hautier, A. Jain, in prep.
     
-    
-  amset starting on {} at {}""".format(
+
+amset starting on {} at {}""".format(
         __version__, now.strftime("%d %b %Y"), now.strftime("%H:%M")))
