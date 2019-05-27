@@ -211,7 +211,7 @@ class Interpolater(MSONable):
                 # bands during the interpolation. As ibands is just a list of
                 # True/False, we can count the number of Trues up to
                 # and including the VBM to get the new number of valence bands
-                new_vb_idx[spin] = sum(ibands[: vb_idx + 1])
+                new_vb_idx[spin] = sum(ibands[:vb_idx + 1]) - 1
                 energies[spin] = _shift_energies(
                     energies[spin], new_vb_idx[spin], scissor=scissor,
                     bandgap=bandgap)
