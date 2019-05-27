@@ -15,6 +15,7 @@ import scipy
 from amset import amset_defaults
 from amset.constants import output_width
 from pymatgen import Spin
+from pymatgen.util.string import latexify_spacegroup
 
 spin_name = {Spin.up: "spin-up", Spin.down: "spin-down"}
 
@@ -155,6 +156,7 @@ def log_list(list_strings, prefix="  "):
 def tensor_average(tensor):
     return np.average(scipy.linalg.eigvalsh(tensor))
 
+
 def groupby(a, b):
     # Get argsort indices, to be used to sort a and b in the next steps
     sidx = b.argsort(kind='mergesort')
@@ -169,3 +171,32 @@ def groupby(a, b):
     out = np.array(
         [a_sorted[i:j] for i, j in zip(cut_idx[:-1], cut_idx[1:])])
     return out
+
+
+def unicodeify_spacegroup(spacegroup_symbol: str):
+    subscript_unicode_map = {
+        0: "₀",
+        1: "₁",
+        2: "₂",
+        3: "₃",
+        4: "₄",
+        5: "₅",
+        6: "₆",
+        7: "₇",
+        8: "₈",
+        9: "₉",
+    }
+
+    symbol = latexify_spacegroup(spacegroup_symbol)
+
+    for number, unicode_number in subscript_unicode_map.items():
+        symbol = symbol.replace("$_{" + str(number) + "}$", unicode_number)
+
+    overline = "\u0305"  # u"\u0304" (macron) is also an option
+
+    symbol = symbol.replace("$\\overline{", overline)
+    symbol = symbol.replace("$", "")
+    symbol = symbol.replace("{", "")
+    symbol = symbol.replace("}", "")
+
+    return symbol
