@@ -161,6 +161,8 @@ class AmsetRunner(MSONable):
             results_summary, headers=headers, numalign="center",
             stralign="center", floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f")))
 
+        # log end message... time taken, total memory usage, date, etc
+
     @staticmethod
     def from_vasprun(vasprun: Union[str, Path, Vasprun],
                      material_parameters: Dict[str, Any],
