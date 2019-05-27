@@ -37,23 +37,18 @@ class ScatteringCalculator(MSONable):
 
     def __init__(self,
                  materials_properties: Dict[str, float],
-                 doping: np.ndarray,
-                 temperatures: np.ndarray,
                  scattering_type: Union[str, List[str], float] = "auto",
                  energy_tol: float = 0.001,
                  g_tol: float = 0.01,
                  use_symmetry: bool = True,
                  nworkers: int = -1):
-        self.temperatures = temperatures
-        self.doping = doping
         self.scattering_type = scattering_type
         self.materials_properties = materials_properties
         self.energy_tol = energy_tol
         self.g_tol = g_tol
         self.nworkers = nworkers if nworkers != -1 else cpu_count()
         self.use_symmetry = use_symmetry
-        self.scatterers = get_scatterers(
-            scattering_type, materials_properties)
+        self.scatterers = get_scatterers(scattering_type, materials_properties)
 
     def calculate_scattering_rates(self,
                                    amset_data: AmsetData,
@@ -177,8 +172,7 @@ class ScatteringCalculator(MSONable):
 
         # The results are processed as soon as they are ready.
 
-        desc = "    ├── progress".format(
-            spin_name[spin], b_idx + 1)
+        desc = "    ├── progress".format(spin_name[spin], b_idx + 1)
         pbar = tqdm(total=nkpoints, ncols=output_width, desc=desc,
                     bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}',
                     file=sys.stdout)
@@ -222,9 +216,7 @@ class AcousticDeformationPotentialScattering(AbstractScatteringMechanism):
 
     def __init__(self,
                  deformation_potential: Union[Tuple[float, float], float],
-                 elastic_constant: float,
-                 *args):
-        super().__init__(*args)
+                 elastic_constant: float):
         self.deformation_potential: Union[Dict, float] = deformation_potential
         self.elastic_constant = elastic_constant
 
@@ -356,7 +348,7 @@ def get_scatterers(scatttering_type: Union[str, List[str], float],
         issubclass(obj, AbstractScatteringMechanism)}
 
     if scatttering_type == "auto":
-        logger.info("Examining materials properties to determine possible "
+        logger.info("Examining material properties to determine possible "
                     "scattering mechanisms")
 
         scatttering_type = [
@@ -365,8 +357,8 @@ def get_scatterers(scatttering_type: Union[str, List[str], float],
                     mechanism.required_properties])]
 
         if not scatttering_type:
-            raise ValueError("No scattering mechanisms possible with set of "
-                             "materials properties provided")
+            raise ValueError(
+                "No scattering mechanisms possible with material properties")
 
     else:
         for name in scatttering_type:
@@ -377,7 +369,7 @@ def get_scatterers(scatttering_type: Union[str, List[str], float],
             if missing_properties:
                 raise ValueError(
                     "{} scattering mechanism specified but the following "
-                    "materials properties are missing: {}".format(
+                    "material properties are missing: {}".format(
                         name, ", ".join(missing_properties)))
 
     logger.info("The following scattering mechanisms will be "
@@ -413,6 +405,7 @@ def scattering_worker(scatterers, ball_tree, energy_tol, energy_diff,
 
         k_idx = np.repeat(np.arange(len(k_p_idx)), [len(a) for a in k_p_idx])
         k_p_idx = np.concatenate(k_p_idx)
+
         ediff = np.concatenate(ediff)
 
         k_idx += s.start
