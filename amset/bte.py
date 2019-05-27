@@ -81,7 +81,7 @@ def _calculate_mobility(amset_data: AmsetData,
         rates = []
         for spin in amset_data.spins:
             cb_idx = amset_data.vb_idx[spin] + 1
-            if n > 0:
+            if amset_data.doping[n] > 0:
                 # electrons
                 energies.append(all_energies[spin][cb_idx:])
                 vv.append(all_vv[spin][cb_idx:])
@@ -95,14 +95,16 @@ def _calculate_mobility(amset_data: AmsetData,
                                     axis=0))
 
         energies = np.vstack(energies)
+
         vv = np.vstack(vv)
         lifetimes = 1 / np.vstack(rates)
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
         fermi = amset_data.fermi_levels[n, t][None] * units.eV
         temp = amset_data.temperatures[t][None]
+        nelecs = 0 if amset_data.doping[n] > 0 else amset_data.dos.nelecs
 
-        # obtain the Fermi integrals the temperature and doping
+        # obtain the Fermi integrals for the temperature and doping
         epsilon, dos, vvdos, cdos = BTPDOS(
             energies, vv, scattering_model=lifetimes,
             npts=len(amset_data.dos.energies))
@@ -115,7 +117,7 @@ def _calculate_mobility(amset_data: AmsetData,
                   units.Angstrom ** 3)
 
         # Rescale the carrier count into a volumetric density in cm**(-3)
-        carriers = ((-carriers[0, ...] - amset_data.dos.nelecs) /
+        carriers = ((-carriers[0, ...] - nelecs) /
                     (volume / (units.Meter / 100.) ** 3))
 
         # Compute the Onsager coefficients from Fermi integrals
