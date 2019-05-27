@@ -14,16 +14,23 @@ from tabulate import tabulate
 
 from monty.json import MSONable
 
+from pymatgen import Structure
+from pymatgen.electronic_structure.core import Spin
+from pymatgen.electronic_structure.bandstructure import BandStructure
+from pymatgen.io.vasp import Vasprun
+from amset import __version__, amset_defaults
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from pymatgen.util.string import unicodeify
+
 from amset.interpolate import Interpolater
 from amset.io import load_settings_from_file
 from amset.scatter import ScatteringCalculator
 from amset.bte import BTESolver
-from amset.util import validate_settings, star_log, tensor_average, log_list
-from pymatgen.electronic_structure.bandstructure import BandStructure
-from pymatgen.io.vasp import Vasprun
-from amset import __version__, amset_defaults
+from amset.util import validate_settings, star_log, tensor_average, log_list, \
+    unicodeify_spacegroup
 
 logger = logging.getLogger(__name__)
+kpt_str = '[{k[0]:.2f}, {k[1]:.2f}, {k[2]:.2f}]'
 
 
 class AmsetRunner(MSONable):
@@ -46,9 +53,9 @@ class AmsetRunner(MSONable):
         self._num_electrons = num_electrons
         self.scattering_type = scattering_type
         self.interpolation_factor = interpolation_factor
-        self._scissor = scissor
-        self._user_bandgap = user_bandgap
-        self._soc = soc
+        self.scissor = scissor
+        self.user_bandgap = user_bandgap
+        self.soc = soc
         self.doping = doping
         self.temperatures = temperatures
 
@@ -75,29 +82,32 @@ class AmsetRunner(MSONable):
             write_input: bool = True,
             write_mesh: bool = True):
         _log_amset_intro()
-        # _log_structure_information(self._band_structure)
-        # _log_settings(self)
+        _log_settings(self)
 
         # initialize scattering first so we can check that materials properties
         # and desired scattering mechanisms are consistent
         scatter = ScatteringCalculator(
-            self.material_properties, self.doping, self.temperatures,
+            self.material_properties,
             scattering_type=self.scattering_type,
             energy_tol=self.performance_parameters["energy_tol"],
             g_tol=self.performance_parameters["g_tol"],
             use_symmetry=self.performance_parameters["symprec"] is not None,
             nworkers=self.performance_parameters["nworkers"])
 
+        _log_structure_information(self._band_structure.structure,
+                                   self.performance_parameters["symprec"])
+        _log_band_structure_information(self._band_structure)
+
         star_log("INTERPOLATION")
 
         interpolater = Interpolater(
             self._band_structure, num_electrons=self._num_electrons,
-            interpolation_factor=self.interpolation_factor, soc=self._soc,
+            interpolation_factor=self.interpolation_factor, soc=self.soc,
             interpolate_projections=True)
 
         amset_data = interpolater.get_amset_data(
             energy_cutoff=self.performance_parameters["energy_cutoff"],
-            scissor=self._scissor, bandgap=self._user_bandgap,
+            scissor=self.scissor, bandgap=self.user_bandgap,
             symprec=self.performance_parameters["symprec"],
             nworkers=self.performance_parameters["nworkers"])
 
@@ -236,3 +246,128 @@ def _log_amset_intro():
 
 amset starting on {} at {}""".format(
         __version__, now.strftime("%d %b %Y"), now.strftime("%H:%M")))
+
+
+def _log_structure_information(structure: Structure, symprec):
+    star_log("STRUCTURE")
+    logger.info("Structure information:")
+
+    formula = structure.composition.get_reduced_formula_and_factor(
+        iupac_ordering=True)[0]
+
+    if not symprec:
+        symprec = 0.01
+
+    sga = SpacegroupAnalyzer(structure, symprec=symprec)
+    log_list(["formula: {}".format(unicodeify(formula)),
+              "# sites: {}".format(structure.num_sites),
+              "space group: {}".format(unicodeify_spacegroup(
+                  sga.get_space_group_symbol()))])
+
+    logger.info("Lattice:")
+    log_list([
+        "a, b, c [Å]: {:.2f}, {:.2f}, {:.2f}".format(*structure.lattice.abc),
+        "α, β, γ [°]: {:.0f}, {:.0f}, {:.0f}".format(*structure.lattice.angles)])
+
+
+def _log_settings(runner: AmsetRunner):
+    star_log("SETTINGS")
+
+    logger.info("Run parameters:")
+    run_params = [
+        "doping: {}".format(", ".join(map("{:g}".format, runner.doping))),
+        "temperatures: {}".format(", ".join(map(str, runner.temperatures))),
+        "interpolation_factor: {}".format(runner.interpolation_factor),
+        "scattering_type: {}".format(runner.scattering_type),
+        "soc: {}".format(runner.soc)]
+
+    if runner.user_bandgap:
+        run_params.append("bandgap: {}".format(runner.user_bandgap))
+
+    if runner.scissor:
+        run_params.append("scissor: {}".format(runner.scissor))
+
+    log_list(run_params)
+
+    logger.info("Performance parameters:")
+    log_list(["{}: {}".format(k, v) for k, v in
+              runner.performance_parameters.items()])
+
+    logger.info("Output parameters:")
+    log_list(["{}: {}".format(k, v) for k, v in
+              runner.output_parameters.items()])
+
+    logger.info("Material properties:")
+    log_list(["{}: {}".format(k, v) for k, v in
+              runner.material_properties.items() if v is not None])
+
+
+def _log_band_structure_information(band_structure: BandStructure):
+    star_log("BAND STRUCTURE")
+
+    logger.info("Input band structure information:")
+    log_list([
+        "# bands: {}".format(band_structure.nb_bands),
+        "# k-points: {}".format(len(band_structure.kpoints)),
+        "Fermi level: {:.3f} eV".format(band_structure.efermi),
+        "spin polarized: {}".format(band_structure.is_spin_polarized),
+        "metallic: {}".format(band_structure.is_metal())])
+
+    if band_structure.is_metal():
+        return
+
+    logger.info("Band gap:")
+    band_gap_info = []
+
+    bg_data = band_structure.get_band_gap()
+    if not bg_data['direct']:
+        band_gap_info.append(
+            'indirect band gap: {:.3f} eV'.format(bg_data['energy']))
+
+    direct_data = band_structure.get_direct_band_gap_dict()
+    direct_bg = min((spin_data['value'] for spin_data in direct_data.values()))
+    band_gap_info.append('direct band gap: {:.3f} eV'.format(direct_bg))
+
+    direct_kpoint = []
+    for spin, spin_data in direct_data.items():
+        direct_kindex = spin_data['kpoint_index']
+        direct_kpoint.append(kpt_str.format(
+            k=band_structure.kpoints[direct_kindex].frac_coords))
+
+    band_gap_info.append("direct k-point: {}".format(", ".join(direct_kpoint)))
+    log_list(band_gap_info)
+
+    vbm_data = band_structure.get_vbm()
+    cbm_data = band_structure.get_cbm()
+
+    logger.info('\nValence band maximum:')
+    _log_band_edge_information(band_structure, vbm_data)
+
+    logger.info('\nConduction band minimum:')
+    _log_band_edge_information(band_structure, cbm_data)
+
+
+def _log_band_edge_information(band_structure, edge_data):
+    """Log data about the valence band maximum or conduction band minimum.
+
+    Args:
+        band_structure: A band structure.
+        edge_data (dict): The :obj:`dict` from ``bs.get_vbm()`` or
+            ``bs.get_cbm()``
+    """
+    if band_structure.is_spin_polarized:
+        spins = edge_data['band_index'].keys()
+        b_indices = [', '.join([str(i+1) for i in
+                                edge_data['band_index'][spin]])
+                     + '({})'.format(spin.name.capitalize()) for spin in spins]
+        b_indices = ', '.join(b_indices)
+    else:
+        b_indices = ', '.join([str(i+1) for i in
+                               edge_data['band_index'][Spin.up]])
+
+    kpoint = edge_data['kpoint']
+    kpoint_str = kpt_str.format(k=kpoint.frac_coords)
+
+    log_list(["energy: {:.3f} eV".format(edge_data['energy']),
+              "k-point: {}".format(kpoint_str),
+              "band indices: {}".format(b_indices)])
