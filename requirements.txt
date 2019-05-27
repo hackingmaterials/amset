@@ -8,4 +8,5 @@ BoltzTraP2
 tqdm
 sklearn
 tabulate
+memory_profiler
 spglib>=1.12.2

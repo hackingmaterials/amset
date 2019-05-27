@@ -2,7 +2,8 @@ import os
 import copy
 import datetime
 import logging
-
+import time
+from functools import partial
 
 import numpy as np
 
@@ -13,6 +14,7 @@ from typing import Optional, Any, Dict, Union, List
 from tabulate import tabulate
 
 from monty.json import MSONable
+from memory_profiler import memory_usage
 
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
@@ -80,7 +82,34 @@ class AmsetRunner(MSONable):
             directory: Union[str, Path] = '.',
             prefix: Optional[str] = None,
             write_input: bool = True,
-            write_mesh: bool = True):
+            write_mesh: bool = True,
+            return_usage_stats: bool = False):
+        mem_usage, (amset_data, usage_stats) = memory_usage(
+            partial(self._run_wrapper, directory=directory, prefix=prefix,
+                    write_input=write_input, write_mesh=write_mesh),
+            include_children=True, max_usage=True, retval=True, interval=1)
+
+        star_log("END")
+
+        logger.info("Timing and memory usage:")
+        timing_info = ["{} time: {:.4f} s".format(name, t)
+                       for name, t in usage_stats.items()]
+
+        log_list(timing_info + ["max memory: {:.1f} MB".format(mem_usage[0])])
+        usage_stats["max memory"] = mem_usage[0]
+
+        now = datetime.datetime.now()
+        logger.info("amset exiting on {} at {}".format(
+            now.strftime("%d %b %Y"), now.strftime("%H:%M")))
+
+        return amset_data, usage_stats
+
+    def _run_wrapper(self,
+                     directory: Union[str, Path] = '.',
+                     prefix: Optional[str] = None,
+                     write_input: bool = True,
+                     write_mesh: bool = True):
+        tt = time.perf_counter()
         _log_amset_intro()
         _log_settings(self)
 
@@ -99,6 +128,7 @@ class AmsetRunner(MSONable):
         _log_band_structure_information(self._band_structure)
 
         star_log("INTERPOLATION")
+        t0 = time.perf_counter()
 
         interpolater = Interpolater(
             self._band_structure, num_electrons=self._num_electrons,
@@ -111,8 +141,9 @@ class AmsetRunner(MSONable):
             symprec=self.performance_parameters["symprec"],
             nworkers=self.performance_parameters["nworkers"])
 
-        star_log("DOS")
+        timing = {"interpolation": time.perf_counter() - t0}
 
+        star_log("DOS")
         amset_data.calculate_dos(
             dos_estep=self.performance_parameters["dos_estep"],
             dos_width=self.performance_parameters["dos_width"])
@@ -120,12 +151,16 @@ class AmsetRunner(MSONable):
             self.doping, self.temperatures)
 
         star_log("SCATTERING")
+        t0 = time.perf_counter()
 
         amset_data.set_scattering_rates(
             scatter.calculate_scattering_rates(amset_data),
             [m.name for m in scatter.scatterers])
 
+        timing["scattering"] = time.perf_counter() - t0
+
         star_log('BTE')
+        t0 = time.perf_counter()
 
         solver = BTESolver(
             separate_scattering_mobilities=self.output_parameters[
@@ -133,6 +168,8 @@ class AmsetRunner(MSONable):
             calculate_mobility=self.output_parameters["calculate_mobility"])
         sigma, seebeck, kappa, mobility = solver.solve_bte(
             amset_data)
+
+        timing["BTE"] = time.perf_counter() - t0
 
         star_log('RESULTS')
 
@@ -161,7 +198,10 @@ class AmsetRunner(MSONable):
             results_summary, headers=headers, numalign="center",
             stralign="center", floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f")))
 
-        # log end message... time taken, total memory usage, date, etc
+        # write data
+        timing["total"] = time.perf_counter() - tt
+
+        return amset_data, timing
 
     @staticmethod
     def from_vasprun(vasprun: Union[str, Path, Vasprun],
