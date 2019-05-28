@@ -38,7 +38,7 @@ amset_defaults = {
     "output": {
         "calculate_mobility": True,
         "separate_scattering_mobilities": True,
-        "format": "json",
+        "file_format": "json",
         "log_traceback": False
     }
 }
