@@ -8,9 +8,11 @@ import sys
 import textwrap
 import time
 from multiprocessing.sharedctypes import RawArray
+from typing import Dict, Any
 
 import numpy as np
 import scipy
+from monty.serialization import dumpfn, loadfn
 
 from amset import amset_defaults
 from amset.constants import output_width
@@ -200,3 +202,55 @@ def unicodeify_spacegroup(spacegroup_symbol: str):
     symbol = symbol.replace("}", "")
 
     return symbol
+
+
+def write_settings_to_file(settings: Dict[str, Any], filename: str):
+    """Write amset configuration settings to a formatted yaml file.
+
+    Args:
+        settings: The configuration settings.
+        filename: A filename.
+    """
+    cast_dict(settings)
+    dumpfn(settings, filename, indent=4, default_flow_style=False)
+
+
+def load_settings_from_file(filename: str) -> Dict[str, Any]:
+    """Load amset configuration settings from a yaml file.
+
+    If the settings file does not contain a required parameter, the default
+    value will be added to the configuration.
+
+    An example file is given in *amset/examples/example_settings.yaml*.
+
+    Args:
+        filename: Path to settings file.
+
+    Returns:
+        The settings, with any missing values set according to the amset
+        defaults.
+    """
+    logger.info("Loading settings from: {}".format(filename))
+    settings = loadfn(filename)
+
+    return validate_settings(settings)
+
+
+def cast_dict(d):
+    new_d = {}
+    for k, v in d.items():
+        # cast keys
+        if isinstance(k, Spin):
+            k = k.value
+
+        if isinstance(v, collections.Mapping):
+            new_d[k] = cast_dict(v)
+        else:
+            # cast values
+            if isinstance(v, np.ndarray):
+                v = v.tolist()
+            elif isinstance(v, tuple):
+                v = list(v)
+
+            new_d[k] = v
+    return new_d
