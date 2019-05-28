@@ -25,14 +25,13 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.util.string import unicodeify
 
 from amset.interpolate import Interpolater
-from amset.io import load_settings_from_file
 from amset.scatter import ScatteringCalculator
-from amset.bte import BTESolver
+from amset.transport import TransportCalculator
 from amset.util import validate_settings, star_log, tensor_average, log_list, \
-    unicodeify_spacegroup
+    unicodeify_spacegroup, write_settings_to_file, load_settings_from_file
 
 logger = logging.getLogger(__name__)
-kpt_str = '[{k[0]:.2f}, {k[1]:.2f}, {k[2]:.2f}]'
+_kpt_str = '[{k[0]:.2f}, {k[1]:.2f}, {k[2]:.2f}]'
 
 
 class AmsetRunner(MSONable):
@@ -95,15 +94,18 @@ class AmsetRunner(MSONable):
         logger.info("Timing and memory usage:")
         timing_info = ["{} time: {:.4f} s".format(name, t)
                        for name, t in usage_stats.items()]
-
         log_list(timing_info + ["max memory: {:.1f} MB".format(mem_usage[0])])
-        usage_stats["max memory"] = mem_usage[0]
 
         now = datetime.datetime.now()
         logger.info("amset exiting on {} at {}".format(
             now.strftime("%d %b %Y"), now.strftime("%H:%M")))
 
-        return amset_data, usage_stats
+        if return_usage_stats:
+            usage_stats["max memory"] = mem_usage[0]
+            return amset_data, usage_stats
+
+        else:
+            return amset_data
 
     def _run_wrapper(self,
                      directory: Union[str, Path] = '.',
@@ -162,11 +164,13 @@ class AmsetRunner(MSONable):
         star_log('BTE')
         t0 = time.perf_counter()
 
-        solver = BTESolver(
+        solver = TransportCalculator(
             separate_scattering_mobilities=self.output_parameters[
                 "separate_scattering_mobilities"],
             calculate_mobility=self.output_parameters["calculate_mobility"])
-        sigma, seebeck, kappa, mobility = solver.solve_bte(amset_data)
+        (amset_data.conductivity, amset_data.seebeck,
+         amset_data.electronic_thermal_conductivity,
+         amset_data.mobility) = solver.solve_bte(amset_data)
 
         timing["BTE"] = time.perf_counter() - t0
 
@@ -181,8 +185,9 @@ class AmsetRunner(MSONable):
             for c, t in np.ndindex(amset_data.fermi_levels.shape):
                 results_summary.append(
                     (self.doping[c], self.temperatures[t],
-                     tensor_average(sigma[c, t]), tensor_average(seebeck[c, t]),
-                     tensor_average(mobility["overall"][c, t])))
+                     tensor_average(amset_data.conductivity[c, t]),
+                     tensor_average(amset_data.seebeck[c, t]),
+                     tensor_average(amset_data.mobility["overall"][c, t])))
 
         else:
             logger.info("Average conductivity (σ) and Seebeck (S) results:")
@@ -190,14 +195,23 @@ class AmsetRunner(MSONable):
             for c, t in np.ndindex(amset_data.fermi_levels.shape):
                 results_summary.append(
                     (self.doping[c], self.temperatures[t],
-                     tensor_average(sigma[c, t]), tensor_average(seebeck[c, t]),
-                     tensor_average(mobility["overall"][c, t])))
+                     tensor_average(amset_data.conductivity[c, t]),
+                     tensor_average(amset_data.seebeck[c, t]),
+                     tensor_average(amset_data.mobility["overall"][c, t])))
 
         logger.info(tabulate(
             results_summary, headers=headers, numalign="right",
             stralign="center", floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f")))
 
-        # write data
+        abs_dir = os.path.abspath(directory)
+        logger.info("Writing data to {}".format(abs_dir))
+        if write_input:
+            self.write_settings(abs_dir)
+
+        amset_data.to_file(
+            directory=abs_dir, write_mesh=write_mesh, prefix=prefix,
+            file_format=self.output_parameters["file_format"])
+
         timing["total"] = time.perf_counter() - tt
 
         return amset_data, timing
@@ -267,6 +281,30 @@ class AmsetRunner(MSONable):
         settings = load_settings_from_file(settings_file)
 
         return AmsetRunner.from_vasprun_and_settings(vasprun, settings)
+
+    def write_settings(self,
+                       directory: str = '.',
+                       prefix: Optional[str] = None):
+        if prefix is None:
+            prefix = ''
+        else:
+            prefix += '_'
+
+        general_settings = {
+            "scissor": self.scissor,
+            "bandgap": self.user_bandgap,
+            "interpolation_factor": self.interpolation_factor,
+            "scattering_type": self.scattering_type,
+            "doping": self.doping,
+            "temperatures": self.temperatures}
+
+        settings = {"general": general_settings,
+                    "material": self.material_properties,
+                    "performance": self.performance_parameters,
+                    "output": self.output_parameters}
+
+        filename = joinpath(directory, "{}amset_settings.yaml".format(prefix))
+        write_settings_to_file(settings, filename)
 
 
 def _log_amset_intro():
@@ -373,7 +411,7 @@ def _log_band_structure_information(band_structure: BandStructure):
     direct_kpoint = []
     for spin, spin_data in direct_data.items():
         direct_kindex = spin_data['kpoint_index']
-        direct_kpoint.append(kpt_str.format(
+        direct_kpoint.append(_kpt_str.format(
             k=band_structure.kpoints[direct_kindex].frac_coords))
 
     band_gap_info.append("direct k-point: {}".format(", ".join(direct_kpoint)))
@@ -408,7 +446,7 @@ def _log_band_edge_information(band_structure, edge_data):
                                edge_data['band_index'][Spin.up]])
 
     kpoint = edge_data['kpoint']
-    kpoint_str = kpt_str.format(k=kpoint.frac_coords)
+    kpoint_str = _kpt_str.format(k=kpoint.frac_coords)
 
     log_list(["energy: {:.3f} eV".format(edge_data['energy']),
               "k-point: {}".format(kpoint_str),
