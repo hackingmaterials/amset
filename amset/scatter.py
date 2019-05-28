@@ -26,7 +26,8 @@ from tqdm import tqdm
 
 from amset.constants import k_B, e, hbar, over_sqrt_pi, A_to_nm, output_width
 from amset.data import AmsetData
-from amset.util import create_shared_array, spin_name, log_list
+from amset.util import create_shared_array, spin_name
+from amset.log import log_list
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 
