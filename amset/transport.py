@@ -14,7 +14,7 @@ from amset.util import log_time_taken
 logger = logging.getLogger(__name__)
 
 
-class BTESolver(MSONable):
+class TransportCalculator(MSONable):
 
     def __init__(self,
                  calculate_mobility: bool = True,
@@ -36,7 +36,7 @@ class BTESolver(MSONable):
         log_time_taken(t0)
 
         if not self.calculate_mobility:
-            return sigma, seebeck, kappa
+            return sigma, seebeck, kappa, None
 
         if amset_data.is_metal:
             logger.info("System is metallic, refusing to calculate carrier "
