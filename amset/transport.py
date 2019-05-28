@@ -9,7 +9,7 @@ from monty.json import MSONable
 
 from amset.constants import e
 from amset.data import AmsetData
-from amset.util import log_time_taken
+from amset.log import log_time_taken
 
 logger = logging.getLogger(__name__)
 

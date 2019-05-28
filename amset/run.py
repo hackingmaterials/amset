@@ -27,8 +27,8 @@ from pymatgen.util.string import unicodeify
 from amset.interpolate import Interpolater
 from amset.scatter import ScatteringCalculator
 from amset.transport import TransportCalculator
-from amset.util import validate_settings, star_log, tensor_average, log_list, \
-    unicodeify_spacegroup, write_settings_to_file, load_settings_from_file
+from amset.util import validate_settings, tensor_average, unicodeify_spacegroup, write_settings_to_file, load_settings_from_file
+from amset.log import log_banner, log_list
 
 logger = logging.getLogger(__name__)
 _kpt_str = '[{k[0]:.2f}, {k[1]:.2f}, {k[2]:.2f}]'
@@ -86,7 +86,7 @@ class AmsetRunner(MSONable):
             include_children=True, max_usage=True, retval=True, interval=1,
             multiprocess=True)
 
-        star_log("END")
+        log_banner("END")
 
         logger.info("Timing and memory usage:")
         timing_info = ["{} time: {:.4f} s".format(name, t)
@@ -125,7 +125,7 @@ class AmsetRunner(MSONable):
                                    self.performance_parameters["symprec"])
         _log_band_structure_information(self._band_structure)
 
-        star_log("INTERPOLATION")
+        log_banner("INTERPOLATION")
         t0 = time.perf_counter()
 
         interpolater = Interpolater(
@@ -141,13 +141,13 @@ class AmsetRunner(MSONable):
 
         timing = {"interpolation": time.perf_counter() - t0}
 
-        star_log("DOS")
+        log_banner("DOS")
         amset_data.calculate_dos(
             dos_estep=self.performance_parameters["dos_estep"],
             dos_width=self.performance_parameters["dos_width"])
         amset_data.set_doping_and_temperatures(self.doping, self.temperatures)
 
-        star_log("SCATTERING")
+        log_banner("SCATTERING")
         t0 = time.perf_counter()
 
         amset_data.set_scattering_rates(
@@ -156,7 +156,7 @@ class AmsetRunner(MSONable):
 
         timing["scattering"] = time.perf_counter() - t0
 
-        star_log('TRANSPORT')
+        log_banner('TRANSPORT')
         t0 = time.perf_counter()
 
         solver = TransportCalculator(
@@ -169,7 +169,7 @@ class AmsetRunner(MSONable):
 
         timing["transport"] = time.perf_counter() - t0
 
-        star_log('RESULTS')
+        log_banner('RESULTS')
 
         results_summary = []
         if self.output_parameters["calculate_mobility"]:
@@ -199,7 +199,7 @@ class AmsetRunner(MSONable):
             stralign="center", floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f")))
 
         abs_dir = os.path.abspath(directory)
-        logger.info("Writing data to {}".format(abs_dir))
+        logger.info("Writing results to {}".format(abs_dir))
         t0 = time.perf_counter()
 
         if not os.path.exists(abs_dir):
@@ -329,7 +329,7 @@ amset starting on {} at {}""".format(
 
 
 def _log_structure_information(structure: Structure, symprec):
-    star_log("STRUCTURE")
+    log_banner("STRUCTURE")
     logger.info("Structure information:")
 
     formula = structure.composition.get_reduced_formula_and_factor(
@@ -352,7 +352,7 @@ def _log_structure_information(structure: Structure, symprec):
 
 
 def _log_settings(runner: AmsetRunner):
-    star_log("SETTINGS")
+    log_banner("SETTINGS")
 
     logger.info("Run parameters:")
     run_params = [
@@ -384,7 +384,7 @@ def _log_settings(runner: AmsetRunner):
 
 
 def _log_band_structure_information(band_structure: BandStructure):
-    star_log("BAND STRUCTURE")
+    log_banner("BAND STRUCTURE")
 
     logger.info("Input band structure information:")
     log_list([

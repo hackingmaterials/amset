@@ -1,6 +1,6 @@
 import warnings
 
-from amset.util import initialize_amset_logger
+from amset.log import initialize_amset_logger
 from amset.run import AmsetRunner
 
 settings = {

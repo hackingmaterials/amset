@@ -19,7 +19,8 @@ from BoltzTraP2 import units, sphere, fite
 from BoltzTraP2.bandlib import DOS
 from spglib import spglib
 
-from amset.util import log_time_taken, spin_name, log_list
+from amset.util import spin_name
+from amset.log import log_time_taken, log_list
 from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
