@@ -205,6 +205,11 @@ class AmsetRunner(MSONable):
 
         abs_dir = os.path.abspath(directory)
         logger.info("Writing data to {}".format(abs_dir))
+        t0 = time.perf_counter()
+
+        if not os.path.exists(abs_dir):
+            os.makedirs(abs_dir)
+
         if write_input:
             self.write_settings(abs_dir)
 
@@ -212,6 +217,7 @@ class AmsetRunner(MSONable):
             directory=abs_dir, write_mesh=write_mesh, prefix=prefix,
             file_format=self.output_parameters["file_format"])
 
+        timing["writing"] = time.perf_counter() - t0
         timing["total"] = time.perf_counter() - tt
 
         return amset_data, timing
