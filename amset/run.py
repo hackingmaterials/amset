@@ -80,12 +80,9 @@ class AmsetRunner(MSONable):
     def run(self,
             directory: Union[str, Path] = '.',
             prefix: Optional[str] = None,
-            write_input: bool = True,
-            write_mesh: bool = True,
             return_usage_stats: bool = False):
         mem_usage, (amset_data, usage_stats) = memory_usage(
-            partial(self._run_wrapper, directory=directory, prefix=prefix,
-                    write_input=write_input, write_mesh=write_mesh),
+            partial(self._run_wrapper, directory=directory, prefix=prefix),
             include_children=True, max_usage=True, retval=True, interval=1,
             multiprocess=True)
 
@@ -109,9 +106,7 @@ class AmsetRunner(MSONable):
 
     def _run_wrapper(self,
                      directory: Union[str, Path] = '.',
-                     prefix: Optional[str] = None,
-                     write_input: bool = True,
-                     write_mesh: bool = True):
+                     prefix: Optional[str] = None):
         tt = time.perf_counter()
         _log_amset_intro()
         _log_settings(self)
@@ -161,7 +156,7 @@ class AmsetRunner(MSONable):
 
         timing["scattering"] = time.perf_counter() - t0
 
-        star_log('BTE')
+        star_log('TRANSPORT')
         t0 = time.perf_counter()
 
         solver = TransportCalculator(
@@ -172,7 +167,7 @@ class AmsetRunner(MSONable):
          amset_data.electronic_thermal_conductivity,
          amset_data.mobility) = solver.solve_bte(amset_data)
 
-        timing["BTE"] = time.perf_counter() - t0
+        timing["transport"] = time.perf_counter() - t0
 
         star_log('RESULTS')
 
@@ -210,12 +205,12 @@ class AmsetRunner(MSONable):
         if not os.path.exists(abs_dir):
             os.makedirs(abs_dir)
 
-        if write_input:
+        if self.output_parameters["write_input"]:
             self.write_settings(abs_dir)
 
         amset_data.to_file(
-            directory=abs_dir, write_mesh=write_mesh, prefix=prefix,
-            file_format=self.output_parameters["file_format"])
+            directory=abs_dir, write_mesh=self.output_parameters["write_mesh"],
+            prefix=prefix, file_format=self.output_parameters["file_format"])
 
         timing["writing"] = time.perf_counter() - t0
         timing["total"] = time.perf_counter() - tt
