@@ -87,7 +87,8 @@ class AmsetRunner(MSONable):
         mem_usage, (amset_data, usage_stats) = memory_usage(
             partial(self._run_wrapper, directory=directory, prefix=prefix,
                     write_input=write_input, write_mesh=write_mesh),
-            include_children=True, max_usage=True, retval=True, interval=1)
+            include_children=True, max_usage=True, retval=True, interval=1,
+            multiprocess=True)
 
         star_log("END")
 
@@ -147,8 +148,7 @@ class AmsetRunner(MSONable):
         amset_data.calculate_dos(
             dos_estep=self.performance_parameters["dos_estep"],
             dos_width=self.performance_parameters["dos_width"])
-        amset_data.set_doping_and_temperatures(
-            self.doping, self.temperatures)
+        amset_data.set_doping_and_temperatures(self.doping, self.temperatures)
 
         star_log("SCATTERING")
         t0 = time.perf_counter()
@@ -166,8 +166,7 @@ class AmsetRunner(MSONable):
             separate_scattering_mobilities=self.output_parameters[
                 "separate_scattering_mobilities"],
             calculate_mobility=self.output_parameters["calculate_mobility"])
-        sigma, seebeck, kappa, mobility = solver.solve_bte(
-            amset_data)
+        sigma, seebeck, kappa, mobility = solver.solve_bte(amset_data)
 
         timing["BTE"] = time.perf_counter() - t0
 
@@ -195,7 +194,7 @@ class AmsetRunner(MSONable):
                      tensor_average(mobility["overall"][c, t])))
 
         logger.info(tabulate(
-            results_summary, headers=headers, numalign="center",
+            results_summary, headers=headers, numalign="right",
             stralign="center", floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f")))
 
         # write data
@@ -309,7 +308,8 @@ def _log_structure_information(structure: Structure, symprec):
     logger.info("Lattice:")
     log_list([
         "a, b, c [Å]: {:.2f}, {:.2f}, {:.2f}".format(*structure.lattice.abc),
-        "α, β, γ [°]: {:.0f}, {:.0f}, {:.0f}".format(*structure.lattice.angles)])
+        "α, β, γ [°]: {:.0f}, {:.0f}, {:.0f}".format(*structure.lattice.angles)]
+    )
 
 
 def _log_settings(runner: AmsetRunner):

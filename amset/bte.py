@@ -32,8 +32,7 @@ class BTESolver(MSONable):
         logger.info("Calculating conductivity, Seebeck, and electronic thermal "
                     "conductivity tensors.")
         t0 = time.perf_counter()
-        sigma, seebeck, kappa = _calculate_transport_properties(
-            amset_data)
+        sigma, seebeck, kappa = _calculate_transport_properties(amset_data)
         log_time_taken(t0)
 
         if not self.calculate_mobility:
@@ -47,17 +46,14 @@ class BTESolver(MSONable):
         logger.info("Calculating overall mobility")
         t0 = time.perf_counter()
         mobility = {"overall": _calculate_mobility(
-            amset_data,
-            list(range(len(amset_data.scattering_labels))))}
+            amset_data, list(range(len(amset_data.scattering_labels))))}
         log_time_taken(t0)
 
         if self.separate_scattering_mobilities:
             logger.info("Calculating individual scattering rate mobilities")
             t0 = time.perf_counter()
-            for rate_idx, name in enumerate(
-                    amset_data.scattering_labels):
-                mobility[name] = _calculate_mobility(
-                    amset_data, rate_idx)
+            for rate_idx, name in enumerate(amset_data.scattering_labels):
+                mobility[name] = _calculate_mobility(amset_data, rate_idx)
             log_time_taken(t0)
 
         return sigma, seebeck, kappa, mobility
@@ -68,8 +64,7 @@ def _calculate_mobility(amset_data: AmsetData,
     if isinstance(rate_idx, int):
         rate_idx = [rate_idx]
 
-    n_t_size = (len(amset_data.doping),
-                len(amset_data.temperatures))
+    n_t_size = (len(amset_data.doping), len(amset_data.temperatures))
     all_rates = amset_data.scattering_rates
     all_vv = amset_data.velocities_product
     all_energies = amset_data.energies
@@ -113,8 +108,7 @@ def _calculate_mobility(amset_data: AmsetData,
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
             dosweight=amset_data.dos_weight)
 
-        volume = (amset_data.structure.lattice.volume *
-                  units.Angstrom ** 3)
+        volume = (amset_data.structure.lattice.volume * units.Angstrom ** 3)
 
         # Rescale the carrier count into a volumetric density in cm**(-3)
         carriers = ((-carriers[0, ...] - nelecs) /
@@ -126,7 +120,7 @@ def _calculate_mobility(amset_data: AmsetData,
             amset_data.temperatures[[t]], volume)
 
         # convert mobility to cm^2/V.s
-        mobility[n, t] = (sigma[0, ...] * 0.01 / (e * carriers[0]))
+        mobility[n, t] = sigma[0, ...] * 0.01 / (e * carriers[0])
 
     return mobility
 
@@ -137,8 +131,7 @@ def _calculate_transport_properties(amset_data):
     vv = np.vstack([amset_data.velocities_product[spin]
                     for spin in amset_data.spins])
 
-    n_t_size = (len(amset_data.doping),
-                len(amset_data.temperatures))
+    n_t_size = (len(amset_data.doping), len(amset_data.temperatures))
 
     sigma = np.zeros(n_t_size + (3, 3))
     seebeck = np.zeros(n_t_size + (3, 3))
@@ -146,9 +139,8 @@ def _calculate_transport_properties(amset_data):
 
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in np.ndindex(n_t_size):
-        sum_rates = [np.sum(
-            amset_data.scattering_rates[s][:, n, t], axis=0)
-            for s in amset_data.spins]
+        sum_rates = [np.sum(amset_data.scattering_rates[s][:, n, t], axis=0)
+                     for s in amset_data.spins]
         lifetimes = 1 / np.vstack(sum_rates)
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
@@ -164,8 +156,7 @@ def _calculate_transport_properties(amset_data):
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
             dosweight=amset_data.dos_weight)
 
-        volume = (amset_data.structure.lattice.volume *
-                  units.Angstrom ** 3)
+        volume = (amset_data.structure.lattice.volume * units.Angstrom ** 3)
 
         # Compute the Onsager coefficients from Fermi integrals
         # Don't store the Hall coefficient as we don't have the curvature
