@@ -1,24 +1,23 @@
-"""
-TODO: add from dict and to dict methods which help load/save scattering_type and
-      doping info
-"""
-
 import logging
+
 import scipy
+from os.path import join as joinpath
 from typing import Optional, Dict, List
 
 import numpy as np
 
 from monty.json import MSONable
+from monty.serialization import dumpfn
 from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import DOS
-from amset.util import log_list, groupby
+from amset.util import log_list, groupby, cast_dict
 from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.dos import FermiDos, Dos
 
 logger = logging.getLogger(__name__)
+_kpt_str = '[{k[0]:.5f} {k[1]:.5f} {k[2]:.5f}]'
 
 
 class AmsetData(MSONable):
@@ -39,7 +38,11 @@ class AmsetData(MSONable):
                  soc: bool,
                  dos: Optional[FermiDos] = None,
                  dos_weight: Optional[int] = None,
-                 vb_idx: Optional[Dict[Spin, int]] = None
+                 vb_idx: Optional[Dict[Spin, int]] = None,
+                 conductivity: Optional[np.ndarray] = None,
+                 seebeck: Optional[np.ndarray] = None,
+                 electronic_thermal_conductivity: Optional[np.ndarray] = None,
+                 mobility: Optional[Dict[str, np.ndarray]] = None
                  ):
         self.structure = structure
         self.energies = energies
@@ -53,6 +56,10 @@ class AmsetData(MSONable):
         self._projections = projections
         self._efermi = efermi
         self._soc = soc
+        self.conductivity = conductivity
+        self.seebeck = seebeck
+        self.electronic_thermal_conductivity = electronic_thermal_conductivity
+        self.mobility = mobility
 
         self.dos = dos
         self.dos_weight = dos_weight
@@ -162,3 +169,146 @@ class AmsetData(MSONable):
 
         self.scattering_rates = scattering_rates
         self.scattering_labels = scattering_labels
+
+    def to_file(self,
+                directory: str = '.',
+                prefix: Optional[str] = None,
+                write_mesh: bool = True,
+                file_format: str = 'json',
+                suffix_mesh: bool = True):
+        if (self.conductivity is None or self.seebeck is None or
+                self.electronic_thermal_conductivity is None):
+            raise ValueError("Cannot write AmsetData to file, transport "
+                             "properties not set")
+
+        if not prefix:
+            prefix = ''
+        else:
+            prefix += '_'
+
+        if suffix_mesh:
+            suffix = "_{}".format("x".join(map(str, self.kpoint_mesh)))
+        else:
+            suffix = ''
+
+        if file_format == "json":
+            data = {"doping": self.doping,
+                    "temperature": self.temperatures,
+                    "fermi_levels": self.fermi_levels,
+                    "conductivity": self.conductivity,
+                    "seebeck": self.seebeck,
+                    "electronic_thermal_conductivity":
+                        self.electronic_thermal_conductivity,
+                    "mobility": self.mobility}
+
+            if write_mesh:
+                data.update({
+                    "energies": {s.value: e / units.eV for s, e in
+                                 self.energies.items()},
+                    "kpoints": self.full_kpoints,
+                    "dos": self.dos,
+                    "efermi": self._efermi,
+                    "vb_idx": cast_dict(self.vb_idx),
+                    "scattering_rates": cast_dict(self.scattering_rates),
+                    "scattering_labels": self.scattering_labels})
+
+            filename = joinpath(directory, "{}amset_data{}.json".format(
+                prefix, suffix))
+            dumpfn(data, filename)
+
+        elif file_format in ["csv", "txt"]:
+            # don't write the data as JSON, instead write raw text files
+            data = []
+
+            triu = np.triu_indices(3)
+            for n, t in np.ndindex(len(self.doping), len(self.temperatures)):
+                row = [self.doping[n], self.temperatures[t],
+                       self.fermi_levels[n, t]]
+                row.extend(self.conductivity[n, t][triu])
+                row.extend(self.seebeck[n, t][triu])
+                row.extend(self.electronic_thermal_conductivity[n, t][triu])
+
+                if self.mobility is not None:
+                    for mob in self.mobility.values():
+                        row.extend(mob[n, t][triu])
+                data.append(row)
+
+            headers = ["doping[cm^-3]", "temperature[K]", "Fermi_level[eV]"]
+
+            # TODO: confirm unit of kappa
+            for prop, unit in [("cond", "S/m"), ("seebeck", "µV/K"),
+                               ("kappa", "?")]:
+                headers.extend(["{}_{}[{}]".format(prop, d, unit)
+                                for d in ("xx", "xy", "xz", "yy", "yz", "zz")])
+
+            if self.mobility is not None:
+                for name in self.mobility.keys():
+                    headers.extend(
+                        ["{}_mobility_{}[cm^2/V.s]".format(name, d)
+                         for d in ("xx", "xy", "xz", "yy", "yz", "zz")])
+
+            filename = joinpath(directory, "{}amset_transport{}.{}".format(
+                prefix, suffix, file_format))
+            np.savetxt(filename, data, header=" ".join(headers))
+
+            if not write_mesh:
+                return
+
+            # write separate files for k-point mesh, energy mesh and
+            # temp/doping dependent scattering rate mesh
+            kpt_file = joinpath(directory, "{}amset_k_mesh{}.{}".format(
+                prefix, suffix, file_format))
+            data = np.array([[i + 1, str(_kpt_str.format(k=kpt))] for i, kpt in
+                             enumerate(self.full_kpoints)], dtype=object)
+            np.savetxt(kpt_file, data, fmt=["%d", "%s"],
+                       header="k-point_index frac_kpt_coord")
+
+            # write energy mesh
+            energy_file = joinpath(directory, "{}amset_e_mesh{}.{}".format(
+                prefix, suffix, file_format))
+            with open(energy_file, 'w') as f:
+                for spin in self.spins:
+                    eshape = self.energies[spin].shape
+                    b_idx = np.repeat(np.arange(eshape[0]), eshape[1])
+                    k_idx = np.tile(np.arange(eshape[1]), eshape[0])
+                    data = np.column_stack(
+                        (b_idx, k_idx, self.energies[spin].flatten()))
+
+                    np.savetxt(f, data, fmt="%d %d %.8f",
+                               header="band_index kpt_index energy[eV]")
+                    f.write("\n")
+
+            # write scatter mesh
+            scatter_file = joinpath(directory, "{}amset_scatter{}.{}".format(
+                prefix, suffix, file_format))
+            # + 1 accounts for total rate column
+            labels = self.scattering_labels + ["total"]
+            fmt = "%d %d" + " %.5g" * len(labels)
+            header = ["band_index", "kpt_index"]
+            header += ["{}_rate[s^-1]".format(label) for label in labels]
+            header = " ".join(header)
+            with open(scatter_file, 'w') as f:
+                for spin in self.spins:
+                    for n, t in np.ndindex((len(self.doping),
+                                            len(self.temperatures))):
+                        f.write("# n = {:g} cm^-3, T = {} K E_F = {} eV\n"
+                                .format(self.doping[n], self.temperatures[t],
+                                        self.fermi_levels[n, t]))
+                        shape = self.energies[spin].shape
+                        b_idx = np.repeat(np.arange(shape[0]), shape[1]) + 1
+                        k_idx = np.tile(np.arange(shape[1]), shape[0]) + 1
+                        cols = [b_idx, k_idx]
+                        cols.extend(self.scattering_rates[spin][:, n, t]
+                                    .reshape(len(self.scattering_labels), -1))
+
+                        # add "total rate" column
+                        cols.extend(np.sum(self.scattering_rates[spin][:, n, t],
+                                           axis=0).reshape(1, -1))
+                        data = np.column_stack(cols)
+
+                        np.savetxt(f, data, fmt=fmt, header=header)
+                        f.write("\n")
+
+        else:
+            raise ValueError("Unrecognised output format: {}".format(
+                file_format))
