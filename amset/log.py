@@ -92,10 +92,10 @@ def log_banner(text):
         '~' * math.ceil(nstars), text, '~' * math.floor(nstars)))
 
 
-def log_list(list_strings, prefix="  "):
+def log_list(list_strings, prefix="  ", level=logging.INFO):
     for i, text in enumerate(list_strings):
         if i == len(list_strings) - 1:
             pipe = "└"
         else:
             pipe = "├"
-        logger.info("{}{}── {}".format(prefix, pipe, text))
+        logger.log(level, "{}{}── {}".format(prefix, pipe, text))
