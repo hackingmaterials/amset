@@ -1,6 +1,6 @@
 """
 This module implements methods to calculate electron scattering based on an
-ElectronStructure object.
+AmsetData object.
 """
 
 import inspect
@@ -20,6 +20,7 @@ from BoltzTraP2 import units
 from monty.json import MSONable
 from scipy.constants import epsilon_0
 from scipy.interpolate import griddata
+from scipy.integrate import trapz
 from sklearn.neighbors.ball_tree import BallTree
 from sklearn.utils import gen_even_slices
 from tqdm import tqdm
@@ -28,6 +29,7 @@ from amset.constants import k_B, e, hbar, over_sqrt_pi, A_to_nm, output_width
 from amset.data import AmsetData
 from amset.util import create_shared_array, spin_name
 from amset.log import log_list
+from amset.utils.transport import f0
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 
@@ -54,10 +56,13 @@ class ScatteringCalculator(MSONable):
     def calculate_scattering_rates(self,
                                    amset_data: AmsetData,
                                    ):
-        # prefactors has shape (spin, nscatterers, ndoping, ntemp, nbands)
-        prefactors = {
-            s: np.array([m.prefactor(amset_data, s) for m in self.scatterers])
-            for s in amset_data.spins}
+        # initialize scattering mechanims
+        [m.initialize(amset_data) for m in self.scatterers]
+        prefactors = [m.prefactor(amset_data) for m in self.scatterers]
+
+        # prefactors now has shape (spin, nscatterers, ndoping, ntemp, nbands)
+        prefactors = {s: np.array([prefactor[s] for prefactor in prefactors])
+                      for s in amset_data.spins}
 
         # rates has shape (spin, nscatterers, ndoping, ntemp, nbands, nkpoints)
         rates = {
@@ -201,8 +206,11 @@ class AbstractScatteringMechanism(ABC):
     required_properties: Tuple[str]
     inelastic = False
 
+    def initialize(self, amset_data):
+        pass
+
     @abstractmethod
-    def prefactor(self, amset_data: AmsetData, spin: Spin):
+    def prefactor(self, amset_data: AmsetData):
         pass
 
     @abstractmethod
@@ -221,36 +229,40 @@ class AcousticDeformationPotentialScattering(AbstractScatteringMechanism):
         self.deformation_potential: Union[Dict, float] = deformation_potential
         self.elastic_constant = elastic_constant
 
-    def prefactor(self, amset_data: AmsetData, spin: Spin):
+    def prefactor(self, amset_data: AmsetData):
         is_metal = amset_data.is_metal
-        prefactor = (1e18 * e * k_B /
-                     (4.0 * np.pi ** 2 * hbar * self.elastic_constant))
+        prefactor = {s: (1e18 * e * k_B / (4.0 * np.pi ** 2 * hbar *
+                                           self.elastic_constant))
+                     for s in amset_data.spins}
 
-        prefactor *= np.ones(
-            (len(amset_data.doping), len(amset_data.temperatures),
-             len(amset_data.energies[spin]))
-            ) * amset_data.temperatures[None, :, None]
+        for spin in amset_data.spins:
+            prefactor[spin] *= np.ones(
+                (len(amset_data.doping), len(amset_data.temperatures),
+                 len(amset_data.energies[spin]))
+                ) * amset_data.temperatures[None, :, None]
 
-        if is_metal and isinstance(self.deformation_potential, tuple):
-            logger.warning(
-                "System is metallic but deformation potentials for both "
-                "the valence and conduction bands have been set. Using the "
-                "valence band value for all bands")
-            prefactor *= self.deformation_potential[0]
+            if is_metal and isinstance(self.deformation_potential, tuple):
+                logger.warning(
+                    "System is metallic but deformation potentials for both "
+                    "the valence and conduction bands have been set. Using the "
+                    "valence band value for all bands")
+                prefactor[spin] *= self.deformation_potential[0]
 
-        elif not is_metal and isinstance(self.deformation_potential, tuple):
-            cb_idx = amset_data.vb_idx[spin] + 1
-            prefactor[:, :, :cb_idx] *= self.deformation_potential[0] ** 2
-            prefactor[:, :, cb_idx:] *= self.deformation_potential[1] ** 2
+            elif not is_metal and isinstance(self.deformation_potential, tuple):
+                cb_idx = amset_data.vb_idx[spin] + 1
+                prefactor[spin][:, :, :cb_idx] *= \
+                    self.deformation_potential[0] ** 2
+                prefactor[spin][:, :, cb_idx:] *= \
+                    self.deformation_potential[1] ** 2
 
-        elif not is_metal:
-            logger.warning(
-                "System is semiconducting but only one deformation potential "
-                "has been set. Using this value for all bands.")
-            prefactor *= self.deformation_potential ** 2
+            elif not is_metal:
+                logger.warning(
+                    "System is semiconducting but only one deformation "
+                    "potential has been set. Using this value for all bands.")
+                prefactor[spin] *= self.deformation_potential ** 2
 
-        else:
-            prefactor *= self.deformation_potential ** 2
+            else:
+                prefactor[spin] *= self.deformation_potential ** 2
 
         return prefactor
 
@@ -268,26 +280,76 @@ class IonizedImpurityScattering(AbstractScatteringMechanism):
     def __init__(self,
                  acceptor_charge: int,
                  donor_charge: int,
-                 static_dielectric: float,
-                 amset_data: AmsetData,
-                 doping: np.ndarray,
-                 temperatures: np.ndarray):
+                 static_dielectric: float):
         self.acceptor_charge = acceptor_charge
         self.donor_charge = donor_charge
         self.static_dielectric = static_dielectric
-        self.beta = 1  # TODO: Calculate beta for doping and temperatures
-        self.impurity_concentration = 1  # TODO: Calculate impurity conc at n, T
+        self.beta_sq = None
+        self.impurity_concentration = None
 
-        prefactor = ((0.001 / e) ** 2 * e ** 4 /
+    def initialize(self, amset_data):
+        logger.debug("Initializing IMP scattering")
+
+        self.beta_sq = np.zeros(amset_data.fermi_levels.shape)
+        self.impurity_concentration = np.zeros(amset_data.fermi_levels.shape)
+
+        tdos = amset_data.dos.tdos
+        energies = amset_data.dos.energies
+        fermi_levels = amset_data.fermi_levels
+        de = amset_data.dos.de
+        v_idx = amset_data.dos.idx_vbm
+        c_idx = amset_data.dos.idx_cbm
+        vol = amset_data.structure.volume
+
+        # 1e-8 is Angstrom to cm conversion
+        conv = 1 / (vol * 1e-8 ** 3)
+
+        imp_info = []
+        for n, t in np.ndindex(self.beta_sq.shape):
+            ef = fermi_levels[n, t]
+            temp = amset_data.temperatures[t]
+            f = f0(energies, ef, temp)
+            integral = trapz(tdos * f * (1 - f), x=energies)
+            self.beta_sq[n, t] = (
+                e ** 2 * integral * 1e12 /
+                (self.static_dielectric * epsilon_0 * k_B * temp * e * vol))
+
+            # calculate impurity concentration
+            n_conc = np.abs(conv * np.sum(
+                tdos[c_idx:] * f0(energies[c_idx:], ef, temp) * de[c_idx:],
+                axis=0))
+            p_conc = np.abs(conv * np.sum(
+                tdos[:v_idx + 1] * (1 - f0(energies[:v_idx + 1], ef, temp))
+                * de[:v_idx + 1], axis=0))
+
+            self.impurity_concentration[n, t] = (
+                    n_conc * self.donor_charge ** 2 +
+                    p_conc * self.acceptor_charge ** 2)
+            imp_info.append(
+                "{:.2g} cm⁻³ & {} K: β² = {:.4g}, Nᵢᵢ = {:.4g}".format(
+                    amset_data.doping[n], temp, self.beta_sq[n, t],
+                    self.impurity_concentration[n, t]))
+
+        logger.debug("Inverse screening length (β) and impurity concentration "
+                     "(Nᵢᵢ):")
+        log_list(imp_info, level=logging.DEBUG)
+
+    def prefactor(self, amset_data: AmsetData):
+        prefactor = ((1e-3 / (e ** 2)) * e ** 4 * self.impurity_concentration /
                      (4.0 * np.pi ** 2 * self.static_dielectric ** 2 *
                       epsilon_0 ** 2 * hbar))
-        prefactor = self.impurity_concentration * prefactor
-        super().__init__(False, prefactor, doping, temperatures)
 
-    def factor(self, k_diff_sq):
+        # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
+        # currently it has shape (ndops, ntemps)
+        return {s: np.repeat(prefactor[:, :, None], len(amset_data.energies[s]),
+                             axis=-1)
+                for s in amset_data.spins}
+
+    def factor(self, doping: np.ndarray, temperatures: np.ndarray,
+               k_diff_sq: np.ndarray):
         # tile k_diff_sq to make it commensurate with the dimensions of beta
-        return 1 / (np.tile(k_diff_sq, (
-            len(self._doping), len(self._temperatures))) + self.beta ** 2) ** 2
+        return 1 / (np.tile(k_diff_sq, (len(doping), len(temperatures), 1)) +
+                    self.beta_sq[..., None]) ** 2
 
 
 class PiezoelectricScattering(AbstractScatteringMechanism):
@@ -465,8 +527,10 @@ def get_ir_band_rates(scatterers, ediff, energy_tol, s, k_idx, k_p_idx, kpoints,
     overlap = (a_vals[expand_k_idx] + c_vals[expand_k_idx] * k_angles) ** 2
     weighted_overlap = w0gauss(ediff / energy_tol)[expand_k_idx] * overlap
 
-    k_diff_sq = np.dot(pbc_diff(kpoints[full_k_idx], kpoints[full_k_p_idx]),
-                       reciprocal_lattice_matrix) ** 2
+    # norm of k difference squared in 1/nm
+    k_diff_sq = np.linalg.norm(np.dot(
+        kpoints[full_k_idx] - kpoints[full_k_p_idx],
+        reciprocal_lattice_matrix) / 0.1, axis=1) ** 2
 
     # factors has shape: (n_scatterers, n_doping, n_temperatures, n_k_diff_sq)
     factors = np.array([m.factor(doping, temperatures, k_diff_sq)
