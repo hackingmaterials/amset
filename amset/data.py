@@ -8,12 +8,15 @@ import numpy as np
 
 from monty.json import MSONable
 from monty.serialization import dumpfn
+from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units
-from BoltzTraP2.bandlib import DOS
+from BoltzTraP2.bandlib import DOS, FD
+
 from amset.util import groupby, cast_dict
 from amset.log import log_list
+from amset.utils.transport import f0
 from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.dos import FermiDos, Dos
 
@@ -43,7 +46,8 @@ class AmsetData(MSONable):
                  conductivity: Optional[np.ndarray] = None,
                  seebeck: Optional[np.ndarray] = None,
                  electronic_thermal_conductivity: Optional[np.ndarray] = None,
-                 mobility: Optional[Dict[str, np.ndarray]] = None
+                 mobility: Optional[Dict[str, np.ndarray]] = None,
+                 fermi_dirac: Optional[np.ndarray] = None
                  ):
         self.structure = structure
         self.energies = energies
@@ -61,6 +65,7 @@ class AmsetData(MSONable):
         self.seebeck = seebeck
         self.electronic_thermal_conductivity = electronic_thermal_conductivity
         self.mobility = mobility
+        self.fermi_dirac = fermi_dirac
 
         self.dos = dos
         self.dos_weight = dos_weight
@@ -115,12 +120,15 @@ class AmsetData(MSONable):
         densities = gaussian_filter1d(densities, dos_width /
                                       (emesh[1] - emesh[0]))
 
+        efermi = self._efermi / units.eV
+        logger.debug("Intrinsic DOS Fermi level: {:.4f}".format(efermi))
+
         self.dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
         densities *= self.dos_weight
-        dos = Dos(self._efermi, emesh, {Spin.up: densities})
+        dos = Dos(efermi, emesh, {Spin.up: densities})
 
         # integrate up to Fermi level to get number of electrons
-        energy_mask = emesh <= (self._efermi + dos_width)
+        energy_mask = emesh <= (efermi + dos_width)
         nelect = scipy.trapz(densities[energy_mask], emesh[energy_mask])
 
         logger.debug("DOS contains {:.3f} electrons".format(nelect))
@@ -146,11 +154,22 @@ class AmsetData(MSONable):
             # do minus -c as FermiDos treats negative concentrations as electron
             # doping and +ve as hole doping (the opposite to amset).
             self.fermi_levels[c, t] = self.dos.get_fermi(
-                -doping[c], temperatures[t])
+                -doping[c], temperatures[t], rtol=1e-7, precision=20)
+
             fermi_level_info.append("{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
                 doping[c], temperatures[t], self.fermi_levels[c, t]))
 
         log_list(fermi_level_info)
+
+        # calculate Fermi dirac distributions for each Fermi level
+        f = {s: np.zeros(self.fermi_levels.shape + self.energies[s].shape)
+             for s in self.spins}
+
+        for spin in self.spins:
+            for n, t in np.ndindex(self.fermi_levels.shape):
+                f[spin][n, t] = FD(self.energies[spin],
+                                   self.fermi_levels[n, t] * units.eV,
+                                   self.temperatures[t] * units.BOLTZMANN)
 
     def set_scattering_rates(self,
                              scattering_rates: Dict[Spin, np.ndarray],
@@ -192,7 +211,7 @@ class AmsetData(MSONable):
         else:
             suffix = ''
 
-        if file_format == "json":
+        if file_format in ["json", "yaml"]:
             data = {"doping": self.doping,
                     "temperature": self.temperatures,
                     "fermi_levels": self.fermi_levels,
@@ -213,8 +232,8 @@ class AmsetData(MSONable):
                     "scattering_rates": cast_dict(self.scattering_rates),
                     "scattering_labels": self.scattering_labels})
 
-            filename = joinpath(directory, "{}amset_data{}.json".format(
-                prefix, suffix))
+            filename = joinpath(directory, "{}amset_data{}.{}".format(
+                prefix, suffix, file_format))
             dumpfn(data, filename)
 
         elif file_format in ["csv", "txt"]:
