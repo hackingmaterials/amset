@@ -156,13 +156,14 @@ class Interpolater(MSONable):
             The electronic structure (including energies, velocities, density of
             states and k-point information) as an AmsetData object.
         """
+        is_metal = self._band_structure.is_metal()
 
-        if self._band_structure.is_metal() and (bandgap or scissor):
+        if is_metal and (bandgap or scissor):
             raise ValueError("{} option set but system is metallic".format(
                 "bandgap" if bandgap else "scissor"))
 
         if not self._interpolate_projections:
-            raise ValueError("Band structure projections needed to obtain full"
+            raise ValueError("Band structure projections needed to obtain full "
                              "electronic structure. Reinitialise the "
                              "interpolater with interpolate_projections=True")
 
@@ -174,7 +175,7 @@ class Interpolater(MSONable):
                   "energy cutoff: {} eV".format(energy_cutoff)])
 
         # determine energy cutoffs
-        if energy_cutoff and self._band_structure.is_metal():
+        if energy_cutoff and is_metal:
             min_e = self._band_structure.efermi - energy_cutoff
             max_e = self._band_structure.efermi + energy_cutoff
 
@@ -206,7 +207,7 @@ class Interpolater(MSONable):
                 self._lattice_matrix, nworkers=nworkers)
             log_time_taken(t0)
 
-            if not self._band_structure.is_metal():
+            if not is_metal:
                 vb_idx = max(self._band_structure.get_vbm()["band_index"][spin])
                 # need to know the index of the valence band after discounting
                 # bands during the interpolation. As ibands is just a list of
@@ -228,6 +229,16 @@ class Interpolater(MSONable):
 
             log_time_taken(t0)
 
+        if is_metal:
+            efermi = self._band_structure.efermi
+        else:
+            # if material is semiconducting, set Fermi level to middle of gap
+            e_vbm = max([np.max(energies[s][:new_vb_idx[s]+1])
+                         for s in self._spins])
+            e_cbm = min([np.min(energies[s][new_vb_idx[s]+1:])
+                         for s in self._spins])
+            efermi = (e_vbm + e_cbm) / 2
+
         # get the actual k-points used in the BoltzTraP2 interpolation
         # unfortunately, BoltzTraP2 doesn't expose this information so we
         # have to get it ourselves
@@ -238,8 +249,7 @@ class Interpolater(MSONable):
         return AmsetData(
             self._band_structure.structure, energies, vvelocities, projections,
             self.interpolation_mesh, full_kpts, ir_kpts, weights, ir_kpts_idx,
-            ir_to_full_idx, self._band_structure.efermi,
-            self._band_structure.is_metal(), self._soc, vb_idx=new_vb_idx)
+            ir_to_full_idx, efermi, is_metal, self._soc, vb_idx=new_vb_idx)
 
     def get_energies(self,
                      kpoints: Union[np.ndarray, List],
