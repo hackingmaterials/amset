@@ -2,7 +2,7 @@ from math import log
 
 import numpy as np
 
-from amset.utils.constants import k_B, hbar, m_e, e, pi, sq3, epsilon_0
+from amset.constants import k_B, hbar, m_e, e
 
 """
 Contains method for calculating electron distribution and optical phonon

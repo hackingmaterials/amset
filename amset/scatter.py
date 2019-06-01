@@ -570,8 +570,10 @@ def get_band_rates(scatterers, ediff, energy_tol, s, k_idx, k_p_idx,
 
     weighted_overlap = w0gauss(ediff / energy_tol) * overlap
 
-    k_diff_sq = np.dot(pbc_diff(kpoints[k_idx], kpoints[k_p_idx]),
-                       reciprocal_lattice_matrix) ** 2
+    # norm of k difference squared in 1/nm
+    k_diff_sq = np.linalg.norm(np.dot(
+        kpoints[k_idx] - kpoints[k_p_idx],
+        reciprocal_lattice_matrix) / 0.1, axis=1) ** 2
 
     # factors is array with shape:
     # (n_scatterers, n_doping, n_temperatures, n_k_diff_sq)
