@@ -5,26 +5,31 @@ from amset.run import AmsetRunner
 
 settings = {
     "general": {
-        "user_bandgap": None,
-        "interpolation_factor": 3,
+        "interpolation_factor": 20,
         "scattering_type": "auto",
-        "doping": [1e15],
+        "doping": [1.99e+14, 2.20e+15, 1.72e+16,
+                   1.86e+17, 1.46e+18, 4.39e+18],
         "temperatures": [300]
     },
     "material": {
         "deformation_potential": (6.5, 6.5),
         "elastic_constant": 190,
+        "donor_charge": 1,
+        "acceptor_charge": 1,
+        "static_dielectric": 13.1
     },
     "performance": {
-        "energy_tol": 0.001,
+        "energy_tol": 0.005,
         "energy_cutoff": 1.5,
         "g_tol": 1,
         "symprec": 0.01,
         "nworkers": -1,
-
+        "dos_estep": 0.01,
+        "dos_width": 0.01
     },
     "output": {
-        "log_traceback": True
+        "log_traceback": True,
+        "write_mesh": True
     }
 }
 
