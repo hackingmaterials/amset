@@ -366,29 +366,24 @@ class PiezoelectricScattering(AbstractScatteringMechanism):
         self.piezoelectric_coefficient = piezoelectric_coefficient
         self.static_dielectric = static_dielectric
 
-    @property
     def prefactor(self, amset_data: AmsetData):
         unit_conversion = 1e9 / e
-        prefactor = {s: np.ones(amset_data.fermi_levels.shape +
-                                amset_data.energies[s].shape[0])
-                     for s in amset_data.spins}
-
-        prefactor = (unit_conversion * e ** 2 * k_B * amset_data.temperatures *
+        factor = (
+            unit_conversion * e ** 2 * k_B *
             self.piezoelectric_coefficient ** 2 /
             (4.0 * np.pi ** 2 * hbar * epsilon_0 * self.static_dielectric))
 
-        prefactor = ((1e-3 / (e ** 2)) * e ** 4 * self.impurity_concentration /
-                     (4.0 * np.pi ** 2 * self.static_dielectric ** 2 *
-                      epsilon_0 ** 2 * hbar))
-
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
-        # currently it has shape (ndops, ntemps)
-        return {s: np.repeat(prefactor[:, :, None], len(amset_data.energies[s]),
-                             axis=-1)
-                for s in amset_data.spins}
+        return {
+            s: np.ones(amset_data.fermi_levels.shape +
+                       amset_data.energies[s].shape[0])
+            * factor * amset_data.temperatures[None, :, None]
+            for s in amset_data.spins}
 
-    def factor(self, k_diff_sq):
-        return 1
+    def factor(self, doping: np.ndarray, temperatures: np.ndarray,
+               k_diff_sq: np.ndarray):
+        # factor should have shape (ndops, ntemps, nkpts)
+        return 1 / np.tile(k_diff_sq, (len(doping), len(temperatures), 1))
 
 
 class PolarOpticalScattering(AbstractScatteringMechanism):
