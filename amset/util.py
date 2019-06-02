@@ -157,3 +157,33 @@ def cast_dict(d):
 
             new_d[k] = v
     return new_d
+
+
+def gen_even_slices(n, n_packs):
+    """Generator to create n_packs slices going up to n.
+
+    Parameters
+    ----------
+    n : int
+    n_packs : int
+        Number of slices to generate.
+
+    Yields
+    ------
+    slice
+
+    Examples
+    --------
+    """
+    start = 0
+    if n_packs < 1:
+        raise ValueError("gen_even_slices got n_packs=%s, must be >=1"
+                         % n_packs)
+    for pack_num in range(n_packs):
+        this_n = n // n_packs
+        if pack_num < n % n_packs:
+            this_n += 1
+        if this_n > 0:
+            end = start + this_n
+            yield slice(start, end, None)
+            start = end
