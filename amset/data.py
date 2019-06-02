@@ -8,7 +8,6 @@ import numpy as np
 
 from monty.json import MSONable
 from monty.serialization import dumpfn
-from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units
@@ -16,7 +15,6 @@ from BoltzTraP2.bandlib import DOS, FD
 
 from amset.util import groupby, cast_dict
 from amset.log import log_list
-from amset.utils.transport import f0
 from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.dos import FermiDos, Dos
 

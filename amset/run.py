@@ -25,7 +25,7 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.util.string import unicodeify
 
 from amset.interpolate import Interpolater
-from amset.scatter import ScatteringCalculator
+from amset.scattering.calculate import ScatteringCalculator
 from amset.transport import TransportCalculator
 from amset.util import validate_settings, tensor_average, unicodeify_spacegroup, write_settings_to_file, load_settings_from_file
 from amset.log import log_banner, log_list
@@ -83,7 +83,7 @@ class AmsetRunner(MSONable):
             return_usage_stats: bool = False):
         mem_usage, (amset_data, usage_stats) = memory_usage(
             partial(self._run_wrapper, directory=directory, prefix=prefix),
-            include_children=True, max_usage=True, retval=True, interval=1,
+            max_usage=True, retval=True, interval=.1, include_children=True,
             multiprocess=True)
 
         log_banner("END")
@@ -110,17 +110,6 @@ class AmsetRunner(MSONable):
         tt = time.perf_counter()
         _log_amset_intro()
         _log_settings(self)
-
-        # initialize scattering first so we can check that materials properties
-        # and desired scattering mechanisms are consistent
-        scatter = ScatteringCalculator(
-            self.material_properties,
-            scattering_type=self.scattering_type,
-            energy_tol=self.performance_parameters["energy_tol"],
-            g_tol=self.performance_parameters["g_tol"],
-            use_symmetry=self.performance_parameters["symprec"] is not None,
-            nworkers=self.performance_parameters["nworkers"])
-
         _log_structure_information(self._band_structure.structure,
                                    self.performance_parameters["symprec"])
         _log_band_structure_information(self._band_structure)
@@ -150,8 +139,16 @@ class AmsetRunner(MSONable):
         log_banner("SCATTERING")
         t0 = time.perf_counter()
 
+        scatter = ScatteringCalculator(
+            self.material_properties, amset_data,
+            scattering_type=self.scattering_type,
+            energy_tol=self.performance_parameters["energy_tol"],
+            g_tol=self.performance_parameters["g_tol"],
+            use_symmetry=self.performance_parameters["symprec"] is not None,
+            nworkers=self.performance_parameters["nworkers"])
+
         amset_data.set_scattering_rates(
-            scatter.calculate_scattering_rates(amset_data),
+            scatter.calculate_scattering_rates(),
             [m.name for m in scatter.scatterers])
 
         timing["scattering"] = time.perf_counter() - t0
