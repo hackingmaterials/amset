@@ -34,13 +34,12 @@ def df0de(energy, fermi, temperature):
     Returns (float<0): the energy derivative of the Fermi-Dirac distribution.
     """
     exponent = (energy - fermi) / (k_B * temperature)
+    result = -1 / (k_B * temperature) * \
+           np.exp((energy - fermi) / (k_B * temperature)) / (
+                   1 + np.exp((energy - fermi) / (k_B * temperature))) ** 2
     # This is necessary so at too low numbers python doesn't return NaN
-    if exponent > 40 or exponent < -40:
-        return 1e-32
-    else:
-        return -1 / (k_B * temperature) * \
-               np.exp((energy - fermi) / (k_B * temperature)) / (
-                       1 + np.exp((energy - fermi) / (k_B * temperature))) ** 2
+    result[(exponent > 40) | (exponent < -40)] = 1e-32
+    return result
 
 
 def fermi_integral(order, fermi, temperature, initial_energy=0):
