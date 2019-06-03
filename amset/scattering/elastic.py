@@ -38,7 +38,7 @@ class AbstractElasticScattering(ABC):
         pass
 
     @abstractmethod
-    def factor(self, *args):
+    def factor(self, k_diff_sq: np.ndarray):
         pass
 
 

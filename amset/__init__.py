@@ -29,6 +29,7 @@ amset_defaults = {
         "energy_tol": 0.001,
         "energy_cutoff": 1.5,
         "g_tol": 1,
+        "max_g_iter": 8,
         "dos_estep": 0.001,
         "dos_width": 0.01,
         "symprec": 0.01,

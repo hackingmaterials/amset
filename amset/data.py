@@ -11,7 +11,7 @@ from monty.serialization import dumpfn
 from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units
-from BoltzTraP2.bandlib import DOS, FD
+from BoltzTraP2.bandlib import DOS, FD, dFDde
 
 from amset.util import groupby, cast_dict
 from amset.log import log_list
@@ -86,6 +86,8 @@ class AmsetData(MSONable):
         self.doping = None
         self.temperatures = None
         self.fermi_levels = None
+        self.f = None
+        self.dfde = None
 
         self.grouped_ir_to_full = groupby(
             np.arange(len(full_kpoints)), ir_to_full_kpoint_mapping)
@@ -159,15 +161,25 @@ class AmsetData(MSONable):
 
         log_list(fermi_level_info)
 
-        # calculate Fermi dirac distributions for each Fermi level
-        f = {s: np.zeros(self.fermi_levels.shape + self.energies[s].shape)
-             for s in self.spins}
+        # calculate Fermi dirac distributions and derivatives for each Fermi
+        # level
+        self.f = {s: np.zeros(self.fermi_levels.shape +
+                              self.energies[s].shape)
+                  for s in self.spins}
+        self.dfde = {s: np.zeros(self.fermi_levels.shape +
+                                 self.energies[s].shape)
+                     for s in self.spins}
 
         for spin in self.spins:
             for n, t in np.ndindex(self.fermi_levels.shape):
-                f[spin][n, t] = FD(self.energies[spin],
-                                   self.fermi_levels[n, t] * units.eV,
-                                   self.temperatures[t] * units.BOLTZMANN)
+                self.f[spin][n, t] = FD(
+                    self.energies[spin],
+                    self.fermi_levels[n, t] * units.eV,
+                    self.temperatures[t] * units.BOLTZMANN)
+                self.dfde[spin][n, t] = dFDde(
+                    self.energies[spin],
+                    self.fermi_levels[n, t] * units.eV,
+                    self.temperatures[t] * units.BOLTZMANN)
 
     def set_scattering_rates(self,
                              scattering_rates: Dict[Spin, np.ndarray],

@@ -144,12 +144,13 @@ class AmsetRunner(MSONable):
             scattering_type=self.scattering_type,
             energy_tol=self.performance_parameters["energy_tol"],
             g_tol=self.performance_parameters["g_tol"],
+            max_g_iter=self.performance_parameters["max_g_iter"],
             use_symmetry=self.performance_parameters["symprec"] is not None,
             nworkers=self.performance_parameters["nworkers"])
 
         amset_data.set_scattering_rates(
             scatter.calculate_scattering_rates(),
-            [m.name for m in scatter.scatterers])
+            scatter.scatterer_labels)
 
         timing["scattering"] = time.perf_counter() - t0
 
