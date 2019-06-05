@@ -168,33 +168,7 @@ class AmsetRunner(MSONable):
         timing["transport"] = time.perf_counter() - t0
 
         log_banner('RESULTS')
-
-        results_summary = []
-        if self.output_parameters["calculate_mobility"]:
-            logger.info("Average conductivity (σ), Seebeck (S) and mobility (μ)"
-                        " results:")
-            headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]",
-                       "μ [cm²/Vs]")
-            for c, t in np.ndindex(amset_data.fermi_levels.shape):
-                results_summary.append(
-                    (self.doping[c], self.temperatures[t],
-                     tensor_average(amset_data.conductivity[c, t]),
-                     tensor_average(amset_data.seebeck[c, t]),
-                     tensor_average(amset_data.mobility["overall"][c, t])))
-
-        else:
-            logger.info("Average conductivity (σ) and Seebeck (S) results:")
-            headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]")
-            for c, t in np.ndindex(amset_data.fermi_levels.shape):
-                results_summary.append(
-                    (self.doping[c], self.temperatures[t],
-                     tensor_average(amset_data.conductivity[c, t]),
-                     tensor_average(amset_data.seebeck[c, t]),
-                     tensor_average(amset_data.mobility["overall"][c, t])))
-
-        logger.info(tabulate(
-            results_summary, headers=headers, numalign="right",
-            stralign="center", floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f")))
+        _log_results_summary(amset_data, self.output_parameters)
 
         abs_dir = os.path.abspath(directory)
         logger.info("Writing results to {}".format(abs_dir))
@@ -450,3 +424,48 @@ def _log_band_edge_information(band_structure, edge_data):
     log_list(["energy: {:.3f} eV".format(edge_data['energy']),
               "k-point: {}".format(kpoint_str),
               "band indices: {}".format(b_indices)])
+
+
+def _log_results_summary(amset_data, output_parameters):
+    results_summary = []
+    if output_parameters["calculate_mobility"]:
+        logger.info("Average conductivity (σ), Seebeck (S) and mobility (μ)"
+                    " results:")
+        headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]",
+                   "μ [cm²/Vs]")
+        for c, t in np.ndindex(amset_data.fermi_levels.shape):
+            results_summary.append(
+                (amset_data.doping[c], amset_data.temperatures[t],
+                 tensor_average(amset_data.conductivity[c, t]),
+                 tensor_average(amset_data.seebeck[c, t]),
+                 tensor_average(amset_data.mobility["overall"][c, t])))
+
+    else:
+        logger.info("Average conductivity (σ) and Seebeck (S) results:")
+        headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]")
+        for c, t in np.ndindex(amset_data.fermi_levels.shape):
+            results_summary.append(
+                (amset_data.doping[c], amset_data.temperatures[t],
+                 tensor_average(amset_data.conductivity[c, t]),
+                 tensor_average(amset_data.seebeck[c, t]),
+                 tensor_average(amset_data.mobility["overall"][c, t])))
+
+    logger.info(tabulate(
+        results_summary, headers=headers, numalign="right",
+        stralign="center", floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f")))
+
+    if output_parameters["separate_scattering_mobilities"]:
+        logger.info("Mobility breakdown by scattering mechanism, in cm²/Vs:")
+        headers = ["conc [cm⁻³]", "temp [K]"] + amset_data.scattering_labels
+
+        results_summary = []
+        for c, t in np.ndindex(amset_data.fermi_levels.shape):
+            results_summary.append(
+                [amset_data.doping[c], amset_data.temperatures[t]] +
+                [tensor_average(amset_data.mobility[s][c, t])
+                 for s in amset_data.scattering_labels])
+
+        logger.info(tabulate(
+            results_summary, headers=headers, numalign="right",
+            stralign="center", floatfmt=[".2g", ".1f"] + [".2g"] *
+            len(amset_data.scattering_labels)))
