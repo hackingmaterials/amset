@@ -13,10 +13,12 @@ from scipy.ndimage import gaussian_filter1d
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import DOS, FD, dFDde
 
+from amset.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
 from amset.util import groupby, cast_dict
 from amset.log import log_list
+from amset.utils.transport import df0de
 from pymatgen import Spin, Structure
-from pymatgen.electronic_structure.dos import FermiDos, Dos
+from pymatgen.electronic_structure.dos import FermiDos, Dos, f0
 
 logger = logging.getLogger(__name__)
 _kpt_str = '[{k[0]:.5f} {k[1]:.5f} {k[2]:.5f}]'
@@ -86,13 +88,16 @@ class AmsetData(MSONable):
         self.doping = None
         self.temperatures = None
         self.fermi_levels = None
+        self.electron_conc = None
+        self.hole_conc = None
         self.f = None
         self.dfde = None
+        self.dfdk = None
 
         self.grouped_ir_to_full = groupby(
             np.arange(len(full_kpoints)), ir_to_full_kpoint_mapping)
 
-    def calculate_dos(self, dos_estep: float = 0.01, dos_width: float = 0.01):
+    def calculate_dos(self, dos_estep: float = 0.01, dos_width: float = None):
         """
 
         Args:
@@ -105,8 +110,9 @@ class AmsetData(MSONable):
         all_energies /= units.eV  # convert from Hartree to eV for DOS
 
         # add a few multiples of dos_width to emin and emax to account for tails
-        dos_emin = np.min(all_energies) - dos_width * 5
-        dos_emax = np.max(all_energies) + dos_width * 5
+        pad = dos_width if dos_width else 0
+        dos_emin = np.min(all_energies) - pad * 5
+        dos_emax = np.max(all_energies) + pad * 5
         npts = int(round((dos_emax - dos_emin) / dos_estep))
 
         logger.debug("DOS parameters:")
@@ -117,22 +123,22 @@ class AmsetData(MSONable):
         emesh, densities = DOS(all_energies.T, erange=(dos_emin, dos_emax),
                                npts=npts)
 
-        densities = gaussian_filter1d(densities, dos_width /
-                                      (emesh[1] - emesh[0]))
-
-        efermi = self._efermi / units.eV
-        logger.debug("Intrinsic DOS Fermi level: {:.4f}".format(efermi))
-
-        self.dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
-        densities *= self.dos_weight
-        dos = Dos(efermi, emesh, {Spin.up: densities})
+        if dos_width:
+            densities = gaussian_filter1d(densities, dos_width /
+                                          (emesh[1] - emesh[0]))
 
         # integrate up to Fermi level to get number of electrons
-        energy_mask = emesh <= (efermi + dos_width)
+        efermi = self._efermi / units.eV
+        energy_mask = emesh <= efermi + pad
         nelect = scipy.trapz(densities[energy_mask], emesh[energy_mask])
 
+        logger.debug("Intrinsic DOS Fermi level: {:.4f}".format(efermi))
         logger.debug("DOS contains {:.3f} electrons".format(nelect))
-        self.dos = FermiDos(dos, structure=self.structure, nelecs=nelect)
+
+        dos = Dos(efermi, emesh, {Spin.up: densities})
+        self.dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
+        self.dos = FermiDos(dos, structure=self.structure,
+                            dos_weight=self.dos_weight)
 
     def set_doping_and_temperatures(self,
                                     doping: np.ndarray,
@@ -146,18 +152,22 @@ class AmsetData(MSONable):
         self.temperatures = temperatures
 
         self.fermi_levels = np.zeros((len(doping), len(temperatures)))
+        self.electron_conc = np.zeros((len(doping), len(temperatures)))
+        self.hole_conc = np.zeros((len(doping), len(temperatures)))
 
         logger.info("Calculated Fermi levels:")
 
         fermi_level_info = []
-        for c, t in np.ndindex(self.fermi_levels.shape):
+        for n, t in np.ndindex(self.fermi_levels.shape):
             # do minus -c as FermiDos treats negative concentrations as electron
             # doping and +ve as hole doping (the opposite to amset).
-            self.fermi_levels[c, t] = self.dos.get_fermi(
-                -doping[c], temperatures[t], rtol=1e-7, precision=20)
+            self.fermi_levels[n, t], self.electron_conc[n, t], \
+                self.hole_conc[n, t] = self.dos.get_fermi(
+                    -doping[n], temperatures[t], rtol=1e-4, precision=10,
+                    return_electron_hole_conc=True)
 
             fermi_level_info.append("{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
-                doping[c], temperatures[t], self.fermi_levels[c, t]))
+                doping[n], temperatures[t], self.fermi_levels[n, t]))
 
         log_list(fermi_level_info)
 
@@ -169,7 +179,13 @@ class AmsetData(MSONable):
         self.dfde = {s: np.zeros(self.fermi_levels.shape +
                                  self.energies[s].shape)
                      for s in self.spins}
+        self.dfdk = {s: np.zeros(self.fermi_levels.shape +
+                                 self.energies[s].shape)
+                     for s in self.spins}
 
+        matrix_norm = (self.structure.lattice.matrix /
+                       np.linalg.norm(self.structure.lattice.matrix))
+        factor = hartree_to_ev * m_to_cm * A_to_m / (hbar * 0.52917721067)
         for spin in self.spins:
             for n, t in np.ndindex(self.fermi_levels.shape):
                 self.f[spin][n, t] = FD(
@@ -179,7 +195,19 @@ class AmsetData(MSONable):
                 self.dfde[spin][n, t] = dFDde(
                     self.energies[spin],
                     self.fermi_levels[n, t] * units.eV,
-                    self.temperatures[t] * units.BOLTZMANN)
+                    self.temperatures[t] * units.BOLTZMANN) * units.eV
+
+                # velocities product has shape (nbands, 3, 3, nkpoints)
+                # we want the diagonal of the 3x3 matrix for each k and band
+                # after diagonalization shape is nbands, nkpoints, 3
+                v = np.diagonal(np.sqrt(self.velocities_product[spin]),
+                                axis1=1, axis2=2)
+                v = v.transpose((0, 2, 1))
+                v = np.abs(np.matmul(matrix_norm, v)) * factor
+                v = v.transpose((0, 2, 1))
+                # self.dfdk[spin][n, t] = 1
+                self.dfdk[spin][n, t] = np.linalg.norm(
+                    self.dfde[spin][n, t][..., None] * v * hbar, axis=2)
 
     def set_scattering_rates(self,
                              scattering_rates: Dict[Spin, np.ndarray],
