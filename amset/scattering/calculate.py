@@ -19,7 +19,7 @@ from BoltzTraP2 import units
 from pymatgen import Spin
 
 from amset.constants import A_to_nm, output_width, over_sqrt_pi, hbar, \
-    default_small_E
+    default_small_e, small_val, e
 from amset.data import AmsetData
 from amset.log import log_list
 from amset.scattering.elastic import AbstractElasticScattering
@@ -119,9 +119,11 @@ class ScatteringCalculator(MSONable):
         spins = self.amset_data.spins
         full_kpoints = self.amset_data.full_kpoints
 
-
         # rates has shape (spin, nscatterers, ndoping, ntemp, nbands, nkpoints)
-        rates = {s: np.zeros(prefactors[s].shape + (len(full_kpoints), ))
+        rates = {s: np.zeros((len(self.scatterer_labels),
+                              len(self.amset_data.doping),
+                              len(self.amset_data.temperatures)) +
+                             self.amset_data.energies[s].shape)
                  for s in spins}
 
         if self.use_symmetry:
@@ -136,12 +138,6 @@ class ScatteringCalculator(MSONable):
                   "# k-points: {}".format(nkpoints),
                   "batch size: {}".format(batch_size)])
 
-        integral_conversion = (2 * np.pi) ** 3 / (
-            self.amset_data.structure.lattice.volume *
-            A_to_nm ** 3) / (len(full_kpoints) * self.energy_tol)
-        integral_conversion = {s: integral_conversion * prefactors[s]
-                               for s in spins}
-
         for spin in spins:
             for b_idx in range(len(self.amset_data.energies[spin])):
                 logger.info("Calculating rates for {} band {}".format(
@@ -152,17 +148,9 @@ class ScatteringCalculator(MSONable):
                     spin, b_idx, nsplits)
 
                 log_list([
-                    "max rate: {:.4g}".format(
-                        (rates[spin][:, :, :, b_idx] *
-                         integral_conversion[
-                             spin][:, :, :, b_idx, None]).max()),
-                    "min rate: {:.4g}".format(
-                        (rates[spin][:, :, :, b_idx] *
-                         integral_conversion[
-                             spin][:, :, :, b_idx, None]).min()),
+                    "max rate: {:.4g}".format(rates[spin][..., b_idx, :].max()),
+                    "min rate: {:.4g}".format(rates[spin][..., b_idx, :].min()),
                     "time: {:.4f} s".format(time.perf_counter() - t0)])
-
-            rates[spin] *= integral_conversion[spin][:, :, :, :, None]
 
         # if the k-point density is low, some k-points may not have
         # other k-points within the energy tolerance leading to zero rates
@@ -174,15 +162,16 @@ class ScatteringCalculator(MSONable):
                              spin: Spin,
                              b_idx: int,
                              nsplits: int):
-        # prefactors now has shape (spin, nscatterers, ndoping, ntemp, nbands)
-        # each elastic scatterer has 1 rate, each inelastic has 2
-        elastic_prefactors = [
-            m.prefactor(spin, b_idx) for m in self.elastic_scatterers]
-        inelastic_prefactors = [
-            m.prefactor(spin, b_idx) for m in self.inelastic_scatterers
-            for _ in range(2)]
-        prefactors = {s: np.array([prefactor[s] for prefactor in prefactors])
-                      for s in spins}
+        integral_conversion = (
+                (2 * np.pi) ** 3
+                / (self.amset_data.structure.lattice.volume * A_to_nm ** 3)
+                / (len(self.amset_data.full_kpoints) * self.energy_tol))
+
+        # prefactors have shape [nscatterers, ndoping, ntemp)
+        elastic_prefactors = integral_conversion * np.array(
+            [m.prefactor(spin, b_idx) for m in self.elastic_scatterers])
+        inelastic_prefactors = integral_conversion * np.array(
+            [m.prefactor(spin, b_idx) for m in self.inelastic_scatterers])
 
         if self.use_symmetry:
             kpoints_idx = self.amset_data.ir_kpoints_idx
@@ -194,7 +183,7 @@ class ScatteringCalculator(MSONable):
         band_energies = self.amset_data.energies[spin][b_idx, kpoints_idx]
         ball_tree = BallTree(band_energies[:, None], leaf_size=100)
         g = np.ones(self.amset_data.fermi_levels.shape +
-                    (len(self.amset_data.energies[spin][b_idx]), ))
+                    (len(self.amset_data.energies[spin][b_idx]), )) * 0.1
 
         s_g, g = create_shared_array(g, return_buffer=True)
         s_energies = create_shared_array(band_energies)
@@ -237,6 +226,7 @@ class ScatteringCalculator(MSONable):
         if self.elastic_scatterers:
             elastic_rates = self._fill_workers(
                 nkpoints, slices, 0., False, iqueue, oqueue, desc="elastic")
+            elastic_rates *= elastic_prefactors[..., None]
 
         if self.inelastic_scatterers:
             # currently only supports one inelastic scattering energy difference
@@ -252,8 +242,8 @@ class ScatteringCalculator(MSONable):
             out_rates = np.zeros(shape)
 
             # in 1/s
-            force = (-1 * self.amset_data.dfde[spin][:, :, b_idx] *
-                     default_small_E / hbar)
+            force = (self.amset_data.dfdk[spin][:, :, b_idx] * hbar *
+                     default_small_e / hbar)
 
             for _ in range(self.max_g_iter):
                 # rates are formatted as s1_i, s1_i, s2_o, s2_o etc
@@ -261,11 +251,15 @@ class ScatteringCalculator(MSONable):
                     nkpoints, slices, energy_diff, first_run, iqueue, oqueue,
                     desc="inelastic")
                 out_rates = inelastic_rates[:n_inelastic]
+                out_rates *= inelastic_prefactors[..., None]
+                print("out rates", out_rates.max())
 
                 if first_run:
                     # in rate is indepent of g so only need to calculate it once
                     # rates include both in and out scattering
                     in_rates = inelastic_rates[n_inelastic:]
+                    in_rates *= inelastic_prefactors[..., None]
+                    print("in rates", in_rates.max())
                     first_run = False
 
                 new_g = calculate_g(out_rates, in_rates, elastic_rates, force)
@@ -279,6 +273,7 @@ class ScatteringCalculator(MSONable):
                 # update the shared buffer
                 g[:] = new_g[:]
 
+            # print("average(g!=0)", np.average(g[g!=0]))
             if elastic_rates is not None:
                 all_band_rates = np.vstack((elastic_rates, out_rates, in_rates))
             else:
@@ -286,6 +281,8 @@ class ScatteringCalculator(MSONable):
         else:
             all_band_rates = elastic_rates
 
+        print(all_band_rates.shape)
+        print(all_band_rates[2:].max())
         # The "None"s at the end of the queue signal the workers that there are
         # no more jobs left and they must therefore exit.
         for i in range(self.nworkers):
@@ -566,30 +563,36 @@ def w0gauss(x):
 def calculate_g(out_rates, in_rates, elastic_rates, force):
     if elastic_rates is not None:
         out_rates = np.vstack((out_rates, elastic_rates))
-    return (np.sum(in_rates, axis=0) + force) / np.sum(out_rates, axis=0)
+    return (np.sum(in_rates, axis=0) - force) / (
+        np.sum(out_rates, axis=0) + small_val)
 
 
 def _interpolate_zero_rates(rates, kpoints):
     # loop over all scattering types, doping, temps, and bands and interpolate
     # zero scattering rates based on the nearest k-point
-    nzero_rates = 0
-    total_kpoints = 0
+    # for spin in rates:
+    #     rates[spin][rates[spin] == 0] = 1e14
+
     for spin in rates:
-        for s, d, t, b in np.ndindex(rates[spin].shape[:-1]):
-            non_zero_rates = rates[spin][s, d, t, b] == 0.
-
-            if any(non_zero_rates):
-                nzero_rates += sum(non_zero_rates)
-                rates[spin][s, d, t, b] = griddata(
-                    points=kpoints[~non_zero_rates],
-                    values=rates[spin][s, d, t, b, ~non_zero_rates],
-                    xi=kpoints, method='nearest')
-
-        total_kpoints += np.prod(rates[spin].shape)
-
-    if nzero_rates > 0:
-        logger.warning("Warning: {:.4f} % of k-points had zero scattering rate."
-                       " Increase interpolation_factor and check results for "
-                       "convergence".format(nzero_rates * 100 / total_kpoints))
+        rates[spin][rates[spin] == 0] += small_val
+    # nzero_rates = 0
+    # total_kpoints = 0
+    # for spin in rates:
+    #     for s, d, t, b in np.ndindex(rates[spin].shape[:-1]):
+    #         non_zero_rates = rates[spin][s, d, t, b] == 0.
+    #
+    #         if any(non_zero_rates):
+    #             nzero_rates += sum(non_zero_rates)
+    #             rates[spin][s, d, t, b] = griddata(
+    #                 points=kpoints[~non_zero_rates],
+    #                 values=rates[spin][s, d, t, b, ~non_zero_rates],
+    #                 xi=kpoints, method='nearest')
+    #
+    #     total_kpoints += np.prod(rates[spin].shape)
+    #
+    # if nzero_rates > 0:
+    #     logger.warning("Warning: {:.4f} % of k-points had zero scattering rate."
+    #                    " Increase interpolation_factor and check results for "
+    #                    "convergence".format(nzero_rates * 100 / total_kpoints))
 
     return rates
