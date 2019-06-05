@@ -7,6 +7,7 @@ from scipy.constants import epsilon_0
 
 from amset.constants import hbar, k_B, e
 from amset.data import AmsetData
+from pymatgen import Spin
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class AbstractInelasticScattering(ABC):
         self.spins = amset_data.spins
 
     @abstractmethod
-    def prefactor(self):
+    def prefactor(self, spin: Spin, b_idx: int):
         pass
 
     @abstractmethod
@@ -49,9 +50,9 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         self.pop_frequency = self.properties["pop_frequency"] * 1e12 * 2 * np.pi
 
         # n_po (phonon concentration) has shape (ntemps, )
-        n_po = 1 / np.exp(hbar * self.pop_frequency /
-                          (k_B * amset_data.temperatures)) - 1
-        n_po.reshape(1, len(amset_data.temperatures), 1, 1)
+        n_po = 1 / (np.exp(hbar * self.pop_frequency /
+                    (k_B * amset_data.temperatures)) - 1)
+        n_po = n_po.reshape(1, len(amset_data.temperatures), 1, 1)
 
         # want to store two intermediate properties for:
         #             emission      and        absorption
@@ -63,17 +64,16 @@ class PolarOpticalScattering(AbstractInelasticScattering):
             s: (1 - amset_data.f[s]) * n_po + amset_data.f[s] * (n_po + 1)
             for s in amset_data.spins}
 
-    def prefactor(self):
-        prefactor = (e ** 2 * self.pop_frequency /
-                     (8 * np.pi ** 2 * hbar) *
-                     (1 / self.properties["high_frequency_dielectric"] -
-                      1 / self.properties["static_dielectric"]) /
-                     epsilon_0 * 100 / e)
+        self._prefactor = (e ** 2 * self.pop_frequency /
+                           (8 * np.pi ** 2) *
+                           (1 / self.properties["high_frequency_dielectric"] -
+                            1 / self.properties["static_dielectric"]) /
+                           epsilon_0 * (1e9 / e))
 
+    def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
-        return {s: np.ones((len(self.doping), len(self.temperatures),
-                            self.nbands[s])) * prefactor
-                for s in self.spins}
+        return self._prefactor * np.ones(
+            (len(self.doping), len(self.temperatures)))
 
     def factor(self, spin, b_idx, k_idx, k_diff_sq: np.ndarray, emission):
         # factor should have shape (ndops, ntemps, nkpts)
