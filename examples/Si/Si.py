@@ -5,7 +5,7 @@ from amset.run import AmsetRunner
 
 settings = {
     "general": {
-        "interpolation_factor": 3,
+        "interpolation_factor": 5,
         "scattering_type": "auto",
         "doping": [1.99e+14, 2.20e+15, 1.72e+16,
                    1.86e+17, 1.46e+18, 4.39e+18],
@@ -17,16 +17,16 @@ settings = {
         "donor_charge": 1,
         "acceptor_charge": 1,
         "static_dielectric": 13.1,
-        "high_frequency_dielectric": 13.0,
+        "high_frequency_dielectric": 13.1,
         "pop_frequency": 15.23,
     },
     "performance": {
-        "energy_tol": 0.005,
+        "energy_tol": 0.001,
         "energy_cutoff": 1.5,
-        "g_tol": 1,
-        "max_g_iter": 8,
+        "g_tol": 1e-5,
+        "max_g_iter": 5,
         "symprec": 0.01,
-        "nworkers": 1,
+        "nworkers": -1,
         "dos_estep": 0.01,
         "dos_width": 0.01
     },
