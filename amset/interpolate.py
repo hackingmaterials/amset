@@ -359,7 +359,7 @@ class Interpolater(MSONable):
                 # bands during the interpolation. As ibands is just a list of
                 # True/False, we can count the number of Trues included up to
                 # and including the VBM to get the new number of valence bands
-                new_vb_idx = sum(ibands[: vb_idx + 1])
+                new_vb_idx = sum(ibands[: vb_idx + 1]) - 1
                 energies[spin] = _shift_energies(
                     energies[spin], new_vb_idx, scissor=scissor,
                     bandgap=bandgap)
@@ -368,7 +368,7 @@ class Interpolater(MSONable):
                 effective_masses[spin] = fitted[2]
 
             if not atomic_units:
-                energies[spin] = energies / units.eV
+                energies[spin] = energies[spin] / units.eV
                 velocities[spin] = _convert_velocities(
                     velocities[spin],
                     self._band_structure.structure.lattice.matrix)
@@ -564,11 +564,12 @@ def _shift_energies(energies: np.ndarray,
         raise ValueError("scissor and bandgap cannot be set simultaneously")
 
     cb_idx = vb_idx + 1
-
     if bandgap:
-        bandgap *= units.eV  # convert to Hartree
-        interp_bandgap = energies[cb_idx:].min() - energies[:cb_idx].max()
+        interp_bandgap = (energies[cb_idx:].min() -
+                          energies[:cb_idx].max()) / units.eV
         scissor = bandgap - interp_bandgap
+        logger.debug("Bandgap set to {:.3f} eV, automatically scissoring by "
+                     "{:.3f} eV".format(bandgap, scissor))
 
     if scissor:
         scissor *= units.eV  # convert to Hartree
@@ -595,6 +596,7 @@ def _convert_velocities(velocities: np.ndarray,
 
     factor = hartree_to_ev * m_to_cm * A_to_m / (hbar * 0.52917721067)
     velocities = velocities.transpose((1, 0, 2))
+
     velocities = np.abs(np.matmul(matrix_norm, velocities)) * factor
     velocities = velocities.transpose((0, 2, 1))
 
