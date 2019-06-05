@@ -11,7 +11,8 @@ m_to_cm = 100.0
 A_to_nm = 0.1
 e = physical_constants["elementary charge"][0]
 k_B = physical_constants["Boltzmann constant in eV/K"][0]
-default_small_E = 1.0  # eV/cm the value of this parameter does not matter
+default_small_e = 1.0  # eV/cm the value of this parameter does not matter
 over_sqrt_pi = 1 / np.sqrt(np.pi)
+small_val = 1e-32  # e.g. used for an initial non-zero val
 
 output_width = 69
