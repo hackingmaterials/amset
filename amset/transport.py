@@ -116,11 +116,15 @@ def _calculate_mobility(amset_data: AmsetData,
 
         # Compute the Onsager coefficients from Fermi integrals
         sigma, _, _, _ = calc_Onsager_coefficients(
-            l0, l1, l2, amset_data.doping[[n]],
-            amset_data.temperatures[[t]], volume)
+            l0, l1, l2, fermi, temp, volume)
+
+        if amset_data.doping[n] > 0:
+            carrier_conc = amset_data.electron_conc[n, t]
+        else:
+            carrier_conc = amset_data.hole_conc[n, t]
 
         # convert mobility to cm^2/V.s
-        mobility[n, t] = sigma[0, ...] * 0.01 / (e * carriers[0])
+        mobility[n, t] = sigma[0, ...] * 0.01 / (e * carrier_conc)
 
     return mobility
 
