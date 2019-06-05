@@ -14,6 +14,7 @@ from amset.constants import k_B, e, hbar
 from amset.data import AmsetData
 from amset.log import log_list
 from amset.utils.transport import f0
+from pymatgen import Spin
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class AbstractElasticScattering(ABC):
         self.spins = amset_data.spins
 
     @abstractmethod
-    def prefactor(self):
+    def prefactor(self, spin: Spin, b_idx: int):
         pass
 
     @abstractmethod
@@ -53,37 +54,35 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
         super().__init__(materials_properties, amset_data)
         self.vb_idx = amset_data.vb_idx
         self.is_metal = amset_data.is_metal
+        self._prefactor = (1e18 * e * k_B / (
+                4.0 * np.pi ** 2 * hbar * self.properties["elastic_constant"]))
 
-    def prefactor(self):
-        prefactor = {s: (1e18 * e * k_B / (4.0 * np.pi ** 2 * hbar *
-                                           self.properties["elastic_constant"]))
-                     for s in self.spins}
+        self.deformation_potential = self.properties["deformation_potential"]
+        if self.is_metal and isinstance(self.deformation_potential, tuple):
+            logger.warning(
+                "System is metallic but deformation potentials for both "
+                "the valence and conduction bands have been set... using the "
+                "valence band potential for all bands")
+            self.deformation_potential = self.deformation_potential[0]
 
-        deformation_potential = self.properties["deformation_potential"]
-        for spin in self.spins:
-            prefactor[spin] *= self.temperatures[None, :, None] * np.ones(
-                (len(self.doping), len(self.temperatures), self.nbands[spin]))
+        elif not self.is_metal and not isinstance(
+                self.deformation_potential, tuple):
+            logger.warning(
+                "System is semiconducting but only one deformation "
+                "potential has been set... using this potential for all bands.")
+            self.deformation_potential = (self.deformation_potential,
+                                          self.deformation_potential)
 
-            if self.is_metal and isinstance(deformation_potential, tuple):
-                logger.warning(
-                    "System is metallic but deformation potentials for both "
-                    "the valence and conduction bands have been set. Using the "
-                    "valence band value for all bands")
-                prefactor[spin] *= deformation_potential[0]
+    def prefactor(self, spin: Spin, b_idx: int):
+        prefactor = self._prefactor * self.temperatures[None, :] * np.ones(
+            (len(self.doping), len(self.temperatures)))
 
-            elif not self.is_metal and isinstance(deformation_potential, tuple):
-                cb_idx = self.vb_idx[spin] + 1
-                prefactor[spin][:, :, :cb_idx] *= deformation_potential[0] ** 2
-                prefactor[spin][:, :, cb_idx:] *= deformation_potential[1] ** 2
+        if self.is_metal:
+            prefactor *= self.properties["deformation_potential"] ** 2
 
-            elif not self.is_metal:
-                logger.warning(
-                    "System is semiconducting but only one deformation "
-                    "potential has been set. Using this value for all bands.")
-                prefactor[spin] *= deformation_potential ** 2
-
-            else:
-                prefactor[spin] *= deformation_potential ** 2
+        else:
+            def_idx = 1 if b_idx > self.vb_idx[spin] else 0
+            prefactor *= self.properties["deformation_potential"][def_idx] ** 2
 
         return prefactor
 
@@ -110,13 +109,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         tdos = amset_data.dos.tdos
         energies = amset_data.dos.energies
         fermi_levels = amset_data.fermi_levels
-        de = amset_data.dos.de
-        v_idx = amset_data.dos.idx_vbm
-        c_idx = amset_data.dos.idx_cbm
         vol = amset_data.structure.volume
-
-        # 1e-8 is Angstrom to cm conversion
-        conv = 1 / (vol * 1e-8 ** 3)
 
         imp_info = []
         for n, t in np.ndindex(self.beta_sq.shape):
@@ -129,13 +122,8 @@ class IonizedImpurityScattering(AbstractElasticScattering):
                 (self.properties["static_dielectric"] * epsilon_0 * k_B *
                  temp * e * vol))
 
-            # calculate impurity concentration
-            n_conc = np.abs(conv * np.sum(
-                tdos[c_idx:] * f0(energies[c_idx:], ef, temp) * de[c_idx:],
-                axis=0))
-            p_conc = np.abs(conv * np.sum(
-                tdos[:v_idx + 1] * (1 - f0(energies[:v_idx + 1], ef, temp))
-                * de[:v_idx + 1], axis=0))
+            n_conc = np.abs(amset_data.electron_conc[n, t])
+            p_conc = np.abs(amset_data.hole_conc[n, t])
 
             self.impurity_concentration[n, t] = (
                     n_conc * self.properties["donor_charge"] ** 2 +
@@ -149,15 +137,14 @@ class IonizedImpurityScattering(AbstractElasticScattering):
                      "(Nᵢᵢ):")
         log_list(imp_info, level=logging.DEBUG)
 
-    def prefactor(self):
-        prefactor = ((1e-3 / (e ** 2)) * e ** 4 * self.impurity_concentration /
-                     (4.0 * np.pi ** 2 * epsilon_0 ** 2 * hbar *
-                      self.properties["static_dielectric"] ** 2))
+        self._prefactor = (
+                (1e-3 / (e ** 2)) * e ** 4 * self.impurity_concentration /
+                (4.0 * np.pi ** 2 * epsilon_0 ** 2 * hbar *
+                 self.properties["static_dielectric"] ** 2))
 
+    def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
-        # currently it has shape (ndops, ntemps)
-        return {s: np.repeat(prefactor[:, :, None], self.nbands[s], axis=-1)
-                for s in self.spins}
+        return self._prefactor
 
     def factor(self, k_diff_sq: np.ndarray):
         # tile k_diff_sq to make it commensurate with the dimensions of beta
@@ -175,23 +162,18 @@ class PiezoelectricScattering(AbstractElasticScattering):
                  materials_properties: Dict[str, Any],
                  amset_data: AmsetData):
         super().__init__(materials_properties, amset_data)
-
-    def prefactor(self):
         unit_conversion = 1e9 / e
-        factor = (
-            unit_conversion * e ** 2 * k_B *
-            self.properties["piezoelectric_coefficient"] ** 2 /
-            (4.0 * np.pi ** 2 * hbar * epsilon_0 *
-             self.properties["static_dielectric"]))
+        self._prefactor = (unit_conversion * e ** 2 * k_B *
+                           self.properties["piezoelectric_coefficient"] ** 2 /
+                           (4.0 * np.pi ** 2 * hbar * epsilon_0 *
+                            self.properties["static_dielectric"]))
 
-        # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
-        return {
-            s: self.temperatures[None, :, None] * factor * np.ones(
-                (len(self.doping), len(self.temperatures), self.nbands[s]))
-            for s in self.spins}
+    def prefactor(self, spin: Spin, b_idx: int):
+        # need to return prefactor with shape (ndops, ntemps)
+        return self._prefactor * self.temperatures[None, :] * np.ones(
+                (len(self.doping), len(self.temperatures)))
 
     def factor(self, k_diff_sq: np.ndarray):
         # factor should have shape (ndops, ntemps, nkpts)
         return 1 / np.tile(k_diff_sq, (len(self.doping),
                                        len(self.temperatures), 1))
-
