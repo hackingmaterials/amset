@@ -97,24 +97,18 @@ def _calculate_mobility(amset_data: AmsetData,
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
         fermi = amset_data.fermi_levels[n, t][None] * units.eV
         temp = amset_data.temperatures[t][None]
-        nelecs = 0 if amset_data.doping[n] > 0 else amset_data.dos.nelecs
 
         # obtain the Fermi integrals for the temperature and doping
         epsilon, dos, vvdos, cdos = BTPDOS(
             energies, vv, scattering_model=lifetimes,
             npts=len(amset_data.dos.energies))
 
-        carriers, l0, l1, l2, lm11 = fermiintegrals(
+        _, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
             dosweight=amset_data.dos_weight)
 
-        volume = (amset_data.structure.lattice.volume * units.Angstrom ** 3)
-
-        # Rescale the carrier count into a volumetric density in cm**(-3)
-        carriers = ((-carriers[0, ...] - nelecs) /
-                    (volume / (units.Meter / 100.) ** 3))
-
         # Compute the Onsager coefficients from Fermi integrals
+        volume = (amset_data.structure.lattice.volume * units.Angstrom ** 3)
         sigma, _, _, _ = calc_Onsager_coefficients(
             l0, l1, l2, fermi, temp, volume)
 

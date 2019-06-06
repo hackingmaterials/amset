@@ -47,12 +47,15 @@ class PolarOpticalScattering(AbstractInelasticScattering):
                  amset_data: AmsetData):
         super().__init__(materials_properties, amset_data)
         logger.debug("Initializing POP scattering")
+
+        # convert from THz to angular frequency in Hz
         self.pop_frequency = self.properties["pop_frequency"] * 1e12 * 2 * np.pi
 
         # n_po (phonon concentration) has shape (ntemps, )
         n_po = 1 / (np.exp(hbar * self.pop_frequency /
                     (k_B * amset_data.temperatures)) - 1)
-        n_po = n_po.reshape(1, len(amset_data.temperatures), 1, 1)
+        n_po = n_po[None, :, None, None]
+        # n_po = n_po.reshape(1, len(amset_data.temperatures), 1, 1)
 
         # want to store two intermediate properties for:
         #             emission      and        absorption
@@ -64,11 +67,11 @@ class PolarOpticalScattering(AbstractInelasticScattering):
             s: (1 - amset_data.f[s]) * n_po + amset_data.f[s] * (n_po + 1)
             for s in amset_data.spins}
 
-        self._prefactor = (e ** 2 * self.pop_frequency /
-                           (8 * np.pi ** 2) *
-                           (1 / self.properties["high_frequency_dielectric"] -
-                            1 / self.properties["static_dielectric"]) /
-                           epsilon_0 * (1e9 / e))
+        unit_conversion = 1e9 / e
+        self._prefactor = unit_conversion * (
+                e ** 2 * self.pop_frequency / (8 * np.pi ** 2) *
+                (1 / self.properties["high_frequency_dielectric"] -
+                 1 / self.properties["static_dielectric"]) / epsilon_0)
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
