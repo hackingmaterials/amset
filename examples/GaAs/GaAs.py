@@ -5,7 +5,8 @@ from amset.run import AmsetRunner
 
 settings = {
     "general": {
-        "interpolation_factor": 8,
+        # "interpolation_factor": 10,
+        "interpolation_factor": 50,
         "scattering_type": "auto",
         "doping": [3e13],
         "temperatures": [201, 290, 300, 401, 506, 605, 789, 994],
@@ -21,10 +22,10 @@ settings = {
         "pop_frequency": 8.16
     },
     "performance": {
-        "energy_tol": 0.001,
+        "energy_tol": 0.005,
         "energy_cutoff": 1.5,
-        "g_tol": 1e-10,
-        "max_g_iter": 5,
+        "g_tol": 1e-5,
+        "max_g_iter": 1,
         "symprec": 0.01,
         "nworkers": -1,
         "dos_estep": 0.001,
@@ -41,7 +42,7 @@ initialize_amset_logger(log_traceback=settings["output"]["log_traceback"])
 # runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml.gz", settings)
 # runner.run()
 
-for i in [50, 70, 90, 110, 130]:
+for i in [80, 100, 120]:
     settings["general"]["interpolation_factor"] = i
     runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml.gz", settings)
     runner.run()
