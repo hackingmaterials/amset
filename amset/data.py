@@ -188,14 +188,14 @@ class AmsetData(MSONable):
         factor = hartree_to_ev * m_to_cm * A_to_m / (hbar * 0.52917721067)
         for spin in self.spins:
             for n, t in np.ndindex(self.fermi_levels.shape):
-                self.f[spin][n, t] = FD(
-                    self.energies[spin],
-                    self.fermi_levels[n, t] * units.eV,
-                    self.temperatures[t] * units.BOLTZMANN)
-                self.dfde[spin][n, t] = dFDde(
-                    self.energies[spin],
-                    self.fermi_levels[n, t] * units.eV,
-                    self.temperatures[t] * units.BOLTZMANN) * units.eV
+                self.f[spin][n, t] = f0(
+                    self.energies[spin] / units.eV,
+                    self.fermi_levels[n, t],
+                    self.temperatures[t])
+                self.dfde[spin][n, t] = df0de(
+                    self.energies[spin] / units.eV,
+                    self.fermi_levels[n, t],
+                    self.temperatures[t])
 
                 # velocities product has shape (nbands, 3, 3, nkpoints)
                 # we want the diagonal of the 3x3 matrix for each k and band
