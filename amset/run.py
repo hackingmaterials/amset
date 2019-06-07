@@ -83,7 +83,7 @@ class AmsetRunner(MSONable):
             return_usage_stats: bool = False):
         mem_usage, (amset_data, usage_stats) = memory_usage(
             partial(self._run_wrapper, directory=directory, prefix=prefix),
-            max_usage=True, retval=True, interval=.1, include_children=True,
+            max_usage=True, retval=True, interval=.1, include_children=False,
             multiprocess=True)
 
         log_banner("END")
