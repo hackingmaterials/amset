@@ -5,3 +5,11 @@ Ab initio Model for Mobility and Seebeck coefficient using Boltzmann Transport e
 
 
 Interested in contributing? See our [contribution guidelines](https://github.com/hackingmaterials/amset/blob/master/CONTRIBUTING.md)
+
+### Installing AMSET on NERSC
+
+The BolzTraP2 dependency requires some configuration to be installed properly on CRAY systems. Accordingly, AMSET can be installed using:
+
+```bash
+CXX=icc CRAYPE_LINK_TYPE=shared pip install amset
+```
