@@ -1,7 +1,12 @@
 """
 This module implements methods to calculate electron scattering based on an
 AmsetData object.
+
+Todo:
+ - Umklapp scattering (e.g. include scattering to additional G vectors)
+ - Interband scattering
 """
+import copy
 import logging
 import math
 import sys
@@ -19,7 +24,7 @@ from BoltzTraP2 import units
 from pymatgen import Spin
 
 from amset.constants import A_to_nm, output_width, over_sqrt_pi, hbar, \
-    default_small_e, small_val, e
+    default_small_e, small_val
 from amset.data import AmsetData
 from amset.log import log_list
 from amset.scattering.elastic import AbstractElasticScattering
@@ -68,8 +73,14 @@ class ScatteringCalculator(MSONable):
     @property
     def scatterer_labels(self):
         elastic_names = [s.name for s in self.elastic_scatterers]
-        inelastic_names = ["{}_{}".format(s.name, d) for s in
-                           self.inelastic_scatterers for d in ["in", "out"]]
+
+        if self.max_g_iter != 1:
+            # have in and out scattering rates
+            inelastic_names = ["{}_{}".format(s.name, d) for s in
+                               self.inelastic_scatterers for d in ["in", "out"]]
+        else:
+            inelastic_names = [s.name for s in self.inelastic_scatterers]
+
         return elastic_names + inelastic_names
 
     @staticmethod
@@ -132,6 +143,7 @@ class ScatteringCalculator(MSONable):
             nkpoints = len(full_kpoints)
 
         batch_size = min(500., 1 / (self.energy_tol * 2))
+        batch_size = 100
         nsplits = math.ceil(nkpoints/batch_size)
         logger.info("Scattering information:")
         log_list(["energy tolerance: {} eV".format(self.energy_tol),
@@ -181,7 +193,23 @@ class ScatteringCalculator(MSONable):
         nkpoints = len(kpoints_idx)
 
         band_energies = self.amset_data.energies[spin][b_idx, kpoints_idx]
-        ball_tree = BallTree(band_energies[:, None], leaf_size=100)
+
+        # filter_points far from band edge
+        if self.amset_data.is_metal:
+            ref = self.amset_data._efermi
+        elif b_idx <= self.amset_data.vb_idx[spin]:
+            vb_idx = self.amset_data.vb_idx[spin]
+            ref = self.amset_data.energies[spin][vb_idx].max()
+        else:
+            cb_idx = self.amset_data.vb_idx[spin] + 1
+            ref = self.amset_data.energies[spin][cb_idx].min()
+
+        ball_band_energies = copy.deepcopy(band_energies)
+        mask = (band_energies > ref + 0.5 * units.eV) | (
+                band_energies < ref - 0.5 * units.eV)
+        ball_band_energies[mask] *= float("inf")
+
+        ball_tree = BallTree(ball_band_energies[:, None], leaf_size=100)
         g = np.ones(self.amset_data.fermi_levels.shape +
                     (len(self.amset_data.energies[spin][b_idx]), )) * small_val
 
@@ -226,7 +254,8 @@ class ScatteringCalculator(MSONable):
         elastic_rates = None
         if self.elastic_scatterers:
             elastic_rates = self._fill_workers(
-                nkpoints, slices, 0., False, iqueue, oqueue, desc="elastic")
+                nkpoints, slices, iqueue, oqueue, desc="elastic",
+                scattering_mask=mask)
             elastic_rates *= elastic_prefactors[..., None]
 
         if self.inelastic_scatterers:
@@ -235,7 +264,6 @@ class ScatteringCalculator(MSONable):
             energy_diff = (self.materials_properties["pop_frequency"] * 1e12
                            * 2 * np.pi * hbar * units.eV)
 
-            first_run = True
             n_inelastic = len(self.inelastic_scatterers)
             shape = (n_inelastic, len(self.amset_data.doping),
                      len(self.amset_data.temperatures), nkpoints)
@@ -245,73 +273,52 @@ class ScatteringCalculator(MSONable):
             # in 1/s
             force = (self.amset_data.dfdk[spin][:, :, b_idx] *
                      default_small_e / hbar)
-            # force = 0
             force = np.zeros(force.shape)
             # force = small_val * 2
 
+            # if max_iter == 1 then RTA, don't calculate in rates
+            calculate_in_rate = self.max_g_iter != 1
+            calculate_out_rate = True
+
             for _ in range(self.max_g_iter):
+
                 # rates are formatted as s1_i, s1_i, s2_o, s2_o etc
                 inelastic_rates = self._fill_workers(
-                    nkpoints, slices, energy_diff, first_run, iqueue, oqueue,
-                    desc="inelastic")
-                in_rates = inelastic_rates[:n_inelastic]
-                in_rates *= inelastic_prefactors[..., None]
-                # print("overall {} & are zero".format(
-                #     sum(in_rates[0, 0, 7] == 0) * 100 / len(in_rates[0, 0, 7])))
-                # print("in rates", in_rates.mean())
-                in_rates = _interpolate_band_rates(
-                    in_rates, self.amset_data.full_kpoints)
+                    nkpoints, slices, iqueue, oqueue, energy_diff=energy_diff,
+                    desc="inelastic", calculate_out_rate=calculate_out_rate,
+                    calculate_in_rate=calculate_in_rate, scattering_mask=mask)
 
-                if first_run:
+                if calculate_in_rate:
+                    # in rates always returned first
+                    in_rates = inelastic_rates[:n_inelastic]
+                    in_rates *= inelastic_prefactors[..., None]
+
+                if calculate_out_rate:
                     # in rate is indepent of g so only need to calculate it once
-                    # rates include both in and out scattering
-                    out_rates = inelastic_rates[n_inelastic:]
+                    idx = n_inelastic if calculate_in_rate else 0
+                    out_rates = inelastic_rates[idx:]
                     out_rates *= inelastic_prefactors[..., None]
-                    # print("out rates", out_rates.mean())
-                    first_run = False
-                    out_rates = _interpolate_band_rates(
-                        out_rates, self.amset_data.full_kpoints)
+                    calculate_out_rate = False
 
-                new_g = calculate_g(out_rates, in_rates, elastic_rates, force)
-                g_diff = np.abs(np.average(new_g-g))
-                logger.debug("  ├── difference in g value: {:.2g}".format(
-                    g_diff))
-                if g_diff < self.g_tol:
-                    break
+                if self.max_g_iter != 1:
+                    new_g = calculate_g(
+                        out_rates, in_rates, elastic_rates, force)
+                    g_diff = np.abs(np.average(new_g-g))
+                    logger.debug("  ├── difference in g value: {:.2g}".format(
+                        g_diff))
 
-                # print("new_g", new_g[0, 0, 2:5])
-                # print("in_rates", in_rates[0, 0, 0, 2:5])
-                # print("out_rates", out_rates[0, 0, 0, 2:5])
-                # print("f0", self.amset_data.f[spin][0, 0, b_idx, 2:5])
-                # print("prefactor", inelastic_prefactors[0, 0, 0])
-                # print("emission", self.inelastic_scatterers[0].emission_f[spin][0, 0, b_idx, 2:5])
-                # print("absorption", self.inelastic_scatterers[0].absorption_f[spin][0, 0, b_idx, 2:5])
-                # print("force", force[0, 0, 2:5])
-                # # print(new_g.shape)
-                # print("new_g", new_g[0, 7, 2:5])
-                print("in_rates", in_rates[0, 0, 7, 2:5])
-                # print("out_rates", out_rates[0, 0, 7, 2:5])
-                # print("f0", self.amset_data.f[spin][0, 7, b_idx, 2:5])
-                # print("prefactor", inelastic_prefactors[0, 0, 7])
-                # print("emission", self.inelastic_scatterers[0].emission_f[spin][0, 0, b_idx, 2:5])
-                # print("absorption", self.inelastic_scatterers[0].absorption_f[spin][0, 7, b_idx, 2:5])
-                # print("force", force[0, 7, 2:5])
-                # sys.exit()
+                    if g_diff < self.g_tol:
+                        break
 
-                # print("f0", self.amset_data.f[spin][0, 7, b_idx, 0:100])
+                    # update the shared buffer
+                    g[:] = new_g[:]
 
-                # update the shared buffer
-                g[:] = new_g[:]
-                # print(g)
+            to_stack = [elastic_rates] if elastic_rates is not None else []
+            if calculate_in_rate:
+                to_stack.append(in_rates)
+            to_stack.append(out_rates)
+            all_band_rates = np.vstack(to_stack)
 
-            # print("average(g!=0)", np.average(g[g!=0]))
-            if elastic_rates is not None:
-                # print("el shape", elastic_rates.shape)
-                # print("out shape", out_rates.shape)
-                # print("in shape", in_rates.shape)
-                all_band_rates = np.vstack((elastic_rates, in_rates, out_rates))
-            else:
-                all_band_rates = np.vstack((in_rates, out_rates))
         else:
             all_band_rates = elastic_rates
 
@@ -326,12 +333,13 @@ class ScatteringCalculator(MSONable):
 
         return all_band_rates
 
-    def _fill_workers(self, nkpoints, slices, energy_diff,
-                      calculate_out_rate, iqueue, oqueue, desc="progress"):
+    def _fill_workers(self, nkpoints, slices, iqueue, oqueue, desc="progress",
+                      energy_diff=0., calculate_out_rate=False,
+                      calculate_in_rate=False, scattering_mask=None):
         if energy_diff:
             # inelastic scattering
             n_scat = len(self.inelastic_scatterers)
-            n_scat *= 2 if calculate_out_rate else 1
+            n_scat *= 2 if (calculate_out_rate and calculate_in_rate) else 1
         else:
             # elastic scattering
             n_scat = len(self.elastic_scatterers)
@@ -341,7 +349,7 @@ class ScatteringCalculator(MSONable):
              len(self.amset_data.temperatures), nkpoints))
 
         for s in slices:
-            iqueue.put((s, energy_diff, calculate_out_rate))
+            iqueue.put((s, energy_diff, calculate_out_rate, calculate_in_rate))
 
         # The results are processed as soon as they are ready.
 
@@ -353,6 +361,11 @@ class ScatteringCalculator(MSONable):
             s, band_rates[:, :, :, s] = oqueue.get()
             pbar.update(s.stop - s.start)
         pbar.close()
+
+        if scattering_mask is not None:
+            # these k-points are outside the range of the FD distribution and
+            # therefore will not contribute to the scattering
+            band_rates[:, :, :, scattering_mask] = 1e14
 
         if self.use_symmetry:
             return band_rates[
@@ -385,7 +398,7 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
 
         if job is None:
             break
-        s, energy_diff, calculate_out_rate = job
+        s, energy_diff, calculate_out_rate, calculate_in_rate = job
 
         if energy_diff == 0:
             # elastic scattering
@@ -397,72 +410,71 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
             k_p_idx = np.concatenate(k_p_idx)
 
             ediff = np.concatenate(ediff)
-
-            k_idx += s.start
-
-            if nkpoints != kpoints.shape[0]:
-                # working with symmetry reduced k-points
-                band_rates = get_ir_band_rates(
-                    spin, b_idx, elastic_scatterers, ediff, energy_tol, s,
-                    k_idx, k_p_idx,
-                    kpoints, kpoint_norms, a_factor, c_factor,
-                    reciprocal_lattice_matrix, ir_kpoints_idx,
-                    grouped_ir_to_full)
+            if ediff.size == 0:
+                band_rates = np.zeros(
+                    (len(elastic_scatterers), ndoping, ntemps,
+                     s.stop - s.start))
             else:
-                # no symmetry, use the full BZ mesh
-                band_rates = get_band_rates(
-                    spin, b_idx, elastic_scatterers, ediff, energy_tol, s,
-                    k_idx, k_p_idx,
-                    kpoints, kpoint_norms, a_factor, c_factor,
-                    reciprocal_lattice_matrix)
+                k_idx += s.start
+
+                if nkpoints != kpoints.shape[0]:
+                    # working with symmetry reduced k-points
+                    band_rates = get_ir_band_rates(
+                        spin, b_idx, elastic_scatterers, ediff, energy_tol, s,
+                        k_idx, k_p_idx,
+                        kpoints, kpoint_norms, a_factor, c_factor,
+                        reciprocal_lattice_matrix, ir_kpoints_idx,
+                        grouped_ir_to_full)
+                else:
+                    # no symmetry, use the full BZ mesh
+                    band_rates = get_band_rates(
+                        spin, b_idx, elastic_scatterers, ediff, energy_tol, s,
+                        k_idx, k_p_idx,
+                        kpoints, kpoint_norms, a_factor, c_factor,
+                        reciprocal_lattice_matrix)
 
         else:
             # sum scattering in and out rates over emission and absorption
-
-            if calculate_out_rate:
-                # should have shape ((nscatters * 2), ndops, ntemps, nkpts)
-                # *2 because have s_in and s_out for each scatterer
-                band_rates = np.zeros(
-                    (len(inelastic_scatterers) * 2, ndoping, ntemps,
-                     s.stop - s.start))
-            else:
-                # only have in rate
-                band_rates = np.zeros(
-                    (len(inelastic_scatterers), ndoping, ntemps,
-                     s.stop-s.start))
+            # *2 because have s_in and s_out for each scatterer
+            n = 2 if calculate_in_rate and calculate_out_rate else 1
+            band_rates = np.zeros(
+                (len(inelastic_scatterers) * n, ndoping, ntemps,
+                 s.stop - s.start))
 
             # inelastic scattering
             for diff in [energy_diff, -energy_diff]:
                 k_p_idx, ediff = ball_tree.query_radius(
                     energies[s, None] - diff, energy_tol * 5,
                     return_distance=True)
-                # print("{} % have no scattering patner: ".format(
-                #      100 * len([x for x in k_p_idx if len(x) == 0]) / len(k_p_idx)))
 
                 k_idx = np.repeat(np.arange(len(k_p_idx)),
                                   [len(a) for a in k_p_idx])
                 k_p_idx = np.concatenate(k_p_idx)
 
                 ediff = np.concatenate(ediff)
-                k_idx += s.start
+                if ediff.size != 0:
 
-                if nkpoints != kpoints.shape[0]:
-                    # working with symmetry reduced k-points
-                    # now format of band rates is (s1_i, s2_i, s1_o, s2_o...)
-                    band_rates += get_ir_band_rates(
-                        spin, b_idx, inelastic_scatterers, ediff, energy_tol, s,
-                        k_idx, k_p_idx, kpoints, kpoint_norms, a_factor,
-                        c_factor, reciprocal_lattice_matrix, ir_kpoints_idx,
-                        grouped_ir_to_full, g=g, emission=diff <= 0,
-                        calculate_out_rate=calculate_out_rate)
-                else:
-                    # no symmetry, use the full BZ mesh
-                    band_rates += get_band_rates(
-                        spin, b_idx, inelastic_scatterers, ediff, energy_tol, s,
-                        k_idx,  k_p_idx, kpoints, kpoint_norms, a_factor,
-                        c_factor, reciprocal_lattice_matrix, g=g,
-                        emission=diff >= 0,
-                        calculate_out_rate=calculate_out_rate)
+                    k_idx += s.start
+
+                    if nkpoints != kpoints.shape[0]:
+                        # working with symmetry reduced k-points
+                        # now format of band rates is (s1_i, s2_i, s1_o, s2_o...)
+                        band_rates += get_ir_band_rates(
+                            spin, b_idx, inelastic_scatterers, ediff, energy_tol, s,
+                            k_idx, k_p_idx, kpoints, kpoint_norms, a_factor,
+                            c_factor, reciprocal_lattice_matrix, ir_kpoints_idx,
+                            grouped_ir_to_full, g=g, emission=diff <= 0,
+                            calculate_out_rate=calculate_out_rate,
+                            calculate_in_rate=calculate_in_rate)
+                    else:
+                        # no symmetry, use the full BZ mesh
+                        band_rates += get_band_rates(
+                            spin, b_idx, inelastic_scatterers, ediff, energy_tol, s,
+                            k_idx,  k_p_idx, kpoints, kpoint_norms, a_factor,
+                            c_factor, reciprocal_lattice_matrix, g=g,
+                            emission=diff >= 0,
+                            calculate_out_rate=calculate_out_rate,
+                            calculate_in_rate=calculate_in_rate)
 
         oqueue.put((s, band_rates))
 
@@ -472,7 +484,8 @@ def get_ir_band_rates(spin, b_idx, scatterers, ediff, energy_tol, s, k_idx,
                       kpoint_norms, a_factor, c_factor,
                       reciprocal_lattice_matrix, ir_kpoints_idx,
                       grouped_ir_to_full, g=None, emission=False,
-                      calculate_out_rate=True):
+                      calculate_out_rate=True,
+                      calculate_in_rate=True):
     from numpy.core.umath_tests import inner1d
 
     # k_idx and k_p_idx are currently their reduced form. E.g., span 0 to
@@ -517,18 +530,22 @@ def get_ir_band_rates(spin, b_idx, scatterers, ediff, energy_tol, s, k_idx,
     else:
         # factors has shape: (n_scatterers, n_doping, n_temperatures, n_kpts)
         # first calculate scattering in rate
-        factors = np.array([
-            m.factor(spin, b_idx, full_k_idx, k_diff_sq, not emission)
-            for m in scatterers])
-        factors *= g[None, :, :, full_k_p_idx] * k_angles[None, None, None, :]
+        to_stack = []
+        if calculate_in_rate:
+            in_factors = np.array([
+                m.factor(spin, b_idx, full_k_idx, k_diff_sq, not emission)
+                for m in scatterers])
+            in_factors *= g[None, :, :, full_k_p_idx] * k_angles[None, None,
+                                                                 None, :]
+            to_stack.append(in_factors)
 
         if calculate_out_rate:
-            factors_out = np.array([
+            out_factors = np.array([
                 m.factor(spin, b_idx, full_k_p_idx, k_diff_sq, emission)
                 for m in scatterers])
+            to_stack.append(out_factors)
 
-            # factors now has shape: (nscat*2, n_doping, n_temperatures, n_kpts)
-            factors = np.vstack((factors, factors_out))
+        factors = np.vstack(to_stack)
 
     rates = weighted_overlap * factors
 
@@ -604,54 +621,14 @@ def calculate_g(out_rates, in_rates, elastic_rates, force):
 def _interpolate_zero_rates(rates, kpoints):
     # loop over all scattering types, doping, temps, and bands and interpolate
     # zero scattering rates based on the nearest k-point
-    # for spin in rates:
-    #     rates[spin][rates[spin] == 0] = 1e14
-
-    # for spin in rates:
-    #     rates[spin][rates[spin] == 0] += small_val
-
-    nzero_rates = 0
-    total_kpoints = 0
     for spin in rates:
         for s, d, t, b in np.ndindex(rates[spin].shape[:-1]):
             non_zero_rates = rates[spin][s, d, t, b] == 0.
 
             if any(non_zero_rates):
-                nzero_rates += sum(non_zero_rates)
-                rates[spin][s, d, t, b] = griddata(
+                rates[spin][s, d, t, b, non_zero_rates] = griddata(
                     points=kpoints[~non_zero_rates],
                     values=rates[spin][s, d, t, b, ~non_zero_rates],
-                    xi=kpoints, method='nearest')
-
-        total_kpoints += np.prod(rates[spin].shape)
-
-    if nzero_rates > 0:
-        logger.warning("Warning: {:.4f} % of k-points had zero scattering rate."
-                       " Increase interpolation_factor and check results for "
-                       "convergence".format(nzero_rates * 100 / total_kpoints))
-
-    return rates
-
-def _interpolate_band_rates(rates, kpoints):
-    # loop over all scattering types, doping, temps, and bands and interpolate
-    # zero scattering rates based on the nearest k-point
-    # for spin in rates:
-    #     rates[spin][rates[spin] == 0] = 1e14
-    # print(kpoints.shape)
-
-    for s, d, t in np.ndindex(rates.shape[:-1]):
-        non_zero_rates = rates[s, d, t] == 0.
-        # print(len(non_zero_rates))
-
-        if any(non_zero_rates):
-            rates[s, d, t] = griddata(
-                points=kpoints[~non_zero_rates],
-                values=rates[s, d, t, ~non_zero_rates],
-                xi=kpoints, method='nearest')
-    #
-    # if nzero_rates > 0:
-    #     logger.warning("Warning: {:.4f} % of k-points had zero scattering rate."
-    #                    " Increase interpolation_factor and check results for "
-    #                    "convergence".format(nzero_rates * 100 / total_kpoints))
+                    xi=kpoints[non_zero_rates], method='nearest')
 
     return rates
