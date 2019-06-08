@@ -6,6 +6,7 @@ Todo:
  - Umklapp scattering (e.g. include scattering to additional G vectors)
  - Interband scattering
 """
+
 import copy
 import logging
 import math
@@ -32,6 +33,7 @@ from amset.log import log_list
 from amset.scattering.elastic import AbstractElasticScattering
 from amset.scattering.inelastic import AbstractInelasticScattering
 from amset.util import spin_name, create_shared_array, gen_even_slices
+from pymatgen.util.coord import pbc_diff
 
 logger = logging.getLogger(__name__)
 
@@ -519,7 +521,7 @@ def get_ir_band_rates(spin, b_idx, scatterers, ediff, energy_tol, s, k_idx,
 
     # norm of k difference squared in 1/nm
     k_diff_sq = np.linalg.norm(np.dot(
-        kpoints[full_k_idx] - kpoints[full_k_p_idx],
+        pbc_diff(kpoints[full_k_idx], kpoints[full_k_p_idx]),
         reciprocal_lattice_matrix) / 0.1, axis=1) ** 2
 
     if isinstance(scatterers[0], AbstractElasticScattering):
