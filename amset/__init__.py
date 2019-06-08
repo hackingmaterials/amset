@@ -28,6 +28,7 @@ amset_defaults = {
     "performance": {
         "energy_tol": 0.001,
         "energy_cutoff": 1.5,
+        "scatter_fd_tol": 0.005,
         "g_tol": 1,
         "max_g_iter": 8,
         "dos_estep": 0.001,

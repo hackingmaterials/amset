@@ -12,7 +12,7 @@ import math
 import sys
 import time
 from multiprocessing import cpu_count, Process, Queue
-from typing import Dict, Union, List, Any
+from typing import Dict, Union, List, Any, Optional
 
 import numpy as np
 from monty.json import MSONable
@@ -21,6 +21,8 @@ from sklearn.neighbors.ball_tree import BallTree
 from tqdm import tqdm
 
 from BoltzTraP2 import units
+from BoltzTraP2.fd import dFDde
+from amset.utils.transport import df0de
 from pymatgen import Spin
 
 from amset.constants import A_to_nm, output_width, over_sqrt_pi, hbar, \
@@ -44,7 +46,8 @@ class ScatteringCalculator(MSONable):
                  g_tol: float = 0.01,
                  max_g_iter: int = 8,
                  use_symmetry: bool = True,
-                 nworkers: int = -1):
+                 nworkers: int = -1,
+                 scatter_fd_tol: Optional[float] = 0.005):
         if amset_data.temperatures is None or amset_data.doping is None:
             raise RuntimeError(
                 "AmsetData doesn't contain doping levels or temperatures")
@@ -59,6 +62,8 @@ class ScatteringCalculator(MSONable):
         self.scatterers = self.get_scatterers(
             scattering_type, materials_properties, amset_data)
         self.amset_data = amset_data
+        self.scattering_energy_cutoffs = _calculate_scattering_cutoffs(
+            amset_data, fd_tolerance=scatter_fd_tol)
 
     @property
     def inelastic_scatterers(self):
@@ -194,24 +199,18 @@ class ScatteringCalculator(MSONable):
 
         band_energies = self.amset_data.energies[spin][b_idx, kpoints_idx]
 
-        # filter_points far from band edge
-        if self.amset_data.is_metal:
-            ref = self.amset_data._efermi
-        elif b_idx <= self.amset_data.vb_idx[spin]:
-            vb_idx = self.amset_data.vb_idx[spin]
-            ref = self.amset_data.energies[spin][vb_idx].max()
-        else:
-            cb_idx = self.amset_data.vb_idx[spin] + 1
-            ref = self.amset_data.energies[spin][cb_idx].min()
-
+        # filter_points far from band edge where Fermi integrals are very small
         ball_band_energies = copy.deepcopy(band_energies)
-        mask = (band_energies > ref + 0.5 * units.eV) | (
-                band_energies < ref - 0.5 * units.eV)
+        mask = (band_energies < self.scattering_energy_cutoffs[0]) | (
+                band_energies > self.scattering_energy_cutoffs[1])
+
+        # set the energies out of range to infinite so that they will not be
+        # included in the scattering rate calculations
         ball_band_energies[mask] *= float("inf")
 
         ball_tree = BallTree(ball_band_energies[:, None], leaf_size=100)
         g = np.ones(self.amset_data.fermi_levels.shape +
-                    (len(self.amset_data.energies[spin][b_idx]), )) * small_val
+                    (len(self.amset_data.energies[spin][b_idx]), )) * 1e-9
 
         s_g, g = create_shared_array(g, return_buffer=True)
 
@@ -271,10 +270,9 @@ class ScatteringCalculator(MSONable):
             out_rates = np.zeros(shape)
 
             # in 1/s
-            force = (self.amset_data.dfdk[spin][:, :, b_idx] *
-                     default_small_e / hbar)
-            force = np.zeros(force.shape)
-            # force = small_val * 2
+            # force = (self.amset_data.dfdk[spin][:, :, b_idx] *
+            #          default_small_e / hbar)
+            force = np.zeros(self.amset_data.dfde[spin][:, :, b_idx].shape)
 
             # if max_iter == 1 then RTA, don't calculate in rates
             calculate_in_rate = self.max_g_iter != 1
@@ -294,7 +292,7 @@ class ScatteringCalculator(MSONable):
                     in_rates *= inelastic_prefactors[..., None]
 
                 if calculate_out_rate:
-                    # in rate is indepent of g so only need to calculate it once
+                    # in rate independent of g so only need to calculate it once
                     idx = n_inelastic if calculate_in_rate else 0
                     out_rates = inelastic_rates[idx:]
                     out_rates *= inelastic_prefactors[..., None]
@@ -623,12 +621,52 @@ def _interpolate_zero_rates(rates, kpoints):
     # zero scattering rates based on the nearest k-point
     for spin in rates:
         for s, d, t, b in np.ndindex(rates[spin].shape[:-1]):
-            non_zero_rates = rates[spin][s, d, t, b] == 0.
+            non_zero_rates = rates[spin][s, d, t, b] != 0
 
-            if any(non_zero_rates):
-                rates[spin][s, d, t, b, non_zero_rates] = griddata(
-                    points=kpoints[~non_zero_rates],
-                    values=rates[spin][s, d, t, b, ~non_zero_rates],
-                    xi=kpoints[non_zero_rates], method='nearest')
+            if not any(non_zero_rates):
+                # all scattering rates are zero so cannot interpolate
+                # generally this means the scattering prefactor is zero. E.g.
+                # for POP when studying non polar materials
+                rates[spin][s, d, t, b] += small_val
+
+            elif len(non_zero_rates) != len(rates[spin][s, d, t, b]):
+                rates[spin][s, d, t, b, ~non_zero_rates] = griddata(
+                    points=kpoints[non_zero_rates],
+                    values=rates[spin][s, d, t, b, non_zero_rates],
+                    xi=kpoints[~non_zero_rates], method='nearest')
 
     return rates
+
+
+def _calculate_scattering_cutoffs(amset_data: AmsetData,
+                                  fd_tolerance: Optional[float] = 0.005):
+    energies = amset_data.dos.energies
+
+    if fd_tolerance:
+        min_cutoff = float("inf")
+        max_cutoff = -float("inf")
+
+        # The integral for the electronic part of the lattice thermal
+        # conductivity is the most diffuse function governing transport
+        # properties (see BoltzTraP1 paper, Fig 2).
+        # It has the form: (e-ef)^2 * df0/de
+        # We find the min and max cutoffs as the min and max energy where the
+        # function is larger than fd_tolerance (in %).
+        for n, t in np.ndindex(amset_data.fermi_levels.shape):
+            ef = amset_data.fermi_levels[n, t]
+            temp = amset_data.temperatures[t]
+
+            dfde = -df0de(energies, ef, temp) * (energies - ef) ** 2
+            dfde /= dfde.max()
+
+            min_cutoff = min(min_cutoff, energies[dfde >= fd_tolerance].min())
+            max_cutoff = max(max_cutoff, energies[dfde >= fd_tolerance].max())
+    else:
+        min_cutoff = energies.min()
+        max_cutoff = energies.max()
+
+    logger.info("Scattering rates will be calculated between "
+                "{:.4f} – {:.4f} eV".format(min_cutoff, max_cutoff))
+
+    return min_cutoff * units.eV, max_cutoff * units.eV
+
