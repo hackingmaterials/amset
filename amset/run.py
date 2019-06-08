@@ -143,6 +143,7 @@ class AmsetRunner(MSONable):
             self.material_properties, amset_data,
             scattering_type=self.scattering_type,
             energy_tol=self.performance_parameters["energy_tol"],
+            scatter_fd_tol=self.performance_parameters["scatter_fd_tol"],
             g_tol=self.performance_parameters["g_tol"],
             max_g_iter=self.performance_parameters["max_g_iter"],
             use_symmetry=self.performance_parameters["symprec"] is not None,

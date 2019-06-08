@@ -200,14 +200,13 @@ class AmsetData(MSONable):
                 # velocities product has shape (nbands, 3, 3, nkpoints)
                 # we want the diagonal of the 3x3 matrix for each k and band
                 # after diagonalization shape is nbands, nkpoints, 3
-                v = np.diagonal(np.sqrt(self.velocities_product[spin]),
-                                axis1=1, axis2=2)
-                v = v.transpose((0, 2, 1))
-                v = np.abs(np.matmul(matrix_norm, v)) * factor
-                v = v.transpose((0, 2, 1))
-                # self.dfdk[spin][n, t] = 1
-                self.dfdk[spin][n, t] = np.linalg.norm(
-                    self.dfde[spin][n, t][..., None] * v * hbar, axis=2)
+                # v = np.diagonal(np.sqrt(self.velocities_product[spin]),
+                #                 axis1=1, axis2=2)
+                # v = v.transpose((0, 2, 1))
+                # v = np.abs(np.matmul(matrix_norm, v)) * factor
+                # v = v.transpose((0, 2, 1))
+                # self.dfdk[spin][n, t] = np.linalg.norm(
+                #     self.dfde[spin][n, t][..., None] * v * hbar, axis=2)
 
     def set_scattering_rates(self,
                              scattering_rates: Dict[Spin, np.ndarray],
