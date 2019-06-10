@@ -313,6 +313,11 @@ class Interpolater(MSONable):
             raise ValueError("{} option set but system is metallic".format(
                 "bandgap" if bandgap else "scissor"))
 
+        if not self._interpolate_projections and return_projections:
+            raise ValueError("Band structure projections needed to obtain full "
+                             "electronic structure. Reinitialise the "
+                             "interpolater with interpolate_projections=True")
+
         # only calculate the energies for the bands within the energy cutoff
         if energy_cutoff and self._band_structure.is_metal():
             min_e = self._band_structure.efermi - energy_cutoff
@@ -344,10 +349,12 @@ class Interpolater(MSONable):
                 spin_name[spin], np.where(ibands)[0].min() + 1,
                 np.where(ibands)[0].max() + 1))
 
+            t0 = time.perf_counter()
             fitted = fite.getBands(
                 kpoints, self._equivalences, self._lattice_matrix,
                 self._coefficients[spin][ibands],
                 curvature=return_effective_mass)
+            log_time_taken(t0)
 
             energies[spin] = fitted[0]
             velocities[spin] = fitted[1]
@@ -378,10 +385,16 @@ class Interpolater(MSONable):
                         effective_masses[spin])
 
             if return_projections:
-                for label, proj_coeffs in self._projection_coefficients[spin]:
+                logger.info("Interpolating {} projections".format(
+                    spin_name[spin]))
+
+                t0 = time.perf_counter()
+                for label, proj_coeffs in self._projection_coefficients[
+                        spin].items():
                     projections[spin][label] = fite.getBands(
                         kpoints, self._equivalences, self._lattice_matrix,
                         proj_coeffs[ibands], curvature=False)[0]
+                log_time_taken(t0)
 
         if not (return_velocity or return_effective_mass or
                 return_projections):

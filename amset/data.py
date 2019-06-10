@@ -12,13 +12,14 @@ from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import DOS, FD, dFDde
+from pymatgen import Spin, Structure
+from pymatgen.electronic_structure.dos import FermiDos, Dos, f0
 
 from amset.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
 from amset.util import groupby, cast_dict
 from amset.log import log_list
 from amset.utils.transport import df0de
-from pymatgen import Spin, Structure
-from pymatgen.electronic_structure.dos import FermiDos, Dos, f0
+from amset import amset_defaults as defaults
 
 logger = logging.getLogger(__name__)
 _kpt_str = '[{k[0]:.5f} {k[1]:.5f} {k[2]:.5f}]'
@@ -97,9 +98,10 @@ class AmsetData(MSONable):
         self.grouped_ir_to_full = groupby(
             np.arange(len(full_kpoints)), ir_to_full_kpoint_mapping)
 
-    def calculate_dos(self, dos_estep: float = 0.01, dos_width: float = None):
+    def calculate_dos(self,
+                      dos_estep: float = defaults["performance"]["dos_estep"],
+                      dos_width: float = defaults["performance"]["dos_width"]):
         """
-
         Args:
             dos_estep: The DOS energy step, where smaller numbers give more
                 accuracy but are more expensive.
@@ -227,11 +229,24 @@ class AmsetData(MSONable):
         self.scattering_rates = scattering_rates
         self.scattering_labels = scattering_labels
 
+    def set_extra_kpoints(self,
+                          extra_kpoints: np.ndarray,
+                          extra_energies: Dict[Spin, np.ndarray],
+                          extra_vvelocities: Dict[Spin, np.ndarray],
+                          extra_projections: Dict[Spin, np.ndarray],
+                          kpoint_weights: np.ndarray):
+        if len(self.full_kpoints) + len(extra_kpoints) != len(kpoint_weights):
+            raise ValueError("Total number of k-points (full_kpoints + "
+                             "extra_kpoints) does not equal number of kpoint "
+                             "weights")
+
+
+
     def to_file(self,
                 directory: str = '.',
                 prefix: Optional[str] = None,
-                write_mesh: bool = True,
-                file_format: str = 'json',
+                write_mesh: bool = defaults["output"]["write_mesh"],
+                file_format: str = defaults["output"]["file_format"],
                 suffix_mesh: bool = True):
         if (self.conductivity is None or self.seebeck is None or
                 self.electronic_thermal_conductivity is None):
