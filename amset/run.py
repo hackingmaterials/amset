@@ -16,6 +16,7 @@ from tabulate import tabulate
 from monty.json import MSONable
 from memory_profiler import memory_usage
 
+from amset.densify import BandDensifier
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
@@ -135,6 +136,16 @@ class AmsetRunner(MSONable):
             dos_estep=self.performance_parameters["dos_estep"],
             dos_width=self.performance_parameters["dos_width"])
         amset_data.set_doping_and_temperatures(self.doping, self.temperatures)
+
+        if self.performance_parameters["n_extra_kpoints"]:
+            log_banner("DENSIFICATION")
+
+            densifier = BandDensifier(
+                interpolater, amset_data, scissor=self.scissor,
+                bandgap=self.user_bandgap,
+                energy_cutoff=self.performance_parameters["energy_cutoff"],
+                dos_estep=self.performance_parameters["dos_estep"])
+            densifier.densify(self.performance_parameters["n_extra_kpoints"])
 
         log_banner("SCATTERING")
         t0 = time.perf_counter()
