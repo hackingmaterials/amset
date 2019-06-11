@@ -1,6 +1,5 @@
 import logging
 import math
-import time
 from typing import Optional
 
 import numpy as np
@@ -12,7 +11,7 @@ from BoltzTraP2.bandlib import DOS, dFDde
 from amset import amset_defaults as defaults
 from amset.data import AmsetData
 from amset.interpolate import Interpolater
-from amset.log import log_list, log_time_taken
+from amset.log import log_list
 from amset.voronoi import PeriodicVoronoi
 
 logger = logging.getLogger(__name__)
@@ -73,12 +72,15 @@ class BandDensifier(object):
                     ef = amset_data.fermi_levels[n, t] * units.eV
                     kbt = amset_data.temperatures[t] * units.BOLTZMANN
                     band_dfde = dFDde(energies, ef, kbt)
+                    seeb_int = np.abs((energies - ef) * band_dfde)
+                    ke_int = np.abs((energies - ef) ** 2 * band_dfde)
 
-                    integral_sum += np.abs(band_dfde)
-                    integral_sum += np.abs((energies - ef) * band_dfde)
-                    integral_sum += np.abs((energies - ef) ** 2 * band_dfde)
+                    # normalize the transport integrals and sum
+                    integral_sum = band_dfde / band_dfde.max()
+                    integral_sum += seeb_int / seeb_int.max()
+                    integral_sum += ke_int / ke_int.max()
 
-                # weighting for densification is the Fermi integrals / DOS
+                # weights for densification are the sum of Fermi integrals / DOS
                 # I.e. regions with larger Fermi integrals are prioritized
                 # and regions with low DOS are prioritized.
                 weights = integral_sum / dos
@@ -165,18 +167,12 @@ class BandDensifier(object):
         all_kpoints = np.concatenate(
             (self._amset_data.full_kpoints, flattened_kpoints))
 
-        logger.info("Generating k-point weights")
-        t0 = time.perf_counter()
-
         voronoi = PeriodicVoronoi(
-            all_kpoints, original_mesh=self._amset_data.kpoint_mesh)
+            all_kpoints, original_mesh=self._amset_data.kpoint_mesh,
+            reciprocal_lattice_matrix=rlat.matrix)
         volumes = voronoi.compute_volumes()
-        log_time_taken(t0)
 
         sum_volumes = volumes.sum()
-        print(sum_volumes)
-        print(np.linalg.det(rlat.matrix))
-
         vol_diff = abs((np.linalg.det(rlat.matrix) / sum_volumes) - 1)
 
         if vol_diff > 0.01:
