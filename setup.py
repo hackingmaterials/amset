@@ -25,7 +25,7 @@ if __name__ == "__main__":
         install_requires=['numpy', 'pymatgen', 'scipy', 'monty',
                           'matplotlib', 'matminer', 'BoltzTraP2',
                           'spglib>=1.12.2', "sklearn", "tqdm",
-                          "memory_profiler"],
+                          "memory_profiler", "numexpr"],
         extras_require={'docs': ['sphinx']},
         classifiers=['Programming Language :: Python :: 3.6',
                      'Development Status :: 4 - Beta',
