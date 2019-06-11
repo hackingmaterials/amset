@@ -46,7 +46,7 @@ class PeriodicVoronoi(object):
         if original_mesh is None:
             self._grid_length_by_axis = [0.05] * 3
         else:
-            self._grid_length_by_axis = 2 / original_mesh
+            self._grid_length_by_axis = 5 / original_mesh
 
         self._n_blocks_by_axis = np.ceil(
             1 / self._grid_length_by_axis).astype(int)
@@ -121,24 +121,25 @@ class PeriodicVoronoi(object):
                 # don't calculate voronoi weights
                 continue
 
+            # get the indices of the block we are interested in
+            block_idx = self._get_idx_by_group(nx, ny, nz)
+
             # get the indices of the points to include when calculating the
             # Voronoi diagram, this includes the block of interest and the
             # blocks immediately surrounding it
             voro_idx = self._get_idx_by_group(
                 (nx - 1, nx + 1), (ny - 1, ny + 1), (nz - 1, nz + 1))
-            print("n1 group", self._get_idx_by_group(5, 5, 5))
 
-            # get the indices of any unit cell points in voro_idx, I.e.
+            # get the indices of the block points in voro_idx, I.e.
             # it is the index of the point in voro_idx, not the index of the
             # point in the original periodic mesh. Allows us to map from the
             # voro results to the original periodic mesh
-            voro_to_block_idx = _get_loc(voro_idx, self._frac_points_idx)
-            print(voro_to_block_idx.shape)
+            voro_to_block_idx = _get_loc(voro_idx, block_idx)
 
             # Now get the indices of the unit cell points (in the periodic mesh)
-            # that we are including in the voronoi diagram
+            # that we are including in the voronoi diagram, so we can calculate
+            # the volumes for just these points
             points_in_voro = voro_idx[voro_to_block_idx]
-            # print(points_in_voro)
 
             # finally, normalise these indices to get their corresponding index
             # in the original frac_points mesh. As we put the original
