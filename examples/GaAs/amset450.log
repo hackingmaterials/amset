@@ -1,0 +1,587 @@
+
+  
+                 █████╗ ███╗   ███╗███████╗███████╗████████╗
+                ██╔══██╗████╗ ████║██╔════╝██╔════╝╚══██╔══╝
+                ███████║██╔████╔██║███████╗█████╗     ██║   
+                ██╔══██║██║╚██╔╝██║╚════██║██╔══╝     ██║   
+                ██║  ██║██║ ╚═╝ ██║███████║███████╗   ██║   
+                ╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝   ╚═╝   
+                
+                                                    v0.1.0
+                                               
+      A. Ganose, A. Faghaninia, J. Park, F. Ricci, R. Woods-Robinson,
+      J. Frost,  K. Persson, G. Hautier, A. Jain, in prep.
+      
+  
+  amset starting on 07 Jun 2019 at 14:18
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SETTINGS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Run parameters:
+    ├── doping: 3e+13
+    ├── temperatures: 201, 290, 300, 401, 506, 605, 789, 994
+    ├── interpolation_factor: 450
+    ├── scattering_type: auto
+    ├── soc: False
+    └── bandgap: 1.33
+
+  Performance parameters:
+    ├── energy_tol: 0.005
+    ├── energy_cutoff: 1.5
+    ├── g_tol: 1e-05
+    ├── max_g_iter: 1
+    ├── dos_estep: 0.001
+    ├── dos_width: None
+    ├── symprec: 0.01
+    └── nworkers: -1
+
+  Output parameters:
+    ├── calculate_mobility: True
+    ├── separate_scattering_mobilities: True
+    ├── file_format: json
+    ├── log_traceback: True
+    ├── write_input: True
+    └── write_mesh: False
+
+  Material properties:
+    ├── high_frequency_dielectric: 10.32
+    ├── static_dielectric: 12.18
+    ├── elastic_constant: 139.7
+    ├── acceptor_charge: 1
+    ├── donor_charge: 1
+    ├── pop_frequency: 8.16
+    └── deformation_potential: (8.6, 8.6)
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ STRUCTURE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Structure information:
+    ├── formula: GaAs
+    ├── # sites: 2
+    └── space group: F̅43m
+
+  Lattice:
+    ├── a, b, c [Å]: 4.07, 4.07, 4.07
+    └── α, β, γ [°]: 60, 60, 60
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~ BAND STRUCTURE ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Input band structure information:
+    ├── # bands: 64
+    ├── # k-points: 165
+    ├── Fermi level: 2.776 eV
+    ├── spin polarized: False
+    └── metallic: False
+
+  Band gap:
+    ├── direct band gap: 0.190 eV
+    └── direct k-point: [0.00, 0.00, 0.00]
+
+  
+  Valence band maximum:
+    ├── energy: 2.674 eV
+    ├── k-point: [0.00, 0.00, 0.00]
+    └── band indices: 7, 8, 9
+
+  
+  Conduction band minimum:
+    ├── energy: 2.864 eV
+    ├── k-point: [0.00, 0.00, 0.00]
+    └── band indices: 10
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~ INTERPOLATION ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Getting band interpolation coefficients
+    └── time: 21.8444 s
+
+  Getting projection interpolation coefficients
+    └── time: 55.6110 s
+
+  Interpolation parameters:
+    ├── k-point mesh: 207x207x207
+    └── energy cutoff: 1.5 eV
+
+  Interpolating spin-up bands 7-10
+    └── time: 38.2032 s
+
+  Bandgap set to 1.330 eV, automatically scissoring by 1.140 eV
+
+  Interpolating spin-up projections
+    └── time: 75.6273 s
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ DOS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  DOS parameters:
+    ├── emin: -4.47 eV
+    ├── emax: 7.68 eV
+    └── broadening width: None eV
+
+  Intrinsic DOS Fermi level: 2.7694
+
+  DOS contains 3.000 electrons
+
+  Calculated Fermi levels:
+    ├── 3e+13 cm⁻³ & 201 K: 3.2950 eV
+    ├── 3e+13 cm⁻³ & 290 K: 3.2187 eV
+    ├── 3e+13 cm⁻³ & 300 K: 3.2099 eV
+    ├── 3e+13 cm⁻³ & 401 K: 3.1179 eV
+    ├── 3e+13 cm⁻³ & 506 K: 3.0184 eV
+    ├── 3e+13 cm⁻³ & 605 K: 2.9380 eV
+    ├── 3e+13 cm⁻³ & 789 K: 2.9462 eV
+    └── 3e+13 cm⁻³ & 994 K: 2.9882 eV
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SCATTERING ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Examining material properties to determine possible scattering 
+  mechanisms
+
+  The following scattering mechanisms will be calculated: ACD, IMP, 
+  POP
+
+  Initializing IMP scattering
+
+  Inverse screening length (β) and impurity concentration (Nᵢᵢ):
+    ├── 3e+13 cm⁻³ & 201 K: β² = 2.573e-06, Nᵢᵢ = 3e+13
+    ├── 3e+13 cm⁻³ & 290 K: β² = 1.783e-06, Nᵢᵢ = 3e+13
+    ├── 3e+13 cm⁻³ & 300 K: β² = 1.724e-06, Nᵢᵢ = 3e+13
+    ├── 3e+13 cm⁻³ & 401 K: β² = 1.29e-06, Nᵢᵢ = 3e+13
+    ├── 3e+13 cm⁻³ & 506 K: β² = 1.026e-06, Nᵢᵢ = 3.012e+13
+    ├── 3e+13 cm⁻³ & 605 K: β² = 1.505e-06, Nᵢᵢ = 5.281e+13
+    ├── 3e+13 cm⁻³ & 789 K: β² = 2.911e-05, Nᵢᵢ = 1.332e+15
+    └── 3e+13 cm⁻³ & 994 K: β² = 0.0002595, Nᵢᵢ = 1.497e+16
+
+  Initializing POP scattering
+
+  Scattering information:
+    ├── energy tolerance: 0.005 eV
+    ├── # k-points: 192920
+    └── batch size: 100
+
+  Calculating rates for spin-up band 1
+    ├── max rate: 3.292e+24
+    ├── min rate: 5.718e+07
+    └── time: 46.8319 s
+
+  Calculating rates for spin-up band 2
+    ├── max rate: 3.292e+24
+    ├── min rate: 4.678e+08
+    └── time: 75.9819 s
+
+  Calculating rates for spin-up band 3
+    ├── max rate: 3.292e+24
+    ├── min rate: 7.658e+08
+    └── time: 492.1064 s
+
+  Calculating rates for spin-up band 4
+    ├── max rate: 3.292e+24
+    ├── min rate: 1.222e+08
+    └── time: 41.0403 s
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ TRANSPORT ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Calculating conductivity, Seebeck, and electronic thermal 
+  conductivity tensors.
+    └── time: 93.0790 s
+
+  Calculating overall mobility
+    └── time: 14.2601 s
+
+  Calculating individual scattering rate mobilities
+    └── time: 32.2037 s
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ RESULTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Average conductivity (σ), Seebeck (S) and mobility (μ) results:
+
+    conc [cm⁻³]    temp [K]    σ [S/m]    S [µV/K]    μ [cm²/Vs]
+  -------------  ----------  ---------  ----------  ------------
+          3e+13       201.0        4.8    -8.8e+44       10077.3
+          3e+13       290.0        3.4    -9.4e+38        7175.1
+          3e+13       300.0        3.3    -9.4e+32        6936.1
+          3e+13       401.0        2.4    -9.9e+26        5093.9
+          3e+13       506.0        1.9      -1e+21        3887.5
+          3e+13       605.0        2.1      -1e+15        3128.1
+          3e+13       789.0         25    -7.5e+08        2204.2
+          3e+13       994.0    1.8e+02    -5.8e+02        1462.7
+
+  Mobility breakdown by scattering mechanism, in cm²/Vs:
+
+    conc [cm⁻³]    temp [K]      ACD      IMP      POP
+  -------------  ----------  -------  -------  -------
+          3e+13       201.0  6.5e+05  1.7e+07    1e+04
+          3e+13       290.0  3.5e+05  1.9e+07  7.4e+03
+          3e+13       300.0  3.3e+05  1.9e+07  7.2e+03
+          3e+13       401.0    2e+05    2e+07  5.3e+03
+          3e+13       506.0  1.3e+05    2e+07  4.1e+03
+          3e+13       605.0  9.3e+04  1.2e+07  3.3e+03
+          3e+13       789.0  5.6e+04  4.6e+05  2.4e+03
+          3e+13       994.0  3.4e+04    4e+04  1.7e+03
+
+  Writing results to /Users/alexganose/dev/src/amset/examples/GaAs
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ END ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Timing and memory usage:
+    ├── interpolation time: 175.4875 s
+    ├── scattering time: 683.3654 s
+    ├── transport time: 139.5593 s
+    ├── writing time: 0.0689 s
+    ├── total time: 1067.2708 s
+    └── max memory: 11100.9 MB
+
+  amset exiting on 07 Jun 2019 at 14:36
+
+  
+                 █████╗ ███╗   ███╗███████╗███████╗████████╗
+                ██╔══██╗████╗ ████║██╔════╝██╔════╝╚══██╔══╝
+                ███████║██╔████╔██║███████╗█████╗     ██║   
+                ██╔══██║██║╚██╔╝██║╚════██║██╔══╝     ██║   
+                ██║  ██║██║ ╚═╝ ██║███████║███████╗   ██║   
+                ╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝   ╚═╝   
+                
+                                                    v0.1.0
+                                               
+      A. Ganose, A. Faghaninia, J. Park, F. Ricci, R. Woods-Robinson,
+      J. Frost,  K. Persson, G. Hautier, A. Jain, in prep.
+      
+  
+  amset starting on 07 Jun 2019 at 14:36
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SETTINGS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Run parameters:
+    ├── doping: 3e+13
+    ├── temperatures: 201, 290, 300, 401, 506, 605, 789, 994
+    ├── interpolation_factor: 500
+    ├── scattering_type: auto
+    ├── soc: False
+    └── bandgap: 1.33
+
+  Performance parameters:
+    ├── energy_tol: 0.005
+    ├── energy_cutoff: 1.5
+    ├── g_tol: 1e-05
+    ├── max_g_iter: 1
+    ├── dos_estep: 0.001
+    ├── dos_width: None
+    ├── symprec: 0.01
+    └── nworkers: -1
+
+  Output parameters:
+    ├── calculate_mobility: True
+    ├── separate_scattering_mobilities: True
+    ├── file_format: json
+    ├── log_traceback: True
+    ├── write_input: True
+    └── write_mesh: False
+
+  Material properties:
+    ├── high_frequency_dielectric: 10.32
+    ├── static_dielectric: 12.18
+    ├── elastic_constant: 139.7
+    ├── acceptor_charge: 1
+    ├── donor_charge: 1
+    ├── pop_frequency: 8.16
+    └── deformation_potential: (8.6, 8.6)
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ STRUCTURE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Structure information:
+    ├── formula: GaAs
+    ├── # sites: 2
+    └── space group: F̅43m
+
+  Lattice:
+    ├── a, b, c [Å]: 4.07, 4.07, 4.07
+    └── α, β, γ [°]: 60, 60, 60
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~ BAND STRUCTURE ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Input band structure information:
+    ├── # bands: 64
+    ├── # k-points: 165
+    ├── Fermi level: 2.776 eV
+    ├── spin polarized: False
+    └── metallic: False
+
+  Band gap:
+    ├── direct band gap: 0.190 eV
+    └── direct k-point: [0.00, 0.00, 0.00]
+
+  
+  Valence band maximum:
+    ├── energy: 2.674 eV
+    ├── k-point: [0.00, 0.00, 0.00]
+    └── band indices: 7, 8, 9
+
+  
+  Conduction band minimum:
+    ├── energy: 2.864 eV
+    ├── k-point: [0.00, 0.00, 0.00]
+    └── band indices: 10
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~ INTERPOLATION ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Getting band interpolation coefficients
+    └── time: 25.5477 s
+
+  Getting projection interpolation coefficients
+    └── time: 65.3433 s
+
+  Interpolation parameters:
+    ├── k-point mesh: 215x215x215
+    └── energy cutoff: 1.5 eV
+
+  Interpolating spin-up bands 7-10
+    └── time: 56.0083 s
+
+  Bandgap set to 1.330 eV, automatically scissoring by 1.140 eV
+
+  Interpolating spin-up projections
+    └── time: 103.2943 s
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ DOS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  DOS parameters:
+    ├── emin: -4.47 eV
+    ├── emax: 7.68 eV
+    └── broadening width: None eV
+
+  Intrinsic DOS Fermi level: 2.7694
+
+  DOS contains 3.000 electrons
+
+  Calculated Fermi levels:
+    ├── 3e+13 cm⁻³ & 201 K: 3.2950 eV
+    ├── 3e+13 cm⁻³ & 290 K: 3.2187 eV
+    ├── 3e+13 cm⁻³ & 300 K: 3.2099 eV
+    ├── 3e+13 cm⁻³ & 401 K: 3.1179 eV
+    ├── 3e+13 cm⁻³ & 506 K: 3.0184 eV
+    ├── 3e+13 cm⁻³ & 605 K: 2.9380 eV
+    ├── 3e+13 cm⁻³ & 789 K: 2.9462 eV
+    └── 3e+13 cm⁻³ & 994 K: 2.9882 eV
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SCATTERING ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Examining material properties to determine possible scattering 
+  mechanisms
+
+  The following scattering mechanisms will be calculated: ACD, IMP, 
+  POP
+
+  Initializing IMP scattering
+
+  Inverse screening length (β) and impurity concentration (Nᵢᵢ):
+    ├── 3e+13 cm⁻³ & 201 K: β² = 2.573e-06, Nᵢᵢ = 3e+13
+    ├── 3e+13 cm⁻³ & 290 K: β² = 1.783e-06, Nᵢᵢ = 3e+13
+    ├── 3e+13 cm⁻³ & 300 K: β² = 1.724e-06, Nᵢᵢ = 3e+13
+    ├── 3e+13 cm⁻³ & 401 K: β² = 1.29e-06, Nᵢᵢ = 3e+13
+    ├── 3e+13 cm⁻³ & 506 K: β² = 1.026e-06, Nᵢᵢ = 3.012e+13
+    ├── 3e+13 cm⁻³ & 605 K: β² = 1.505e-06, Nᵢᵢ = 5.282e+13
+    ├── 3e+13 cm⁻³ & 789 K: β² = 2.912e-05, Nᵢᵢ = 1.333e+15
+    └── 3e+13 cm⁻³ & 994 K: β² = 0.0002595, Nᵢᵢ = 1.497e+16
+
+  Initializing POP scattering
+
+  Scattering information:
+    ├── energy tolerance: 0.005 eV
+    ├── # k-points: 215820
+    └── batch size: 100
+
+  Calculating rates for spin-up band 1
+    ├── max rate: 2.938e+24
+    ├── min rate: 7.108e+07
+    └── time: 57.4300 s
+
+  Calculating rates for spin-up band 2
+    ├── max rate: 2.938e+24
+    ├── min rate: 5.782e+08
+    └── time: 97.9283 s
+
+  Calculating rates for spin-up band 3
+    ├── max rate: 2.938e+24
+    ├── min rate: 5.597e+08
+    └── time: 581.9881 s
+
+  Calculating rates for spin-up band 4
+    ├── max rate: 2.938e+24
+    ├── min rate: 1.409e+08
+    └── time: 50.7452 s
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ TRANSPORT ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Calculating conductivity, Seebeck, and electronic thermal 
+  conductivity tensors.
+    └── time: 94.9945 s
+
+  Calculating overall mobility
+    └── time: 15.2871 s
+
+  Calculating individual scattering rate mobilities
+    └── time: 32.7275 s
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ RESULTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Average conductivity (σ), Seebeck (S) and mobility (μ) results:
+
+    conc [cm⁻³]    temp [K]    σ [S/m]    S [µV/K]    μ [cm²/Vs]
+  -------------  ----------  ---------  ----------  ------------
+          3e+13       201.0        4.1    -8.8e+44        8514.9
+          3e+13       290.0        2.9    -9.4e+38        6146.5
+          3e+13       300.0        2.9    -9.5e+32        5946.3
+          3e+13       401.0        2.1    -9.9e+26        4409.8
+          3e+13       506.0        1.6      -1e+21        3418.1
+          3e+13       605.0        1.9      -1e+15        2796.9
+          3e+13       789.0         23    -7.5e+08        2031.2
+          3e+13       994.0    1.7e+02    -5.8e+02        1388.3
+
+  Mobility breakdown by scattering mechanism, in cm²/Vs:
+
+    conc [cm⁻³]    temp [K]      ACD      IMP      POP
+  -------------  ----------  -------  -------  -------
+          3e+13       201.0  6.7e+05  1.5e+07  8.7e+03
+          3e+13       290.0  3.6e+05  1.6e+07  6.3e+03
+          3e+13       300.0  3.4e+05  1.6e+07  6.1e+03
+          3e+13       401.0    2e+05  1.7e+07  4.5e+03
+          3e+13       506.0  1.3e+05  1.7e+07  3.6e+03
+          3e+13       605.0  9.5e+04    1e+07  2.9e+03
+          3e+13       789.0  5.7e+04    4e+05  2.2e+03
+          3e+13       994.0  3.5e+04  3.6e+04  1.6e+03
+
+  Writing results to /Users/alexganose/dev/src/amset/examples/GaAs
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ END ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Timing and memory usage:
+    ├── interpolation time: 232.3413 s
+    ├── scattering time: 826.4934 s
+    ├── transport time: 143.0282 s
+    ├── writing time: 0.1104 s
+    ├── total time: 1294.3509 s
+    └── max memory: 11560.5 MB
+
+  amset exiting on 07 Jun 2019 at 14:57
+
+  
+                 █████╗ ███╗   ███╗███████╗███████╗████████╗
+                ██╔══██╗████╗ ████║██╔════╝██╔════╝╚══██╔══╝
+                ███████║██╔████╔██║███████╗█████╗     ██║   
+                ██╔══██║██║╚██╔╝██║╚════██║██╔══╝     ██║   
+                ██║  ██║██║ ╚═╝ ██║███████║███████╗   ██║   
+                ╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝   ╚═╝   
+                
+                                                    v0.1.0
+                                               
+      A. Ganose, A. Faghaninia, J. Park, F. Ricci, R. Woods-Robinson,
+      J. Frost,  K. Persson, G. Hautier, A. Jain, in prep.
+      
+  
+  amset starting on 07 Jun 2019 at 14:57
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SETTINGS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Run parameters:
+    ├── doping: 3e+13
+    ├── temperatures: 201, 290, 300, 401, 506, 605, 789, 994
+    ├── interpolation_factor: 550
+    ├── scattering_type: auto
+    ├── soc: False
+    └── bandgap: 1.33
+
+  Performance parameters:
+    ├── energy_tol: 0.005
+    ├── energy_cutoff: 1.5
+    ├── g_tol: 1e-05
+    ├── max_g_iter: 1
+    ├── dos_estep: 0.001
+    ├── dos_width: None
+    ├── symprec: 0.01
+    └── nworkers: -1
+
+  Output parameters:
+    ├── calculate_mobility: True
+    ├── separate_scattering_mobilities: True
+    ├── file_format: json
+    ├── log_traceback: True
+    ├── write_input: True
+    └── write_mesh: False
+
+  Material properties:
+    ├── high_frequency_dielectric: 10.32
+    ├── static_dielectric: 12.18
+    ├── elastic_constant: 139.7
+    ├── acceptor_charge: 1
+    ├── donor_charge: 1
+    ├── pop_frequency: 8.16
+    └── deformation_potential: (8.6, 8.6)
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ STRUCTURE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Structure information:
+    ├── formula: GaAs
+    ├── # sites: 2
+    └── space group: F̅43m
+
+  Lattice:
+    ├── a, b, c [Å]: 4.07, 4.07, 4.07
+    └── α, β, γ [°]: 60, 60, 60
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~ BAND STRUCTURE ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Input band structure information:
+    ├── # bands: 64
+    ├── # k-points: 165
+    ├── Fermi level: 2.776 eV
+    ├── spin polarized: False
+    └── metallic: False
+
+  Band gap:
+    ├── direct band gap: 0.190 eV
+    └── direct k-point: [0.00, 0.00, 0.00]
+
+  
+  Valence band maximum:
+    ├── energy: 2.674 eV
+    ├── k-point: [0.00, 0.00, 0.00]
+    └── band indices: 7, 8, 9
+
+  
+  Conduction band minimum:
+    ├── energy: 2.864 eV
+    ├── k-point: [0.00, 0.00, 0.00]
+    └── band indices: 10
+
+  
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~ INTERPOLATION ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Getting band interpolation coefficients
+    └── time: 25.8834 s
+
+  Getting projection interpolation coefficients
+    └── time: 65.4550 s
+
+  Interpolation parameters:
+    ├── k-point mesh: 221x221x221
+    └── energy cutoff: 1.5 eV
+
+  Interpolating spin-up bands 7-10

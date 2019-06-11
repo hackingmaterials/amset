@@ -1,4 +1,3 @@
-import itertools
 import logging
 import math
 import time
@@ -6,15 +5,15 @@ from typing import Optional
 
 import numpy as np
 from scipy.interpolate import interp1d
-from scipy.spatial.qhull import Voronoi, ConvexHull
 from scipy.stats import cauchy
 
 from BoltzTraP2 import units
-from BoltzTraP2.bandlib import DOS, dFDde, smoothen_DOS
+from BoltzTraP2.bandlib import DOS, dFDde
 from amset import amset_defaults as defaults
 from amset.data import AmsetData
 from amset.interpolate import Interpolater
 from amset.log import log_list, log_time_taken
+from amset.voronoi import PeriodicVoronoi
 
 logger = logging.getLogger(__name__)
 pdefaults = defaults["performance"]
@@ -123,19 +122,20 @@ class BandDensifier(object):
 
         # add additional points according to a Lorentz distribution:
         # P = 1/(1 + |k-k0|^2/γ^2)
-        # we set gamma to be 1/4 * the average inter k-point spacing for the
+        # we set gamma to be 1/20 * the average inter k-point spacing for the
         # x, y and z directions. Note that this only works well if the original
         # k-point density (not lattice) is isotropic, which will be the case if
         # using BoltzTraP interpolation.
         rlat = self._amset_data.structure.lattice.reciprocal_lattice
 
-        gamma = np.average(1 / self._amset_data.kpoint_mesh) / 4
+        gamma_sq = (np.average(1 / self._amset_data.kpoint_mesh) / 20) ** 2
 
         log_list(["# extra kpoints: {}".format(total_points),
                   "Densification γ: {:.5f} Å⁻¹".format(
-                      np.average(rlat.abc / self._amset_data.kpoint_mesh) / 4)])
+                      np.average(rlat.abc / self._amset_data.kpoint_mesh)/20)])
 
-        lorentz_points = cauchy.rvs(loc=0, scale=gamma, size=(total_points, 3))
+        lorentz_points = cauchy.rvs(loc=0, scale=gamma_sq,
+                                    size=(total_points, 3))
 
         # flattened_kpoints is a list of kpoints, where each point is present
         # as many times as the number of extra points surrounding it.
@@ -164,84 +164,28 @@ class BandDensifier(object):
         # Voronoi decomposition.
         all_kpoints = np.concatenate(
             (self._amset_data.full_kpoints, flattened_kpoints))
+
         logger.info("Generating k-point weights")
         t0 = time.perf_counter()
-        kpoint_weights = get_kpoint_weights(all_kpoints, rlat.matrix)
+
+        voronoi = PeriodicVoronoi(
+            all_kpoints, original_mesh=self._amset_data.kpoint_mesh)
+        volumes = voronoi.compute_volumes()
         log_time_taken(t0)
+
+        sum_volumes = volumes.sum()
+        print(sum_volumes)
+        print(np.linalg.det(rlat.matrix))
+
+        vol_diff = abs((np.linalg.det(rlat) / sum_volumes) - 1)
+
+        if vol_diff > 0.01:
+            logger.warning("Sum of Voronoi volumes differs from reciprocal "
+                           "lattice volume by {:.1f}%".format(vol_diff * 100))
+
+        kpoint_weights = volumes / sum_volumes
 
         # note k-point weights is for all k-points, whereas the other properties
         # are just for the additional k-points
         return (flattened_kpoints, energies, velocities, projections,
                 kpoint_weights)
-
-
-def get_kpoint_weights(kpoints, reciprocal_lattice_matrix) -> np.ndarray:
-    # In order to take into account periodic boundary conditions we repeat
-    # the mesh a number of times in each direction. Note this method
-    # might not be robust to cells with very small/large cell angles (?).
-    # A better method would be to calculate the supercell mesh needed to
-    # converge the Voronoi volumes, but in most cases this will be fine.
-    ndim = np.arange(-1, 2)
-    super_kpoints = []
-    # for dim in itertools.product(ndim, ndim, ndim):
-    #     if dim[0] == dim[1] == dim[2] == 0:
-    #         # don't add the original points here
-    #         continue
-    #     super_kpoints.append(kpoints + dim)
-
-    # add the original points at the end so we know their indices
-    super_kpoints.append(kpoints)
-    super_kpoints = np.concatenate(super_kpoints)
-
-    # get cartesian coordinates so we can calculate accurate Voronoi volumes
-    cart_all_kpoints = np.dot(super_kpoints, reciprocal_lattice_matrix)
-    print("n kpoints in supercell", len(cart_all_kpoints))
-    logger.info("Constructing voronoi")
-    # from tess import Container
-    # c = Container(cart_all_kpoints, periodic=True)
-    import freud
-    cart_all_kpoints * 1e5
-
-    box = freud.box.Box.from_matrix(reciprocal_lattice_matrix)
-    length = max(np.sqrt(np.sum(reciprocal_lattice_matrix ** 2, axis=1))) * 1e5 / 100
-    voro = freud.voronoi.Voronoi(box, length)
-    voro.compute(box=box, positions=cart_all_kpoints, buff=length)
-    logger.info("done Constructing voronoi")
-    logger.info("getting volumes")
-    volumes = voro.computeVolumes().volumes
-    print(volumes)
-    logger.info("done getting volumes")
-    # voronoi = Voronoi(cart_all_kpoints)
-
-    # logger.info("getting volumes")
-    # # get the volumes of the points in the original k-point mesh
-    # volumes = _get_voronoi_volumes(voronoi)[-len(kpoints):]
-    # logger.info("done getting volumes")
-
-    if any(np.isinf(volumes)):
-        raise ValueError("Calculating k-point weights failed, supercell size "
-                         "may be in too small")
-
-    sum_volumes = volumes.sum()
-    print(sum_volumes)
-    print(np.linalg.det(reciprocal_lattice_matrix))
-    vol_diff = abs((np.linalg.det(reciprocal_lattice_matrix) / sum_volumes) - 1)
-    if vol_diff > 0.01:
-        logger.warning("Sum of Voronoi volumes differs from reciprocal lattice"
-                       "volume by {:.1f}%".format(vol_diff * 100))
-
-    volumes /= sum_volumes
-    return volumes
-
-
-def _get_voronoi_volumes(voronoi) -> np.ndarray:
-    volumes = np.zeros(voronoi.npoints)
-
-    for i, reg_num in enumerate(voronoi.point_region):
-        indices = voronoi.regions[reg_num]
-        if -1 in indices:
-            # some regions can be opened
-            volumes[i] = np.inf
-        else:
-            volumes[i] = ConvexHull(voronoi.vertices[indices]).volume
-    return volumes
