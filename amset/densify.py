@@ -177,7 +177,7 @@ class BandDensifier(object):
         print(sum_volumes)
         print(np.linalg.det(rlat.matrix))
 
-        vol_diff = abs((np.linalg.det(rlat) / sum_volumes) - 1)
+        vol_diff = abs((np.linalg.det(rlat.matrix) / sum_volumes) - 1)
 
         if vol_diff > 0.01:
             logger.warning("Sum of Voronoi volumes differs from reciprocal "
