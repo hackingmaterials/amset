@@ -22,12 +22,10 @@ from sklearn.neighbors.ball_tree import BallTree
 from tqdm import tqdm
 
 from BoltzTraP2 import units
-from BoltzTraP2.fd import dFDde
 from amset.utils.transport import df0de
 from pymatgen import Spin
 
-from amset.constants import A_to_nm, output_width, over_sqrt_pi, hbar, \
-    default_small_e, small_val
+from amset.constants import A_to_nm, output_width, over_sqrt_pi, hbar, small_val
 from amset.data import AmsetData
 from amset.log import log_list
 from amset.scattering.elastic import AbstractElasticScattering
@@ -458,7 +456,7 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
 
                     if nkpoints != kpoints.shape[0]:
                         # working with symmetry reduced k-points
-                        # now format of band rates is (s1_i, s2_i, s1_o, s2_o...)
+                        # now format of band rates is (s1_i, s2_i, s1_o, s2_o..)
                         band_rates += get_ir_band_rates(
                             spin, b_idx, inelastic_scatterers, ediff, energy_tol, s,
                             k_idx, k_p_idx, kpoints, kpoint_norms, a_factor,
