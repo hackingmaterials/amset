@@ -1,13 +1,14 @@
 import itertools
 import logging
 import sys
-from multiprocessing import cpu_count, Process, Queue
+import time
 
+import numpy as np
 import numexpr as ne
 
 from typing import Optional, Tuple, Union
+from multiprocessing import cpu_count
 
-import numpy as np
 from joblib import Parallel, delayed
 from scipy.spatial.qhull import Voronoi, ConvexHull
 from scipy.stats import binned_statistic_dd
@@ -15,6 +16,7 @@ from tqdm import tqdm
 
 from amset import amset_defaults
 from amset.constants import output_width
+from amset.log import log_time_taken
 
 pdefaults = amset_defaults["performance"]
 logger = logging.getLogger(__name__)
@@ -43,7 +45,7 @@ class PeriodicVoronoi(object):
         self._original_mesh = original_mesh
         self.frac_points = frac_points
 
-        if not reciprocal_lattice_matrix:
+        if reciprocal_lattice_matrix is None:
             reciprocal_lattice_matrix = np.diag([1, 1, 1])
 
         if original_mesh is None:
@@ -96,6 +98,7 @@ class PeriodicVoronoi(object):
             expand_binnumbers=True)
 
     def compute_volumes(self):
+        t0 = time.perf_counter()
         logger.info("Calculating k-point Voronoi volumes in blocks:")
         logger.debug("  ├── # total k-points: {}".format(len(self.frac_points)))
         logger.debug("  ├── # blocks: {:d}".format(np.product(
@@ -140,10 +143,11 @@ class PeriodicVoronoi(object):
         if any(inf_vols):
             logger.warning("{} volumes are infinite".format(np.sum(inf_vols)))
 
+        log_time_taken(t0)
         return volumes
 
-
-def voronoi_worker(groups_idx, periodic_points_cart,
+def voronoi_worker(groups_idx,
+                   periodic_points_cart,
                    periodic_idx, n_buffer_points, nx, ny, nz):
     # get the indices of the block we are interested in
     block_idx = _get_idx_by_group(groups_idx, periodic_idx, nx, ny, nz)
