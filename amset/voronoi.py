@@ -31,6 +31,7 @@ class PeriodicVoronoi(object):
     def __init__(self,
                  frac_points: np.ndarray,
                  original_mesh: Optional[np.ndarray] = None,
+                 max_points_per_split: int = 80000,
                  nworkers: int = pdefaults["nworkers"]):
         """
 
@@ -42,12 +43,13 @@ class PeriodicVoronoi(object):
         """
         self._nworkers = nworkers if nworkers != -1 else cpu_count()
         self._original_mesh = original_mesh
+        self._max_points_per_split = max_points_per_split
         self.frac_points = frac_points
 
         if original_mesh is None:
             self._grid_length_by_axis = [0.05] * 3
         else:
-            self._grid_length_by_axis = 10 / original_mesh
+            self._grid_length_by_axis = 1 / original_mesh
 
         self._n_blocks_by_axis = np.ceil(
             1 / self._grid_length_by_axis).astype(int)
@@ -60,22 +62,30 @@ class PeriodicVoronoi(object):
         dim = [-1, 0, 1]
         periodic_points = []
 
+        # only include periodic points in the vicinity of the unit cell
+        # limits is ((xmin, xmax), (ymin, ymax), (zmin, zmax))
+        limits = np.stack(((-0.5 - self._grid_length_by_axis),
+                           (0.5 + self._grid_length_by_axis)), axis=1)
+
         for image in itertools.product(dim, dim, dim):
             if image[0] == image[1] == image[2] == 0:
                 # don't add the original points here
                 continue
-            periodic_points.append(frac_points + image)
+            p = frac_points + image
+
+            # filter points far from unit cell
+            periodic_points.append(
+                p[(p[0] >= limits[0][0]) & (p[0] <= limits[0][1]),
+                  (p[1] >= limits[1][0]) & (p[1] <= limits[1][1]),
+                  (p[2] >= limits[2][0]) & (p[2] <= limits[2][1])])
 
         # add the original points at the end so we know their indices
         periodic_points.append(frac_points)
 
         self._periodic_points = np.concatenate(periodic_points)
         self._periodic_idx = np.arange(len(self._periodic_points))
+        self._frac_points_idx = self._periodic_idx[-len(self.frac_points):]
         self._n_buffer_points = len(self._periodic_idx) - len(self.frac_points)
-
-        # limits is ((xmin, xmax), (ymin, ymax), (zmin, zmax))
-        limits = np.stack(((-0.5 - self._grid_length_by_axis),
-                           (0.5 + self._grid_length_by_axis)), axis=1)
 
         # group the points by their coordinates, with the group cutoffs defined
         # by multiples of inner_grid_length. Include two extra groups on either
@@ -97,6 +107,17 @@ class PeriodicVoronoi(object):
         logger.debug("  ├── # total k-points: {}".format(len(self.frac_points)))
         logger.debug("  ├── # blocks: {:d}".format(np.product(
             self._n_blocks_by_axis)))
+
+        if len(self._periodic_points) > self._max_points_per_split:
+            # we can treat all points simultaneously
+            voro = Voronoi(self._periodic_points)
+            indicies = voro.point_regions[self.]
+            voronoi.vertices[indices]
+            ).volume
+
+    return np.array([get_volume(voronoi.regions[x])
+                     for x in voronoi.point_region[volume_indices]])
+        else:
 
         # buffer is the list of buffer cells, with the form:
         # [[1, x], [1, y], [1, z]] where x, y, and z are the buffer cells on the
