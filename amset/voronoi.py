@@ -1,5 +1,6 @@
 import itertools
 import logging
+import math
 import sys
 import time
 
@@ -31,7 +32,7 @@ class PeriodicVoronoi(object):
     def __init__(self,
                  frac_points: np.ndarray,
                  original_mesh: Optional[np.ndarray] = None,
-                 max_points_per_split: int = 80000,
+                 max_points_per_chunk: int = 80000,
                  nworkers: int = pdefaults["nworkers"]):
         """
 
@@ -43,7 +44,7 @@ class PeriodicVoronoi(object):
         """
         self._nworkers = nworkers if nworkers != -1 else cpu_count()
         self._original_mesh = original_mesh
-        self._max_points_per_split = max_points_per_split
+        self._max_points_per_chunk = max_points_per_chunk
         self.frac_points = frac_points
 
         if original_mesh is None:
@@ -108,16 +109,19 @@ class PeriodicVoronoi(object):
         logger.debug("  ├── # blocks: {:d}".format(np.product(
             self._n_blocks_by_axis)))
 
-        if len(self._periodic_points) > self._max_points_per_split:
+        if len(self._periodic_points) > self._max_points_per_chunk:
             # we can treat all points simultaneously
             voro = Voronoi(self._periodic_points)
-            indicies = voro.point_regions[self.]
-            voronoi.vertices[indices]
-            ).volume
-
-    return np.array([get_volume(voronoi.regions[x])
-                     for x in voronoi.point_region[volume_indices]])
+            regions = voro.point_regions[self._frac_points_idx]
+            indices = np.array(voro.regions)[regions]
         else:
+            # we break the cell up into chunks, each containing a certain number
+            # of blocks, and calculate the Voronoi diagrams for each block
+            # individually. Each chunk as a buffer layer, one block thick
+            # surrounding it. The Voronoi diagrams for the points in the buffer
+            # are discarded.
+            n_chunks = math.ceil(self._periodic_idx.shape[0] /
+                                 self._max_points_per_chunk)
 
         # buffer is the list of buffer cells, with the form:
         # [[1, x], [1, y], [1, z]] where x, y, and z are the buffer cells on the
