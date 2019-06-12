@@ -72,11 +72,12 @@ class BandDensifier(object):
                     ef = amset_data.fermi_levels[n, t] * units.eV
                     kbt = amset_data.temperatures[t] * units.BOLTZMANN
                     band_dfde = dFDde(energies, ef, kbt)
+                    sigma_int = np.abs(band_dfde)
                     seeb_int = np.abs((energies - ef) * band_dfde)
                     ke_int = np.abs((energies - ef) ** 2 * band_dfde)
 
                     # normalize the transport integrals and sum
-                    integral_sum = band_dfde / band_dfde.max()
+                    integral_sum += sigma_int / sigma_int.max()
                     integral_sum += seeb_int / seeb_int.max()
                     integral_sum += ke_int / ke_int.max()
 
@@ -130,7 +131,7 @@ class BandDensifier(object):
         # using BoltzTraP interpolation.
         rlat = self._amset_data.structure.lattice.reciprocal_lattice
 
-        gamma_sq = (np.average(1 / self._amset_data.kpoint_mesh) / 20) ** 2
+        gamma_sq = (np.average(1 / self._amset_data.kpoint_mesh) / 5) ** 2
 
         log_list(["# extra kpoints: {}".format(total_points),
                   "Densification γ: {:.5f} Å⁻¹".format(
@@ -168,8 +169,7 @@ class BandDensifier(object):
             (self._amset_data.full_kpoints, flattened_kpoints))
 
         voronoi = PeriodicVoronoi(
-            all_kpoints, original_mesh=self._amset_data.kpoint_mesh,
-            reciprocal_lattice_matrix=rlat.matrix)
+            all_kpoints, original_mesh=self._amset_data.kpoint_mesh)
         volumes = voronoi.compute_volumes()
 
         sum_volumes = volumes.sum()

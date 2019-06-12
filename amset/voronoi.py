@@ -30,7 +30,6 @@ class PeriodicVoronoi(object):
 
     def __init__(self,
                  frac_points: np.ndarray,
-                 reciprocal_lattice_matrix: Optional[np.ndarray] = None,
                  original_mesh: Optional[np.ndarray] = None,
                  nworkers: int = pdefaults["nworkers"]):
         """
@@ -45,13 +44,10 @@ class PeriodicVoronoi(object):
         self._original_mesh = original_mesh
         self.frac_points = frac_points
 
-        if reciprocal_lattice_matrix is None:
-            reciprocal_lattice_matrix = np.diag([1, 1, 1])
-
         if original_mesh is None:
             self._grid_length_by_axis = [0.05] * 3
         else:
-            self._grid_length_by_axis = 5 / original_mesh
+            self._grid_length_by_axis = 10 / original_mesh
 
         self._n_blocks_by_axis = np.ceil(
             1 / self._grid_length_by_axis).astype(int)
@@ -74,8 +70,6 @@ class PeriodicVoronoi(object):
         periodic_points.append(frac_points)
 
         self._periodic_points = np.concatenate(periodic_points)
-        self._periodic_points_cart = np.dot(
-            self._periodic_points, reciprocal_lattice_matrix)
         self._periodic_idx = np.arange(len(self._periodic_points))
         self._n_buffer_points = len(self._periodic_idx) - len(self.frac_points)
 
@@ -125,9 +119,9 @@ class PeriodicVoronoi(object):
                       desc="    ├── progress",  file=sys.stdout,
                       bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}')
 
-        results = Parallel(n_jobs=self._nworkers, prefer="threads")(
+        results = Parallel(n_jobs=self._nworkers, prefer="processes")(
             delayed(voronoi_worker)(
-                self._groups_idx, self._periodic_points_cart,
+                self._groups_idx, self._periodic_points,
                 self._periodic_idx, self._n_buffer_points, nx, ny, nz)
             for nx, ny, nz in blocks)
 
@@ -146,8 +140,8 @@ class PeriodicVoronoi(object):
         log_time_taken(t0)
         return volumes
 
-def voronoi_worker(groups_idx,
-                   periodic_points_cart,
+
+def voronoi_worker(groups_idx, periodic_points,
                    periodic_idx, n_buffer_points, nx, ny, nz):
     # get the indices of the block we are interested in
     block_idx = _get_idx_by_group(groups_idx, periodic_idx, nx, ny, nz)
@@ -175,7 +169,7 @@ def voronoi_worker(groups_idx,
     # frac_points at the end of the periodic_points mesh this is easy.
     points_in_voro -= n_buffer_points
 
-    voro = Voronoi(periodic_points_cart[voro_idx])
+    voro = Voronoi(periodic_points[voro_idx])
 
     return points_in_voro, _get_voronoi_volumes(voro, voro_to_block_idx)
 
