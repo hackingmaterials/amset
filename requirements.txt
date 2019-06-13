@@ -9,5 +9,6 @@ tqdm
 sklearn
 tabulate
 memory_profiler
+joblib
 numexpr
 spglib>=1.12.2
