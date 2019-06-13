@@ -50,7 +50,7 @@ class PeriodicVoronoi(object):
         if original_mesh is None:
             self._grid_length_by_axis = [0.05] * 3
         else:
-            self._grid_length_by_axis = 1 / original_mesh
+            self._grid_length_by_axis = 2 / original_mesh
 
         self._n_blocks_by_axis = np.ceil(
             1 / self._grid_length_by_axis).astype(int)
@@ -81,7 +81,6 @@ class PeriodicVoronoi(object):
                     (points[:, 1] <= limits[1][1]) &
                     (points[:, 2] >= limits[2][0]) &
                     (points[:, 2] <= limits[2][1]))
-
             periodic_points.append(points[mask])
 
         # add the original points at the end so we know their indices
@@ -91,8 +90,6 @@ class PeriodicVoronoi(object):
         self._periodic_idx = np.arange(len(self._periodic_points))
         self._frac_points_idx = self._periodic_idx[-len(self.frac_points):]
         self._n_buffer_points = len(self._periodic_idx) - len(self.frac_points)
-
-        print(self._n_blocks_by_axis + 2)
 
         # group the points by their coordinates, with the group cutoffs defined
         # by multiples of inner_grid_length. Include two extra groups on either
@@ -109,102 +106,108 @@ class PeriodicVoronoi(object):
             expand_binnumbers=True)
 
     def compute_volumes(self):
-    # if len(self._periodic_points) < self._max_points_per_chunk:
-        # we can treat all points simultaneously
-        # logger.info("Calculating k-point Voronoi diagram:")
-        # logger.debug("  ├── num total k-points: {}".format(
-        #     len(self.frac_points)))
-        #
-        # t0 = time.perf_counter()
-        # voro = Voronoi(self._periodic_points)
-        # log_time_taken(t0)
-        #
-        # regions = voro.point_region[self._frac_points_idx]
-        # indices = np.array(voro.regions)[regions]
-        # vertices = np.array([voro.vertices[i] for i in indices])
-        #
-        # from monty.serialization import dumpfn
-        # dumpfn(indices, "indices.json")
-        # dumpfn(vertices.tolist(), "vertices.json")
-    # else:
-        self._max_points_per_chunk = 80000
-        # we break the cell up into chunks, each containing a certain number
-        # of blocks, and calculate the Voronoi diagrams for each chunk
-        # individually. Each chunk has a buffer layer one block thick
-        # surrounding it. The Voronoi diagrams for the points in the buffer
-        # are discarded.
-        n_chunks = math.ceil(self._periodic_idx.shape[0] /
-                             self._max_points_per_chunk)
+        if len(self._periodic_points) < self._max_points_per_chunk:
+            # we can treat all points simultaneously
+            logger.info("Calculating k-point Voronoi diagram:")
+            logger.debug("  ├── num total k-points: {}".format(
+                len(self.frac_points)))
 
-        logger.info("Calculating k-point Voronoi diagram in chunks:")
-        logger.debug("  ├── num total k-points: {}".format(
-            len(self.frac_points)))
-        logger.debug("  ├── num chunks: {:d}".format(n_chunks))
+            t0 = time.perf_counter()
+            voro = Voronoi(self._periodic_points)
+            log_time_taken(t0)
 
-        # split the axis with the most blocks into n_chunks
-        chunk_axis_sorted = self._n_blocks_by_axis.argsort()
+            regions = voro.point_region[self._frac_points_idx]
+            indices = np.array(voro.regions)[regions]
+            vertices = np.array([voro.vertices[i] for i in indices])
 
-        # n_blocks_per_chunk is sorted with the largest axis first
-        n_blocks_per_chunk = np.ceil(
-                self._n_blocks_by_axis[chunk_axis_sorted] /
-                (n_chunks, 1, 1)).astype(int)
+        else:
+            # we break the cell up into chunks, each containing several
+            # blocks, and calculate the Voronoi diagrams for each chunk
+            # individually. Each chunk has a buffer layer one block thick
+            # surrounding it. The Voronoi diagrams for the points in the buffer
+            # are discarded.
+            n_chunks = math.ceil(self._periodic_idx.shape[0] /
+                                 self._max_points_per_chunk)
 
-        # unsort n_block_per_chunk back to the original order
-        inverse_sort = chunk_axis_sorted.argsort()
-        n_blocks_per_chunk = n_blocks_per_chunk[inverse_sort]
+            logger.info("Calculating k-point Voronoi diagram in chunks:")
+            logger.debug("  ├── num total k-points: {}".format(
+                len(self.frac_points)))
+            logger.debug("  ├── num chunks: {:d}".format(n_chunks))
 
-        # chunk_axis is equal to 0 for axes which are not chunked, and
-        # 1 for the axis that is chunked. E.g. if the z axis is chunked,
-        # chunk_axis will be (0, 0, 1)
-        chunk_axis = np.array(n_blocks_per_chunk < self._n_blocks_by_axis,
-                              dtype=int)
+            # split the axis with the most blocks into n_chunks
+            chunk_axis_sorted = self._n_blocks_by_axis.argsort()
 
-        chunks = []
-        for i in range(n_chunks):
-            min_blocks = 2 + (i * n_blocks_per_chunk * chunk_axis)
-            max_blocks = n_blocks_per_chunk * (i * chunk_axis + 1) + 1
+            # n_blocks_per_chunk is sorted with the largest axis first
+            n_blocks_per_chunk = np.ceil(
+                    self._n_blocks_by_axis[chunk_axis_sorted] /
+                    (n_chunks, 1, 1)).astype(int)
 
-            # add buffer blocks
-            min_blocks -= 1
-            max_blocks += 1
+            # unsort n_block_per_chunk back to the original order
+            inverse_sort = chunk_axis_sorted.argsort()
+            n_blocks_per_chunk = n_blocks_per_chunk[inverse_sort]
 
-            # append chunks as ((xmin, xmax), (ymin, ymax), (zmin, zmax))
-            chunks.append(np.stack((min_blocks, max_blocks), axis=1))
+            # chunk_axis is equal to 0 for axes which are not chunked, and
+            # 1 for the axis that is chunked. E.g. if the z axis is chunked,
+            # chunk_axis will be (0, 0, 1)
+            chunk_axis = np.array(n_blocks_per_chunk < self._n_blocks_by_axis,
+                                  dtype=int)
 
-        chunks = tqdm(
-            chunks,
+            chunks = []
+            for i in range(n_chunks):
+                min_blocks = 2 + (i * n_blocks_per_chunk * chunk_axis)
+                max_blocks = n_blocks_per_chunk * (i * chunk_axis + 1) + 1
+
+                # add buffer blocks
+                min_blocks -= 1
+                max_blocks += 1
+
+                # append chunks as ((xmin, xmax), (ymin, ymax), (zmin, zmax))
+                chunks.append(np.stack((min_blocks, max_blocks), axis=1))
+
+            chunks = tqdm(
+                chunks,
+                ncols=output_width,
+                desc="    ├── Voronoi",
+                file=sys.stdout,
+                bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}')
+
+            t0 = time.perf_counter()
+            results = Parallel(n_jobs=self._nworkers, prefer="processes")(
+                delayed(_get_voronoi)(
+                    self._groups_idx, self._periodic_points,
+                    self._periodic_idx, self._n_buffer_points, nx, ny, nz)
+                for nx, ny, nz in chunks)
+            log_time_taken(t0)
+
+            indices = np.empty((len(self.frac_points)), dtype=object)
+            vertices = np.empty((len(self.frac_points)), dtype=object)
+
+            for frac_idx, chunk_indices, chunk_vertices in results:
+                indices[frac_idx] = chunk_indices
+                vertices[frac_idx] = chunk_vertices
+
+            if None in vertices:
+                raise RuntimeError(
+                    "Voronoi tessellation failed, some vertices not calculated")
+
+        return self._get_voronoi_volumes(indices, vertices)
+
+    def _get_voronoi_volumes(self, indices, vertices) -> np.ndarray:
+        logger.info("Calculating k-point weights:")
+
+        voronoi_info = tqdm(
+            zip(indices, vertices),
+            total=len(indices),
             ncols=output_width,
-            desc="    ├── Voronoi",
+            desc="    ├── volumes",
             file=sys.stdout,
             bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}')
 
         t0 = time.perf_counter()
-        results = Parallel(n_jobs=self._nworkers, prefer="processes")(
-            delayed(voronoi_worker)(
-                self._groups_idx, self._periodic_points,
-                self._periodic_idx, self._n_buffer_points, nx, ny, nz)
-            for nx, ny, nz in chunks)
+        volumes = Parallel(n_jobs=self._nworkers, prefer="processes")(
+            delayed(_get_volume)(idx, verts) for idx, verts in voronoi_info)
         log_time_taken(t0)
-
-        indices = np.empty((len(self.frac_points)), dtype=object)
-        vertices = np.empty((len(self.frac_points)), dtype=object)
-
-        for frac_idx, chunk_indices, chunk_vertices in results:
-            indices[frac_idx] = chunk_indices
-            vertices[frac_idx] = chunk_vertices
-
-        nones = [i is None for i in vertices]
-        print(self.frac_points[nones].max())
-        print(self.frac_points[nones].min())
-
-        print("Num Nones!!!", np.sum(nones))
-
-        from monty.serialization import dumpfn
-        dumpfn(indices, "indices_para.json")
-        dumpfn(vertices.tolist(), "vertices_para.json")
-
-        # volumes = _get_volumes(regions, indices)
-        volumes = 0
+        volumes = np.array(volumes)
 
         zero_vols = volumes == 0
         if any(zero_vols):
@@ -217,14 +220,13 @@ class PeriodicVoronoi(object):
         return volumes
 
 
-def voronoi_worker(groups_idx, periodic_points,
-                   periodic_idx, n_buffer_points, nx, ny, nz):
-    print((nx, ny, nz))
+def _get_voronoi(groups_idx, periodic_points,
+                 periodic_idx, n_buffer_points, nx, ny, nz):
     inner_nx = (nx[0] + 1, nx[1] - 1)
     inner_ny = (ny[0] + 1, ny[1] - 1)
     inner_nz = (nz[0] + 1, nz[1] - 1)
 
-    # get the indices of the inner block (i.e. unit cell points) we are
+    # get the indices of the inner blocks (i.e. unit cell points) we are
     # interested in
     inner_idx = _get_idx_by_group(groups_idx, periodic_idx, inner_nx,
                                   inner_ny, inner_nz)
@@ -244,6 +246,12 @@ def voronoi_worker(groups_idx, periodic_points,
     # in self.frac_points. As we put the original frac_points at the end
     # of the periodic_points, this is easy.
     frac_points_in_voro_idx = periodic_points_in_voro_idx - n_buffer_points
+
+    # sometimes, aliasing errors mean some buffer points can appear in the unit
+    # cell blocks. We check and remove these by filtering any negative indices
+    unit_cell_mask = frac_points_in_voro_idx >= 0
+    frac_points_in_voro_idx = frac_points_in_voro_idx[unit_cell_mask]
+    inner_in_voro_idx = inner_in_voro_idx[unit_cell_mask]
 
     voro = Voronoi(periodic_points[voro_idx])
 
@@ -288,17 +296,12 @@ def _get_idx_by_group(groups_idx,
     return periodic_idx[mask]
 
 
-def _get_voronoi_volumes(voronoi, volume_indices) -> np.ndarray:
-
-    def get_volume(indices):
-        if -1 in indices:
-            # some regions can be open
-            return np.inf
-        else:
-            return ConvexHull(voronoi.vertices[indices]).volume
-
-    return np.array([get_volume(voronoi.regions[x])
-                     for x in voronoi.point_region[volume_indices]])
+def _get_volume(indices, vertices):
+    if -1 in indices:
+        # some regions can be open
+        return np.inf
+    else:
+        return ConvexHull(vertices).volume
 
 
 def _get_loc(x, y):
