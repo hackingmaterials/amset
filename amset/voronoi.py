@@ -65,20 +65,24 @@ class PeriodicVoronoi(object):
 
         # only include periodic points in the vicinity of the unit cell
         # limits is ((xmin, xmax), (ymin, ymax), (zmin, zmax))
-        limits = np.stack(((-0.5 - self._grid_length_by_axis),
-                           (0.5 + self._grid_length_by_axis)), axis=1)
+        limits = np.stack(((-0.50001 - self._grid_length_by_axis),
+                           (0.50001 + self._grid_length_by_axis)), axis=1)
 
         for image in itertools.product(dim, dim, dim):
             if image[0] == image[1] == image[2] == 0:
                 # don't add the original points here
                 continue
-            p = frac_points + image
+            points = frac_points + image
 
             # filter points far from unit cell
-            periodic_points.append(
-                p[(p[0] >= limits[0][0]) & (p[0] <= limits[0][1]),
-                  (p[1] >= limits[1][0]) & (p[1] <= limits[1][1]),
-                  (p[2] >= limits[2][0]) & (p[2] <= limits[2][1])])
+            mask = ((points[:, 0] >= limits[0][0]) &
+                    (points[:, 0] <= limits[0][1]) &
+                    (points[:, 1] >= limits[1][0]) &
+                    (points[:, 1] <= limits[1][1]) &
+                    (points[:, 2] >= limits[2][0]) &
+                    (points[:, 2] <= limits[2][1]))
+
+            periodic_points.append(points[mask])
 
         # add the original points at the end so we know their indices
         periodic_points.append(frac_points)
@@ -87,6 +91,8 @@ class PeriodicVoronoi(object):
         self._periodic_idx = np.arange(len(self._periodic_points))
         self._frac_points_idx = self._periodic_idx[-len(self.frac_points):]
         self._n_buffer_points = len(self._periodic_idx) - len(self.frac_points)
+
+        print(self._n_blocks_by_axis + 2)
 
         # group the points by their coordinates, with the group cutoffs defined
         # by multiples of inner_grid_length. Include two extra groups on either
@@ -103,56 +109,102 @@ class PeriodicVoronoi(object):
             expand_binnumbers=True)
 
     def compute_volumes(self):
+    # if len(self._periodic_points) < self._max_points_per_chunk:
+        # we can treat all points simultaneously
+        # logger.info("Calculating k-point Voronoi diagram:")
+        # logger.debug("  ├── num total k-points: {}".format(
+        #     len(self.frac_points)))
+        #
+        # t0 = time.perf_counter()
+        # voro = Voronoi(self._periodic_points)
+        # log_time_taken(t0)
+        #
+        # regions = voro.point_region[self._frac_points_idx]
+        # indices = np.array(voro.regions)[regions]
+        # vertices = np.array([voro.vertices[i] for i in indices])
+        #
+        # from monty.serialization import dumpfn
+        # dumpfn(indices, "indices.json")
+        # dumpfn(vertices.tolist(), "vertices.json")
+    # else:
+        self._max_points_per_chunk = 80000
+        # we break the cell up into chunks, each containing a certain number
+        # of blocks, and calculate the Voronoi diagrams for each chunk
+        # individually. Each chunk has a buffer layer one block thick
+        # surrounding it. The Voronoi diagrams for the points in the buffer
+        # are discarded.
+        n_chunks = math.ceil(self._periodic_idx.shape[0] /
+                             self._max_points_per_chunk)
+
+        logger.info("Calculating k-point Voronoi diagram in chunks:")
+        logger.debug("  ├── num total k-points: {}".format(
+            len(self.frac_points)))
+        logger.debug("  ├── num chunks: {:d}".format(n_chunks))
+
+        # split the axis with the most blocks into n_chunks
+        chunk_axis_sorted = self._n_blocks_by_axis.argsort()
+
+        # n_blocks_per_chunk is sorted with the largest axis first
+        n_blocks_per_chunk = np.ceil(
+                self._n_blocks_by_axis[chunk_axis_sorted] /
+                (n_chunks, 1, 1)).astype(int)
+
+        # unsort n_block_per_chunk back to the original order
+        inverse_sort = chunk_axis_sorted.argsort()
+        n_blocks_per_chunk = n_blocks_per_chunk[inverse_sort]
+
+        # chunk_axis is equal to 0 for axes which are not chunked, and
+        # 1 for the axis that is chunked. E.g. if the z axis is chunked,
+        # chunk_axis will be (0, 0, 1)
+        chunk_axis = np.array(n_blocks_per_chunk < self._n_blocks_by_axis,
+                              dtype=int)
+
+        chunks = []
+        for i in range(n_chunks):
+            min_blocks = 2 + (i * n_blocks_per_chunk * chunk_axis)
+            max_blocks = n_blocks_per_chunk * (i * chunk_axis + 1) + 1
+
+            # add buffer blocks
+            min_blocks -= 1
+            max_blocks += 1
+
+            # append chunks as ((xmin, xmax), (ymin, ymax), (zmin, zmax))
+            chunks.append(np.stack((min_blocks, max_blocks), axis=1))
+
+        chunks = tqdm(
+            chunks,
+            ncols=output_width,
+            desc="    ├── Voronoi",
+            file=sys.stdout,
+            bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}')
+
         t0 = time.perf_counter()
-        logger.info("Calculating k-point Voronoi volumes in blocks:")
-        logger.debug("  ├── # total k-points: {}".format(len(self.frac_points)))
-        logger.debug("  ├── # blocks: {:d}".format(np.product(
-            self._n_blocks_by_axis)))
-
-        if len(self._periodic_points) > self._max_points_per_chunk:
-            # we can treat all points simultaneously
-            voro = Voronoi(self._periodic_points)
-            regions = voro.point_regions[self._frac_points_idx]
-            indices = np.array(voro.regions)[regions]
-        else:
-            # we break the cell up into chunks, each containing a certain number
-            # of blocks, and calculate the Voronoi diagrams for each block
-            # individually. Each chunk as a buffer layer, one block thick
-            # surrounding it. The Voronoi diagrams for the points in the buffer
-            # are discarded.
-            n_chunks = math.ceil(self._periodic_idx.shape[0] /
-                                 self._max_points_per_chunk)
-
-        # buffer is the list of buffer cells, with the form:
-        # [[1, x], [1, y], [1, z]] where x, y, and z are the buffer cells on the
-        # far side of the unitcell
-        buffer = np.stack(([1, 1, 1], self._n_blocks_by_axis + 2), axis=1)
-
-        blocks = []
-        for nx, ny, nz in np.ndindex(tuple(self._n_blocks_by_axis + 2)):
-            # block indices start at 1
-            nx += 1
-            ny += 1
-            nz += 1
-
-            if nx in buffer[0] or ny in buffer[1] or nz in buffer[2]:
-                continue
-
-            blocks.append((nx, ny, nz))
-
-        blocks = tqdm(blocks, ncols=output_width,
-                      desc="    ├── progress",  file=sys.stdout,
-                      bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}')
-
         results = Parallel(n_jobs=self._nworkers, prefer="processes")(
             delayed(voronoi_worker)(
                 self._groups_idx, self._periodic_points,
                 self._periodic_idx, self._n_buffer_points, nx, ny, nz)
-            for nx, ny, nz in blocks)
+            for nx, ny, nz in chunks)
+        log_time_taken(t0)
 
-        volumes = np.zeros(self.frac_points.shape[0])
-        for indices, vol in results:
-            volumes[indices] = vol
+        indices = np.empty((len(self.frac_points)), dtype=object)
+        vertices = np.empty((len(self.frac_points)), dtype=object)
+
+        for frac_idx, chunk_indices, chunk_vertices in results:
+            indices[frac_idx] = chunk_indices
+            vertices[frac_idx] = chunk_vertices
+
+        nones = [i is None for i in vertices]
+        print(self.frac_points[nones].max())
+        print(self.frac_points[nones].min())
+
+        print("Num Nones!!!", np.sum(nones))
+
+        from monty.serialization import dumpfn
+        dumpfn(indices, "indices_para.json")
+        dumpfn(vertices.tolist(), "vertices_para.json")
+
+        # volumes = _get_volumes(regions, indices)
+        volumes = 0
 
         zero_vols = volumes == 0
         if any(zero_vols):
@@ -162,41 +214,44 @@ class PeriodicVoronoi(object):
         if any(inf_vols):
             logger.warning("{} volumes are infinite".format(np.sum(inf_vols)))
 
-        log_time_taken(t0)
         return volumes
 
 
 def voronoi_worker(groups_idx, periodic_points,
                    periodic_idx, n_buffer_points, nx, ny, nz):
-    # get the indices of the block we are interested in
-    block_idx = _get_idx_by_group(groups_idx, periodic_idx, nx, ny, nz)
+    print((nx, ny, nz))
+    inner_nx = (nx[0] + 1, nx[1] - 1)
+    inner_ny = (ny[0] + 1, ny[1] - 1)
+    inner_nz = (nz[0] + 1, nz[1] - 1)
+
+    # get the indices of the inner block (i.e. unit cell points) we are
+    # interested in
+    inner_idx = _get_idx_by_group(groups_idx, periodic_idx, inner_nx,
+                                  inner_ny, inner_nz)
 
     # get the indices of the points to include when calculating the
-    # Voronoi diagram, this includes the block of interest and the
-    # blocks immediately surrounding it
-    voro_idx = _get_idx_by_group(
-        groups_idx, periodic_idx, (nx - 1, nx + 1), (ny - 1, ny + 1),
-        (nz - 1, nz + 1))
+    # Voronoi diagram, this includes the points of interest (inner_idx) and the
+    # buffer blocks immediately surrounding it
+    voro_idx = _get_idx_by_group(groups_idx, periodic_idx, nx, ny, nz)
 
-    # get the indices of the block points in voro_idx, I.e.
-    # it is the index of the point in voro_idx, not the index of the
-    # point in the original periodic mesh. Allows us to map from the
-    # voro results to the original periodic mesh
-    voro_to_block_idx = _get_loc(voro_idx, block_idx)
+    # get the indices of the inner points in voro_idx
+    inner_in_voro_idx = _get_loc(voro_idx, inner_idx)
 
-    # Now get the indices of the unit cell points (in the periodic mesh)
-    # that we are including in the voronoi diagram, so we can calculate
-    # the volumes for just these points
-    points_in_voro = voro_idx[voro_to_block_idx]
+    # get the indices of the inner points in self._periodic_points
+    periodic_points_in_voro_idx = voro_idx[inner_in_voro_idx]
 
-    # finally, normalise these indices to get their corresponding index
-    # in the original frac_points mesh. As we put the original
-    # frac_points at the end of the periodic_points mesh this is easy.
-    points_in_voro -= n_buffer_points
+    # finally, normalise these indices to get the index of the inner points
+    # in self.frac_points. As we put the original frac_points at the end
+    # of the periodic_points, this is easy.
+    frac_points_in_voro_idx = periodic_points_in_voro_idx - n_buffer_points
 
     voro = Voronoi(periodic_points[voro_idx])
 
-    return points_in_voro, _get_voronoi_volumes(voro, voro_to_block_idx)
+    regions = voro.point_region[inner_in_voro_idx]
+    indices = np.array(voro.regions)[regions]
+    vertices = np.array([voro.vertices[i] for i in indices])
+
+    return frac_points_in_voro_idx, indices, vertices
 
 
 def _get_idx_by_group(groups_idx,
@@ -208,26 +263,26 @@ def _get_idx_by_group(groups_idx,
     ygroups = groups_idx[1]
     zgroups = groups_idx[2]
 
-    if isinstance(nx, tuple):
+    if isinstance(nx, int):
+        evaluate_str = "(xgroups == nx)"
+    else:
         xmin = nx[0]
         xmax = nx[1]
         evaluate_str = "(xgroups >= xmin) & (xgroups <= xmax)"
-    else:
-        evaluate_str = "(xgroups == nx)"
 
-    if isinstance(ny, tuple):
+    if isinstance(ny, int):
+        evaluate_str += " & (ygroups == ny)"
+    else:
         ymin = ny[0]
         ymax = ny[1]
         evaluate_str += " & (ygroups >= ymin) & (ygroups <= ymax)"
-    else:
-        evaluate_str += " & (ygroups == ny)"
 
-    if isinstance(nz, tuple):
+    if isinstance(nz, int):
+        evaluate_str += " & (zgroups == nz)"
+    else:
         zmin = nz[0]
         zmax = nz[1]
         evaluate_str += " & (zgroups >= zmin) & (zgroups <= zmax)"
-    else:
-        evaluate_str += " & (zgroups == nz)"
 
     mask = ne.evaluate(evaluate_str)
     return periodic_idx[mask]
@@ -264,3 +319,4 @@ def _get_loc(x, y):
     yindex = np.take(index, sorted_index, mode="clip")
     mask = x[yindex] == y
     return yindex[mask]
+
