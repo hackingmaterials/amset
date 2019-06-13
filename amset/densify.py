@@ -172,16 +172,7 @@ class BandDensifier(object):
 
         voronoi = PeriodicVoronoi(
             all_kpoints, original_mesh=self._amset_data.kpoint_mesh)
-        volumes = voronoi.compute_volumes()
-
-        sum_volumes = volumes.sum()
-        vol_diff = abs((np.linalg.det(rlat.matrix) / sum_volumes) - 1)
-
-        if vol_diff > 0.01:
-            logger.warning("Sum of Voronoi volumes differs from reciprocal "
-                           "lattice volume by {:.1f}%".format(vol_diff * 100))
-
-        kpoint_weights = volumes / sum_volumes
+        kpoint_weights = voronoi.compute_volumes()
 
         # note k-point weights is for all k-points, whereas the other properties
         # are just for the additional k-points
