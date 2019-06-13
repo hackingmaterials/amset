@@ -12,6 +12,7 @@ from amset import amset_defaults as defaults
 from amset.data import AmsetData
 from amset.interpolate import Interpolater
 from amset.log import log_list
+from amset.util import kpoints_to_first_bz
 from amset.voronoi import PeriodicVoronoi
 
 logger = logging.getLogger(__name__)
@@ -154,6 +155,7 @@ class BandDensifier(object):
 
         # flattened_kpoints now contains the new k-points to interpolate
         flattened_kpoints += lorentz_points
+        flattened_kpoints = kpoints_to_first_bz(flattened_kpoints)
 
         # TODO: Test get_energies and get amset_data return same values
         #   for the same k-point mesh.
