@@ -167,7 +167,7 @@ class PeriodicVoronoi(object):
             chunks = tqdm(
                 chunks,
                 ncols=output_width,
-                desc="    ├── Voronoi",
+                desc="    ├── progress",
                 file=sys.stdout,
                 bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}')
 
@@ -199,7 +199,7 @@ class PeriodicVoronoi(object):
             zip(indices, vertices),
             total=len(indices),
             ncols=output_width,
-            desc="    ├── volumes",
+            desc="    ├── progress",
             file=sys.stdout,
             bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}')
 
@@ -216,6 +216,13 @@ class PeriodicVoronoi(object):
         inf_vols = volumes == np.inf
         if any(inf_vols):
             logger.warning("{} volumes are infinite".format(np.sum(inf_vols)))
+
+        sum_volumes = volumes.sum()
+        vol_diff = abs(sum_volumes - 1)
+        if vol_diff > 0.01:
+            logger.warning("Sum of weights does not equal 1 (diff = {:.1f})... "
+                           "renormalising weights".format(vol_diff * 100))
+            volumes = volumes / sum_volumes
 
         return volumes
 
@@ -257,7 +264,7 @@ def _get_voronoi(groups_idx, periodic_points,
 
     regions = voro.point_region[inner_in_voro_idx]
     indices = np.array(voro.regions)[regions]
-    vertices = np.array([voro.vertices[i] for i in indices])
+    vertices = [voro.vertices[i] for i in indices]
 
     return frac_points_in_voro_idx, indices, vertices
 
