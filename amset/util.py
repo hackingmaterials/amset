@@ -187,3 +187,18 @@ def gen_even_slices(n, n_packs):
             end = start + this_n
             yield slice(start, end, None)
             start = end
+
+
+def kpoints_to_first_bz(kpoints: np.ndarray) -> np.ndarray:
+    """Translate fractional k-points to the first Brillouin zone.
+
+    I.e. all k-points will have fractional coordinates:
+        -0.5 <= fractional coordinates <= 0.5
+
+    Args:
+        kpoints: The k-points in fractional coordinates.
+
+    Returns:
+        The translated k-points.
+    """
+    return kpoints - np.round(kpoints)
