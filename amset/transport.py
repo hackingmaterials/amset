@@ -110,8 +110,7 @@ def _calculate_mobility(amset_data: AmsetData,
         epsilon, dos, vvdos, cdos = AMSETDOS(
             energies, vv, scattering_model=lifetimes,
             npts=len(amset_data.dos.energies),
-            kpoint_weights=amset_data.kpoint_weights,
-            original_mesh=amset_data.kpoint_mesh)
+            kpoint_weights=amset_data.kpoint_weights)
 
         _, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
@@ -167,8 +166,7 @@ def _calculate_transport_properties(amset_data):
         epsilon, dos, vvdos, cdos = AMSETDOS(
             energies, vv, scattering_model=lifetimes,
             npts=len(amset_data.dos.energies),
-            kpoint_weights=amset_data.kpoint_weights,
-            original_mesh=amset_data.kpoint_mesh)
+            kpoint_weights=amset_data.kpoint_weights)
 
         _, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
@@ -249,7 +247,7 @@ def AMSETDOS(eband,
     else:
         raise ValueError("unknown scattering model")
     for i, j in iu0:
-        weights = vvband[:, i, j, :] * multpl  # * kpoint_weights
+        weights = vvband[:, i, j, :] * multpl * kpoint_weights
 
         vvdos[i, j] = DOS(
             eband.T, weights=weights.T, erange=erange, npts=npts)[1]
