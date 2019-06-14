@@ -157,13 +157,12 @@ class BandDensifier(object):
         flattened_kpoints += lorentz_points
         flattened_kpoints = kpoints_to_first_bz(flattened_kpoints)
 
-        # TODO: Test get_energies and get amset_data return same values
-        #   for the same k-point mesh.
-        energies, velocities, projections = self._interpolater.get_energies(
+        energies, vvelocities, projections = self._interpolater.get_energies(
             flattened_kpoints, energy_cutoff=self._energy_cutoff,
             bandgap=self._bandgap, scissor=self._scissor,
             return_velocity=True, return_effective_mass=False,
-            return_projections=True, atomic_units=True)
+            return_projections=True, atomic_units=True,
+            return_vel_outer_prod=True)
 
         # finally, calculate k-point weights as the volume of each cell in the
         # Voronoi decomposition.
@@ -176,5 +175,5 @@ class BandDensifier(object):
 
         # note k-point weights is for all k-points, whereas the other properties
         # are just for the additional k-points
-        return (flattened_kpoints, energies, velocities, projections,
+        return (flattened_kpoints, energies, vvelocities, projections,
                 kpoint_weights)

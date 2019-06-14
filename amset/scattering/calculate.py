@@ -182,7 +182,7 @@ class ScatteringCalculator(MSONable):
         integral_conversion = (
                 (2 * np.pi) ** 3
                 / (self.amset_data.structure.lattice.volume * A_to_nm ** 3)
-                / (len(self.amset_data.full_kpoints) * self.energy_tol))
+                / self.energy_tol)
 
         # prefactors have shape [nscatterers, ndoping, ntemp)
         elastic_prefactors = integral_conversion * np.array(
@@ -217,6 +217,7 @@ class ScatteringCalculator(MSONable):
         s_energies = create_shared_array(band_energies)
         s_kpoints = create_shared_array(self.amset_data.full_kpoints)
         s_k_norms = create_shared_array(self.amset_data.kpoint_norms)
+        s_k_weights = create_shared_array(self.amset_data.kpoint_weights)
         s_a_factor = create_shared_array(
             self.amset_data.a_factor[spin][b_idx, kpoints_idx])
         s_c_factor = create_shared_array(
@@ -233,8 +234,9 @@ class ScatteringCalculator(MSONable):
         for i in range(self.nworkers):
             args = (self.scatterers, ball_tree, spin, b_idx,
                     self.energy_tol * units.eV,
-                    s_g, s_energies, s_kpoints, s_k_norms, s_a_factor,
-                    s_c_factor, len(band_energies), rlat, iqueue, oqueue)
+                    s_g, s_energies, s_kpoints, s_k_norms, s_k_weights,
+                    s_a_factor, s_c_factor, len(band_energies), rlat, iqueue,
+                    oqueue)
             if self.use_symmetry:
                 kwargs = {
                     "grouped_ir_to_full": self.amset_data.grouped_ir_to_full,
@@ -374,16 +376,18 @@ class ScatteringCalculator(MSONable):
 
 
 def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
-                      senergies, skpoints, skpoint_norms, sa_factor, sc_factor,
-                      nkpoints, reciprocal_lattice_matrix, iqueue, oqueue,
+                      s_energies, s_kpoints, s_kpoint_norms, s_k_weights,
+                      s_a_factor, s_c_factor, nkpoints,
+                      reciprocal_lattice_matrix, iqueue, oqueue,
                       ir_kpoints_idx=None, grouped_ir_to_full=None):
     ntemps = scatterers[0].temperatures.shape[0]
     ndoping = scatterers[0].doping.shape[0]
-    energies = np.frombuffer(senergies).reshape(nkpoints)
-    kpoints = np.frombuffer(skpoints).reshape(-1, 3)
-    kpoint_norms = np.frombuffer(skpoint_norms)
-    a_factor = np.frombuffer(sa_factor).reshape(nkpoints)
-    c_factor = np.frombuffer(sc_factor).reshape(nkpoints)
+    energies = np.frombuffer(s_energies).reshape(nkpoints)
+    kpoints = np.frombuffer(s_kpoints).reshape(-1, 3)
+    kpoint_weights = np.frombuffer(s_k_weights)
+    kpoint_norms = np.frombuffer(s_kpoint_norms)
+    a_factor = np.frombuffer(s_a_factor).reshape(nkpoints)
+    c_factor = np.frombuffer(s_c_factor).reshape(nkpoints)
     g = np.frombuffer(s_g).reshape(ndoping, ntemps, -1)
 
     elastic_scatterers = [s for s in scatterers
@@ -420,16 +424,16 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
                     band_rates = get_ir_band_rates(
                         spin, b_idx, elastic_scatterers, ediff, energy_tol, s,
                         k_idx, k_p_idx,
-                        kpoints, kpoint_norms, a_factor, c_factor,
-                        reciprocal_lattice_matrix, ir_kpoints_idx,
+                        kpoints, kpoint_norms, kpoint_weights, a_factor,
+                        c_factor, reciprocal_lattice_matrix, ir_kpoints_idx,
                         grouped_ir_to_full)
                 else:
                     # no symmetry, use the full BZ mesh
                     band_rates = get_band_rates(
                         spin, b_idx, elastic_scatterers, ediff, energy_tol, s,
                         k_idx, k_p_idx,
-                        kpoints, kpoint_norms, a_factor, c_factor,
-                        reciprocal_lattice_matrix)
+                        kpoints, kpoint_norms, kpoint_weights, a_factor,
+                        c_factor, reciprocal_lattice_matrix)
 
         else:
             # sum scattering in and out rates over emission and absorption
@@ -458,8 +462,9 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
                         # working with symmetry reduced k-points
                         # now format of band rates is (s1_i, s2_i, s1_o, s2_o..)
                         band_rates += get_ir_band_rates(
-                            spin, b_idx, inelastic_scatterers, ediff, energy_tol, s,
-                            k_idx, k_p_idx, kpoints, kpoint_norms, a_factor,
+                            spin, b_idx, inelastic_scatterers, ediff,
+                            energy_tol, s, k_idx, k_p_idx, kpoints,
+                            kpoint_norms, kpoint_weights, a_factor,
                             c_factor, reciprocal_lattice_matrix, ir_kpoints_idx,
                             grouped_ir_to_full, g=g, emission=diff <= 0,
                             calculate_out_rate=calculate_out_rate,
@@ -467,10 +472,10 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
                     else:
                         # no symmetry, use the full BZ mesh
                         band_rates += get_band_rates(
-                            spin, b_idx, inelastic_scatterers, ediff, energy_tol, s,
-                            k_idx,  k_p_idx, kpoints, kpoint_norms, a_factor,
-                            c_factor, reciprocal_lattice_matrix, g=g,
-                            emission=diff >= 0,
+                            spin, b_idx, inelastic_scatterers, ediff,
+                            energy_tol, s, k_idx,  k_p_idx, kpoints,
+                            kpoint_norms, kpoint_weights, a_factor, c_factor,
+                            reciprocal_lattice_matrix, g=g, emission=diff >= 0,
                             calculate_out_rate=calculate_out_rate,
                             calculate_in_rate=calculate_in_rate)
 
@@ -478,9 +483,8 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
 
 
 def get_ir_band_rates(spin, b_idx, scatterers, ediff, energy_tol, s, k_idx,
-                      k_p_idx, kpoints,
-                      kpoint_norms, a_factor, c_factor,
-                      reciprocal_lattice_matrix, ir_kpoints_idx,
+                      k_p_idx, kpoints, kpoint_norms, kpoint_weights, a_factor,
+                      c_factor, reciprocal_lattice_matrix, ir_kpoints_idx,
                       grouped_ir_to_full, g=None, emission=False,
                       calculate_out_rate=True,
                       calculate_in_rate=True):
@@ -515,7 +519,8 @@ def get_ir_band_rates(spin, b_idx, scatterers, ediff, energy_tol, s, k_idx,
     c_vals = c_factor[k_idx] * c_factor[k_p_idx]
 
     overlap = (a_vals[expand_k_idx] + c_vals[expand_k_idx] * k_angles) ** 2
-    weighted_overlap = w0gauss(ediff / energy_tol)[expand_k_idx] * overlap
+    weighted_overlap = (w0gauss(ediff / energy_tol)[expand_k_idx] * overlap *
+                        kpoint_weights[full_k_p_idx])
 
     # norm of k difference squared in 1/nm
     k_diff_sq = np.linalg.norm(np.dot(

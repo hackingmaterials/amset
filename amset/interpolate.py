@@ -259,6 +259,7 @@ class Interpolater(MSONable):
                      return_velocity: bool = False,
                      return_effective_mass: bool = False,
                      return_projections: bool = False,
+                     return_vel_outer_prod: bool = True,
                      coords_are_cartesian: bool = False,
                      atomic_units: bool = False
                      ) -> Union[Dict[Spin, np.ndarray],
@@ -285,6 +286,9 @@ class Interpolater(MSONable):
             return_velocity: Whether to return the band velocities.
             return_effective_mass: Whether to return the band effective masses.
             return_projections: Whether to return the interpolated projections.
+            return_vel_outer_prod: Whether to return the outer product of
+                velocity, as used by BoltzTraP2 to calculate transport
+                properties.
             coords_are_cartesian: Whether the kpoints are in cartesian or
                 fractional coordinates.
             atomic_units: Return the energies, velocities, and effective_massses
@@ -370,6 +374,19 @@ class Interpolater(MSONable):
                 energies[spin] = _shift_energies(
                     energies[spin], new_vb_idx, scissor=scissor,
                     bandgap=bandgap)
+
+            if return_vel_outer_prod:
+                # calculate the outer produce of velocities with itself
+                # this code is adapted from BoltzTraP2.fite
+                iu0 = np.triu_indices(3)
+                il1 = np.tril_indices(3, -1)
+                iu1 = np.triu_indices(3, 1)
+                velocities[spin] = velocities[spin].transpose((1, 0, 2))
+                vvband = np.zeros((len(velocities[spin]), 3, 3, len(kpoints)))
+                vvband[:, iu0[0], iu0[1]] = (velocities[spin][:, iu0[0]] *
+                                             velocities[spin][:, iu0[1]])
+                vvband[:, il1[0], il1[1]] = vvband[:, iu1[0], iu1[1]]
+                velocities[spin] = vvband
 
             if return_effective_mass:
                 effective_masses[spin] = fitted[2]

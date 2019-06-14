@@ -145,7 +145,9 @@ class AmsetRunner(MSONable):
                 bandgap=self.user_bandgap,
                 energy_cutoff=self.performance_parameters["energy_cutoff"],
                 dos_estep=self.performance_parameters["dos_estep"])
-            densifier.densify(self.performance_parameters["n_extra_kpoints"])
+            amset_data.set_extra_kpoints(
+                *densifier.densify(
+                    self.performance_parameters["n_extra_kpoints"]))
 
         log_banner("SCATTERING")
         t0 = time.perf_counter()
