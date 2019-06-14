@@ -22,6 +22,7 @@ settings = {
     },
     "performance": {
         "energy_tol": 0.001,
+        "n_extra_kpoints": 25000,
         "energy_cutoff": 1.5,
         "g_tol": 1e-5,
         "max_g_iter": 5,
@@ -31,6 +32,7 @@ settings = {
         "dos_width": 0.01
     },
     "output": {
+        # "separate_scattering_mobilities": False,
         "log_traceback": True,
         "write_mesh": True
     }
