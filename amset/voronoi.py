@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 class PeriodicVoronoi(object):
     """
+
+    Say no existing packages (scipy.qhull, tess, pyvoro) can handle 250,000+
+    points in a reasonable amount of time with reasonable memory requirements.
     Note this class works because most of the points are on a regular grid so
     it is valid to calculate the Voronoi diagram in blocks.
     """

@@ -41,6 +41,7 @@ class AmsetData(MSONable):
                  efermi: float,
                  is_metal: bool,
                  soc: bool,
+                 kpoint_weights: Optional[np.ndarray] = None,
                  dos: Optional[FermiDos] = None,
                  dos_weight: Optional[int] = None,
                  vb_idx: Optional[Dict[Spin, int]] = None,
@@ -48,7 +49,6 @@ class AmsetData(MSONable):
                  seebeck: Optional[np.ndarray] = None,
                  electronic_thermal_conductivity: Optional[np.ndarray] = None,
                  mobility: Optional[Dict[str, np.ndarray]] = None,
-                 fermi_dirac: Optional[np.ndarray] = None
                  ):
         self.structure = structure
         self.energies = energies
@@ -66,7 +66,6 @@ class AmsetData(MSONable):
         self.seebeck = seebeck
         self.electronic_thermal_conductivity = electronic_thermal_conductivity
         self.mobility = mobility
-        self.fermi_dirac = fermi_dirac
 
         self.dos = dos
         self.dos_weight = dos_weight
@@ -77,13 +76,14 @@ class AmsetData(MSONable):
 
         self.a_factor = {}
         self.c_factor = {}
+        self._calculate_orbital_factors()
 
-        for spin in self.spins:
-            self.a_factor[spin] = (
-                projections[spin]["s"] / (projections[spin]["s"] ** 2 +
-                                          projections[spin]["p"] ** 2) ** 0.5)
-            self.c_factor[spin] = (1 - self.a_factor[spin] ** 2) ** 0.5
+        if kpoint_weights is None:
+            self.kpoint_weights = np.ones(len(full_kpoints)) / len(full_kpoints)
+        else:
+            self.kpoint_weights = None
 
+        self.transport_mask = [True] * len(full_kpoints)
         self.scattering_rates = None
         self.scattering_labels = None
         self.doping = None
@@ -97,6 +97,7 @@ class AmsetData(MSONable):
 
         self.grouped_ir_to_full = groupby(
             np.arange(len(full_kpoints)), ir_to_full_kpoint_mapping)
+
 
     def calculate_dos(self,
                       dos_estep: float = defaults["performance"]["dos_estep"],
@@ -172,7 +173,9 @@ class AmsetData(MSONable):
                 doping[n], temperatures[t], self.fermi_levels[n, t]))
 
         log_list(fermi_level_info)
+        self._calculate_fermi_functions()
 
+    def _calculate_fermi_functions(self):
         # calculate Fermi dirac distributions and derivatives for each Fermi
         # level
         self.f = {s: np.zeros(self.fermi_levels.shape +
@@ -198,7 +201,6 @@ class AmsetData(MSONable):
                     self.energies[spin] / units.eV,
                     self.fermi_levels[n, t],
                     self.temperatures[t])
-
                 # velocities product has shape (nbands, 3, 3, nkpoints)
                 # we want the diagonal of the 3x3 matrix for each k and band
                 # after diagonalization shape is nbands, nkpoints, 3
@@ -240,7 +242,63 @@ class AmsetData(MSONable):
                              "extra_kpoints) does not equal number of kpoint "
                              "weights")
 
+        self.kpoint_weights = kpoint_weights
+        new_indices = np.arange(len(self.full_kpoints),
+                                len(self.full_kpoints) + len(extra_kpoints))
 
+        # create a mask to exclude the extra points when calculating transport
+        # properties. This is because BoltzTraP2 doesn't support custom k-point
+        # weights
+        self.transport_mask = np.array([True] * len(self.full_kpoints) +
+                                       [False] * len(extra_kpoints))
+
+        # add the extra data to the storage arrays
+        self.full_kpoints = np.concatenate((self.full_kpoints, extra_kpoints))
+        self.energies = {
+            s: np.concatenate((self.energies[s], extra_energies[s]), axis=1)
+            for s in self.spins}
+        self.velocities_product = {
+            s: np.concatenate((self.velocities_product[s],
+                               extra_vvelocities[s]), axis=3)
+            for s in self.spins}
+        self._projections = {
+            s: {
+                l: np.concatenate((self._projections[s][l],
+                                   self._projections[s][l]), axis=1)
+                for l in self._projections[s]
+            } for s in self.spins}
+        self._calculate_orbital_factors()
+
+        # update symmetry data. We presume all extra k-points have no
+        # symmetry equivalent partners
+        self.ir_kpoints = np.concatenate((self.ir_kpoints, extra_kpoints))
+        self.ir_kpoints_idx = np.concatenate((self.ir_kpoints_idx, new_indices))
+
+        # ignore ir_kpoint_weights for now as it is not currently used
+        # in either the transport or scattering modules
+        # self.ir_kpoint_weights = ir_kpoint_weights
+
+        # add additional indices to the end of the mapping. E.g. if
+        # mapping was originally [1, 2, 2, 3, 3] and we have 3 extra k-points
+        # the new mapping will be [1, 2, 2, 3, 3, 4, 5, 6]
+        self.ir_to_full_kpoint_mapping = np.concatenate(
+            (self.ir_to_full_kpoint_mapping,
+             np.arange(len(extra_kpoints)) +
+             self.ir_to_full_kpoint_mapping.max() + 1))
+
+        # recalculate kpoint norms and grouping
+        self.kpoint_norms = np.linalg.norm(self.full_kpoints, axis=1)
+        self.grouped_ir_to_full = groupby(
+            np.arange(len(self.full_kpoints)), self.ir_to_full_kpoint_mapping)
+
+        self._calculate_fermi_functions()
+
+    def _calculate_orbital_factors(self):
+        for spin in self.spins:
+            self.a_factor[spin] = (self._projections[spin]["s"] / (
+                    self._projections[spin]["s"] ** 2 +
+                    self._projections[spin]["p"] ** 2) ** 0.5)
+            self.c_factor[spin] = (1 - self.a_factor[spin] ** 2) ** 0.5
 
     def to_file(self,
                 directory: str = '.',
