@@ -132,14 +132,17 @@ class BandDensifier(object):
         # using BoltzTraP interpolation.
         rlat = self._amset_data.structure.lattice.reciprocal_lattice
 
-        gamma_sq = (np.average(1 / self._amset_data.kpoint_mesh) / 5) ** 2
+        gamma_sq = (np.average(1 / self._amset_data.kpoint_mesh) / 100) ** 2
 
         log_list(["# extra kpoints: {}".format(total_points),
                   "Densification γ: {:.5f} Å⁻¹".format(
-                      np.average(rlat.abc / self._amset_data.kpoint_mesh)/20)])
+                      np.average(rlat.abc / self._amset_data.kpoint_mesh)/50)])
 
+        # lorentz_points = fibonacci_sphere(radius=gamma_sq, samples=total_points)
         lorentz_points = cauchy.rvs(loc=0, scale=gamma_sq,
                                     size=(total_points, 3))
+        print(abs(lorentz_points).max())
+        print(abs(lorentz_points).min())
 
         # flattened_kpoints is a list of kpoints, where each point is present
         # as many times as the number of extra points surrounding it.
@@ -177,3 +180,25 @@ class BandDensifier(object):
         # are just for the additional k-points
         return (flattened_kpoints, energies, vvelocities, projections,
                 kpoint_weights)
+
+
+def fibonacci_sphere(radius=1, samples=1):
+    rnd = 1.
+
+    points = []
+    offset = 2./samples
+    increment = math.pi * (3. - math.sqrt(5.))
+
+    for i in range(samples):
+        y = ((i * offset) - 1) + (offset / 2)
+        r = math.sqrt(1 - pow(y, 2))
+
+        phi = ((i + rnd) % samples) * increment
+
+        x = math.cos(phi) * r
+        z = math.sin(phi) * r
+
+        points.append([x, y, z])
+
+    return np.array(points) * radius
+
