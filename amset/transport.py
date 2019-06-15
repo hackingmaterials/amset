@@ -227,9 +227,9 @@ def AMSETDOS(eband,
         value will also be none. The sizes of the returned arrays are (npts, ),
         (npts,), (3, 3, npts) and (3, 3, 3, npts).
     """
-    kpoint_weights = kpoint_weights * len(kpoint_weights)
+    # kpoint_weights = kpoint_weights * len(kpoint_weights)
     kpoint_weights = np.tile(kpoint_weights, (len(eband), 1))
-    dos = DOS(eband.T, erange=erange, npts=npts, weights=kpoint_weights.T)
+    dos = ADOS(eband.T, erange=erange, npts=npts, weights=kpoint_weights.T)
     npts = dos[0].size
     iu0 = np.array(np.triu_indices(3)).T
     vvdos = np.zeros((3, 3, npts))
@@ -247,9 +247,11 @@ def AMSETDOS(eband,
     else:
         raise ValueError("unknown scattering model")
     for i, j in iu0:
-        weights = vvband[:, i, j, :] * multpl * kpoint_weights
-
-        vvdos[i, j] = DOS(
+        weights = vvband[:, i, j, :] * multpl * kpoint_weights #/ 100
+        # print(weights)
+        # weights = vvband[:, i, j, :] * multpl * kpoint_weights
+        # print(weights)
+        vvdos[i, j] = ADOS(
             eband.T, weights=weights.T, erange=erange, npts=npts)[1]
     il1 = np.tril_indices(3, -1)
     iu1 = np.triu_indices(3, 1)
@@ -267,3 +269,31 @@ def AMSETDOS(eband,
                         eband.T, weights=weights.T, erange=erange,
                         npts=npts)[1]
     return dos[0], dos[1], vvdos, cdos
+
+
+def ADOS(eigs, erange=None, npts=None, weights=None):
+    """Compute the density of states.
+
+    Args:
+        eband: (nkpoints, nbands) array with the band energies
+        erange: 2-tuple with the minimum and maximum energies to be considered.
+            If its value is None, take the minimum and maximum band energies.
+        npts: number of bins to include in the histogram. If omitted,
+            _suggest_nbins will be called to obtain an estimate.
+        weights: array with the same shape as eband to be used as the weights.
+
+    Returns:
+        Two 1D numpy arrays of the same size with the bin energies and the DOS,
+        respectively.
+    """
+    nkpt, nband = np.shape(eigs)
+    if erange is None:
+        erange = (eigs.min(), eigs.max())
+    # if npts is None:
+    #     npts = _suggest_nbins(eigs, erange)
+    pip = np.histogram(eigs, npts, weights=weights, range=erange)
+    npts = pip[1].size - 1
+    tdos = np.zeros((2, npts), dtype=float)
+    tdos[1] = pip[0] / ((erange[1] - erange[0]) / npts)
+    tdos[0] = .5 * (pip[1][:-1] + pip[1][1:])
+    return tdos
