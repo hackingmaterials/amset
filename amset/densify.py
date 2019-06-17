@@ -14,6 +14,7 @@ from amset.interpolate import Interpolater
 from amset.log import log_list
 from amset.util import kpoints_to_first_bz
 from amset.voronoi import PeriodicVoronoi
+from pymatgen import Spin
 
 logger = logging.getLogger(__name__)
 pdefaults = defaults["performance"]
@@ -138,6 +139,8 @@ class BandDensifier(object):
                   "Densification γ: {:.5f} Å⁻¹".format(
                       np.average(rlat.abc / self._amset_data.kpoint_mesh)/50)])
 
+        print(extra_kpoint_counts[Spin.up].max())
+
         # lorentz_points = fibonacci_sphere(radius=gamma_sq, samples=total_points)
         lorentz_points = cauchy.rvs(loc=0, scale=gamma_sq,
                                     size=(total_points, 3))
@@ -160,12 +163,13 @@ class BandDensifier(object):
         flattened_kpoints += lorentz_points
         flattened_kpoints = kpoints_to_first_bz(flattened_kpoints)
 
+        skip = int(self._interpolater.interpolation_factor / 5)
         energies, vvelocities, projections = self._interpolater.get_energies(
             flattened_kpoints, energy_cutoff=self._energy_cutoff,
             bandgap=self._bandgap, scissor=self._scissor,
             return_velocity=True, return_effective_mass=False,
             return_projections=True, atomic_units=True,
-            return_vel_outer_prod=True)
+            return_vel_outer_prod=True, skip_coefficients=skip)
 
         # finally, calculate k-point weights as the volume of each cell in the
         # Voronoi decomposition.

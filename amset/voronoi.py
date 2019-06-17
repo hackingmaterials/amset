@@ -35,7 +35,7 @@ class PeriodicVoronoi(object):
     def __init__(self,
                  frac_points: np.ndarray,
                  original_mesh: Optional[np.ndarray] = None,
-                 max_points_per_chunk: int = 80000,
+                 max_points_per_chunk: int = 50000,
                  nworkers: int = pdefaults["nworkers"]):
         """
 
@@ -53,7 +53,7 @@ class PeriodicVoronoi(object):
         if original_mesh is None:
             self._grid_length_by_axis = [0.05] * 3
         else:
-            self._grid_length_by_axis = 2 / original_mesh
+            self._grid_length_by_axis = 1 / original_mesh
 
         self._n_blocks_by_axis = np.ceil(
             1 / self._grid_length_by_axis).astype(int)
@@ -199,7 +199,7 @@ class PeriodicVoronoi(object):
         logger.info("Calculating k-point weights:")
 
         voronoi_info = tqdm(
-            zip(indices, vertices),
+            list(zip(indices, vertices)),
             total=len(indices),
             ncols=output_width,
             desc="    ├── progress",
