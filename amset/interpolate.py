@@ -72,6 +72,7 @@ class Interpolater(MSONable):
         self._soc = soc
         self._spins = self._band_structure.bands.keys()
         self._interpolate_projections = interpolate_projections
+        self.interpolation_factor = interpolation_factor
         self._lattice_matrix = (band_structure.structure.lattice.matrix *
                                 units.Angstrom)
         self._coefficients = {}
@@ -121,7 +122,7 @@ class Interpolater(MSONable):
                        scissor: float = None,
                        bandgap: float = None,
                        symprec: float = 0.01,
-                       nworkers: int = -1
+                       nworkers: int = -1,
                        ) -> AmsetData:
         """Gets an AmsetData object using the interpolated bands.
 
@@ -203,7 +204,8 @@ class Interpolater(MSONable):
 
             t0 = time.perf_counter()
             energies[spin], vvelocities[spin], _ = fite.getBTPbands(
-                self._equivalences, self._coefficients[spin][ibands],
+                self._equivalences,
+                self._coefficients[spin][ibands],
                 self._lattice_matrix, nworkers=nworkers)
             log_time_taken(t0)
 
@@ -261,7 +263,8 @@ class Interpolater(MSONable):
                      return_projections: bool = False,
                      return_vel_outer_prod: bool = True,
                      coords_are_cartesian: bool = False,
-                     atomic_units: bool = False
+                     atomic_units: bool = False,
+                     skip_coefficients: Optional[int] = None,
                      ) -> Union[Dict[Spin, np.ndarray],
                                 Tuple[Dict[Spin, np.ndarray], ...]]:
         """Gets the interpolated energies for multiple k-points in a band.
@@ -322,6 +325,8 @@ class Interpolater(MSONable):
                              "electronic structure. Reinitialise the "
                              "interpolater with interpolate_projections=True")
 
+        skip = skip_coefficients if skip_coefficients else 1
+
         # only calculate the energies for the bands within the energy cutoff
         if energy_cutoff and self._band_structure.is_metal():
             min_e = self._band_structure.efermi - energy_cutoff
@@ -355,8 +360,8 @@ class Interpolater(MSONable):
 
             t0 = time.perf_counter()
             fitted = fite.getBands(
-                kpoints, self._equivalences, self._lattice_matrix,
-                self._coefficients[spin][ibands],
+                kpoints, self._equivalences[::skip], self._lattice_matrix,
+                self._coefficients[spin][ibands, ::skip],
                 curvature=return_effective_mass)
             log_time_taken(t0)
 
@@ -409,8 +414,9 @@ class Interpolater(MSONable):
                 for label, proj_coeffs in self._projection_coefficients[
                         spin].items():
                     projections[spin][label] = fite.getBands(
-                        kpoints, self._equivalences, self._lattice_matrix,
-                        proj_coeffs[ibands], curvature=False)[0]
+                        kpoints, self._equivalences[::skip],
+                        self._lattice_matrix, proj_coeffs[ibands, ::skip],
+                        curvature=False)[0]
                 log_time_taken(t0)
 
         if not (return_velocity or return_effective_mass or
