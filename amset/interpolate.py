@@ -264,7 +264,7 @@ class Interpolater(MSONable):
                      return_vel_outer_prod: bool = True,
                      coords_are_cartesian: bool = False,
                      atomic_units: bool = False,
-                     skip_coefficients: Optional[int] = None,
+                     skip_coefficients: Optional[float] = None,
                      ) -> Union[Dict[Spin, np.ndarray],
                                 Tuple[Dict[Spin, np.ndarray], ...]]:
         """Gets the interpolated energies for multiple k-points in a band.
@@ -325,7 +325,11 @@ class Interpolater(MSONable):
                              "electronic structure. Reinitialise the "
                              "interpolater with interpolate_projections=True")
 
-        skip = skip_coefficients if skip_coefficients else 1
+        n_equivalences = len(self._equivalences)
+        if not skip_coefficients or skip_coefficients > 1:
+            skip = n_equivalences
+        else:
+            skip = int(skip_coefficients * n_equivalences)
 
         # only calculate the energies for the bands within the energy cutoff
         if energy_cutoff and self._band_structure.is_metal():
@@ -360,8 +364,8 @@ class Interpolater(MSONable):
 
             t0 = time.perf_counter()
             fitted = fite.getBands(
-                kpoints, self._equivalences[::skip], self._lattice_matrix,
-                self._coefficients[spin][ibands, ::skip],
+                kpoints, self._equivalences[:skip], self._lattice_matrix,
+                self._coefficients[spin][ibands, :skip],
                 curvature=return_effective_mass)
             log_time_taken(t0)
 
@@ -414,8 +418,8 @@ class Interpolater(MSONable):
                 for label, proj_coeffs in self._projection_coefficients[
                         spin].items():
                     projections[spin][label] = fite.getBands(
-                        kpoints, self._equivalences[::skip],
-                        self._lattice_matrix, proj_coeffs[ibands, ::skip],
+                        kpoints, self._equivalences[:skip],
+                        self._lattice_matrix, proj_coeffs[ibands, :skip],
                         curvature=False)[0]
                 log_time_taken(t0)
 

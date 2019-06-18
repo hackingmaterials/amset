@@ -133,7 +133,7 @@ class BandDensifier(object):
         # using BoltzTraP interpolation.
         rlat = self._amset_data.structure.lattice.reciprocal_lattice
 
-        gamma_sq = (np.average(1 / self._amset_data.kpoint_mesh) / 100) ** 2
+        gamma_sq = (np.average(1 / self._amset_data.kpoint_mesh) / 50) ** 2
 
         log_list(["# extra kpoints: {}".format(total_points),
                   "Densification γ: {:.5f} Å⁻¹".format(
@@ -163,7 +163,7 @@ class BandDensifier(object):
         flattened_kpoints += lorentz_points
         flattened_kpoints = kpoints_to_first_bz(flattened_kpoints)
 
-        skip = int(self._interpolater.interpolation_factor / 5)
+        skip = 5 / self._interpolater.interpolation_factor
         energies, vvelocities, projections = self._interpolater.get_energies(
             flattened_kpoints, energy_cutoff=self._energy_cutoff,
             bandgap=self._bandgap, scissor=self._scissor,

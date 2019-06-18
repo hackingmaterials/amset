@@ -175,7 +175,7 @@ class PeriodicVoronoi(object):
                 bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}')
 
             t0 = time.perf_counter()
-            results = Parallel(n_jobs=self._nworkers, prefer="processes")(
+            results = Parallel(n_jobs=self._nworkers, prefer="threads")(
                 delayed(_get_voronoi)(
                     self._groups_idx, self._periodic_points,
                     self._periodic_idx, self._n_buffer_points, nx, ny, nz)
@@ -245,6 +245,7 @@ def _get_voronoi(groups_idx, periodic_points,
     # Voronoi diagram, this includes the points of interest (inner_idx) and the
     # buffer blocks immediately surrounding it
     voro_idx = _get_idx_by_group(groups_idx, periodic_idx, nx, ny, nz)
+    print("n in voro", len(voro_idx))
 
     # get the indices of the inner points in voro_idx
     inner_in_voro_idx = _get_loc(voro_idx, inner_idx)
@@ -263,13 +264,25 @@ def _get_voronoi(groups_idx, periodic_points,
     frac_points_in_voro_idx = frac_points_in_voro_idx[unit_cell_mask]
     inner_in_voro_idx = inner_in_voro_idx[unit_cell_mask]
 
-    voro = Voronoi(periodic_points[voro_idx])
+    voro_points = periodic_points[voro_idx]
 
-    regions = voro.point_region[inner_in_voro_idx]
-    indices = np.array(voro.regions)[regions]
-    vertices = [voro.vertices[i] for i in indices]
+    if len(voro_points) != 0:
+        print("getting voro")
+        voro = Voronoi(voro_points.copy())
 
-    return frac_points_in_voro_idx, indices, vertices
+        print("getting regions")
+        regions = voro.point_region[inner_in_voro_idx]
+
+        print("getting indices")
+        indices = np.array(voro.regions)[regions]
+
+        print("getting vertices")
+        vertices = [voro.vertices[i] for i in indices]
+
+        return frac_points_in_voro_idx, indices, vertices
+
+    else:
+        return [], [], []
 
 
 def _get_idx_by_group(groups_idx,
