@@ -1,3 +1,4 @@
+import itertools
 import logging
 import math
 from typing import Optional
@@ -86,7 +87,7 @@ class BandDensifier(object):
                 # weights for densification are the sum of Fermi integrals / DOS
                 # I.e. regions with larger Fermi integrals are prioritized
                 # and regions with low DOS are prioritized.
-                weights = integral_sum / dos
+                weights = np.log1p(integral_sum) / np.log1p(dos)
                 weights[np.isnan(weights) | np.isinf(weights)] = 0
                 all_energies[spin].append(energies)
                 all_weights[spin].append(weights)
@@ -103,7 +104,6 @@ class BandDensifier(object):
                     amset_data.energies[spin][i])
 
                 interp_weights[interp_weights < 0.05] = 0
-
                 self._densification_weights[spin][i] = interp_weights
 
         self._sum_weights = sum([np.sum(self._densification_weights[s])
@@ -120,52 +120,45 @@ class BandDensifier(object):
             s: np.ceil(self._densification_weights[s] * factor).astype(int)
             for s in self._densification_weights}
 
+        # get the number of extra points for each kpoint. Shape of
+        # n_points_per_kpoint is (nkpoints, )
+        n_points_per_kpoint = np.sum(np.concatenate([
+            extra_kpoint_counts[s] for s in extra_kpoint_counts]), axis=0)
+
         # recalculate the number of points to take into account rounding
-        # generally means the number of additional k-points is
-        total_points = sum([np.sum(extra_kpoint_counts[s])
-                            for s in extra_kpoint_counts])
+        # generally means the number of additional k-points is larger than
+        # specified by the user
+        total_points = np.sum(n_points_per_kpoint)
 
-        # add additional points according to a Lorentz distribution:
-        # P = 1/(1 + |k-k0|^2/γ^2)
-        # we set gamma to be 1/20 * the average inter k-point spacing for the
-        # x, y and z directions. Note that this only works well if the original
-        # k-point density (not lattice) is isotropic, which will be the case if
-        # using BoltzTraP interpolation.
-        rlat = self._amset_data.structure.lattice.reciprocal_lattice
+        # max distance is just under half the distance to the nearest k-point.
+        # Note, the averaging means that this only works well if the original
+        # k-point density is isotropic, which will be the case if using
+        # BoltzTraP interpolation.
+        max_dist = np.average(1 / self._amset_data.kpoint_mesh) / 2.1
 
-        gamma_sq = (np.average(1 / self._amset_data.kpoint_mesh) / 50) ** 2
+        # get the kpoints which will be densified
+        k_mask = n_points_per_kpoint > 0
+        k_coords = self._amset_data.full_kpoints[k_mask]
+        n_points_per_kpoint = n_points_per_kpoint[k_mask]
+        print(sum(k_mask))
+        print(n_points_per_kpoint)
 
+        # add additional points in concenctric spheres around the k-points
+        #
+        extra_kpoints = np.concatenate(
+            [_generate_points(n_extra, max_dist) + kpoint
+             for kpoint, n_extra in zip(k_coords, n_points_per_kpoint)])
         log_list(["# extra kpoints: {}".format(total_points),
-                  "Densification γ: {:.5f} Å⁻¹".format(
-                      np.average(rlat.abc / self._amset_data.kpoint_mesh)/50)])
+                  "max frac k-distance: {:.5f}".format(max_dist)])
 
-        print(extra_kpoint_counts[Spin.up].max())
+        from monty.serialization import dumpfn
+        dumpfn(extra_kpoints, "extra_kpoints.json")
 
-        # lorentz_points = fibonacci_sphere(radius=gamma_sq, samples=total_points)
-        lorentz_points = cauchy.rvs(loc=0, scale=gamma_sq,
-                                    size=(total_points, 3))
-        print(abs(lorentz_points).max())
-        print(abs(lorentz_points).min())
-
-        # flattened_kpoints is a list of kpoints, where each point is present
-        # as many times as the number of extra points surrounding it.
-        # the total number of flattened_kpoints is therefore equal to the total
-        # number of extra points. The order of flattened k-points does
-        # not matter, as to keep the number of kpoints the same for each band,
-        # each band will be interpolated at all extra k-points
-        flattened_kpoints = np.concatenate([
-            np.repeat(self._amset_data.full_kpoints,
-                      n_points_per_kpoint, axis=0)
-            for spin in self._amset_data.spins
-            for n_points_per_kpoint in extra_kpoint_counts[spin]])
-
-        # flattened_kpoints now contains the new k-points to interpolate
-        flattened_kpoints += lorentz_points
-        flattened_kpoints = kpoints_to_first_bz(flattened_kpoints)
+        extra_kpoints = kpoints_to_first_bz(extra_kpoints)
 
         skip = 5 / self._interpolater.interpolation_factor
         energies, vvelocities, projections = self._interpolater.get_energies(
-            flattened_kpoints, energy_cutoff=self._energy_cutoff,
+            extra_kpoints, energy_cutoff=self._energy_cutoff,
             bandgap=self._bandgap, scissor=self._scissor,
             return_velocity=True, return_effective_mass=False,
             return_projections=True, atomic_units=True,
@@ -174,7 +167,7 @@ class BandDensifier(object):
         # finally, calculate k-point weights as the volume of each cell in the
         # Voronoi decomposition.
         all_kpoints = np.concatenate(
-            (self._amset_data.full_kpoints, flattened_kpoints))
+            (self._amset_data.full_kpoints, extra_kpoints))
 
         voronoi = PeriodicVoronoi(
             all_kpoints, original_mesh=self._amset_data.kpoint_mesh)
@@ -182,12 +175,50 @@ class BandDensifier(object):
 
         # note k-point weights is for all k-points, whereas the other properties
         # are just for the additional k-points
-        return (flattened_kpoints, energies, vvelocities, projections,
+        return (extra_kpoints, energies, vvelocities, projections,
                 kpoint_weights)
 
 
-def fibonacci_sphere(radius=1, samples=1):
+def _generate_points_cube(n_extra_kpoints: int, max_distance: float):
+    n_p = math.ceil(np.cbrt(n_extra_kpoints) / 2)
+    # forward_p = np.geomspace(max_distance/20, max_distance, n_p)
+    forward_p = np.linspace(max_distance/20, max_distance, n_p)
+    all_p = np.concatenate((-forward_p, forward_p))
+    return np.array(list(itertools.product(all_p, all_p, all_p)))
+
+
+def _generate_points(n_extra_kpoints: int, max_distance: float,
+                     min_n_points_per_sphere: int = 32,
+                     max_n_points_per_sphere: int = 256,
+                     default_n_spheres: int = 5):
+
+    # each sphere must contain at least min_n_points_per_sphere
+    actual_n_spheres = min(
+        default_n_spheres, math.ceil(n_extra_kpoints / min_n_points_per_sphere))
+
+    actual_n_spheres = max(
+        actual_n_spheres, math.ceil(n_extra_kpoints / max_n_points_per_sphere))
+
+    # generate radii for spheres, getting logarithmically further away, up to
+    # max_distance. Note, not all spheres may be used
+    if actual_n_spheres > default_n_spheres:
+        radii = np.geomspace(max_distance/10, max_distance, actual_n_spheres)
+    else:
+        radii = np.geomspace(max_distance/10, max_distance, default_n_spheres)
+
+    n_points_per_sphere = math.ceil(n_extra_kpoints / actual_n_spheres)
+
+    sphere_points = np.concatenate([
+        sunflower_sphere(radius=r, samples=n)
+        for r, n in zip(radii, [n_points_per_sphere] * n_points_per_sphere)])
+
+    return sphere_points[:n_extra_kpoints]
+
+
+def fibonacci_sphere(radius=1, samples=1, randomize=False):
     rnd = 1.
+    if randomize:
+        rnd = np.random.random() * samples
 
     points = []
     offset = 2./samples
@@ -206,3 +237,15 @@ def fibonacci_sphere(radius=1, samples=1):
 
     return np.array(points) * radius
 
+
+def sunflower_sphere(radius=1, samples=1):
+    indices = np.arange(0, samples) + 0.5
+
+    phi = np.arccos(1 - 2 * indices / samples)
+    theta = np.pi * (1 + 5 ** 0.5) * indices
+
+    x = np.cos(theta) * np.sin(phi)
+    y = np.sin(theta) * np.sin(phi)
+    z = np.cos(phi)
+
+    return np.stack((x, y, z), axis=1) * radius
