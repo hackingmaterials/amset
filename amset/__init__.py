@@ -3,9 +3,10 @@ __version__ = "0.1.0"
 amset_defaults = {
 
     "general": {
+        "interpolation_factor": 10,
         "scissor": None,
         "bandgap": None,
-        "interpolation_factor": 10,
+        "num_extra_kpoints": None,
         "scattering_type": "auto",
         "doping": [1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21],
         "temperatures": [300]
@@ -15,23 +16,19 @@ amset_defaults = {
         "high_frequency_dielectric": None,
         "static_dielectric": None,
         "elastic_constant": None,
-        "deformation_potential_vbm": None,
-        "deformation_potential_cbm": None,
+        "deformation_potential": None,
         "piezeoelectric_coefficient": None,
         "acceptor_charge": None,
         "donor_charge": None,
         "pop_frequency": None,
-        "n_dislocations": None,
-        "dislocation_charge": None
     },
 
     "performance": {
-        "n_extra_kpoints": None,
-        "energy_tol": 0.001,
+        "gauss_width": 0.001,
         "energy_cutoff": 1.5,
-        "scatter_fd_tol": 0.005,
+        "fd_tol": 0.005,
         "g_tol": 1,
-        "max_g_iter": 8,
+        "max_g_iter": 1,
         "dos_estep": 0.001,
         "dos_width": None,
         "symprec": 0.01,
@@ -42,9 +39,10 @@ amset_defaults = {
         "calculate_mobility": True,
         "separate_scattering_mobilities": True,
         "file_format": "json",
-        "log_traceback": False,
         "write_input": True,
-        "write_mesh": False
+        "write_mesh": False,
+        "log_error_traceback": False,
+        "print_log": False
     }
 }
 
