@@ -3,12 +3,10 @@ pymatgen>=2019.5.8
 scipy
 monty
 matplotlib
-matminer
 BoltzTraP2
 tqdm
 sklearn
 tabulate
 memory_profiler
 joblib
-numexpr
 spglib>=1.12.2
