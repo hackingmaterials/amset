@@ -11,11 +11,12 @@ if __name__ == "__main__":
     setup(
         name='amset',
         version='0.1.0',
-        description='AMSET is Ab initio Mobility, Seebeck, and Transport',
+        description="AMSET is a tool to calculate carrier transport properties "
+                    "from ab initio calculation data",
         long_description=long_description,
         url='https://github.com/hackingmaterials/amset',
-        author='Alireza Faghaninia',
-        author_email='alireza@lbl.gov',
+        author="Alex Ganose",
+        author_email='aganose@lbl.gov',
         license='modified BSD',
         keywords='conductivity scattering seebeck dft vasp',
         packages=find_packages(),
@@ -24,8 +25,8 @@ if __name__ == "__main__":
         zip_safe=False,
         install_requires=['numpy', 'pymatgen', 'scipy', 'monty',
                           'matplotlib', 'matminer', 'BoltzTraP2',
-                          'spglib>=1.12.2', "sklearn", "tqdm",
-                          "memory_profiler", "numexpr"],
+                          'spglib>=1.12.2', "scikit-learn", "tqdm",
+                          "memory_profiler"],
         extras_require={'docs': ['sphinx']},
         classifiers=['Programming Language :: Python :: 3.6',
                      'Development Status :: 4 - Beta',
@@ -37,4 +38,5 @@ if __name__ == "__main__":
                      'Topic :: Scientific/Engineering'],
         test_suite='nose.collector',
         tests_require=['nose'],
+        entry_points={'console_scripts': ['amset = amset.cli:main']}
     )
