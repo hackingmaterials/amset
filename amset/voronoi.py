@@ -35,7 +35,7 @@ class PeriodicVoronoi(object):
     def __init__(self,
                  frac_points: np.ndarray,
                  original_mesh: Optional[np.ndarray] = None,
-                 max_points_per_chunk: int = 50000,
+                 max_points_per_chunk: int = 60000,
                  nworkers: int = pdefaults["nworkers"]):
         """
 
@@ -175,7 +175,7 @@ class PeriodicVoronoi(object):
                 bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}')
 
             t0 = time.perf_counter()
-            results = Parallel(n_jobs=self._nworkers, prefer="threads")(
+            results = Parallel(n_jobs=self._nworkers, prefer="processes")(
                 delayed(_get_voronoi)(
                     self._groups_idx, self._periodic_points,
                     self._periodic_idx, self._n_buffer_points, nx, ny, nz)
@@ -245,7 +245,6 @@ def _get_voronoi(groups_idx, periodic_points,
     # Voronoi diagram, this includes the points of interest (inner_idx) and the
     # buffer blocks immediately surrounding it
     voro_idx = _get_idx_by_group(groups_idx, periodic_idx, nx, ny, nz)
-    print("n in voro", len(voro_idx))
 
     # get the indices of the inner points in voro_idx
     inner_in_voro_idx = _get_loc(voro_idx, inner_idx)
@@ -267,16 +266,19 @@ def _get_voronoi(groups_idx, periodic_points,
     voro_points = periodic_points[voro_idx]
 
     if len(voro_points) != 0:
-        print("getting voro")
-        voro = Voronoi(voro_points.copy())
+        # after some testing it seems like sorting the points before calculating
+        # the Voronoi diagram can speed things up by > 1000x when there are many
+        # points
+        sorted_idx = np.argsort(voro_points, axis=0)[:, 1]
 
-        print("getting regions")
-        regions = voro.point_region[inner_in_voro_idx]
+        # add the QJ option to qhull, necessary to slightly jiggle the points
+        voro = Voronoi(voro_points[sorted_idx], qhull_options="Qbb Qc Qz QJ")
 
-        print("getting indices")
+        # need to unsort regions to get correct points
+        inv_sorted_idx = np.argsort(sorted_idx)
+        regions = voro.point_region[inv_sorted_idx][inner_in_voro_idx]
+
         indices = np.array(voro.regions)[regions]
-
-        print("getting vertices")
         vertices = [voro.vertices[i] for i in indices]
 
         return frac_points_in_voro_idx, indices, vertices
@@ -319,10 +321,18 @@ def _get_idx_by_group(groups_idx,
     return periodic_idx[mask]
 
 
-def _get_volume(indices, vertices):
+def _get_volume(indices, vertices, cuboid_tol_dp=4):
     if -1 in indices:
         # some regions can be open
         return np.inf
+
+    rounded_v = np.round(vertices, cuboid_tol_dp)
+    x = tuple(set(rounded_v[:, 0]))
+    y = tuple(set(rounded_v[:, 1]))
+    z = tuple(set(rounded_v[:, 2]))
+
+    if len(x) == 2 and len(y) == 2 and len(z) == 2:
+        return abs(x[0] - x[1]) * abs(y[0] - y[1]) * abs(z[0] - z[1])
     else:
         return ConvexHull(vertices).volume
 
