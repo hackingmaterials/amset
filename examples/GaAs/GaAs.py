@@ -5,8 +5,8 @@ from amset.run import AmsetRunner
 
 settings = {
     "general": {
-        # "interpolation_factor": 10,
-        "interpolation_factor": 100,
+        "interpolation_factor": 450,
+        # "interpolation_factor": 100,
         "scattering_type": "auto",
         "doping": [3e13],
         "temperatures": [201, 290, 300, 401, 506, 605, 789, 994],
