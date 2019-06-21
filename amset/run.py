@@ -16,7 +16,7 @@ from tabulate import tabulate
 from monty.json import MSONable
 from memory_profiler import memory_usage
 
-from amset.densify import BandDensifier
+from amset.interpolation.densify import BandDensifier
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
@@ -25,11 +25,16 @@ from amset import __version__, amset_defaults
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.util.string import unicodeify
 
-from amset.interpolate import Interpolater
+from amset.interpolation.interpolate import Interpolater
 from amset.scattering.calculate import ScatteringCalculator
 from amset.transport import TransportCalculator
-from amset.util import validate_settings, tensor_average, unicodeify_spacegroup, write_settings_to_file, load_settings_from_file
-from amset.log import log_banner, log_list, initialize_amset_logger
+from amset.misc.util import validate_settings, tensor_average, unicodeify_spacegroup, write_settings_to_file, load_settings_from_file
+from amset.misc.log import log_banner, log_list, initialize_amset_logger
+
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+__date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
 _kpt_str = '[{k[0]:.2f}, {k[1]:.2f}, {k[2]:.2f}]'

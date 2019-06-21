@@ -5,12 +5,17 @@ from typing import Union, List
 import numpy as np
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients, DOS, \
-    lambda_to_tau, BTPDOS
+    lambda_to_tau
 from monty.json import MSONable
 
-from amset.constants import e
+from amset.misc.constants import e
 from amset.data import AmsetData
-from amset.log import log_time_taken
+from amset.misc.log import log_time_taken
+
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+__date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
 

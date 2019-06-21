@@ -11,15 +11,19 @@ from monty.serialization import dumpfn
 from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units
-from BoltzTraP2.bandlib import DOS, FD, dFDde
+from BoltzTraP2.bandlib import DOS
 from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.dos import FermiDos, Dos, f0
 
-from amset.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
-from amset.util import groupby, cast_dict
-from amset.log import log_list
-from amset.utils.transport import df0de
+from amset.misc.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
+from amset.misc.util import groupby, cast_dict, df0de
+from amset.misc.log import log_list
 from amset import amset_defaults as defaults
+
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+__date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
 _kpt_str = '[{k[0]:.5f} {k[1]:.5f} {k[2]:.5f}]'

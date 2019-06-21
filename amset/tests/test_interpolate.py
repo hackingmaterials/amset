@@ -4,7 +4,7 @@ import numpy as np
 
 from numpy.testing import assert_array_equal
 
-from amset.interpolate.boltztrap2 import BoltzTraP2Interpolater
+from amset.interpolation.interpolate import BoltzTraP2Interpolater
 from pymatgen.io.vasp import Vasprun
 
 test_dir = os.path.dirname(os.path.abspath(__file__))

@@ -19,8 +19,8 @@ from BoltzTraP2 import units, sphere, fite
 from BoltzTraP2.bandlib import DOS
 from spglib import spglib
 
-from amset.util import spin_name
-from amset.log import log_time_taken, log_list
+from amset.misc.util import spin_name
+from amset.misc.log import log_time_taken, log_list
 from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
@@ -31,7 +31,12 @@ from pymatgen.io.vasp import Kpoints
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 from amset.data import AmsetData
-from amset.constants import hartree_to_ev, m_to_cm, A_to_m, hbar, e, m_e
+from amset.misc.constants import hartree_to_ev, m_to_cm, A_to_m, hbar, e, m_e
+
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+__date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
 

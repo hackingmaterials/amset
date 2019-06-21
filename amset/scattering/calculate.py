@@ -22,16 +22,20 @@ from sklearn.neighbors.ball_tree import BallTree
 from tqdm import tqdm
 
 from BoltzTraP2 import units
-from amset.utils.transport import df0de
 from pymatgen import Spin
 
-from amset.constants import A_to_nm, output_width, over_sqrt_pi, hbar, small_val
+from amset.misc.constants import A_to_nm, output_width, over_sqrt_pi, hbar, small_val
 from amset.data import AmsetData
-from amset.log import log_list, log_time_taken
+from amset.misc.log import log_list, log_time_taken
 from amset.scattering.elastic import AbstractElasticScattering
 from amset.scattering.inelastic import AbstractInelasticScattering
-from amset.util import spin_name, create_shared_array, gen_even_slices
+from amset.misc.util import spin_name, create_shared_array, gen_even_slices, df0de
 from pymatgen.util.coord import pbc_diff
+
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+__date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
 
