@@ -5,17 +5,20 @@ from typing import Optional
 
 import numpy as np
 from scipy.interpolate import interp1d
-from scipy.stats import cauchy
 
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import DOS, dFDde
 from amset import amset_defaults as defaults
 from amset.data import AmsetData
-from amset.interpolate import Interpolater
-from amset.log import log_list
-from amset.util import kpoints_to_first_bz
-from amset.voronoi import PeriodicVoronoi
-from pymatgen import Spin
+from amset.interpolation.interpolate import Interpolater
+from amset.misc.log import log_list
+from amset.misc.util import kpoints_to_first_bz
+from amset.interpolation.voronoi import PeriodicVoronoi
+
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+__date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
 gdefaults = defaults["general"]

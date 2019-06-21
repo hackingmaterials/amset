@@ -16,8 +16,13 @@ from scipy.stats import binned_statistic_dd
 from tqdm import tqdm
 
 from amset import amset_defaults
-from amset.constants import output_width
-from amset.log import log_time_taken
+from amset.misc.constants import output_width
+from amset.misc.log import log_time_taken
+
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+__date__ = "June 21, 2019"
 
 pdefaults = amset_defaults["performance"]
 logger = logging.getLogger(__name__)

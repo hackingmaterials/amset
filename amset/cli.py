@@ -8,10 +8,10 @@ import warnings
 from collections import defaultdict
 from typing import Dict, Any
 
-from amset.log import initialize_amset_logger
+from amset.misc.log import initialize_amset_logger
 from amset.run import AmsetRunner
 from amset import __version__, amset_defaults
-from amset.util import parse_deformation_potential, parse_temperatures, \
+from amset.misc.util import parse_deformation_potential, parse_temperatures, \
     parse_doping
 
 __author__ = "Alex Ganose"

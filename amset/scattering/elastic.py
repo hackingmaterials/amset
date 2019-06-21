@@ -10,11 +10,16 @@ from typing import Dict, Tuple, Any
 from scipy.constants import epsilon_0
 from scipy.integrate import trapz
 
-from amset.constants import k_B, e, hbar
+from amset.misc.constants import k_B, e, hbar
 from amset.data import AmsetData
-from amset.log import log_list
-from amset.utils.transport import f0
+from amset.misc.log import log_list
+from amset.misc.util import f0
 from pymatgen import Spin
+
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+__date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
 

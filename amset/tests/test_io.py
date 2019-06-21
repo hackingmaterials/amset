@@ -4,7 +4,7 @@ import unittest
 from os.path import join as path_join
 
 from amset import amset_defaults
-from amset.util import write_settings_to_file, load_settings_from_file
+from amset.misc.util import write_settings_to_file, load_settings_from_file
 
 test_dir = os.path.dirname(os.path.realpath(__file__))
 

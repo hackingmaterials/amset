@@ -14,5 +14,4 @@ k_B = physical_constants["Boltzmann constant in eV/K"][0]
 default_small_e = 1.0  # eV/cm the value of this parameter does not matter
 over_sqrt_pi = 1 / np.sqrt(np.pi)
 small_val = 1e-32  # e.g. used for an initial non-zero val
-
 output_width = 69
