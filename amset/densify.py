@@ -18,6 +18,7 @@ from amset.voronoi import PeriodicVoronoi
 from pymatgen import Spin
 
 logger = logging.getLogger(__name__)
+gdefaults = defaults["general"]
 pdefaults = defaults["performance"]
 
 
@@ -109,13 +110,14 @@ class BandDensifier(object):
         self._sum_weights = sum([np.sum(self._densification_weights[s])
                                  for s in amset_data.spins])
 
-    def densify(self, n_extra_kpoints: float = pdefaults["n_extra_kpoints"]):
+    def densify(self,
+                num_extra_kpoints: float = gdefaults["num_extra_kpoints"]):
         logger.info("Densifying band structure around Fermi integrals")
 
         # add additional k-points around the k-points in the existing mesh
         # the number of additional k-points is proportional to the
         # densification weight for that k-point
-        factor = n_extra_kpoints / self._sum_weights
+        factor = num_extra_kpoints / self._sum_weights
         extra_kpoint_counts = {
             s: np.ceil(self._densification_weights[s] * factor).astype(int)
             for s in self._densification_weights}
