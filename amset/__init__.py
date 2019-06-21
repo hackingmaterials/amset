@@ -26,7 +26,7 @@ amset_defaults = {
     },
 
     "performance": {
-        "n_extra_kpoints": 5000,
+        "n_extra_kpoints": None,
         "energy_tol": 0.001,
         "energy_cutoff": 1.5,
         "scatter_fd_tol": 0.005,
