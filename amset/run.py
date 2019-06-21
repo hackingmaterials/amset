@@ -29,7 +29,7 @@ from amset.interpolate import Interpolater
 from amset.scattering.calculate import ScatteringCalculator
 from amset.transport import TransportCalculator
 from amset.util import validate_settings, tensor_average, unicodeify_spacegroup, write_settings_to_file, load_settings_from_file
-from amset.log import log_banner, log_list
+from amset.log import log_banner, log_list, initialize_amset_logger
 
 logger = logging.getLogger(__name__)
 _kpt_str = '[{k[0]:.2f}, {k[1]:.2f}, {k[2]:.2f}]'
@@ -77,6 +77,10 @@ class AmsetRunner(MSONable):
         self.performance_parameters.update(performance_parameters)
         self.material_properties.update(material_properties)
         self.output_parameters.update(output_parameters)
+
+        if self.output_parameters["print_log"]:
+            initialize_amset_logger(
+                log_traceback=output_parameters["log_error_traceback"])
 
     def run(self,
             directory: Union[str, Path] = '.',
@@ -155,8 +159,8 @@ class AmsetRunner(MSONable):
         scatter = ScatteringCalculator(
             self.material_properties, amset_data,
             scattering_type=self.scattering_type,
-            energy_tol=self.performance_parameters["energy_tol"],
-            scatter_fd_tol=self.performance_parameters["scatter_fd_tol"],
+            gauss_width=self.performance_parameters["gauss_width"],
+            fd_tol=self.performance_parameters["fd_tol"],
             g_tol=self.performance_parameters["g_tol"],
             max_g_iter=self.performance_parameters["max_g_iter"],
             use_symmetry=self.performance_parameters["symprec"] is not None,
@@ -249,15 +253,16 @@ class AmsetRunner(MSONable):
     @staticmethod
     def from_directory(directory: Union[str, Path] = '.',
                        vasprun: Optional[Union[str, Path]] = None,
-                       settings_file: Optional[Union[str, Path]] = None):
+                       settings_file: Optional[Union[str, Path]] = None,
+                       settings_override: Optional[Dict[str, Any]] = None):
         if not vasprun:
             vr_file = joinpath(directory, 'vasprun.xml')
             vr_file_gz = joinpath(directory, 'vasprun.xml.gz')
 
             if os.path.exists(vr_file):
-                vasprun = Vasprun(vr_file)
+                vasprun = Vasprun(vr_file, parse_projected_eigen=True)
             elif os.path.exists(vr_file_gz):
-                vasprun = Vasprun(vr_file_gz)
+                vasprun = Vasprun(vr_file_gz, parse_projected_eigen=True)
             else:
                 msg = 'No vasprun.xml found in {}'.format(directory)
                 logger.error(msg)
@@ -266,6 +271,9 @@ class AmsetRunner(MSONable):
         if not settings_file:
             settings_file = joinpath(directory, "settings.yaml")
         settings = load_settings_from_file(settings_file)
+
+        if settings_override:
+            settings.update(settings_override)
 
         return AmsetRunner.from_vasprun_and_settings(vasprun, settings)
 
