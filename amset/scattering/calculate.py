@@ -42,19 +42,19 @@ class ScatteringCalculator(MSONable):
                  materials_properties: Dict[str, float],
                  amset_data: AmsetData,
                  scattering_type: Union[str, List[str], float] = "auto",
-                 energy_tol: float = 0.001,
+                 gauss_width: float = 0.001,
                  g_tol: float = 0.01,
                  max_g_iter: int = 8,
                  use_symmetry: bool = True,
                  nworkers: int = -1,
-                 scatter_fd_tol: Optional[float] = 0.005):
+                 fd_tol: Optional[float] = 0.005):
         if amset_data.temperatures is None or amset_data.doping is None:
             raise RuntimeError(
                 "AmsetData doesn't contain doping levels or temperatures")
 
         self.scattering_type = scattering_type
         self.materials_properties = materials_properties
-        self.energy_tol = energy_tol
+        self.gauss_width = gauss_width
         self.g_tol = g_tol
         self.max_g_iter = max_g_iter
         self.nworkers = nworkers if nworkers != -1 else cpu_count()
@@ -63,7 +63,7 @@ class ScatteringCalculator(MSONable):
             scattering_type, materials_properties, amset_data)
         self.amset_data = amset_data
         self.scattering_energy_cutoffs = _calculate_scattering_cutoffs(
-            amset_data, fd_tolerance=scatter_fd_tol)
+            amset_data, fd_tolerance=fd_tol)
 
     @property
     def inelastic_scatterers(self):
@@ -147,11 +147,11 @@ class ScatteringCalculator(MSONable):
         else:
             nkpoints = len(full_kpoints)
 
-        batch_size = min(500., 1 / (self.energy_tol * 2))
+        batch_size = min(500., 1 / (self.gauss_width * 2))
         batch_size = 100
         nsplits = math.ceil(nkpoints/batch_size)
         logger.info("Scattering information:")
-        log_list(["energy tolerance: {} eV".format(self.energy_tol),
+        log_list(["energy tolerance: {} eV".format(self.gauss_width),
                   "# k-points: {}".format(nkpoints),
                   "batch size: {}".format(batch_size)])
 
@@ -182,7 +182,7 @@ class ScatteringCalculator(MSONable):
         integral_conversion = (
                 (2 * np.pi) ** 3
                 / (self.amset_data.structure.lattice.volume * A_to_nm ** 3)
-                / self.energy_tol)
+                / self.gauss_width)
 
         # prefactors have shape [nscatterers, ndoping, ntemp)
         elastic_prefactors = integral_conversion * np.array(
@@ -233,7 +233,7 @@ class ScatteringCalculator(MSONable):
 
         for i in range(self.nworkers):
             args = (self.scatterers, ball_tree, spin, b_idx,
-                    self.energy_tol * units.eV,
+                    self.gauss_width * units.eV,
                     s_g, s_energies, s_kpoints, s_k_norms, s_k_weights,
                     s_a_factor, s_c_factor, len(band_energies), rlat, iqueue,
                     oqueue)
@@ -375,7 +375,7 @@ class ScatteringCalculator(MSONable):
             return band_rates
 
 
-def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
+def scattering_worker(scatterers, ball_tree, spin, b_idx, gauss_width, s_g,
                       s_energies, s_kpoints, s_kpoint_norms, s_k_weights,
                       s_a_factor, s_c_factor, nkpoints,
                       reciprocal_lattice_matrix, iqueue, oqueue,
@@ -405,7 +405,7 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
         if energy_diff == 0:
             # elastic scattering
             k_p_idx, ediff = ball_tree.query_radius(
-                energies[s, None], energy_tol * 5, return_distance=True)
+                energies[s, None], gauss_width * 5, return_distance=True)
 
             k_idx = np.repeat(np.arange(len(k_p_idx)),
                               [len(a) for a in k_p_idx])
@@ -422,7 +422,7 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
                 if nkpoints != kpoints.shape[0]:
                     # working with symmetry reduced k-points
                     band_rates = get_ir_band_rates(
-                        spin, b_idx, elastic_scatterers, ediff, energy_tol, s,
+                        spin, b_idx, elastic_scatterers, ediff, gauss_width, s,
                         k_idx, k_p_idx,
                         kpoints, kpoint_norms, kpoint_weights, a_factor,
                         c_factor, reciprocal_lattice_matrix, ir_kpoints_idx,
@@ -430,7 +430,7 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
                 else:
                     # no symmetry, use the full BZ mesh
                     band_rates = get_band_rates(
-                        spin, b_idx, elastic_scatterers, ediff, energy_tol, s,
+                        spin, b_idx, elastic_scatterers, ediff, gauss_width, s,
                         k_idx, k_p_idx,
                         kpoints, kpoint_norms, kpoint_weights, a_factor,
                         c_factor, reciprocal_lattice_matrix)
@@ -446,7 +446,7 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
             # inelastic scattering
             for diff in [energy_diff, -energy_diff]:
                 k_p_idx, ediff = ball_tree.query_radius(
-                    energies[s, None] - diff, energy_tol * 5,
+                    energies[s, None] - diff, gauss_width * 5,
                     return_distance=True)
 
                 k_idx = np.repeat(np.arange(len(k_p_idx)),
@@ -463,7 +463,7 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
                         # now format of band rates is (s1_i, s2_i, s1_o, s2_o..)
                         band_rates += get_ir_band_rates(
                             spin, b_idx, inelastic_scatterers, ediff,
-                            energy_tol, s, k_idx, k_p_idx, kpoints,
+                            gauss_width, s, k_idx, k_p_idx, kpoints,
                             kpoint_norms, kpoint_weights, a_factor,
                             c_factor, reciprocal_lattice_matrix, ir_kpoints_idx,
                             grouped_ir_to_full, g=g, emission=diff <= 0,
@@ -473,7 +473,7 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
                         # no symmetry, use the full BZ mesh
                         band_rates += get_band_rates(
                             spin, b_idx, inelastic_scatterers, ediff,
-                            energy_tol, s, k_idx,  k_p_idx, kpoints,
+                            gauss_width, s, k_idx,  k_p_idx, kpoints,
                             kpoint_norms, kpoint_weights, a_factor, c_factor,
                             reciprocal_lattice_matrix, g=g, emission=diff >= 0,
                             calculate_out_rate=calculate_out_rate,
@@ -482,7 +482,7 @@ def scattering_worker(scatterers, ball_tree, spin, b_idx, energy_tol, s_g,
         oqueue.put((s, band_rates))
 
 
-def get_ir_band_rates(spin, b_idx, scatterers, ediff, energy_tol, s, k_idx,
+def get_ir_band_rates(spin, b_idx, scatterers, ediff, gauss_width, s, k_idx,
                       k_p_idx, kpoints, kpoint_norms, kpoint_weights, a_factor,
                       c_factor, reciprocal_lattice_matrix, ir_kpoints_idx,
                       grouped_ir_to_full, g=None, emission=False,
@@ -519,7 +519,7 @@ def get_ir_band_rates(spin, b_idx, scatterers, ediff, energy_tol, s, k_idx,
     c_vals = c_factor[k_idx] * c_factor[k_p_idx]
 
     overlap = (a_vals[expand_k_idx] + c_vals[expand_k_idx] * k_angles) ** 2
-    weighted_overlap = (w0gauss(ediff / energy_tol)[expand_k_idx] * overlap *
+    weighted_overlap = (w0gauss(ediff / gauss_width)[expand_k_idx] * overlap *
                         kpoint_weights[full_k_p_idx])
 
     # norm of k difference squared in 1/nm
@@ -566,7 +566,7 @@ def get_ir_band_rates(spin, b_idx, scatterers, ediff, energy_tol, s, k_idx,
     return band_rates
 
 
-def get_band_rates(spin, b_idx, scatterers, ediff, energy_tol, s, k_idx,
+def get_band_rates(spin, b_idx, scatterers, ediff, gauss_width, s, k_idx,
                    k_p_idx, kpoints, kpoint_norms, a_factor, c_factor,
                    reciprocal_lattice_matrix):
     from numpy.core.umath_tests import inner1d
@@ -583,7 +583,7 @@ def get_band_rates(spin, b_idx, scatterers, ediff, energy_tol, s, k_idx,
     overlap = (a_factor[k_idx] * a_factor[k_p_idx] +
                c_factor[k_idx] * c_factor[k_p_idx] * k_angles) ** 2
 
-    weighted_overlap = w0gauss(ediff / energy_tol) * overlap
+    weighted_overlap = w0gauss(ediff / gauss_width) * overlap
 
     # norm of k difference squared in 1/nm
     k_diff_sq = np.linalg.norm(np.dot(
