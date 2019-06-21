@@ -1,23 +1,31 @@
-# This is an example amset settings file.
+# This is an example AMSET settings file.
+
+# The general parameters control the main settings for the AMSET run
 general:
 
-    # band gap settings
-    scissor: null                     # in eV
+    # band gap settings, only one of the two options can be set simultaneously
+    scissor: null                # in eV
     bandgap: 3.0                 # in eV
 
-    # options include ACD, PIE, IMP, DIS, and POP. E.g.:
-    # scattering_type: ACD, POP, IMP
-    # alternatively, set to auto to automatically determine
-    # scattering_type based on material parameters
-    # could allow "inv_dos" or "CRTA" + rate. E.g.:
-    # scattering_type: inv_dos 1E-14
+    # scattering type options include ACD, PIE, IMP, DIS, POP and auto,
+    # where auto will automatically determine which scattering mechanisms are
+    # possible based on the supplied materials parameters
     scattering_type: auto
 
+    # positive doping concentrations indicates n-type doping, negative = p-type
+    doping: [1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21]
+    temperatures: [300, 400]
+
+    # The band structure interpolation factor that determines the k-mesh density
     interpolation_factor: 10
 
-    doping: 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21
-    temperatures: 300
+    # This controls the number of "densification" points added near the Fermi
+    # level
+    num_extra_kpoints: 5000
 
+
+# The materials section holds all materials parameters required to calculate
+# the scattering rates
 material:
     # dielectric constants
     high_frequency_dielectric: 3
@@ -25,7 +33,7 @@ material:
 
     # ACD parameters
     elastic_constant: 150             # in GPa
-    deformation_potential_vbm: 9      # in eV
+    deformation_potential: (9, 8)     # in eV, given for the VBM and CBM
     deformation_potential_cbm: 9      # in eV
 
     # PIE parameters
@@ -36,17 +44,28 @@ material:
     donor_charge: 1
 
     # POP parameters
-    pop_frequency: 10                 # in ?
+    pop_frequency: 10                 # in THz
 
-    # DIS parameters
-    n_dislocations: 0.1
-    dislocation_charge: 1
-
+# The performance section controls internal AMSET settings that will effect
+# the speed and accuracy of the results. See the online documentation for
+# more details. We reproduce the AMSET defaults here. Modify with caution.
 performance:
-    energy_tol: 0.0001                # in eV
+    gauss_width: 0.001                # in eV
     energy_cutoff: 1.5                # in eV
+    fd_tol: 0.005                     # in %
     g_tol: 1                          # in %
+    max_g_iter: 1
     dos_estep: 0.01                   # in eV
-    dos_width: 0.01                   # in eV
+    dos_width: null                   # in eV
     symprec: 0.01                     # in Angstrom
     nworkers: -1
+
+# The output section controls AMSET output files and logging
+output:
+  calculate_mobility: true
+  separate_scattering_mobilities: true
+  file_format: json
+  write_input: false
+  write_mesh: false
+  log_error_traceback: false
+  print_log: true
