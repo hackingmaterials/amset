@@ -47,9 +47,21 @@ def validate_settings(user_settings):
     if isinstance(settings["general"]["doping"], (int, float)):
         settings["general"]["doping"] = [settings["general"]["doping"]]
 
+    elif isinstance(settings["general"]["doping"], str):
+        settings["general"]["doping"] = parse_doping(
+            settings["general"]["doping"])
+
     if isinstance(settings["general"]["temperatures"], (int, float)):
         settings["general"]["temperatures"] = [
             settings["general"]["temperatures"]]
+    elif isinstance(settings["general"]["temperatures"], str):
+        settings["general"]["temperatures"] = parse_temperatures(
+            settings["general"]["temperatures"])
+
+    if isinstance(settings["material"]["deformation_potential"], str):
+        settings["general"]["deformation_potential"] = \
+            parse_deformation_potential(
+                settings["general"]["deformation_potential"])
 
     settings["general"]["doping"] = np.asarray(settings["general"]["doping"])
     settings["general"]["temperatures"] = np.asarray(
@@ -114,7 +126,7 @@ def write_settings_to_file(settings: Dict[str, Any], filename: str):
         settings: The configuration settings.
         filename: A filename.
     """
-    cast_dict(settings)
+    settings = cast_dict(settings)
     dumpfn(settings, filename, indent=4, default_flow_style=False)
 
 
@@ -155,6 +167,8 @@ def cast_dict(d):
             elif isinstance(v, tuple):
                 v = list(v)
 
+            if k == "doping":
+                print(type(v))
             new_d[k] = v
     return new_d
 
@@ -202,3 +216,61 @@ def kpoints_to_first_bz(kpoints: np.ndarray) -> np.ndarray:
         The translated k-points.
     """
     return kpoints - np.round(kpoints)
+
+
+def parse_doping(doping_str: str):
+    doping_str = doping_str.strip().replace(" ", "")
+
+    try:
+        if ":" in doping_str:
+            parts = list(map(float, doping_str.split(":")))
+
+            if len(parts) != 3:
+                raise ValueError
+
+            return np.geomspace(parts[0], parts[1], int(parts[2]))
+
+        else:
+            return np.array(list(map(float, doping_str.split(","))))
+
+    except ValueError:
+        raise ValueError("ERROR: Unrecognised doping format: {}".format(
+            doping_str))
+
+
+def parse_temperatures(temperatures_str: str):
+    temperatures_str = temperatures_str.strip().replace(" ", "")
+
+    try:
+        if ":" in temperatures_str:
+            parts = list(map(float, temperatures_str.split(":")))
+
+            if len(parts) != 3:
+                raise ValueError
+
+            return np.linspace(parts[0], parts[1], int(parts[2]))
+
+        else:
+            return np.array(list(map(float, temperatures_str.split(","))))
+
+    except ValueError:
+        raise ValueError("ERROR: Unrecognised temperature format: {}".format(
+            temperatures_str))
+
+
+def parse_deformation_potential(deformation_pot_str: str):
+    deformation_pot_str = deformation_pot_str.strip().replace(" ", "")
+
+    try:
+        parts = list(map(float, deformation_pot_str.split(",")))
+
+        if len(parts) == 1:
+            return parts[0]
+        elif len(parts) == 2:
+            return tuple(parts)
+        else:
+            raise ValueError
+
+    except ValueError:
+        raise ValueError("ERROR: Unrecognised deformation potential format: "
+                         "{}".format(deformation_pot_str))

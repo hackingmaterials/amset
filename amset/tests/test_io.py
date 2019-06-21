@@ -24,8 +24,8 @@ class IOTest(unittest.TestCase):
         # test defaults inferred correctly
         self.assertEqual(settings["material"]["pop_frequency"],
                          amset_defaults["material"]["pop_frequency"])
-        self.assertEqual(settings["performance"]["energy_tol"],
-                         amset_defaults["performance"]["energy_tol"])
+        self.assertEqual(settings["performance"]["gauss_width"],
+                         amset_defaults["performance"]["gauss_width"])
 
     def test_write_settings_to_file(self):
         """Test writing settings to a file."""
