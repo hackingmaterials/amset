@@ -24,7 +24,7 @@ if __name__ == "__main__":
         data_files=['LICENSE', 'requirements-optional.txt'],
         zip_safe=False,
         install_requires=['numpy', 'pymatgen', 'scipy', 'monty',
-                          'matplotlib', 'matminer', 'BoltzTraP2',
+                          'matplotlib', 'BoltzTraP2',
                           'spglib>=1.12.2', "scikit-learn", "tqdm",
                           "memory_profiler"],
         extras_require={'docs': ['sphinx']},

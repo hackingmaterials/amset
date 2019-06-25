@@ -5,7 +5,7 @@ monty
 matplotlib
 BoltzTraP2
 tqdm
-sklearn
+scikit-learn
 tabulate
 memory_profiler
 joblib
