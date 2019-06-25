@@ -1,0 +1,293 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Settings &#8212; AMSET 0.1.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Change log" href="changelog.html" />
+    <link rel="prev" title="Installation" href="installation.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="settings">
+<h1>Settings<a class="headerlink" href="#settings" title="Permalink to this headline">¶</a></h1>
+<p>Whether using AMSET via the command-line or python API, the primary controls
+are contained in the settings file. An example AMSET settings file is given
+<span class="xref std std-doc">here</span>.</p>
+<p>The settings are grouped into sections. The description for each section and
+settings parameter is given below.</p>
+<div class="contents local topic" id="contents">
+<ul class="simple">
+<li><a class="reference internal" href="#general-settings" id="id1">General settings</a><ul>
+<li><a class="reference internal" href="#doping" id="id2"><code class="docutils literal notranslate"><span class="pre">doping</span></code></a></li>
+<li><a class="reference internal" href="#temperatures" id="id3"><code class="docutils literal notranslate"><span class="pre">temperatures</span></code></a></li>
+<li><a class="reference internal" href="#interpolation-factor" id="id4"><code class="docutils literal notranslate"><span class="pre">interpolation_factor</span></code></a></li>
+<li><a class="reference internal" href="#num-extra-kpoints" id="id5"><code class="docutils literal notranslate"><span class="pre">num_extra_kpoints</span></code></a></li>
+<li><a class="reference internal" href="#scattering-type" id="id6"><code class="docutils literal notranslate"><span class="pre">scattering_type</span></code></a></li>
+<li><a class="reference internal" href="#scissor" id="id7"><code class="docutils literal notranslate"><span class="pre">scissor</span></code></a></li>
+<li><a class="reference internal" href="#bandgap" id="id8"><code class="docutils literal notranslate"><span class="pre">bandgap</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#material-settings" id="id9">Material settings</a><ul>
+<li><a class="reference internal" href="#high-frequency-dielectric" id="id10"><code class="docutils literal notranslate"><span class="pre">high_frequency_dielectric</span></code></a></li>
+<li><a class="reference internal" href="#static-dielectric" id="id11"><code class="docutils literal notranslate"><span class="pre">static_dielectric</span></code></a></li>
+<li><a class="reference internal" href="#elastic-constant" id="id12"><code class="docutils literal notranslate"><span class="pre">elastic_constant</span></code></a></li>
+<li><a class="reference internal" href="#deformation-potential" id="id13"><code class="docutils literal notranslate"><span class="pre">deformation_potential</span></code></a></li>
+<li><a class="reference internal" href="#piezoelectric-coefficient" id="id14"><code class="docutils literal notranslate"><span class="pre">piezoelectric_coefficient</span></code></a></li>
+<li><a class="reference internal" href="#acceptor-charge" id="id15"><code class="docutils literal notranslate"><span class="pre">acceptor_charge</span></code></a></li>
+<li><a class="reference internal" href="#donor-charge" id="id16"><code class="docutils literal notranslate"><span class="pre">donor_charge</span></code></a></li>
+<li><a class="reference internal" href="#pop-frequency" id="id17"><code class="docutils literal notranslate"><span class="pre">pop_frequency</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#performance-settings" id="id18">Performance settings</a><ul>
+<li><a class="reference internal" href="#gauss-width" id="id19"><code class="docutils literal notranslate"><span class="pre">gauss_width</span></code></a></li>
+<li><a class="reference internal" href="#energy-cutoff" id="id20"><code class="docutils literal notranslate"><span class="pre">energy_cutoff</span></code></a></li>
+<li><a class="reference internal" href="#fd-tol" id="id21"><code class="docutils literal notranslate"><span class="pre">fd_tol</span></code></a></li>
+<li><a class="reference internal" href="#g-tol" id="id22"><code class="docutils literal notranslate"><span class="pre">g_tol</span></code></a></li>
+<li><a class="reference internal" href="#max-g-iter" id="id23"><code class="docutils literal notranslate"><span class="pre">max_g_iter</span></code></a></li>
+<li><a class="reference internal" href="#dos-estep" id="id24"><code class="docutils literal notranslate"><span class="pre">dos_estep</span></code></a></li>
+<li><a class="reference internal" href="#dos-width" id="id25"><code class="docutils literal notranslate"><span class="pre">dos_width</span></code></a></li>
+<li><a class="reference internal" href="#symprec" id="id26"><code class="docutils literal notranslate"><span class="pre">symprec</span></code></a></li>
+<li><a class="reference internal" href="#nworkers" id="id27"><code class="docutils literal notranslate"><span class="pre">nworkers</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#output-settings" id="id28">Output settings</a><ul>
+<li><a class="reference internal" href="#calculate-mobility" id="id29"><code class="docutils literal notranslate"><span class="pre">calculate_mobility</span></code></a></li>
+<li><a class="reference internal" href="#separate-scattering-mobilities" id="id30"><code class="docutils literal notranslate"><span class="pre">separate_scattering_mobilities</span></code></a></li>
+<li><a class="reference internal" href="#file-format" id="id31"><code class="docutils literal notranslate"><span class="pre">file_format</span></code></a></li>
+<li><a class="reference internal" href="#write-input" id="id32"><code class="docutils literal notranslate"><span class="pre">write_input</span></code></a></li>
+<li><a class="reference internal" href="#write-mesh" id="id33"><code class="docutils literal notranslate"><span class="pre">write_mesh</span></code></a></li>
+<li><a class="reference internal" href="#log-error-traceback" id="id34"><code class="docutils literal notranslate"><span class="pre">log_error_traceback</span></code></a></li>
+<li><a class="reference internal" href="#print-log" id="id35"><code class="docutils literal notranslate"><span class="pre">print_log</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="general-settings">
+<h2>General settings<a class="headerlink" href="#general-settings" title="Permalink to this headline">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">general</span></code> section contains the main settings that control the AMSET run,
+including interpolation settings and temperature/doping ranges.</p>
+<div class="section" id="doping">
+<h3><code class="docutils literal notranslate"><span class="pre">doping</span></code><a class="headerlink" href="#doping" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-d,</span> <span class="pre">--doping</span></code></p>
+</div>
+<div class="section" id="temperatures">
+<h3><code class="docutils literal notranslate"><span class="pre">temperatures</span></code><a class="headerlink" href="#temperatures" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-d,</span> <span class="pre">--temperatures</span></code></p>
+</div>
+<div class="section" id="interpolation-factor">
+<h3><code class="docutils literal notranslate"><span class="pre">interpolation_factor</span></code><a class="headerlink" href="#interpolation-factor" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-i,</span> <span class="pre">--interpolation-factor</span></code></p>
+<p>Something about interpolation factor</p>
+</div>
+<div class="section" id="num-extra-kpoints">
+<h3><code class="docutils literal notranslate"><span class="pre">num_extra_kpoints</span></code><a class="headerlink" href="#num-extra-kpoints" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-n,</span> <span class="pre">--num-extra-kpoints</span></code></p>
+</div>
+<div class="section" id="scattering-type">
+<h3><code class="docutils literal notranslate"><span class="pre">scattering_type</span></code><a class="headerlink" href="#scattering-type" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-s,</span> <span class="pre">--scattering-type</span></code></p>
+</div>
+<div class="section" id="scissor">
+<h3><code class="docutils literal notranslate"><span class="pre">scissor</span></code><a class="headerlink" href="#scissor" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-s,</span> <span class="pre">--scissor</span></code></p>
+</div>
+<div class="section" id="bandgap">
+<h3><code class="docutils literal notranslate"><span class="pre">bandgap</span></code><a class="headerlink" href="#bandgap" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-b,</span> <span class="pre">--bandgap</span></code></p>
+</div>
+</div>
+<div class="section" id="material-settings">
+<h2>Material settings<a class="headerlink" href="#material-settings" title="Permalink to this headline">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">material</span></code> section holds all materials properties required to calculate
+the scattering rates.</p>
+<div class="section" id="high-frequency-dielectric">
+<h3><code class="docutils literal notranslate"><span class="pre">high_frequency_dielectric</span></code><a class="headerlink" href="#high-frequency-dielectric" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--high-frequency-dielectric</span></code></p>
+</div>
+<div class="section" id="static-dielectric">
+<h3><code class="docutils literal notranslate"><span class="pre">static_dielectric</span></code><a class="headerlink" href="#static-dielectric" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--static-dielectric</span></code></p>
+</div>
+<div class="section" id="elastic-constant">
+<h3><code class="docutils literal notranslate"><span class="pre">elastic_constant</span></code><a class="headerlink" href="#elastic-constant" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--elastic-constant</span></code></p>
+</div>
+<div class="section" id="deformation-potential">
+<h3><code class="docutils literal notranslate"><span class="pre">deformation_potential</span></code><a class="headerlink" href="#deformation-potential" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--deformation-potential</span></code></p>
+</div>
+<div class="section" id="piezoelectric-coefficient">
+<h3><code class="docutils literal notranslate"><span class="pre">piezoelectric_coefficient</span></code><a class="headerlink" href="#piezoelectric-coefficient" title="Permalink to this headline">¶</a></h3>
+<p><em>command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--piezoelectric-coefficient</span></code></p>
+</div>
+<div class="section" id="acceptor-charge">
+<h3><code class="docutils literal notranslate"><span class="pre">acceptor_charge</span></code><a class="headerlink" href="#acceptor-charge" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--acceptor-charge</span></code></p>
+</div>
+<div class="section" id="donor-charge">
+<h3><code class="docutils literal notranslate"><span class="pre">donor_charge</span></code><a class="headerlink" href="#donor-charge" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--donor-charge</span></code></p>
+</div>
+<div class="section" id="pop-frequency">
+<h3><code class="docutils literal notranslate"><span class="pre">pop_frequency</span></code><a class="headerlink" href="#pop-frequency" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--pop-frequency</span></code></p>
+</div>
+</div>
+<div class="section" id="performance-settings">
+<h2>Performance settings<a class="headerlink" href="#performance-settings" title="Permalink to this headline">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">performance</span></code> section controls internal AMSET settings that will affect
+the speed and accuracy of the results.</p>
+<div class="section" id="gauss-width">
+<h3><code class="docutils literal notranslate"><span class="pre">gauss_width</span></code><a class="headerlink" href="#gauss-width" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--gauss-width</span></code></p>
+</div>
+<div class="section" id="energy-cutoff">
+<h3><code class="docutils literal notranslate"><span class="pre">energy_cutoff</span></code><a class="headerlink" href="#energy-cutoff" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--energy-cutoff</span></code></p>
+</div>
+<div class="section" id="fd-tol">
+<h3><code class="docutils literal notranslate"><span class="pre">fd_tol</span></code><a class="headerlink" href="#fd-tol" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--fd-tol</span></code></p>
+</div>
+<div class="section" id="g-tol">
+<h3><code class="docutils literal notranslate"><span class="pre">g_tol</span></code><a class="headerlink" href="#g-tol" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--g-tol</span></code></p>
+</div>
+<div class="section" id="max-g-iter">
+<h3><code class="docutils literal notranslate"><span class="pre">max_g_iter</span></code><a class="headerlink" href="#max-g-iter" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--max-g-iter</span></code></p>
+</div>
+<div class="section" id="dos-estep">
+<h3><code class="docutils literal notranslate"><span class="pre">dos_estep</span></code><a class="headerlink" href="#dos-estep" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--dos-estep</span></code></p>
+</div>
+<div class="section" id="dos-width">
+<h3><code class="docutils literal notranslate"><span class="pre">dos_width</span></code><a class="headerlink" href="#dos-width" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--dos-width</span></code></p>
+</div>
+<div class="section" id="symprec">
+<h3><code class="docutils literal notranslate"><span class="pre">symprec</span></code><a class="headerlink" href="#symprec" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--symprec</span></code></p>
+</div>
+<div class="section" id="nworkers">
+<h3><code class="docutils literal notranslate"><span class="pre">nworkers</span></code><a class="headerlink" href="#nworkers" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--nworkers</span></code></p>
+</div>
+</div>
+<div class="section" id="output-settings">
+<h2>Output settings<a class="headerlink" href="#output-settings" title="Permalink to this headline">¶</a></h2>
+<p>The output section controls the output files and logging.</p>
+<div class="section" id="calculate-mobility">
+<h3><code class="docutils literal notranslate"><span class="pre">calculate_mobility</span></code><a class="headerlink" href="#calculate-mobility" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--no-calculate-mobility</span></code></p>
+</div>
+<div class="section" id="separate-scattering-mobilities">
+<h3><code class="docutils literal notranslate"><span class="pre">separate_scattering_mobilities</span></code><a class="headerlink" href="#separate-scattering-mobilities" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--no-separate-scattering-mobilities</span></code></p>
+</div>
+<div class="section" id="file-format">
+<h3><code class="docutils literal notranslate"><span class="pre">file_format</span></code><a class="headerlink" href="#file-format" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--file-format</span></code></p>
+</div>
+<div class="section" id="write-input">
+<h3><code class="docutils literal notranslate"><span class="pre">write_input</span></code><a class="headerlink" href="#write-input" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--write-input</span></code></p>
+</div>
+<div class="section" id="write-mesh">
+<h3><code class="docutils literal notranslate"><span class="pre">write_mesh</span></code><a class="headerlink" href="#write-mesh" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--write-mesh</span></code></p>
+</div>
+<div class="section" id="log-error-traceback">
+<h3><code class="docutils literal notranslate"><span class="pre">log_error_traceback</span></code><a class="headerlink" href="#log-error-traceback" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--log-error-traceback</span></code></p>
+</div>
+<div class="section" id="print-log">
+<h3><code class="docutils literal notranslate"><span class="pre">print_log</span></code><a class="headerlink" href="#print-log" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--no-log</span></code></p>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="index.html">
+    <img class="logo" src="_static/amset_logo.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Settings</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#general-settings">General settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#material-settings">Material settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#performance-settings">Performance settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#output-settings">Output settings</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">Python API</a></li>
+</ul>
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018-2019, HackingMaterials Group.
+      
+      |
+      <a href="_sources/settings.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

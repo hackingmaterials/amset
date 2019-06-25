@@ -1,15 +1,20 @@
+"""
+TODO: Add a note about adding new settings (e.g. need to update settings.rst
+  in docs, add a default here, add it to the command-line script, and update
+  the example settings.yaml file.
+"""
 __version__ = "0.1.0"
 
 amset_defaults = {
 
     "general": {
+        "doping": [1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21],
+        "temperatures": [300],
         "interpolation_factor": 10,
-        "scissor": None,
-        "bandgap": None,
         "num_extra_kpoints": None,
         "scattering_type": "auto",
-        "doping": [1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21],
-        "temperatures": [300]
+        "scissor": None,
+        "bandgap": None,
     },
 
     "material": {

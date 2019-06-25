@@ -1,0 +1,149 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>&lt;no title&gt; &#8212; AMSET 0.1.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <p># This is an example AMSET settings file.</p>
+<p># The general parameters control the main settings for the AMSET run
+general:</p>
+<blockquote>
+<div><p># band gap settings, only one of the two options can be set simultaneously
+scissor: null                # in eV
+bandgap: 3.0                 # in eV</p>
+<p># scattering type options include ACD, PIE, IMP, DIS, POP and auto,
+# where auto will automatically determine which scattering mechanisms are
+# possible based on the supplied materials parameters
+scattering_type: auto</p>
+<p># positive doping concentrations indicates n-type doping, negative = p-type
+doping: [1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21]
+temperatures: [300, 400]</p>
+<p># The band structure interpolation factor that determines the k-mesh density
+interpolation_factor: 10</p>
+<p># This controls the number of “densification” points added near the Fermi
+# level
+num_extra_kpoints: 5000</p>
+</div></blockquote>
+<p># The materials section holds all materials parameters required to calculate
+# the scattering rates
+material:</p>
+<blockquote>
+<div><p># dielectric constants
+high_frequency_dielectric: 3
+static_dielectric: 6</p>
+<p># ACD parameters
+elastic_constant: 150             # in GPa
+deformation_potential: (9, 8)     # in eV, given for the VBM and CBM
+deformation_potential_cbm: 9      # in eV</p>
+<p># PIE parameters
+piezeoelectric_coefficient: 0.15  # in ?</p>
+<p># IMP parameters
+acceptor_charge: 1
+donor_charge: 1</p>
+<p># POP parameters
+pop_frequency: 10                 # in THz</p>
+</div></blockquote>
+<p># The performance section controls internal AMSET settings that will affect
+# the speed and accuracy of the results. See the online documentation for
+# more details. We reproduce the AMSET defaults here. Modify with caution.
+performance:</p>
+<blockquote>
+<div>gauss_width: 0.001                # in eV
+energy_cutoff: 1.5                # in eV
+fd_tol: 0.005                     # in %
+g_tol: 1                          # in %
+max_g_iter: 1
+dos_estep: 0.01                   # in eV
+dos_width: null                   # in eV
+symprec: 0.01                     # in Angstrom
+nworkers: -1</div></blockquote>
+<p># The output section controls AMSET output files and logging
+output:</p>
+<blockquote>
+<div>calculate_mobility: true
+separate_scattering_mobilities: true
+file_format: json
+write_input: false
+write_mesh: false
+log_error_traceback: false
+print_log: true</div></blockquote>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="index.html">
+    <img class="logo" src="_static/amset_logo.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="settings.html">Settings</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">Python API</a></li>
+</ul>
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018-2019, HackingMaterials Group.
+      
+      |
+      <a href="_sources/example_settings.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
