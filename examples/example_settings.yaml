@@ -46,7 +46,7 @@ material:
     # POP parameters
     pop_frequency: 10                 # in THz
 
-# The performance section controls internal AMSET settings that will effect
+# The performance section controls internal AMSET settings that will affect
 # the speed and accuracy of the results. See the online documentation for
 # more details. We reproduce the AMSET defaults here. Modify with caution.
 performance:
