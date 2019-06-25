@@ -1,0 +1,130 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>joblib.load &#8212; AMSET 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="joblib-load">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">joblib</span></code>.load<a class="headerlink" href="#joblib-load" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="joblib.load">
+<code class="descclassname">joblib.</code><code class="descname">load</code><span class="sig-paren">(</span><em>filename</em>, <em>mmap_mode=None</em><span class="sig-paren">)</span><a class="headerlink" href="#joblib.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reconstruct a Python object from a file persisted with joblib.dump.</p>
+<p>Read more in the <a class="reference external" href="https://docs.python.org/3/library/persistence.html#persistence" title="(in Python v3.7)"><span class="xref std std-ref">User Guide</span></a>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>filename</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.7)"><em>pathlib.Path</em></a><em>, or </em><em>file object.</em>) – The file object or path of the file from which to load the object</li>
+<li><strong>mmap_mode</strong> (<em>{None</em><em>, </em><em>'r+'</em><em>, </em><em>'r'</em><em>, </em><em>'w+'</em><em>, </em><em>'c'}</em><em>, </em><em>optional</em>) – If not None, the arrays are memory-mapped from the disk. This
+mode has no effect for compressed files. Note that in this
+case the reconstructed object might no longer match exactly
+the originally pickled object.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>result</strong> – The object stored in the file.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">any Python object</p>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<dl class="last docutils">
+<dt><a class="reference internal" href="joblib.dump.html#joblib.dump" title="joblib.dump"><code class="xref py py-func docutils literal notranslate"><span class="pre">joblib.dump()</span></code></a></dt>
+<dd>function to save an object</dd>
+</dl>
+</div>
+<p class="rubric">Notes</p>
+<p>This function can load numpy array files saved separately during the
+dump. If the mmap_mode argument is given, it is passed to np.load and
+arrays are loaded as memmaps. As a consequence, the reconstructed
+object might not match the original pickled object. Note that if the
+file was saved with compression, the arrays cannot be memmapped.</p>
+</dd></dl>
+
+<div class="clearer"></div></div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/amset_logo.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../settings.html">Settings</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributors.html">Contributors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">Python API</a></li>
+</ul>
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018-2019, HackingMaterials Group.
+      
+      |
+      <a href="../_sources/generated/joblib.load.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

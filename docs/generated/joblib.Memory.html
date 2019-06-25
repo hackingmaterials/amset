@@ -1,0 +1,184 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>joblib.Memory &#8212; AMSET 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="joblib-memory">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">joblib</span></code>.Memory<a class="headerlink" href="#joblib-memory" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="joblib.Memory">
+<em class="property">class </em><code class="descclassname">joblib.</code><code class="descname">Memory</code><span class="sig-paren">(</span><em>location=None</em>, <em>backend='local'</em>, <em>cachedir=None</em>, <em>mmap_mode=None</em>, <em>compress=False</em>, <em>verbose=1</em>, <em>bytes_limit=None</em>, <em>backend_options=None</em><span class="sig-paren">)</span><a class="headerlink" href="#joblib.Memory" title="Permalink to this definition">¶</a></dt>
+<dd><p>A context object for caching a function’s return value each time it
+is called with the same input arguments.</p>
+<p>All values are cached on the filesystem, in a deep directory
+structure.</p>
+<p>Read more in the <a class="reference external" href="https://docs.python.org/3/c-api/memory.html#memory" title="(in Python v3.7)"><span class="xref std std-ref">User Guide</span></a>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>location</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.7)"><em>None</em></a>) – The path of the base directory to use as a data store
+or None. If None is given, no caching is done and
+the Memory object is completely transparent. This option
+replaces cachedir since version 0.12.</li>
+<li><strong>backend</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em>, </em><em>optional</em>) – Type of store backend for reading/writing cache files.
+Default: ‘local’.
+The ‘local’ backend is using regular filesystem operations to
+manipulate data (open, mv, etc) in the backend.</li>
+<li><strong>cachedir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.7)"><em>None</em></a><em>, </em><em>optional</em>) – </li>
+<li><strong>mmap_mode</strong> (<em>{None</em><em>, </em><em>'r+'</em><em>, </em><em>'r'</em><em>, </em><em>'w+'</em><em>, </em><em>'c'}</em><em>, </em><em>optional</em>) – The memmapping mode used when loading from cache
+numpy arrays. See numpy.load for the meaning of the
+arguments.</li>
+<li><strong>compress</strong> (<em>boolean</em><em>, or </em><em>integer</em><em>, </em><em>optional</em>) – Whether to zip the stored data on disk. If an integer is
+given, it should be between 1 and 9, and sets the amount
+of compression. Note that compressed arrays cannot be
+read by memmapping.</li>
+<li><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a><em>, </em><em>optional</em>) – Verbosity flag, controls the debug messages that are issued
+as functions are evaluated.</li>
+<li><strong>bytes_limit</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a><em>, </em><em>optional</em>) – Limit in bytes of the size of the cache.</li>
+<li><strong>backend_options</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.7)"><em>dict</em></a><em>, </em><em>optional</em>) – Contains a dictionnary of named parameters used to configure
+the store backend.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="joblib.Memory.__init__">
+<code class="descname">__init__</code><span class="sig-paren">(</span><em>location=None</em>, <em>backend='local'</em>, <em>cachedir=None</em>, <em>mmap_mode=None</em>, <em>compress=False</em>, <em>verbose=1</em>, <em>bytes_limit=None</em>, <em>backend_options=None</em><span class="sig-paren">)</span><a class="headerlink" href="#joblib.Memory.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>depth</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a><em>, </em><em>optional</em>) – The depth of objects printed.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<p class="rubric">Methods</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#joblib.Memory.__init__" title="joblib.Memory.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>([location,&nbsp;backend,&nbsp;cachedir,&nbsp;…])</td>
+<td><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">param depth:</th><td class="field-body">The depth of objects printed.</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">cache</span></code>([func,&nbsp;ignore,&nbsp;verbose,&nbsp;mmap_mode])</td>
+<td>Decorates the given function func to only compute its return value for input arguments not cached on disk.</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">clear</span></code>([warn])</td>
+<td>Erase the complete cache directory.</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">debug</span></code>(msg)</td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">eval</span></code>(func,&nbsp;*args,&nbsp;**kwargs)</td>
+<td>Eval function func with arguments <cite>*args</cite> and <cite>**kwargs</cite>, in the context of the memory.</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">format</span></code>(obj[,&nbsp;indent])</td>
+<td>Return the formatted representation of the object.</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">reduce_size</span></code>()</td>
+<td>Remove cache elements to make cache size fit in <code class="docutils literal notranslate"><span class="pre">bytes_limit</span></code>.</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">warn</span></code>(msg)</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<div class="clearer"></div></div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/amset_logo.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../settings.html">Settings</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributors.html">Contributors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">Python API</a></li>
+</ul>
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018-2019, HackingMaterials Group.
+      
+      |
+      <a href="../_sources/generated/joblib.Memory.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
