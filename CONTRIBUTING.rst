@@ -1,32 +1,51 @@
-# Contributing to AMSET
-We love your input! We want to make contributing to AMSET as easy and transparent as possible, whether it's:
+Contributing to AMSET
+=====================
+
+We love your input! We want to make contributing to AMSET as easy and 
+transparent as possible, whether it's:
+
 * Reporting a bug
 * Discussing the current state of the code
 * Submitting a fix
 * Proposing or implementing new features
 * Becoming a maintainer
 
-## Reporting bugs, getting help, and discussion
-AMSET code is still in heavy development, so we do not yet have a Google Group. However, feel free at any time to submit questions or bugs to the atomate [Google Group](https://groups.google.com/forum/#!forum/atomate).
+Reporting bugs, getting help, and discussion
+--------------------------------------------
 
-If you are making a bug report, incorporate as many elements of the following as possible to ensure a timely response and avoid the need for followups:
+AMSET code is still in heavy development, so we do not yet have a Google Group.
+However, feel free at any time to submit questions or bugs to the amset 
+[Google Group](https://groups.google.com/forum/#!forum/atomate).
+
+If you are making a bug report, incorporate as many elements of the following as
+possible to ensure a timely response and avoid the need for followups:
 * A quick summary and/or background
 * Steps to reproduce - be specific! **Provide sample code.**
 * What you expected would happen, compared to what actually happens
 * The full stack trace of any errors you encounter
-* Notes (possibly including why you think this might be happening, or steps you tried that didn't work)
+* Notes (possibly including why you think this might be happening, or steps you 
+tried that didn't work)
 
-We love thorough bug reports as this means the development team can make quick and meaningful fixes. When we confirm your bug report, we'll move it to the GitHub issues where its progress can be further tracked.
+We love thorough bug reports as this means the development team can make quick 
+and meaningful fixes. When we confirm your bug report, we'll move it to the 
+GitHub issues where its progress can be further tracked.
 
-## Contributing code modifications or additions through Github
-We use github to host code, to track issues and feature requests, as well as accept pull requests. We are currently working on compiling our list of contributors, which we will eventually host on the AMSET docs. 
+Contributing code modifications or additions through Github
+-----------------------------------------------------------
 
-Pull requests are the best way to propose changes to the codebase. Follow the [Github flow](https://www.atlassian.com/git/tutorials/comparing-workflows/forking-workflow) for more information on this procedure.
+We use github to host code, to track issues and feature requests, as well as 
+accept pull requests. We are currently working on compiling our list of 
+contributors.
+
+Pull requests are the best way to propose changes to the codebase. Follow the 
+[Github flow](https://www.atlassian.com/git/tutorials/comparing-workflows/forking-workflow) 
+for more information on this procedure.
 
 The basic procedure for making a PR is:
 * Fork the repo and create your branch from master.
 * Commit your improvements to your branch and push to your Github fork (repo).
-* When you're finished, go to your fork and make a Pull Request. It will automatically update if you need to make further changes.
+* When you're finished, go to your fork and make a Pull Request. It will 
+automatically update if you need to make further changes.
 
 ### How to Make a **Great** Pull Request
 We have a few tips for writing good PRs that are accepted into the main repo:
