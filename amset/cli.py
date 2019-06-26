@@ -229,7 +229,7 @@ def _get_parser():
     )
 
     parser.add_argument(
-        "--g-tol",
+        "--ibte-tol",
         metavar="T",
         default=None,
         type=float,
@@ -237,11 +237,11 @@ def _get_parser():
     )
 
     parser.add_argument(
-        "--max-g-iter",
+        "--max-ibte-iter",
         metavar="N",
         default=None,
         type=int,
-        help="maximum number of iterations for solving g"
+        help="maximum number of iterations for solving the IBTE"
     )
 
     parser.add_argument(
