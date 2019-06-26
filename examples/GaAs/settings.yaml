@@ -1,0 +1,18 @@
+general:
+    doping: [3e13]
+    temperatures: [201, 290, 401, 506, 605, 789, 994]
+    bandgap: 1.33
+    interpolation_factor: 50
+    scattering_type: auto
+
+material:
+    acceptor_charge: 1
+    deformation_potential: [8.6, 8.6]
+    donor_charge: 1
+    elastic_constant: 139.7
+    high_frequency_dielectric: 10.32
+    pop_frequency: 8.16
+    static_dielectric: 12.18
+
+output:
+    print_log: true
