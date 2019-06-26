@@ -17,6 +17,7 @@ from monty.os import cd
 def make_doc(ctx):
     with cd("docs_rst"):
         ctx.run("sphinx-apidoc -o source/ -f ../amset")
+        ctx.run("make clean")
         ctx.run("make html")
         ctx.run("cp -r build/html/* ../docs")
 
