@@ -1,8 +1,32 @@
-from setuptools import setup, find_packages
-
+import platform
+import sys
 import os
 
+from setuptools import setup, find_packages
+
+from distutils.sysconfig import get_config_vars
+from distutils.version import LooseVersion
+
+
 module_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+# The below snippet was taken from the Pandas setup.py script.
+# It should make it easy to install BolzTraP2 without additional
+# configuration.
+
+# For mac, ensure extensions are built for macos 10.9 when compiling on a
+# 10.9 system or above, overriding distuitls behaviour which is to target
+# the version that python was built for. This may be overridden by setting
+# MACOSX_DEPLOYMENT_TARGET before calling setup.py
+if sys.platform == 'darwin':
+    if 'MACOSX_DEPLOYMENT_TARGET' not in os.environ:
+        current_system = LooseVersion(platform.mac_ver()[0])
+        python_target = LooseVersion(
+            get_config_vars('MACOSX_DEPLOYMENT_TARGET'))
+        if current_system >= '10.9' > python_target:
+            os.environ['MACOSX_DEPLOYMENT_TARGET'] = '10.9'
+
 
 with open('README.md', 'r') as file:
     long_description = file.read()
