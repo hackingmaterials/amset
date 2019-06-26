@@ -1,17 +1,16 @@
-.. title:: Settings
-
 Settings
 ========
 
 Whether using AMSET via the command-line or python API, the primary controls
 are contained in the settings file or dictionary. An example AMSET settings file
-is given :doc:`here </example_settings.yaml>`.
+is given :ref:`here <example-settings>`.
 
 The settings are grouped into sections. The description for each section and
 settings parameter is given below.
 
 All settings are also controllable via command-line flags. The corresponding
-command-line interface options are also detailed below.
+command-line interface options are also detailed below. Any settings specified
+via the command-line will override those in the settings file.
 
 .. contents::
    :local:

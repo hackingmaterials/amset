@@ -6,13 +6,14 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>&lt;no title&gt; &#8212; AMSET 0.1.0 documentation</title>
+    <title>Example settings &#8212; AMSET 0.1.0 documentation</title>
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="shortcut icon" href="_static/favicon.ico"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -32,69 +33,82 @@
 
           <div class="body" role="main">
             
-  <p># This is an example AMSET settings file.</p>
-<p># The general parameters control the main settings for the AMSET run
-general:</p>
-<blockquote>
-<div><p># band gap settings, only one of the two options can be set simultaneously
-scissor: null                # in eV
-bandgap: 3.0                 # in eV</p>
-<p># scattering type options include ACD, PIE, IMP, DIS, POP and auto,
-# where auto will automatically determine which scattering mechanisms are
-# possible based on the supplied materials parameters
-scattering_type: auto</p>
-<p># positive doping concentrations indicates n-type doping, negative = p-type
-doping: [1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21]
-temperatures: [300, 400]</p>
-<p># The band structure interpolation factor that determines the k-mesh density
-interpolation_factor: 10</p>
-<p># This controls the number of “densification” points added near the Fermi
-# level
-num_extra_kpoints: 5000</p>
-</div></blockquote>
-<p># The materials section holds all materials parameters required to calculate
-# the scattering rates
-material:</p>
-<blockquote>
-<div><p># dielectric constants
-high_frequency_dielectric: 3
-static_dielectric: 6</p>
-<p># ACD parameters
-elastic_constant: 150             # in GPa
-deformation_potential: (9, 8)     # in eV, given for the VBM and CBM
-deformation_potential_cbm: 9      # in eV</p>
-<p># PIE parameters
-piezeoelectric_coefficient: 0.15  # in ?</p>
-<p># IMP parameters
-acceptor_charge: 1
-donor_charge: 1</p>
-<p># POP parameters
-pop_frequency: 10                 # in THz</p>
-</div></blockquote>
-<p># The performance section controls internal AMSET settings that will affect
-# the speed and accuracy of the results. See the online documentation for
-# more details. We reproduce the AMSET defaults here. Modify with caution.
-performance:</p>
-<blockquote>
-<div>gauss_width: 0.001                # in eV
-energy_cutoff: 1.5                # in eV
-fd_tol: 0.005                     # in %
-g_tol: 1                          # in %
-max_g_iter: 1
-dos_estep: 0.01                   # in eV
-dos_width: null                   # in eV
-symprec: 0.01                     # in Angstrom
-nworkers: -1</div></blockquote>
-<p># The output section controls AMSET output files and logging
-output:</p>
-<blockquote>
-<div>calculate_mobility: true
-separate_scattering_mobilities: true
-file_format: json
-write_input: false
-write_mesh: false
-log_error_traceback: false
-print_log: true</div></blockquote>
+  <div class="section" id="example-settings">
+<span id="id1"></span><h1>Example settings<a class="headerlink" href="#example-settings" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># This is an example AMSET settings file.</span>
+
+<span class="c1"># The general parameters control the main settings for the AMSET run</span>
+<span class="n">general</span><span class="p">:</span>
+
+    <span class="c1"># band gap settings, only one of the two options can be set simultaneously</span>
+    <span class="n">scissor</span><span class="p">:</span> <span class="n">null</span>                <span class="c1"># in eV</span>
+    <span class="n">bandgap</span><span class="p">:</span> <span class="mf">3.0</span>                 <span class="c1"># in eV</span>
+
+    <span class="c1"># scattering type options include ACD, PIE, IMP, DIS, POP and auto,</span>
+    <span class="c1"># where auto will automatically determine which scattering mechanisms are</span>
+    <span class="c1"># possible based on the supplied materials parameters</span>
+    <span class="n">scattering_type</span><span class="p">:</span> <span class="n">auto</span>
+
+    <span class="c1"># positive doping concentrations indicates n-type doping, negative = p-type</span>
+    <span class="n">doping</span><span class="p">:</span> <span class="p">[</span><span class="mf">1e15</span><span class="p">,</span> <span class="mf">1e16</span><span class="p">,</span> <span class="mf">1e17</span><span class="p">,</span> <span class="mf">1e18</span><span class="p">,</span> <span class="mf">1e19</span><span class="p">,</span> <span class="mf">1e20</span><span class="p">,</span> <span class="mf">1e21</span><span class="p">]</span>
+    <span class="n">temperatures</span><span class="p">:</span> <span class="p">[</span><span class="mi">300</span><span class="p">,</span> <span class="mi">400</span><span class="p">]</span>
+
+    <span class="c1"># The band structure interpolation factor that determines the k-mesh density</span>
+    <span class="n">interpolation_factor</span><span class="p">:</span> <span class="mi">10</span>
+
+    <span class="c1"># This controls the number of &quot;densification&quot; points added near the Fermi</span>
+    <span class="c1"># level</span>
+    <span class="n">num_extra_kpoints</span><span class="p">:</span> <span class="mi">5000</span>
+
+
+<span class="c1"># The materials section holds all materials parameters required to calculate</span>
+<span class="c1"># the scattering rates</span>
+<span class="n">material</span><span class="p">:</span>
+    <span class="c1"># dielectric constants</span>
+    <span class="n">high_frequency_dielectric</span><span class="p">:</span> <span class="mi">3</span>
+    <span class="n">static_dielectric</span><span class="p">:</span> <span class="mi">6</span>
+
+    <span class="c1"># ACD parameters</span>
+    <span class="n">elastic_constant</span><span class="p">:</span> <span class="mi">150</span>             <span class="c1"># in GPa</span>
+    <span class="n">deformation_potential</span><span class="p">:</span> <span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>     <span class="c1"># in eV, given for the VBM and CBM</span>
+    <span class="n">deformation_potential_cbm</span><span class="p">:</span> <span class="mi">9</span>      <span class="c1"># in eV</span>
+
+    <span class="c1"># PIE parameters</span>
+    <span class="n">piezeoelectric_coefficient</span><span class="p">:</span> <span class="mf">0.15</span>  <span class="c1"># unitless</span>
+
+    <span class="c1"># IMP parameters</span>
+    <span class="n">acceptor_charge</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="n">donor_charge</span><span class="p">:</span> <span class="mi">1</span>
+
+    <span class="c1"># POP parameters</span>
+    <span class="n">pop_frequency</span><span class="p">:</span> <span class="mi">10</span>                 <span class="c1"># in THz</span>
+
+<span class="c1"># The performance section controls internal AMSET settings that will affect</span>
+<span class="c1"># the speed and accuracy of the results. See the online documentation for</span>
+<span class="c1"># more details. We reproduce the AMSET defaults here. Modify with caution.</span>
+<span class="n">performance</span><span class="p">:</span>
+    <span class="n">gauss_width</span><span class="p">:</span> <span class="mf">0.001</span>                <span class="c1"># in eV</span>
+    <span class="n">energy_cutoff</span><span class="p">:</span> <span class="mf">1.5</span>                <span class="c1"># in eV</span>
+    <span class="n">fd_tol</span><span class="p">:</span> <span class="mf">0.005</span>                     <span class="c1"># in %</span>
+    <span class="n">ibte_tol</span><span class="p">:</span> <span class="mi">1</span>                          <span class="c1"># in %</span>
+    <span class="n">max_ibte_iter</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="n">dos_estep</span><span class="p">:</span> <span class="mf">0.01</span>                   <span class="c1"># in eV</span>
+    <span class="n">dos_width</span><span class="p">:</span> <span class="n">null</span>                   <span class="c1"># in eV</span>
+    <span class="n">symprec</span><span class="p">:</span> <span class="mf">0.01</span>                     <span class="c1"># in Angstrom</span>
+    <span class="n">nworkers</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span>
+
+<span class="c1"># The output section controls AMSET output files and logging</span>
+<span class="n">output</span><span class="p">:</span>
+  <span class="n">calculate_mobility</span><span class="p">:</span> <span class="n">true</span>
+  <span class="n">separate_scattering_mobilities</span><span class="p">:</span> <span class="n">true</span>
+  <span class="n">file_format</span><span class="p">:</span> <span class="n">json</span>
+  <span class="n">write_input</span><span class="p">:</span> <span class="n">false</span>
+  <span class="n">write_mesh</span><span class="p">:</span> <span class="n">false</span>
+  <span class="n">log_error_traceback</span><span class="p">:</span> <span class="n">false</span>
+  <span class="n">print_log</span><span class="p">:</span> <span class="n">true</span>
+</pre></div>
+</div>
+</div>
 
 
           </div>
@@ -120,12 +134,16 @@ print_log: true</div></blockquote>
 <h3>Navigation</h3>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="using.html">Using AMSET</a></li>
 <li class="toctree-l1"><a class="reference internal" href="settings.html">Settings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scattering.html">Scattering rates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="theory.html">Theory</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributors</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="license.html">License</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">Python API</a></li>
 </ul>
 
