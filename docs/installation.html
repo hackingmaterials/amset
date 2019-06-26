@@ -13,10 +13,11 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="shortcut icon" href="_static/favicon.ico"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Settings file and command-line options" href="settings.html" />
+    <link rel="next" title="Using AMSET" href="using.html" />
     <link rel="prev" title="AMSET: ab initio scattering and transport" href="index.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -36,17 +37,24 @@
             
   <div class="section" id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="from-pypi">
-<h2>From Pypi<a class="headerlink" href="#from-pypi" title="Permalink to this headline">¶</a></h2>
-</div>
 <div class="section" id="from-source">
 <h2>From source<a class="headerlink" href="#from-source" title="Permalink to this headline">¶</a></h2>
+<p>To install AMSET from source, first clone the repository from GitHub, then
+install using pip:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git clone git@github.com:hackingmaterials/amset.git
+<span class="nb">cd</span> amset
+pip install .
+</pre></div>
+</div>
+<p>If not installing from inside a virtual environment or conda environment, you
+may need to specify to install as a <em>user</em> via:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip install . --user
+</pre></div>
+</div>
 <div class="section" id="installing-amset-on-nersc">
 <h3>Installing AMSET on NERSC<a class="headerlink" href="#installing-amset-on-nersc" title="Permalink to this headline">¶</a></h3>
-<dl class="docutils">
-<dt>The BolzTraP2 dependency requires some configuration to be installed properly on</dt>
-<dd>CRAY systems. Accordingly, AMSET can be installed using:</dd>
-</dl>
+<p>The BolzTraP2 dependency requires some configuration to be installed properly on
+CRAY systems. Accordingly, AMSET can be installed using:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">CXX</span><span class="o">=</span>icc <span class="nv">CRAYPE_LINK_TYPE</span><span class="o">=</span>shared pip install amset
 </pre></div>
 </div>
@@ -78,16 +86,19 @@
 <h3>Navigation</h3>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#from-pypi">From Pypi</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#from-source">From source</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="settings.html">Settings file and command-line options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="using.html">Using AMSET</a></li>
+<li class="toctree-l1"><a class="reference internal" href="settings.html">Settings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scattering.html">Scattering rates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="theory.html">Theory</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributors</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="license.html">License</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">Python API</a></li>
 </ul>
 
