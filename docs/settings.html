@@ -13,11 +13,12 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="shortcut icon" href="_static/favicon.ico"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Change log" href="changelog.html" />
-    <link rel="prev" title="Installation" href="installation.html" />
+    <link rel="prev" title="Scattering rates" href="scattering.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -37,10 +38,12 @@
   <div class="section" id="settings">
 <h1>Settings<a class="headerlink" href="#settings" title="Permalink to this headline">¶</a></h1>
 <p>Whether using AMSET via the command-line or python API, the primary controls
-are contained in the settings file. An example AMSET settings file is given
-<span class="xref std std-doc">here</span>.</p>
+are contained in the settings file or dictionary. An example AMSET settings file
+is given <span class="xref std std-doc">here</span>.</p>
 <p>The settings are grouped into sections. The description for each section and
 settings parameter is given below.</p>
+<p>All settings are also controllable via command-line flags. The corresponding
+command-line interface options are also detailed below.</p>
 <div class="contents local topic" id="contents">
 <ul class="simple">
 <li><a class="reference internal" href="#general-settings" id="id1">General settings</a><ul>
@@ -68,8 +71,8 @@ settings parameter is given below.</p>
 <li><a class="reference internal" href="#gauss-width" id="id19"><code class="docutils literal notranslate"><span class="pre">gauss_width</span></code></a></li>
 <li><a class="reference internal" href="#energy-cutoff" id="id20"><code class="docutils literal notranslate"><span class="pre">energy_cutoff</span></code></a></li>
 <li><a class="reference internal" href="#fd-tol" id="id21"><code class="docutils literal notranslate"><span class="pre">fd_tol</span></code></a></li>
-<li><a class="reference internal" href="#g-tol" id="id22"><code class="docutils literal notranslate"><span class="pre">g_tol</span></code></a></li>
-<li><a class="reference internal" href="#max-g-iter" id="id23"><code class="docutils literal notranslate"><span class="pre">max_g_iter</span></code></a></li>
+<li><a class="reference internal" href="#ibte-tol" id="id22"><code class="docutils literal notranslate"><span class="pre">ibte_tol</span></code></a></li>
+<li><a class="reference internal" href="#max-ibte-iter" id="id23"><code class="docutils literal notranslate"><span class="pre">max_ibte_iter</span></code></a></li>
 <li><a class="reference internal" href="#dos-estep" id="id24"><code class="docutils literal notranslate"><span class="pre">dos_estep</span></code></a></li>
 <li><a class="reference internal" href="#dos-width" id="id25"><code class="docutils literal notranslate"><span class="pre">dos_width</span></code></a></li>
 <li><a class="reference internal" href="#symprec" id="id26"><code class="docutils literal notranslate"><span class="pre">symprec</span></code></a></li>
@@ -95,31 +98,86 @@ including interpolation settings and temperature/doping ranges.</p>
 <div class="section" id="doping">
 <h3><code class="docutils literal notranslate"><span class="pre">doping</span></code><a class="headerlink" href="#doping" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-d,</span> <span class="pre">--doping</span></code></p>
+<p>Controls which doping levels (carrier concentrations) to calculate.
+Concentrations given with the unit cm<sup>–3</sup>. Can be specified directly as a comma
+separated list, e.g.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mf">1E13</span><span class="p">,</span> <span class="mf">1E14</span><span class="p">,</span> <span class="mf">1E15</span><span class="p">,</span> <span class="mf">1E16</span>
+</pre></div>
+</div>
+<p>Alternatively, ranges can be specified using the syntax <code class="docutils literal notranslate"><span class="pre">start:stop:num_steps</span></code>,
+e.g.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mf">1E13</span><span class="p">:</span><span class="mf">1E20</span><span class="p">:</span><span class="mi">8</span>
+</pre></div>
+</div>
+<p>Negative concentrations indicate holes (<em>p</em>-type doping), positive concentrations
+indicate electrons (<em>n</em>-type doping).</p>
 </div>
 <div class="section" id="temperatures">
 <h3><code class="docutils literal notranslate"><span class="pre">temperatures</span></code><a class="headerlink" href="#temperatures" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-d,</span> <span class="pre">--temperatures</span></code></p>
+<p>Controls which temperatures to calculate. Temperatures given in Kelvin. Can be
+specified directly as a comma separated list, e.g.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">300</span><span class="p">,</span><span class="mi">400</span><span class="p">,</span><span class="mi">500</span>
+</pre></div>
+</div>
+<p>Alternatively, ranges can be specified using the syntax <code class="docutils literal notranslate"><span class="pre">start:stop:num_steps</span></code>,
+e.g.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">300</span><span class="p">:</span><span class="mi">1000</span><span class="p">:</span><span class="mi">8</span>
+</pre></div>
+</div>
 </div>
 <div class="section" id="interpolation-factor">
 <h3><code class="docutils literal notranslate"><span class="pre">interpolation_factor</span></code><a class="headerlink" href="#interpolation-factor" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-i,</span> <span class="pre">--interpolation-factor</span></code></p>
-<p>Something about interpolation factor</p>
+<p>Interpolation factor controlling the interpolation density. Larger numbers
+indicate greater density. The number of k-points in the interpolated band
+structure will be roughly equal to <code class="docutils literal notranslate"><span class="pre">interpolation_factor</span></code> times the number
+of k-points in the DFT calculation. This is the primary option for controlling
+the accuracy of the calculated scattering rates. <strong>Transport properties should
+be converged with respect to this parameter.</strong></p>
 </div>
 <div class="section" id="num-extra-kpoints">
 <h3><code class="docutils literal notranslate"><span class="pre">num_extra_kpoints</span></code><a class="headerlink" href="#num-extra-kpoints" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-n,</span> <span class="pre">--num-extra-kpoints</span></code></p>
+<p>Number of additional k-points to add near the Fermi level in regions of k-space
+with large band velocities. Densifying the band structure at these points can
+often improve the speed of convergence for very disperse band structures.</p>
+<p>When extra k-points are added, the k-point weights are determined by: i)
+calculating the Voronoi tessellation for the k-points, ii) calculating the
+Voronoi cell volumes. This calculation can add some additional computational
+expense.</p>
+<p>See <a class="reference internal" href="#fd-tol">fd_tol</a> for controlling where to add the extra k-points.</p>
 </div>
 <div class="section" id="scattering-type">
 <h3><code class="docutils literal notranslate"><span class="pre">scattering_type</span></code><a class="headerlink" href="#scattering-type" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-s,</span> <span class="pre">--scattering-type</span></code></p>
+<p>Which scattering mechanisms to calculation. If set to <code class="docutils literal notranslate"><span class="pre">auto</span></code>, the scattering
+mechanisms will automatically be determined based on the specified material
+parameters. Alternatively, a comma separated list of scattering mechanism
+can be specified. Options include:</p>
+<ul class="simple">
+<li><code class="docutils literal notranslate"><span class="pre">ACD</span></code> (acoustic deformation potential scattering)</li>
+<li><code class="docutils literal notranslate"><span class="pre">IMP</span></code> (ionized impurity scattering)</li>
+<li><code class="docutils literal notranslate"><span class="pre">PIE</span></code> (piezoelectric scattering)</li>
+<li><code class="docutils literal notranslate"><span class="pre">POP</span></code> (polar optical phonon scattering)</li>
+</ul>
+<p>For example, <code class="docutils literal notranslate"><span class="pre">ACD,IMP,POP</span></code>. The scattering mechanism will only be calculated
+if all the required material parameters for that mechanism are set. See the
+<a class="reference external" href="scattering">scattering section</a> of the documentation for more details.</p>
 </div>
 <div class="section" id="scissor">
 <h3><code class="docutils literal notranslate"><span class="pre">scissor</span></code><a class="headerlink" href="#scissor" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-s,</span> <span class="pre">--scissor</span></code></p>
+<p>The amount to scissor the band gap, in eV. Positive values indicate band gap
+opening, negative values indicate band gap narrowing. Has no effect for metallic
+systems.</p>
 </div>
 <div class="section" id="bandgap">
 <h3><code class="docutils literal notranslate"><span class="pre">bandgap</span></code><a class="headerlink" href="#bandgap" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-b,</span> <span class="pre">--bandgap</span></code></p>
+<p>Set the band gap to this value, in eV. Will automatically determine and apply the
+correct band gap scissor for the specified band gap. Cannot be used in
+combination with the <a class="reference internal" href="#scissor">scissor</a>  option. Has no effect for metallic systems.</p>
 </div>
 </div>
 <div class="section" id="material-settings">
@@ -129,75 +187,123 @@ the scattering rates.</p>
 <div class="section" id="high-frequency-dielectric">
 <h3><code class="docutils literal notranslate"><span class="pre">high_frequency_dielectric</span></code><a class="headerlink" href="#high-frequency-dielectric" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--high-frequency-dielectric</span></code></p>
+<p>The high-frequency dielectric constant, in units of <span class="math notranslate nohighlight">\(\epsilon_0\)</span>.</p>
+<p><em>Required for:</em> POP</p>
 </div>
 <div class="section" id="static-dielectric">
 <h3><code class="docutils literal notranslate"><span class="pre">static_dielectric</span></code><a class="headerlink" href="#static-dielectric" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--static-dielectric</span></code></p>
+<p>The static dielectric constant, in units of <span class="math notranslate nohighlight">\(\epsilon_0\)</span>.</p>
+<p><em>Required for:</em> IMP, PIE, POP</p>
 </div>
 <div class="section" id="elastic-constant">
 <h3><code class="docutils literal notranslate"><span class="pre">elastic_constant</span></code><a class="headerlink" href="#elastic-constant" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--elastic-constant</span></code></p>
+<p>The direction averaged elastic constant, in GPa.</p>
+<p><em>Required for:</em> ACD</p>
 </div>
 <div class="section" id="deformation-potential">
 <h3><code class="docutils literal notranslate"><span class="pre">deformation_potential</span></code><a class="headerlink" href="#deformation-potential" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--deformation-potential</span></code></p>
+<p>The volume deformation potential, in eV. Can be given as a comma separated
+list of two values for the VBM and CBM, respectively, e.g.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mf">8.6</span><span class="p">,</span> <span class="mf">7.4</span>
+</pre></div>
+</div>
+<p>Or a single value to use for all bands in metals.</p>
+<p><em>Required for:</em> ACD</p>
 </div>
 <div class="section" id="piezoelectric-coefficient">
 <h3><code class="docutils literal notranslate"><span class="pre">piezoelectric_coefficient</span></code><a class="headerlink" href="#piezoelectric-coefficient" title="Permalink to this headline">¶</a></h3>
 <p><em>command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--piezoelectric-coefficient</span></code></p>
+<p>The direction averaged piezoelectric coefficient (unitless).</p>
+<p><em>Required for:</em> PIE</p>
 </div>
 <div class="section" id="acceptor-charge">
 <h3><code class="docutils literal notranslate"><span class="pre">acceptor_charge</span></code><a class="headerlink" href="#acceptor-charge" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--acceptor-charge</span></code></p>
+<p>The charge of acceptor defects, in units of electron charge.</p>
+<p><em>Required for:</em> IMP</p>
 </div>
 <div class="section" id="donor-charge">
 <h3><code class="docutils literal notranslate"><span class="pre">donor_charge</span></code><a class="headerlink" href="#donor-charge" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--donor-charge</span></code></p>
+<p>The charge of donor defects, in units of electron charge.</p>
+<p><em>Required for:</em> IMP</p>
 </div>
 <div class="section" id="pop-frequency">
 <h3><code class="docutils literal notranslate"><span class="pre">pop_frequency</span></code><a class="headerlink" href="#pop-frequency" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--pop-frequency</span></code></p>
+<p>The polar optical phonon frequency, in THz. Generally, it is ok to take the
+highest optical phonon frequency at the Gamma point.</p>
+<p><em>Required for:</em> POP</p>
 </div>
 </div>
 <div class="section" id="performance-settings">
 <h2>Performance settings<a class="headerlink" href="#performance-settings" title="Permalink to this headline">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">performance</span></code> section controls internal AMSET settings that will affect
-the speed and accuracy of the results.</p>
+the speed and accuracy of calculated properties.</p>
 <div class="section" id="gauss-width">
 <h3><code class="docutils literal notranslate"><span class="pre">gauss_width</span></code><a class="headerlink" href="#gauss-width" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--gauss-width</span></code></p>
+<p>The gaussian width (sigma) that is used to approximate the delta function when
+calculating scattering rates, in eV. Larger values will lead to scattering
+between greater numbers of k-points, leading to an artificial increase in the
+scattering rate. Smaller values require denser k-point meshes to converge the
+scattering rate. In general, the default value of 0.001 eV is acceptable in
+most cases.</p>
 </div>
 <div class="section" id="energy-cutoff">
 <h3><code class="docutils literal notranslate"><span class="pre">energy_cutoff</span></code><a class="headerlink" href="#energy-cutoff" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--energy-cutoff</span></code></p>
+<p>The energy cut-off used to determine which bands to include in the interpolation
+and scattering rate calculation, in eV.</p>
 </div>
 <div class="section" id="fd-tol">
 <h3><code class="docutils literal notranslate"><span class="pre">fd_tol</span></code><a class="headerlink" href="#fd-tol" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--fd-tol</span></code></p>
+<p>The Fermi–Dirac derivative tolerance that controls where extra k-points are
+added. Given as a percentage from 0 to 1. Larger values indicate that the
+k-points will be added to regions of the band structure with large Fermi–Dirac
+derivative contributions. Smaller values will spread the k-points over more of
+the Brillouin zone.</p>
+<p>Additional details of the densification process will be added soon.</p>
 </div>
-<div class="section" id="g-tol">
-<h3><code class="docutils literal notranslate"><span class="pre">g_tol</span></code><a class="headerlink" href="#g-tol" title="Permalink to this headline">¶</a></h3>
-<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--g-tol</span></code></p>
+<div class="section" id="ibte-tol">
+<h3><code class="docutils literal notranslate"><span class="pre">ibte_tol</span></code><a class="headerlink" href="#ibte-tol" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--ibte-tol</span></code></p>
+<p>Parameter to control when the iterative Boltzmann transport equation is
+considered converged. Given as a percent from 0 to 1.</p>
+<p><strong>Not yet tested</strong></p>
 </div>
-<div class="section" id="max-g-iter">
-<h3><code class="docutils literal notranslate"><span class="pre">max_g_iter</span></code><a class="headerlink" href="#max-g-iter" title="Permalink to this headline">¶</a></h3>
-<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--max-g-iter</span></code></p>
+<div class="section" id="max-ibte-iter">
+<h3><code class="docutils literal notranslate"><span class="pre">max_ibte_iter</span></code><a class="headerlink" href="#max-ibte-iter" title="Permalink to this headline">¶</a></h3>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--max-ibte-iter</span></code></p>
+<p>Maximum number of iterations for solving the iterative Boltzmann transport
+equation.</p>
+<p><strong>Not yet tested</strong></p>
 </div>
 <div class="section" id="dos-estep">
 <h3><code class="docutils literal notranslate"><span class="pre">dos_estep</span></code><a class="headerlink" href="#dos-estep" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--dos-estep</span></code></p>
+<p>The energy step for the calculated density of states, in eV. Controls the
+accuracy when determining the position of the Fermi level.</p>
 </div>
 <div class="section" id="dos-width">
 <h3><code class="docutils literal notranslate"><span class="pre">dos_width</span></code><a class="headerlink" href="#dos-width" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--dos-width</span></code></p>
+<p>Broadening width by which to smear the density of states, in eV. It is
+recommended to leave this as <code class="docutils literal notranslate"><span class="pre">None</span></code>, e.g., no broadening.</p>
 </div>
 <div class="section" id="symprec">
 <h3><code class="docutils literal notranslate"><span class="pre">symprec</span></code><a class="headerlink" href="#symprec" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--symprec</span></code></p>
+<p>The symmetry finding tolerance, in Å.</p>
 </div>
 <div class="section" id="nworkers">
 <h3><code class="docutils literal notranslate"><span class="pre">nworkers</span></code><a class="headerlink" href="#nworkers" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--nworkers</span></code></p>
+<p>Number of processors to use.</p>
 </div>
 </div>
 <div class="section" id="output-settings">
@@ -206,30 +312,45 @@ the speed and accuracy of the results.</p>
 <div class="section" id="calculate-mobility">
 <h3><code class="docutils literal notranslate"><span class="pre">calculate_mobility</span></code><a class="headerlink" href="#calculate-mobility" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--no-calculate-mobility</span></code></p>
+<p>Whether to calculate <em>n</em>- and <em>p</em>-type carrier mobilities. Has no effect
+for metallic systems where mobility is not well defined.</p>
 </div>
 <div class="section" id="separate-scattering-mobilities">
 <h3><code class="docutils literal notranslate"><span class="pre">separate_scattering_mobilities</span></code><a class="headerlink" href="#separate-scattering-mobilities" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--no-separate-scattering-mobilities</span></code></p>
+<p>Whether to report the individual scattering rate mobilities. I.e., the mobility
+if only that scattering mechanism were present.</p>
 </div>
 <div class="section" id="file-format">
 <h3><code class="docutils literal notranslate"><span class="pre">file_format</span></code><a class="headerlink" href="#file-format" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--file-format</span></code></p>
+<p>The output file format. Options are: <code class="docutils literal notranslate"><span class="pre">json</span></code>, <code class="docutils literal notranslate"><span class="pre">yaml</span></code>, and <code class="docutils literal notranslate"><span class="pre">txt</span></code>.</p>
+<p>Default is <code class="docutils literal notranslate"><span class="pre">json</span></code>.</p>
 </div>
 <div class="section" id="write-input">
 <h3><code class="docutils literal notranslate"><span class="pre">write_input</span></code><a class="headerlink" href="#write-input" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--write-input</span></code></p>
+<p>Whether to write the input settings to a file called <code class="docutils literal notranslate"><span class="pre">amset_settings.yaml</span></code>.</p>
 </div>
 <div class="section" id="write-mesh">
 <h3><code class="docutils literal notranslate"><span class="pre">write_mesh</span></code><a class="headerlink" href="#write-mesh" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--write-mesh</span></code></p>
+<p>Whether to write the full k-dependent properties to disk. Properties include
+the band energy, velocity and scattering rate.</p>
+<p><strong>Note:</strong> for large values of <a class="reference internal" href="#interpolation-factor">interpolation_factor</a> this option can use a large
+amount of disk space.</p>
 </div>
 <div class="section" id="log-error-traceback">
 <h3><code class="docutils literal notranslate"><span class="pre">log_error_traceback</span></code><a class="headerlink" href="#log-error-traceback" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--log-error-traceback</span></code></p>
+<p>Whether to log the full error traceback rather than just the error message. If
+you find a problem with AMSET, please enable this option and provide the AMSET
+developers with the full crash report.</p>
 </div>
 <div class="section" id="print-log">
 <h3><code class="docutils literal notranslate"><span class="pre">print_log</span></code><a class="headerlink" href="#print-log" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--no-log</span></code></p>
+<p>Whether to print log messages.</p>
 </div>
 </div>
 </div>
@@ -258,6 +379,7 @@ the speed and accuracy of the results.</p>
 <h3>Navigation</h3>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scattering.html">Scattering rates</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Settings</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#general-settings">General settings</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#material-settings">Material settings</a></li>
@@ -269,7 +391,7 @@ the speed and accuracy of the results.</p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributors</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">Python API</a></li>
 </ul>
 

@@ -6,13 +6,14 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>AMSET: Ab initio scattering and transport &#8212; AMSET 0.1.0 documentation</title>
+    <title>AMSET: ab initio scattering and transport &#8212; AMSET 0.1.0 documentation</title>
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="shortcut icon" href="_static/favicon.ico"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -35,7 +36,7 @@
             
   <style type="text/css">
   div.body li.toctree-l1 {
-      padding: 0.5em 0 1em 0 ;
+      padding: 0.5em 0 0.2em 0 ;
       list-style-type: none;
       font-size: 150% ;
       }
@@ -60,9 +61,9 @@
 <h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
 <p>Accurately calculating electronic transport properties from first-principles
 is often highly computationally expensive and difficult to perform. AMSET is a
-fast and easy-to-use package to model carrier transport. The primary aim of
-AMSET is to be <strong>amenable to high-throughput screenings</strong>. Features of AMSET
-include:</p>
+fast and easy-to-use package to model carrier transport in solid-state materials.
+A primary aim of AMSET is to be <strong>amenable to high-throughput screenings</strong>.
+Features of AMSET include:</p>
 <ul class="simple">
 <li>All inputs easily obtainable from first-principles calculations. The
 primary input for AMSET is an <em>ab initio</em> uniform band structure.</li>
@@ -71,24 +72,26 @@ such as phonon frequencies and dielectric constants.</li>
 <li>Transport properties calculated by solving the iterative Boltzmann transport
 equation.</li>
 <li>Heavily optimised code that can run on a personal laptop. High-performance
-computing clusters are not necessary.</li>
+computing clusters not necessary.</li>
 </ul>
-<p>AMSET is built on top of state-of-the-art open-source libraries: BoltzTraP2
-for band structure interpolation, numpy and scipy to enable high-performance, and
-pymatgen for handling DFT calculation data.</p>
+<p>AMSET is built on top of state-of-the-art open-source libraries:
+<a class="reference external" href="http://boltztrap.org/">BoltzTraP2</a> for band structure interpolation,
+<a class="reference external" href="https://www.numpy.org/">numpy</a> and
+<a class="reference external" href="https://scipy.org">scipy</a> to enable high-performance matrix operations, and
+<a class="reference external" href="http://pymatgen.org">pymatgen</a> for handling DFT calculation data.</p>
 <p><em>Note: Currently, AMSET is best integrated with VASP, however,
 support for additional periodic DFT codes will be added in the future.</em></p>
 <div class="section" id="scattering-mechanisms">
 <h3>Scattering Mechanisms<a class="headerlink" href="#scattering-mechanisms" title="Permalink to this headline">¶</a></h3>
 <p>The scattering mechanisms currently implemented in AMSET are:</p>
 <ul class="simple">
-<li>Acoustic deformation potential scattering.</li>
-<li>Ionized impurity scattering.</li>
-<li>Polar optical phonon scattering.</li>
-<li>Piezoelectric scattering.</li>
+<li>Acoustic deformation potential scattering</li>
+<li>Ionized impurity scattering</li>
+<li>Polar optical phonon scattering</li>
+<li>Piezoelectric scattering</li>
 </ul>
 <p>More information on the formalism for each scattering mechanism is available
-in the <a class="reference external" href="theory">theory section</a> of the documentation.</p>
+in the <a class="reference external" href="scattering">scattering section</a> of the documentation.</p>
 </div>
 </div>
 <div class="section" id="user-manual">
@@ -97,8 +100,12 @@ in the <a class="reference external" href="theory">theory section</a> of the doc
 <div><div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#from-pypi">From Pypi</a></li>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#from-source">From source</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="using.html">Using AMSET</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="using.html#from-the-command-line">From the command-line</a></li>
+<li class="toctree-l2"><a class="reference internal" href="using.html#from-the-python-api">From the Python API</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="settings.html">Settings</a><ul>
@@ -108,6 +115,17 @@ in the <a class="reference external" href="theory">theory section</a> of the doc
 <li class="toctree-l2"><a class="reference internal" href="settings.html#output-settings">Output settings</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="scattering.html">Scattering rates</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="scattering.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scattering.html#acoustic-deformation-potential-scattering">Acoustic deformation potential scattering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scattering.html#ionized-impurity-scattering">Ionized impurity scattering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scattering.html#piezoelectric-scattering">Piezoelectric scattering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scattering.html#polar-optical-phonon-scattering">Polar optical phonon scattering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scattering.html#overlap-integral">Overlap integral</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scattering.html#brillouin-zone-integration">Brillouin zone integration</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="theory.html">Theory</a></li>
 </ul>
 </div>
 </div></blockquote>
@@ -168,12 +186,16 @@ Read more about contributing code to AMSET <a class="reference internal" href="c
 <h3>Navigation</h3>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="using.html">Using AMSET</a></li>
 <li class="toctree-l1"><a class="reference internal" href="settings.html">Settings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scattering.html">Scattering rates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="theory.html">Theory</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributors</a></li>
-<li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="license.html">License</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">Python API</a></li>
 </ul>
 

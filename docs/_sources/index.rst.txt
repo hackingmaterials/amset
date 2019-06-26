@@ -2,7 +2,7 @@
 
   <style type="text/css">
     div.body li.toctree-l1 {
-        padding: 0.5em 0 1em 0 ;
+        padding: 0.5em 0 0.2em 0 ;
         list-style-type: none;
         font-size: 150% ;
         }
@@ -33,9 +33,9 @@ Introduction
 
 Accurately calculating electronic transport properties from first-principles
 is often highly computationally expensive and difficult to perform. AMSET is a
-fast and easy-to-use package to model carrier transport. The primary aim of
-AMSET is to be **amenable to high-throughput screenings**. Features of AMSET
-include:
+fast and easy-to-use package to model carrier transport in solid-state materials.
+A primary aim of AMSET is to be **amenable to high-throughput screenings**.
+Features of AMSET include:
 
 - All inputs easily obtainable from first-principles calculations. The
   primary input for AMSET is an *ab initio* uniform band structure.
@@ -44,11 +44,13 @@ include:
 - Transport properties calculated by solving the iterative Boltzmann transport
   equation.
 - Heavily optimised code that can run on a personal laptop. High-performance
-  computing clusters are not necessary.
+  computing clusters not necessary.
 
-AMSET is built on top of state-of-the-art open-source libraries: BoltzTraP2
-for band structure interpolation, numpy and scipy to enable high-performance, and
-pymatgen for handling DFT calculation data.
+AMSET is built on top of state-of-the-art open-source libraries:
+`BoltzTraP2 <http://boltztrap.org/>`_ for band structure interpolation,
+`numpy <https://www.numpy.org/>`_ and
+`scipy <https://scipy.org>`_ to enable high-performance matrix operations, and
+`pymatgen <http://pymatgen.org>`_ for handling DFT calculation data.
 
 *Note: Currently, AMSET is best integrated with VASP, however,
 support for additional periodic DFT codes will be added in the future.*
@@ -58,13 +60,13 @@ Scattering Mechanisms
 
 The scattering mechanisms currently implemented in AMSET are:
 
-- Acoustic deformation potential scattering.
-- Ionized impurity scattering.
-- Polar optical phonon scattering.
-- Piezoelectric scattering.
+- Acoustic deformation potential scattering
+- Ionized impurity scattering
+- Polar optical phonon scattering
+- Piezoelectric scattering
 
 More information on the formalism for each scattering mechanism is available
-in the `theory section <theory>`_ of the documentation.
+in the `scattering section <scattering>`_ of the documentation.
 
 User manual
 --------------
@@ -73,9 +75,10 @@ User manual
     :maxdepth: 2
 
     installation.rst
-    theory.rst
-    scattering_rates.rst
+    using.rst
     settings.rst
+    scattering.rst
+    theory.rst
 
 .. toctree::
    :hidden:
@@ -83,7 +86,8 @@ User manual
 
    changelog
    contributors
-   changelog
+   references
+   license
    Python API <modules>
 
 What's new?
