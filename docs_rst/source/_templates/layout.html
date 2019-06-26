@@ -1,10 +1,17 @@
-{% extends "!layout.html" %}
+{% extends '!layout.html' %}
 
-{%- block extrahead %}
-{{ super() }}
-<link href='https://fonts.googleapis.com/css?family=Lato:400,700' rel='stylesheet' type='text/css'>
-{% endblock %}
+<!--{%- block sidebarsourcelink %}-->
+<!--{% endblock %}-->
 
-{% block footer %}
+{%- block sidebarsearch %}
+    <hr/>
 {{ super() }}
+    <hr/>
+    <div>
+	<h3>Support</h3>
+	<a href="https://groups.google.com/forum/#!forum/atomate">AMSET Forum</a>
+    <p class="searchtip" style="font-size: 80%">
+    Send an email to subscribe</p>
+    </div>
+<hr/>
 {% endblock %}

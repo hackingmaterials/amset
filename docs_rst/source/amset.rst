@@ -6,15 +6,41 @@ Subpackages
 
 .. toctree::
 
-    amset.utils
+    amset.interpolation
+    amset.misc
+    amset.scattering
 
 Submodules
 ----------
 
-amset.core module
+amset.cli module
+----------------
+
+.. automodule:: amset.cli
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+amset.data module
 -----------------
 
-.. automodule:: amset.core
+.. automodule:: amset.data
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+amset.run module
+----------------
+
+.. automodule:: amset.run
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+amset.transport module
+----------------------
+
+.. automodule:: amset.transport
     :members:
     :undoc-members:
     :show-inheritance:
