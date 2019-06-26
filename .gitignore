@@ -51,4 +51,4 @@ run_data
 amset.log
 
 examples/*/*.json
-examples/*/*.yaml
+examples/*/amset*.yaml
