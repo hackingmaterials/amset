@@ -211,7 +211,7 @@ the Dirac function with a Gaussian distribution, according to
 
 .. math::
 
-    \frac{1}{\sigma \sqrt{2 \pi}} \exp{ \left ( \frac{E - E^\prime}{\sigma} \right ) ^2}
+    \frac{1}{\sigma \sqrt{2 \pi}} \exp{ \left ( \frac{E - E^\prime}{\sigma} \right )^2}
 
 where :math:`\sigma` is the broadening width.
 
