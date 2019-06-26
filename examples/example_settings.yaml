@@ -37,7 +37,7 @@ material:
     deformation_potential_cbm: 9      # in eV
 
     # PIE parameters
-    piezeoelectric_coefficient: 0.15  # in ?
+    piezeoelectric_coefficient: 0.15  # unitless
 
     # IMP parameters
     acceptor_charge: 1
@@ -53,8 +53,8 @@ performance:
     gauss_width: 0.001                # in eV
     energy_cutoff: 1.5                # in eV
     fd_tol: 0.005                     # in %
-    g_tol: 1                          # in %
-    max_g_iter: 1
+    ibte_tol: 1                          # in %
+    max_ibte_iter: 1
     dos_estep: 0.01                   # in eV
     dos_width: null                   # in eV
     symprec: 0.01                     # in Angstrom

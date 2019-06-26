@@ -29,7 +29,6 @@ from amset.interpolation.interpolate import Interpolater
 from amset.scattering.calculate import ScatteringCalculator
 from amset.transport import TransportCalculator
 from amset.misc.util import (validate_settings, tensor_average,
-                             unicodeify_spacegroup, write_settings_to_file,
                              load_settings_from_file)
 from amset.misc.log import log_banner, log_list, initialize_amset_logger
 
@@ -168,8 +167,8 @@ class AmsetRunner(MSONable):
             scattering_type=self.scattering_type,
             gauss_width=self.performance_parameters["gauss_width"],
             fd_tol=self.performance_parameters["fd_tol"],
-            g_tol=self.performance_parameters["g_tol"],
-            max_g_iter=self.performance_parameters["max_g_iter"],
+            g_tol=self.performance_parameters["ibte_tol"],
+            max_g_iter=self.performance_parameters["max_ibte_iter"],
             use_symmetry=self.performance_parameters["symprec"] is not None,
             nworkers=self.performance_parameters["nworkers"])
 
