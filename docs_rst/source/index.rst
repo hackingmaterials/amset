@@ -2,7 +2,7 @@
 
   <style type="text/css">
     div.body li.toctree-l1 {
-        padding: 0.5em 0 1em 0 ;
+        padding: 0.5em 0 0.2em 0 ;
         list-style-type: none;
         font-size: 150% ;
         }
@@ -44,12 +44,12 @@ Features of AMSET include:
 - Transport properties calculated by solving the iterative Boltzmann transport
   equation.
 - Heavily optimised code that can run on a personal laptop. High-performance
-  computing clusters are not necessary.
+  computing clusters not necessary.
 
 AMSET is built on top of state-of-the-art open-source libraries:
 `BoltzTraP2 <http://boltztrap.org/>`_ for band structure interpolation,
-`numpy <https://docs.scipy.org/doc/numpy/>`_ and
-`scipy <https://scipy.org>`_ to enable high-performance, and
+`numpy <https://www.numpy.org/>`_ and
+`scipy <https://scipy.org>`_ to enable high-performance matrix operations, and
 `pymatgen <http://pymatgen.org>`_ for handling DFT calculation data.
 
 *Note: Currently, AMSET is best integrated with VASP, however,
@@ -66,7 +66,7 @@ The scattering mechanisms currently implemented in AMSET are:
 - Piezoelectric scattering
 
 More information on the formalism for each scattering mechanism is available
-in the `theory section <theory>`_ of the documentation.
+in the `scattering section <scattering>`_ of the documentation.
 
 User manual
 --------------
@@ -75,9 +75,10 @@ User manual
     :maxdepth: 2
 
     installation.rst
-    theory.rst
-    scattering_rates.rst
+    using.rst
     settings.rst
+    scattering.rst
+    theory.rst
 
 .. toctree::
    :hidden:
@@ -85,7 +86,8 @@ User manual
 
    changelog
    contributors
-   changelog
+   references
+   license
    Python API <modules>
 
 What's new?

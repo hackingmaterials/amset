@@ -12,7 +12,7 @@ import amset
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.imgmath',
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.mathjax',
               'sphinx.ext.autosummary', 'sphinx.ext.coverage',
               'sphinx.ext.napoleon', 'sphinx.ext.intersphinx',
               'sphinx_autodoc_typehints']
@@ -161,6 +161,13 @@ html_theme_options = {
     # "headtextcolor": "#643200",
     # "codebgcolor": "#f5efe7",
 }
+
+# imgmath_image_format = "svg"  # use svg for math
+# imgmath_dvisvgm_args = ['--no-fonts', '--exact']
+# # imgmath_latex_preamble = '\\usepackage{fouriernc}'
+# imgmath_latex_preamble = '\\usepackage{mathptmx}'
+# imgmath_font_size = 14
+# imgmath_use_preview = True
 
 
 ##############################################################################
