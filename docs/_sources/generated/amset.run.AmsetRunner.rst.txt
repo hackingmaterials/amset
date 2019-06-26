@@ -1,0 +1,32 @@
+:mod:`amset.run`.AmsetRunner
+===================================
+
+.. currentmodule:: amset.run
+
+.. autoclass:: AmsetRunner
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~AmsetRunner.__init__
+      ~AmsetRunner.as_dict
+      ~AmsetRunner.from_dict
+      ~AmsetRunner.from_directory
+      ~AmsetRunner.from_vasprun
+      ~AmsetRunner.from_vasprun_and_settings
+      ~AmsetRunner.run
+      ~AmsetRunner.to_json
+      ~AmsetRunner.write_settings
+   
+   
+
+.. include:: amset.run.AmsetRunner.examples
+
+.. raw:: html
+
+    <div class="clearer"></div>

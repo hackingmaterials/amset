@@ -1,8 +1,12 @@
 numpy
-pymatgen
+pymatgen>=2019.5.8
 scipy
 monty
 matplotlib
-matminer
 BoltzTraP2
+tqdm
+scikit-learn
+tabulate
+memory_profiler
+joblib
 spglib>=1.12.2

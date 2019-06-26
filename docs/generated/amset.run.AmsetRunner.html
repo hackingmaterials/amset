@@ -1,0 +1,136 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>amset.run.AmsetRunner &#8212; AMSET 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="amset-run-amsetrunner">
+<h1><a class="reference internal" href="../amset.html#module-amset.run" title="amset.run"><code class="xref py py-mod docutils literal notranslate"><span class="pre">amset.run</span></code></a>.AmsetRunner<a class="headerlink" href="#amset-run-amsetrunner" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="amset.run.AmsetRunner">
+<em class="property">class </em><code class="descclassname">amset.run.</code><code class="descname">AmsetRunner</code><span class="sig-paren">(</span><em>band_structure</em>, <em>num_electrons</em>, <em>material_properties</em>, <em>doping=None</em>, <em>temperatures=None</em>, <em>scattering_type='auto'</em>, <em>performance_parameters=None</em>, <em>output_parameters=None</em>, <em>interpolation_factor=10</em>, <em>scissor=None</em>, <em>user_bandgap=None</em>, <em>soc=False</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.run.AmsetRunner" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="amset.run.AmsetRunner.__init__">
+<code class="descname">__init__</code><span class="sig-paren">(</span><em>band_structure</em>, <em>num_electrons</em>, <em>material_properties</em>, <em>doping=None</em>, <em>temperatures=None</em>, <em>scattering_type='auto'</em>, <em>performance_parameters=None</em>, <em>output_parameters=None</em>, <em>interpolation_factor=10</em>, <em>scissor=None</em>, <em>user_bandgap=None</em>, <em>soc=False</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.run.AmsetRunner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize self.  See help(type(self)) for accurate signature.</p>
+</dd></dl>
+
+<p class="rubric">Methods</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#amset.run.AmsetRunner.__init__" title="amset.run.AmsetRunner.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(band_structure,&nbsp;num_electrons,&nbsp;…)</td>
+<td>Initialize self.</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">as_dict</span></code>()</td>
+<td>A JSON serializable dict representation of an object.</td>
+</tr>
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_dict</span></code>(d)</td>
+<td></td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="../amset.html#amset.run.AmsetRunner.from_directory" title="amset.run.AmsetRunner.from_directory"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_directory</span></code></a>([directory,&nbsp;vasprun,&nbsp;…])</td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="../amset.html#amset.run.AmsetRunner.from_vasprun" title="amset.run.AmsetRunner.from_vasprun"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_vasprun</span></code></a>(vasprun,&nbsp;material_parameters,&nbsp;…)</td>
+<td>Initialise an AmsetRunner from a Vasprun.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="../amset.html#amset.run.AmsetRunner.from_vasprun_and_settings" title="amset.run.AmsetRunner.from_vasprun_and_settings"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_vasprun_and_settings</span></code></a>(vasprun,&nbsp;settings)</td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="../amset.html#amset.run.AmsetRunner.run" title="amset.run.AmsetRunner.run"><code class="xref py py-obj docutils literal notranslate"><span class="pre">run</span></code></a>([directory,&nbsp;prefix,&nbsp;return_usage_stats])</td>
+<td></td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_json</span></code>()</td>
+<td>Returns a json string representation of the MSONable object.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="../amset.html#amset.run.AmsetRunner.write_settings" title="amset.run.AmsetRunner.write_settings"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_settings</span></code></a>([directory,&nbsp;prefix])</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<div class="clearer"></div></div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/amset_logo.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../settings.html">Settings</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributors.html">Contributors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">Python API</a></li>
+</ul>
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018-2019, HackingMaterials Group.
+      
+      |
+      <a href="../_sources/generated/amset.run.AmsetRunner.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

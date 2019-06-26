@@ -1,0 +1,317 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>amset.scattering package &#8212; AMSET 0.1.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="amset.misc package" href="amset.misc.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="amset-scattering-package">
+<h1>amset.scattering package<a class="headerlink" href="#amset-scattering-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-amset.scattering.calculate">
+<span id="amset-scattering-calculate-module"></span><h2>amset.scattering.calculate module<a class="headerlink" href="#module-amset.scattering.calculate" title="Permalink to this headline">¶</a></h2>
+<p>This module implements methods to calculate electron scattering based on an
+AmsetData object.</p>
+<dl class="class">
+<dt id="amset.scattering.calculate.ScatteringCalculator">
+<em class="property">class </em><code class="descclassname">amset.scattering.calculate.</code><code class="descname">ScatteringCalculator</code><span class="sig-paren">(</span><em>materials_properties</em>, <em>amset_data</em>, <em>scattering_type='auto'</em>, <em>gauss_width=0.001</em>, <em>g_tol=0.01</em>, <em>max_g_iter=8</em>, <em>use_symmetry=True</em>, <em>nworkers=-1</em>, <em>fd_tol=0.005</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.calculate.ScatteringCalculator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">monty.json.MSONable</span></code></p>
+<dl class="method">
+<dt id="amset.scattering.calculate.ScatteringCalculator.calculate_band_rates">
+<code class="descname">calculate_band_rates</code><span class="sig-paren">(</span><em>spin</em>, <em>b_idx</em>, <em>nsplits</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.calculate.ScatteringCalculator.calculate_band_rates" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="amset.scattering.calculate.ScatteringCalculator.calculate_scattering_rates">
+<code class="descname">calculate_scattering_rates</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.calculate.ScatteringCalculator.calculate_scattering_rates" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="amset.scattering.calculate.ScatteringCalculator.elastic_scatterers">
+<code class="descname">elastic_scatterers</code><a class="headerlink" href="#amset.scattering.calculate.ScatteringCalculator.elastic_scatterers" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="amset.scattering.calculate.ScatteringCalculator.get_scatterers">
+<em class="property">static </em><code class="descname">get_scatterers</code><span class="sig-paren">(</span><em>scattering_type</em>, <em>materials_properties</em>, <em>amset_data</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.calculate.ScatteringCalculator.get_scatterers" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference internal" href="#amset.scattering.elastic.AbstractElasticScattering" title="amset.scattering.elastic.AbstractElasticScattering"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractElasticScattering</span></code></a>, <a class="reference internal" href="#amset.scattering.inelastic.AbstractInelasticScattering" title="amset.scattering.inelastic.AbstractInelasticScattering"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractInelasticScattering</span></code></a>]]</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="amset.scattering.calculate.ScatteringCalculator.inelastic_scatterers">
+<code class="descname">inelastic_scatterers</code><a class="headerlink" href="#amset.scattering.calculate.ScatteringCalculator.inelastic_scatterers" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="amset.scattering.calculate.ScatteringCalculator.scatterer_labels">
+<code class="descname">scatterer_labels</code><a class="headerlink" href="#amset.scattering.calculate.ScatteringCalculator.scatterer_labels" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="amset.scattering.calculate.calculate_g">
+<code class="descclassname">amset.scattering.calculate.</code><code class="descname">calculate_g</code><span class="sig-paren">(</span><em>out_rates</em>, <em>in_rates</em>, <em>elastic_rates</em>, <em>force</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.calculate.calculate_g" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="amset.scattering.calculate.get_band_rates">
+<code class="descclassname">amset.scattering.calculate.</code><code class="descname">get_band_rates</code><span class="sig-paren">(</span><em>spin</em>, <em>b_idx</em>, <em>scatterers</em>, <em>ediff</em>, <em>gauss_width</em>, <em>s</em>, <em>k_idx</em>, <em>k_p_idx</em>, <em>kpoints</em>, <em>kpoint_norms</em>, <em>a_factor</em>, <em>c_factor</em>, <em>reciprocal_lattice_matrix</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.calculate.get_band_rates" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="amset.scattering.calculate.get_ir_band_rates">
+<code class="descclassname">amset.scattering.calculate.</code><code class="descname">get_ir_band_rates</code><span class="sig-paren">(</span><em>spin</em>, <em>b_idx</em>, <em>scatterers</em>, <em>ediff</em>, <em>gauss_width</em>, <em>s</em>, <em>k_idx</em>, <em>k_p_idx</em>, <em>kpoints</em>, <em>kpoint_norms</em>, <em>kpoint_weights</em>, <em>a_factor</em>, <em>c_factor</em>, <em>reciprocal_lattice_matrix</em>, <em>ir_kpoints_idx</em>, <em>grouped_ir_to_full</em>, <em>g=None</em>, <em>emission=False</em>, <em>calculate_out_rate=True</em>, <em>calculate_in_rate=True</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.calculate.get_ir_band_rates" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="amset.scattering.calculate.scattering_worker">
+<code class="descclassname">amset.scattering.calculate.</code><code class="descname">scattering_worker</code><span class="sig-paren">(</span><em>scatterers</em>, <em>ball_tree</em>, <em>spin</em>, <em>b_idx</em>, <em>gauss_width</em>, <em>s_g</em>, <em>s_energies</em>, <em>s_kpoints</em>, <em>s_kpoint_norms</em>, <em>s_k_weights</em>, <em>s_a_factor</em>, <em>s_c_factor</em>, <em>nkpoints</em>, <em>reciprocal_lattice_matrix</em>, <em>iqueue</em>, <em>oqueue</em>, <em>ir_kpoints_idx=None</em>, <em>grouped_ir_to_full=None</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.calculate.scattering_worker" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="amset.scattering.calculate.w0gauss">
+<code class="descclassname">amset.scattering.calculate.</code><code class="descname">w0gauss</code><span class="sig-paren">(</span><em>x</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.calculate.w0gauss" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-amset.scattering.elastic">
+<span id="amset-scattering-elastic-module"></span><h2>amset.scattering.elastic module<a class="headerlink" href="#module-amset.scattering.elastic" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="amset.scattering.elastic.AbstractElasticScattering">
+<em class="property">class </em><code class="descclassname">amset.scattering.elastic.</code><code class="descname">AbstractElasticScattering</code><span class="sig-paren">(</span><em>materials_properties</em>, <em>amset_data</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.AbstractElasticScattering" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></a></p>
+<dl class="method">
+<dt id="amset.scattering.elastic.AbstractElasticScattering.factor">
+<code class="descname">factor</code><span class="sig-paren">(</span><em>k_diff_sq</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.AbstractElasticScattering.factor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="amset.scattering.elastic.AbstractElasticScattering.prefactor">
+<code class="descname">prefactor</code><span class="sig-paren">(</span><em>spin</em>, <em>b_idx</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.AbstractElasticScattering.prefactor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="amset.scattering.elastic.AcousticDeformationPotentialScattering">
+<em class="property">class </em><code class="descclassname">amset.scattering.elastic.</code><code class="descname">AcousticDeformationPotentialScattering</code><span class="sig-paren">(</span><em>materials_properties</em>, <em>amset_data</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.AcousticDeformationPotentialScattering" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#amset.scattering.elastic.AbstractElasticScattering" title="amset.scattering.elastic.AbstractElasticScattering"><code class="xref py py-class docutils literal notranslate"><span class="pre">amset.scattering.elastic.AbstractElasticScattering</span></code></a></p>
+<dl class="method">
+<dt id="amset.scattering.elastic.AcousticDeformationPotentialScattering.factor">
+<code class="descname">factor</code><span class="sig-paren">(</span><em>k_diff_sq</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.AcousticDeformationPotentialScattering.factor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="amset.scattering.elastic.AcousticDeformationPotentialScattering.name">
+<code class="descname">name</code><em class="property"> = 'ACD'</em><a class="headerlink" href="#amset.scattering.elastic.AcousticDeformationPotentialScattering.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="amset.scattering.elastic.AcousticDeformationPotentialScattering.prefactor">
+<code class="descname">prefactor</code><span class="sig-paren">(</span><em>spin</em>, <em>b_idx</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.AcousticDeformationPotentialScattering.prefactor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="amset.scattering.elastic.AcousticDeformationPotentialScattering.required_properties">
+<code class="descname">required_properties</code><em class="property"> = ('deformation_potential', 'elastic_constant')</em><a class="headerlink" href="#amset.scattering.elastic.AcousticDeformationPotentialScattering.required_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="amset.scattering.elastic.IonizedImpurityScattering">
+<em class="property">class </em><code class="descclassname">amset.scattering.elastic.</code><code class="descname">IonizedImpurityScattering</code><span class="sig-paren">(</span><em>materials_properties</em>, <em>amset_data</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.IonizedImpurityScattering" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#amset.scattering.elastic.AbstractElasticScattering" title="amset.scattering.elastic.AbstractElasticScattering"><code class="xref py py-class docutils literal notranslate"><span class="pre">amset.scattering.elastic.AbstractElasticScattering</span></code></a></p>
+<dl class="method">
+<dt id="amset.scattering.elastic.IonizedImpurityScattering.factor">
+<code class="descname">factor</code><span class="sig-paren">(</span><em>k_diff_sq</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.IonizedImpurityScattering.factor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="amset.scattering.elastic.IonizedImpurityScattering.name">
+<code class="descname">name</code><em class="property"> = 'IMP'</em><a class="headerlink" href="#amset.scattering.elastic.IonizedImpurityScattering.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="amset.scattering.elastic.IonizedImpurityScattering.prefactor">
+<code class="descname">prefactor</code><span class="sig-paren">(</span><em>spin</em>, <em>b_idx</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.IonizedImpurityScattering.prefactor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="amset.scattering.elastic.IonizedImpurityScattering.required_properties">
+<code class="descname">required_properties</code><em class="property"> = ('acceptor_charge', 'donor_charge', 'static_dielectric')</em><a class="headerlink" href="#amset.scattering.elastic.IonizedImpurityScattering.required_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="amset.scattering.elastic.PiezoelectricScattering">
+<em class="property">class </em><code class="descclassname">amset.scattering.elastic.</code><code class="descname">PiezoelectricScattering</code><span class="sig-paren">(</span><em>materials_properties</em>, <em>amset_data</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.PiezoelectricScattering" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#amset.scattering.elastic.AbstractElasticScattering" title="amset.scattering.elastic.AbstractElasticScattering"><code class="xref py py-class docutils literal notranslate"><span class="pre">amset.scattering.elastic.AbstractElasticScattering</span></code></a></p>
+<dl class="method">
+<dt id="amset.scattering.elastic.PiezoelectricScattering.factor">
+<code class="descname">factor</code><span class="sig-paren">(</span><em>k_diff_sq</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.PiezoelectricScattering.factor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="amset.scattering.elastic.PiezoelectricScattering.name">
+<code class="descname">name</code><em class="property"> = 'PIE'</em><a class="headerlink" href="#amset.scattering.elastic.PiezoelectricScattering.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="amset.scattering.elastic.PiezoelectricScattering.prefactor">
+<code class="descname">prefactor</code><span class="sig-paren">(</span><em>spin</em>, <em>b_idx</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.elastic.PiezoelectricScattering.prefactor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="amset.scattering.elastic.PiezoelectricScattering.required_properties">
+<code class="descname">required_properties</code><em class="property"> = ('piezoelectric_coefficient', 'static_dielectric')</em><a class="headerlink" href="#amset.scattering.elastic.PiezoelectricScattering.required_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-amset.scattering.inelastic">
+<span id="amset-scattering-inelastic-module"></span><h2>amset.scattering.inelastic module<a class="headerlink" href="#module-amset.scattering.inelastic" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="amset.scattering.inelastic.AbstractInelasticScattering">
+<em class="property">class </em><code class="descclassname">amset.scattering.inelastic.</code><code class="descname">AbstractInelasticScattering</code><span class="sig-paren">(</span><em>materials_properties</em>, <em>amset_data</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.inelastic.AbstractInelasticScattering" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">abc.ABC</span></code></a></p>
+<dl class="method">
+<dt id="amset.scattering.inelastic.AbstractInelasticScattering.factor">
+<code class="descname">factor</code><span class="sig-paren">(</span><em>spin</em>, <em>b_idx</em>, <em>k_idx</em>, <em>k_diff_sq</em>, <em>emission</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.inelastic.AbstractInelasticScattering.factor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="amset.scattering.inelastic.AbstractInelasticScattering.prefactor">
+<code class="descname">prefactor</code><span class="sig-paren">(</span><em>spin</em>, <em>b_idx</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.inelastic.AbstractInelasticScattering.prefactor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="amset.scattering.inelastic.PolarOpticalScattering">
+<em class="property">class </em><code class="descclassname">amset.scattering.inelastic.</code><code class="descname">PolarOpticalScattering</code><span class="sig-paren">(</span><em>materials_properties</em>, <em>amset_data</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.inelastic.PolarOpticalScattering" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#amset.scattering.inelastic.AbstractInelasticScattering" title="amset.scattering.inelastic.AbstractInelasticScattering"><code class="xref py py-class docutils literal notranslate"><span class="pre">amset.scattering.inelastic.AbstractInelasticScattering</span></code></a></p>
+<dl class="method">
+<dt id="amset.scattering.inelastic.PolarOpticalScattering.factor">
+<code class="descname">factor</code><span class="sig-paren">(</span><em>spin</em>, <em>b_idx</em>, <em>k_idx</em>, <em>k_diff_sq</em>, <em>emission</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.inelastic.PolarOpticalScattering.factor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="amset.scattering.inelastic.PolarOpticalScattering.name">
+<code class="descname">name</code><em class="property"> = 'POP'</em><a class="headerlink" href="#amset.scattering.inelastic.PolarOpticalScattering.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="amset.scattering.inelastic.PolarOpticalScattering.prefactor">
+<code class="descname">prefactor</code><span class="sig-paren">(</span><em>spin</em>, <em>b_idx</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.scattering.inelastic.PolarOpticalScattering.prefactor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="amset.scattering.inelastic.PolarOpticalScattering.required_properties">
+<code class="descname">required_properties</code><em class="property"> = ('pop_frequency', 'static_dielectric', 'high_frequency_dielectric')</em><a class="headerlink" href="#amset.scattering.inelastic.PolarOpticalScattering.required_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-amset.scattering">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-amset.scattering" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="index.html">
+    <img class="logo" src="_static/amset_logo.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scattering.html">Scattering rates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="settings.html">Settings</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Change log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">Python API</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="amset.html">amset package</a></li>
+</ul>
+</li>
+</ul>
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018-2019, HackingMaterials Group.
+      
+      |
+      <a href="_sources/amset.scattering.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
