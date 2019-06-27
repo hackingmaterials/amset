@@ -12,8 +12,9 @@ from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import DOS
+from amset.dos import FermiDos
 from pymatgen import Spin, Structure
-from pymatgen.electronic_structure.dos import FermiDos, Dos, f0
+from pymatgen.electronic_structure.dos import Dos, f0
 
 from amset.misc.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
 from amset.misc.util import groupby, cast_dict, df0de
