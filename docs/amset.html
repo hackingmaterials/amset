@@ -127,6 +127,161 @@ accuracy but are more expensive.</li>
 </dd></dl>
 
 </div>
+<div class="section" id="module-amset.dos">
+<span id="amset-dos-module"></span><h2>amset.dos module<a class="headerlink" href="#module-amset.dos" title="Permalink to this headline">¶</a></h2>
+<p>Customised implementation of FermiDos. Will Move back to pymatgen at some point.</p>
+<dl class="class">
+<dt id="amset.dos.FermiDos">
+<em class="property">class </em><code class="descclassname">amset.dos.</code><code class="descname">FermiDos</code><span class="sig-paren">(</span><em>dos</em>, <em>structure=None</em>, <em>dos_weight=None</em>, <em>nelecs=None</em>, <em>bandgap=None</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.dos.FermiDos" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">pymatgen.electronic_structure.dos.Dos</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">monty.json.MSONable</span></code></p>
+<p>This wrapper class helps relate the density of states, doping levels
+(i.e. carrier concentrations) and corresponding fermi levels. A negative
+doping concentration indicates the majority carriers are electrons
+(n-type doping); a positive doping concentration indicates holes are the
+majority carriers (p-type doping).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>dos</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Dos</span></code>) – Pymatgen Dos object.</li>
+<li><strong>structure</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Structure</span></code>]) – A structure. If not provided, the structure
+of the dos object will be used. If the dos does not have an
+associated structure object, an error will be thrown.</li>
+<li><strong>dos_weight</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – The weighting for the dos. Defaults to 2 for non-spin
+polarized calculations and 1 for spin-polarized calculations.</li>
+<li><strong>nelecs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – The number of electrons included in the energy range of
+dos used for normalizing the densities. If None, the densities
+will not be normalized.</li>
+<li><strong>bandgap</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.7)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – If set, the energy values are scissored so that the electronic
+band gap matches this value.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="amset.dos.FermiDos.as_dict">
+<code class="descname">as_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#amset.dos.FermiDos.as_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Json-serializable dict representation of Dos.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="amset.dos.FermiDos.from_dict">
+<em class="property">classmethod </em><code class="descname">from_dict</code><span class="sig-paren">(</span><em>d</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.dos.FermiDos.from_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns Dos object from dict representation of Dos.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="amset.dos.FermiDos.get_doping">
+<code class="descname">get_doping</code><span class="sig-paren">(</span><em>fermi_level</em>, <em>temperature</em>, <em>return_electron_hole_conc=False</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.dos.FermiDos.get_doping" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the doping (majority carrier concentration) at a given
+fermi level  and temperature. A simple Left Riemann sum is used for
+integrating the density of states over energy &amp; equilibrium Fermi-Dirac
+distribution.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>fermi_level</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – The fermi_level level in eV.</li>
+<li><strong>temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – The temperature in Kelvin.</li>
+<li><strong>return_electron_hole_conc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Whether to also return the separate
+electron and hole concentrations at the doping level.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><p>the doping concentration in
+units of 1/cm^3. Negative values indicate that the majority carriers
+are electrons (n-type doping) whereas positive values indicates the
+majority carriers are holes (p-type doping).</p>
+<p>If return_electron_hole_conc is True: the doping concentration,
+electron concentration and hole concentration as a tuple.</p>
+</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">If return_electron_hole_conc is False</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="amset.dos.FermiDos.get_fermi">
+<code class="descname">get_fermi</code><span class="sig-paren">(</span><em>concentration</em>, <em>temperature</em>, <em>rtol=0.01</em>, <em>nstep=50</em>, <em>step=0.1</em>, <em>precision=8</em>, <em>return_electron_hole_conc=False</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.dos.FermiDos.get_fermi" title="Permalink to this definition">¶</a></dt>
+<dd><p>Finds the fermi level at which the doping concentration at the given
+temperature (T) is equal to concentration. A greedy algorithm is used
+where the relative error is minimized by calculating the doping at a
+grid which continually becomes finer.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>concentration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – The doping concentration in 1/cm^3. Negative values
+represent n-type doping and positive values represent p-type
+doping.</li>
+<li><strong>temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – The temperature in Kelvin.</li>
+<li><strong>rtol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – The maximum acceptable relative error.</li>
+<li><strong>nstep</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – THe number of steps checked around a given fermi level.</li>
+<li><strong>step</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Initial step in energy when searching for the Fermi level.</li>
+<li><strong>precision</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Essentially the decimal places of calculated Fermi level.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><p>The Fermi level in eV. Note
+that this is different from the default dos.efermi.</p>
+<p>If return_electron_hole_conc is True: the Fermi level, electron
+concentration and hole concentration at the Fermi level as a tuple.
+The electron and hole concentrations are in cm^-3.</p>
+</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">If return_electron_hole_conc is False</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="amset.dos.FermiDos.get_fermi_interextrapolated">
+<code class="descname">get_fermi_interextrapolated</code><span class="sig-paren">(</span><em>concentration</em>, <em>temperature</em>, <em>warn=True</em>, <em>c_ref=10000000000.0</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#amset.dos.FermiDos.get_fermi_interextrapolated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Similar to get_fermi except that when get_fermi fails to converge,
+an interpolated or extrapolated fermi is returned with the assumption
+that the fermi level changes linearly with log(abs(concentration)).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>concentration</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – The doping concentration in 1/cm^3. Negative values
+represent n-type doping and positive values represent p-type
+doping.</li>
+<li><strong>temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – The temperature in Kelvin.</li>
+<li><strong>warn</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Whether to give a warning the first time the fermi cannot be
+found.</li>
+<li><strong>c_ref</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – A doping concentration where get_fermi returns a
+value without error for both c_ref and -c_ref.</li>
+<li><strong>**kwargs</strong> – Keyword arguments passed to the get_fermi function.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><p class="first"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The Fermi level. Note, the value is possibly interpolated or
+extrapolated and must be used with caution.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 <div class="section" id="module-amset.run">
 <span id="amset-run-module"></span><h2>amset.run module<a class="headerlink" href="#module-amset.run" title="Permalink to this headline">¶</a></h2>
 <dl class="class">

@@ -217,15 +217,16 @@ The orbital integral is implemented as</p>
 <div class="math notranslate nohighlight">
 \[G_b(\mathbf{k}, \mathbf{k}^\prime)
     = (a_{b,\mathbf{k}} a_{b,\mathbf{k^\prime}}
-      + c_{b,\mathbf{k}} c_{b,\mathbf{k^\prime}})^2,\]</div>
+      + c_{b,\mathbf{k}} c_{b,\mathbf{k^\prime}} x )^2,\]</div>
 <p>where <span class="math notranslate nohighlight">\(x\)</span> is the cosine of the angle between <span class="math notranslate nohighlight">\(\mathbf{k}\)</span>
 and <span class="math notranslate nohighlight">\(\mathbf{k}^\prime)\)</span>, and <span class="math notranslate nohighlight">\(a\)</span> and <span class="math notranslate nohighlight">\(c\)</span> are depend
 on the <em>s</em> (<span class="math notranslate nohighlight">\(\phi_s\)</span>) and <em>p</em>-orbital projections (<span class="math notranslate nohighlight">\(\phi_p\)</span>)
 as:</p>
 <div class="math notranslate nohighlight">
-\[a_{b,\mathbf{k}} = \frac{\phi_{s,b,\mathbf{k}}}
+\[\begin{split}a_{b,\mathbf{k}} = {}&amp; \frac{\phi_{s,b,\mathbf{k}}}
                         {\sqrt{(\phi_{s,b,\mathbf{k}}^2 +
-                          \phi_{p,b,\mathbf{k}}^2)}}.\]</div>
+                          \phi_{p,b,\mathbf{k}}^2)}}, \\
+c_{b,\mathbf{k}} = {}&amp; \sqrt{1 - a_{b,\mathbf{k}}^2}.\end{split}\]</div>
 <p>The justification for the above form of the overlap integral is given in <a class="reference internal" href="references.html#rode" id="id14">[Rode]</a>.</p>
 </div>
 <div class="section" id="brillouin-zone-integration">
