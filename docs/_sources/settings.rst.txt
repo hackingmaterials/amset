@@ -83,8 +83,6 @@ calculating the Voronoi tessellation for the k-points, ii) calculating the
 Voronoi cell volumes. This calculation can add some additional computational
 expense.
 
-See `fd_tol`_ for controlling where to add the extra k-points.
-
 ``scattering_type``
 ~~~~~~~~~~~~~~~~~~~
 
@@ -238,13 +236,10 @@ and scattering rate calculation, in eV.
 
 *Command-line option:* ``--fd-tol``
 
-The Fermi–Dirac derivative tolerance that controls where extra k-points are
-added. Given as a percentage from 0 to 1. Larger values indicate that the
-k-points will be added to regions of the band structure with large Fermi–Dirac
-derivative contributions. Smaller values will spread the k-points over more of
-the Brillouin zone.
-
-Additional details of the densification process will be added soon.
+The Fermi–Dirac derivative tolerance that controls which k-points to calculate
+the scattering for. Given as a percentage from 0 to 1. Larger values indicate
+that the fewer k-points will be calculated, smaller values indicate a larger
+portion of the Brillouin zone will be calculated.
 
 ``ibte_tol``
 ~~~~~~~~~~~~
@@ -254,7 +249,7 @@ Additional details of the densification process will be added soon.
 Parameter to control when the iterative Boltzmann transport equation is
 considered converged. Given as a percent from 0 to 1.
 
-**Not yet tested**
+**Not thoroughly tested**
 
 ``max_ibte_iter``
 ~~~~~~~~~~~~~~~~~
@@ -264,7 +259,7 @@ considered converged. Given as a percent from 0 to 1.
 Maximum number of iterations for solving the iterative Boltzmann transport
 equation.
 
-**Not yet tested**
+**Not thoroughly tested**
 
 ``dos_estep``
 ~~~~~~~~~~~~~
