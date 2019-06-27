@@ -58,7 +58,7 @@ performance:
     dos_estep: 0.01                   # in eV
     dos_width: null                   # in eV
     symprec: 0.01                     # in Angstrom
-    nworkers: -1
+    nworkers: -1                      # default is -1 (use all processors)
 
 # The output section controls AMSET output files and logging
 output:

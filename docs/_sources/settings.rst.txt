@@ -32,32 +32,30 @@ Controls which doping levels (carrier concentrations) to calculate.
 Concentrations given with the unit cm\ :sup:`–3`. Can be specified directly as a comma
 separated list, e.g.::
 
-    1E13, 1E14, 1E15, 1E16
+    1E13,1E14,1E15,1E16,1E17,1E18,1E19,1E20
 
-Alternatively, ranges can be specified using the syntax ``start:stop:num_steps``,
-e.g.::
+Alternatively, ranges can be specified using the syntax ``start:stop:num_steps``.
+For example, the same doping concentrations as above can be written::
 
     1E13:1E20:8
 
 Negative concentrations indicate holes (*p*-type doping), positive concentrations
 indicate electrons (*n*-type doping).
 
-
 ``temperatures``
 ~~~~~~~~~~~~~~~~
 
-*Command-line option:* ``-d, --temperatures``
+*Command-line option:* ``-t, --temperatures``
 
 Controls which temperatures to calculate. Temperatures given in Kelvin. Can be
 specified directly as a comma separated list, e.g.::
 
-    300,400,500
+    300,400,500,600,700,800,900,1000
 
 Alternatively, ranges can be specified using the syntax ``start:stop:num_steps``,
-e.g.::
+For example, the same temperature range as above can be written::
 
     300:1000:8
-
 
 ``interpolation_factor``
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -92,7 +90,7 @@ See `fd_tol`_ for controlling where to add the extra k-points.
 
 *Command-line option:* ``-s, --scattering-type``
 
-Which scattering mechanisms to calculation. If set to ``auto``, the scattering
+Which scattering mechanisms to calculate. If set to ``auto``, the scattering
 mechanisms will automatically be determined based on the specified material
 parameters. Alternatively, a comma separated list of scattering mechanism
 can be specified. Options include:
@@ -282,7 +280,7 @@ accuracy when determining the position of the Fermi level.
 *Command-line option:* ``--dos-width``
 
 Broadening width by which to smear the density of states, in eV. It is
-recommended to leave this as ``None``, e.g., no broadening.
+recommended to leave this as the default, i.e., no broadening.
 
 ``symprec``
 ~~~~~~~~~~~
@@ -296,7 +294,8 @@ The symmetry finding tolerance, in Å.
 
 *Command-line option:* ``--nworkers``
 
-Number of processors to use.
+Number of processors to use. The default value is ``-1`` (use all available
+processors).
 
 Output settings
 ---------------

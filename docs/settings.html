@@ -102,11 +102,11 @@ including interpolation settings and temperature/doping ranges.</p>
 <p>Controls which doping levels (carrier concentrations) to calculate.
 Concentrations given with the unit cm<sup>–3</sup>. Can be specified directly as a comma
 separated list, e.g.:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mf">1E13</span><span class="p">,</span> <span class="mf">1E14</span><span class="p">,</span> <span class="mf">1E15</span><span class="p">,</span> <span class="mf">1E16</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mf">1E13</span><span class="p">,</span><span class="mf">1E14</span><span class="p">,</span><span class="mf">1E15</span><span class="p">,</span><span class="mf">1E16</span><span class="p">,</span><span class="mf">1E17</span><span class="p">,</span><span class="mf">1E18</span><span class="p">,</span><span class="mf">1E19</span><span class="p">,</span><span class="mf">1E20</span>
 </pre></div>
 </div>
-<p>Alternatively, ranges can be specified using the syntax <code class="docutils literal notranslate"><span class="pre">start:stop:num_steps</span></code>,
-e.g.:</p>
+<p>Alternatively, ranges can be specified using the syntax <code class="docutils literal notranslate"><span class="pre">start:stop:num_steps</span></code>.
+For example, the same doping concentrations as above can be written:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mf">1E13</span><span class="p">:</span><span class="mf">1E20</span><span class="p">:</span><span class="mi">8</span>
 </pre></div>
 </div>
@@ -115,14 +115,14 @@ indicate electrons (<em>n</em>-type doping).</p>
 </div>
 <div class="section" id="temperatures">
 <h3><code class="docutils literal notranslate"><span class="pre">temperatures</span></code><a class="headerlink" href="#temperatures" title="Permalink to this headline">¶</a></h3>
-<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-d,</span> <span class="pre">--temperatures</span></code></p>
+<p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-t,</span> <span class="pre">--temperatures</span></code></p>
 <p>Controls which temperatures to calculate. Temperatures given in Kelvin. Can be
 specified directly as a comma separated list, e.g.:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">300</span><span class="p">,</span><span class="mi">400</span><span class="p">,</span><span class="mi">500</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">300</span><span class="p">,</span><span class="mi">400</span><span class="p">,</span><span class="mi">500</span><span class="p">,</span><span class="mi">600</span><span class="p">,</span><span class="mi">700</span><span class="p">,</span><span class="mi">800</span><span class="p">,</span><span class="mi">900</span><span class="p">,</span><span class="mi">1000</span>
 </pre></div>
 </div>
 <p>Alternatively, ranges can be specified using the syntax <code class="docutils literal notranslate"><span class="pre">start:stop:num_steps</span></code>,
-e.g.:</p>
+For example, the same temperature range as above can be written:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">300</span><span class="p">:</span><span class="mi">1000</span><span class="p">:</span><span class="mi">8</span>
 </pre></div>
 </div>
@@ -152,7 +152,7 @@ expense.</p>
 <div class="section" id="scattering-type">
 <h3><code class="docutils literal notranslate"><span class="pre">scattering_type</span></code><a class="headerlink" href="#scattering-type" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">-s,</span> <span class="pre">--scattering-type</span></code></p>
-<p>Which scattering mechanisms to calculation. If set to <code class="docutils literal notranslate"><span class="pre">auto</span></code>, the scattering
+<p>Which scattering mechanisms to calculate. If set to <code class="docutils literal notranslate"><span class="pre">auto</span></code>, the scattering
 mechanisms will automatically be determined based on the specified material
 parameters. Alternatively, a comma separated list of scattering mechanism
 can be specified. Options include:</p>
@@ -294,7 +294,7 @@ accuracy when determining the position of the Fermi level.</p>
 <h3><code class="docutils literal notranslate"><span class="pre">dos_width</span></code><a class="headerlink" href="#dos-width" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--dos-width</span></code></p>
 <p>Broadening width by which to smear the density of states, in eV. It is
-recommended to leave this as <code class="docutils literal notranslate"><span class="pre">None</span></code>, e.g., no broadening.</p>
+recommended to leave this as the default, i.e., no broadening.</p>
 </div>
 <div class="section" id="symprec">
 <h3><code class="docutils literal notranslate"><span class="pre">symprec</span></code><a class="headerlink" href="#symprec" title="Permalink to this headline">¶</a></h3>
@@ -304,7 +304,8 @@ recommended to leave this as <code class="docutils literal notranslate"><span cl
 <div class="section" id="nworkers">
 <h3><code class="docutils literal notranslate"><span class="pre">nworkers</span></code><a class="headerlink" href="#nworkers" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--nworkers</span></code></p>
-<p>Number of processors to use.</p>
+<p>Number of processors to use. The default value is <code class="docutils literal notranslate"><span class="pre">-1</span></code> (use all available
+processors).</p>
 </div>
 </div>
 <div class="section" id="output-settings">

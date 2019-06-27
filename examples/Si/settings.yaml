@@ -1,7 +1,7 @@
 general:
     doping: [1.99e+14, 2.20e+15, 1.72e+16, 1.86e+17, 1.46e+18, 4.39e+18]
     temperatures: [300]
-    interpolation_factor: 150
+    interpolation_factor: 50
     scattering_type: auto
 
 material:

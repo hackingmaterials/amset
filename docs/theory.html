@@ -59,7 +59,7 @@ given as</p>
 </div>
 <div class="section" id="elastic-versus-inelastic-scattering">
 <h2>Elastic <em>versus</em> inelastic scattering<a class="headerlink" href="#elastic-versus-inelastic-scattering" title="Permalink to this headline">¶</a></h2>
-<p>The perturbation is dependent on the scattering rate of electrons, <span class="math notranslate nohighlight">\(s\)</span>.
+<p>The perturbation is dependent on the scattering rate <span class="math notranslate nohighlight">\(s\)</span>.
 The differential scattering rate from state <span class="math notranslate nohighlight">\(\mathbf{k}\)</span> to
 <span class="math notranslate nohighlight">\(\mathbf{k}^\prime\)</span> is given as</p>
 <div class="math notranslate nohighlight">
@@ -92,8 +92,8 @@ k-point, <span class="math notranslate nohighlight">\(\mathbf{k}\)</span>, as</p
 <span class="math notranslate nohighlight">\(g^\prime = g(\mathbf{k}^\prime)\)</span> and <span class="math notranslate nohighlight">\(X\)</span> is the angle between
 <span class="math notranslate nohighlight">\(\mathbf{k}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{k}^\prime\)</span>.</p>
 </div>
-<div class="section" id="iterative-boltzmann-transport-equation">
-<h2>Iterative Boltzmann transport equation<a class="headerlink" href="#iterative-boltzmann-transport-equation" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="iterative-boltzmann-transport">
+<h2>Iterative Boltzmann transport<a class="headerlink" href="#iterative-boltzmann-transport" title="Permalink to this headline">¶</a></h2>
 <p>As detailed in <a class="reference internal" href="references.html#rode" id="id1">[Rode]</a>, the perturbation to the total distribution function
 can be written,</p>
 <div class="math notranslate nohighlight">
@@ -118,7 +118,7 @@ defined as:</p>
     \int \sum_b \mathbf{v}_{b,\mathbf{k}} \otimes \mathbf{v}_{b,\mathbf{k}}
     \tau_{b,\mathbf{k},T} \delta (E - E_{b, \mathbf{k}})
     \frac{\mathrm{d}\mathbf{k}}{8 \pi^3},\]</div>
-<p>where <span class="math notranslate nohighlight">\(\mathbf{v}_{b, \mathbf{k}}\)</span> is the group velocity of a k-point,
+<p>where <span class="math notranslate nohighlight">\(\mathbf{v}_{b, \mathbf{k}}\)</span> is the group velocity of k-point,
 <span class="math notranslate nohighlight">\(\mathbf{k}\)</span> in band, <span class="math notranslate nohighlight">\(b\)</span>, <span class="math notranslate nohighlight">\(\tau\)</span> is the lifetime defined as
 <span class="math notranslate nohighlight">\(1/s(\mathbf{k})\)</span> and <span class="math notranslate nohighlight">\(E\)</span> is energy.</p>
 <p>The transport DOS is used to calculate the moments of the generalized transport
@@ -126,12 +126,12 @@ coefficients</p>
 <div class="math notranslate nohighlight">
 \[\mathcal{L}^{(\alpha)}(E_\mathrm{F}, T) =
     q^2 \int \sigma(E, T)(E - E_\mathrm{F})^\alpha \left (
-    - \frac{ \delta f_\mathrm{T}(E, E_\mathrm{F}, T)}{\delta E)}
+    - \frac{ \delta f_\mathrm{T}(E, E_\mathrm{F}, T)}{\delta E}
     \right ) \mathrm{d}E,\]</div>
 <p>where <span class="math notranslate nohighlight">\(E_\mathrm{F}\)</span> is the Fermi level at doping concentration, <span class="math notranslate nohighlight">\(c\)</span>.</p>
 <p>Finally, the electrical conductivity, <span class="math notranslate nohighlight">\(\sigma\)</span>, Seebeck coefficient,
 <span class="math notranslate nohighlight">\(S\)</span>, and electronic contribution to the thermal conductivity,
-<span class="math notranslate nohighlight">\(\kappa_\mathrm{e}\)</span> are calculated according to</p>
+<span class="math notranslate nohighlight">\(\kappa_\mathrm{e}\)</span>, are calculated according to</p>
 <div class="math notranslate nohighlight">
 \[\begin{split}\sigma = {}&amp; \mathcal{L}^{(0)},\\
 S = {}&amp; \frac{1}{qT} \frac{\mathcal{L}^{(1)}}{\mathcal{L}^{(0)}},\\
@@ -171,7 +171,7 @@ S = {}&amp; \frac{1}{qT} \frac{\mathcal{L}^{(1)}}{\mathcal{L}^{(0)}},\\
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Theory</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#boltzmann-transport-equation">Boltzmann transport equation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#elastic-versus-inelastic-scattering">Elastic <em>versus</em> inelastic scattering</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#iterative-boltzmann-transport-equation">Iterative Boltzmann transport equation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#iterative-boltzmann-transport">Iterative Boltzmann transport</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#calculating-transport-properties">Calculating transport properties</a></li>
 </ul>
 </li>
