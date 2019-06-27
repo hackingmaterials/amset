@@ -29,6 +29,14 @@ amset.data module
     :undoc-members:
     :show-inheritance:
 
+amset.dos module
+----------------
+
+.. automodule:: amset.dos
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 amset.run module
 ----------------
 
