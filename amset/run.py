@@ -29,7 +29,8 @@ from amset.interpolation.interpolate import Interpolater
 from amset.scattering.calculate import ScatteringCalculator
 from amset.transport import TransportCalculator
 from amset.misc.util import (validate_settings, tensor_average,
-                             load_settings_from_file)
+                             load_settings_from_file, write_settings_to_file,
+                             unicodeify_spacegroup)
 from amset.misc.log import log_banner, log_list, initialize_amset_logger
 
 __author__ = "Alex Ganose"
