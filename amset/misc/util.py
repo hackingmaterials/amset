@@ -173,8 +173,6 @@ def cast_dict(d):
             elif isinstance(v, tuple):
                 v = list(v)
 
-            if k == "doping":
-                print(type(v))
             new_d[k] = v
     return new_d
 
