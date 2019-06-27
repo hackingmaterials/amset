@@ -186,7 +186,7 @@ The orbital integral is implemented as
           + c_{b,\mathbf{k}} c_{b,\mathbf{k^\prime}} x )^2,
 
 where :math:`x` is the cosine of the angle between :math:`\mathbf{k}`
-and :math:`\mathbf{k}^\prime)`, and :math:`a` and :math:`c` are depend
+and :math:`\mathbf{k}^\prime)`, and :math:`a` and :math:`c` depend
 on the *s* (:math:`\phi_s`) and *p*-orbital projections (:math:`\phi_p`)
 as:
 

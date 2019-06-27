@@ -34,7 +34,7 @@ given as
 Elastic *versus* inelastic scattering
 -------------------------------------
 
-The perturbation is dependent on the scattering rate of electrons, :math:`s`.
+The perturbation is dependent on the scattering rate :math:`s`.
 The differential scattering rate from state :math:`\mathbf{k}` to
 :math:`\mathbf{k}^\prime` is given as
 
@@ -84,8 +84,8 @@ where :math:`f=f(\mathbf{k})`, :math:`f^\prime = f(\mathbf{k}^\prime)`,
 :math:`\mathbf{k}` and :math:`\mathbf{k}^\prime`.
 
 
-Iterative Boltzmann transport equation
---------------------------------------
+Iterative Boltzmann transport
+-----------------------------
 
 As detailed in [Rode]_, the perturbation to the total distribution function
 can be written,
@@ -119,7 +119,7 @@ defined as:
         \tau_{b,\mathbf{k},T} \delta (E - E_{b, \mathbf{k}})
         \frac{\mathrm{d}\mathbf{k}}{8 \pi^3},
 
-where :math:`\mathbf{v}_{b, \mathbf{k}}` is the group velocity of a k-point,
+where :math:`\mathbf{v}_{b, \mathbf{k}}` is the group velocity of k-point,
 :math:`\mathbf{k}` in band, :math:`b`, :math:`\tau` is the lifetime defined as
 :math:`1/s(\mathbf{k})` and :math:`E` is energy.
 
@@ -131,14 +131,14 @@ coefficients
 
     \mathcal{L}^{(\alpha)}(E_\mathrm{F}, T) =
         q^2 \int \sigma(E, T)(E - E_\mathrm{F})^\alpha \left (
-        - \frac{ \delta f_\mathrm{T}(E, E_\mathrm{F}, T)}{\delta E)}
+        - \frac{ \delta f_\mathrm{T}(E, E_\mathrm{F}, T)}{\delta E}
         \right ) \mathrm{d}E,
 
 where :math:`E_\mathrm{F}` is the Fermi level at doping concentration, :math:`c`.
 
 Finally, the electrical conductivity, :math:`\sigma`, Seebeck coefficient,
 :math:`S`, and electronic contribution to the thermal conductivity,
-:math:`\kappa_\mathrm{e}` are calculated according to
+:math:`\kappa_\mathrm{e}`, are calculated according to
 
 .. math::
 
