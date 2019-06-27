@@ -21,10 +21,11 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 # MACOSX_DEPLOYMENT_TARGET before calling setup.py
 if sys.platform == 'darwin':
     if 'MACOSX_DEPLOYMENT_TARGET' not in os.environ:
-        current_system = LooseVersion(platform.mac_ver()[0])
-        python_target = LooseVersion(
-            get_config_vars('MACOSX_DEPLOYMENT_TARGET'))
-        if current_system >= '10.9' > python_target:
+        current_system = platform.mac_ver()[0]
+        python_target = get_config_vars().get('MACOSX_DEPLOYMENT_TARGET',
+                                              current_system)
+        if (LooseVersion(python_target) < '10.9' and
+                LooseVersion(current_system) >= '10.9'):
             os.environ['MACOSX_DEPLOYMENT_TARGET'] = '10.9'
 
 
@@ -47,10 +48,10 @@ if __name__ == "__main__":
         package_data={},
         data_files=['LICENSE', 'requirements-optional.txt'],
         zip_safe=False,
-        install_requires=['numpy', 'pymatgen', 'scipy', 'monty',
+        install_requires=['numpy', 'pymatgen>=2019.5.8', 'scipy', 'monty',
                           'matplotlib', 'BoltzTraP2',
                           'spglib>=1.12.2', "scikit-learn", "tqdm",
-                          "memory_profiler"],
+                          "memory_profiler", "numexpr"],
         extras_require={'docs': ['sphinx']},
         classifiers=['Programming Language :: Python :: 3.6',
                      'Development Status :: 4 - Beta',
