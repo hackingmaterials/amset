@@ -183,7 +183,7 @@ The orbital integral is implemented as
 
     G_b(\mathbf{k}, \mathbf{k}^\prime)
         = (a_{b,\mathbf{k}} a_{b,\mathbf{k^\prime}}
-          + c_{b,\mathbf{k}} c_{b,\mathbf{k^\prime}})^2,
+          + c_{b,\mathbf{k}} c_{b,\mathbf{k^\prime}} x )^2,
 
 where :math:`x` is the cosine of the angle between :math:`\mathbf{k}`
 and :math:`\mathbf{k}^\prime)`, and :math:`a` and :math:`c` are depend
@@ -192,9 +192,10 @@ as:
 
 .. math::
 
-    a_{b,\mathbf{k}} = \frac{\phi_{s,b,\mathbf{k}}}
+    a_{b,\mathbf{k}} = {}& \frac{\phi_{s,b,\mathbf{k}}}
                             {\sqrt{(\phi_{s,b,\mathbf{k}}^2 +
-                              \phi_{p,b,\mathbf{k}}^2)}}.
+                              \phi_{p,b,\mathbf{k}}^2)}}, \\
+    c_{b,\mathbf{k}} = {}& \sqrt{1 - a_{b,\mathbf{k}}^2}.
 
 The justification for the above form of the overlap integral is given in [Rode]_.
 
