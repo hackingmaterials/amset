@@ -46,7 +46,7 @@ if __name__ == "__main__":
         keywords='conductivity scattering seebeck dft vasp',
         packages=find_packages(),
         package_data={},
-        data_files=['LICENSE', 'requirements-optional.txt'],
+        data_files=['LICENSE', 'requirements.txt'],
         zip_safe=False,
         install_requires=['numpy', 'pymatgen>=2019.5.8', 'scipy', 'monty',
                           'matplotlib', 'BoltzTraP2',
