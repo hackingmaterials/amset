@@ -94,5 +94,8 @@ at all. Instead the settings can be passed as a dictionary. For example:
 Output files
 ------------
 
+Convergence
+-----------
+
 
 
