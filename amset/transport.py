@@ -163,7 +163,6 @@ def _calculate_transport_properties(amset_data):
     for n, t in np.ndindex(n_t_size):
         sum_rates = [np.sum(amset_data.scattering_rates[s][:, n, t], axis=0)
                      for s in amset_data.spins]
-        print(np.array(sum_rates).min())
         lifetimes = 1 / np.vstack(sum_rates)
         # lifetimes = lifetimes[:, kmask]
         # print(lifetimes.min())

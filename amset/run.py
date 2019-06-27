@@ -52,6 +52,7 @@ class AmsetRunner(MSONable):
                  temperatures: Optional[Union[List, np.ndarray]] = None,
                  scattering_type: Optional[Union[str, List[str],
                                                  float]] = "auto",
+                 num_extra_kpoints: Optional[int] = None,
                  performance_parameters: Optional[Dict[str, float]] = None,
                  output_parameters: Optional[Dict[str, Any]] = None,
                  interpolation_factor: int = 10,
@@ -67,6 +68,7 @@ class AmsetRunner(MSONable):
         self.soc = soc
         self.doping = doping
         self.temperatures = temperatures
+        self.num_extra_kpoints = num_extra_kpoints
 
         if self.doping is None:
             self.doping = np.concatenate([np.logspace(16, 21, 6),
@@ -85,7 +87,8 @@ class AmsetRunner(MSONable):
         self.material_properties.update(material_properties)
         self.output_parameters.update(output_parameters)
 
-        if self.output_parameters["print_log"]:
+        if (self.output_parameters["print_log"] or
+                self.output_parameters["log_error_traceback"]):
             initialize_amset_logger(
                 log_traceback=output_parameters["log_error_traceback"])
 
@@ -148,7 +151,7 @@ class AmsetRunner(MSONable):
             dos_width=self.performance_parameters["dos_width"])
         amset_data.set_doping_and_temperatures(self.doping, self.temperatures)
 
-        if self.performance_parameters["n_extra_kpoints"]:
+        if self.num_extra_kpoints:
             log_banner("DENSIFICATION")
 
             densifier = BandDensifier(
@@ -158,7 +161,7 @@ class AmsetRunner(MSONable):
                 dos_estep=self.performance_parameters["dos_estep"])
             amset_data.set_extra_kpoints(
                 *densifier.densify(
-                    self.performance_parameters["n_extra_kpoints"]))
+                    self.num_extra_kpoints))
 
         log_banner("SCATTERING")
         t0 = time.perf_counter()
@@ -251,6 +254,7 @@ class AmsetRunner(MSONable):
             doping=settings["general"]["doping"],
             temperatures=settings["general"]["temperatures"],
             scattering_type=settings["general"]["scattering_type"],
+            num_extra_kpoints=settings["general"]["num_extra_kpoints"],
             performance_parameters=settings["performance"],
             output_parameters=settings["output"],
             interpolation_factor=settings["general"]["interpolation_factor"],
@@ -297,6 +301,7 @@ class AmsetRunner(MSONable):
             "bandgap": self.user_bandgap,
             "interpolation_factor": self.interpolation_factor,
             "scattering_type": self.scattering_type,
+            "num_extra_kpoints": self.num_extra_kpoints,
             "doping": self.doping,
             "temperatures": self.temperatures}
 
