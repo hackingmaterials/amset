@@ -24,8 +24,7 @@ if sys.platform == 'darwin':
         current_system = platform.mac_ver()[0]
         python_target = get_config_vars().get('MACOSX_DEPLOYMENT_TARGET',
                                               current_system)
-        if (LooseVersion(python_target) < '10.9' and
-                LooseVersion(current_system) >= '10.9'):
+        if LooseVersion(current_system) >= '10.9' > LooseVersion(python_target):
             os.environ['MACOSX_DEPLOYMENT_TARGET'] = '10.9'
 
 
