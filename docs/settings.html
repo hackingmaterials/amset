@@ -136,6 +136,7 @@ structure will be roughly equal to <code class="docutils literal notranslate"><s
 of k-points in the DFT calculation. This is the primary option for controlling
 the accuracy of the calculated scattering rates. <strong>Transport properties should
 be converged with respect to this parameter.</strong></p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">10</span></code></p>
 </div>
 <div class="section" id="num-extra-kpoints">
 <h3><code class="docutils literal notranslate"><span class="pre">num_extra_kpoints</span></code><a class="headerlink" href="#num-extra-kpoints" title="Permalink to this headline">¶</a></h3>
@@ -147,6 +148,7 @@ often improve the speed of convergence for very disperse band structures.</p>
 calculating the Voronoi tessellation for the k-points, ii) calculating the
 Voronoi cell volumes. This calculation can add some additional computational
 expense.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">None</span></code></p>
 </div>
 <div class="section" id="scattering-type">
 <h3><code class="docutils literal notranslate"><span class="pre">scattering_type</span></code><a class="headerlink" href="#scattering-type" title="Permalink to this headline">¶</a></h3>
@@ -164,6 +166,7 @@ can be specified. Options include:</p>
 <p>For example, <code class="docutils literal notranslate"><span class="pre">ACD,IMP,POP</span></code>. The scattering mechanism will only be calculated
 if all the required material parameters for that mechanism are set. See the
 <a class="reference external" href="scattering">scattering section</a> of the documentation for more details.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">auto</span></code></p>
 </div>
 <div class="section" id="scissor">
 <h3><code class="docutils literal notranslate"><span class="pre">scissor</span></code><a class="headerlink" href="#scissor" title="Permalink to this headline">¶</a></h3>
@@ -224,12 +227,14 @@ list of two values for the VBM and CBM, respectively, e.g.:</p>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--acceptor-charge</span></code></p>
 <p>The charge of acceptor defects, in units of electron charge.</p>
 <p><em>Required for:</em> IMP</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
 </div>
 <div class="section" id="donor-charge">
 <h3><code class="docutils literal notranslate"><span class="pre">donor_charge</span></code><a class="headerlink" href="#donor-charge" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--donor-charge</span></code></p>
 <p>The charge of donor defects, in units of electron charge.</p>
 <p><em>Required for:</em> IMP</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
 </div>
 <div class="section" id="pop-frequency">
 <h3><code class="docutils literal notranslate"><span class="pre">pop_frequency</span></code><a class="headerlink" href="#pop-frequency" title="Permalink to this headline">¶</a></h3>
@@ -252,12 +257,14 @@ between greater numbers of k-points, leading to an artificial increase in the
 scattering rate. Smaller values require denser k-point meshes to converge the
 scattering rate. In general, the default value of 0.001 eV is acceptable in
 most cases.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">0.001</span></code></p>
 </div>
 <div class="section" id="energy-cutoff">
 <h3><code class="docutils literal notranslate"><span class="pre">energy_cutoff</span></code><a class="headerlink" href="#energy-cutoff" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--energy-cutoff</span></code></p>
 <p>The energy cut-off used to determine which bands to include in the interpolation
 and scattering rate calculation, in eV.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1.5</span></code></p>
 </div>
 <div class="section" id="fd-tol">
 <h3><code class="docutils literal notranslate"><span class="pre">fd_tol</span></code><a class="headerlink" href="#fd-tol" title="Permalink to this headline">¶</a></h3>
@@ -266,6 +273,7 @@ and scattering rate calculation, in eV.</p>
 the scattering for. Given as a percentage from 0 to 1. Larger values indicate
 that the fewer k-points will be calculated, smaller values indicate a larger
 portion of the Brillouin zone will be calculated.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">0.005</span></code></p>
 </div>
 <div class="section" id="ibte-tol">
 <h3><code class="docutils literal notranslate"><span class="pre">ibte_tol</span></code><a class="headerlink" href="#ibte-tol" title="Permalink to this headline">¶</a></h3>
@@ -273,6 +281,7 @@ portion of the Brillouin zone will be calculated.</p>
 <p>Parameter to control when the iterative Boltzmann transport equation is
 considered converged. Given as a percent from 0 to 1.</p>
 <p><strong>Not thoroughly tested</strong></p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
 </div>
 <div class="section" id="max-ibte-iter">
 <h3><code class="docutils literal notranslate"><span class="pre">max_ibte_iter</span></code><a class="headerlink" href="#max-ibte-iter" title="Permalink to this headline">¶</a></h3>
@@ -280,23 +289,27 @@ considered converged. Given as a percent from 0 to 1.</p>
 <p>Maximum number of iterations for solving the iterative Boltzmann transport
 equation.</p>
 <p><strong>Not thoroughly tested</strong></p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
 </div>
 <div class="section" id="dos-estep">
 <h3><code class="docutils literal notranslate"><span class="pre">dos_estep</span></code><a class="headerlink" href="#dos-estep" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--dos-estep</span></code></p>
 <p>The energy step for the calculated density of states, in eV. Controls the
 accuracy when determining the position of the Fermi level.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">0.001</span></code></p>
 </div>
 <div class="section" id="dos-width">
 <h3><code class="docutils literal notranslate"><span class="pre">dos_width</span></code><a class="headerlink" href="#dos-width" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--dos-width</span></code></p>
 <p>Broadening width by which to smear the density of states, in eV. It is
 recommended to leave this as the default, i.e., no broadening.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">None</span></code></p>
 </div>
 <div class="section" id="symprec">
 <h3><code class="docutils literal notranslate"><span class="pre">symprec</span></code><a class="headerlink" href="#symprec" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--symprec</span></code></p>
 <p>The symmetry finding tolerance, in Å.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">0.01</span></code></p>
 </div>
 <div class="section" id="nworkers">
 <h3><code class="docutils literal notranslate"><span class="pre">nworkers</span></code><a class="headerlink" href="#nworkers" title="Permalink to this headline">¶</a></h3>
@@ -313,23 +326,26 @@ processors).</p>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--no-calculate-mobility</span></code></p>
 <p>Whether to calculate <em>n</em>- and <em>p</em>-type carrier mobilities. Has no effect
 for metallic systems where mobility is not well defined.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">True</span></code></p>
 </div>
 <div class="section" id="separate-scattering-mobilities">
 <h3><code class="docutils literal notranslate"><span class="pre">separate_scattering_mobilities</span></code><a class="headerlink" href="#separate-scattering-mobilities" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--no-separate-scattering-mobilities</span></code></p>
 <p>Whether to report the individual scattering rate mobilities. I.e., the mobility
 if only that scattering mechanism were present.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">True</span></code></p>
 </div>
 <div class="section" id="file-format">
 <h3><code class="docutils literal notranslate"><span class="pre">file_format</span></code><a class="headerlink" href="#file-format" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--file-format</span></code></p>
 <p>The output file format. Options are: <code class="docutils literal notranslate"><span class="pre">json</span></code>, <code class="docutils literal notranslate"><span class="pre">yaml</span></code>, and <code class="docutils literal notranslate"><span class="pre">txt</span></code>.</p>
-<p>Default is <code class="docutils literal notranslate"><span class="pre">json</span></code>.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">json</span></code></p>
 </div>
 <div class="section" id="write-input">
 <h3><code class="docutils literal notranslate"><span class="pre">write_input</span></code><a class="headerlink" href="#write-input" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--write-input</span></code></p>
 <p>Whether to write the input settings to a file called <code class="docutils literal notranslate"><span class="pre">amset_settings.yaml</span></code>.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">True</span></code></p>
 </div>
 <div class="section" id="write-mesh">
 <h3><code class="docutils literal notranslate"><span class="pre">write_mesh</span></code><a class="headerlink" href="#write-mesh" title="Permalink to this headline">¶</a></h3>
@@ -338,6 +354,7 @@ if only that scattering mechanism were present.</p>
 the band energy, velocity and scattering rate.</p>
 <p><strong>Note:</strong> for large values of <a class="reference internal" href="#interpolation-factor">interpolation_factor</a> this option can use a large
 amount of disk space.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </div>
 <div class="section" id="log-error-traceback">
 <h3><code class="docutils literal notranslate"><span class="pre">log_error_traceback</span></code><a class="headerlink" href="#log-error-traceback" title="Permalink to this headline">¶</a></h3>
@@ -345,11 +362,13 @@ amount of disk space.</p>
 <p>Whether to log the full error traceback rather than just the error message. If
 you find a problem with AMSET, please enable this option and provide the AMSET
 developers with the full crash report.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </div>
 <div class="section" id="print-log">
 <h3><code class="docutils literal notranslate"><span class="pre">print_log</span></code><a class="headerlink" href="#print-log" title="Permalink to this headline">¶</a></h3>
 <p><em>Command-line option:</em> <code class="docutils literal notranslate"><span class="pre">--no-log</span></code></p>
 <p>Whether to print log messages.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </div>
 </div>
 </div>
