@@ -4,12 +4,12 @@ from amset.run import AmsetRunner
 
 settings = {
     "general": {
-        "interpolation_factor": 450,
+        "interpolation_factor": 100,
         "scattering_type": "auto",
         "doping": [3e13],
         "temperatures": [201, 290, 300, 401, 506, 605, 789, 994],
         "bandgap": 1.33,
-        "n_extra_kpoints": 5000
+        "num_extra_kpoints": 100
     },
 
     "material": {
@@ -23,7 +23,7 @@ settings = {
     },
 
     "output": {
-        "separate_scattering_mobilities": False,
+        "separate_scattering_mobilities": True,
         "log_traceback": True,
         "print_log": True
     }
@@ -34,7 +34,7 @@ warnings.simplefilter("ignore")
 runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml.gz", settings)
 runner.run()
 
-# for i in [80, 100, 120]:
+# for i in [100, 150, 200, 300, 400, 500]:
 #     settings["general"]["interpolation_factor"] = i
 #     runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml.gz", settings)
 #     runner.run()
