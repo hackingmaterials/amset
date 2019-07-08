@@ -23,8 +23,8 @@ amset_defaults = {
         "elastic_constant": None,
         "deformation_potential": None,
         "piezeoelectric_coefficient": None,
-        "acceptor_charge": None,
-        "donor_charge": None,
+        "acceptor_charge": 1,
+        "donor_charge": 1,
         "pop_frequency": None,
     },
 
