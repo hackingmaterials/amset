@@ -634,6 +634,8 @@ def _interpolate_zero_rates(rates, kpoints):
                 bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}',
                 file=sys.stdout)
 
+    n_zero_rates = 0
+    n_lots = 0
     t0 = time.perf_counter()
     for spin in rates:
         for s, d, t, b in np.ndindex(rates[spin].shape[:-1]):
@@ -646,6 +648,8 @@ def _interpolate_zero_rates(rates, kpoints):
                 rates[spin][s, d, t, b] += small_val
 
             elif np.sum(non_zero_rates) != len(rates[spin][s, d, t, b]):
+                n_zero_rates += sum(non_zero_rates == False)
+                n_lots += 1
                 rates[spin][s, d, t, b, ~non_zero_rates] = griddata(
                     points=kpoints[non_zero_rates],
                     values=rates[spin][s, d, t, b, non_zero_rates],
@@ -654,6 +658,9 @@ def _interpolate_zero_rates(rates, kpoints):
             pbar.update()
     pbar.close()
     log_time_taken(t0)
+
+    if n_zero_rates > 0:
+        print("WARNING: N zero rates: {:.0f}".format(n_zero_rates/n_lots))
 
     return rates
 
