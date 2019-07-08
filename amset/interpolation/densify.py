@@ -145,8 +145,6 @@ class BandDensifier(object):
         k_mask = n_points_per_kpoint > 0
         k_coords = self._amset_data.full_kpoints[k_mask]
         n_points_per_kpoint = n_points_per_kpoint[k_mask]
-        print(sum(k_mask))
-        print(n_points_per_kpoint)
 
         # add additional points in concenctric spheres around the k-points
         #
@@ -156,8 +154,8 @@ class BandDensifier(object):
         log_list(["# extra kpoints: {}".format(total_points),
                   "max frac k-distance: {:.5f}".format(max_dist)])
 
-        from monty.serialization import dumpfn
-        dumpfn(extra_kpoints, "extra_kpoints.json")
+        # from monty.serialization import dumpfn
+        # dumpfn(extra_kpoints, "extra_kpoints.json")
 
         extra_kpoints = kpoints_to_first_bz(extra_kpoints)
 
@@ -169,13 +167,11 @@ class BandDensifier(object):
             return_projections=True, atomic_units=True,
             return_vel_outer_prod=True, skip_coefficients=skip)
 
-        # finally, calculate k-point weights as the volume of each cell in the
-        # Voronoi decomposition.
-        all_kpoints = np.concatenate(
-            (self._amset_data.full_kpoints, extra_kpoints))
-
         voronoi = PeriodicVoronoi(
-            all_kpoints, original_mesh=self._amset_data.kpoint_mesh)
+            self._amset_data.structure.lattice.reciprocal_lattice,
+            self._amset_data.full_kpoints,
+            self._amset_data.kpoint_mesh,
+            extra_kpoints)
         kpoint_weights = voronoi.compute_volumes()
 
         # note k-point weights is for all k-points, whereas the other properties
