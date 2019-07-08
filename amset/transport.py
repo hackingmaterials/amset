@@ -5,7 +5,7 @@ from typing import Union, List
 import numpy as np
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients, DOS, \
-    lambda_to_tau
+    lambda_to_tau, BTPDOS
 from monty.json import MSONable
 
 from amset.misc.constants import e
@@ -103,22 +103,22 @@ def _calculate_mobility(amset_data: AmsetData,
         # mask data to remove extra k-points that are not part of the regular
         # k-point mesh (necessary as BoltzTraP2 doesn't support custom k-point
         # weights.
-        # energies = energies[:, kmask]
-        # vv = vv[..., kmask]
-        # lifetimes = lifetimes[:, kmask]
+        energies = energies[:, kmask]
+        vv = vv[..., kmask]
+        lifetimes = lifetimes[:, kmask]
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
         fermi = amset_data.fermi_levels[n, t][None] * units.eV
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals for the temperature and doping
-        # epsilon, dos, vvdos, cdos = BTPDOS(
-        #     energies, vv, scattering_model=lifetimes,
-        #     npts=len(amset_data.dos.energies))
-        epsilon, dos, vvdos, cdos = AMSETDOS(
+        epsilon, dos, vvdos, cdos = BTPDOS(
             energies, vv, scattering_model=lifetimes,
-            npts=len(amset_data.dos.energies),
-            kpoint_weights=amset_data.kpoint_weights)
+            npts=len(amset_data.dos.energies))
+        # epsilon, dos, vvdos, cdos = AMSETDOS(
+        #     energies, vv, scattering_model=lifetimes,
+        #     npts=len(amset_data.dos.energies),
+        #     kpoint_weights=amset_data.kpoint_weights)
 
         _, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
@@ -150,8 +150,8 @@ def _calculate_transport_properties(amset_data):
     # mask data to remove extra k-points that are not part of the regular
     # k-point mesh (necessary as BoltzTraP2 doesn't support custom k-point
     # weights.
-    # energies = energies[:, kmask]
-    # vv = vv[..., kmask]
+    energies = energies[:, kmask]
+    vv = vv[..., kmask]
 
     n_t_size = (len(amset_data.doping), len(amset_data.temperatures))
 
@@ -164,7 +164,7 @@ def _calculate_transport_properties(amset_data):
         sum_rates = [np.sum(amset_data.scattering_rates[s][:, n, t], axis=0)
                      for s in amset_data.spins]
         lifetimes = 1 / np.vstack(sum_rates)
-        # lifetimes = lifetimes[:, kmask]
+        lifetimes = lifetimes[:, kmask]
         # print(lifetimes.min())
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
@@ -172,13 +172,13 @@ def _calculate_transport_properties(amset_data):
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals
-        # epsilon, dos, vvdos, cdos = BTPDOS(
-        #     energies, vv, scattering_model=lifetimes,
-        #     npts=len(amset_data.dos.energies))
-        epsilon, dos, vvdos, cdos = AMSETDOS(
+        epsilon, dos, vvdos, cdos = BTPDOS(
             energies, vv, scattering_model=lifetimes,
-            npts=len(amset_data.dos.energies),
-            kpoint_weights=amset_data.kpoint_weights)
+            npts=len(amset_data.dos.energies))
+        # epsilon, dos, vvdos, cdos = AMSETDOS(
+        #     energies, vv, scattering_model=lifetimes,
+        #     npts=len(amset_data.dos.energies),
+        #     kpoint_weights=amset_data.kpoint_weights)
 
         _, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
@@ -193,8 +193,8 @@ def _calculate_transport_properties(amset_data):
         sigma[n, t], seebeck[n, t], kappa[n, t], _ = \
             calc_Onsager_coefficients(l0, l1, l2, fermi, temp, volume)
 
-        # convert seebeck to µV/K
-        seebeck *= 1e6
+    # convert seebeck to µV/K
+    seebeck *= 1e6
 
     return sigma, seebeck, kappa
 
