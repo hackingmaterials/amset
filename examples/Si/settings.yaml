@@ -21,5 +21,5 @@ performance:
     dos_estep: 0.01
     energy_cutoff: 1.5
     symprec: 0.01
-    energy_tol: 0.001
+    gauss_tol: 0.001
     nworkers: -1
