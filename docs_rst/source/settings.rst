@@ -69,6 +69,12 @@ of k-points in the DFT calculation. This is the primary option for controlling
 the accuracy of the calculated scattering rates. **Transport properties should
 be converged with respect to this parameter.**
 
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["general"]["interpolation_factor"]))
+
+
 ``num_extra_kpoints``
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -82,6 +88,11 @@ When extra k-points are added, the k-point weights are determined by: i)
 calculating the Voronoi tessellation for the k-points, ii) calculating the
 Voronoi cell volumes. This calculation can add some additional computational
 expense.
+
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["general"]["num_extra_kpoints"]))
 
 ``scattering_type``
 ~~~~~~~~~~~~~~~~~~~
@@ -101,6 +112,11 @@ can be specified. Options include:
 For example, ``ACD,IMP,POP``. The scattering mechanism will only be calculated
 if all the required material parameters for that mechanism are set. See the
 `scattering section <scattering>`_ of the documentation for more details.
+
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["general"]["scattering_type"]))
 
 ``scissor``
 ~~~~~~~~~~~
@@ -186,6 +202,12 @@ The charge of acceptor defects, in units of electron charge.
 
 *Required for:* IMP
 
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["material"]["acceptor_charge"]))
+
+
 ``donor_charge``
 ~~~~~~~~~~~~~~~~
 
@@ -194,6 +216,11 @@ The charge of acceptor defects, in units of electron charge.
 The charge of donor defects, in units of electron charge.
 
 *Required for:* IMP
+
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["material"]["donor_charge"]))
 
 ``pop_frequency``
 ~~~~~~~~~~~~~~~~~
@@ -223,6 +250,11 @@ scattering rate. Smaller values require denser k-point meshes to converge the
 scattering rate. In general, the default value of 0.001 eV is acceptable in
 most cases.
 
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["performance"]["gauss_width"]))
+
 ``energy_cutoff``
 ~~~~~~~~~~~~~~~~~
 
@@ -230,6 +262,11 @@ most cases.
 
 The energy cut-off used to determine which bands to include in the interpolation
 and scattering rate calculation, in eV.
+
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["performance"]["energy_cutoff"]))
 
 ``fd_tol``
 ~~~~~~~~~~
@@ -241,6 +278,11 @@ the scattering for. Given as a percentage from 0 to 1. Larger values indicate
 that the fewer k-points will be calculated, smaller values indicate a larger
 portion of the Brillouin zone will be calculated.
 
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["performance"]["fd_tol"]))
+
 ``ibte_tol``
 ~~~~~~~~~~~~
 
@@ -250,6 +292,11 @@ Parameter to control when the iterative Boltzmann transport equation is
 considered converged. Given as a percent from 0 to 1.
 
 **Not thoroughly tested**
+
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["performance"]["ibte_tol"]))
 
 ``max_ibte_iter``
 ~~~~~~~~~~~~~~~~~
@@ -261,6 +308,12 @@ equation.
 
 **Not thoroughly tested**
 
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["performance"]["max_ibte_iter"]))
+
+
 ``dos_estep``
 ~~~~~~~~~~~~~
 
@@ -268,6 +321,11 @@ equation.
 
 The energy step for the calculated density of states, in eV. Controls the
 accuracy when determining the position of the Fermi level.
+
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["performance"]["dos_estep"]))
 
 ``dos_width``
 ~~~~~~~~~~~~~
@@ -277,12 +335,22 @@ accuracy when determining the position of the Fermi level.
 Broadening width by which to smear the density of states, in eV. It is
 recommended to leave this as the default, i.e., no broadening.
 
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["performance"]["dos_width"]))
+
 ``symprec``
 ~~~~~~~~~~~
 
 *Command-line option:* ``--symprec``
 
 The symmetry finding tolerance, in Å.
+
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["performance"]["symprec"]))
 
 ``nworkers``
 ~~~~~~~~~~~~
@@ -305,6 +373,11 @@ The output section controls the output files and logging.
 Whether to calculate *n*- and *p*-type carrier mobilities. Has no effect
 for metallic systems where mobility is not well defined.
 
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["output"]["calculate_mobility"]))
+
 ``separate_scattering_mobilities``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -313,6 +386,11 @@ for metallic systems where mobility is not well defined.
 Whether to report the individual scattering rate mobilities. I.e., the mobility
 if only that scattering mechanism were present.
 
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["output"]["separate_scattering_mobilities"]))
+
 ``file_format``
 ~~~~~~~~~~~~~~~
 
@@ -320,7 +398,10 @@ if only that scattering mechanism were present.
 
 The output file format. Options are: ``json``, ``yaml``, and ``txt``.
 
-Default is ``json``.
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["output"]["file_format"]))
 
 
 ``write_input``
@@ -329,6 +410,11 @@ Default is ``json``.
 *Command-line option:* ``--write-input``
 
 Whether to write the input settings to a file called ``amset_settings.yaml``.
+
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["output"]["write_input"]))
 
 ``write_mesh``
 ~~~~~~~~~~~~~~
@@ -341,6 +427,11 @@ the band energy, velocity and scattering rate.
 **Note:** for large values of `interpolation_factor`_ this option can use a large
 amount of disk space.
 
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["output"]["write_mesh"]))
+
 ``log_error_traceback``
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -350,9 +441,19 @@ Whether to log the full error traceback rather than just the error message. If
 you find a problem with AMSET, please enable this option and provide the AMSET
 developers with the full crash report.
 
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["output"]["log_error_traceback"]))
+
 ``print_log``
 ~~~~~~~~~~~~~
 
 *Command-line option:* ``--no-log``
 
 Whether to print log messages.
+
+.. exec::
+    from amset import amset_defaults
+    print("Default: ``{}``".format(
+        amset_defaults["output"]["print_log"]))
