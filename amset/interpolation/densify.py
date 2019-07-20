@@ -8,6 +8,8 @@ from scipy.interpolate import interp1d
 
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import DOS, dFDde
+from scipy.ndimage import uniform_filter1d
+
 from amset import amset_defaults as defaults
 from amset.data import AmsetData
 from amset.interpolation.interpolate import Interpolater
@@ -44,107 +46,78 @@ class BandDensifier(object):
         self._energy_cutoff = energy_cutoff
         self._bandgap = bandgap
         self._scissor = scissor
+        self._mesh = amset_data.kpoint_mesh
 
-        logger.info("Generating densification weights")
+        # get the indices to sort the kpoints from on the Z, then Y,
+        # then X columns
+        sort_idx = np.lexsort((self._mesh[:, 2],
+                               self._mesh[:, 1],
+                               self._mesh[:, 0]))
 
-        self._densification_weights = {s: np.zeros(amset_data.energies[s].shape)
-                                       for s in amset_data.spins}
-        all_energies = {s: [] for s in amset_data.spins}
-        all_weights = {s: [] for s in amset_data.spins}
-        max_weight = 0
+        self._grid_energies = []
         for spin in amset_data.spins:
-            for b_idx, band_energies in enumerate(amset_data.energies[spin]):
-                # calculate the DOS and sum of Fermi integrals with doping and
-                # temperature on a band-by-band basis. Note: if we add interband
-                # scattering at a later stage this should be for the overall
-                # band structure not the band DOS etc.
-                dos_min = band_energies.min() - self._dos_estep
-                dos_max = band_energies.max() + self._dos_estep
-                npts = math.ceil((dos_max - dos_min) / self._dos_estep) * 10
-                energies, dos = DOS(band_energies[:, None], npts=npts,
-                                    erange=(dos_min, dos_max))
-                # dos = smoothen_DOS(energies, dos, 10)
+            # sort the energies then reshape them into the grid. The energies
+            # can now be indexed as energies[ikx][iky][ikz]
+            sorted_energies = amset_data.energies[spin][:, sort_idx]
+            self._grid_energies.extend(sorted_energies.reshape(
+                (-1, ) + tuple(self._mesh)))
 
-                # three fermi integrals govern transport properties:
-                #   1. df/de controls conductivity and mobility
-                #   2. (e-u) * df/de controls Seebeck
-                #   3. (e-u)^2 df/de controls electronic thermal cond
-                # take the absolute sum of the integrals across all doping and
-                # temperatures. this gives us which energies are important for
-                # transport for ever Fermi level and temperature
+        # put the kpoints into a 3D grid so that they can be indexed as
+        # kpoints[ikx][iky][ikz] = [kx, ky, kz]
+        self._grid_kpoints = amset_data.full_kpoints[sort_idx].reshape(
+            tuple(self._mesh) + (3,))
 
-                integral_sum = np.zeros(dos.shape)
-
-                for n, t in np.ndindex(amset_data.fermi_levels.shape):
-                    ef = amset_data.fermi_levels[n, t] * units.eV
-                    kbt = amset_data.temperatures[t] * units.BOLTZMANN
-                    band_dfde = dFDde(energies, ef, kbt)
-                    sigma_int = np.abs(band_dfde)
-                    seeb_int = np.abs((energies - ef) * band_dfde)
-                    ke_int = np.abs((energies - ef) ** 2 * band_dfde)
-
-                    # normalize the transport integrals and sum
-                    integral_sum += sigma_int / sigma_int.max()
-                    integral_sum += seeb_int / seeb_int.max()
-                    integral_sum += ke_int / ke_int.max()
-
-                # weights for densification are the sum of Fermi integrals / DOS
-                # I.e. regions with larger Fermi integrals are prioritized
-                # and regions with low DOS are prioritized.
-                weights = np.log1p(integral_sum) / np.log1p(dos)
-                weights[np.isnan(weights) | np.isinf(weights)] = 0
-                all_energies[spin].append(energies)
-                all_weights[spin].append(weights)
-
-                max_weight = max(max_weight, weights.max())
-
-        for spin in amset_data.spins:
-            for i in range(len(all_weights[spin])):
-                # normalize weightings so they are consistent across all bands
-                weights = all_weights[spin][i] / max_weight
-
-                # interpolate the weights to all kpoints
-                interp_weights = interp1d(all_energies[spin][i], weights)(
-                    amset_data.energies[spin][i])
-
-                interp_weights[interp_weights < 0.05] = 0
-                self._densification_weights[spin][i] = interp_weights
-
-        self._sum_weights = sum([np.sum(self._densification_weights[s])
-                                 for s in amset_data.spins])
-
-    def densify(self,
-                num_extra_kpoints: float = gdefaults["num_extra_kpoints"]):
+    def densify(self, target_de: float = gdefaults["target_de"]):
         logger.info("Densifying band structure around Fermi integrals")
 
-        # add additional k-points around the k-points in the existing mesh
-        # the number of additional k-points is proportional to the
-        # densification weight for that k-point
-        factor = num_extra_kpoints / self._sum_weights
-        extra_kpoint_counts = {
-            s: np.ceil(self._densification_weights[s] * factor).astype(int)
-            for s in self._densification_weights}
+        fine_mesh_dims = np.zeros(self._grid_kpoints.shape)
 
-        # get the number of extra points for each kpoint. Shape of
-        # n_points_per_kpoint is (nkpoints, )
-        n_points_per_kpoint = np.sum(np.concatenate([
-            extra_kpoint_counts[s] for s in extra_kpoint_counts]), axis=0)
+        for band_energies in self._grid_energies:
+            # effectively make a supercell of the energies on the regular grid
+            # containing one extra plane of energies per dimension, on either
+            # face of the 3D energy mesh
+            band_energies = np.pad(band_energies, 1, "wrap")
 
-        # recalculate the number of points to take into account rounding
-        # generally means the number of additional k-points is larger than
-        # specified by the user
-        total_points = np.sum(n_points_per_kpoint)
+            x_diffs = np.abs(np.diff(band_energies, axis=2))
+            y_diffs = np.abs(np.diff(band_energies, axis=1))
+            z_diffs = np.abs(np.diff(band_energies, axis=0))
 
-        # max distance is just under half the distance to the nearest k-point.
-        # Note, the averaging means that this only works well if the original
-        # k-point density is isotropic, which will be the case if using
-        # BoltzTraP interpolation.
-        max_dist = np.average(1 / self._amset_data.kpoint_mesh) / 2.1
+            # remove the diffs related to the extra padding
+            x_diffs = x_diffs[1:-1, 1:-1, :].astype(float)
+            y_diffs = y_diffs[1:-1, :, 1:-1].astype(float)
+            z_diffs = z_diffs[:, 1:-1, 1:-1].astype(float)
 
-        # get the kpoints which will be densified
-        k_mask = n_points_per_kpoint > 0
-        k_coords = self._amset_data.full_kpoints[k_mask]
-        n_points_per_kpoint = n_points_per_kpoint[k_mask]
+            #  calculate moving averages
+            x_diff_averages = uniform_filter1d(x_diffs, 2, axis=2)[:, :, 1:]
+            y_diff_averages = uniform_filter1d(y_diffs, 2, axis=1)[:, 1:, :]
+            z_diff_averages = uniform_filter1d(z_diffs, 2, axis=0)[1:, :, :]
+
+            # stack the averages to get the formatted energy different array
+            ndims = np.stack((x_diff_averages, y_diff_averages,
+                              z_diff_averages), axis=-1)
+
+            # take the dimensions if they are greater than the current
+            # dimensions
+            fine_mesh_dims = np.maximum(fine_mesh_dims, ndims)
+
+        fine_mesh_dims = np.floor(fine_mesh_dims / target_de).astype(int)
+
+        additional_kpoints = []
+
+        for i, j, k in np.ndindex(tuple(dim)):
+            d = ndims[i, j, k]
+            if all(d == 0):
+                continue
+            d[d == 0] = 1
+
+            #     kpts = get_dense_kpoint_mesh(d)
+            kpts = get_dense_kpoint_mesh_spglib(d + 1)
+            kpts /= dim
+            kpts += mesh_grid[i, j, k]
+            additional_kpoints.append(kpts)
+
+        if additional_kpoints:
+            additional_kpoints = np.concatenate(additional_kpoints)
 
         # add additional points in concenctric spheres around the k-points
         #
