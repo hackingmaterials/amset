@@ -53,6 +53,8 @@ class AmsetData(MSONable):
                  seebeck: Optional[np.ndarray] = None,
                  electronic_thermal_conductivity: Optional[np.ndarray] = None,
                  mobility: Optional[Dict[str, np.ndarray]] = None,
+                 fd_cutoff_min: Optional[float] = None,
+                 fd_cutoff_max: Optional[float] = None
                  ):
         self.structure = structure
         self.energies = energies
@@ -98,6 +100,8 @@ class AmsetData(MSONable):
         self.f = None
         self.dfde = None
         self.dfdk = None
+        self.fd_cutoff_max = None
+        self.fd_cutoff_min = None
 
         self.grouped_ir_to_full = groupby(
             np.arange(len(full_kpoints)), ir_to_full_kpoint_mapping)
@@ -215,6 +219,36 @@ class AmsetData(MSONable):
                 # v = v.transpose((0, 2, 1))
                 # self.dfdk[spin][n, t] = np.linalg.norm(
                 #     self.dfde[spin][n, t][..., None] * v * hbar, axis=2)
+
+    def calculate_fermi_dirac_cutoffs(self,
+                                      fd_tolerance: Optional[float] = 0.005):
+        energies = self.dos.energies
+
+        if fd_tolerance:
+            min_cutoff = float("inf")
+            max_cutoff = -float("inf")
+
+            # The integral for the electronic part of the lattice thermal
+            # conductivity is the most diffuse function governing transport
+            # properties (see BoltzTraP1 paper, Fig 2).
+            # It has the form: (e-ef)^2 * df0/de
+            # We find the min and max cutoffs as the min and max energy where the
+            # function is larger than fd_tolerance (in %).
+            for n, t in np.ndindex(self.fermi_levels.shape):
+                ef = self.fermi_levels[n, t]
+                temp = self.temperatures[t]
+
+                dfde = -df0de(energies, ef, temp) * (energies - ef) ** 2
+                dfde /= dfde.max()
+
+                min_cutoff = min(min_cutoff, energies[dfde >= fd_tolerance].min())
+                max_cutoff = max(max_cutoff, energies[dfde >= fd_tolerance].max())
+        else:
+            min_cutoff = energies.min()
+            max_cutoff = energies.max()
+
+        self.fd_cutoff_min = min_cutoff * units.eV
+        self.fd_cutoff_max = max_cutoff * units.eV
 
     def set_scattering_rates(self,
                              scattering_rates: Dict[Spin, np.ndarray],
