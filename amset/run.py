@@ -23,7 +23,7 @@ from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.io.vasp import Vasprun
 from amset import __version__, amset_defaults
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from pymatgen.util.string import unicodeify
+from pymatgen.util.string import unicodeify, unicodeify_spacegroup
 
 from amset.interpolation.interpolate import Interpolater
 from amset.scattering.calculate import ScatteringCalculator
