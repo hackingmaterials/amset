@@ -658,35 +658,3 @@ def _interpolate_zero_rates(rates, kpoints):
     return rates
 
 
-def _calculate_scattering_cutoffs(amset_data: AmsetData,
-                                  fd_tolerance: Optional[float] = 0.005):
-    energies = amset_data.dos.energies
-
-    if fd_tolerance:
-        min_cutoff = float("inf")
-        max_cutoff = -float("inf")
-
-        # The integral for the electronic part of the lattice thermal
-        # conductivity is the most diffuse function governing transport
-        # properties (see BoltzTraP1 paper, Fig 2).
-        # It has the form: (e-ef)^2 * df0/de
-        # We find the min and max cutoffs as the min and max energy where the
-        # function is larger than fd_tolerance (in %).
-        for n, t in np.ndindex(amset_data.fermi_levels.shape):
-            ef = amset_data.fermi_levels[n, t]
-            temp = amset_data.temperatures[t]
-
-            dfde = -df0de(energies, ef, temp) * (energies - ef) ** 2
-            dfde /= dfde.max()
-
-            min_cutoff = min(min_cutoff, energies[dfde >= fd_tolerance].min())
-            max_cutoff = max(max_cutoff, energies[dfde >= fd_tolerance].max())
-    else:
-        min_cutoff = energies.min()
-        max_cutoff = energies.max()
-
-    logger.info("Scattering rates will be calculated between "
-                "{:.4f} – {:.4f} eV".format(min_cutoff, max_cutoff))
-
-    return min_cutoff * units.eV, max_cutoff * units.eV
-

@@ -312,3 +312,49 @@ def df0de(energy, fermi, temperature):
     # This is necessary so at too low numbers python doesn't return NaN
     result[(exponent > 40) | (exponent < -40)] = 1e-32
     return result
+
+
+def get_dense_kpoint_mesh_spglib(mesh, spg_order=False, shift=-0.5):
+    """This is a reimplementation of the spglib c function get_all_grid_addresses
+
+    Given a k-point mesh, gives the full k-point mesh that covers
+    the first Brillouin zone. Uses the same convention as spglib,
+    in that k-points on the edge of the Brillouin zone only
+    appear as positive numbers. I.e. coordinates will always be
+    +0.5 rather than -0.5. Similarly, the same ordering scheme is
+    used.
+
+    The only difference between this function and the function implemented
+    in spglib is that here we return the final fraction coordinates
+    whereas spglib returns the grid_addresses (integer numbers).
+    """
+    addresses = np.stack(np.mgrid[0:mesh[0], 0:mesh[1], 0:mesh[2]],
+                         axis=-1).reshape(np.product(mesh), -1)
+
+    if spg_order:
+        # order the kpoints using the same ordering scheme as spglib
+        idx = addresses[:, 2] * (mesh[0] * mesh[1]) + addresses[:, 1] * mesh[
+            0] + addresses[:, 0]
+        addresses = addresses[idx]
+
+    addresses -= mesh * (addresses > mesh / 2)
+    return (addresses + shift) / mesh
+
+
+def get_dense_kpoint_mesh(mesh):
+    kpts = np.stack(
+        np.mgrid[
+        0:mesh[0] + 1,
+        0:mesh[1] + 1,
+        0:mesh[2] + 1],
+        axis=-1).reshape(-1, 3).astype(float)
+
+    # remove central point for all even ndim as this will fall
+    # exactly the in the centre of the grid and will be on top of
+    # the original k-point
+    if not any(mesh % 2):
+        kpts = np.delete(kpts, int(1 + np.product(mesh + 1) / 2), axis=0)
+
+    kpts /= mesh  # gets frac kpts between 0 and 1
+    kpts -= 0.5
+    return kpts
