@@ -50,8 +50,7 @@ class ScatteringCalculator(MSONable):
                  g_tol: float = 0.01,
                  max_g_iter: int = 8,
                  use_symmetry: bool = True,
-                 nworkers: int = -1,
-                 fd_tol: Optional[float] = 0.005):
+                 nworkers: int = -1):
         if amset_data.temperatures is None or amset_data.doping is None:
             raise RuntimeError(
                 "AmsetData doesn't contain doping levels or temperatures")
@@ -66,8 +65,12 @@ class ScatteringCalculator(MSONable):
         self.scatterers = self.get_scatterers(
             scattering_type, materials_properties, amset_data)
         self.amset_data = amset_data
-        self.scattering_energy_cutoffs = _calculate_scattering_cutoffs(
-            amset_data, fd_tolerance=fd_tol)
+
+        if self.amset_data.fd_cutoffs:
+            self.scattering_energy_cutoffs = self.amset_data.fd_cutoffs
+        else:
+            self.scattering_energy_cutoffs = (min(self.amset_data.dos.energies),
+                                              max(self.amset_data.dos.energies))
 
     @property
     def inelastic_scatterers(self):
@@ -208,6 +211,9 @@ class ScatteringCalculator(MSONable):
         mask = (band_energies < self.scattering_energy_cutoffs[0]) | (
                 band_energies > self.scattering_energy_cutoffs[1])
 
+        print(self.amset_data.full_kpoints[
+                  self.amset_data.ir_kpoints_idx[np.invert(mask)]])
+
         # set the energies out of range to infinite so that they will not be
         # included in the scattering rate calculations
         ball_band_energies[mask] *= float("inf")
@@ -256,12 +262,21 @@ class ScatteringCalculator(MSONable):
         for w in workers:
             w.start()
 
+        if self.use_symmetry:
+            fill_mask = mask[self.amset_data.ir_to_full_kpoint_mapping]
+        else:
+            fill_mask = mask
+
         elastic_rates = None
         if self.elastic_scatterers:
             elastic_rates = self._fill_workers(
-                nkpoints, slices, iqueue, oqueue, desc="elastic",
-                scattering_mask=mask)
+                nkpoints, slices, iqueue, oqueue, desc="elastic")
             elastic_rates *= elastic_prefactors[..., None]
+
+            if mask is not None:
+                # these k-points are outside the range of the FD distribution
+                # and therefore will not contribute to the scattering
+                elastic_rates[:, :, :, fill_mask] = 1e14
 
         if self.inelastic_scatterers:
             # currently only supports one inelastic scattering energy difference
@@ -289,13 +304,15 @@ class ScatteringCalculator(MSONable):
                 # rates are formatted as s1_i, s1_i, s2_o, s2_o etc
                 inelastic_rates = self._fill_workers(
                     nkpoints, slices, iqueue, oqueue, energy_diff=energy_diff,
-                    desc="inelastic", calculate_out_rate=calculate_out_rate,
-                    calculate_in_rate=calculate_in_rate, scattering_mask=mask)
+                    desc="inelastic", calculate_out_rate=calculate_out_rate)
 
                 if calculate_in_rate:
                     # in rates always returned first
                     in_rates = inelastic_rates[:n_inelastic]
                     in_rates *= inelastic_prefactors[..., None]
+
+                    if fill_mask is not None:
+                        out_rates[:, :, :, fill_mask] = 1e14
 
                 if calculate_out_rate:
                     # in rate independent of g so only need to calculate it once
@@ -303,6 +320,9 @@ class ScatteringCalculator(MSONable):
                     out_rates = inelastic_rates[idx:]
                     out_rates *= inelastic_prefactors[..., None]
                     calculate_out_rate = False
+
+                    if fill_mask is not None:
+                        out_rates[:, :, :, fill_mask] = 1e14
 
                 if self.max_g_iter != 1:
                     new_g = calculate_g(
@@ -339,7 +359,7 @@ class ScatteringCalculator(MSONable):
 
     def _fill_workers(self, nkpoints, slices, iqueue, oqueue, desc="progress",
                       energy_diff=0., calculate_out_rate=False,
-                      calculate_in_rate=False, scattering_mask=None):
+                      calculate_in_rate=False):
         if energy_diff:
             # inelastic scattering
             n_scat = len(self.inelastic_scatterers)
@@ -356,7 +376,6 @@ class ScatteringCalculator(MSONable):
             iqueue.put((s, energy_diff, calculate_out_rate, calculate_in_rate))
 
         # The results are processed as soon as they are ready.
-
         desc = "    ├── {}".format(desc)
         pbar = tqdm(total=nkpoints, ncols=output_width, desc=desc,
                     bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}',
@@ -365,11 +384,6 @@ class ScatteringCalculator(MSONable):
             s, band_rates[:, :, :, s] = oqueue.get()
             pbar.update(s.stop - s.start)
         pbar.close()
-
-        if scattering_mask is not None:
-            # these k-points are outside the range of the FD distribution and
-            # therefore will not contribute to the scattering
-            band_rates[:, :, :, scattering_mask] = 1e14
 
         if self.use_symmetry:
             return band_rates[
@@ -660,7 +674,8 @@ def _interpolate_zero_rates(rates, kpoints):
     log_time_taken(t0)
 
     if n_zero_rates > 0:
-        print("WARNING: N zero rates: {:.0f}".format(n_zero_rates/n_lots))
+        logger.warning("WARNING: N zero rates: {:.0f}".format(
+            n_zero_rates/n_lots))
 
     return rates
 

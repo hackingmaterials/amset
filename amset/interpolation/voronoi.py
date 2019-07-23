@@ -47,6 +47,8 @@ class PeriodicVoronoi(object):
             nworkers:
         """
         self._nworkers = nworkers if nworkers != -1 else cpu_count()
+        self._final_points = np.concatenate([original_points, extra_points])
+        self._reciprocal_lattice = reciprocal_lattice
 
         supercell_points = get_supercell_points(
             [2, 2, 2], original_points)
@@ -64,8 +66,8 @@ class PeriodicVoronoi(object):
         # means at least 1 neighbour point will always be included in each
         # direction
         dim_lengths = np.dot(1 / original_dim, reciprocal_lattice.matrix)
-        small_cutoff = np.max(dim_lengths) * 1.01
-        big_cutoff = small_cutoff * 2
+        small_cutoff = np.max(dim_lengths) * 2.1
+        big_cutoff = small_cutoff * 2.1
 
         # use BallTree for quickly evaluating which points are within cutoffs
         tree = BallTree(cart_points)
@@ -74,6 +76,7 @@ class PeriodicVoronoi(object):
         # the big cutoff (it does not include the extra points themselves)
         big_cutoff_points_idx = np.concatenate(
             tree.query_radius(cart_extra_points, big_cutoff), axis=0)
+        big_cutoff_points_idx = np.unique(big_cutoff_points_idx)
 
         # Voronoi points are those we actually calculate in the Voronoi diagram
         # e.g. the big points + extra points
@@ -81,12 +84,20 @@ class PeriodicVoronoi(object):
         self._voronoi_points = np.concatenate((
             voronoi_points, extra_points))
 
+        from pymatgen import Structure
+        s = Structure(reciprocal_lattice.matrix * 10,
+                      ['H'] * len(voronoi_points),
+                      voronoi_points + 0.5, coords_are_cartesian=False)
+
+        s.to(filename="voronoi.vasp", fmt="poscar")
+
         # small points are the points in original_points for which we want to
         # calculate the Voronoi volumes. Note this does not include the
         # indices of the extra points. Outside the small cutoff, the weights
         # will just be the regular grid weight.
         small_cutoff_points_idx = np.concatenate(
             tree.query_radius(cart_extra_points, small_cutoff), axis=0)
+        small_cutoff_points_idx = np.unique(small_cutoff_points_idx)
 
         # get the indices of small_cutoff_points in voronoi_points
         small_in_voronoi_idx = _get_loc(
@@ -114,6 +125,7 @@ class PeriodicVoronoi(object):
             (small_in_original_idx,
              np.arange(len(extra_points)) + len(original_points)))
 
+        print(len(original_points))
         # prepopulate the final volumes array. By default, each point has the
         # volume of the original mesh. Note: at this point, the extra points
         # will have zero volume. This will array will be updated by
@@ -123,11 +135,11 @@ class PeriodicVoronoi(object):
             1 / len(original_points))
         self._final_volumes[len(original_points):] = 0
 
-
     def compute_volumes(self):
         logger.info("Calculating k-point Voronoi diagram:")
         logger.debug("  ├── num k-points near extra points: {}".format(
             len(self._voronoi_points)))
+        print(len(self._voronoi_points))
         t0 = time.perf_counter()
 
         # after some testing it seems like sorting the points before calculating
@@ -135,9 +147,8 @@ class PeriodicVoronoi(object):
         # points
         sorted_idx = np.argsort(self._voronoi_points, axis=0)[:, 1]
 
-        # add the QJ option to qhull, necessary to slightly jiggle the points
         voro = Voronoi(self._voronoi_points[sorted_idx],
-                       qhull_options="Qbb Qc Qz QJ")
+                       qhull_options="Qbb Qc Qz")
 
         # need to unsort regions to get correct points
         inv_sorted_idx = np.argsort(sorted_idx)
@@ -158,11 +169,20 @@ class PeriodicVoronoi(object):
         inf_vols: np.ndarray = volumes == np.inf
         if any(inf_vols):
             logger.warning("{} volumes are infinite".format(np.sum(inf_vols)))
+            inf_points = self._final_points[inf_vols]
+
+            from pymatgen import Structure
+            s = Structure(self._reciprocal_lattice.matrix * 10,
+                          ['H'] * len(inf_points),
+                          inf_points + 0.5, coords_are_cartesian=False)
+
+            s.to(filename="inf.vasp", fmt="poscar")
 
         sum_volumes = volumes.sum()
         vol_diff = abs(sum_volumes - 1)
-        if vol_diff > 0.01:
-            logger.warning("Sum of weights does not equal 1 (diff = {:.1f})... "
+        print(vol_diff * 100)
+        if vol_diff > 0.001:
+            logger.warning("Sum of weights does not equal 1 (diff = {:.1f} %)... "
                            "renormalising weights".format(vol_diff * 100))
             volumes = volumes / sum_volumes
 
