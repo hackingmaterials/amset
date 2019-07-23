@@ -11,7 +11,7 @@ amset_defaults = {
         "doping": [1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21],
         "temperatures": [300],
         "interpolation_factor": 10,
-        "num_extra_kpoints": None,
+        "fine_mesh_de": None,
         "scattering_type": "auto",
         "scissor": None,
         "bandgap": None,
@@ -31,7 +31,7 @@ amset_defaults = {
     "performance": {
         "gauss_width": 0.001,
         "energy_cutoff": 1.5,
-        "fd_tol": 0.005,
+        "fd_tol": 0.01,
         "ibte_tol": 1,
         "max_ibte_iter": 1,
         "dos_estep": 0.001,

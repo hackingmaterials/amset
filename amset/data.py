@@ -1,13 +1,16 @@
 import logging
+import math
 
 import scipy
 from os.path import join as joinpath
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 
 import numpy as np
+from BoltzTraP2.fd import dFDde
 
 from monty.json import MSONable
 from monty.serialization import dumpfn
+from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units
@@ -28,6 +31,7 @@ __date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
 _kpt_str = '[{k[0]:.5f} {k[1]:.5f} {k[2]:.5f}]'
+pdefaults = defaults["performance"]
 
 
 class AmsetData(MSONable):
@@ -54,8 +58,8 @@ class AmsetData(MSONable):
                  seebeck: Optional[np.ndarray] = None,
                  electronic_thermal_conductivity: Optional[np.ndarray] = None,
                  mobility: Optional[Dict[str, np.ndarray]] = None,
-                 fd_cutoff_min: Optional[float] = None,
-                 fd_cutoff_max: Optional[float] = None
+                 fd_weights: Optional[Tuple[float, float]] = None,
+                 fd_cutoffs: Optional[Tuple[float, float]] = None
                  ):
         self.structure = structure
         self.energies = energies
@@ -101,16 +105,15 @@ class AmsetData(MSONable):
         self.f = None
         self.dfde = None
         self.dfdk = None
-        self.fd_cutoff_max = None
-        self.fd_cutoff_min = None
+        self.fd_weights = fd_weights
+        self.fd_cutoffs = fd_cutoffs
 
         self.grouped_ir_to_full = groupby(
             np.arange(len(full_kpoints)), ir_to_full_kpoint_mapping)
 
-
     def calculate_dos(self,
-                      dos_estep: float = defaults["performance"]["dos_estep"],
-                      dos_width: float = defaults["performance"]["dos_width"]):
+                      dos_estep: float = pdefaults["dos_estep"],
+                      dos_width: float = pdefaults["dos_width"]):
         """
         Args:
             dos_estep: The DOS energy step, where smaller numbers give more
@@ -221,35 +224,69 @@ class AmsetData(MSONable):
                 # self.dfdk[spin][n, t] = np.linalg.norm(
                 #     self.dfde[spin][n, t][..., None] * v * hbar, axis=2)
 
-    def calculate_fermi_dirac_cutoffs(self,
-                                      fd_tolerance: Optional[float] = 0.005):
+    def calculate_fd_cutoffs(self, fd_tolerance: Optional[float] = 0.01):
         energies = self.dos.energies
 
+        # three fermi integrals govern transport properties:
+        #   1. df/de controls conductivity and mobility
+        #   2. (e-u) * df/de controls Seebeck
+        #   3. (e-u)^2 df/de controls electronic thermal conductivity
+        # take the absolute sum of the integrals across all doping and
+        # temperatures. this gives us the energies that are important for
+        # transport
+
+        weights = np.zeros(energies.shape)
+        for n, t in np.ndindex(self.fermi_levels.shape):
+            ef = self.fermi_levels[n, t]
+            temp = self.temperatures[t]
+
+            dfde = -df0de(energies, ef, temp)
+            sigma_int = np.abs(dfde)
+            seeb_int = np.abs((energies - ef) * dfde)
+            ke_int = np.abs((energies - ef) ** 2 * dfde)
+
+            # normalize the transport integrals and sum
+            nt_weights = sigma_int / sigma_int.max()
+            # nt_weights += 2 * seeb_int / seeb_int.max()
+            # nt_weights += ke_int / ke_int.max()
+            weights = np.maximum(weights, nt_weights)
+
+            # import matplotlib
+            # matplotlib.use("TkAgg")
+            # import matplotlib.pyplot as plt
+            # plt.plot(energies, weights)
+            # plt.xlim((2, 3.5))
+            # plt.show()
+
+        weights = np.log1p(weights)
+        # weights /= np.log1p(self.dos.densities)
+        weights /= max(weights)
+        weights_intep = interp1d(energies * units.eV, weights,
+                                 bounds_error=False, fill_value="extrapolate")
+
+        self.fd_weights = {
+            s: np.array([weights_intep(e) for e in self.energies[s]])
+            for s in self.spins}
+
+        # need to renormalize the fd weights as the dos energies and
+        # actual band energies are not exactly the same, so the max weight is
+        # sometimes significantly different
+        max_fd_weight = max([np.max(self.fd_weights[s]) for s in self.spins])
+        self.fd_weights = {s: self.fd_weights[s] / max_fd_weight
+                           for s in self.spins}
+
         if fd_tolerance:
-            min_cutoff = float("inf")
-            max_cutoff = -float("inf")
-
-            # The integral for the electronic part of the lattice thermal
-            # conductivity is the most diffuse function governing transport
-            # properties (see BoltzTraP1 paper, Fig 2).
-            # It has the form: (e-ef)^2 * df0/de
-            # We find the min and max cutoffs as the min and max energy where the
-            # function is larger than fd_tolerance (in %).
-            for n, t in np.ndindex(self.fermi_levels.shape):
-                ef = self.fermi_levels[n, t]
-                temp = self.temperatures[t]
-
-                dfde = -df0de(energies, ef, temp) * (energies - ef) ** 2
-                dfde /= dfde.max()
-
-                min_cutoff = min(min_cutoff, energies[dfde >= fd_tolerance].min())
-                max_cutoff = max(max_cutoff, energies[dfde >= fd_tolerance].max())
+            energies_in_cutoff = energies[weights >= fd_tolerance]
+            min_cutoff = energies_in_cutoff.min()
+            max_cutoff = energies_in_cutoff.max()
         else:
             min_cutoff = energies.min()
             max_cutoff = energies.max()
 
-        self.fd_cutoff_min = min_cutoff * units.eV
-        self.fd_cutoff_max = max_cutoff * units.eV
+        logger.info("Energies limited by Fermi–Dirac cut-offs as:")
+        log_list(["min: {:.3f} eV".format(min_cutoff),
+                  "max: {:.3f} eV".format(max_cutoff)])
+        self.fd_cutoffs = (min_cutoff * units.eV, max_cutoff * units.eV)
 
     def set_scattering_rates(self,
                              scattering_rates: Dict[Spin, np.ndarray],
@@ -303,7 +340,7 @@ class AmsetData(MSONable):
         self._projections = {
             s: {
                 l: np.concatenate((self._projections[s][l],
-                                   self._projections[s][l]), axis=1)
+                                   extra_projections[s][l]), axis=1)
                 for l in self._projections[s]
             } for s in self.spins}
         self._calculate_orbital_factors()

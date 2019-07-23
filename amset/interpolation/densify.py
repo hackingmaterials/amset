@@ -14,7 +14,7 @@ from amset import amset_defaults as defaults
 from amset.data import AmsetData
 from amset.interpolation.interpolate import Interpolater
 from amset.misc.log import log_list
-from amset.misc.util import kpoints_to_first_bz
+from amset.misc.util import kpoints_to_first_bz, get_dense_kpoint_mesh_spglib
 from amset.interpolation.voronoi import PeriodicVoronoi
 
 __author__ = "Alex Ganose"
@@ -50,11 +50,12 @@ class BandDensifier(object):
 
         # get the indices to sort the kpoints from on the Z, then Y,
         # then X columns
-        sort_idx = np.lexsort((self._mesh[:, 2],
-                               self._mesh[:, 1],
-                               self._mesh[:, 0]))
+        sort_idx = np.lexsort((self._amset_data.full_kpoints[:, 2],
+                               self._amset_data.full_kpoints[:, 1],
+                               self._amset_data.full_kpoints[:, 0]))
 
         self._grid_energies = []
+        self._grid_weights = []
         for spin in amset_data.spins:
             # sort the energies then reshape them into the grid. The energies
             # can now be indexed as energies[ikx][iky][ikz]
@@ -62,25 +63,30 @@ class BandDensifier(object):
             self._grid_energies.extend(sorted_energies.reshape(
                 (-1, ) + tuple(self._mesh)))
 
+            sorted_weights = amset_data.fd_weights[spin][:, sort_idx]
+            self._grid_weights.extend(sorted_weights.reshape(
+                (-1, ) + tuple(self._mesh)))
+
         # put the kpoints into a 3D grid so that they can be indexed as
         # kpoints[ikx][iky][ikz] = [kx, ky, kz]
         self._grid_kpoints = amset_data.full_kpoints[sort_idx].reshape(
             tuple(self._mesh) + (3,))
 
-    def densify(self, target_de: float = gdefaults["target_de"]):
-        logger.info("Densifying band structure around Fermi integrals")
-
+    def get_fine_mesh(self, target_de: float = gdefaults["fine_mesh_de"],
+                      scale_by_fd_weights: bool = True):
         fine_mesh_dims = np.zeros(self._grid_kpoints.shape)
+        fd_cutoffs = self._amset_data.fd_cutoffs
 
-        for band_energies in self._grid_energies:
+        for fd_weights, band_energies in zip(
+                self._grid_weights, self._grid_energies):
             # effectively make a supercell of the energies on the regular grid
             # containing one extra plane of energies per dimension, on either
             # face of the 3D energy mesh
-            band_energies = np.pad(band_energies, 1, "wrap")
+            pad_energies = np.pad(band_energies, 1, "wrap")
 
-            x_diffs = np.abs(np.diff(band_energies, axis=2))
-            y_diffs = np.abs(np.diff(band_energies, axis=1))
-            z_diffs = np.abs(np.diff(band_energies, axis=0))
+            x_diffs = np.abs(np.diff(pad_energies, axis=2))
+            y_diffs = np.abs(np.diff(pad_energies, axis=1))
+            z_diffs = np.abs(np.diff(pad_energies, axis=0))
 
             # remove the diffs related to the extra padding
             x_diffs = x_diffs[1:-1, 1:-1, :].astype(float)
@@ -96,49 +102,105 @@ class BandDensifier(object):
             ndims = np.stack((x_diff_averages, y_diff_averages,
                               z_diff_averages), axis=-1)
 
+            if fd_cutoffs:
+                # if the energies do not lie within the Fermi Dirac cutoffs
+                # set the dims to 0 as there is no point of interpolating
+                # around these k-points
+                mask = ((band_energies < fd_cutoffs[0]) |
+                        (band_energies > fd_cutoffs[1]))
+                ndims[mask] = np.array([0, 0, 0])
+                print(self._grid_kpoints[np.invert(mask)])
+
+            if scale_by_fd_weights:
+                pass
+                # ndims *= np.power(fd_weights[..., np.newaxis], 1/4)
+                # ndims *= fd_weights[..., np.newaxis]
+
             # take the dimensions if they are greater than the current
             # dimensions
             fine_mesh_dims = np.maximum(fine_mesh_dims, ndims)
 
-        fine_mesh_dims = np.floor(fine_mesh_dims / target_de).astype(int)
+        # add test for all zero fine mesh points
 
+        # print(np.max(fine_mesh_dims) / units.eV)
+        fine_mesh_dims = np.floor(fine_mesh_dims / (target_de * units.eV)
+                                  ).astype(int)
+        # print(np.max(fine_mesh_dims))
+        # print(np.average(fine_mesh_dims[fine_mesh_dims != 0]))
+        # print(fine_mesh_dims)
         additional_kpoints = []
-
-        for i, j, k in np.ndindex(tuple(dim)):
-            d = ndims[i, j, k]
+        logger.info("Getting ")
+        kpt_count = 0
+        for i, j, k in np.ndindex(tuple(self._mesh)):
+            d = fine_mesh_dims[i, j, k]
             if all(d == 0):
+                kpt_count += 1
                 continue
+
+            # if zero in only 1 direction then we have to add at least one
+            # point to make a mesh
             d[d == 0] = 1
 
+            mesh = d + 1
+            kx = np.zeros((mesh[0], 3))
+            kx[:, 0] = np.arange(0, mesh[0])
+            kx[:, 0] /= mesh[0]
+            kx[:, 0] -= (1 / mesh[0]) / 2
+
+            ky = np.zeros((mesh[1], 3))
+            ky[:, 1] = np.arange(0, mesh[1])
+            ky[:, 1] /= mesh[1]
+            ky[:, 1] -= (1 / mesh[1]) / 2
+
+            kz = np.zeros((mesh[2], 3))
+            kz[:, 2] = np.arange(0, mesh[2])
+            kz[:, 2] /= mesh[2]
+            kz[:, 2] -= (1 / mesh[2]) / 2
+
+            kpts = np.concatenate([kx, ky, kz])
+
             #     kpts = get_dense_kpoint_mesh(d)
-            kpts = get_dense_kpoint_mesh_spglib(d + 1)
-            kpts /= dim
-            kpts += mesh_grid[i, j, k]
+            # kpts = get_dense_kpoint_mesh_spglib(d + 1)
+            kpts /= self._mesh
+            kpts += self._grid_kpoints[i, j, k]
             additional_kpoints.append(kpts)
+
+        print(np.product(self._mesh) - kpt_count)
 
         if additional_kpoints:
             additional_kpoints = np.concatenate(additional_kpoints)
 
-        # add additional points in concenctric spheres around the k-points
-        #
-        extra_kpoints = np.concatenate(
-            [_generate_points(n_extra, max_dist) + kpoint
-             for kpoint, n_extra in zip(k_coords, n_points_per_kpoint)])
-        log_list(["# extra kpoints: {}".format(total_points),
-                  "max frac k-distance: {:.5f}".format(max_dist)])
+        return additional_kpoints
 
-        # from monty.serialization import dumpfn
-        # dumpfn(extra_kpoints, "extra_kpoints.json")
+    def densify(self, target_de: float = gdefaults["fine_mesh_de"]):
+        logger.info("Densifying band structure around Fermi integrals")
 
-        extra_kpoints = kpoints_to_first_bz(extra_kpoints)
+        additional_kpoints = self.get_fine_mesh(target_de=target_de)
+        log_list(["# extra kpoints: {}".format(len(additional_kpoints)),
+                  "fine mesh de: {} eV".format(target_de)])
 
-        skip = 5 / self._interpolater.interpolation_factor
+        extra_kpoints = kpoints_to_first_bz(additional_kpoints)
+
+        from pymatgen import Structure
+        s = Structure(self._amset_data.structure.lattice.reciprocal_lattice.matrix * 10,
+                      ['H'] * len(extra_kpoints),
+                      (extra_kpoints * 3) + 0.5, coords_are_cartesian=False)
+
+        s.to(filename="test2.vasp", fmt="poscar")
+
+        skip = 50 / self._interpolater.interpolation_factor
+        # skip = None
         energies, vvelocities, projections = self._interpolater.get_energies(
             extra_kpoints, energy_cutoff=self._energy_cutoff,
             bandgap=self._bandgap, scissor=self._scissor,
             return_velocity=True, return_effective_mass=False,
             return_projections=True, atomic_units=True,
             return_vel_outer_prod=True, skip_coefficients=skip)
+        from pymatgen import Spin
+        print(np.min(energies[Spin.up][3]))
+        print(np.min(energies[Spin.up][3]) / units.eV)
+        print(extra_kpoints)
+        print("CBM", np.min(self._amset_data.energies[Spin.up][3] / units.eV))
 
         voronoi = PeriodicVoronoi(
             self._amset_data.structure.lattice.reciprocal_lattice,
@@ -152,74 +214,3 @@ class BandDensifier(object):
         return (extra_kpoints, energies, vvelocities, projections,
                 kpoint_weights)
 
-
-def _generate_points_cube(n_extra_kpoints: int, max_distance: float):
-    n_p = math.ceil(np.cbrt(n_extra_kpoints) / 2)
-    # forward_p = np.geomspace(max_distance/20, max_distance, n_p)
-    forward_p = np.linspace(max_distance/20, max_distance, n_p)
-    all_p = np.concatenate((-forward_p, forward_p))
-    return np.array(list(itertools.product(all_p, all_p, all_p)))
-
-
-def _generate_points(n_extra_kpoints: int, max_distance: float,
-                     min_n_points_per_sphere: int = 32,
-                     max_n_points_per_sphere: int = 256,
-                     default_n_spheres: int = 5):
-
-    # each sphere must contain at least min_n_points_per_sphere
-    actual_n_spheres = min(
-        default_n_spheres, math.ceil(n_extra_kpoints / min_n_points_per_sphere))
-
-    actual_n_spheres = max(
-        actual_n_spheres, math.ceil(n_extra_kpoints / max_n_points_per_sphere))
-
-    # generate radii for spheres, getting logarithmically further away, up to
-    # max_distance. Note, not all spheres may be used
-    if actual_n_spheres > default_n_spheres:
-        radii = np.geomspace(max_distance/10, max_distance, actual_n_spheres)
-    else:
-        radii = np.geomspace(max_distance/10, max_distance, default_n_spheres)
-
-    n_points_per_sphere = math.ceil(n_extra_kpoints / actual_n_spheres)
-
-    sphere_points = np.concatenate([
-        sunflower_sphere(radius=r, samples=n)
-        for r, n in zip(radii, [n_points_per_sphere] * n_points_per_sphere)])
-
-    return sphere_points[:n_extra_kpoints]
-
-
-def fibonacci_sphere(radius=1, samples=1, randomize=False):
-    rnd = 1.
-    if randomize:
-        rnd = np.random.random() * samples
-
-    points = []
-    offset = 2./samples
-    increment = math.pi * (3. - math.sqrt(5.))
-
-    for i in range(samples):
-        y = ((i * offset) - 1) + (offset / 2)
-        r = math.sqrt(1 - pow(y, 2))
-
-        phi = ((i + rnd) % samples) * increment
-
-        x = math.cos(phi) * r
-        z = math.sin(phi) * r
-
-        points.append([x, y, z])
-
-    return np.array(points) * radius
-
-
-def sunflower_sphere(radius=1, samples=1):
-    indices = np.arange(0, samples) + 0.5
-
-    phi = np.arccos(1 - 2 * indices / samples)
-    theta = np.pi * (1 + 5 ** 0.5) * indices
-
-    x = np.cos(theta) * np.sin(phi)
-    y = np.sin(theta) * np.sin(phi)
-    z = np.cos(phi)
-
-    return np.stack((x, y, z), axis=1) * radius

@@ -52,7 +52,7 @@ class AmsetRunner(MSONable):
                  temperatures: Optional[Union[List, np.ndarray]] = None,
                  scattering_type: Optional[Union[str, List[str],
                                                  float]] = "auto",
-                 num_extra_kpoints: Optional[int] = None,
+                 fine_mesh_de: Optional[float] = None,
                  performance_parameters: Optional[Dict[str, float]] = None,
                  output_parameters: Optional[Dict[str, Any]] = None,
                  interpolation_factor: int = 10,
@@ -68,7 +68,7 @@ class AmsetRunner(MSONable):
         self.soc = soc
         self.doping = doping
         self.temperatures = temperatures
-        self.num_extra_kpoints = num_extra_kpoints
+        self.fine_mesh_de = fine_mesh_de
 
         if self.doping is None:
             self.doping = np.concatenate([np.logspace(16, 21, 6),
@@ -90,7 +90,7 @@ class AmsetRunner(MSONable):
         if (self.output_parameters["print_log"] or
                 self.output_parameters["log_error_traceback"]):
             initialize_amset_logger(
-                log_traceback=output_parameters["log_error_traceback"])
+                log_error_traceback=output_parameters["log_error_traceback"])
 
     def run(self,
             directory: Union[str, Path] = '.',
@@ -150,8 +150,9 @@ class AmsetRunner(MSONable):
             dos_estep=self.performance_parameters["dos_estep"],
             dos_width=self.performance_parameters["dos_width"])
         amset_data.set_doping_and_temperatures(self.doping, self.temperatures)
+        amset_data.calculate_fd_cutoffs(self.performance_parameters["fd_tol"])
 
-        if self.num_extra_kpoints:
+        if self.fine_mesh_de:
             log_banner("DENSIFICATION")
 
             densifier = BandDensifier(
@@ -160,8 +161,7 @@ class AmsetRunner(MSONable):
                 energy_cutoff=self.performance_parameters["energy_cutoff"],
                 dos_estep=self.performance_parameters["dos_estep"])
             amset_data.set_extra_kpoints(
-                *densifier.densify(
-                    self.num_extra_kpoints))
+                *densifier.densify(self.fine_mesh_de))
 
         log_banner("SCATTERING")
         t0 = time.perf_counter()
@@ -170,7 +170,6 @@ class AmsetRunner(MSONable):
             self.material_properties, amset_data,
             scattering_type=self.scattering_type,
             gauss_width=self.performance_parameters["gauss_width"],
-            fd_tol=self.performance_parameters["fd_tol"],
             g_tol=self.performance_parameters["ibte_tol"],
             max_g_iter=self.performance_parameters["max_ibte_iter"],
             use_symmetry=self.performance_parameters["symprec"] is not None,
@@ -254,7 +253,7 @@ class AmsetRunner(MSONable):
             doping=settings["general"]["doping"],
             temperatures=settings["general"]["temperatures"],
             scattering_type=settings["general"]["scattering_type"],
-            num_extra_kpoints=settings["general"]["num_extra_kpoints"],
+            fine_mesh_de=settings["general"]["fine_mesh_de"],
             performance_parameters=settings["performance"],
             output_parameters=settings["output"],
             interpolation_factor=settings["general"]["interpolation_factor"],
@@ -301,7 +300,7 @@ class AmsetRunner(MSONable):
             "bandgap": self.user_bandgap,
             "interpolation_factor": self.interpolation_factor,
             "scattering_type": self.scattering_type,
-            "num_extra_kpoints": self.num_extra_kpoints,
+            "fine_mesh_de": self.fine_mesh_de,
             "doping": self.doping,
             "temperatures": self.temperatures}
 
@@ -365,6 +364,7 @@ def _log_settings(runner: AmsetRunner):
         "doping: {}".format(", ".join(map("{:g}".format, runner.doping))),
         "temperatures: {}".format(", ".join(map(str, runner.temperatures))),
         "interpolation_factor: {}".format(runner.interpolation_factor),
+        "fine_mesh_de: {}".format(runner.fine_mesh_de),
         "scattering_type: {}".format(runner.scattering_type),
         "soc: {}".format(runner.soc)]
 

@@ -7,9 +7,10 @@ settings = {
         "interpolation_factor": 100,
         "scattering_type": "auto",
         "doping": [3e13],
-        "temperatures": [201, 290, 300, 401, 506, 605, 789, 994],
+        "temperatures": [201],
+        # "temperatures": [201, 290, 300, 401, 506, 605, 789, 994],
         "bandgap": 1.33,
-        "num_extra_kpoints": 100
+        "fine_mesh_de": 0.002
     },
 
     "material": {
@@ -22,9 +23,13 @@ settings = {
         "pop_frequency": 8.16
     },
 
+    "performance": {
+        "fd_tol": 0.000000000001
+    },
+
     "output": {
         "separate_scattering_mobilities": True,
-        "log_traceback": True,
+        "log_error_traceback": True,
         "print_log": True
     }
 }
