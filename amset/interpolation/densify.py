@@ -141,26 +141,29 @@ class BandDensifier(object):
             # point to make a mesh
             d[d == 0] = 1
 
-            mesh = d + 1
-            kx = np.zeros((mesh[0], 3))
-            kx[:, 0] = np.arange(0, mesh[0])
-            kx[:, 0] /= mesh[0]
-            kx[:, 0] -= (1 / mesh[0]) / 2
 
-            ky = np.zeros((mesh[1], 3))
-            ky[:, 1] = np.arange(0, mesh[1])
-            ky[:, 1] /= mesh[1]
-            ky[:, 1] -= (1 / mesh[1]) / 2
+            # mesh = d + 1
+            # kx = np.zeros((mesh[0], 3))
+            # kx[:, 0] = np.arange(0, mesh[0])
+            # kx[:, 0] /= mesh[0]
+            # kx[:, 0] -= (1 / mesh[0]) / 2
+            #
+            # ky = np.zeros((mesh[1], 3))
+            # ky[:, 1] = np.arange(0, mesh[1])
+            # ky[:, 1] /= mesh[1]
+            # ky[:, 1] -= (1 / mesh[1]) / 2
+            #
+            # kz = np.zeros((mesh[2], 3))
+            # kz[:, 2] = np.arange(0, mesh[2])
+            # kz[:, 2] /= mesh[2]
+            # kz[:, 2] -= (1 / mesh[2]) / 2
 
-            kz = np.zeros((mesh[2], 3))
-            kz[:, 2] = np.arange(0, mesh[2])
-            kz[:, 2] /= mesh[2]
-            kz[:, 2] -= (1 / mesh[2]) / 2
-
-            kpts = np.concatenate([kx, ky, kz])
+            # kpts = np.concatenate([kx, ky, kz])
 
             #     kpts = get_dense_kpoint_mesh(d)
-            # kpts = get_dense_kpoint_mesh_spglib(d + 1)
+            m = d + 1
+            m = (m % 2 == 0) + m
+            kpts = get_dense_kpoint_mesh_spglib(m)
             kpts /= self._mesh
             kpts += self._grid_kpoints[i, j, k]
             additional_kpoints.append(kpts)
