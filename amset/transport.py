@@ -89,6 +89,7 @@ def _calculate_mobility(amset_data: AmsetData,
                 vv.append(all_vv[spin][cb_idx:])
                 rates.append(np.sum(all_rates[spin][rate_idx, n, t, cb_idx:],
                                     axis=0))
+
             else:
                 # holes
                 energies.append(all_energies[spin][:cb_idx])
@@ -100,25 +101,42 @@ def _calculate_mobility(amset_data: AmsetData,
         vv = np.vstack(vv)
         lifetimes = 1 / np.vstack(rates)
 
+        # equiv_points = amset_data.grouped_ir_to_full[3]
+        # print("equiv_k", amset_data.full_kpoints[equiv_points])
+        # print("lifetimes", lifetimes[0, equiv_points])
+        # print("weights", amset_data.kpoint_weights[equiv_points])
+        # print("velocities", vv[0, :, :, equiv_points])
+        #
+        # equiv_points = amset_data.grouped_ir_to_full[-10]
+        # print("equiv_k", amset_data.full_kpoints[equiv_points])
+        # print("lifetimes", lifetimes[0, equiv_points])
+        # print("weights", amset_data.kpoint_weights[equiv_points])
+        # print("velocities", vv[0, :, :, equiv_points])
+
+        # equiv_points = amset_data.grouped_ir_to_full[-1]
+        # print("equiv_k", amset_data.full_kpoints[equiv_points])
+        # print("lifetimes", lifetimes[0, equiv_points])
+        # print("weights", amset_data.kpoint_weights[equiv_points])
+
         # mask data to remove extra k-points that are not part of the regular
         # k-point mesh (necessary as BoltzTraP2 doesn't support custom k-point
         # weights.
-        energies = energies[:, kmask]
-        vv = vv[..., kmask]
-        lifetimes = lifetimes[:, kmask]
+        # energies = energies[:, kmask]
+        # vv = vv[..., kmask]
+        # lifetimes = lifetimes[:, kmask]
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
-        fermi = amset_data.fermi_levels[n, t][None] * units.eV
+        fermi = amset_data.fermi_levels[n, t][None]
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals for the temperature and doping
-        epsilon, dos, vvdos, cdos = BTPDOS(
-            energies, vv, scattering_model=lifetimes,
-            npts=len(amset_data.dos.energies))
-        # epsilon, dos, vvdos, cdos = AMSETDOS(
+        # epsilon, dos, vvdos, cdos = BTPDOS(
         #     energies, vv, scattering_model=lifetimes,
-        #     npts=len(amset_data.dos.energies),
-        #     kpoint_weights=amset_data.kpoint_weights)
+        #     npts=len(amset_data.dos.energies))
+        epsilon, dos, vvdos, cdos = AMSETDOS(
+            energies, vv, scattering_model=lifetimes,
+            npts=len(amset_data.dos.energies),
+            kpoint_weights=amset_data.kpoint_weights)
 
         _, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
@@ -137,6 +155,8 @@ def _calculate_mobility(amset_data: AmsetData,
         # convert mobility to cm^2/V.s
         mobility[n, t] = sigma[0, ...] * 0.01 / (e * carrier_conc)
 
+    print(mobility)
+
     return mobility
 
 
@@ -150,8 +170,8 @@ def _calculate_transport_properties(amset_data):
     # mask data to remove extra k-points that are not part of the regular
     # k-point mesh (necessary as BoltzTraP2 doesn't support custom k-point
     # weights.
-    energies = energies[:, kmask]
-    vv = vv[..., kmask]
+    # energies = energies[:, kmask]
+    # vv = vv[..., kmask]
 
     n_t_size = (len(amset_data.doping), len(amset_data.temperatures))
 
@@ -164,21 +184,21 @@ def _calculate_transport_properties(amset_data):
         sum_rates = [np.sum(amset_data.scattering_rates[s][:, n, t], axis=0)
                      for s in amset_data.spins]
         lifetimes = 1 / np.vstack(sum_rates)
-        lifetimes = lifetimes[:, kmask]
+        # lifetimes = lifetimes[:, kmask]
         # print(lifetimes.min())
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
-        fermi = amset_data.fermi_levels[n, t][None] * units.eV
+        fermi = amset_data.fermi_levels[n, t][None]
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals
-        epsilon, dos, vvdos, cdos = BTPDOS(
-            energies, vv, scattering_model=lifetimes,
-            npts=len(amset_data.dos.energies))
-        # epsilon, dos, vvdos, cdos = AMSETDOS(
+        # epsilon, dos, vvdos, cdos = BTPDOS(
         #     energies, vv, scattering_model=lifetimes,
-        #     npts=len(amset_data.dos.energies),
-        #     kpoint_weights=amset_data.kpoint_weights)
+        #     npts=len(amset_data.dos.energies))
+        epsilon, dos, vvdos, cdos = AMSETDOS(
+            energies, vv, scattering_model=lifetimes,
+            npts=len(amset_data.dos.energies),
+            kpoint_weights=amset_data.kpoint_weights)
 
         _, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
@@ -241,28 +261,33 @@ def AMSETDOS(eband,
     """
     # kpoint_weights = kpoint_weights * len(kpoint_weights)
     kpoint_weights = np.tile(kpoint_weights, (len(eband), 1))
-    dos = ADOS(eband.T, erange=erange, npts=npts, weights=kpoint_weights.T)
+    # dos = ADOS(eband.T, erange=erange, npts=npts, weights=kpoint_weights.T)
+    dos = ADOS(eband.T, erange=erange, npts=npts)
     npts = dos[0].size
     iu0 = np.array(np.triu_indices(3)).T
     vvdos = np.zeros((3, 3, npts))
     multpl = np.ones_like(eband)
+
     if isinstance(scattering_model, str) and scattering_model == "uniform_tau":
         pass
+
     elif isinstance(scattering_model,
                     str) and scattering_model == "uniform_lambda":
         multpl = lambda_to_tau(vvband, multpl)
+
     elif isinstance(scattering_model, np.ndarray):
         if scattering_model.shape != eband.shape:
             raise ValueError(
                 "scattering_model and ebands must have the same shape")
+
         multpl = scattering_model
+
     else:
         raise ValueError("unknown scattering model")
+
     for i, j in iu0:
-        weights = vvband[:, i, j, :] * multpl * kpoint_weights #/ 100
-        # print(weights)
-        # weights = vvband[:, i, j, :] * multpl * kpoint_weights
-        # print(weights)
+        # weights = vvband[:, i, j, :] * multpl #* kpoint_weights #/ 100
+        weights = vvband[:, i, j, :] * multpl * kpoint_weights
         vvdos[i, j] = ADOS(
             eband.T, weights=weights.T, erange=erange, npts=npts)[1]
     il1 = np.tril_indices(3, -1)
