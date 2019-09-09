@@ -4,24 +4,30 @@ import numpy as np
 
 from numpy.testing import assert_array_equal
 
-from amset.interpolation.interpolate import BoltzTraP2Interpolater
+from amset.interpolation.interpolate import Interpolater, _get_kpoints
+from amset.misc.log import initialize_amset_logger
+from amset.misc.util import get_dense_kpoint_mesh_spglib
+from pymatgen import Spin
 from pymatgen.io.vasp import Vasprun
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
-amset_files = os.path.join(test_dir, '..', '..', '..', 'test_files',
-                           'AlCuS2_mp-4979')
+amset_files = os.path.join(test_dir, '..', '..', '..', 'examples',
+                           'GaAs')
 
 
 class TestBoltzTraP2Interpolater(unittest.TestCase):
     """Tests for interpolating a band structure using BoltzTraP2."""
 
     def setUp(self):
-        vr = Vasprun(os.path.join(amset_files, 'vasprun.xml'))
+        vr = Vasprun(os.path.join(amset_files, 'vasprun.xml.gz'),
+                     parse_projected_eigen=True)
         bs = vr.get_band_structure()
         num_electrons = vr.parameters['NELECT']
 
         self.kpoints = np.array(vr.actual_kpoints)
-        self.interpolater = BoltzTraP2Interpolater(bs, num_electrons)
+        self.interpolater = Interpolater(
+            bs, num_electrons, interpolate_projections=True,
+            interpolation_factor=1)
 
     def test_initialisation(self):
         """Test coefficients and parameters are calculated correctly."""
@@ -91,7 +97,6 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
 
     def test_get_energies_multiple_bands(self):
         """Test getting the interpolated data for multiple bands."""
-
         # test just getting energy
         energies = self.interpolater.get_energies(
             self.kpoints, [25, 35], return_velocity=False,
@@ -186,3 +191,61 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
                                              [0.5, 0.5, -0.5], 4)
         np.testing.assert_array_almost_equal(extrema[3],
                                              [0.4167, 0.4167, -0.0019], 4)
+
+    def test_get_energies_symprec(self):
+        kpoints = get_dense_kpoint_mesh_spglib([13, 15, 29],
+                                               spg_order=False, shift=0)
+
+        initialize_amset_logger()
+
+        energies, velocities, projections, sym_info = self.interpolater.get_energies(
+            kpoints, None, return_velocity=True, atomic_units=True,
+            return_effective_mass=False, return_projections=True, symprec=0.1,
+            return_vel_outer_prod=True, return_kpoint_mapping=True)
+
+        energies_no_sym, velocities_no_sym, projections_no_sym = \
+            self.interpolater.get_energies(
+                kpoints, None, return_velocity=True, atomic_units=True,
+                return_effective_mass=False, return_projections=True,
+                return_vel_outer_prod=True,
+                symprec=None)
+
+        np.testing.assert_array_almost_equal(
+            energies[Spin.up], energies_no_sym[Spin.up])
+        np.testing.assert_array_almost_equal(
+            velocities[Spin.up], velocities_no_sym[Spin.up])
+
+        for l in projections[Spin.up]:
+            np.testing.assert_array_almost_equal(
+                projections[Spin.up][l],
+                projections_no_sym[Spin.up][l])
+
+    def test_get_energies_interpolater(self):
+
+        initialize_amset_logger()
+
+        amset_data = self.interpolater.get_amset_data()
+
+        energies, velocities, projections, sym_info = \
+            self.interpolater.get_energies(
+                amset_data.full_kpoints, None, return_velocity=True,
+                atomic_units=True, return_effective_mass=False,
+                return_projections=True, symprec=0.1,
+                return_vel_outer_prod=True, return_kpoint_mapping=True)
+
+        np.testing.assert_array_almost_equal(
+            energies[Spin.up], amset_data.energies[Spin.up])
+        np.testing.assert_array_almost_equal(
+            velocities[Spin.up], amset_data.velocities_product[Spin.up])
+
+        for l in projections[Spin.up]:
+            np.testing.assert_array_almost_equal(
+                projections[Spin.up][l],
+                amset_data._projections[Spin.up][l])
+
+        np.testing.assert_array_equal(sym_info["ir_kpoints_idx"],
+                                      amset_data.ir_kpoints_idx)
+        np.testing.assert_array_equal(sym_info["ir_to_full_idx"],
+                                      amset_data.ir_to_full_kpoint_mapping)
+
+
