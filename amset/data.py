@@ -1,27 +1,22 @@
 import logging
-import math
 
-import scipy
 from os.path import join as joinpath
 from typing import Optional, Dict, List, Tuple
 
 import numpy as np
-from BoltzTraP2.fd import dFDde
 
 from monty.json import MSONable
 from monty.serialization import dumpfn
 from scipy.interpolate import interp1d
-from scipy.ndimage import gaussian_filter1d
-
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import DOS
-from amset.dos import FermiDos
+from BoltzTraP2.fd import dFDde, FD
 from pymatgen import Spin, Structure
-from pymatgen.electronic_structure.dos import Dos, f0
 
 from amset.misc.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
-from amset.misc.util import groupby, cast_dict, df0de
+from amset.misc.util import groupby, cast_dict
 from amset.misc.log import log_list
+from amset.dos import FermiDos
 from amset import amset_defaults as defaults
 
 __author__ = "Alex Ganose"
@@ -44,7 +39,6 @@ class AmsetData(MSONable):
                  kpoint_mesh: np.ndarray,
                  full_kpoints: np.ndarray,
                  ir_kpoints: np.ndarray,
-                 ir_kpoint_weights: np.ndarray,
                  ir_kpoints_idx: np.ndarray,
                  ir_to_full_kpoint_mapping: np.ndarray,
                  efermi: float,
@@ -67,7 +61,6 @@ class AmsetData(MSONable):
         self.kpoint_mesh = kpoint_mesh
         self.full_kpoints = full_kpoints
         self.ir_kpoints = ir_kpoints
-        self.ir_kpoint_weights = ir_kpoint_weights
         self.ir_kpoints_idx = ir_kpoints_idx
         self.ir_to_full_kpoint_mapping = ir_to_full_kpoint_mapping
         self._projections = projections
@@ -92,7 +85,7 @@ class AmsetData(MSONable):
         if kpoint_weights is None:
             self.kpoint_weights = np.ones(len(full_kpoints)) / len(full_kpoints)
         else:
-            self.kpoint_weights = None
+            self.kpoint_weights = kpoint_weights
 
         self.transport_mask = [True] * len(full_kpoints)
         self.scattering_rates = None
@@ -111,49 +104,30 @@ class AmsetData(MSONable):
         self.grouped_ir_to_full = groupby(
             np.arange(len(full_kpoints)), ir_to_full_kpoint_mapping)
 
-    def calculate_dos(self,
-                      dos_estep: float = pdefaults["dos_estep"],
-                      dos_width: float = pdefaults["dos_width"]):
+    def calculate_dos(self, dos_estep: float = pdefaults["dos_estep"]):
         """
         Args:
             dos_estep: The DOS energy step, where smaller numbers give more
                 accuracy but are more expensive.
-            dos_width: The DOS gaussian smearing width in eV.
         """
 
         all_energies = np.vstack([self.energies[spin] for spin in self.spins])
-        all_energies /= units.eV  # convert from Hartree to eV for DOS
 
-        # add a few multiples of dos_width to emin and emax to account for tails
-        pad = dos_width if dos_width else 0
-        dos_emin = np.min(all_energies) - pad * 5
-        dos_emax = np.max(all_energies) + pad * 5
-        npts = int(round((dos_emax - dos_emin) / dos_estep))
+        dos_emin = np.min(all_energies)
+        dos_emax = np.max(all_energies)
+        npts = int(round((dos_emax - dos_emin) / (dos_estep * units.eV)))
 
         logger.debug("DOS parameters:")
-        log_list(["emin: {:.2f} eV".format(dos_emin),
-                  "emax: {:.2f} eV".format(dos_emax),
-                  "broadening width: {} eV".format(dos_width)])
+        log_list(["emin: {:.2f} eV".format(dos_emin / units.eV),
+                  "emax: {:.2f} eV".format(dos_emax / units.eV)])
 
         emesh, densities = DOS(all_energies.T, erange=(dos_emin, dos_emax),
                                npts=npts)
 
-        if dos_width:
-            densities = gaussian_filter1d(densities, dos_width /
-                                          (emesh[1] - emesh[0]))
-
-        # integrate up to Fermi level to get number of electrons
-        efermi = self._efermi / units.eV
-        energy_mask = emesh <= efermi + pad
-        nelect = scipy.trapz(densities[energy_mask], emesh[energy_mask])
-
-        logger.debug("Intrinsic DOS Fermi level: {:.4f}".format(efermi))
-        logger.debug("DOS contains {:.3f} electrons".format(nelect))
-
-        dos = Dos(efermi, emesh, {Spin.up: densities})
         self.dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
-        self.dos = FermiDos(dos, structure=self.structure,
-                            dos_weight=self.dos_weight)
+        self.dos = FermiDos(
+            self._efermi, emesh, {Spin.up: densities}, structure=self.structure,
+            dos_weight=self.dos_weight)
 
     def set_doping_and_temperatures(self,
                                     doping: np.ndarray,
@@ -174,15 +148,13 @@ class AmsetData(MSONable):
 
         fermi_level_info = []
         for n, t in np.ndindex(self.fermi_levels.shape):
-            # do minus -c as FermiDos treats negative concentrations as electron
-            # doping and +ve as hole doping (the opposite to amset).
             self.fermi_levels[n, t], self.electron_conc[n, t], \
                 self.hole_conc[n, t] = self.dos.get_fermi(
-                    -doping[n], temperatures[t], rtol=1e-4, precision=10,
+                    doping[n], temperatures[t], tol=1e-4, precision=10,
                     return_electron_hole_conc=True)
 
             fermi_level_info.append("{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
-                doping[n], temperatures[t], self.fermi_levels[n, t]))
+                doping[n], temperatures[t], self.fermi_levels[n, t] / units.eV))
 
         log_list(fermi_level_info)
         self._calculate_fermi_functions()
@@ -205,24 +177,24 @@ class AmsetData(MSONable):
         factor = hartree_to_ev * m_to_cm * A_to_m / (hbar * 0.52917721067)
         for spin in self.spins:
             for n, t in np.ndindex(self.fermi_levels.shape):
-                self.f[spin][n, t] = f0(
-                    self.energies[spin] / units.eV,
+                self.f[spin][n, t] = FD(
+                    self.energies[spin],
                     self.fermi_levels[n, t],
-                    self.temperatures[t])
-                self.dfde[spin][n, t] = df0de(
-                    self.energies[spin] / units.eV,
+                    self.temperatures[t] * units.BOLTZMANN)
+                self.dfde[spin][n, t] = dFDde(
+                    self.energies[spin],
                     self.fermi_levels[n, t],
-                    self.temperatures[t])
+                    self.temperatures[t] * units.BOLTZMANN)
                 # velocities product has shape (nbands, 3, 3, nkpoints)
                 # we want the diagonal of the 3x3 matrix for each k and band
                 # after diagonalization shape is nbands, nkpoints, 3
-                # v = np.diagonal(np.sqrt(self.velocities_product[spin]),
-                #                 axis1=1, axis2=2)
-                # v = v.transpose((0, 2, 1))
-                # v = np.abs(np.matmul(matrix_norm, v)) * factor
-                # v = v.transpose((0, 2, 1))
-                # self.dfdk[spin][n, t] = np.linalg.norm(
-                #     self.dfde[spin][n, t][..., None] * v * hbar, axis=2)
+                v = np.diagonal(np.sqrt(self.velocities_product[spin]),
+                                axis1=1, axis2=2)
+                v = v.transpose((0, 2, 1))
+                v = np.abs(np.matmul(matrix_norm, v)) * factor
+                v = v.transpose((0, 2, 1))
+                self.dfdk[spin][n, t] = np.linalg.norm(
+                    self.dfde[spin][n, t][..., None] * v * hbar, axis=2)
 
     def calculate_fd_cutoffs(self, fd_tolerance: Optional[float] = 0.01):
         energies = self.dos.energies
@@ -240,7 +212,7 @@ class AmsetData(MSONable):
             ef = self.fermi_levels[n, t]
             temp = self.temperatures[t]
 
-            dfde = -df0de(energies, ef, temp)
+            dfde = -dFDde(energies, ef, temp * units.BOLTZMANN)
             sigma_int = np.abs(dfde)
             seeb_int = np.abs((energies - ef) * dfde)
             ke_int = np.abs((energies - ef) ** 2 * dfde)
@@ -261,8 +233,8 @@ class AmsetData(MSONable):
         weights = np.log1p(weights)
         # weights /= np.log1p(self.dos.densities)
         weights /= max(weights)
-        weights_intep = interp1d(energies * units.eV, weights,
-                                 bounds_error=False, fill_value="extrapolate")
+        weights_intep = interp1d(
+            energies, weights, bounds_error=False, fill_value="extrapolate")
 
         self.fd_weights = {
             s: np.array([weights_intep(e) for e in self.energies[s]])
@@ -284,9 +256,9 @@ class AmsetData(MSONable):
             max_cutoff = energies.max()
 
         logger.info("Energies limited by Fermi–Dirac cut-offs as:")
-        log_list(["min: {:.3f} eV".format(min_cutoff),
-                  "max: {:.3f} eV".format(max_cutoff)])
-        self.fd_cutoffs = (min_cutoff * units.eV, max_cutoff * units.eV)
+        log_list(["min: {:.3f} eV".format(min_cutoff / units.eV),
+                  "max: {:.3f} eV".format(max_cutoff / units.eV)])
+        self.fd_cutoffs = (min_cutoff, max_cutoff)
 
     def set_scattering_rates(self,
                              scattering_rates: Dict[Spin, np.ndarray],
@@ -312,21 +284,21 @@ class AmsetData(MSONable):
                           extra_energies: Dict[Spin, np.ndarray],
                           extra_vvelocities: Dict[Spin, np.ndarray],
                           extra_projections: Dict[Spin, np.ndarray],
-                          kpoint_weights: np.ndarray):
+                          kpoint_weights: np.ndarray,
+                          ir_kpoints_idx: np.ndarray,
+                          ir_to_full_idx: np.ndarray):
         if len(self.full_kpoints) + len(extra_kpoints) != len(kpoint_weights):
             raise ValueError("Total number of k-points (full_kpoints + "
                              "extra_kpoints) does not equal number of kpoint "
                              "weights")
 
         self.kpoint_weights = kpoint_weights
-        new_indices = np.arange(len(self.full_kpoints),
-                                len(self.full_kpoints) + len(extra_kpoints))
-
         # create a mask to exclude the extra points when calculating transport
         # properties. This is because BoltzTraP2 doesn't support custom k-point
         # weights
         self.transport_mask = np.array([True] * len(self.full_kpoints) +
                                        [False] * len(extra_kpoints))
+        new_ir_idx = len(self.full_kpoints) + ir_kpoints_idx
 
         # add the extra data to the storage arrays
         self.full_kpoints = np.concatenate((self.full_kpoints, extra_kpoints))
@@ -345,22 +317,16 @@ class AmsetData(MSONable):
             } for s in self.spins}
         self._calculate_orbital_factors()
 
-        # update symmetry data. We presume all extra k-points have no
-        # symmetry equivalent partners
-        self.ir_kpoints = np.concatenate((self.ir_kpoints, extra_kpoints))
-        self.ir_kpoints_idx = np.concatenate((self.ir_kpoints_idx, new_indices))
-
-        # ignore ir_kpoint_weights for now as it is not currently used
-        # in either the transport or scattering modules
-        # self.ir_kpoint_weights = ir_kpoint_weights
+        self.ir_kpoints = np.concatenate((self.ir_kpoints,
+                                          extra_kpoints[ir_kpoints_idx]))
+        self.ir_kpoints_idx = np.concatenate((self.ir_kpoints_idx, new_ir_idx))
 
         # add additional indices to the end of the mapping. E.g. if
         # mapping was originally [1, 2, 2, 3, 3] and we have 3 extra k-points
         # the new mapping will be [1, 2, 2, 3, 3, 4, 5, 6]
         self.ir_to_full_kpoint_mapping = np.concatenate(
             (self.ir_to_full_kpoint_mapping,
-             np.arange(len(extra_kpoints)) +
-             self.ir_to_full_kpoint_mapping.max() + 1))
+             ir_to_full_idx + self.ir_to_full_kpoint_mapping.max() + 1))
 
         # recalculate kpoint norms and grouping
         self.kpoint_norms = np.linalg.norm(self.full_kpoints, axis=1)
