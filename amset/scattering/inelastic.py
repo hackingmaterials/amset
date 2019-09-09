@@ -37,7 +37,8 @@ class AbstractInelasticScattering(ABC):
         pass
 
     @abstractmethod
-    def factor(self, spin, b_idx, k_idx, k_diff_sq: np.ndarray, emission):
+    def factor(self, spin, b_idx, k_idx, k_diff_sq: np.ndarray, emission,
+               out):
         pass
 
 
@@ -59,17 +60,29 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         # n_po (phonon concentration) has shape (ntemps, )
         n_po = 1 / (np.exp(hbar * self.pop_frequency /
                     (k_B * amset_data.temperatures)) - 1)
-        n_po = n_po[None, :, None, None]
-        # n_po = n_po.reshape(1, len(amset_data.temperatures), 1, 1)
+
+        n_po = n_po[None, :, None]
+
+        logger.debug("average N_po = {}".format(np.mean(n_po)))
 
         # want to store two intermediate properties for:
         #             emission      and        absorption
         # (1-f)(N_po + 1) + f(N_po) and (1-f)N_po + f(N_po + 1)
-        self.emission_f = {
-            s: (1 - amset_data.f[s]) * (n_po + 1) + amset_data.f[s] * n_po
+        # note that these are defined for the scattering rate S(k', k).
+        # For the rate S(k, k') the definitions are reversed.
+
+        self.emission_f_out = {
+            s: n_po + 1 - amset_data.f[s]
             for s in amset_data.spins}
-        self.absorption_f = {
-            s: (1 - amset_data.f[s]) * n_po + amset_data.f[s] * (n_po + 1)
+        self.absorption_f_out = {
+            s: n_po + amset_data.f[s]
+            for s in amset_data.spins}
+
+        self.emission_f_in = {
+            s: n_po + amset_data.f[s]
+            for s in amset_data.spins}
+        self.absorption_f_in = {
+            s: n_po + 1 - amset_data.f[s]
             for s in amset_data.spins}
 
         unit_conversion = 1e9 / e
@@ -83,11 +96,18 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         return self._prefactor * np.ones(
             (len(self.doping), len(self.temperatures)))
 
-    def factor(self, spin, b_idx, k_idx, k_diff_sq: np.ndarray, emission):
+    def factor(self, spin, b_idx, k_idx, k_diff_sq: np.ndarray, emission,
+               out):
         # factor should have shape (ndops, ntemps, nkpts)
         factor = 1 / np.tile(k_diff_sq, (len(self.doping),
                                          len(self.temperatures), 1))
         if emission:
-            return factor * self.emission_f[spin][:, :, b_idx, k_idx]
+            if out:
+                return factor * self.emission_f_out[spin][:, :, b_idx, k_idx]
+            else:
+                return factor * self.emission_f_in[spin][:, :, b_idx, k_idx]
         else:
-            return factor * self.absorption_f[spin][:, :, b_idx, k_idx]
+            if out:
+                return factor * self.absorption_f_out[spin][:, :, b_idx, k_idx]
+            else:
+                return factor * self.absorption_f_in[spin][:, :, b_idx, k_idx]
