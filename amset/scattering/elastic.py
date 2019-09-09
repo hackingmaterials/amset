@@ -7,13 +7,14 @@ import numpy as np
 
 from typing import Dict, Tuple, Any
 
+from BoltzTraP2 import units
+from BoltzTraP2.fd import FD
 from scipy.constants import epsilon_0
 from scipy.integrate import trapz
 
 from amset.misc.constants import k_B, e, hbar
 from amset.data import AmsetData
 from amset.misc.log import log_list
-from amset.misc.util import f0
 from pymatgen import Spin
 
 __author__ = "Alex Ganose"
@@ -120,7 +121,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         for n, t in np.ndindex(self.beta_sq.shape):
             ef = fermi_levels[n, t]
             temp = amset_data.temperatures[t]
-            f = f0(energies, ef, temp)
+            f = FD(energies, ef, temp * units.BOLTZMANN)
             integral = trapz(tdos * f * (1 - f), x=energies)
             self.beta_sq[n, t] = (
                 e ** 2 * integral * 1e12 /
