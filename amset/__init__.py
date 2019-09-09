@@ -35,7 +35,6 @@ amset_defaults = {
         "ibte_tol": 1,
         "max_ibte_iter": 1,
         "dos_estep": 0.001,
-        "dos_width": None,
         "symprec": 0.01,
         "nworkers": -1,
     },
