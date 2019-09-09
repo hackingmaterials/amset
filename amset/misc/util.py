@@ -11,6 +11,7 @@ from monty.serialization import dumpfn, loadfn
 from amset import amset_defaults
 from amset.misc.constants import k_B
 from pymatgen import Spin
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.util.string import latexify_spacegroup
 
 __author__ = "Alex Ganose"
@@ -211,7 +212,7 @@ def kpoints_to_first_bz(kpoints: np.ndarray) -> np.ndarray:
     """Translate fractional k-points to the first Brillouin zone.
 
     I.e. all k-points will have fractional coordinates:
-        -0.5 <= fractional coordinates <= 0.5
+        -0.5 <= fractional coordinates < 0.5
 
     Args:
         kpoints: The k-points in fractional coordinates.
@@ -219,7 +220,9 @@ def kpoints_to_first_bz(kpoints: np.ndarray) -> np.ndarray:
     Returns:
         The translated k-points.
     """
-    return kpoints - np.round(kpoints)
+    kp = kpoints - np.round(kpoints)
+    kp[kp == 0.5] = -0.5
+    return kp
 
 
 def parse_doping(doping_str: str):
@@ -312,7 +315,7 @@ def df0de(energy, fermi, temperature):
     return result
 
 
-def get_dense_kpoint_mesh_spglib(mesh, spg_order=False, shift=-0.5):
+def get_dense_kpoint_mesh_spglib(mesh, spg_order=False, shift=0):
     """This is a reimplementation of the spglib c function get_all_grid_addresses
 
     Given a k-point mesh, gives the full k-point mesh that covers
@@ -326,6 +329,8 @@ def get_dense_kpoint_mesh_spglib(mesh, spg_order=False, shift=-0.5):
     in spglib is that here we return the final fraction coordinates
     whereas spglib returns the grid_addresses (integer numbers).
     """
+    mesh = np.asarray(mesh)
+
     addresses = np.stack(np.mgrid[0:mesh[0], 0:mesh[1], 0:mesh[2]],
                          axis=-1).reshape(np.product(mesh), -1)
 
@@ -336,7 +341,14 @@ def get_dense_kpoint_mesh_spglib(mesh, spg_order=False, shift=-0.5):
         addresses = addresses[idx]
 
     addresses -= mesh * (addresses > mesh / 2)
-    return (addresses + shift) / mesh
+    # return (addresses + shift) / mesh
+
+    full_kpoints = (addresses + shift) / mesh
+    sort_idx = np.lexsort((full_kpoints[:, 2], full_kpoints[:, 2] < 0,
+                           full_kpoints[:, 1], full_kpoints[:, 1] < 0,
+                           full_kpoints[:, 0], full_kpoints[:, 0] < 0))
+    full_kpoints = full_kpoints[sort_idx]
+    return full_kpoints
 
 
 def get_dense_kpoint_mesh(mesh):
@@ -356,3 +368,68 @@ def get_dense_kpoint_mesh(mesh):
     kpts /= mesh  # gets frac kpts between 0 and 1
     kpts -= 0.5
     return kpts
+
+
+def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
+                                    return_inverse=False,
+                                    time_reversal_symmetry=True):
+    round_dp = int(np.log10(1 / tol))
+
+    def shift_and_round(k):
+        k = kpoints_to_first_bz(k)
+        k = np.round(k, round_dp)
+        return list(map(tuple, k))
+
+    kpoints = np.asarray(kpoints)
+    round_kpoints = shift_and_round(kpoints)
+
+    sg = SpacegroupAnalyzer(structure, symprec=symprec)
+    symmops = sg.get_symmetry_operations(cartesian=False)
+    rotation_matrices = np.array([o.rotation_matrix for o in symmops])
+
+    if time_reversal_symmetry:
+        # TODO: Remove equivalent rotation matrices
+        rotation_matrices = np.concatenate(
+            (rotation_matrices, -rotation_matrices))
+
+    cart_rotation_matrices = np.array(
+        [similarity_transformation(
+            structure.lattice.reciprocal_lattice.matrix, r.T)
+         for r in rotation_matrices])
+
+    equiv_points_mapping = {}
+    rotation_matrix_mapping = {}
+    mapping = []
+    rot_mapping = []
+
+    for i, point in enumerate(round_kpoints):
+
+        if point in equiv_points_mapping:
+            map_idx = equiv_points_mapping[point]
+            mapping.append(map_idx)
+            rot_mapping.append(rotation_matrix_mapping[map_idx][point])
+        else:
+            new_points = shift_and_round(np.dot(kpoints[i], rotation_matrices))
+
+            equiv_points_mapping.update(zip(new_points, [i] * len(new_points)))
+            rotation_matrix_mapping[i] = dict(
+                zip(new_points, cart_rotation_matrices))
+
+            mapping.append(i)
+            rot_mapping.append(np.eye(3))
+
+    ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
+        mapping, return_inverse=True, return_counts=True)
+    ir_kpoints = kpoints[ir_kpoints_idx]
+
+    if return_inverse:
+        return (ir_kpoints, weights, ir_kpoints_idx, ir_to_full_idx, mapping,
+                np.array(rot_mapping))
+    else:
+        return ir_kpoints, weights
+
+
+def similarity_transformation(rot, mat):
+    """ R x M x R^-1 """
+    return np.dot(rot, np.dot(mat, np.linalg.inv(rot)))
+
