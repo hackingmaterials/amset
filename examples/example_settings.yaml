@@ -56,7 +56,6 @@ performance:
     ibte_tol: 1                          # in %
     max_ibte_iter: 1
     dos_estep: 0.01                   # in eV
-    dos_width: null                   # in eV
     symprec: 0.01                     # in Angstrom
     nworkers: -1                      # default is -1 (use all processors)
 
