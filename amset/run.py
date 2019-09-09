@@ -147,8 +147,7 @@ class AmsetRunner(MSONable):
 
         log_banner("DOS")
         amset_data.calculate_dos(
-            dos_estep=self.performance_parameters["dos_estep"],
-            dos_width=self.performance_parameters["dos_width"])
+            dos_estep=self.performance_parameters["dos_estep"])
         amset_data.set_doping_and_temperatures(self.doping, self.temperatures)
         amset_data.calculate_fd_cutoffs(self.performance_parameters["fd_tol"])
 
