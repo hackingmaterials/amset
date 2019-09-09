@@ -19,7 +19,8 @@ from BoltzTraP2 import units, sphere, fite
 from BoltzTraP2.bandlib import DOS
 from spglib import spglib
 
-from amset.misc.util import spin_name
+from amset.misc.util import spin_name, get_symmetry_equivalent_kpoints, \
+    kpoints_to_first_bz
 from amset.misc.log import log_time_taken, log_list
 from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.core import Spin
@@ -249,13 +250,13 @@ class Interpolater(MSONable):
         # get the actual k-points used in the BoltzTraP2 interpolation
         # unfortunately, BoltzTraP2 doesn't expose this information so we
         # have to get it ourselves
-        ir_kpts, weights, full_kpts, ir_kpts_idx, ir_to_full_idx = _get_kpoints(
+        ir_kpts, _, full_kpts, ir_kpts_idx, ir_to_full_idx = _get_kpoints(
             self.interpolation_mesh, self._band_structure.structure,
             symprec=symprec, return_full_kpoints=True)
 
         return AmsetData(
             self._band_structure.structure, energies, vvelocities, projections,
-            self.interpolation_mesh, full_kpts, ir_kpts, weights, ir_kpts_idx,
+            self.interpolation_mesh, full_kpts, ir_kpts, ir_kpts_idx,
             ir_to_full_idx, efermi, is_metal, self._soc, vb_idx=new_vb_idx)
 
     def get_energies(self,
@@ -270,6 +271,8 @@ class Interpolater(MSONable):
                      coords_are_cartesian: bool = False,
                      atomic_units: bool = False,
                      skip_coefficients: Optional[float] = None,
+                     symprec: Optional[float] = None,
+                     return_kpoint_mapping: bool = False
                      ) -> Union[Dict[Spin, np.ndarray],
                                 Tuple[Dict[Spin, np.ndarray], ...]]:
         """Gets the interpolated energies for multiple k-points in a band.
@@ -302,6 +305,11 @@ class Interpolater(MSONable):
             atomic_units: Return the energies, velocities, and effective_massses
                 in atomic units. If False, energies will be in eV, velocities in
                 cm/s, and effective masses in units of electron rest mass, m0.
+            symprec: Symmetry precision. If set, symmetry will be used to
+                reduce the nummber of calculated k-points and velocities.
+            return_kpoint_mapping: Only valid if ``symprec`` is also set. If
+                `True`, the kpoint symmetry mapping information will be
+                returned.
 
         Returns:
             The band energies as dictionary of::
@@ -353,7 +361,18 @@ class Interpolater(MSONable):
             kpoints = self._band_structure.structure.lattice. \
                 reciprocal_lattice.get_fractional_coords(kpoints)
 
-        kpoints = np.asarray(kpoints)
+        nkpoints = len(kpoints)
+
+        if symprec:
+            logger.info("Reducing # k-points using symmetry")
+            kpoints, weights, ir_kpoints_idx, ir_to_full_idx, _, rot_mapping = \
+                get_symmetry_equivalent_kpoints(
+                    self._band_structure.structure, kpoints, symprec=symprec,
+                    return_inverse=True)
+            log_list(["# original k-points: {}".format(nkpoints),
+                      "# reduced k-points {}".format(len(kpoints))])
+        else:
+            kpoints = np.asarray(kpoints)
 
         energies = {}
         velocities = {}
@@ -377,6 +396,33 @@ class Interpolater(MSONable):
             energies[spin] = fitted[0]
             velocities[spin] = fitted[1]
 
+            if symprec:
+                energies[spin] = energies[spin][:, ir_to_full_idx]
+
+                # apply rotation matrices to the velocities at the symmetry
+                # reduced k-points, to get the velocities for the full
+                # original mesh (this is just the dot product of the velocity
+                # and appropriate rotation matrix. The weird ordering of the
+                # indices is because the velocities has the shape
+                # (3, nbands, nkpoints)
+                # print(velocities[spin].shape)
+                v = velocities[spin].transpose((1, 2, 0))
+                # print(v.shape)
+                v = v[:, ir_to_full_idx, :]
+
+                # print(v[1, -1])
+                # print(kpoints[ir_to_full_idx[-1]])
+                # print("rot", rot_mapping[-1])
+
+                v = np.array(
+                    [[np.dot(r, k) for k, r in zip(vel_band, rot_mapping)]
+                     for vel_band in v])
+                velocities[spin] = v.transpose((2, 0, 1))
+                # velocities[spin] = np.einsum(
+                #     'kij,jkl->lij', velocities[spin][:, :, ir_to_full_idx],
+                #     rot_mapping)
+                # print(velocities[spin].shape)
+
             if not self._band_structure.is_metal():
                 vb_idx = max(self._band_structure.get_vbm()["band_index"][spin])
 
@@ -395,15 +441,32 @@ class Interpolater(MSONable):
                 iu0 = np.triu_indices(3)
                 il1 = np.tril_indices(3, -1)
                 iu1 = np.triu_indices(3, 1)
+
                 velocities[spin] = velocities[spin].transpose((1, 0, 2))
-                vvband = np.zeros((len(velocities[spin]), 3, 3, len(kpoints)))
-                vvband[:, iu0[0], iu0[1]] = (velocities[spin][:, iu0[0]] *
-                                             velocities[spin][:, iu0[1]])
-                vvband[:, il1[0], il1[1]] = vvband[:, iu1[0], iu1[1]]
-                velocities[spin] = vvband
+                new_vels = []
+                for vb in velocities[spin]:
+                    vvband = np.zeros((3, 3, nkpoints))
+                    vvband[iu0[0], iu0[1]] = vb[iu0[0]] * vb[iu0[1]]
+                    vvband[il1[0], il1[1]] = vvband[iu1[0], iu1[1]]
+                    new_vels.append(vvband)
+                velocities[spin] = np.array(new_vels)
+                # print(velocities[spin].shape)
+                # velocities[spin] = velocities[spin].transpose((2, 0, 1))
+                # vvband = np.zeros((len(velocities[spin]), 3, 3, nkpoints))
+                # vvband[:, iu0[0], iu0[1]] = (velocities[spin][:, iu0[0]] *
+                #                              velocities[spin][:, iu0[1]])
+                # vvband[:, il1[0], il1[1]] = vvband[:, iu1[0], iu1[1]]
+                # velocities[spin] = vvband
 
             if return_effective_mass:
                 effective_masses[spin] = fitted[2]
+
+                if symprec:
+                    # TODO: Check this works
+                    effective_masses[spin] = np.einsum(
+                        'klij,jkl->klij',
+                        effective_masses[spin][:, :, :, ir_to_full_idx],
+                        rot_mapping)
 
             if not atomic_units:
                 energies[spin] = energies[spin] / units.eV
@@ -426,6 +489,11 @@ class Interpolater(MSONable):
                         kpoints, self._equivalences[:skip],
                         self._lattice_matrix, proj_coeffs[ibands, :skip],
                         curvature=False)[0]
+
+                    if symprec:
+                        projections[spin][label] = projections[
+                            spin][label][:, ir_to_full_idx]
+
                 log_time_taken(t0)
 
         if not (return_velocity or return_effective_mass or
@@ -442,6 +510,13 @@ class Interpolater(MSONable):
 
         if return_projections:
             to_return.append(projections)
+
+        if symprec and return_kpoint_mapping:
+            to_return.append({
+                "weights": weights,
+                "ir_kpoints_idx": ir_kpoints_idx,
+                "ir_to_full_idx": ir_to_full_idx
+            })
 
         return tuple(to_return)
 
@@ -508,6 +583,59 @@ class Interpolater(MSONable):
         dos *= 1 if self._soc or len(self._spins) == 2 else 1
 
         return Dos(self._band_structure.efermi, emesh, dos)
+
+    def get_band_structure(self,
+                           kpoint_mesh: Union[float, int, List[int]],
+                           energy_cutoff: Optional[float] = None,
+                           scissor: Optional[float] = None,
+                           bandgap: Optional[float] = None,
+                           symprec: float = 0.01
+                           ) -> BandStructure:
+        """Calculates the density of states using the interpolated bands.
+
+        Args:
+            kpoint_mesh: The k-point mesh as a 1x3 array. E.g.,``[6, 6, 6]``.
+                Alternatively, if a single value is provided this will be
+                treated as a reciprocal density and the k-point mesh dimensions
+                generated automatically.
+            energy_cutoff: The energy cut-off to determine which bands are
+                included in the interpolation. If the energy of a band falls
+                within the cut-off at any k-point it will be included. For
+                metals the range is defined as the Fermi level ± energy_cutoff.
+                For gapped materials, the energy range is from the VBM -
+                energy_cutoff to the CBM + energy_cutoff.
+            scissor: The amount by which the band gap is scissored. Cannot
+                be used in conjunction with the ``bandgap`` option. Has no
+                effect for metallic systems.
+            bandgap: Automatically adjust the band gap to this value. Cannot
+                be used in conjunction with the ``scissor`` option. Has no
+                effect for metallic systems.
+            estep: The energy step, where smaller numbers give more
+                accuracy but are more expensive.
+            width: The gaussian smearing width in eV.
+            symprec: The symmetry tolerance used when determining the symmetry
+                inequivalent k-points on which to interpolate.
+
+        Returns:
+            The density of states.
+        """
+        ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx = \
+            _get_kpoints(kpoint_mesh, self._band_structure.structure,
+                         symprec=symprec, return_full_kpoints=True)
+
+        energies = self.get_energies(
+            ir_kpoints, scissor=scissor, bandgap=bandgap,
+            energy_cutoff=energy_cutoff, atomic_units=True)
+
+        energies = {s: bands[:, ir_to_full_idx] / units.eV
+                    for s, bands in energies.items()}
+
+        return BandStructure(full_kpoints, energies,
+                             self._band_structure.structure.lattice,
+                             self._band_structure.efermi,
+                             coords_are_cartesian=True,
+                             structure=self._band_structure.structure)
+
 
     def get_line_mode_band_structure(self,
                                      line_density: int = 50,
@@ -740,6 +868,12 @@ def _get_kpoints(kpoint_mesh: Union[float, int, List[int]],
     mapping, grid = spglib.get_ir_reciprocal_mesh(
         kpoint_mesh, atoms, symprec=symprec)
     full_kpoints = grid / kpoint_mesh
+
+    sort_idx = np.lexsort((full_kpoints[:, 2], full_kpoints[:, 2] < 0,
+                           full_kpoints[:, 1], full_kpoints[:, 1] < 0,
+                           full_kpoints[:, 0], full_kpoints[:, 0] < 0))
+    full_kpoints = full_kpoints[sort_idx]
+    mapping = mapping[sort_idx]
 
     ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
         mapping, return_inverse=True, return_counts=True)
