@@ -80,16 +80,21 @@ class PeriodicVoronoi(object):
 
         # Voronoi points are those we actually calculate in the Voronoi diagram
         # e.g. the big points + extra points
+
         voronoi_points = supercell_points[big_cutoff_points_idx]
         self._voronoi_points = np.concatenate((
             voronoi_points, extra_points))
 
-        from pymatgen import Structure
-        s = Structure(reciprocal_lattice.matrix * 10,
-                      ['H'] * len(voronoi_points),
-                      voronoi_points + 0.5, coords_are_cartesian=False)
-
-        s.to(filename="voronoi.vasp", fmt="poscar")
+        # center = np.dot([1, 1, 1], reciprocal_lattice.matrix)
+        # print(voronoi_points)
+        # print(extra_points.max())
+        # print(extra_points.min())
+        # from pymatgen import Structure
+        # s = Structure(reciprocal_lattice.matrix * 10,
+        #               ['H'] * len(extra_points),
+        #               extra_points/2 + 0.5, coords_are_cartesian=False)
+        #
+        # s.to(filename="voronoi.vasp", fmt="poscar")
 
         # small points are the points in original_points for which we want to
         # calculate the Voronoi volumes. Note this does not include the
@@ -125,7 +130,6 @@ class PeriodicVoronoi(object):
             (small_in_original_idx,
              np.arange(len(extra_points)) + len(original_points)))
 
-        print(len(original_points))
         # prepopulate the final volumes array. By default, each point has the
         # volume of the original mesh. Note: at this point, the extra points
         # will have zero volume. This will array will be updated by
@@ -139,7 +143,6 @@ class PeriodicVoronoi(object):
         logger.info("Calculating k-point Voronoi diagram:")
         logger.debug("  ├── num k-points near extra points: {}".format(
             len(self._voronoi_points)))
-        print(len(self._voronoi_points))
         t0 = time.perf_counter()
 
         # after some testing it seems like sorting the points before calculating
@@ -169,21 +172,12 @@ class PeriodicVoronoi(object):
         inf_vols: np.ndarray = volumes == np.inf
         if any(inf_vols):
             logger.warning("{} volumes are infinite".format(np.sum(inf_vols)))
-            inf_points = self._final_points[inf_vols]
-
-            from pymatgen import Structure
-            s = Structure(self._reciprocal_lattice.matrix * 10,
-                          ['H'] * len(inf_points),
-                          inf_points + 0.5, coords_are_cartesian=False)
-
-            s.to(filename="inf.vasp", fmt="poscar")
 
         sum_volumes = volumes.sum()
         vol_diff = abs(sum_volumes - 1)
-        print(vol_diff * 100)
         if vol_diff > 0.001:
-            logger.warning("Sum of weights does not equal 1 (diff = {:.1f} %)... "
-                           "renormalising weights".format(vol_diff * 100))
+            logger.warning("Sum of weights does not equal 1 (diff = {:.3f} "
+                           "%)... renormalising weights".format(vol_diff * 100))
             volumes = volumes / sum_volumes
 
         return volumes
@@ -204,7 +198,6 @@ class PeriodicVoronoi(object):
             delayed(_get_volume)(idx, verts) for idx, verts in voronoi_info)
         log_time_taken(t0)
         return np.array(volumes)
-
 
 
 def _get_volume(indices, vertices):
@@ -254,4 +247,3 @@ def get_supercell_points(supercell_dim, points,
     repeated_images = np.repeat(images, len(points), axis=0)
 
     return repeated_images + repeated_points
-
