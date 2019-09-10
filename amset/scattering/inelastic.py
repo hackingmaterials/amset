@@ -61,7 +61,7 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         n_po = 1 / (np.exp(hbar * self.pop_frequency /
                     (k_B * amset_data.temperatures)) - 1)
 
-        n_po = n_po[None, :, None]
+        n_po = n_po[None, :, None, None]
 
         logger.debug("average N_po = {}".format(np.mean(n_po)))
 
