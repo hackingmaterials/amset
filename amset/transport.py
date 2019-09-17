@@ -261,8 +261,8 @@ def AMSETDOS(eband,
     """
     # kpoint_weights = kpoint_weights * len(kpoint_weights)
     kpoint_weights = np.tile(kpoint_weights, (len(eband), 1))
-    # dos = ADOS(eband.T, erange=erange, npts=npts, weights=kpoint_weights.T)
-    dos = ADOS(eband.T, erange=erange, npts=npts)
+    dos = ADOS(eband.T, erange=erange, npts=npts, weights=kpoint_weights.T)
+    # dos = ADOS(eband.T, erange=erange, npts=npts)
     npts = dos[0].size
     iu0 = np.array(np.triu_indices(3)).T
     vvdos = np.zeros((3, 3, npts))
