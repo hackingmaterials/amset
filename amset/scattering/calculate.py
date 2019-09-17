@@ -221,6 +221,9 @@ class ScatteringCalculator(MSONable):
         else:
             fill_mask = mask
 
+        logger.debug("  ├── # k-points within Fermi–Dirac cut-offs: {}".format(
+            np.sum(~fill_mask)))
+
         # set the energies out of range to infinite so that they will not be
         # included in the scattering rate calculations
         ball_band_energies[mask] *= float("inf")
@@ -603,7 +606,7 @@ def get_band_rates(spin, b_idx, scatterers, ediff, gauss_width, s, k_idx,
                    reciprocal_lattice_matrix):
     from numpy.core.umath_tests import inner1d
 
-    mask = k_idx != k_p_idx
+    mask = k_idx != k_p_idx  # no self-scattering
     k_idx = k_idx[mask]
     k_p_idx = k_p_idx[mask]
     ediff = ediff[mask]
