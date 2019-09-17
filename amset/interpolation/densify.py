@@ -130,7 +130,8 @@ class BandDensifier(object):
                 # w = np.power(fd_weights[..., np.newaxis], 1/7)
                 # print("min w", np.min(w), "max w", np.max(w))
                 # ndims *= w
-                ndims *= 1
+                ndims[fd_weights < 0.05] *= 0
+                # ndims *= 1
                 # ndims *=
                 # ndims /= 2
                 # ndims *= np.power(fd_weights[..., np.newaxis], 1/5)
