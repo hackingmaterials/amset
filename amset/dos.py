@@ -35,6 +35,7 @@ class FermiDos(Dos, MSONable):
             associated structure object, an error will be thrown.
         dos_weight: The weighting for the dos. Defaults to 2 for non-spin
             polarized calculations and 1 for spin-polarized calculations.
+        atomic_units: Whether energies are given in eV or Hartree.
     """
 
     def __init__(self,
@@ -42,10 +43,12 @@ class FermiDos(Dos, MSONable):
                  energies: np.ndarray,
                  densities: Dict[Spin, np.ndarray],
                  structure: Structure,
-                 dos_weight: Optional[float] = None):
+                 dos_weight: Optional[float] = None,
+                 atomic_units: bool = True):
 
         super().__init__(efermi, energies, densities)
         self.structure = structure
+        self.atomic_units = atomic_units
 
         if not dos_weight:
             dos_weight = 2 if len(self.densities) == 1 else 1
@@ -61,7 +64,7 @@ class FermiDos(Dos, MSONable):
         self.nelect = self.tdos[self.energies <= self.efermi].sum() * self.de
 
         logger.debug("Intrinsic DOS Fermi level: {:.4f} eV".format(
-            self.efermi / units.eV))
+            self.efermi / units.eV if atomic_units else self.efermi))
         logger.debug("DOS contains {:.3f} electrons".format(self.nelect))
 
     def get_doping(self,
@@ -95,7 +98,10 @@ class FermiDos(Dos, MSONable):
             occ[self.energies == fermi_level] = .5
         else:
             kbt = temperature * units.BOLTZMANN
-            occ = FD(self.energies, fermi_level, kbt)
+            if self.atomic_units:
+                occ = FD(self.energies, fermi_level, kbt)
+            else:
+                occ = FD(self.energies * units.eV, fermi_level * units.eV, kbt)
 
         wdos = self.tdos * occ
         num_electrons = wdos.sum() * self.de
