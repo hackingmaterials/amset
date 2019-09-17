@@ -150,7 +150,7 @@ class AmsetData(MSONable):
         for n, t in np.ndindex(self.fermi_levels.shape):
             self.fermi_levels[n, t], self.electron_conc[n, t], \
                 self.hole_conc[n, t] = self.dos.get_fermi(
-                    doping[n], temperatures[t], tol=1e-4, precision=10,
+                    doping[n], temperatures[t], tol=1e-3, precision=10,
                     return_electron_hole_conc=True)
 
             fermi_level_info.append("{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
@@ -219,20 +219,34 @@ class AmsetData(MSONable):
 
             # normalize the transport integrals and sum
             nt_weights = sigma_int / sigma_int.max()
-            # nt_weights += 2 * seeb_int / seeb_int.max()
-            # nt_weights += ke_int / ke_int.max()
+            nt_weights += seeb_int / seeb_int.max()
+            nt_weights += ke_int / ke_int.max()
             weights = np.maximum(weights, nt_weights)
 
-            # import matplotlib
-            # matplotlib.use("TkAgg")
-            # import matplotlib.pyplot as plt
-            # plt.plot(energies, weights)
-            # plt.xlim((2, 3.5))
-            # plt.show()
+        weights /= np.max(weights)
 
-        weights = np.log1p(weights)
-        # weights /= np.log1p(self.dos.densities)
-        weights /= max(weights)
+        cumsum_weights = weights * self.dos.tdos / np.max(self.dos.tdos)
+        cumsum = np.cumsum(cumsum_weights)
+        cumsum /= np.max(cumsum)
+
+        # testdos = self.dos.tdos / np.max(self.dos.tdos)
+        # testdos[testdos == 0] = np.inf
+        # weights /= testdos
+        # weights /= np.max(weights)
+
+        # weights /= self.dos.tdos  # / np.max(self.dos.tdos))
+        # weights = np.nan_to_num(weights)
+        # weights[np.isnan(weights)] = 0
+        # print(np.max(weights))
+
+        # import matplotlib
+        # matplotlib.use("TkAgg")
+        # import matplotlib.pyplot as plt
+        # plt.plot(energies / units.eV, weights)
+        # plt.plot(energies / units.eV, self.dos.tdos / np.max(self.dos.tdos))
+        # plt.xlim((-4, 5))
+        # plt.show()
+
         weights_intep = interp1d(
             energies, weights, bounds_error=False, fill_value="extrapolate")
 
@@ -248,14 +262,13 @@ class AmsetData(MSONable):
                            for s in self.spins}
 
         if fd_tolerance:
-            energies_in_cutoff = energies[weights >= fd_tolerance]
-            min_cutoff = energies_in_cutoff.min()
-            max_cutoff = energies_in_cutoff.max()
+            min_cutoff = energies[cumsum < fd_tolerance / 2].max()
+            max_cutoff = energies[cumsum > 1 - fd_tolerance / 2].min()
         else:
             min_cutoff = energies.min()
             max_cutoff = energies.max()
 
-        logger.info("Energies limited by Fermi–Dirac cut-offs as:")
+        logger.info("Calculated Fermi–Dirac cut-offs:")
         log_list(["min: {:.3f} eV".format(min_cutoff / units.eV),
                   "max: {:.3f} eV".format(max_cutoff / units.eV)])
         self.fd_cutoffs = (min_cutoff, max_cutoff)
