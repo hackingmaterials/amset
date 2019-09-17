@@ -155,8 +155,6 @@ def _calculate_mobility(amset_data: AmsetData,
         # convert mobility to cm^2/V.s
         mobility[n, t] = sigma[0, ...] * 0.01 / (e * carrier_conc)
 
-    print(mobility)
-
     return mobility
 
 
