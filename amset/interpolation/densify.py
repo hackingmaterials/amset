@@ -15,7 +15,7 @@ from amset.data import AmsetData
 from amset.interpolation.interpolate import Interpolater
 from amset.misc.log import log_list
 from amset.misc.util import kpoints_to_first_bz, get_dense_kpoint_mesh_spglib, \
-    get_symmetry_equivalent_kpoints
+    get_symmetry_equivalent_kpoints, SymmetryEquivalizer
 from amset.interpolation.voronoi import PeriodicVoronoi
 
 __author__ = "Alex Ganose"
@@ -70,6 +70,8 @@ class BandDensifier(object):
             self._grid_weights.extend(sorted_weights.reshape(
                 (-1, ) + tuple(self._mesh)))
 
+        self._grid_weights = np.array(self._grid_weights)
+
         # put the kpoints into a 3D grid so that they can be indexed as
         # kpoints[ikx][iky][ikz] = [kx, ky, kz]
         self._grid_kpoints = amset_data.full_kpoints[sort_idx].reshape(
@@ -112,25 +114,46 @@ class BandDensifier(object):
                 mask = ((band_energies < fd_cutoffs[0] - 0.01 * units.eV) |
                         (band_energies > fd_cutoffs[1] + 0.01 * units.eV))
                 ndims[mask] = np.array([0, 0, 0])
-                print(len(self._grid_kpoints[np.invert(mask)]))
 
             if scale_by_fd_weights:
-                pass
-                # ndims *= np.power(fd_weights[..., np.newaxis], 1/2)
+                # pass
+                # w = (fd_weights[..., np.newaxis] + 0.5) / 1.5
+                # w = (np.power(fd_weights[..., np.newaxis], 1/10) + 4) / 5
+                # w = fd_weights[..., np.newaxis]
+                # w = np.log1p(fd_weights[..., np.newaxis])
+                # w = np.power(fd_weights[..., np.newaxis], 1/8)
+
+                # t = 0.5
+                #
+                # w[w > t] = 1
+                # w[w <= t] /= t
+                # w = np.power(fd_weights[..., np.newaxis], 1/7)
+                # print("min w", np.min(w), "max w", np.max(w))
+                # ndims *= w
+                ndims *= 1
+                # ndims *=
+                # ndims /= 2
+                # ndims *= np.power(fd_weights[..., np.newaxis], 1/5)
                 # ndims *= fd_weights[..., np.newaxis]
 
             # take the dimensions if they are greater than the current
+
+
             # dimensions
             fine_mesh_dims = np.maximum(fine_mesh_dims, ndims)
 
-        # add test for all zero fine mesh points
+        # TODO: add test for all zero fine mesh points
 
         # print(np.max(fine_mesh_dims) / units.eV)
         # fine_mesh_dims = np.floor(fine_mesh_dims / (target_de * units.eV)
         #                           ).astype(int)
+
+        # fine_mesh_dims = np.floor(fine_mesh_dims / (target_de * units.eV))
+
+        # fine_mesh_dims = fine_mesh_dims / (target_de * units.eV)
         dim = fine_mesh_dims.reshape(
             self._amset_data.full_kpoints.shape) / (target_de * units.eV)
-
+        #
         dim = dim[(dim[:, 0] != 0) | (dim[:, 1] != 0) | (dim[:, 2] != 0)]
         dim = np.floor(dim.mean(axis=0)).astype(int)
         dim[dim == 0] = 1
@@ -142,83 +165,121 @@ class BandDensifier(object):
         # print(np.average(fine_mesh_dims[fine_mesh_dims != 0]))
         # print(fine_mesh_dims)
         additional_kpoints = []
-        logger.info("Getting ")
         kpt_count = 0
-        default_weight = 1 / np.product(self._amset_data.kpoint_mesh)
-        weight = 1 / np.product(dim) * default_weight
+        # default_weight = 1 / np.product(self._amset_data.kpoint_mesh)
+        # weight = 1 / np.product(dim) * default_weight
 
-        weights = np.full(len(self._amset_data.full_kpoints), default_weight)
-        additional_weights = []
+        # weights = np.full(len(self._amset_data.full_kpoints), default_weight)
+        # additional_weights = []
+
+        se = SymmetryEquivalizer(
+            self._amset_data.structure, symprec=0.1, tol=1e-6)
+
+        np.random.seed(0)
+        fine_mesh_dims[fine_mesh_dims == 0] = 1
+
+        default_kpts = get_dense_kpoint_mesh_spglib(
+            [2, 2, 2], shift=0, spg_order=True)
+        default_kpts = default_kpts[1:]
+        default_kpts /= self._mesh
 
         for i, j, k in np.ndindex(tuple(self._mesh)):
             d = fine_mesh_dims[i, j, k]
 
-            if all(d == 0):
+            if all(d == 1):
                 kpt_count += 1
                 continue
 
             # if zero in only 1 direction then we have to add at least one
             # point to make a mesh
-            # d[d == 0] = 1
-
-            # mesh = d + 1
-            # kx = np.zeros((mesh[0], 3))
-            # kx[:, 0] = np.arange(0, mesh[0])
-            # kx[:, 0] /= mesh[0]
-            # kx[:, 0] -= (1 / mesh[0]) / 2
-            #
-            # ky = np.zeros((mesh[1], 3))
-            # ky[:, 1] = np.arange(0, mesh[1])
-            # ky[:, 1] /= mesh[1]
-            # ky[:, 1] -= (1 / mesh[1]) / 2
-            #
-            # kz = np.zeros((mesh[2], 3))
-            # kz[:, 2] = np.arange(0, mesh[2])
-            # kz[:, 2] /= mesh[2]
-            # kz[:, 2] -= (1 / mesh[2]) / 2
-
-            # kpts = np.concatenate([kx, ky, kz])
-
-            #     kpts = get_dense_kpoint_mesh(d)
-            # m = d + 1
-            # m = d + 1
+            # d[d == 1] = 2
+            # m = d * 2
+            # m[m < 5] = 5
             # m = (m % 2 == 0) + m
-            # m = d
-            # print(m)
-            kpts = get_dense_kpoint_mesh_spglib(dim, shift=0, spg_order=True)
+            # kpts = get_dense_kpoint_mesh_spglib(d, shift=0, spg_order=True)
 
-            if len(kpts) > 1:
+            rnd_frac = np.max(self._grid_weights[:, i, j, k])
+
+            # if rnd_frac * np.product(d) > 1:
+            if True:
+                # kpts = get_dense_kpoint_mesh_spglib(d, shift=0, spg_order=True)
+                kpts = get_dense_kpoint_mesh_spglib(dim, shift=0, spg_order=True)
                 kpts = kpts[1:]
-
                 kpts /= self._mesh
                 kpts += self._grid_kpoints[i, j, k]
 
-                # weight = 1/np.product(m) * default_weight * 0.9
-                additional_kpoints.append(kpts)
+                # skip = math.ceil(len(kpts)/(rnd_frac * len(kpts)))
 
-                weights[self._idxs[i, j, k]] = weight
-                additional_weights.extend([weight] * len(kpts))
+                # kpts = kpts[::skip]
 
-        print(np.product(self._mesh) - kpt_count)
+                # if rnd_frac * len(kpts) <= 27:
+                #     choice = np.random.choice(
+                #         len(kpts),
+                #         math.ceil(len(kpts) * rnd_frac))
+                #     kpts = kpts[choice]
+                # else:
+                #     ir_kpoints_idx, ir_to_full_idx, mapping = \
+                #         se.get_equivalent_kpoints(kpts)
+                #
+                #     choice = np.random.choice(
+                #         len(ir_kpoints_idx),
+                #         math.ceil(len(ir_kpoints_idx) * rnd_frac))
+                #     ir_kpts = ir_kpoints_idx[choice]
+                #     kpts = kpts[np.isin(mapping, mapping[ir_kpts])]
+
+            else:
+
+                kpts = default_kpts.copy()
+                kpts += self._grid_kpoints[i, j, k]
+
+            additional_kpoints.append(kpts)
 
         if additional_kpoints:
             additional_kpoints = np.concatenate(additional_kpoints)
-            weights = np.concatenate((weights, additional_weights))
 
-        print("weights", np.sum(weights))
-        print(len(additional_kpoints), len(weights))
+        print(len(additional_kpoints))
 
-        return additional_kpoints, weights
+        return additional_kpoints
 
     def densify(self, target_de: float = gdefaults["fine_mesh_de"],
                 symprec: float = pdefaults["symprec"]):
         logger.info("Densifying band structure around Fermi integrals")
-
-        additional_kpoints, kpoint_weights = self.get_fine_mesh(
-            target_de=target_de)
         log_list(["fine mesh de: {} eV".format(target_de)])
 
+        additional_kpoints = self.get_fine_mesh(target_de=target_de)
+
         extra_kpoints = kpoints_to_first_bz(additional_kpoints)
+
+        # rnd_frac = 0.05
+        # choice = np.random.choice(
+        #     len(extra_kpoints),
+        #     math.ceil(len(extra_kpoints) * rnd_frac))
+        # extra_kpoints = extra_kpoints[choice]
+        # print(len(extra_kpoints))
+
+        # _, _, ir_kpoints_idx, ir_to_full_idx, mapping, _ = get_symmetry_equivalent_kpoints(
+        #     self._amset_data.structure, extra_kpoints, symprec=0.1, tol=1e-6,
+        #     return_inverse=True, time_reversal_symmetry=True)
+        #
+        # rnd_frac = 0.1
+        # choice = np.random.choice(
+        #     len(ir_kpoints_idx),
+        #     math.ceil(len(ir_kpoints_idx) * rnd_frac))
+        # ir_kpts = ir_kpoints_idx[choice]
+        # extra_kpoints = extra_kpoints[np.isin(mapping, mapping[ir_kpts])]
+        # print(len(extra_kpoints))
+        #
+        # _, _, ir_kpoints_idx, ir_to_full_idx, mapping, _ = get_symmetry_equivalent_kpoints(
+        #     self._amset_data.structure, kpts, symprec=0.1, tol=1e-6,
+        #     return_inverse=True, time_reversal_symmetry=True)
+        #
+        # rnd_frac = 0.2
+        # choice = np.random.choice(
+        #     len(ir_kpoints_idx),
+        #     math.ceil(len(ir_kpoints_idx) * rnd_frac))
+        # ir_kpts = ir_kpoints_idx[choice]
+        #
+        # kpts = kpts[np.isin(mapping, mapping[ir_kpts])]
 
         # ir_kpoints, _, ir_kpoints_idx, ir_to_full_idx, mapping = \
         #     get_symmetry_equivalent_kpoints(
@@ -229,8 +290,7 @@ class BandDensifier(object):
         # from pymatgen import Structure
         # s = Structure(self._amset_data.structure.lattice.reciprocal_lattice.matrix * 10,
         #               ['H'] * len(extra_kpoints),
-        #               extra_kpoints + 0.5, coords_are_cartesian=False)
-        #
+        #               extra_kpoints * 5 + 0.5, coords_are_cartesian=False)
         # s.to(filename="test2.vasp", fmt="poscar")
 
         skip = 10 / self._interpolater.interpolation_factor
@@ -243,11 +303,6 @@ class BandDensifier(object):
                 return_projections=True, atomic_units=True,
                 return_vel_outer_prod=True, skip_coefficients=skip,
                 return_kpoint_mapping=True, symprec=symprec)
-
-        from pymatgen import Spin
-        print(np.min(energies[Spin.up][3]))
-        print(np.min(energies[Spin.up][3]) / units.eV)
-        print("CBM", np.min(self._amset_data.energies[Spin.up][3] / units.eV))
 
         voronoi = PeriodicVoronoi(
             self._amset_data.structure.lattice.reciprocal_lattice,
