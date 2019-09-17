@@ -372,6 +372,7 @@ def get_dense_kpoint_mesh(mesh):
 
 def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
                                     return_inverse=False,
+                                    rotation_matrices=None,
                                     time_reversal_symmetry=True):
     round_dp = int(np.log10(1 / tol))
 
@@ -383,9 +384,10 @@ def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
     kpoints = np.asarray(kpoints)
     round_kpoints = shift_and_round(kpoints)
 
-    sg = SpacegroupAnalyzer(structure, symprec=symprec)
-    symmops = sg.get_symmetry_operations(cartesian=False)
-    rotation_matrices = np.array([o.rotation_matrix for o in symmops])
+    if rotation_matrices is None:
+        sg = SpacegroupAnalyzer(structure, symprec=symprec)
+        symmops = sg.get_symmetry_operations(cartesian=False)
+        rotation_matrices = np.array([o.rotation_matrix for o in symmops])
 
     if time_reversal_symmetry:
         # TODO: Remove equivalent rotation matrices
@@ -420,11 +422,12 @@ def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
 
     ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
         mapping, return_inverse=True, return_counts=True)
+
     ir_kpoints = kpoints[ir_kpoints_idx]
 
     if return_inverse:
-        return (ir_kpoints, weights, ir_kpoints_idx, ir_to_full_idx, mapping,
-                np.array(rot_mapping))
+        return (ir_kpoints, weights, ir_kpoints_idx, ir_to_full_idx,
+                np.array(mapping), np.array(rot_mapping))
     else:
         return ir_kpoints, weights
 
@@ -433,3 +436,61 @@ def similarity_transformation(rot, mat):
     """ R x M x R^-1 """
     return np.dot(rot, np.dot(mat, np.linalg.inv(rot)))
 
+
+class SymmetryEquivalizer(object):
+
+    def __init__(self, structure, symprec=0.1, tol=1e-6,
+                 time_reversal_symmetry=True):
+        self.round_dp = int(np.log10(1 / tol))
+        sg = SpacegroupAnalyzer(structure, symprec=symprec)
+        symmops = sg.get_symmetry_operations(cartesian=False)
+        self.rotation_matrices = np.array([o.rotation_matrix for o in symmops])
+
+        if time_reversal_symmetry:
+            # TODO: Remove equivalent rotation matrices
+            self.rotation_matrices = np.concatenate(
+                (self.rotation_matrices, -self.rotation_matrices))
+
+        self.cart_rotation_matrices = np.array(
+            [similarity_transformation(
+                structure.lattice.reciprocal_lattice.matrix, r.T)
+                for r in self.rotation_matrices])
+
+        self.equiv_points_mapping = {}
+        self.rotation_matrix_mapping = {}
+        self.index = 0
+
+    def get_equivalent_kpoints(self, kpoints):
+
+        def shift_and_round(k):
+            k = kpoints_to_first_bz(k)
+            k = np.round(k, self.round_dp)
+            return list(map(tuple, k))
+
+        kpoints = np.asarray(kpoints)
+        round_kpoints = shift_and_round(kpoints)
+
+        mapping = []
+        rot_mapping = []
+
+        for i, point in enumerate(round_kpoints):
+
+            if point in self.equiv_points_mapping:
+                map_idx = self.equiv_points_mapping[point]
+                mapping.append(map_idx)
+            else:
+                map_idx = i + self.index
+                new_points = shift_and_round(
+                    np.dot(kpoints[i], self.rotation_matrices))
+                self.equiv_points_mapping.update(
+                    zip(new_points, [map_idx] * len(new_points)))
+
+                mapping.append(map_idx)
+                rot_mapping.append(np.eye(3))
+
+        self.index += len(round_kpoints)
+
+        _, ir_kpoints_idx, ir_to_full_idx = np.unique(
+            mapping, return_inverse=True, return_index=True)
+
+        return ir_kpoints_idx, ir_to_full_idx, np.array(mapping)
