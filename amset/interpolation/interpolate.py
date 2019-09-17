@@ -16,12 +16,12 @@ from monty.json import MSONable
 from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units, sphere, fite
-from BoltzTraP2.bandlib import DOS
 from spglib import spglib
 
-from amset.misc.util import spin_name, get_symmetry_equivalent_kpoints, \
-    kpoints_to_first_bz
+from amset.dos import FermiDos
+from amset.misc.util import spin_name, get_symmetry_equivalent_kpoints
 from amset.misc.log import log_time_taken, log_list
+from amset.transport import ADOS
 from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
@@ -238,7 +238,7 @@ class Interpolater(MSONable):
             log_time_taken(t0)
 
         if is_metal:
-            efermi = self._band_structure.efermi
+            efermi = self._band_structure.efermi * units.eV
         else:
             # if material is semiconducting, set Fermi level to middle of gap
             e_vbm = max([np.max(energies[s][:new_vb_idx[s]+1])
@@ -267,12 +267,13 @@ class Interpolater(MSONable):
                      return_velocity: bool = False,
                      return_effective_mass: bool = False,
                      return_projections: bool = False,
-                     return_vel_outer_prod: bool = True,
+                     return_vel_outer_prod: bool = False,
                      coords_are_cartesian: bool = False,
                      atomic_units: bool = False,
                      skip_coefficients: Optional[float] = None,
                      symprec: Optional[float] = None,
-                     return_kpoint_mapping: bool = False
+                     return_kpoint_mapping: bool = False,
+                     return_efermi: bool = False
                      ) -> Union[Dict[Spin, np.ndarray],
                                 Tuple[Dict[Spin, np.ndarray], ...]]:
         """Gets the interpolated energies for multiple k-points in a band.
@@ -310,6 +311,9 @@ class Interpolater(MSONable):
             return_kpoint_mapping: Only valid if ``symprec`` is also set. If
                 `True`, the kpoint symmetry mapping information will be
                 returned.
+            return_efermi: Whether to return the Fermi level with the unit
+                determined by ``atomic_units``. If the system is semiconducting
+                the Fermi level will be given in the middle of the band gap.
 
         Returns:
             The band energies as dictionary of::
@@ -378,6 +382,7 @@ class Interpolater(MSONable):
         velocities = {}
         effective_masses = {}
         projections = defaultdict(dict)
+        new_vb_idx = {}
         for spin in self._spins:
             ibands = np.any((self._band_structure.bands[spin] > min_e) &
                             (self._band_structure.bands[spin] < max_e), axis=1)
@@ -430,9 +435,9 @@ class Interpolater(MSONable):
                 # bands during the interpolation. As ibands is just a list of
                 # True/False, we can count the number of Trues included up to
                 # and including the VBM to get the new number of valence bands
-                new_vb_idx = sum(ibands[: vb_idx + 1]) - 1
+                new_vb_idx[spin] = sum(ibands[: vb_idx + 1]) - 1
                 energies[spin] = _shift_energies(
-                    energies[spin], new_vb_idx, scissor=scissor,
+                    energies[spin], new_vb_idx[spin], scissor=scissor,
                     bandgap=bandgap)
 
             if return_vel_outer_prod:
@@ -497,7 +502,8 @@ class Interpolater(MSONable):
                 log_time_taken(t0)
 
         if not (return_velocity or return_effective_mass or
-                return_projections):
+                return_projections or return_kpoint_mapping or
+                return_efermi):
             return energies
 
         to_return = [energies]
@@ -518,6 +524,21 @@ class Interpolater(MSONable):
                 "ir_to_full_idx": ir_to_full_idx
             })
 
+        if return_efermi:
+            if self._band_structure.is_metal():
+                efermi = self._band_structure.efermi
+                if atomic_units:
+                    efermi *= units.eV
+            else:
+                # if semiconducting, set Fermi level to middle of gap
+                e_vbm = max([np.max(energies[s][:new_vb_idx[s]+1])
+                             for s in self._spins])
+                e_cbm = min([np.min(energies[s][new_vb_idx[s]+1:])
+                             for s in self._spins])
+                efermi = (e_vbm + e_cbm) / 2
+
+            to_return.append(efermi)
+
         return tuple(to_return)
 
     def get_dos(self,
@@ -527,8 +548,9 @@ class Interpolater(MSONable):
                 bandgap: Optional[float] = None,
                 estep: float = 0.01,
                 width: float = 0.05,
-                symprec: float = 0.01
-                ) -> Dos:
+                symprec: float = 0.01,
+                fermi_dos: bool = False,
+                ) -> Union[Dos, FermiDos]:
         """Calculates the density of states using the interpolated bands.
 
         Args:
@@ -553,6 +575,8 @@ class Interpolater(MSONable):
             width: The gaussian smearing width in eV.
             symprec: The symmetry tolerance used when determining the symmetry
                 inequivalent k-points on which to interpolate.
+            fermi_dos: Whether to return a FermiDos object, instead of a regular
+                Dos.
 
         Returns:
             The density of states.
@@ -560,29 +584,35 @@ class Interpolater(MSONable):
         kpoints, weights = _get_kpoints(
             kpoint_mesh, self._band_structure.structure, symprec=symprec)
 
-        energies = self.get_energies(
+        energies, efermi = self.get_energies(
             kpoints, scissor=scissor, bandgap=bandgap,
-            energy_cutoff=energy_cutoff, atomic_units=False)
+            energy_cutoff=energy_cutoff, atomic_units=False,
+            return_efermi=True)
 
-        energies = np.vstack([energies[spin] for spin in self._spins])
-
-        nbands = energies.shape[0]
-        nkpts = energies.shape[1]
-        emin = np.min(energies) - width * 5
-        emax = np.max(energies) + width * 5
+        emin = np.min([np.min(spin_eners) for spin_eners in energies.values()])
+        emin -= width * 5 if width else 0.1
+        emax = np.max([np.max(spin_eners) for spin_eners in energies.values()])
+        emax += width * 5 if width else 0.1
         epoints = int(round((emax - emin) / estep))
 
-        # BoltzTraP DOS kpoint_weights don't work as you'd expect so we include
-        # the degeneracy manually
-        all_energies = np.array([[energies[nb][nk] for nb in range(nbands)]
-                                 for nk in range(nkpts)
-                                 for _ in range(weights[nk])])
+        dos = {}
+        emesh = None
+        for spin in self._spins:
+            kpoint_weights = np.tile(weights / np.sum(weights),
+                                     (len(energies[spin]), 1))
+            emesh, dos[spin] = ADOS(
+                energies[spin].T, erange=(emin, emax), npts=epoints,
+                weights=kpoint_weights.T)
 
-        emesh, dos = DOS(all_energies, erange=(emin, emax), npts=epoints)
-        dos = gaussian_filter1d(dos, width / (emesh[1] - emesh[0]))
-        dos *= 1 if self._soc or len(self._spins) == 2 else 1
+            if width:
+                dos[spin] = gaussian_filter1d(
+                    dos[spin], width / (emesh[1] - emesh[0]))
 
-        return Dos(self._band_structure.efermi, emesh, dos)
+        if fermi_dos:
+            return FermiDos(efermi, emesh, dos,
+                            self._band_structure.structure, atomic_units=False)
+        else:
+            return Dos(efermi, emesh, dos)
 
     def get_band_structure(self,
                            kpoint_mesh: Union[float, int, List[int]],
@@ -610,9 +640,6 @@ class Interpolater(MSONable):
             bandgap: Automatically adjust the band gap to this value. Cannot
                 be used in conjunction with the ``scissor`` option. Has no
                 effect for metallic systems.
-            estep: The energy step, where smaller numbers give more
-                accuracy but are more expensive.
-            width: The gaussian smearing width in eV.
             symprec: The symmetry tolerance used when determining the symmetry
                 inequivalent k-points on which to interpolate.
 
@@ -635,7 +662,6 @@ class Interpolater(MSONable):
                              self._band_structure.efermi,
                              coords_are_cartesian=True,
                              structure=self._band_structure.structure)
-
 
     def get_line_mode_band_structure(self,
                                      line_density: int = 50,
@@ -858,7 +884,9 @@ def _get_kpoints(kpoint_mesh: Union[float, int, List[int]],
     """
     if isinstance(kpoint_mesh, (int, float)):
         # TODO: Update this to use reciprocal length as in kgrid
-        kpoint_mesh = Kpoints.automatic_density_by_vol(structure, kpoint_mesh)
+        kpoint_mesh = Kpoints.automatic_density_by_vol(
+            structure, kpoint_mesh).kpts[0]
+        print(kpoint_mesh)
 
     atoms = AseAtomsAdaptor().get_atoms(structure)
 
