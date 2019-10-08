@@ -15,7 +15,7 @@ Reporting bugs, getting help, and discussion
 
 AMSET code is still in heavy development, so we do not yet have a Google Group.
 However, feel free at any time to submit questions or bugs to the amset
-`Google Group <https://groups.google.com/forum/#!forum/atomate>`_.
+`Discourse forum <https://hackingmaterials.discourse.group/c/matminer>`_.
 
 If you are making a bug report, incorporate as many elements of the following as
 possible to ensure a timely response and avoid the need for followups:
