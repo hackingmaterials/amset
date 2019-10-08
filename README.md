@@ -4,7 +4,7 @@ AMSET is a package for calculating electronic transport properties from
 first-principles calculations.
 
 - **Website (including documentation):** https://hackingmaterials.lbl.gov/amset/
-- **Help/Support:** https://groups.google.com/forum/#!forum/atomate
+- **Help/Support:** https://hackingmaterials.discourse.group/c/atomate
 - **Source:** https://github.com/hackingmaterials/amset
 
 A paper with the full technical details of AMSET will be published soon.
