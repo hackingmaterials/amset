@@ -109,25 +109,12 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         super().__init__(materials_properties, amset_data)
         logger.debug("Initializing IMP scattering")
 
-        self.beta_sq = np.zeros(amset_data.fermi_levels.shape)
+        self.inverse_screening_length_sq = calculate_inverse_screening_length_sq(
+                amset_data, self.properties["static_dielectric"])
         self.impurity_concentration = np.zeros(amset_data.fermi_levels.shape)
 
-        tdos = amset_data.dos.tdos
-        energies = amset_data.dos.energies
-        fermi_levels = amset_data.fermi_levels
-        vol = amset_data.structure.volume
-
         imp_info = []
-        for n, t in np.ndindex(self.beta_sq.shape):
-            ef = fermi_levels[n, t]
-            temp = amset_data.temperatures[t]
-            f = FD(energies, ef, temp * units.BOLTZMANN)
-            integral = trapz(tdos * f * (1 - f), x=energies)
-            self.beta_sq[n, t] = (
-                e ** 2 * integral * 1e12 /
-                (self.properties["static_dielectric"] * epsilon_0 * k_B *
-                 temp * e * vol))
-
+        for n, t in np.ndindex(self.inverse_screening_length_sq.shape):
             n_conc = np.abs(amset_data.electron_conc[n, t])
             p_conc = np.abs(amset_data.hole_conc[n, t])
 
@@ -135,8 +122,9 @@ class IonizedImpurityScattering(AbstractElasticScattering):
                     n_conc * self.properties["donor_charge"] ** 2 +
                     p_conc * self.properties["acceptor_charge"] ** 2)
             imp_info.append(
-                "{:.2g} cm⁻³ & {} K: β² = {:.4g}, Nᵢᵢ = {:.4g}".format(
-                    amset_data.doping[n], temp, self.beta_sq[n, t],
+                "{:.2g} cm⁻³ & {} K: β² = {:.4g} nm⁻², Nᵢᵢ = {:.4g}".format(
+                    amset_data.doping[n], amset_data.temperatures[t],
+                    self.inverse_screening_length_sq[n, t],
                     self.impurity_concentration[n, t]))
 
         logger.debug("Inverse screening length (β) and impurity concentration "
@@ -156,7 +144,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         # tile k_diff_sq to make it commensurate with the dimensions of beta
         return 1 / (np.tile(k_diff_sq, (len(self.doping),
                                         len(self.temperatures), 1)) +
-                    self.beta_sq[..., None]) ** 2
+                    self.inverse_screening_length_sq[..., None]) ** 2
 
 
 class PiezoelectricScattering(AbstractElasticScattering):
@@ -183,3 +171,24 @@ class PiezoelectricScattering(AbstractElasticScattering):
         # factor should have shape (ndops, ntemps, nkpts)
         return 1 / np.tile(k_diff_sq, (len(self.doping),
                                        len(self.temperatures), 1))
+
+
+def calculate_inverse_screening_length_sq(amset_data, static_dielectric):
+    inverse_screening_length_sq = np.zeros(amset_data.fermi_levels.shape)
+
+    tdos = amset_data.dos.tdos
+    energies = amset_data.dos.energies
+    fermi_levels = amset_data.fermi_levels
+    vol = amset_data.structure.volume
+
+    for n, t in np.ndindex(inverse_screening_length_sq.shape):
+        ef = fermi_levels[n, t]
+        temp = amset_data.temperatures[t]
+        f = FD(energies, ef, temp * units.BOLTZMANN)
+        integral = trapz(tdos * f * (1 - f), x=energies)
+        inverse_screening_length_sq[n, t] = (
+                e ** 2 * integral * 1e12 /
+                (static_dielectric * epsilon_0 * k_B *
+                 temp * e * vol))
+
+    return inverse_screening_length_sq
