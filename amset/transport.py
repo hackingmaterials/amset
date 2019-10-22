@@ -5,9 +5,10 @@ from typing import Union, List
 import numpy as np
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients, DOS, \
-    lambda_to_tau, BTPDOS
+    lambda_to_tau
 from monty.json import MSONable
 
+from amset.dos import ADOS
 from amset.misc.constants import e
 from amset.data import AmsetData
 from amset.misc.log import log_time_taken
@@ -101,12 +102,10 @@ def _calculate_mobility(amset_data: AmsetData,
         vv = np.vstack(vv)
         lifetimes = 1 / np.vstack(rates)
 
-        # equiv_points = amset_data.grouped_ir_to_full[3]
         # print("equiv_k", amset_data.full_kpoints[equiv_points])
         # print("lifetimes", lifetimes[0, equiv_points])
         # print("weights", amset_data.kpoint_weights[equiv_points])
         # print("velocities", vv[0, :, :, equiv_points])
-        #
         # equiv_points = amset_data.grouped_ir_to_full[-10]
         # print("equiv_k", amset_data.full_kpoints[equiv_points])
         # print("lifetimes", lifetimes[0, equiv_points])
@@ -140,7 +139,7 @@ def _calculate_mobility(amset_data: AmsetData,
 
         _, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
-            dosweight=amset_data.dos_weight)
+            dosweight=amset_data.dos.dos_weight)
 
         # Compute the Onsager coefficients from Fermi integrals
         volume = (amset_data.structure.lattice.volume * units.Angstrom ** 3)
@@ -200,7 +199,7 @@ def _calculate_transport_properties(amset_data):
 
         _, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, mur=fermi, Tr=temp,
-            dosweight=amset_data.dos_weight)
+            dosweight=amset_data.dos.dos_weight)
 
         volume = (amset_data.structure.lattice.volume * units.Angstrom ** 3)
 
@@ -284,7 +283,6 @@ def AMSETDOS(eband,
         raise ValueError("unknown scattering model")
 
     for i, j in iu0:
-        # weights = vvband[:, i, j, :] * multpl #* kpoint_weights #/ 100
         weights = vvband[:, i, j, :] * multpl * kpoint_weights
         vvdos[i, j] = ADOS(
             eband.T, weights=weights.T, erange=erange, npts=npts)[1]
@@ -306,29 +304,3 @@ def AMSETDOS(eband,
     return dos[0], dos[1], vvdos, cdos
 
 
-def ADOS(eigs, erange=None, npts=None, weights=None):
-    """Compute the density of states.
-
-    Args:
-        eband: (nkpoints, nbands) array with the band energies
-        erange: 2-tuple with the minimum and maximum energies to be considered.
-            If its value is None, take the minimum and maximum band energies.
-        npts: number of bins to include in the histogram. If omitted,
-            _suggest_nbins will be called to obtain an estimate.
-        weights: array with the same shape as eband to be used as the weights.
-
-    Returns:
-        Two 1D numpy arrays of the same size with the bin energies and the DOS,
-        respectively.
-    """
-    nkpt, nband = np.shape(eigs)
-    if erange is None:
-        erange = (eigs.min(), eigs.max())
-    # if npts is None:
-    #     npts = _suggest_nbins(eigs, erange)
-    pip = np.histogram(eigs, npts, weights=weights, range=erange)
-    npts = pip[1].size - 1
-    tdos = np.zeros((2, npts), dtype=float)
-    tdos[1] = pip[0] / ((erange[1] - erange[0]) / npts)
-    tdos[0] = .5 * (pip[1][:-1] + pip[1][1:])
-    return tdos
