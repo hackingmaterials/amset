@@ -80,7 +80,6 @@ class PeriodicVoronoi(object):
 
         # Voronoi points are those we actually calculate in the Voronoi diagram
         # e.g. the big points + extra points
-
         voronoi_points = supercell_points[big_cutoff_points_idx]
         self._voronoi_points = np.concatenate((
             voronoi_points, extra_points))
@@ -175,11 +174,12 @@ class PeriodicVoronoi(object):
 
         sum_volumes = volumes.sum()
         vol_diff = abs(sum_volumes - 1)
-        if vol_diff > 0.001:
+        if vol_diff > 1e-7:
             logger.warning("Sum of weights does not equal 1 (diff = {:.3f} "
                            "%)... renormalising weights".format(vol_diff * 100))
             volumes = volumes / sum_volumes
 
+        volumes = volumes / sum_volumes
         return volumes
 
     def _get_voronoi_volumes(self, indices, vertices) -> np.ndarray:
@@ -204,7 +204,6 @@ def _get_volume(indices, vertices):
     if -1 in indices:
         # some regions can be open
         return np.inf
-
     else:
         return ConvexHull(vertices).volume
 
