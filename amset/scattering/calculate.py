@@ -3,7 +3,6 @@ This module implements methods to calculate electron scattering based on an
 AmsetData object.
 
 Todo:
- - Umklapp scattering (e.g. include scattering to additional G vectors)
  - Interband scattering
 """
 
@@ -677,7 +676,8 @@ def _interpolate_zero_rates(rates, kpoints, masks: Optional = None):
             else:
                 mask = [True] * len(rates[spin][s, d, t, b])
 
-            non_zero_rates = rates[spin][s, d, t, b, mask] != 0
+            non_zero_rates = rates[spin][s, d, t, b, mask] > 1e7
+            # non_zero_rates = rates[spin][s, d, t, b, mask] != 0
             zero_rate_idx = k_idx[mask][~non_zero_rates]
             non_zero_rate_idx = k_idx[mask][non_zero_rates]
 
