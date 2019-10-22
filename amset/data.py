@@ -7,16 +7,15 @@ import numpy as np
 
 from monty.json import MSONable
 from monty.serialization import dumpfn
-from scipy.interpolate import interp1d
 from BoltzTraP2 import units
-from BoltzTraP2.bandlib import DOS
 from BoltzTraP2.fd import dFDde, FD
+
 from pymatgen import Spin, Structure
 
 from amset.misc.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
 from amset.misc.util import groupby, cast_dict
 from amset.misc.log import log_list
-from amset.dos import FermiDos
+from amset.dos import FermiDos, ADOS
 from amset import amset_defaults as defaults
 
 __author__ = "Alex Ganose"
@@ -46,14 +45,13 @@ class AmsetData(MSONable):
                  soc: bool,
                  kpoint_weights: Optional[np.ndarray] = None,
                  dos: Optional[FermiDos] = None,
-                 dos_weight: Optional[int] = None,
                  vb_idx: Optional[Dict[Spin, int]] = None,
                  conductivity: Optional[np.ndarray] = None,
                  seebeck: Optional[np.ndarray] = None,
                  electronic_thermal_conductivity: Optional[np.ndarray] = None,
                  mobility: Optional[Dict[str, np.ndarray]] = None,
-                 fd_weights: Optional[Tuple[float, float]] = None,
-                 fd_cutoffs: Optional[Tuple[float, float]] = None
+                 fd_cutoffs: Optional[Tuple[float, float]] = None,
+                 scissor: Optional[Tuple] = None
                  ):
         self.structure = structure
         self.energies = energies
@@ -70,9 +68,9 @@ class AmsetData(MSONable):
         self.seebeck = seebeck
         self.electronic_thermal_conductivity = electronic_thermal_conductivity
         self.mobility = mobility
+        self.scissor = scissor if scissor else 0
 
         self.dos = dos
-        self.dos_weight = dos_weight
         self.is_metal = is_metal
         self.vb_idx = None if is_metal else vb_idx
         self.spins = self.energies.keys()
@@ -98,36 +96,41 @@ class AmsetData(MSONable):
         self.f = None
         self.dfde = None
         self.dfdk = None
-        self.fd_weights = fd_weights
         self.fd_cutoffs = fd_cutoffs
 
         self.grouped_ir_to_full = groupby(
             np.arange(len(full_kpoints)), ir_to_full_kpoint_mapping)
 
-    def calculate_dos(self, dos_estep: float = pdefaults["dos_estep"]):
+    def calculate_dos(self, estep: float = pdefaults["dos_estep"]):
         """
         Args:
-            dos_estep: The DOS energy step, where smaller numbers give more
+            estep: The DOS energy step in eV, where smaller numbers give more
                 accuracy but are more expensive.
         """
-
-        all_energies = np.vstack([self.energies[spin] for spin in self.spins])
-
-        dos_emin = np.min(all_energies)
-        dos_emax = np.max(all_energies)
-        npts = int(round((dos_emax - dos_emin) / (dos_estep * units.eV)))
+        emin = np.min([np.min(spin_eners) for spin_eners in
+                       self.energies.values()])
+        emax = np.max([np.max(spin_eners) for spin_eners in
+                       self.energies.values()])
+        epoints = int(round((emax - emin) / (estep * units.eV)))
 
         logger.debug("DOS parameters:")
-        log_list(["emin: {:.2f} eV".format(dos_emin / units.eV),
-                  "emax: {:.2f} eV".format(dos_emax / units.eV)])
+        log_list(["emin: {:.2f} eV".format(emin / units.eV),
+                  "emax: {:.2f} eV".format(emax / units.eV),
+                  "n points: {}".format(epoints)])
 
-        emesh, densities = DOS(all_energies.T, erange=(dos_emin, dos_emax),
-                               npts=npts)
+        dos = {}
+        emesh = None
+        for spin in self.spins:
+            kpoint_weights = np.tile(self.kpoint_weights,
+                                     (len(self.energies[spin]), 1))
+            emesh, dos[spin] = ADOS(
+                self.energies[spin].T, erange=(emin, emax), npts=epoints,
+                weights=kpoint_weights.T)
 
-        self.dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
+        dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
         self.dos = FermiDos(
-            self._efermi, emesh, {Spin.up: densities}, structure=self.structure,
-            dos_weight=self.dos_weight)
+            self._efermi, emesh, dos, self.structure, atomic_units=True,
+            dos_weight=dos_weight)
 
     def set_doping_and_temperatures(self,
                                     doping: np.ndarray,
@@ -150,7 +153,7 @@ class AmsetData(MSONable):
         for n, t in np.ndindex(self.fermi_levels.shape):
             self.fermi_levels[n, t], self.electron_conc[n, t], \
                 self.hole_conc[n, t] = self.dos.get_fermi(
-                    doping[n], temperatures[t], tol=1e-3, precision=10,
+                    doping[n], temperatures[t], tol=1e-5, precision=10,
                     return_electron_hole_conc=True)
 
             fermi_level_info.append("{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
@@ -196,7 +199,8 @@ class AmsetData(MSONable):
                 self.dfdk[spin][n, t] = np.linalg.norm(
                     self.dfde[spin][n, t][..., None] * v * hbar, axis=2)
 
-    def calculate_fd_cutoffs(self, fd_tolerance: Optional[float] = 0.01):
+    def calculate_fd_cutoffs(self, fd_tolerance: Optional[float] = 0.01,
+                             cutoff_pad: float = 0.):
         energies = self.dos.energies
 
         # three fermi integrals govern transport properties:
@@ -223,43 +227,17 @@ class AmsetData(MSONable):
             nt_weights += ke_int / ke_int.max()
             weights = np.maximum(weights, nt_weights)
 
+        if not self.is_metal:
+            # weights should be zero in the band gap as there will be no density
+            vb_bands = [self.energies[s][:self.vb_idx[s] + 1] for s in self.spins]
+            cb_bands = [self.energies[s][self.vb_idx[s] + 1:] for s in self.spins]
+            vbm_e = np.max(vb_bands)
+            cbm_e = np.min(cb_bands)
+            weights[(energies > vbm_e) & (energies < cbm_e)] = 0
+
         weights /= np.max(weights)
-
-        cumsum_weights = weights * self.dos.tdos / np.max(self.dos.tdos)
-        cumsum = np.cumsum(cumsum_weights)
+        cumsum = np.cumsum(weights)
         cumsum /= np.max(cumsum)
-
-        # testdos = self.dos.tdos / np.max(self.dos.tdos)
-        # testdos[testdos == 0] = np.inf
-        # weights /= testdos
-        # weights /= np.max(weights)
-
-        # weights /= self.dos.tdos  # / np.max(self.dos.tdos))
-        # weights = np.nan_to_num(weights)
-        # weights[np.isnan(weights)] = 0
-        # print(np.max(weights))
-
-        # import matplotlib
-        # matplotlib.use("TkAgg")
-        # import matplotlib.pyplot as plt
-        # plt.plot(energies / units.eV, weights)
-        # plt.plot(energies / units.eV, self.dos.tdos / np.max(self.dos.tdos))
-        # plt.xlim((-4, 5))
-        # plt.show()
-
-        weights_intep = interp1d(
-            energies, weights, bounds_error=False, fill_value="extrapolate")
-
-        self.fd_weights = {
-            s: np.array([weights_intep(e) for e in self.energies[s]])
-            for s in self.spins}
-
-        # need to renormalize the fd weights as the dos energies and
-        # actual band energies are not exactly the same, so the max weight is
-        # sometimes significantly different
-        max_fd_weight = max([np.max(self.fd_weights[s]) for s in self.spins])
-        self.fd_weights = {s: self.fd_weights[s] / max_fd_weight
-                           for s in self.spins}
 
         if fd_tolerance:
             min_cutoff = energies[cumsum < fd_tolerance / 2].max()
@@ -267,6 +245,9 @@ class AmsetData(MSONable):
         else:
             min_cutoff = energies.min()
             max_cutoff = energies.max()
+
+        min_cutoff -= cutoff_pad
+        max_cutoff += cutoff_pad
 
         logger.info("Calculated Fermi–Dirac cut-offs:")
         log_list(["min: {:.3f} eV".format(min_cutoff / units.eV),
@@ -391,6 +372,7 @@ class AmsetData(MSONable):
                     "energies": {s.value: e / units.eV for s, e in
                                  self.energies.items()},
                     "kpoints": self.full_kpoints,
+                    "kpoint_weights": self.kpoint_weights,
                     "dos": self.dos,
                     "efermi": self._efermi,
                     "vb_idx": cast_dict(self.vb_idx),
