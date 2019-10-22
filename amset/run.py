@@ -11,12 +11,15 @@ from pathlib import Path
 from os.path import join as joinpath
 from typing import Optional, Any, Dict, Union, List
 
+from BoltzTraP2 import units
 from tabulate import tabulate
 
 from monty.json import MSONable
 from memory_profiler import memory_usage
 
 from amset.interpolation.densify import BandDensifier
+from amset.misc.constants import hbar
+from amset.scattering.elastic import calculate_inverse_screening_length_sq
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
@@ -145,22 +148,53 @@ class AmsetRunner(MSONable):
 
         timing = {"interpolation": time.perf_counter() - t0}
 
+        if (self.material_properties["pop_frequency"] and
+                ("POP" in self.scattering_type or self.scattering_type == "auto")):
+            # convert from THz to angular frequency in Hz
+            pop_frequency = self.material_properties["pop_frequency"] * 1e12 * 2 * np.pi
+
+            # use the phonon energy to pad the fermi dirac cutoffs, this is because
+            # pop scattering from a kpoints, k, to kpoints with energies above and below
+            # k. We therefore need k-points above and below to be within the cut-offs
+            # otherwise scattering cannot occur
+            cutoff_pad = pop_frequency * hbar * units.eV
+        else:
+            cutoff_pad = 0
+
         log_banner("DOS")
         amset_data.calculate_dos(
-            dos_estep=self.performance_parameters["dos_estep"])
+            estep=self.performance_parameters["dos_estep"])
         amset_data.set_doping_and_temperatures(self.doping, self.temperatures)
-        amset_data.calculate_fd_cutoffs(self.performance_parameters["fd_tol"])
+        amset_data.calculate_fd_cutoffs(self.performance_parameters["fd_tol"],
+                                        cutoff_pad=cutoff_pad)
 
         if self.fine_mesh_de:
             log_banner("DENSIFICATION")
 
+            inv_screening_length_sq = None
+            if (self.performance_parameters["use_imp_minimum_mesh"] and
+                    self.material_properties["static_dielectric"] and
+                    ("imp" in self.scattering_type or self.scattering_type == "auto")):
+                inv_screening_length_sq = np.min(calculate_inverse_screening_length_sq(
+                    amset_data, self.material_properties["static_dielectric"]
+                ))
+
             densifier = BandDensifier(
-                interpolater, amset_data, scissor=self.scissor,
-                bandgap=self.user_bandgap,
+                interpolater, amset_data,
                 energy_cutoff=self.performance_parameters["energy_cutoff"],
-                dos_estep=self.performance_parameters["dos_estep"])
+                dos_estep=self.performance_parameters["dos_estep"],
+                inverse_screening_length_sq=inv_screening_length_sq)
             amset_data.set_extra_kpoints(
                 *densifier.densify(self.fine_mesh_de))
+
+            # recalculate DOS and Fermi levels using denser band structure
+            amset_data.calculate_dos(
+                estep=self.performance_parameters["dos_estep"])
+            amset_data.set_doping_and_temperatures(
+                self.doping, self.temperatures)
+            amset_data.calculate_fd_cutoffs(
+                self.performance_parameters["fd_tol"],
+                cutoff_pad=cutoff_pad)
 
         log_banner("SCATTERING")
         t0 = time.perf_counter()
