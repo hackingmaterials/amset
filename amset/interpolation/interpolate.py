@@ -1,6 +1,9 @@
 """
 This module implements a class to perform band structure interpolation using
 BolzTraP2.
+
+
+TODO: Change description of effective mass to curvature
 """
 
 import logging
@@ -18,10 +21,9 @@ from scipy.ndimage import gaussian_filter1d
 from BoltzTraP2 import units, sphere, fite
 from spglib import spglib
 
-from amset.dos import FermiDos
+from amset.dos import FermiDos, ADOS
 from amset.misc.util import spin_name, get_symmetry_equivalent_kpoints
 from amset.misc.log import log_time_taken, log_list
-from amset.transport import ADOS
 from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
@@ -32,7 +34,8 @@ from pymatgen.io.vasp import Kpoints
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 from amset.data import AmsetData
-from amset.misc.constants import hartree_to_ev, m_to_cm, A_to_m, hbar, e, m_e
+from amset.misc.constants import hartree_to_ev, m_to_cm, A_to_m, hbar, e, m_e, \
+    bohr_to_angstrom
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -216,15 +219,20 @@ class Interpolater(MSONable):
             log_time_taken(t0)
 
             if not is_metal:
-                vb_idx = max(self._band_structure.get_vbm()["band_index"][spin])
+                # Need the largest VB index. Sometimes the index of the band
+                # containing the VBM is not the largest index of all VBs, so
+                # find all bands with energies less than the VBM and count that
+                # number
+                vbm_energy = self._band_structure.get_vbm()["energy"]
+                vb_idx = np.any(self._band_structure.bands[spin] <= vbm_energy,
+                                axis=1).sum() - 1
+
                 # need to know the index of the valence band after discounting
-                # bands during the interpolation. As ibands is just a list of
-                # True/False, we can count the number of Trues up to
-                # and including the VBM to get the new number of valence bands
+                # bands during the interpolation (i.e., if energy_cutoff is
+                # set). As ibands is just a list of True/False, we can count the
+                # number of Trues up to and including the VBM to get the new
+                # number of valence bands
                 new_vb_idx[spin] = sum(ibands[:vb_idx + 1]) - 1
-                energies[spin] = _shift_energies(
-                    energies[spin], new_vb_idx[spin], scissor=scissor,
-                    bandgap=bandgap)
 
             logger.info("Interpolating {} projections".format(spin_name[spin]))
             t0 = time.perf_counter()
@@ -240,6 +248,10 @@ class Interpolater(MSONable):
         if is_metal:
             efermi = self._band_structure.efermi * units.eV
         else:
+            energies, scissor = _shift_energies(
+                energies, new_vb_idx, scissor=scissor,
+                bandgap=bandgap, return_scissor=True)
+
             # if material is semiconducting, set Fermi level to middle of gap
             e_vbm = max([np.max(energies[s][:new_vb_idx[s]+1])
                          for s in self._spins])
@@ -257,7 +269,8 @@ class Interpolater(MSONable):
         return AmsetData(
             self._band_structure.structure, energies, vvelocities, projections,
             self.interpolation_mesh, full_kpts, ir_kpts, ir_kpts_idx,
-            ir_to_full_idx, efermi, is_metal, self._soc, vb_idx=new_vb_idx)
+            ir_to_full_idx, efermi, is_metal, self._soc, vb_idx=new_vb_idx,
+            scissor=scissor)
 
     def get_energies(self,
                      kpoints: Union[np.ndarray, List],
@@ -436,9 +449,6 @@ class Interpolater(MSONable):
                 # True/False, we can count the number of Trues included up to
                 # and including the VBM to get the new number of valence bands
                 new_vb_idx[spin] = sum(ibands[: vb_idx + 1]) - 1
-                energies[spin] = _shift_energies(
-                    energies[spin], new_vb_idx[spin], scissor=scissor,
-                    bandgap=bandgap)
 
             if return_vel_outer_prod:
                 # calculate the outer produce of velocities with itself
@@ -500,6 +510,11 @@ class Interpolater(MSONable):
                             spin][label][:, ir_to_full_idx]
 
                 log_time_taken(t0)
+
+        if not self._band_structure.is_metal():
+            energies = _shift_energies(
+                energies, new_vb_idx, scissor=scissor,
+                bandgap=bandgap)
 
         if not (return_velocity or return_effective_mass or
                 return_projections or return_kpoint_mapping or
@@ -738,44 +753,57 @@ class DFTData(object):
         return self.lattice_matrix
 
 
-def _shift_energies(energies: np.ndarray,
-                    vb_idx: int,
+def _shift_energies(energies: Dict[Spin, np.ndarray],
+                    vb_idx: Dict[Spin, int],
                     scissor: Optional[float] = None,
-                    bandgap: Optional[float] = None) -> np.ndarray:
+                    bandgap: Optional[float] = None,
+                    return_scissor: bool = False
+                    ) -> Union[Dict[Spin, np.ndarray],
+                               Tuple[Dict[Spin, np.ndarray], float]]:
     """Shift the band energies based on the scissor or bandgap parameter.
 
     Args:
-        energies: The band energies, in Hartree.
+        energies: The band energies in Hartree, given for each Spin channel.
         vb_idx: The band index of the valence band maximum in the energies
-            array.
+            array, given for each Spin channel.
         scissor: The amount by which the band gap is scissored. Cannot
             be used in conjunction with the ``bandgap`` option. Has no
             effect for metallic systems.
         bandgap: Automatically adjust the band gap to this value. Cannot
             be used in conjunction with the ``scissor`` option. Has no
             effect for metallic systems.
+        return_scissor: Whether to return the determined scissor value, given in
+            Hartree.
 
     Returns:
-        The energies, shifted according to ``scissor`` or ``bandgap``.
+        The energies, shifted according to ``scissor`` or ``bandgap``. If
+        return_scissor is True, a tuple of (energies, scissor) is returned.
     """
 
     if scissor and bandgap:
         raise ValueError("scissor and bandgap cannot be set simultaneously")
 
-    cb_idx = vb_idx + 1
+    cb_idx = {s: v + 1 for s, v in vb_idx.items()}
+
     if bandgap:
-        interp_bandgap = (energies[cb_idx:].min() -
-                          energies[:cb_idx].max()) / units.eV
+        interp_bandgap = (
+            min([energies[s][cb_idx[s]:].min() for s in energies]) -
+            max([energies[s][:cb_idx[s]].max() for s in energies])) / units.eV
+
         scissor = bandgap - interp_bandgap
         logger.debug("Bandgap set to {:.3f} eV, automatically scissoring by "
                      "{:.3f} eV".format(bandgap, scissor))
 
     if scissor:
         scissor *= units.eV  # convert to Hartree
-        energies[:cb_idx] -= scissor / 2
-        energies[cb_idx:] += scissor / 2
+        for spin in energies:
+            energies[spin][:cb_idx[spin]] -= scissor / 2
+            energies[spin][cb_idx[spin]:] += scissor / 2
 
-    return energies
+    if return_scissor:
+        return energies, scissor
+    else:
+        return energies
 
 
 def _convert_velocities(velocities: np.ndarray,
@@ -793,7 +821,7 @@ def _convert_velocities(velocities: np.ndarray,
     """
     matrix_norm = (lattice_matrix / np.linalg.norm(lattice_matrix))
 
-    factor = hartree_to_ev * m_to_cm * A_to_m / (hbar * 0.52917721067)
+    factor = hartree_to_ev * m_to_cm * A_to_m / (hbar * bohr_to_angstrom)
     velocities = velocities.transpose((1, 0, 2))
 
     velocities = np.abs(np.matmul(matrix_norm, velocities)) * factor
@@ -813,7 +841,7 @@ def _convert_effective_masses(effective_masses: np.ndarray) -> np.ndarray:
     Returns:
         The effective masses in units of electron rest masss.
     """
-    factor = 0.52917721067 ** 2 * e * hbar ** 2 / (
+    factor = bohr_to_angstrom ** 2 * e * hbar ** 2 / (
             hartree_to_ev * A_to_m ** 2 * m_e)
     effective_masses = effective_masses.transpose((1, 0, 2, 3))
     effective_masses = factor / effective_masses
@@ -886,7 +914,6 @@ def _get_kpoints(kpoint_mesh: Union[float, int, List[int]],
         # TODO: Update this to use reciprocal length as in kgrid
         kpoint_mesh = Kpoints.automatic_density_by_vol(
             structure, kpoint_mesh).kpts[0]
-        print(kpoint_mesh)
 
     atoms = AseAtomsAdaptor().get_atoms(structure)
 
@@ -902,6 +929,16 @@ def _get_kpoints(kpoint_mesh: Union[float, int, List[int]],
                            full_kpoints[:, 0], full_kpoints[:, 0] < 0))
     full_kpoints = full_kpoints[sort_idx]
     mapping = mapping[sort_idx]
+
+    mapping_dict = {}
+    new_mapping = []
+    for i, n in enumerate(mapping):
+        if n in mapping_dict:
+            new_mapping.append(mapping_dict[n])
+        else:
+            mapping_dict[n] = i
+            new_mapping.append(i)
+    mapping = new_mapping
 
     ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
         mapping, return_inverse=True, return_counts=True)
