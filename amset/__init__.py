@@ -37,6 +37,7 @@ amset_defaults = {
         "dos_estep": 0.001,
         "symprec": 0.01,
         "nworkers": -1,
+        "use_imp_minimum_mesh": True,
     },
 
     "output": {
