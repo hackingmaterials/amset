@@ -50,8 +50,9 @@ class PeriodicVoronoi(object):
         self._final_points = np.concatenate([original_points, extra_points])
         self._reciprocal_lattice = reciprocal_lattice
 
-        supercell_points = get_supercell_points(
-            [2, 2, 2], original_points)
+        all_points = np.concatenate((original_points, extra_points))
+
+        supercell_points = get_supercell_points([2, 2, 2], all_points)
 
         # want points in cartesian space so we can define a regular spherical
         # cutoff even if reciprocal lattice is not cubic. If we used a
@@ -62,7 +63,7 @@ class PeriodicVoronoi(object):
         cart_extra_points = reciprocal_lattice.get_cartesian_coords(
             extra_points)
 
-        # small cutoff is slighly larger than the max regular grid spacing
+        # small cutoff is slightly larger than the max regular grid spacing
         # means at least 1 neighbour point will always be included in each
         # direction
         dim_lengths = np.dot(1 / original_dim, reciprocal_lattice.matrix)
@@ -73,69 +74,37 @@ class PeriodicVoronoi(object):
         tree = BallTree(cart_points)
 
         # big cutoff points are those which surround the extra points within
-        # the big cutoff (it does not include the extra points themselves)
+        # the big cutoff (including the extra points themselves)
         big_cutoff_points_idx = np.concatenate(
             tree.query_radius(cart_extra_points, big_cutoff), axis=0)
         big_cutoff_points_idx = np.unique(big_cutoff_points_idx)
 
-        # Voronoi points are those we actually calculate in the Voronoi diagram
-        # e.g. the big points + extra points
-        voronoi_points = supercell_points[big_cutoff_points_idx]
-        self._voronoi_points = np.concatenate((
-            voronoi_points, extra_points))
+        # Voronoi points are those we actually include in the Voronoi diagram
+        self._voronoi_points = supercell_points[big_cutoff_points_idx]
 
-        # center = np.dot([1, 1, 1], reciprocal_lattice.matrix)
-        # print(voronoi_points)
-        # print(extra_points.max())
-        # print(extra_points.min())
-        # from pymatgen import Structure
-        # s = Structure(reciprocal_lattice.matrix * 10,
-        #               ['H'] * len(extra_points),
-        #               extra_points/2 + 0.5, coords_are_cartesian=False)
-        #
-        # s.to(filename="voronoi.vasp", fmt="poscar")
-
-        # small points are the points in original_points for which we want to
-        # calculate the Voronoi volumes. Note this does not include the
-        # indices of the extra points. Outside the small cutoff, the weights
-        # will just be the regular grid weight.
+        # small points are the points in all_points (i.e., original + extra points) for
+        # which we want to calculate the Voronoi volumes. Outside the small cutoff, the
+        # weights will just be the regular grid weight.
         small_cutoff_points_idx = np.concatenate(
             tree.query_radius(cart_extra_points, small_cutoff), axis=0)
         small_cutoff_points_idx = np.unique(small_cutoff_points_idx)
 
-        # get the indices of small_cutoff_points in voronoi_points
-        small_in_voronoi_idx = _get_loc(
+        # get the indices of small_cutoff_points (i.e., the points for which we will
+        # calculate the volume) in voronoi_points
+        self._volume_points_idx = _get_loc(
             big_cutoff_points_idx, small_cutoff_points_idx)
 
-        # get the indices of the small cutoff points + extra points
-        # in voronoi points that we want the volumes for. The extra points
-        # were just added at the end of big_cutoff_points, so getting their
-        # indices is simple
-        self._volume_points_idx = np.concatenate(
-            (small_in_voronoi_idx,
-             np.arange(len(extra_points)) + len(big_cutoff_points_idx)))
+        # get the indices of the small_cutoff_points in all_points. This works because
+        # the supercell points are in the same order as all_points, just repeated for
+        # each cell in the supercell. These indices are effectively the indices of the
+        # each point in the final volume array
+        self._volume_in_final_idx = (small_cutoff_points_idx % len(all_points))
 
-        # get the indices of the small_cutoff_points (not including the extra
-        # points) in the original mesh. this works because the supercell
-        # points are in the same order as the original mesh, just repeated for
-        # each cell in the supercell
-        small_in_original_idx = (
-                small_cutoff_points_idx % len(original_points))
-
-        # get the indices of the small cutoff points + extra points in the
-        # final volume array. Note that the final volume array has the same
-        # order as original_mesh + extra_points
-        self._volume_in_final_idx = np.concatenate(
-            (small_in_original_idx,
-             np.arange(len(extra_points)) + len(original_points)))
-
-        # prepopulate the final volumes array. By default, each point has the
+        # Prepopulate the final volumes array. By default, each point has the
         # volume of the original mesh. Note: at this point, the extra points
         # will have zero volume. This will array will be updated by
         # compute_volumes
-        self._final_volumes = np.full(
-            len(original_points) + len(extra_points),
-            1 / len(original_points))
+        self._final_volumes = np.full(len(all_points), 1 / len(original_points))
         self._final_volumes[len(original_points):] = 0
 
     def compute_volumes(self):
@@ -240,7 +209,9 @@ def get_supercell_points(supercell_dim, points,
     images = np.dot(f_lat, scale_matrix)
 
     if replicate_backwards:
-        images = np.unique(np.concatenate((images, -images)), axis=0)
+        directions = [[1, 1, 1], [-1, 1, 1], [1, -1, 1], [1, 1, -1], [-1, -1, 1], [-1, 1, -1],
+                      [1, -1, -1], [-1, -1, -1]]
+        images = np.unique(np.concatenate([images * d for d in directions]), axis=0)
 
     repeated_points = np.tile(points, (len(images), 1))
     repeated_images = np.repeat(images, len(points), axis=0)
