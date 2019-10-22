@@ -6,6 +6,7 @@ hbar = physical_constants["Planck constant over 2 pi in eV s"][0]
 m_e = physical_constants["electron mass"][0]  # in kg
 Ry_to_eV = physical_constants["Rydberg constant times hc in eV"][0]
 hartree_to_ev = physical_constants["Hartree energy in eV"][0]
+bohr_to_angstrom = physical_constants["Bohr radius"][0] * 1e10
 A_to_m = 1e-10
 m_to_cm = 100.0
 A_to_nm = 0.1
