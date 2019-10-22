@@ -7,6 +7,7 @@ from scipy.constants import epsilon_0
 
 from amset.misc.constants import hbar, k_B, e
 from amset.data import AmsetData
+from amset.misc.log import log_list
 from pymatgen import Spin
 
 __author__ = "Alex Ganose"
@@ -63,7 +64,9 @@ class PolarOpticalScattering(AbstractInelasticScattering):
 
         n_po = n_po[None, :, None, None]
 
-        logger.debug("average N_po = {}".format(np.mean(n_po)))
+        log_list(["average N_po: {:.4f}".format(np.mean(n_po)),
+                  "ω_po: {:.4g} 2π THz".format(self.pop_frequency),
+                  "ħω: {:.4f} eV".format(self.pop_frequency * hbar)])
 
         # want to store two intermediate properties for:
         #             emission      and        absorption
