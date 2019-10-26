@@ -10,11 +10,16 @@ amset_defaults = {
     "general": {
         "doping": [1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21],
         "temperatures": [300],
-        "interpolation_factor": 10,
-        "fine_mesh_de": None,
         "scattering_type": "auto",
         "scissor": None,
         "bandgap": None,
+    },
+
+    "interpolation": {
+        "kpoints": 150,
+        "interpolation_factor": 5,
+        "fine_mesh_de": None,
+        "use_imp_minimum_mesh": False,
     },
 
     "material": {
@@ -29,15 +34,14 @@ amset_defaults = {
     },
 
     "performance": {
-        "gauss_width": 0.001,
+        "gauss_width": 0.01,
         "energy_cutoff": 1.5,
-        "fd_tol": 0.01,
+        "fd_tol": 0.1,
         "ibte_tol": 1,
         "max_ibte_iter": 1,
         "dos_estep": 0.001,
         "symprec": 0.01,
         "nworkers": -1,
-        "use_imp_minimum_mesh": True,
     },
 
     "output": {
