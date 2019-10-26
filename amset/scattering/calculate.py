@@ -24,12 +24,12 @@ from BoltzTraP2 import units
 from pymatgen import Spin
 
 from amset.misc.constants import A_to_nm, output_width, over_sqrt_pi, hbar, \
-    small_val, default_small_e
+    small_val, default_small_e, spin_name
 from amset.data import AmsetData
 from amset.misc.log import log_list, log_time_taken
 from amset.scattering.elastic import AbstractElasticScattering
 from amset.scattering.inelastic import AbstractInelasticScattering
-from amset.misc.util import spin_name, create_shared_array, gen_even_slices
+from amset.misc.util import create_shared_array, gen_even_slices
 from pymatgen.util.coord import pbc_diff
 
 __author__ = "Alex Ganose"
@@ -159,7 +159,11 @@ class ScatteringCalculator(MSONable):
         else:
             nkpoints = len(full_kpoints)
 
-        batch_size = 100
+        if len(self.amset_data.full_kpoints) > 1.5e6:
+            batch_size = 30
+        else:
+            batch_size = 100
+
         nsplits = math.ceil(nkpoints/batch_size)
         logger.info("Scattering information:")
         log_list(["energy tolerance: {} eV".format(self.gauss_width),
