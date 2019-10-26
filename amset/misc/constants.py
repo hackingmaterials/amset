@@ -2,6 +2,8 @@ import numpy as np
 
 from scipy.constants import physical_constants
 
+from pymatgen import Spin
+
 hbar = physical_constants["Planck constant over 2 pi in eV s"][0]
 m_e = physical_constants["electron mass"][0]  # in kg
 Ry_to_eV = physical_constants["Rydberg constant times hc in eV"][0]
@@ -16,3 +18,7 @@ default_small_e = 1.0  # eV/cm the value of this parameter does not matter
 over_sqrt_pi = 1 / np.sqrt(np.pi)
 small_val = 1e-32  # e.g. used for an initial non-zero val
 output_width = 69
+spin_name = {Spin.up: "spin-up", Spin.down: "spin-down"}
+numeric_types = (float, int, np.integer, np.floating)
+float_types = (float, np.floating)
+int_types = (int, np.integer)
