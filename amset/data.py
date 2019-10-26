@@ -353,7 +353,12 @@ class AmsetData(MSONable):
             prefix += '_'
 
         if suffix_mesh:
-            suffix = "_{}".format("x".join(map(str, self.kpoint_mesh)))
+            if self.kpoint_mesh is not None:
+                mesh = "x".join(map(str, self.kpoint_mesh))
+            else:
+                # user supplied k-points
+                mesh = len(self.full_kpoints)
+            suffix = "_{}".format(mesh)
         else:
             suffix = ''
 
@@ -368,15 +373,20 @@ class AmsetData(MSONable):
                     "mobility": self.mobility}
 
             if write_mesh:
+                ir_rates = {spin: rates[:, :, :, :, self.ir_kpoints_idx]
+                            for spin, rates in self.scattering_rates.items()}
+                ir_energies = {spin: energies[:, self.ir_kpoints_idx] / units.eV
+                               for spin, energies in self.energies.items()}
                 data.update({
-                    "energies": {s.value: e / units.eV for s, e in
-                                 self.energies.items()},
+                    "energies": cast_dict(ir_energies),
                     "kpoints": self.full_kpoints,
                     "kpoint_weights": self.kpoint_weights,
+                    "ir_kpoints": self.ir_kpoints,
+                    "ir_to_full_kpoint_mapping": self.ir_to_full_kpoint_mapping,
                     "dos": self.dos,
                     "efermi": self._efermi,
                     "vb_idx": cast_dict(self.vb_idx),
-                    "scattering_rates": cast_dict(self.scattering_rates),
+                    "scattering_rates": cast_dict(ir_rates),
                     "scattering_labels": self.scattering_labels})
 
             filename = joinpath(directory, "{}amset_data{}.{}".format(
@@ -429,6 +439,8 @@ class AmsetData(MSONable):
                              enumerate(self.full_kpoints)], dtype=object)
             np.savetxt(kpt_file, data, fmt=["%d", "%s"],
                        header="k-point_index frac_kpt_coord")
+
+            # todo: update this to only write the irreducible energies & rates
 
             # write energy mesh
             energy_file = joinpath(directory, "{}amset_e_mesh{}.{}".format(
