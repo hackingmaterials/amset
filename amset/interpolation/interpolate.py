@@ -13,7 +13,7 @@ import time
 import numpy as np
 
 from collections import defaultdict
-from typing import Optional, Union, Tuple, List, Dict
+from typing import Optional, Union, Tuple, List, Dict, Any
 
 from monty.json import MSONable
 from scipy.ndimage import gaussian_filter1d
@@ -22,7 +22,7 @@ from BoltzTraP2 import units, sphere, fite
 from spglib import spglib
 
 from amset.dos import FermiDos, ADOS
-from amset.misc.util import spin_name, get_symmetry_equivalent_kpoints
+from amset.kpoints import get_symmetry_equivalent_kpoints
 from amset.misc.log import log_time_taken, log_list
 from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.core import Spin
@@ -35,7 +35,7 @@ from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 from amset.data import AmsetData
 from amset.misc.constants import hartree_to_ev, m_to_cm, A_to_m, hbar, e, m_e, \
-    bohr_to_angstrom
+    bohr_to_angstrom, spin_name, numeric_types, int_types
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -247,6 +247,7 @@ class Interpolater(MSONable):
 
         if is_metal:
             efermi = self._band_structure.efermi * units.eV
+            scissor = 0.
         else:
             energies, scissor = _shift_energies(
                 energies, new_vb_idx, scissor=scissor,
@@ -272,6 +273,116 @@ class Interpolater(MSONable):
             ir_to_full_idx, efermi, is_metal, self._soc, vb_idx=new_vb_idx,
             scissor=scissor)
 
+    def get_amset_data_from_kpoints(
+            self,
+            kpoints: Union[np.ndarray, List[int], float, int],
+            energy_cutoff: Optional[float] = None,
+            scissor: float = None,
+            bandgap: float = None,
+            symprec: float = 0.01,
+            ) -> AmsetData:
+        """Gets an AmsetData object using the interpolated bands.
+
+        Note, the interpolation mesh is determined using by
+        ``interpolate_factor`` option in the ``Inteprolater`` constructor.
+
+        This method is much faster than the ``get_energies`` function but
+        doesn't provide as much flexibility.
+
+        The degree of parallelization is controlled by the ``nworkers`` option.
+
+        Args:
+            kpoints: The k-points, either provided as a list of k-points (either with
+                the shape (nkpoints, 3) or (nkpoints, 4) where the 4th column is the
+                k-point weights). Alternatively, the k-points can be specified as a
+                1x3 mesh, e.g.,``[6, 6, 6]`` from which the full Gamma centered mesh
+                will be computed. Alternatively, if a single value is provided this will
+                be treated as a real-space length cutoff and the k-point mesh dimensions
+                generated automatically.
+            energy_cutoff: The energy cut-off to determine which bands are
+                included in the interpolation. If the energy of a band falls
+                within the cut-off at any k-point it will be included. For
+                metals the range is defined as the Fermi level ± energy_cutoff.
+                For gapped materials, the energy range is from the VBM -
+                energy_cutoff to the CBM + energy_cutoff.
+            scissor: The amount by which the band gap is scissored. Cannot
+                be used in conjunction with the ``bandgap`` option. Has no
+                effect for metallic systems.
+            bandgap: Automatically adjust the band gap to this value. Cannot
+                be used in conjunction with the ``scissor`` option. Has no
+                effect for metallic systems.
+            symprec: The symmetry tolerance used when determining the symmetry
+                inequivalent k-points on which to interpolate.
+
+        Returns:
+            The electronic structure (including energies, velocities, density of
+            states and k-point information) as an AmsetData object.
+        """
+        is_metal = self._band_structure.is_metal()
+
+        mesh_info = []
+        if isinstance(kpoints, numeric_types) or \
+                isinstance(kpoints[0], int_types):
+            # k-points is given as a cut-off or mesh
+            if isinstance(kpoints, numeric_types):
+                kpoints = _calculate_kpoint_mesh(
+                    self._band_structure.structure, kpoints)
+
+            interpolation_mesh = np.asarray(kpoints)
+            str_kmesh = "x".join(map(str, kpoints))
+            mesh_info.append("k-point mesh: {}".format(str_kmesh))
+
+            _, _, kpoints, _, _ = _get_kpoints(
+                kpoints, self._band_structure.structure, symprec=symprec,
+                return_full_kpoints=True, boltztrap_ordering=False)
+            weights = np.full(len(kpoints), 1 / len(kpoints))
+
+        else:
+            # the full list of k-points has been specified
+            interpolation_mesh = None
+            kpoints = np.asarray(kpoints)
+            nkpoints = kpoints.shape[0]
+            if kpoints.shape[-1] == 4:
+                # kpoints have been provided with weights
+                weights = kpoints[:, 3]
+                kpoints = kpoints[:, :3]
+            else:
+                logger.warning("User supplied k-points have no weights... "
+                               "assuming uniform mesh")
+                weights = np.full(nkpoints, 1 / nkpoints)
+            mesh_info.append(["# user supplied k-points: {}".format(nkpoints)])
+
+        mesh_info.append("energy cutoff: {} eV".format(energy_cutoff))
+        logger.info("Interpolation parameters:")
+        log_list(mesh_info)
+
+        energies, vvelocities, projections, mapping_info, efermi, vb_idx, scissor = self.get_energies(
+            kpoints,
+            energy_cutoff=energy_cutoff,
+            scissor=scissor,
+            bandgap=bandgap,
+            return_velocity=True,
+            return_effective_mass=False,
+            return_projections=True,
+            atomic_units=True,
+            return_vel_outer_prod=True,
+            return_kpoint_mapping=True,
+            return_efermi=True,
+            symprec=symprec,
+            return_vb_idx=True,
+            return_scissor=True,
+        )
+
+        ir_kpoints_idx = mapping_info["ir_kpoints_idx"]
+        ir_to_full_idx = mapping_info["ir_to_full_idx"]
+        ir_kpoints = kpoints[ir_kpoints_idx]
+
+        return AmsetData(
+            self._band_structure.structure, energies, vvelocities, projections,
+            interpolation_mesh, kpoints, ir_kpoints, ir_kpoints_idx,
+            ir_to_full_idx, efermi, is_metal, self._soc, vb_idx=vb_idx,
+            scissor=scissor, kpoint_weights=weights)
+
     def get_energies(self,
                      kpoints: Union[np.ndarray, List],
                      energy_cutoff: Optional[float] = None,
@@ -286,7 +397,9 @@ class Interpolater(MSONable):
                      skip_coefficients: Optional[float] = None,
                      symprec: Optional[float] = None,
                      return_kpoint_mapping: bool = False,
-                     return_efermi: bool = False
+                     return_efermi: bool = False,
+                     return_vb_idx: bool = False,
+                     return_scissor: bool = False
                      ) -> Union[Dict[Spin, np.ndarray],
                                 Tuple[Dict[Spin, np.ndarray], ...]]:
         """Gets the interpolated energies for multiple k-points in a band.
@@ -321,12 +434,17 @@ class Interpolater(MSONable):
                 cm/s, and effective masses in units of electron rest mass, m0.
             symprec: Symmetry precision. If set, symmetry will be used to
                 reduce the nummber of calculated k-points and velocities.
-            return_kpoint_mapping: Only valid if ``symprec`` is also set. If
-                `True`, the kpoint symmetry mapping information will be
-                returned.
+            return_kpoint_mapping: If `True`, the kpoint symmetry mapping information
+                will be returned. If ``symprec`` is None then all sites will be
+                considered symmetry inequivalent.
             return_efermi: Whether to return the Fermi level with the unit
                 determined by ``atomic_units``. If the system is semiconducting
                 the Fermi level will be given in the middle of the band gap.
+            return_vb_idx: Whether to return the index of the highest valence band
+                in the interpolated bands. Will be returned as a dictionary of
+                ``{spin: vb_idx}``.
+            return_scissor: Whether to return the determined scissor value, given in
+                Hartree.
 
         Returns:
             The band energies as dictionary of::
@@ -390,6 +508,10 @@ class Interpolater(MSONable):
                       "# reduced k-points {}".format(len(kpoints))])
         else:
             kpoints = np.asarray(kpoints)
+            nkpoints = kpoints.shape[0]
+            ir_kpoints_idx = np.arange(nkpoints)
+            ir_to_full_idx = np.arange(nkpoints)
+            weights = np.full(nkpoints, 1 / nkpoints)
 
         energies = {}
         velocities = {}
@@ -512,9 +634,11 @@ class Interpolater(MSONable):
                 log_time_taken(t0)
 
         if not self._band_structure.is_metal():
-            energies = _shift_energies(
+            energies, scissor = _shift_energies(
                 energies, new_vb_idx, scissor=scissor,
-                bandgap=bandgap)
+                bandgap=bandgap, return_scissor=True)
+        else:
+            scissor = 0
 
         if not (return_velocity or return_effective_mass or
                 return_projections or return_kpoint_mapping or
@@ -553,6 +677,12 @@ class Interpolater(MSONable):
                 efermi = (e_vbm + e_cbm) / 2
 
             to_return.append(efermi)
+
+        if return_vb_idx:
+            to_return.append(new_vb_idx)
+
+        if return_scissor:
+            to_return.append(scissor)
 
         return tuple(to_return)
 
@@ -810,8 +940,6 @@ def _convert_velocities(velocities: np.ndarray,
                         lattice_matrix: np.ndarray) -> np.ndarray:
     """Convert velocities from atomic units to cm/s.
 
-    TODO: Tidy this function using BoltzTraP2 units.
-
     Args:
         velocities: The velocities in atomic units.
         lattice_matrix: The lattice matrix in Angstrom.
@@ -832,8 +960,6 @@ def _convert_velocities(velocities: np.ndarray,
 
 def _convert_effective_masses(effective_masses: np.ndarray) -> np.ndarray:
     """Convert effective masses to units of electron rest mass.
-
-    TODO: Tidy this function using BoltzTraP2 units.
 
     Args:
         effective_masses: The effective masses in atomic units.
@@ -873,10 +999,11 @@ def _get_projections(projections: np.ndarray
     return ("s", s_orbital), ("p", p_orbital)
 
 
-def _get_kpoints(kpoint_mesh: Union[float, int, List[int]],
+def _get_kpoints(kpoint_mesh: Union[float, List[int]],
                  structure: Structure,
                  symprec: float = 0.01,
-                 return_full_kpoints: bool = False
+                 return_full_kpoints: bool = False,
+                 boltztrap_ordering: bool = True
                  ) -> Tuple[np.ndarray, ...]:
     """Gets the symmetry inequivalent k-points from a k-point mesh.
 
@@ -886,14 +1013,18 @@ def _get_kpoints(kpoint_mesh: Union[float, int, List[int]],
     Args:
         kpoint_mesh: The k-point mesh as a 1x3 array. E.g.,``[6, 6, 6]``.
             Alternatively, if a single value is provided this will be
-            treated as a reciprocal density and the k-point mesh dimensions
-            generated automatically.
+            treated as a k-point spacing cut-off and the k-points will be generated
+            automatically.  Cutoff is length in Angstroms and corresponds to
+            non-overlapping radius in a hypothetical supercell (Moreno-Soler length
+            cutoff).
         structure: A structure.
         symprec: Symmetry tolerance used when determining the symmetry
             inequivalent k-points on which to interpolate.
         return_full_kpoints: Whether to return the full list of k-points
             covering the entire Brillouin zone and the indices of
             inequivalent k-points.
+        boltztrap_ordering: Whether to return the k-points in the same order as
+            given by the BoltzTraP2.fite.getBTPBands.
 
     Returns:
         The irreducible k-points and their weights as tuple, formatted as::
@@ -911,34 +1042,33 @@ def _get_kpoints(kpoint_mesh: Union[float, int, List[int]],
         such as energy (not vector properties such as velocity).
     """
     if isinstance(kpoint_mesh, (int, float)):
-        # TODO: Update this to use reciprocal length as in kgrid
-        kpoint_mesh = Kpoints.automatic_density_by_vol(
-            structure, kpoint_mesh).kpts[0]
+        kpoint_mesh = _calculate_kpoint_mesh(structure, kpoint_mesh)
 
     atoms = AseAtomsAdaptor().get_atoms(structure)
 
     if not symprec:
-        symprec = 0.1
+        symprec = 1e-8
 
     mapping, grid = spglib.get_ir_reciprocal_mesh(
         kpoint_mesh, atoms, symprec=symprec)
     full_kpoints = grid / kpoint_mesh
 
-    sort_idx = np.lexsort((full_kpoints[:, 2], full_kpoints[:, 2] < 0,
-                           full_kpoints[:, 1], full_kpoints[:, 1] < 0,
-                           full_kpoints[:, 0], full_kpoints[:, 0] < 0))
-    full_kpoints = full_kpoints[sort_idx]
-    mapping = mapping[sort_idx]
+    if boltztrap_ordering:
+        sort_idx = np.lexsort((full_kpoints[:, 2], full_kpoints[:, 2] < 0,
+                               full_kpoints[:, 1], full_kpoints[:, 1] < 0,
+                               full_kpoints[:, 0], full_kpoints[:, 0] < 0))
+        full_kpoints = full_kpoints[sort_idx]
+        mapping = mapping[sort_idx]
 
-    mapping_dict = {}
-    new_mapping = []
-    for i, n in enumerate(mapping):
-        if n in mapping_dict:
-            new_mapping.append(mapping_dict[n])
-        else:
-            mapping_dict[n] = i
-            new_mapping.append(i)
-    mapping = new_mapping
+        mapping_dict = {}
+        new_mapping = []
+        for i, n in enumerate(mapping):
+            if n in mapping_dict:
+                new_mapping.append(mapping_dict[n])
+            else:
+                mapping_dict[n] = i
+                new_mapping.append(i)
+        mapping = new_mapping
 
     ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
         mapping, return_inverse=True, return_counts=True)
@@ -948,3 +1078,15 @@ def _get_kpoints(kpoint_mesh: Union[float, int, List[int]],
         return ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx
     else:
         return ir_kpoints, weights
+
+
+def _calculate_kpoint_mesh(structure: Structure, cutoff_length: float):
+    """Calculate reciprocal-space sampling with real-space cut-off.
+
+    """
+    reciprocal_lattice = structure.lattice.reciprocal_lattice_crystallographic
+
+    # Get reciprocal cell vector magnitudes
+    abc_recip = np.array(reciprocal_lattice.abc)
+
+    return np.ceil(abc_recip * 2 * cutoff_length).astype(int)
