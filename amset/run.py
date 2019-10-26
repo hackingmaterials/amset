@@ -53,25 +53,22 @@ class AmsetRunner(MSONable):
                  material_properties: Dict[str, Any],
                  doping: Optional[Union[List, np.ndarray]] = None,
                  temperatures: Optional[Union[List, np.ndarray]] = None,
-                 scattering_type: Optional[Union[str, List[str],
-                                                 float]] = "auto",
-                 fine_mesh_de: Optional[float] = None,
+                 interpolation_parameters: Optional[Dict[str, Any]] = None,
+                 scattering_type: Optional[Union[str, List[str], float]] = "auto",
                  performance_parameters: Optional[Dict[str, float]] = None,
                  output_parameters: Optional[Dict[str, Any]] = None,
-                 interpolation_factor: int = 10,
                  scissor: Optional[float] = None,
                  user_bandgap: Optional[float] = None,
                  soc: bool = False):
         self._band_structure = band_structure
         self._num_electrons = num_electrons
         self.scattering_type = scattering_type
-        self.interpolation_factor = interpolation_factor
+        self.interpolation_parameters = interpolation_parameters
         self.scissor = scissor
         self.user_bandgap = user_bandgap
         self.soc = soc
         self.doping = doping
         self.temperatures = temperatures
-        self.fine_mesh_de = fine_mesh_de
 
         if self.doping is None:
             self.doping = np.concatenate([np.logspace(16, 21, 6),
@@ -137,14 +134,21 @@ class AmsetRunner(MSONable):
 
         interpolater = Interpolater(
             self._band_structure, num_electrons=self._num_electrons,
-            interpolation_factor=self.interpolation_factor, soc=self.soc,
-            interpolate_projections=True)
+            interpolation_factor=self.interpolation_parameters["interpolation_factor"],
+            soc=self.soc, interpolate_projections=True)
 
-        amset_data = interpolater.get_amset_data(
-            energy_cutoff=self.performance_parameters["energy_cutoff"],
-            scissor=self.scissor, bandgap=self.user_bandgap,
-            symprec=self.performance_parameters["symprec"],
-            nworkers=self.performance_parameters["nworkers"])
+        if self.interpolation_parameters["kpoints"]:
+            amset_data = interpolater.get_amset_data_from_kpoints(
+                self.interpolation_parameters["kpoints"],
+                energy_cutoff=self.performance_parameters["energy_cutoff"],
+                scissor=self.scissor, bandgap=self.user_bandgap,
+                symprec=self.performance_parameters["symprec"])
+        else:
+            amset_data = interpolater.get_amset_data(
+                energy_cutoff=self.performance_parameters["energy_cutoff"],
+                scissor=self.scissor, bandgap=self.user_bandgap,
+                symprec=self.performance_parameters["symprec"],
+                nworkers=self.performance_parameters["nworkers"])
 
         timing = {"interpolation": time.perf_counter() - t0}
 
@@ -168,7 +172,7 @@ class AmsetRunner(MSONable):
         amset_data.calculate_fd_cutoffs(self.performance_parameters["fd_tol"],
                                         cutoff_pad=cutoff_pad)
 
-        if self.fine_mesh_de:
+        if self.interpolation_parameters["fine_mesh_de"]:
             log_banner("DENSIFICATION")
 
             inv_screening_length_sq = None
@@ -185,7 +189,7 @@ class AmsetRunner(MSONable):
                 dos_estep=self.performance_parameters["dos_estep"],
                 inverse_screening_length_sq=inv_screening_length_sq)
             amset_data.set_extra_kpoints(
-                *densifier.densify(self.fine_mesh_de))
+                *densifier.densify(self.interpolation_parameters["fine_mesh_de"]))
 
             # recalculate DOS and Fermi levels using denser band structure
             amset_data.calculate_dos(
@@ -286,10 +290,9 @@ class AmsetRunner(MSONable):
             doping=settings["general"]["doping"],
             temperatures=settings["general"]["temperatures"],
             scattering_type=settings["general"]["scattering_type"],
-            fine_mesh_de=settings["general"]["fine_mesh_de"],
+            interpolation_parameters=settings["interpolation"],
             performance_parameters=settings["performance"],
             output_parameters=settings["output"],
-            interpolation_factor=settings["general"]["interpolation_factor"],
             scissor=settings["general"]["scissor"],
             user_bandgap=settings["general"]["bandgap"])
 
@@ -331,13 +334,12 @@ class AmsetRunner(MSONable):
         general_settings = {
             "scissor": self.scissor,
             "bandgap": self.user_bandgap,
-            "interpolation_factor": self.interpolation_factor,
             "scattering_type": self.scattering_type,
-            "fine_mesh_de": self.fine_mesh_de,
             "doping": self.doping,
             "temperatures": self.temperatures}
 
         settings = {"general": general_settings,
+                    "interpolation": self.interpolation_parameters,
                     "material": self.material_properties,
                     "performance": self.performance_parameters,
                     "output": self.output_parameters}
@@ -396,8 +398,6 @@ def _log_settings(runner: AmsetRunner):
     run_params = [
         "doping: {}".format(", ".join(map("{:g}".format, runner.doping))),
         "temperatures: {}".format(", ".join(map(str, runner.temperatures))),
-        "interpolation_factor: {}".format(runner.interpolation_factor),
-        "fine_mesh_de: {}".format(runner.fine_mesh_de),
         "scattering_type: {}".format(runner.scattering_type),
         "soc: {}".format(runner.soc)]
 
@@ -408,6 +408,10 @@ def _log_settings(runner: AmsetRunner):
         run_params.append("scissor: {}".format(runner.scissor))
 
     log_list(run_params)
+
+    logger.info("Interpolation parameters:")
+    log_list(["{}: {}".format(k, v) for k, v in
+              runner.interpolation_parameters.items()])
 
     logger.info("Performance parameters:")
     log_list(["{}: {}".format(k, v) for k, v in
@@ -460,10 +464,10 @@ def _log_band_structure_information(band_structure: BandStructure):
     vbm_data = band_structure.get_vbm()
     cbm_data = band_structure.get_cbm()
 
-    logger.info('\nValence band maximum:')
+    logger.info('Valence band maximum:')
     _log_band_edge_information(band_structure, vbm_data)
 
-    logger.info('\nConduction band minimum:')
+    logger.info('Conduction band minimum:')
     _log_band_edge_information(band_structure, cbm_data)
 
 
