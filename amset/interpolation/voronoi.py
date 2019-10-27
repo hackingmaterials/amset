@@ -51,6 +51,9 @@ class PeriodicVoronoi(object):
     ):
         """
 
+        Add a warning about only using the symmetry options if you are sure your
+        extra k-points have been symmetrized
+
         Args:
             original_points:
             nworkers:
@@ -60,19 +63,13 @@ class PeriodicVoronoi(object):
         self._reciprocal_lattice = reciprocal_lattice
 
         if ir_points_idx is None:
-            _ir_points_idx = np.arange(len(original_points) + len(extra_points))
-        else:
-            _ir_points_idx = ir_points_idx
+            ir_points_idx = np.arange(len(original_points) + len(extra_points))
 
         if ir_to_full_idx is None:
-            _ir_to_full_idxs = np.arange(len(original_points) + len(extra_points))
-        else:
-            _ir_points_idx = ir_points_idx
+            ir_to_full_idx = np.arange(len(original_points) + len(extra_points))
 
         if extra_ir_points_idx is None:
             extra_ir_points_idx = np.arange(len(extra_points))
-        else:
-            extra_ir_points_idx = extra_ir_points_idx
 
         logger.debug("Initializing periodic Voronoi calculator")
         all_points = np.concatenate((original_points, extra_points))
@@ -92,6 +89,8 @@ class PeriodicVoronoi(object):
         # fractional cutoff, the cutoff regions would not be spherical
         logger.debug("  ├── getting cartesian points")
         cart_points = reciprocal_lattice.get_cartesian_coords(supercell_points)
+        # cart_extra_points = reciprocal_lattice.get_cartesian_coords(
+        #     extra_points[extra_ir_points_idx])
         cart_extra_points = reciprocal_lattice.get_cartesian_coords(extra_points)
 
         # small cutoff is slightly larger than the max regular grid spacing
@@ -119,11 +118,11 @@ class PeriodicVoronoi(object):
         logger.debug("  ├── calculating points in big radius")
         # big points are those which surround the extra points within the big cutoff
         # (including the extra points themselves)
-        big_points_idx = _query_radius_iteratively(
-            tree, cart_extra_points, big_cutoff)
+        big_points_idx = _query_radius_iteratively(tree, cart_extra_points, big_cutoff)
 
         # Voronoi points are those we actually include in the Voronoi diagram
-        self._voronoi_points = supercell_points[big_points_idx]
+        # self._voronoi_points = supercell_points[big_points_idx]
+        self._voronoi_points = cart_points[big_points_idx]
 
         logger.debug("  └── calculating points in small radius")
         # small points are the points in all_points (i.e., original + extra points) for
@@ -132,24 +131,27 @@ class PeriodicVoronoi(object):
         small_points_idx = _query_radius_iteratively(
             tree, cart_extra_points, small_cutoff)
 
-        # get the indices of small_cutoff_points (i.e., the points for which we will
+        # get the irreducible small points
+        # small_points_in_all_points = supercell_idxs[small_points_idx] % len(all_points)
+        # mapping = ir_to_full_idx[small_points_in_all_points]
+        # unique_mappings, ir_idx = np.unique(mapping, return_index=True)
+        # small_points_idx = small_points_idx[ir_idx]
+
+        # get a mapping to go from the ir small points to the full BZ.
+        # groups = groupby(np.arange(len(all_points)), ir_to_full_idx)
+        # grouped_ir = groups[unique_mappings]
+        # counts = [len(g) for g in grouped_ir]
+        # self._expand_ir = np.repeat(np.arange(len(ir_idx)), counts)
+
+        # get the indices of the expanded ir_small_points in all_points
+        # self._volume_in_final_idx = np.concatenate(grouped_ir)
+
+        # get the indices of ir_small_points_idx (i.e., the points for which we will
         # calculate the volume) in voronoi_points
         self._volume_points_idx = _get_loc(big_points_idx, small_points_idx)
 
-        # finally, need a mapping that takes the irreducible small cutoff points
-        # and 1) maps them to the full small_cutoff_points, then 2) maps the full small
-        # cutoff points to the full BZ. At the same time, we generate a list of indices
-        # that these points correspond to in the final volume array. This way we can
-        # project the points we have calculated the volume for to the full BZ.
-        # 1) is easy, as we already calculated this earlier (ir_small_to_full_idx).
-        # For 2), we use the mapping to find all instances
-        # of the small point indices in the mapping
-
-        # get the indices of the small_cutoff_points in all_points. This works because
-        # the supercell points are in the same order as all_points, just repeated for
-        # each cell in the supercell. These indices are effectively the indices of the
-        # each point in the final volume array
-        self._volume_in_final_idx = supercell_idxs[small_points_idx] % len(all_points)
+        # get the indices of the expanded ir_small_points in all_points
+        self._volume_in_final_idx = small_points_idx % len(all_points)
 
         # Prepopulate the final volumes array. By default, each point has the
         # volume of the original mesh. Note: at this point, the extra points
@@ -167,22 +169,22 @@ class PeriodicVoronoi(object):
         # s.to(filename="voronoi.vasp", fmt="poscar")
         # s = Structure(
         #     reciprocal_lattice.matrix * 10,
-        #     ["H"] * len(small_cutoff_points_idx),
-        #     supercell_points[small_cutoff_points_idx]
+        #     ["H"] * len(self._volume_points_idx),
+        #     supercell_points[big_points_idx[self._volume_points_idx]]
         #     / 3
         #     + 0.5,
         #     coords_are_cartesian=False,
         #     )
-        # s.to(filename="voronoi-volume.vasp", fmt="poscar")
+        # s.to(filename="volume-points.vasp", fmt="poscar")
         # s = Structure(
         #     reciprocal_lattice.matrix * 10,
-        #     ["H"] * len(ir_small_points_idx),
-        #     supercell_points[ir_small_points_idx]
+        #     ["H"] * len(small_points_idx),
+        #     supercell_points[small_points_idx]
         #     / 3
         #     + 0.5,
         #     coords_are_cartesian=False,
         # )
-        # s.to(filename="ir-voronoi-volume.vasp", fmt="poscar")
+        # s.to(filename="small-points.vasp", fmt="poscar")
 
         # from pymatgen import Structure
         #
@@ -193,6 +195,7 @@ class PeriodicVoronoi(object):
         #     coords_are_cartesian=False,
         #     )
         # s.to(filename="super.vasp", fmt="poscar")
+        self._volume = np.linalg.det(reciprocal_lattice.matrix)
 
     def compute_volumes(self):
         logger.info("Calculating k-point Voronoi diagram:")
@@ -217,9 +220,11 @@ class PeriodicVoronoi(object):
         log_time_taken(t0)
 
         volumes = self._final_volumes.copy()
+
+        # divide volumes by reciprocal lattice volume to get the fractional volume
         volumes[self._volume_in_final_idx] = self._get_voronoi_volumes(
             indices, vertices
-        )
+        ) / self._volume  # [self._expand_ir]
 
         zero_vols = volumes == 0
         if any(zero_vols):
