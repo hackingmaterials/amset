@@ -13,8 +13,7 @@ from amset.misc.log import log_list
 from amset.kpoints import (
     kpoints_to_first_bz,
     get_dense_kpoint_mesh_spglib,
-    symmetrize_kpoints,
-)
+    symmetrize_kpoints)
 from amset.interpolation.voronoi import PeriodicVoronoi
 
 __author__ = "Alex Ganose"
