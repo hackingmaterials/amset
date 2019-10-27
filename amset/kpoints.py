@@ -94,9 +94,9 @@ def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
         symmops = sg.get_symmetry_operations(cartesian=False)
         rotation_matrices = np.array([o.rotation_matrix for o in symmops])
 
-    # if time_reversal_symmetry:
-    #     all_rotations = np.concatenate((rotation_matrices, -rotation_matrices))
-    #     rotation_matrices = np.unique(all_rotations, axis=0)
+    if time_reversal_symmetry:
+        all_rotations = np.concatenate((rotation_matrices, -rotation_matrices))
+        rotation_matrices = np.unique(all_rotations, axis=0)
 
     cart_rotation_matrices = np.array(
         [similarity_transformation(
@@ -141,7 +141,7 @@ def similarity_transformation(rot, mat):
     return np.dot(rot, np.dot(mat, np.linalg.inv(rot)))
 
 
-def symmetrize_kpoints(structure, kpoints, symprec=0.1, tol=1e-5,
+def symmetrize_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
                        time_reversal_symmetry=True):
     round_dp = int(np.log10(1 / tol))
 
@@ -154,56 +154,16 @@ def symmetrize_kpoints(structure, kpoints, symprec=0.1, tol=1e-5,
     symmops = sg.get_symmetry_operations(cartesian=False)
     rotation_matrices = np.array([o.rotation_matrix for o in symmops])
 
-    # if time_reversal_symmetry:
-    #     all_rotations = np.concatenate((rotation_matrices, -rotation_matrices))
-    #     rotation_matrices = all_rotations
-        # rotation_matrices = np.unique(all_rotations, axis=0)
+    if time_reversal_symmetry:
+        all_rotations = np.concatenate((rotation_matrices, -rotation_matrices))
+        rotation_matrices = np.unique(all_rotations, axis=0)
 
     kpoints = kpoints_to_first_bz(kpoints)
-    rkpoints = shift_and_round(kpoints)
-    from pymatgen import Structure
 
-    s = Structure(
-        structure.lattice.reciprocal_lattice.matrix * 10,
-        ["H"] * len(rkpoints),
-        np.array(rkpoints) + 0.5,
-        coords_are_cartesian=False,
-        )
-    s.to(filename="orig-kpoints.vasp", fmt="poscar")
-
-    # symmetrized_kpoints = np.concatenate(
-    #     [np.dot(kpoints, rot) for rot in rotation_matrices])
-    # print(kpoints)
-    # print(np.dot(kpoints[0], r[0]))
     symmetrized_kpoints = np.concatenate(
-        [np.dot(k, rotation_matrices) for k in kpoints])
+        [np.dot(kpoints, rot) for rot in rotation_matrices])
     symmetrized_kpoints = kpoints_to_first_bz(symmetrized_kpoints)
     _, unique_idxs = np.unique(shift_and_round(symmetrized_kpoints),
                                axis=0, return_index=True)
-    symmetrized_kpoints = symmetrized_kpoints[unique_idxs]
 
-    s = Structure(
-        structure.lattice.reciprocal_lattice.matrix * 10,
-        ["H"] * len(symmetrized_kpoints),
-        symmetrized_kpoints / 2 + 0.5,
-        coords_are_cartesian=False,
-        )
-    s.to(filename="sym-kpoints.vasp", fmt="poscar")
-
-    rsymmetrized_kpoints = shift_and_round(symmetrized_kpoints)
-    old_kpoints = set(rkpoints)
-    new_kpoints = set(rsymmetrized_kpoints)
-    diff_kpoints = new_kpoints.difference(old_kpoints)
-    print(new_kpoints)
-    print(diff_kpoints)
-
-    s = Structure(
-        structure.lattice.reciprocal_lattice.matrix * 10,
-        ["H"] * len(diff_kpoints),
-        np.array(list(diff_kpoints)) / 2 + 0.5,
-        coords_are_cartesian=False,
-        )
-    s.to(filename="diff-kpoints.vasp", fmt="poscar")
-
-    return symmetrized_kpoints
-    # return symmetrized_kpoints[unique_idxs]
+    return symmetrized_kpoints[unique_idxs]
