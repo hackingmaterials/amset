@@ -6,7 +6,7 @@ import sys
 import textwrap
 import time
 
-from amset.misc.constants import output_width
+from amset.constants import output_width
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

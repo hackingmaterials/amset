@@ -12,7 +12,7 @@ from BoltzTraP2.fd import dFDde, FD
 
 from pymatgen import Spin, Structure
 
-from amset.misc.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
+from amset.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
 from amset.misc.util import groupby, cast_dict
 from amset.misc.log import log_list
 from amset.dos import FermiDos, ADOS
@@ -85,7 +85,6 @@ class AmsetData(MSONable):
         else:
             self.kpoint_weights = kpoint_weights
 
-        self.transport_mask = [True] * len(full_kpoints)
         self.scattering_rates = None
         self.scattering_labels = None
         self.doping = None
@@ -287,11 +286,6 @@ class AmsetData(MSONable):
                              "weights")
 
         self.kpoint_weights = kpoint_weights
-        # create a mask to exclude the extra points when calculating transport
-        # properties. This is because BoltzTraP2 doesn't support custom k-point
-        # weights
-        self.transport_mask = np.array([True] * len(self.full_kpoints) +
-                                       [False] * len(extra_kpoints))
         new_ir_idx = len(self.full_kpoints) + ir_kpoints_idx
 
         # add the extra data to the storage arrays

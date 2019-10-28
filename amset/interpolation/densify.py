@@ -195,13 +195,8 @@ class BandDensifier(object):
         additional_kpoints = symmetrize_kpoints(
             self._amset_data.structure, additional_kpoints
         )
-        log_list(
-            [
-                "{} k-points added in symmetrization".format(
-                    len(additional_kpoints) - n_additional_kpoints
-                )
-            ]
-        )
+        n_sym = len(additional_kpoints) - n_additional_kpoints
+        log_list(["{} k-points added in symmetrization".format(n_sym)])
 
         # we may have added k-points around previously un-densified points, use
         # the symmetry mapping to ensure that interpolated_idxs covers all
@@ -249,14 +244,10 @@ class BandDensifier(object):
             symprec=symprec,
         )
 
-        ir_to_full_kpoint_mapping = np.concatenate(
-            (
-                self._amset_data.ir_to_full_kpoint_mapping,
-                mapping_info["ir_to_full_idx"]
-                + self._amset_data.ir_to_full_kpoint_mapping.max()
-                + 1,
-            )
-        )
+        old_mapping = self._amset_data.ir_to_full_kpoint_mapping
+        new_mapping = mapping_info["ir_to_full_idx"] + old_mapping.max() + 1
+        ir_to_full_kpoint_mapping = np.concatenate((old_mapping, new_mapping))
+
         voronoi = PeriodicVoronoi(
             self._amset_data.structure.lattice.reciprocal_lattice,
             self._amset_data.full_kpoints,

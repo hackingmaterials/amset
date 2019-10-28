@@ -12,7 +12,7 @@ from BoltzTraP2.fd import FD
 from scipy.constants import epsilon_0
 from scipy.integrate import trapz
 
-from amset.misc.constants import k_B, e, hbar
+from amset.constants import k_B, e, hbar
 from amset.data import AmsetData
 from amset.misc.log import log_list
 from pymatgen import Spin

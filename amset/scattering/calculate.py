@@ -21,9 +21,11 @@ from sklearn.neighbors.ball_tree import BallTree
 from tqdm import tqdm
 
 from BoltzTraP2 import units
+
+from amset.scattering.basic import AbstractBasicScattering
 from pymatgen import Spin
 
-from amset.misc.constants import A_to_nm, output_width, over_sqrt_pi, hbar, \
+from amset.constants import A_to_nm, output_width, over_sqrt_pi, hbar, \
     small_val, default_small_e, spin_name
 from amset.data import AmsetData
 from amset.misc.log import log_list, log_time_taken
@@ -73,6 +75,11 @@ class ScatteringCalculator(MSONable):
                                               max(self.amset_data.dos.energies))
 
     @property
+    def basic_scatterers(self):
+        return [s for s in self.scatterers
+                if isinstance(s, AbstractBasicScattering)]
+
+    @property
     def inelastic_scatterers(self):
         return [s for s in self.scatterers
                 if isinstance(s, AbstractInelasticScattering)]
@@ -100,12 +107,14 @@ class ScatteringCalculator(MSONable):
                        materials_properties: Dict[str, Any],
                        amset_data: AmsetData
                        ) -> List[Union[AbstractElasticScattering,
-                                       AbstractInelasticScattering]]:
+                                       AbstractInelasticScattering,
+                                       AbstractBasicScattering]]:
         # dynamically determine the available scattering mechanism subclasses
         scattering_mechanisms = {
             m.name: m for m in
             AbstractElasticScattering.__subclasses__() +
-            AbstractInelasticScattering.__subclasses__()}
+            AbstractInelasticScattering.__subclasses__() +
+            AbstractBasicScattering.__subclasses__()}
 
         if scattering_type == "auto":
             logger.info("Examining material properties to determine possible "
@@ -276,6 +285,9 @@ class ScatteringCalculator(MSONable):
             w.start()
 
         elastic_rates = None
+        if self.basic_scatterers:
+            basic_rates = np.array([s.rates for s in self.basic_scatters])
+
         if self.elastic_scatterers:
             elastic_rates = self._fill_workers(
                 nkpoints, slices, iqueue, oqueue, desc="elastic")

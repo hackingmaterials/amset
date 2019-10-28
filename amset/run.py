@@ -18,7 +18,7 @@ from monty.json import MSONable
 from memory_profiler import memory_usage
 
 from amset.interpolation.densify import BandDensifier
-from amset.misc.constants import hbar
+from amset.constants import hbar
 from amset.scattering.elastic import calculate_inverse_screening_length_sq
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin

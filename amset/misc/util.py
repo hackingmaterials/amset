@@ -260,4 +260,3 @@ def parse_deformation_potential(deformation_pot_str: str):
     except ValueError:
         raise ValueError("ERROR: Unrecognised deformation potential format: "
                          "{}".format(deformation_pot_str))
-

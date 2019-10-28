@@ -5,7 +5,7 @@ from typing import Tuple, Dict, Any
 import numpy as np
 from scipy.constants import epsilon_0
 
-from amset.misc.constants import hbar, k_B, e
+from amset.constants import hbar, k_B, e
 from amset.data import AmsetData
 from amset.misc.log import log_list
 from pymatgen import Spin

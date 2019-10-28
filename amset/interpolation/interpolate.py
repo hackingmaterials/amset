@@ -13,7 +13,7 @@ import time
 import numpy as np
 
 from collections import defaultdict
-from typing import Optional, Union, Tuple, List, Dict, Any
+from typing import Optional, Union, Tuple, List, Dict
 
 from monty.json import MSONable
 from scipy.ndimage import gaussian_filter1d
@@ -30,11 +30,10 @@ from pymatgen.electronic_structure.bandstructure import (
     BandStructure, BandStructureSymmLine)
 from pymatgen.electronic_structure.dos import Dos
 from pymatgen.io.ase import AseAtomsAdaptor
-from pymatgen.io.vasp import Kpoints
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 from amset.data import AmsetData
-from amset.misc.constants import hartree_to_ev, m_to_cm, A_to_m, hbar, e, m_e, \
+from amset.constants import hartree_to_ev, m_to_cm, A_to_m, hbar, e, m_e, \
     bohr_to_angstrom, spin_name, numeric_types, int_types
 
 __author__ = "Alex Ganose"
