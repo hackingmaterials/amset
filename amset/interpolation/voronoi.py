@@ -62,9 +62,6 @@ class PeriodicVoronoi(object):
         self._final_points = np.concatenate([original_points, extra_points])
         self._reciprocal_lattice = reciprocal_lattice
 
-        if ir_points_idx is None:
-            ir_points_idx = np.arange(len(original_points) + len(extra_points))
-
         if ir_to_full_idx is None:
             ir_to_full_idx = np.arange(len(original_points) + len(extra_points))
 
@@ -89,9 +86,8 @@ class PeriodicVoronoi(object):
         # fractional cutoff, the cutoff regions would not be spherical
         logger.debug("  ├── getting cartesian points")
         cart_points = reciprocal_lattice.get_cartesian_coords(supercell_points)
-        # cart_extra_points = reciprocal_lattice.get_cartesian_coords(
-        #     extra_points[extra_ir_points_idx])
-        cart_extra_points = reciprocal_lattice.get_cartesian_coords(extra_points)
+        cart_extra_points = reciprocal_lattice.get_cartesian_coords(
+            extra_points[extra_ir_points_idx])
 
         # small cutoff is slightly larger than the max regular grid spacing
         # means at least 1 neighbour point will always be included in each
@@ -110,6 +106,8 @@ class PeriodicVoronoi(object):
 
         small_cutoff = np.max([len_diagonal, len_xy, len_xz, len_yz]) * 1.6
         big_cutoff = small_cutoff * 1.77
+        # small_cutoff = np.max([len_diagonal, len_xy, len_xz, len_yz]) * 1.6
+        # big_cutoff = small_cutoff * 1.77
 
         logger.debug("  ├── initializing ball tree")
         # use BallTree for quickly evaluating which points are within cutoffs
@@ -132,26 +130,23 @@ class PeriodicVoronoi(object):
             tree, cart_extra_points, small_cutoff)
 
         # get the irreducible small points
-        # small_points_in_all_points = supercell_idxs[small_points_idx] % len(all_points)
-        # mapping = ir_to_full_idx[small_points_in_all_points]
-        # unique_mappings, ir_idx = np.unique(mapping, return_index=True)
-        # small_points_idx = small_points_idx[ir_idx]
+        small_points_in_all_points = supercell_idxs[small_points_idx] % len(all_points)
+        mapping = ir_to_full_idx[small_points_in_all_points]
+        unique_mappings, ir_idx = np.unique(mapping, return_index=True)
+        small_points_idx = small_points_idx[ir_idx]
 
         # get a mapping to go from the ir small points to the full BZ.
-        # groups = groupby(np.arange(len(all_points)), ir_to_full_idx)
-        # grouped_ir = groups[unique_mappings]
-        # counts = [len(g) for g in grouped_ir]
-        # self._expand_ir = np.repeat(np.arange(len(ir_idx)), counts)
+        groups = groupby(np.arange(len(all_points)), ir_to_full_idx)
+        grouped_ir = groups[unique_mappings]
+        counts = [len(g) for g in grouped_ir]
+        self._expand_ir = np.repeat(np.arange(len(ir_idx)), counts)
 
         # get the indices of the expanded ir_small_points in all_points
-        # self._volume_in_final_idx = np.concatenate(grouped_ir)
+        self._volume_in_final_idx = np.concatenate(grouped_ir)
 
         # get the indices of ir_small_points_idx (i.e., the points for which we will
         # calculate the volume) in voronoi_points
         self._volume_points_idx = _get_loc(big_points_idx, small_points_idx)
-
-        # get the indices of the expanded ir_small_points in all_points
-        self._volume_in_final_idx = small_points_idx % len(all_points)
 
         # Prepopulate the final volumes array. By default, each point has the
         # volume of the original mesh. Note: at this point, the extra points
@@ -159,43 +154,7 @@ class PeriodicVoronoi(object):
         # compute_volumes
         self._final_volumes = np.full(len(all_points), 1 / len(original_points))
         self._final_volumes[len(original_points):] = 0
-
-        # s = Structure(
-        #     reciprocal_lattice.matrix * 10,
-        #     ["H"] * len(self._voronoi_points),
-        #     self._voronoi_points / 3 + 0.5,
-        #     coords_are_cartesian=False,
-        # )
-        # s.to(filename="voronoi.vasp", fmt="poscar")
-        # s = Structure(
-        #     reciprocal_lattice.matrix * 10,
-        #     ["H"] * len(self._volume_points_idx),
-        #     supercell_points[big_points_idx[self._volume_points_idx]]
-        #     / 3
-        #     + 0.5,
-        #     coords_are_cartesian=False,
-        #     )
-        # s.to(filename="volume-points.vasp", fmt="poscar")
-        # s = Structure(
-        #     reciprocal_lattice.matrix * 10,
-        #     ["H"] * len(small_points_idx),
-        #     supercell_points[small_points_idx]
-        #     / 3
-        #     + 0.5,
-        #     coords_are_cartesian=False,
-        # )
-        # s.to(filename="small-points.vasp", fmt="poscar")
-
-        # from pymatgen import Structure
-        #
-        # s = Structure(
-        #     reciprocal_lattice.matrix * 10,
-        #     ["H"] * len(supercell_points),
-        #     supercell_points / 3 + 0.5,
-        #     coords_are_cartesian=False,
-        #     )
-        # s.to(filename="super.vasp", fmt="poscar")
-        self._volume = np.linalg.det(reciprocal_lattice.matrix)
+        self._volume = reciprocal_lattice.volume
 
     def compute_volumes(self):
         logger.info("Calculating k-point Voronoi diagram:")
@@ -224,7 +183,7 @@ class PeriodicVoronoi(object):
         # divide volumes by reciprocal lattice volume to get the fractional volume
         volumes[self._volume_in_final_idx] = self._get_voronoi_volumes(
             indices, vertices
-        ) / self._volume  # [self._expand_ir]
+        )[self._expand_ir] / self._volume
 
         zero_vols = volumes == 0
         if any(zero_vols):
@@ -324,7 +283,7 @@ def get_supercell_points(supercell_dim, points, replicate_backwards=True):
 
 
 def _query_radius_iteratively(tree: BallTree, points: np.ndarray, cutoff: float,
-                              max_points_per_split=50000):
+                              max_points_per_split=10000):
     # iterative querying when we have lots of points to avoid memory issues
     unique_neighbor_idxs = np.array([], dtype=int)
     npoints = len(points)
@@ -332,7 +291,6 @@ def _query_radius_iteratively(tree: BallTree, points: np.ndarray, cutoff: float,
 
     i = 0
     for split in gen_even_slices(npoints, nsplits):
-        print(i)
         i += 1
         idxs = np.concatenate(tree.query_radius(points[split], cutoff), axis=0)
         unique_neighbor_idxs = np.unique(np.concatenate((idxs, unique_neighbor_idxs)))
