@@ -9,7 +9,7 @@ from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients, DOS, \
 from monty.json import MSONable
 
 from amset.dos import ADOS
-from amset.misc.constants import e
+from amset.constants import e
 from amset.data import AmsetData
 from amset.misc.log import log_time_taken
 
@@ -75,7 +75,6 @@ def _calculate_mobility(amset_data: AmsetData,
     all_rates = amset_data.scattering_rates
     all_vv = amset_data.velocities_product
     all_energies = amset_data.energies
-    kmask = amset_data.transport_mask
 
     mobility = np.zeros(n_t_size + (3, 3))
     for n, t in np.ndindex(n_t_size):
@@ -102,36 +101,11 @@ def _calculate_mobility(amset_data: AmsetData,
         vv = np.vstack(vv)
         lifetimes = 1 / np.vstack(rates)
 
-        # print("equiv_k", amset_data.full_kpoints[equiv_points])
-        # print("lifetimes", lifetimes[0, equiv_points])
-        # print("weights", amset_data.kpoint_weights[equiv_points])
-        # print("velocities", vv[0, :, :, equiv_points])
-        # equiv_points = amset_data.grouped_ir_to_full[-10]
-        # print("equiv_k", amset_data.full_kpoints[equiv_points])
-        # print("lifetimes", lifetimes[0, equiv_points])
-        # print("weights", amset_data.kpoint_weights[equiv_points])
-        # print("velocities", vv[0, :, :, equiv_points])
-
-        # equiv_points = amset_data.grouped_ir_to_full[-1]
-        # print("equiv_k", amset_data.full_kpoints[equiv_points])
-        # print("lifetimes", lifetimes[0, equiv_points])
-        # print("weights", amset_data.kpoint_weights[equiv_points])
-
-        # mask data to remove extra k-points that are not part of the regular
-        # k-point mesh (necessary as BoltzTraP2 doesn't support custom k-point
-        # weights.
-        # energies = energies[:, kmask]
-        # vv = vv[..., kmask]
-        # lifetimes = lifetimes[:, kmask]
-
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
         fermi = amset_data.fermi_levels[n, t][None]
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals for the temperature and doping
-        # epsilon, dos, vvdos, cdos = BTPDOS(
-        #     energies, vv, scattering_model=lifetimes,
-        #     npts=len(amset_data.dos.energies))
         epsilon, dos, vvdos, cdos = AMSETDOS(
             energies, vv, scattering_model=lifetimes,
             npts=len(amset_data.dos.energies),
@@ -158,17 +132,10 @@ def _calculate_mobility(amset_data: AmsetData,
 
 
 def _calculate_transport_properties(amset_data):
-    kmask = amset_data.transport_mask
     energies = np.vstack([amset_data.energies[spin]
                           for spin in amset_data.spins])
     vv = np.vstack([amset_data.velocities_product[spin]
                     for spin in amset_data.spins])
-
-    # mask data to remove extra k-points that are not part of the regular
-    # k-point mesh (necessary as BoltzTraP2 doesn't support custom k-point
-    # weights.
-    # energies = energies[:, kmask]
-    # vv = vv[..., kmask]
 
     n_t_size = (len(amset_data.doping), len(amset_data.temperatures))
 
@@ -181,17 +148,12 @@ def _calculate_transport_properties(amset_data):
         sum_rates = [np.sum(amset_data.scattering_rates[s][:, n, t], axis=0)
                      for s in amset_data.spins]
         lifetimes = 1 / np.vstack(sum_rates)
-        # lifetimes = lifetimes[:, kmask]
-        # print(lifetimes.min())
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
         fermi = amset_data.fermi_levels[n, t][None]
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals
-        # epsilon, dos, vvdos, cdos = BTPDOS(
-        #     energies, vv, scattering_model=lifetimes,
-        #     npts=len(amset_data.dos.energies))
         epsilon, dos, vvdos, cdos = AMSETDOS(
             energies, vv, scattering_model=lifetimes,
             npts=len(amset_data.dos.energies),
@@ -256,10 +218,8 @@ def AMSETDOS(eband,
         value will also be none. The sizes of the returned arrays are (npts, ),
         (npts,), (3, 3, npts) and (3, 3, 3, npts).
     """
-    # kpoint_weights = kpoint_weights * len(kpoint_weights)
     kpoint_weights = np.tile(kpoint_weights, (len(eband), 1))
     dos = ADOS(eband.T, erange=erange, npts=npts, weights=kpoint_weights.T)
-    # dos = ADOS(eband.T, erange=erange, npts=npts)
     npts = dos[0].size
     iu0 = np.array(np.triu_indices(3)).T
     vvdos = np.zeros((3, 3, npts))
@@ -302,5 +262,3 @@ def AMSETDOS(eband,
                         eband.T, weights=weights.T, erange=erange,
                         npts=npts)[1]
     return dos[0], dos[1], vvdos, cdos
-
-

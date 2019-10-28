@@ -13,10 +13,9 @@ from sklearn.neighbors.ball_tree import BallTree
 from tqdm import tqdm
 
 from amset import amset_defaults
-from amset.misc.constants import output_width
+from amset.constants import output_width
 from amset.misc.log import log_time_taken
 from amset.misc.util import gen_even_slices, groupby
-from pymatgen import Structure
 from pymatgen.core.lattice import Lattice
 from pymatgen.util.coord import lattice_points_in_supercell
 
