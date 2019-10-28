@@ -13,7 +13,8 @@ from amset.misc.log import log_list
 from amset.kpoints import (
     kpoints_to_first_bz,
     get_dense_kpoint_mesh_spglib,
-    symmetrize_kpoints)
+    symmetrize_kpoints,
+)
 from amset.interpolation.voronoi import PeriodicVoronoi
 
 __author__ = "Alex Ganose"
@@ -176,143 +177,30 @@ class BandDensifier(object):
             additional_kpoints = np.concatenate(additional_kpoints)
 
         interpolated_idxs = np.array(interpolated_idxs)
+        n_additional_kpoints = len(additional_kpoints)
 
         logger.info(
             "Densified {} kpoints with {} extra points".format(
-                len(interpolated_idxs), len(additional_kpoints)
+                len(interpolated_idxs), n_additional_kpoints
             )
         )
         log_list(kpoint_log, level=logging.DEBUG)
         additional_kpoints = kpoints_to_first_bz(additional_kpoints)
 
-        # symmetrize the interpolated k-point mesh. This is to make sure we make
-        # maximum use of symmetry as any new k-points will effective be free
-        additional_kpoints = symmetrize_kpoints(
-            self._amset_data.structure, additional_kpoints
-        )
-
-        # we may have added k-points around previously un-densified points, use
-        # the symmetry mapping to ensure that interpolated_idxs covers all
-        # symmetry equivalent points
-        ir_interpolated_idxs = np.unique(
-            self._amset_data.ir_to_full_kpoint_mapping[interpolated_idxs]
-        )
-
-        interpolated_idxs = np.concatenate(
-            self._amset_data.grouped_ir_to_full[ir_interpolated_idxs]
-        )
-
-        return kpoints_to_first_bz(additional_kpoints), interpolated_idxs
-
-    def get_fine_mesh(
-        self,
-        target_de: float = idefaults["fine_mesh_de"],
-        minimum_dim: Optional[np.ndarray] = None,
-    ):
-        mesh_de = np.full(self._grid_kpoints.shape, -1)
-        fd_cutoffs = self._amset_data.fd_cutoffs
-
-        if minimum_dim is not None:
-            # convert minimum dim into an energy difference for ease of use
-            minimum_de = (target_de * units.eV) * minimum_dim
-        else:
-            minimum_de = None
-
-        for band_energies in self._grid_energies:
-            # effectively make a supercell of the energies on the regular grid
-            # containing one extra plane of energies per dimension, on either
-            # face of the 3D energy mesh
-            pad_energies = np.pad(band_energies, 1, "wrap")
-
-            x_diffs = np.abs(np.diff(pad_energies, axis=2))
-            y_diffs = np.abs(np.diff(pad_energies, axis=1))
-            z_diffs = np.abs(np.diff(pad_energies, axis=0))
-
-            # remove the diffs related to the extra padding
-            x_diffs = x_diffs[1:-1, 1:-1, :].astype(float)
-            y_diffs = y_diffs[1:-1, :, 1:-1].astype(float)
-            z_diffs = z_diffs[:, 1:-1, 1:-1].astype(float)
-
-            #  calculate moving maxes
-            x_diff_averages = maximum_filter1d(x_diffs, 2, axis=2)[:, :, 1:]
-            y_diff_averages = maximum_filter1d(y_diffs, 2, axis=1)[:, 1:, :]
-            z_diff_averages = maximum_filter1d(z_diffs, 2, axis=0)[1:, :, :]
-
-            # stack the averages to get the formatted energy different array
-            band_de = np.stack(
-                (z_diff_averages, y_diff_averages, x_diff_averages), axis=-1
-            )
-
-            if minimum_de is not None:
-                band_de = np.maximum(band_de, minimum_de)
-
-            if fd_cutoffs:
-                # if the energies do not lie within the Fermi Dirac cutoffs
-                # set the dims to 0 as there is no point of interpolating
-                # around these k-points
-                mask = (band_energies > fd_cutoffs[0]) & (band_energies < fd_cutoffs[1])
-
-                # expand the mask as the Fermi surface defined by the cutoffs
-                # may also fall in the volume defined by an adjacent k-point
-                # even if the k-point itself is not included in the Fermi
-                # surface.
-                mask = maximum_filter(mask, footprint=np.ones((3, 3, 3)), mode="wrap")
-
-                # set points outside FD cutoffs to -1 so we can filter them later
-                band_de[~mask] = np.array([-1, -1, -1])
-
-            # take the dimensions if they are greater than the current dimensions
-            mesh_de = np.maximum(mesh_de, band_de)
-
-        # TODO: add test for all zero fine mesh points
-        fine_mesh_dims = np.ceil(mesh_de / (target_de * units.eV)).astype(int)
-        skip_points = (fine_mesh_dims <= 1).all(axis=3)
-
-        fine_mesh_dims[skip_points] = 1
-        fine_mesh_dims[fine_mesh_dims == 0] = 1
-
-        additional_kpoints = []
-        interpolated_idxs = []
-        kpoint_log = []
-
-        for i, j, k in np.ndindex(self._mesh):
-            dim = fine_mesh_dims[i, j, k]
-
-            if (dim == 1).all():
-                continue
-
-            grid_point = self._grid_kpoints[i, j, k]
-            kpt_str = _kpt_str.format(*grid_point)
-            dim_str = _dim_str.format(*dim)
-            kpoint_log.append("kpt: {}, mesh: {}".format(kpt_str, dim_str))
-            kpoints = get_dense_kpoint_mesh_spglib(dim, spg_order=True)
-
-            # remove [0, 0, 0] as other wise this will overlap with the existing mesh
-            kpoints = kpoints[1:]
-            kpoints /= self._mesh
-            kpoints += grid_point
-            additional_kpoints.append(kpoints)
-            interpolated_idxs.append(self._idxs[i, j, k])
-
-        if additional_kpoints:
-            additional_kpoints = np.concatenate(additional_kpoints)
-
-        interpolated_idxs = np.array(interpolated_idxs)
-
-        logger.info(
-            "Densified {} kpoints with {} extra points".format(
-                len(interpolated_idxs), len(additional_kpoints)
-            )
-        )
-        log_list(kpoint_log, level=logging.DEBUG)
-        additional_kpoints = kpoints_to_first_bz(additional_kpoints)
-
+        logger.info("Symmetrizing dense k-point mesh")
         # symmetrize the interpolated k-point mesh. This is to make sure we make
         # maximum use of symmetry as any new k-points will effective be free
         # This step is also necessary if fd_cutoffs is true, to avoid the effects
         # of aliasing from the maximum_filter
         additional_kpoints = symmetrize_kpoints(
             self._amset_data.structure, additional_kpoints
+        )
+        log_list(
+            [
+                "{} k-points added in symmetrization".format(
+                    len(additional_kpoints) - n_additional_kpoints
+                )
+            ]
         )
 
         # we may have added k-points around previously un-densified points, use
@@ -361,8 +249,6 @@ class BandDensifier(object):
             symprec=symprec,
         )
 
-        new_ir_idx = len(self._amset_data.full_kpoints) + mapping_info["ir_kpoints_idx"]
-        ir_kpoints_idx = np.concatenate((self._amset_data.ir_kpoints_idx, new_ir_idx))
         ir_to_full_kpoint_mapping = np.concatenate(
             (
                 self._amset_data.ir_to_full_kpoint_mapping,
@@ -376,7 +262,6 @@ class BandDensifier(object):
             self._amset_data.full_kpoints,
             self._amset_data.kpoint_mesh,
             additional_kpoints,
-            ir_points_idx=ir_kpoints_idx,
             ir_to_full_idx=ir_to_full_kpoint_mapping,
             extra_ir_points_idx=mapping_info["ir_kpoints_idx"],
         )
@@ -413,8 +298,6 @@ def get_minimum_imp_mesh(amset_data, inverse_screening_length_sq):
     k_cart = amset_data.structure.lattice.reciprocal_lattice.get_fractional_coords(
         k_frac
     )
-    dim = 1 / k_cart
-
     # now get factor of dim in current mesh
-    return np.array([3, 3, 3])
-    # return np.ceil(dim / amset_data.kpoint_mesh).astype(int)
+    dim = 1 / k_cart
+    return np.ceil(dim / amset_data.kpoint_mesh).astype(int)
