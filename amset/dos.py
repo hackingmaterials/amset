@@ -8,6 +8,7 @@ import numpy as np
 from typing import Optional, Union, Tuple, Dict
 
 from BoltzTraP2 import units
+from BoltzTraP2.bandlib import _suggest_nbins
 from BoltzTraP2.fd import FD
 from monty.json import MSONable
 
@@ -171,11 +172,11 @@ class FermiDos(Dos, MSONable):
             return fermi
 
 
-def ADOS(eigs, erange=None, npts=None, weights=None):
+def get_dos(eigs, erange=None, npts=None, weights=None):
     """Compute the density of states.
 
     Args:
-        eband: (nkpoints, nbands) array with the band energies
+        eigs: (nkpoints, nbands) array with the band energies
         erange: 2-tuple with the minimum and maximum energies to be considered.
             If its value is None, take the minimum and maximum band energies.
         npts: number of bins to include in the histogram. If omitted,
@@ -189,8 +190,8 @@ def ADOS(eigs, erange=None, npts=None, weights=None):
     nkpt, nband = np.shape(eigs)
     if erange is None:
         erange = (eigs.min(), eigs.max())
-    # if npts is None:
-    #     npts = _suggest_nbins(eigs, erange)
+    if npts is None:
+        npts = _suggest_nbins(eigs, erange)
     pip = np.histogram(eigs, npts, weights=weights, range=erange)
     npts = pip[1].size - 1
     tdos = np.zeros((2, npts), dtype=float)

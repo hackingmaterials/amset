@@ -8,7 +8,7 @@ from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients, DOS, \
     lambda_to_tau
 from monty.json import MSONable
 
-from amset.dos import ADOS
+from amset.dos import get_dos
 from amset.constants import e
 from amset.data import AmsetData
 from amset.misc.log import log_time_taken
@@ -75,11 +75,13 @@ def _calculate_mobility(amset_data: AmsetData,
     all_rates = amset_data.scattering_rates
     all_vv = amset_data.velocities_product
     all_energies = amset_data.energies
+    all_curvature = amset_data.curvature
 
     mobility = np.zeros(n_t_size + (3, 3))
     for n, t in np.ndindex(n_t_size):
         energies = []
         vv = []
+        curvature = []
         rates = []
         for spin in amset_data.spins:
             cb_idx = amset_data.vb_idx[spin] + 1
@@ -87,18 +89,20 @@ def _calculate_mobility(amset_data: AmsetData,
                 # electrons
                 energies.append(all_energies[spin][cb_idx:])
                 vv.append(all_vv[spin][cb_idx:])
+                curvature.append(all_curvature[spin][cb_idx:])
                 rates.append(np.sum(all_rates[spin][rate_idx, n, t, cb_idx:],
                                     axis=0))
-
             else:
                 # holes
                 energies.append(all_energies[spin][:cb_idx])
                 vv.append(all_vv[spin][:cb_idx])
+                curvature.append(all_curvature[spin][:cb_idx])
                 rates.append(np.sum(all_rates[spin][rate_idx, n, t, :cb_idx],
                                     axis=0))
 
         energies = np.vstack(energies)
         vv = np.vstack(vv)
+        curvature = np.vstack(curvature)
         lifetimes = 1 / np.vstack(rates)
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
@@ -106,13 +110,13 @@ def _calculate_mobility(amset_data: AmsetData,
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals for the temperature and doping
-        epsilon, dos, vvdos, cdos = AMSETDOS(
-            energies, vv, scattering_model=lifetimes,
+        epsilon, dos, vvdos, cdos = get_transport_dos(
+            energies, vv, cband=curvature, scattering_model=lifetimes,
             npts=len(amset_data.dos.energies),
             kpoint_weights=amset_data.kpoint_weights)
 
         _, l0, l1, l2, lm11 = fermiintegrals(
-            epsilon, dos, vvdos, mur=fermi, Tr=temp,
+            epsilon, dos, vvdos, cdos=cdos, mur=fermi, Tr=temp,
             dosweight=amset_data.dos.dos_weight)
 
         # Compute the Onsager coefficients from Fermi integrals
@@ -132,16 +136,16 @@ def _calculate_mobility(amset_data: AmsetData,
 
 
 def _calculate_transport_properties(amset_data):
-    energies = np.vstack([amset_data.energies[spin]
-                          for spin in amset_data.spins])
-    vv = np.vstack([amset_data.velocities_product[spin]
-                    for spin in amset_data.spins])
+    energies = np.vstack([amset_data.energies[spin] for spin in amset_data.spins])
+    vv = np.vstack([amset_data.velocities_product[spin] for spin in amset_data.spins])
+    curvature = np.vstack([amset_data.curvature[spin] for spin in amset_data.spins])
 
     n_t_size = (len(amset_data.doping), len(amset_data.temperatures))
 
     sigma = np.zeros(n_t_size + (3, 3))
     seebeck = np.zeros(n_t_size + (3, 3))
     kappa = np.zeros(n_t_size + (3, 3))
+    hall = np.zeros(n_t_size + (3, 3))
 
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in np.ndindex(n_t_size):
@@ -154,13 +158,13 @@ def _calculate_transport_properties(amset_data):
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals
-        epsilon, dos, vvdos, cdos = AMSETDOS(
-            energies, vv, scattering_model=lifetimes,
+        epsilon, dos, vvdos, cdos = get_transport_dos(
+            energies, vv, cband=curvature, scattering_model=lifetimes,
             npts=len(amset_data.dos.energies),
             kpoint_weights=amset_data.kpoint_weights)
 
         _, l0, l1, l2, lm11 = fermiintegrals(
-            epsilon, dos, vvdos, mur=fermi, Tr=temp,
+            epsilon, dos, vvdos, cdos=cdos, mur=fermi, Tr=temp,
             dosweight=amset_data.dos.dos_weight)
 
         volume = (amset_data.structure.lattice.volume * units.Angstrom ** 3)
@@ -168,8 +172,7 @@ def _calculate_transport_properties(amset_data):
         # Compute the Onsager coefficients from Fermi integrals
         # Don't store the Hall coefficient as we don't have the curvature
         # information.
-        # TODO: Fix Hall coefficient
-        sigma[n, t], seebeck[n, t], kappa[n, t], _ = \
+        sigma[n, t], seebeck[n, t], kappa[n, t], hall[n, t] = \
             calc_Onsager_coefficients(l0, l1, l2, fermi, temp, volume)
 
     # convert seebeck to µV/K
@@ -178,14 +181,14 @@ def _calculate_transport_properties(amset_data):
     return sigma, seebeck, kappa
 
 
-def AMSETDOS(eband,
-             vvband,
-             cband=None,
-             erange=None,
-             npts=None,
-             scattering_model="uniform_tau",
-             kpoint_weights=None,
-             ):
+def get_transport_dos(eband,
+                      vvband,
+                      cband=None,
+                      erange=None,
+                      npts=None,
+                      scattering_model="uniform_tau",
+                      kpoint_weights=None,
+                      ):
     """Compute the DOS, transport DOS and "curvature DOS".
 
     The transport DOS is weighted by the outer product of the group velocity
@@ -219,7 +222,7 @@ def AMSETDOS(eband,
         (npts,), (3, 3, npts) and (3, 3, 3, npts).
     """
     kpoint_weights = np.tile(kpoint_weights, (len(eband), 1))
-    dos = ADOS(eband.T, erange=erange, npts=npts, weights=kpoint_weights.T)
+    dos = get_dos(eband.T, erange=erange, npts=npts, weights=kpoint_weights.T)
     npts = dos[0].size
     iu0 = np.array(np.triu_indices(3)).T
     vvdos = np.zeros((3, 3, npts))
@@ -244,7 +247,7 @@ def AMSETDOS(eband,
 
     for i, j in iu0:
         weights = vvband[:, i, j, :] * multpl * kpoint_weights
-        vvdos[i, j] = ADOS(
+        vvdos[i, j] = get_dos(
             eband.T, weights=weights.T, erange=erange, npts=npts)[1]
     il1 = np.tril_indices(3, -1)
     iu1 = np.triu_indices(3, 1)
@@ -257,8 +260,8 @@ def AMSETDOS(eband,
         for i in range(3):
             for j in range(3):
                 for k in range(3):
-                    weights = cband[:, i, j, k, :] * multpl * multpl
-                    cdos[i, j, k] = DOS(
+                    weights = cband[:, i, j, k, :] * multpl * multpl * kpoint_weights
+                    cdos[i, j, k] = get_dos(
                         eband.T, weights=weights.T, erange=erange,
                         npts=npts)[1]
     return dos[0], dos[1], vvdos, cdos

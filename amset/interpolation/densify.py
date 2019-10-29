@@ -231,12 +231,12 @@ class BandDensifier(object):
         # have to use amset_data scissor and not the user specified band gap,
         # as there is no guarantee that the extra k-points will go through the
         # CBM & VBM
-        energies, vvelocities, projections, mapping_info = self._interpolater.get_energies(
+        energies, vvelocities, curvature, projections, mapping_info = self._interpolater.get_energies(
             additional_kpoints,
             energy_cutoff=self._energy_cutoff,
             scissor=self._amset_data.scissor / units.eV,
             return_velocity=True,
-            return_effective_mass=False,
+            return_curvature=True,
             return_projections=True,
             atomic_units=True,
             return_vel_outer_prod=True,
@@ -264,6 +264,7 @@ class BandDensifier(object):
             additional_kpoints,
             energies,
             vvelocities,
+            curvature,
             projections,
             kpoint_weights,
             mapping_info["ir_kpoints_idx"],

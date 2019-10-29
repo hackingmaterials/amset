@@ -15,7 +15,7 @@ from pymatgen import Spin, Structure
 from amset.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
 from amset.misc.util import groupby, cast_dict
 from amset.misc.log import log_list
-from amset.dos import FermiDos, ADOS
+from amset.dos import FermiDos, get_dos
 from amset import amset_defaults as defaults
 
 __author__ = "Alex Ganose"
@@ -34,6 +34,7 @@ class AmsetData(MSONable):
                  structure: Structure,
                  energies: Dict[Spin, np.ndarray],
                  vvelocities_product: Dict[Spin, np.ndarray],
+                 curvature: Dict[Spin, np.ndarray],
                  projections: Dict[Spin, Dict[str, np.ndarray]],
                  kpoint_mesh: np.ndarray,
                  full_kpoints: np.ndarray,
@@ -56,6 +57,7 @@ class AmsetData(MSONable):
         self.structure = structure
         self.energies = energies
         self.velocities_product = vvelocities_product
+        self.curvature = curvature
         self.kpoint_mesh = kpoint_mesh
         self.full_kpoints = full_kpoints
         self.ir_kpoints = ir_kpoints
@@ -122,7 +124,7 @@ class AmsetData(MSONable):
         for spin in self.spins:
             kpoint_weights = np.tile(self.kpoint_weights,
                                      (len(self.energies[spin]), 1))
-            emesh, dos[spin] = ADOS(
+            emesh, dos[spin] = get_dos(
                 self.energies[spin].T, erange=(emin, emax), npts=epoints,
                 weights=kpoint_weights.T)
 
@@ -276,6 +278,7 @@ class AmsetData(MSONable):
                           extra_kpoints: np.ndarray,
                           extra_energies: Dict[Spin, np.ndarray],
                           extra_vvelocities: Dict[Spin, np.ndarray],
+                          extra_curvature: Dict[Spin, np.ndarray],
                           extra_projections: Dict[Spin, np.ndarray],
                           kpoint_weights: np.ndarray,
                           ir_kpoints_idx: np.ndarray,
@@ -296,6 +299,10 @@ class AmsetData(MSONable):
         self.velocities_product = {
             s: np.concatenate((self.velocities_product[s],
                                extra_vvelocities[s]), axis=3)
+            for s in self.spins}
+        self.curvature = {
+            s: np.concatenate((self.curvature[s],
+                               extra_curvature[s]), axis=3)
             for s in self.spins}
         self._projections = {
             s: {
