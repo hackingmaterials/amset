@@ -41,6 +41,13 @@ __date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
 
+_all_scatterers = (
+        AbstractElasticScattering.__subclasses__() +
+        AbstractInelasticScattering.__subclasses__() +
+        AbstractBasicScattering.__subclasses__()
+)
+_scattering_mechanisms = {m.name: m for m in _all_scatterers}
+
 
 class ScatteringCalculator(MSONable):
 
@@ -105,23 +112,18 @@ class ScatteringCalculator(MSONable):
     @staticmethod
     def get_scatterers(scattering_type: Union[str, List[str], float],
                        materials_properties: Dict[str, Any],
-                       amset_data: AmsetData
+                       amset_data: AmsetData,
+                       prefer_full_imp: bool = True,
                        ) -> List[Union[AbstractElasticScattering,
                                        AbstractInelasticScattering,
                                        AbstractBasicScattering]]:
         # dynamically determine the available scattering mechanism subclasses
-        scattering_mechanisms = {
-            m.name: m for m in
-            AbstractElasticScattering.__subclasses__() +
-            AbstractInelasticScattering.__subclasses__() +
-            AbstractBasicScattering.__subclasses__()}
-
         if scattering_type == "auto":
             logger.info("Examining material properties to determine possible "
                         "scattering mechanisms")
 
             scattering_type = [
-                name for name, mechanism in scattering_mechanisms.items()
+                name for name, mechanism in _scattering_mechanisms.items()
                 if all([materials_properties.get(x, False) for x in
                         mechanism.required_properties])]
 
@@ -129,10 +131,16 @@ class ScatteringCalculator(MSONable):
                 raise ValueError("No scattering mechanisms possible with "
                                  "material properties")
 
+            if prefer_full_imp:
+                avoid = "IMP(BH)"
+            else:
+                avoid = "IMP"
+            scattering_type = [s for s in scattering_type if s != avoid]
+
         else:
             for name in scattering_type:
                 missing_properties = [
-                    p for p in scattering_mechanisms[name].required_properties
+                    p for p in _scattering_mechanisms[name].required_properties
                     if not materials_properties.get(p, False)]
 
                 if missing_properties:
@@ -144,7 +152,7 @@ class ScatteringCalculator(MSONable):
         logger.info("The following scattering mechanisms will be "
                     "calculated: {}".format(", ".join(scattering_type)))
 
-        return [scattering_mechanisms[name](materials_properties, amset_data)
+        return [_scattering_mechanisms[name](materials_properties, amset_data)
                 for name in scattering_type]
 
     def calculate_scattering_rates(self):
