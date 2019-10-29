@@ -19,12 +19,11 @@ from monty.json import MSONable
 from scipy.ndimage import gaussian_filter1d
 
 from BoltzTraP2 import units, sphere, fite
-from spglib import spglib
 
 from amset.dos import FermiDos, ADOS
-from amset.kpoints import get_symmetry_equivalent_kpoints
+from amset.kpoints import get_symmetry_equivalent_kpoints, get_kpoints, \
+    get_kpoint_mesh
 from amset.misc.log import log_time_taken, log_list
-from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure, BandStructureSymmLine)
@@ -183,23 +182,12 @@ class Interpolater(MSONable):
         log_list(["k-point mesh: {}".format(str_kmesh),
                   "energy cutoff: {} eV".format(energy_cutoff)])
 
-        # determine energy cutoffs
-        if energy_cutoff and is_metal:
-            min_e = self._band_structure.efermi - energy_cutoff
-            max_e = self._band_structure.efermi + energy_cutoff
-
-        elif energy_cutoff:
-            min_e = self._band_structure.get_vbm()['energy'] - energy_cutoff
-            max_e = self._band_structure.get_cbm()['energy'] + energy_cutoff
-
-        else:
-            min_e = min([self._band_structure.bands[spin].min()
-                         for spin in self._spins])
-            max_e = max([self._band_structure.bands[spin].max()
-                         for spin in self._spins])
+        # only calculate the energies for the bands within the energy cutoff
+        min_e, max_e = _get_energy_cutoffs(energy_cutoff, self._band_structure)
 
         energies = {}
         vvelocities = {}
+        effective_masses = {}
         projections = defaultdict(dict)
         new_vb_idx = {}
         for spin in self._spins:
@@ -253,16 +241,12 @@ class Interpolater(MSONable):
                 bandgap=bandgap, return_scissor=True)
 
             # if material is semiconducting, set Fermi level to middle of gap
-            e_vbm = max([np.max(energies[s][:new_vb_idx[s]+1])
-                         for s in self._spins])
-            e_cbm = min([np.min(energies[s][new_vb_idx[s]+1:])
-                         for s in self._spins])
-            efermi = (e_vbm + e_cbm) / 2
+            efermi = _get_efermi(energies, new_vb_idx)
 
         # get the actual k-points used in the BoltzTraP2 interpolation
         # unfortunately, BoltzTraP2 doesn't expose this information so we
         # have to get it ourselves
-        ir_kpts, _, full_kpts, ir_kpts_idx, ir_to_full_idx = _get_kpoints(
+        ir_kpts, _, full_kpts, ir_kpts_idx, ir_to_full_idx = get_kpoints(
             self.interpolation_mesh, self._band_structure.structure,
             symprec=symprec, return_full_kpoints=True)
 
@@ -324,14 +308,14 @@ class Interpolater(MSONable):
                 isinstance(kpoints[0], int_types):
             # k-points is given as a cut-off or mesh
             if isinstance(kpoints, numeric_types):
-                kpoints = _calculate_kpoint_mesh(
+                kpoints = get_kpoint_mesh(
                     self._band_structure.structure, kpoints)
 
             interpolation_mesh = np.asarray(kpoints)
             str_kmesh = "x".join(map(str, kpoints))
             mesh_info.append("k-point mesh: {}".format(str_kmesh))
 
-            _, _, kpoints, _, _ = _get_kpoints(
+            _, _, kpoints, _, _ = get_kpoints(
                 kpoints, self._band_structure.structure, symprec=symprec,
                 return_full_kpoints=True, boltztrap_ordering=False)
             weights = np.full(len(kpoints), 1 / len(kpoints))
@@ -479,17 +463,7 @@ class Interpolater(MSONable):
             skip = int(skip_coefficients * n_equivalences)
 
         # only calculate the energies for the bands within the energy cutoff
-        if energy_cutoff and self._band_structure.is_metal():
-            min_e = self._band_structure.efermi - energy_cutoff
-            max_e = self._band_structure.efermi + energy_cutoff
-        elif energy_cutoff:
-            min_e = self._band_structure.get_vbm()['energy'] - energy_cutoff
-            max_e = self._band_structure.get_cbm()['energy'] + energy_cutoff
-        else:
-            min_e = min([self._band_structure.bands[spin].min()
-                         for spin in self._spins])
-            max_e = max([self._band_structure.bands[spin].max()
-                         for spin in self._spins])
+        min_e, max_e = _get_energy_cutoffs(energy_cutoff, self._band_structure)
 
         if coords_are_cartesian:
             kpoints = self._band_structure.structure.lattice. \
@@ -544,23 +518,9 @@ class Interpolater(MSONable):
                 # and appropriate rotation matrix. The weird ordering of the
                 # indices is because the velocities has the shape
                 # (3, nbands, nkpoints)
-                # print(velocities[spin].shape)
-                v = velocities[spin].transpose((1, 2, 0))
-                # print(v.shape)
-                v = v[:, ir_to_full_idx, :]
-
-                # print(v[1, -1])
-                # print(kpoints[ir_to_full_idx[-1]])
-                # print("rot", rot_mapping[-1])
-
-                v = np.array(
-                    [[np.dot(r, k) for k, r in zip(vel_band, rot_mapping)]
-                     for vel_band in v])
-                velocities[spin] = v.transpose((2, 0, 1))
-                # velocities[spin] = np.einsum(
-                #     'kij,jkl->lij', velocities[spin][:, :, ir_to_full_idx],
-                #     rot_mapping)
-                # print(velocities[spin].shape)
+                velocities[spin] = np.einsum(
+                    'kij,jkl->lij', velocities[spin][:, :, ir_to_full_idx],
+                    rot_mapping)
 
             if not self._band_structure.is_metal():
                 vb_idx = max(self._band_structure.get_vbm()["band_index"][spin])
@@ -579,20 +539,11 @@ class Interpolater(MSONable):
                 iu1 = np.triu_indices(3, 1)
 
                 velocities[spin] = velocities[spin].transpose((1, 0, 2))
-                new_vels = []
-                for vb in velocities[spin]:
-                    vvband = np.zeros((3, 3, nkpoints))
-                    vvband[iu0[0], iu0[1]] = vb[iu0[0]] * vb[iu0[1]]
-                    vvband[il1[0], il1[1]] = vvband[iu1[0], iu1[1]]
-                    new_vels.append(vvband)
-                velocities[spin] = np.array(new_vels)
-                # print(velocities[spin].shape)
-                # velocities[spin] = velocities[spin].transpose((2, 0, 1))
-                # vvband = np.zeros((len(velocities[spin]), 3, 3, nkpoints))
-                # vvband[:, iu0[0], iu0[1]] = (velocities[spin][:, iu0[0]] *
-                #                              velocities[spin][:, iu0[1]])
-                # vvband[:, il1[0], il1[1]] = vvband[:, iu1[0], iu1[1]]
-                # velocities[spin] = vvband
+                vvband = np.zeros((len(velocities[spin]), 3, 3, nkpoints))
+                vvband[:, iu0[0], iu0[1]] = (velocities[spin][:, iu0[0]] *
+                                             velocities[spin][:, iu0[1]])
+                vvband[:, il1[0], il1[1]] = vvband[:, iu1[0], iu1[1]]
+                velocities[spin] = vvband
 
             if return_effective_mass:
                 effective_masses[spin] = fitted[2]
@@ -669,11 +620,7 @@ class Interpolater(MSONable):
                     efermi *= units.eV
             else:
                 # if semiconducting, set Fermi level to middle of gap
-                e_vbm = max([np.max(energies[s][:new_vb_idx[s]+1])
-                             for s in self._spins])
-                e_cbm = min([np.min(energies[s][new_vb_idx[s]+1:])
-                             for s in self._spins])
-                efermi = (e_vbm + e_cbm) / 2
+                efermi = _get_efermi(energies, new_vb_idx)
 
             to_return.append(efermi)
 
@@ -725,7 +672,7 @@ class Interpolater(MSONable):
         Returns:
             The density of states.
         """
-        kpoints, weights = _get_kpoints(
+        kpoints, weights = get_kpoints(
             kpoint_mesh, self._band_structure.structure, symprec=symprec)
 
         energies, efermi = self.get_energies(
@@ -791,8 +738,8 @@ class Interpolater(MSONable):
             The density of states.
         """
         ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx = \
-            _get_kpoints(kpoint_mesh, self._band_structure.structure,
-                         symprec=symprec, return_full_kpoints=True)
+            get_kpoints(kpoint_mesh, self._band_structure.structure,
+                        symprec=symprec, return_full_kpoints=True)
 
         energies = self.get_energies(
             ir_kpoints, scissor=scissor, bandgap=bandgap,
@@ -998,94 +945,26 @@ def _get_projections(projections: np.ndarray
     return ("s", s_orbital), ("p", p_orbital)
 
 
-def _get_kpoints(kpoint_mesh: Union[float, List[int]],
-                 structure: Structure,
-                 symprec: float = 0.01,
-                 return_full_kpoints: bool = False,
-                 boltztrap_ordering: bool = True
-                 ) -> Tuple[np.ndarray, ...]:
-    """Gets the symmetry inequivalent k-points from a k-point mesh.
-
-    Follows the same process as SpacegroupAnalyzer.get_ir_reciprocal_mesh
-    but is faster and allows returning of the full k-point mesh and mapping.
-
-    Args:
-        kpoint_mesh: The k-point mesh as a 1x3 array. E.g.,``[6, 6, 6]``.
-            Alternatively, if a single value is provided this will be
-            treated as a k-point spacing cut-off and the k-points will be generated
-            automatically.  Cutoff is length in Angstroms and corresponds to
-            non-overlapping radius in a hypothetical supercell (Moreno-Soler length
-            cutoff).
-        structure: A structure.
-        symprec: Symmetry tolerance used when determining the symmetry
-            inequivalent k-points on which to interpolate.
-        return_full_kpoints: Whether to return the full list of k-points
-            covering the entire Brillouin zone and the indices of
-            inequivalent k-points.
-        boltztrap_ordering: Whether to return the k-points in the same order as
-            given by the BoltzTraP2.fite.getBTPBands.
-
-    Returns:
-        The irreducible k-points and their weights as tuple, formatted as::
-
-            (ir_kpoints, weights)
-
-        If return_full_kpoints, the data will be returned as::
-
-            (ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx)
-
-        Where ``ir_kpoints_idx`` is the index of the unique irreducible k-points
-        in ``full_kpoints``. ``ir_to_full_idx`` is a list of indices that can be
-        used to construct the full Brillouin zone from the ir_mesh. Note the
-        ir -> full conversion will only work with calculated scalar properties
-        such as energy (not vector properties such as velocity).
-    """
-    if isinstance(kpoint_mesh, (int, float)):
-        kpoint_mesh = _calculate_kpoint_mesh(structure, kpoint_mesh)
-
-    atoms = AseAtomsAdaptor().get_atoms(structure)
-
-    if not symprec:
-        symprec = 1e-8
-
-    mapping, grid = spglib.get_ir_reciprocal_mesh(
-        kpoint_mesh, atoms, symprec=symprec)
-    full_kpoints = grid / kpoint_mesh
-
-    if boltztrap_ordering:
-        sort_idx = np.lexsort((full_kpoints[:, 2], full_kpoints[:, 2] < 0,
-                               full_kpoints[:, 1], full_kpoints[:, 1] < 0,
-                               full_kpoints[:, 0], full_kpoints[:, 0] < 0))
-        full_kpoints = full_kpoints[sort_idx]
-        mapping = mapping[sort_idx]
-
-        mapping_dict = {}
-        new_mapping = []
-        for i, n in enumerate(mapping):
-            if n in mapping_dict:
-                new_mapping.append(mapping_dict[n])
-            else:
-                mapping_dict[n] = i
-                new_mapping.append(i)
-        mapping = new_mapping
-
-    ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
-        mapping, return_inverse=True, return_counts=True)
-    ir_kpoints = full_kpoints[ir_kpoints_idx]
-
-    if return_full_kpoints:
-        return ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx
+def _get_energy_cutoffs(energy_cutoff: float, band_structure: BandStructure
+                        ) -> Tuple[float, float]:
+    if energy_cutoff and band_structure.is_metal():
+        min_e = band_structure.efermi - energy_cutoff
+        max_e = band_structure.efermi + energy_cutoff
+    elif energy_cutoff:
+        min_e = band_structure.get_vbm()['energy'] - energy_cutoff
+        max_e = band_structure.get_cbm()['energy'] + energy_cutoff
     else:
-        return ir_kpoints, weights
+        min_e = min([band_structure.bands[spin].min()
+                     for spin in band_structure.bands.keys()])
+        max_e = max([band_structure.bands[spin].max()
+                     for spin in band_structure.bands.keys()])
+
+    return min_e, max_e
 
 
-def _calculate_kpoint_mesh(structure: Structure, cutoff_length: float):
-    """Calculate reciprocal-space sampling with real-space cut-off.
-
-    """
-    reciprocal_lattice = structure.lattice.reciprocal_lattice_crystallographic
-
-    # Get reciprocal cell vector magnitudes
-    abc_recip = np.array(reciprocal_lattice.abc)
-
-    return np.ceil(abc_recip * 2 * cutoff_length).astype(int)
+def _get_efermi(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> float:
+    e_vbm = max([np.max(energies[spin][:vb_idx[spin] + 1])
+                 for spin in energies.keys()])
+    e_cbm = min([np.min(energies[spin][vb_idx[spin] + 1:])
+                 for spin in energies.keys()])
+    return (e_vbm + e_cbm) / 2
