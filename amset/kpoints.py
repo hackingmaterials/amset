@@ -85,11 +85,6 @@ def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
         all_rotations = np.concatenate((rotation_matrices, -rotation_matrices))
         rotation_matrices = np.unique(all_rotations, axis=0)
 
-    cart_rotation_matrices = np.array(
-        [similarity_transformation(
-            structure.lattice.reciprocal_lattice.matrix, r.T)
-         for r in rotation_matrices])
-
     equiv_points_mapping = {}
     rotation_matrix_mapping = {}
     mapping = []
@@ -105,8 +100,7 @@ def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
             new_points = shift_and_round(np.dot(kpoints[i], rotation_matrices))
 
             equiv_points_mapping.update(zip(new_points, [i] * len(new_points)))
-            rotation_matrix_mapping[i] = dict(
-                zip(new_points, cart_rotation_matrices))
+            rotation_matrix_mapping[i] = dict(zip(new_points, rotation_matrices))
 
             mapping.append(i)
             rot_mapping.append(np.eye(3))
