@@ -75,13 +75,13 @@ def _calculate_mobility(amset_data: AmsetData,
     all_rates = amset_data.scattering_rates
     all_vv = amset_data.velocities_product
     all_energies = amset_data.energies
-    all_curvature = amset_data.curvature
+    # all_curvature = amset_data.curvature
 
     mobility = np.zeros(n_t_size + (3, 3))
     for n, t in np.ndindex(n_t_size):
         energies = []
         vv = []
-        curvature = []
+        # curvature = []
         rates = []
         for spin in amset_data.spins:
             cb_idx = amset_data.vb_idx[spin] + 1
@@ -89,20 +89,20 @@ def _calculate_mobility(amset_data: AmsetData,
                 # electrons
                 energies.append(all_energies[spin][cb_idx:])
                 vv.append(all_vv[spin][cb_idx:])
-                curvature.append(all_curvature[spin][cb_idx:])
+                # curvature.append(all_curvature[spin][cb_idx:])
                 rates.append(np.sum(all_rates[spin][rate_idx, n, t, cb_idx:],
                                     axis=0))
             else:
                 # holes
                 energies.append(all_energies[spin][:cb_idx])
                 vv.append(all_vv[spin][:cb_idx])
-                curvature.append(all_curvature[spin][:cb_idx])
+                # curvature.append(all_curvature[spin][:cb_idx])
                 rates.append(np.sum(all_rates[spin][rate_idx, n, t, :cb_idx],
                                     axis=0))
 
         energies = np.vstack(energies)
         vv = np.vstack(vv)
-        curvature = np.vstack(curvature)
+        # curvature = np.vstack(curvature)
         lifetimes = 1 / np.vstack(rates)
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
@@ -111,7 +111,7 @@ def _calculate_mobility(amset_data: AmsetData,
 
         # obtain the Fermi integrals for the temperature and doping
         epsilon, dos, vvdos, cdos = get_transport_dos(
-            energies, vv, cband=curvature, scattering_model=lifetimes,
+            energies, vv, scattering_model=lifetimes,
             npts=len(amset_data.dos.energies),
             kpoint_weights=amset_data.kpoint_weights)
 
@@ -138,7 +138,7 @@ def _calculate_mobility(amset_data: AmsetData,
 def _calculate_transport_properties(amset_data):
     energies = np.vstack([amset_data.energies[spin] for spin in amset_data.spins])
     vv = np.vstack([amset_data.velocities_product[spin] for spin in amset_data.spins])
-    curvature = np.vstack([amset_data.curvature[spin] for spin in amset_data.spins])
+    # curvature = np.vstack([amset_data.curvature[spin] for spin in amset_data.spins])
 
     n_t_size = (len(amset_data.doping), len(amset_data.temperatures))
 
@@ -159,7 +159,7 @@ def _calculate_transport_properties(amset_data):
 
         # obtain the Fermi integrals
         epsilon, dos, vvdos, cdos = get_transport_dos(
-            energies, vv, cband=curvature, scattering_model=lifetimes,
+            energies, vv, scattering_model=lifetimes,
             npts=len(amset_data.dos.energies),
             kpoint_weights=amset_data.kpoint_weights)
 
@@ -172,7 +172,7 @@ def _calculate_transport_properties(amset_data):
         # Compute the Onsager coefficients from Fermi integrals
         # Don't store the Hall coefficient as we don't have the curvature
         # information.
-        sigma[n, t], seebeck[n, t], kappa[n, t], hall[n, t] = \
+        sigma[n, t], seebeck[n, t], kappa[n, t], _ = \
             calc_Onsager_coefficients(l0, l1, l2, fermi, temp, volume)
 
     # convert seebeck to µV/K
