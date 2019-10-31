@@ -302,7 +302,7 @@ class AmsetData(MSONable):
             for s in self.spins}
         self.curvature = {
             s: np.concatenate((self.curvature[s],
-                               extra_curvature[s]), axis=3)
+                               extra_curvature[s]), axis=1)
             for s in self.spins}
         self._projections = {
             s: {
