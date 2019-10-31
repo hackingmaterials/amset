@@ -100,6 +100,8 @@ class ScatteringCalculator(MSONable):
     def scatterer_labels(self):
         elastic_names = [s.name for s in self.elastic_scatterers]
 
+        basic_names = [s.name for s in self.basic_scatterers]
+
         if self.max_g_iter != 1:
             # have in and out scattering rates
             inelastic_names = ["{}_{}".format(s.name, d) for s in
@@ -107,13 +109,13 @@ class ScatteringCalculator(MSONable):
         else:
             inelastic_names = [s.name for s in self.inelastic_scatterers]
 
-        return elastic_names + inelastic_names
+        return elastic_names + basic_names + inelastic_names
 
     @staticmethod
     def get_scatterers(scattering_type: Union[str, List[str], float],
                        materials_properties: Dict[str, Any],
                        amset_data: AmsetData,
-                       prefer_full_imp: bool = True,
+                       prefer_full_imp: bool = False,
                        ) -> List[Union[AbstractElasticScattering,
                                        AbstractInelasticScattering,
                                        AbstractBasicScattering]]:
@@ -293,8 +295,10 @@ class ScatteringCalculator(MSONable):
             w.start()
 
         elastic_rates = None
+        basic_rates = None
         if self.basic_scatterers:
-            basic_rates = np.array([s.rates for s in self.basic_scatters])
+            basic_rates = np.array(
+                [s.rates[spin][:, :, b_idx, :] for s in self.basic_scatterers])
 
         if self.elastic_scatterers:
             elastic_rates = self._fill_workers(
@@ -356,7 +360,7 @@ class ScatteringCalculator(MSONable):
 
                 if self.max_g_iter != 1:
                     new_g = calculate_g(
-                        out_rates, in_rates, elastic_rates, force)
+                        out_rates, in_rates, elastic_rates, basic_rates, force)
                     if new_g[:, :, ~fill_mask].shape[-1] == 0:
                         g_diff = 0
                     else:
@@ -375,13 +379,23 @@ class ScatteringCalculator(MSONable):
                     g[:] = new_g[:]
 
             to_stack = [elastic_rates] if elastic_rates is not None else []
+
+            if basic_rates is not None:
+                to_stack.append(basic_rates)
+
             if calculate_in_rate:
                 to_stack.append(in_rates)
+
             to_stack.append(out_rates)
             all_band_rates = np.vstack(to_stack)
 
         else:
-            all_band_rates = elastic_rates
+            to_stack = [elastic_rates] if elastic_rates is not None else []
+
+            if basic_rates is not None:
+                to_stack.append(basic_rates)
+
+            all_band_rates = np.vstack(to_stack)
 
         # The "None"s at the end of the queue signal the workers that there are
         # no more jobs left and they must therefore exit.
@@ -672,9 +686,17 @@ def w0gauss(x):
     return np.exp(-(x**2)) * over_sqrt_pi
 
 
-def calculate_g(out_rates, in_rates, elastic_rates, force):
+def calculate_g(out_rates, in_rates, elastic_rates, basic_rates, force):
+    out_rates = [out_rates]
+
     if elastic_rates is not None:
-        out_rates = np.vstack((out_rates, elastic_rates))
+        out_rates.append(elastic_rates)
+
+    if basic_rates is not None:
+        out_rates.append(basic_rates)
+
+    out_rates = np.vstack(out_rates)
+
     return (np.sum(in_rates, axis=0) - force) / (
         np.sum(out_rates, axis=0) + small_val)
 
