@@ -76,9 +76,9 @@ class PeriodicVoronoi(object):
 
         # filter points far from the zone boundary, this will lead to errors for
         # very small meshes < 5x5x5 but we are not interested in those
-        # mask = ((supercell_points > -0.6) & (supercell_points < 0.6)).all(axis=1)
-        # supercell_points = supercell_points[mask]
-        # supercell_idxs = supercell_idxs[mask]
+        mask = ((supercell_points > -0.6) & (supercell_points < 0.6)).all(axis=1)
+        supercell_points = supercell_points[mask]
+        supercell_idxs = supercell_idxs[mask]
 
         # want points in cartesian space so we can define a regular spherical
         # cutoff even if reciprocal lattice is not cubic. If we used a
@@ -102,15 +102,23 @@ class PeriodicVoronoi(object):
         len_xy = np.linalg.norm(xy)
         len_xz = np.linalg.norm(xz)
         len_yz = np.linalg.norm(yz)
+        #
+        # len_diagonal = np.sum(np.abs(body_diagonal))
+        # len_xy = np.sum(np.abs(xy))
+        # len_xz = np.sum(np.abs(xz))
+        # len_yz = np.sum(np.abs(yz))
 
-        small_cutoff = np.max([len_diagonal, len_xy, len_xz, len_yz]) * 1.6
-        big_cutoff = small_cutoff * 1.77
+        # small_cutoff = (np.max([len_diagonal, len_xy, len_xz, len_yz]) * 2.1)
+        # big_cutoff = (small_cutoff * 2.1)
+        small_cutoff = (np.max([len_diagonal, len_xy, len_xz, len_yz]) * 1.6)
+        big_cutoff = (small_cutoff * 1.77)
         # small_cutoff = np.max([len_diagonal, len_xy, len_xz, len_yz]) * 1.6
         # big_cutoff = small_cutoff * 1.77
 
         logger.debug("  ├── initializing ball tree")
         # use BallTree for quickly evaluating which points are within cutoffs
-        tree = BallTree(cart_points, leaf_size=200)
+        # tree = BallTree(cart_points, metric="manhattan")
+        tree = BallTree(cart_points)
 
         logger.debug("  ├── calculating points in big radius")
         # big points are those which surround the extra points within the big cutoff
