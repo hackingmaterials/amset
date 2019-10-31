@@ -15,7 +15,12 @@ from scipy.ndimage import gaussian_filter1d
 from BoltzTraP2 import units, sphere, fite
 
 from amset.dos import FermiDos, get_dos
-from amset.kpoints import get_symmetry_equivalent_kpoints, get_kpoints, get_kpoint_mesh
+from amset.kpoints import (
+    get_symmetry_equivalent_kpoints,
+    get_kpoints,
+    get_kpoint_mesh,
+    similarity_transformation,
+)
 from amset.misc.log import log_time_taken, log_list
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
@@ -223,9 +228,7 @@ class Interpolater(MSONable):
             )
 
             t0 = time.perf_counter()
-            energies[spin], vvelocities[spin], curvature[
-                spin
-            ] = fite.getBTPbands(
+            energies[spin], vvelocities[spin], curvature[spin] = fite.getBTPbands(
                 self._equivalences,
                 self._coefficients[spin][ibands],
                 self._lattice_matrix,
@@ -240,7 +243,7 @@ class Interpolater(MSONable):
                 # find all bands with energies less than the VBM and count that
                 # number
                 vbm_energy = self._band_structure.get_vbm()["energy"]
-                vb_idx = (np.any(bands <= vbm_energy, axis=1).sum() - 1)
+                vb_idx = np.any(bands <= vbm_energy, axis=1).sum() - 1
 
                 # need to know the index of the valence band after discounting
                 # bands during the interpolation (i.e., if energy_cutoff is
@@ -550,6 +553,16 @@ class Interpolater(MSONable):
                 symprec=symprec,
                 return_inverse=True,
             )
+            similarity_matrix = np.array(
+                [
+                    similarity_transformation(lattice.reciprocal_lattice.matrix, r.T)
+                    for r in rot_mapping
+                ]
+            )
+            inv_similarity_matrix = np.array(
+                [np.linalg.inv(s) for s in similarity_matrix]
+            )
+
             log_list(
                 [
                     "# original k-points: {}".format(nkpoints),
@@ -603,7 +616,9 @@ class Interpolater(MSONable):
                 # indices is because the velocities has the shape
                 # (3, nbands, nkpoints)
                 velocities[spin] = np.einsum(
-                    "kij,jkl->lij", velocities[spin][:, :, ir_to_full_idx], rot_mapping
+                    "kij,jkl->lij",
+                    velocities[spin][:, :, ir_to_full_idx],
+                    similarity_matrix,
                 )
 
             if not self._band_structure.is_metal():
@@ -633,22 +648,27 @@ class Interpolater(MSONable):
             if return_curvature:
                 curvature[spin] = fitted[2]
 
+                # make curvature have the shape ((nbands, nkpoints, 3, 3)
+                curvature[spin] = curvature[spin].transpose((2, 3, 0, 1))
+
                 if symprec:
-                    # TODO: Check this works
-                    curvature[spin] = np.einsum(
-                        "klij,jkl->klij",
-                        curvature[spin][:, :, :, ir_to_full_idx],
-                        rot_mapping,
-                    )
+                    curvature[spin] = curvature[spin][:, ir_to_full_idx, ...]
+                    new_curvature = np.empty(curvature[spin].shape)
+                    for b_idx, k_idx in np.ndindex(curvature[spin].shape[:2]):
+                        new_curvature[b_idx, k_idx] = np.dot(
+                            inv_similarity_matrix[k_idx],
+                            np.dot(
+                                curvature[spin][b_idx, k_idx], similarity_matrix[k_idx]
+                            ),
+                        )
+                    curvature[spin] = new_curvature
 
             if not atomic_units:
                 energies[spin] = energies[spin] / units.eV
                 velocities[spin] = _convert_velocities(velocities[spin], lattice.matrix)
 
                 if return_curvature:
-                    curvature[spin] = _convert_curvature(
-                        curvature[spin]
-                    )
+                    curvature[spin] = _convert_curvature(curvature[spin])
 
             if return_projections:
                 logger.info("Interpolating {} projections".format(spin_name[spin]))
@@ -682,13 +702,13 @@ class Interpolater(MSONable):
             scissor = 0
 
         if not (
-                return_velocity
-                or return_curvature
-                or return_projections
-                or return_kpoint_mapping
-                or return_efermi
-                or return_vb_idx
-                or return_scissor
+            return_velocity
+            or return_curvature
+            or return_projections
+            or return_kpoint_mapping
+            or return_efermi
+            or return_vb_idx
+            or return_scissor
         ):
             return energies
 
@@ -1053,7 +1073,8 @@ def _convert_curvature(curvature: np.ndarray) -> np.ndarray:
         The curvature (i.e., inverse effective mass) in units of 1 / electron rest mass.
     """
     factor = bohr_to_angstrom ** 2 * e * hbar ** 2 / (hartree_to_ev * A_to_m ** 2 * m_e)
-    return curvature.transpose((2, 3, 1, 0)) / factor
+    print(factor)
+    return curvature / factor
 
 
 def _get_projections(projections: np.ndarray) -> Tuple[Tuple[str, np.ndarray], ...]:
