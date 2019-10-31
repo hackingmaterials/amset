@@ -6,8 +6,12 @@ import numpy as np
 from abc import ABC, abstractmethod
 from typing import Tuple, Dict, Any
 
+from BoltzTraP2 import units
+from BoltzTraP2.units import BOLTZMANN, Second
+from scipy.constants import physical_constants
+
 from amset.data import AmsetData
-from amset.constants import e, sqrt2
+from amset.constants import e, sqrt2, hbar, small_val, bohr_to_angstrom
 from amset.misc.log import log_list
 from amset.scattering.elastic import calculate_inverse_screening_length_sq
 
@@ -67,33 +71,51 @@ class BrooksHerringScattering(AbstractBasicScattering):
             )
 
         logger.debug(
-            "Inverse screening length (β) and impurity concentration " "(Nᵢᵢ):"
+            "Inverse screening length (β) and impurity concentration (Nᵢᵢ):"
         )
         log_list(imp_info, level=logging.DEBUG)
 
-        prefactor = (
-            e ** 4
-            * impurity_concentration
-            / (16 * sqrt2 * np.pi * self.properties["static_dielectric"] ** 2)
-        )
+        inv_cm_to_bohr = 100 * physical_constants["Bohr radius"][0]
+        inv_nm_to_bohr = 1e9 * physical_constants["Bohr radius"][0]
 
-        normalized_energies = get_normalized_energies(amset_data)
+        impurity_concentration *= inv_cm_to_bohr ** 3
+
+        # normalized energies has shape (nspins, ndoping, ntemps, nbands, nkpoints)
+        normalized_energies = get_normalized_energies(amset_data, broaden=False)
+
+        # dos effective masses has shape (nspins, nbands, nkpoints)
         dos_effective_masses = get_dos_effective_masses(amset_data)
+
+        # screening has shape (ndoping, nbands, 1, 1)
+        # screening = inverse_screening_length_sq[..., None, None] * inv_nm_to_bohr ** 2
+        screening = inverse_screening_length_sq[..., None, None] * inv_nm_to_bohr ** 2
+
+        prefactor = (
+            np.pi
+            * impurity_concentration
+            / (sqrt2 * self.properties["static_dielectric"] ** 2)
+        )
 
         self._rates = {}
         for spin in self.spins:
-            num = 8 * dos_effective_masses[spin] * normalized_energies[spin]
-            num = np.tile(num, (len(self.doping), len(self.temperatures), 1))
+            masses = np.tile(dos_effective_masses[spin],
+                             (len(self.doping), len(self.temperatures), 1, 1))
+            energies = normalized_energies[spin]
 
             # b is from the classic Brooks–Herring formula, it has the shape
             # (ndops, ntemps, nbands, nkpoints)
-            b = num / inverse_screening_length_sq[:, :, None, None]
-            bp1 = 1 + b
-            b_factor = np.log(bp1) - b / bp1
-            k_factor = np.power(normalized_energies[spin], -3 / 2) / np.sqrt(
-                dos_effective_masses[spin]
+            b = (8 * masses * energies) / screening
+            b_factor = np.log(b + 1) - b / (b + 1)
+            k_factor = np.power(energies, -3 / 2) / np.sqrt(masses)
+
+            self._rates[spin] = (
+                    prefactor[:, :, None, None] * b_factor * Second * k_factor
             )
-            self._rates[spin] = prefactor * k_factor * b_factor
+
+            from pymatgen import Spin
+            print(self._rates[Spin.up][0, 0, 4])
+            print(b.min())
+            print(b.max())
 
     @property
     def rates(self):
@@ -101,32 +123,49 @@ class BrooksHerringScattering(AbstractBasicScattering):
         return self._rates
 
 
-def get_normalized_energies(amset_data: AmsetData):
-    # normalize the energies, for metals the energies are given as abs(E-Ef) where
-    # Ef is the intrinsic Fermi level; for semiconductors, the energies are given as
-    # VBM - E for valence band states and E - CBM for conduction band states
-    norm_e = deepcopy(amset_data.energies)
+def get_normalized_energies(amset_data: AmsetData, broaden=False):
+    # normalize the energies; energies returned as abs(E-Ef) (+ kBT if broaden is True)
     spins = amset_data.spins
+    fermi_shape = amset_data.fermi_levels.shape
+    energies = {spin: np.empty(fermi_shape + amset_data.energies[spin].shape) for spin in spins}
+
     if amset_data.is_metal:
         for spin in spins:
-            norm_e[spin][:] = np.abs(norm_e[spin] - amset_data._efermi)
-
+            spin_energies = deepcopy(amset_data.energies[spin])
+            for n, t in np.ndindex(fermi_shape):
+                broadening = BOLTZMANN * amset_data.temperatures[t] if broaden else 0
+                energies[spin][n, t] = np.abs(spin_energies - amset_data._efermi) + broadening
     else:
         vb_idx = amset_data.vb_idx
-        vbm_e = np.max([amset_data.energies[s][: vb_idx[s]] for s in spins])
-        cbm_e = np.max([amset_data.energies[s][vb_idx[s] + 1] for s in spins])
-
+        vbm_e = np.max([amset_data.energies[s][: vb_idx[s] + 1] for s in spins])
+        cbm_e = np.min([amset_data.energies[s][vb_idx[s] + 1:] for s in spins])
         for spin in spins:
-            norm_e[: vb_idx[spin]][:] = vbm_e - norm_e[: vb_idx[spin]]
-            norm_e[vb_idx[spin] + 1:][:] = norm_e[vb_idx[spin] + 1:] - cbm_e
+            spin_energies = deepcopy(amset_data.energies[spin])
+            spin_energies[:vb_idx[spin] + 1] = vbm_e - spin_energies[:vb_idx[spin] + 1]
+            spin_energies[vb_idx[spin] + 1:] = spin_energies[vb_idx[spin] + 1:] - cbm_e
 
-    return norm_e
+            for n, t in np.ndindex(fermi_shape):
+                broadening = BOLTZMANN * amset_data.temperatures[t] if broaden else small_val
+                energies[spin][n, t] = spin_energies + broadening
+
+    # for spin in spins:
+    #     spin_energies = amset_data.energies[spin]
+    #     for n, t in np.ndindex(fermi_shape):
+    #         fermi = amset_data.fermi_levels[n, t]
+    #         broadening = BOLTZMANN * amset_data.temperatures[t] if broaden else 0
+    #         energies[spin][n, t] = np.abs(spin_energies - fermi)  # + broadening
+
+    return energies
 
 
 def get_dos_effective_masses(amset_data: AmsetData):
     dos_effective_masses = {}
     for spin in amset_data.spins:
-        masses_abs = np.abs(amset_data.effective_masses[spin])
-        masses_eig = np.linalg.eigh(masses_abs)[0]
-        dos_effective_masses[spin] = np.power(np.product(masses_eig, axis=2), 1 / 3)
+        masses = 1 / amset_data.curvature[spin]
+        # masses_eig = np.linalg.eigh(masses)[0]
+
+        masses_eig = np.diagonal(masses, axis1=2, axis2=3)
+        masses_abs = np.abs(masses_eig)
+        dos_effective_masses[spin] = np.power(np.product(masses_abs, axis=2), 1 / 3)
+        # dos_effective_masses[spin] = np.full(dos_effective_masses[spin].shape, 0.55)
     return dos_effective_masses
