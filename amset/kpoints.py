@@ -8,6 +8,10 @@ from pymatgen.io.ase import AseAtomsAdaptor
 
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
+from amset import amset_defaults
+
+_SYMPREC = amset_defaults["performance"]["symprec"]
+
 
 def kpoints_to_first_bz(kpoints: np.ndarray) -> np.ndarray:
     """Translate fractional k-points to the first Brillouin zone.
@@ -52,7 +56,6 @@ def get_dense_kpoint_mesh_spglib(mesh, spg_order=False, shift=0):
         addresses = addresses[idx]
 
     addresses -= mesh * (addresses > mesh / 2)
-    # return (addresses + shift) / mesh
 
     full_kpoints = (addresses + shift) / mesh
     sort_idx = np.lexsort((full_kpoints[:, 2], full_kpoints[:, 2] < 0,
@@ -62,9 +65,8 @@ def get_dense_kpoint_mesh_spglib(mesh, spg_order=False, shift=0):
     return full_kpoints
 
 
-def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
+def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=_SYMPREC, tol=1e-6,
                                     return_inverse=False,
-                                    rotation_matrices=None,
                                     time_reversal_symmetry=True):
     round_dp = int(np.log10(1 / tol))
 
@@ -76,14 +78,11 @@ def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
     kpoints = np.asarray(kpoints)
     round_kpoints = shift_and_round(kpoints)
 
-    if rotation_matrices is None:
-        sg = SpacegroupAnalyzer(structure, symprec=symprec)
-        symmops = sg.get_symmetry_operations(cartesian=False)
-        rotation_matrices = np.array([o.rotation_matrix for o in symmops])
-
-    if time_reversal_symmetry:
-        all_rotations = np.concatenate((rotation_matrices, -rotation_matrices))
-        rotation_matrices = np.unique(all_rotations, axis=0)
+    rotation_matrices = get_reciprocal_point_group_operations(
+        structure,
+        symprec=symprec,
+        time_reversal_symmetry=time_reversal_symmetry
+    )
 
     equiv_points_mapping = {}
     rotation_matrix_mapping = {}
@@ -97,7 +96,7 @@ def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
             mapping.append(map_idx)
             rot_mapping.append(rotation_matrix_mapping[map_idx][point])
         else:
-            new_points = shift_and_round(np.dot(kpoints[i], rotation_matrices))
+            new_points = shift_and_round(np.dot(rotation_matrices, kpoints[i]))
 
             equiv_points_mapping.update(zip(new_points, [i] * len(new_points)))
             rotation_matrix_mapping[i] = dict(zip(new_points, rotation_matrices))
@@ -122,7 +121,7 @@ def similarity_transformation(rot, mat):
     return np.dot(rot, np.dot(mat, np.linalg.inv(rot)))
 
 
-def symmetrize_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
+def symmetrize_kpoints(structure, kpoints, symprec=_SYMPREC, tol=1e-6,
                        time_reversal_symmetry=True):
     round_dp = int(np.log10(1 / tol))
 
@@ -131,18 +130,16 @@ def symmetrize_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
         k = np.round(k, round_dp)
         return list(map(tuple, k))
 
-    sg = SpacegroupAnalyzer(structure, symprec=symprec)
-    symmops = sg.get_symmetry_operations(cartesian=False)
-    rotation_matrices = np.array([o.rotation_matrix for o in symmops])
-
-    if time_reversal_symmetry:
-        all_rotations = np.concatenate((rotation_matrices, -rotation_matrices))
-        rotation_matrices = np.unique(all_rotations, axis=0)
+    rotation_matrices = get_reciprocal_point_group_operations(
+        structure,
+        symprec=symprec,
+        time_reversal_symmetry=time_reversal_symmetry
+    )
 
     kpoints = kpoints_to_first_bz(kpoints)
 
     symmetrized_kpoints = np.concatenate(
-        [np.dot(kpoints, rot) for rot in rotation_matrices])
+        [np.dot(kpoints, rot.T) for rot in rotation_matrices])
     symmetrized_kpoints = kpoints_to_first_bz(symmetrized_kpoints)
     _, unique_idxs = np.unique(shift_and_round(symmetrized_kpoints),
                                axis=0, return_index=True)
@@ -152,7 +149,7 @@ def symmetrize_kpoints(structure, kpoints, symprec=0.1, tol=1e-6,
 
 def get_kpoints(kpoint_mesh: Union[float, List[int]],
                 structure: Structure,
-                symprec: float = 0.01,
+                symprec: float = _SYMPREC,
                 return_full_kpoints: bool = False,
                 boltztrap_ordering: bool = True
                 ) -> Tuple[np.ndarray, ...]:
@@ -241,3 +238,39 @@ def get_kpoint_mesh(structure: Structure, cutoff_length: float):
     abc_recip = np.array(reciprocal_lattice.abc)
 
     return np.ceil(abc_recip * 2 * cutoff_length).astype(int)
+
+
+def get_reciprocal_point_group_operations(
+        structure: Structure,
+        symprec: float = _SYMPREC,
+        time_reversal_symmetry: bool = True
+):
+    frac_real_to_frac_recip = np.dot(
+        np.linalg.inv(structure.lattice.reciprocal_lattice.matrix.T),
+        structure.lattice.matrix.T
+    )
+    frac_recip_to_frac_real = np.linalg.inv(frac_real_to_frac_recip)
+
+    sga = SpacegroupAnalyzer(structure, symprec=symprec)
+    isomorphic_ops = [op.rotation_matrix for op in sga.get_symmetry_operations()]
+
+    parity = -np.eye(3)
+
+    if time_reversal_symmetry:
+        reciprocal_ops = [-np.eye(3)]
+    else:
+        reciprocal_ops = [np.eye(3)]
+
+    for op in isomorphic_ops:
+
+        # convert to reciprocal primitive basis
+        op = np.around(
+            np.dot(frac_real_to_frac_recip, np.dot(op, frac_recip_to_frac_real)),
+            decimals=2
+        )
+
+        reciprocal_ops.append(op)
+        if time_reversal_symmetry:
+            reciprocal_ops.append(np.dot(parity, op))
+
+    return np.unique(reciprocal_ops, axis=0)
