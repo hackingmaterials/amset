@@ -9,7 +9,8 @@ from typing import Dict, Tuple, Any
 
 from BoltzTraP2 import units
 from BoltzTraP2.fd import FD
-from scipy.constants import epsilon_0
+from BoltzTraP2.units import BOLTZMANN
+from scipy.constants import epsilon_0, physical_constants
 from scipy.integrate import trapz
 
 from amset.constants import k_B, e, hbar

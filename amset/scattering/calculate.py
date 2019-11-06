@@ -214,9 +214,11 @@ class ScatteringCalculator(MSONable):
                              b_idx: int,
                              nsplits: int):
         integral_conversion = (
-                (2 * np.pi) ** 3
-                / (self.amset_data.structure.lattice.volume * A_to_nm ** 3)
-                / self.gauss_width)
+            (2 * np.pi) ** 3 / (self.amset_data.structure.lattice.volume * A_to_nm ** 3)
+            / self.gauss_width)
+        # integral_conversion = (
+        #          (self.amset_data.structure.lattice.volume * A_to_nm ** 3)/ (2 * np.pi) ** 3
+        #         / self.gauss_width)
 
         # prefactors have shape [nscatterers, ndoping, ntemp)
         elastic_prefactors = integral_conversion * np.array(
