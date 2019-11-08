@@ -231,12 +231,12 @@ class BandDensifier(object):
         # have to use amset_data scissor and not the user specified band gap,
         # as there is no guarantee that the extra k-points will go through the
         # CBM & VBM
-        energies, vvelocities, curvature, projections, mapping_info = self._interpolater.get_energies(
+        energies, vvelocities, projections, mapping_info = self._interpolater.get_energies(
             additional_kpoints,
             energy_cutoff=self._energy_cutoff,
             scissor=self._amset_data.scissor / units.eV,
             return_velocity=True,
-            return_curvature=True,
+            return_curvature=False,
             return_projections=True,
             atomic_units=True,
             return_vel_outer_prod=True,
@@ -264,25 +264,27 @@ class BandDensifier(object):
             additional_kpoints,
             energies,
             vvelocities,
-            curvature,
             projections,
             kpoint_weights,
             mapping_info["ir_kpoints_idx"],
             mapping_info["ir_to_full_idx"],
+            # curvature,
         )
 
 
 def get_minimum_imp_mesh(amset_data, inverse_screening_length_sq):
     # todo: explain this magic number
+    conv_dx = 0.5
     # conv_dx = 0.3727593720314942
-    conv_dx = 0.29470517025518095
+    # conv_dx = 0.29470517025518095
     # conv_dx = 200
     # conv_dx = 0.14563484775012445
 
     # todo: explain this madness
-    if inverse_screening_length_sq < 0.003:
-        logger.warning("Inverse screening length extremely small, using 0.003 instead")
-        inverse_screening_length_sq = 0.003
+    if inverse_screening_length_sq < 0.005:
+        logger.warning("Inverse screening length extremely small, using 0.001 instead")
+        inverse_screening_length_sq = 0.005
+
     dk_sq = conv_dx * inverse_screening_length_sq
     dk = np.sqrt(dk_sq)
     dk_angstrom = dk * 0.1

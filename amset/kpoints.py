@@ -13,7 +13,7 @@ from amset import amset_defaults
 _SYMPREC = amset_defaults["performance"]["symprec"]
 
 
-def kpoints_to_first_bz(kpoints: np.ndarray) -> np.ndarray:
+def kpoints_to_first_bz(kpoints: np.ndarray, tol=1e-6) -> np.ndarray:
     """Translate fractional k-points to the first Brillouin zone.
 
     I.e. all k-points will have fractional coordinates:
@@ -26,7 +26,12 @@ def kpoints_to_first_bz(kpoints: np.ndarray) -> np.ndarray:
         The translated k-points.
     """
     kp = kpoints - np.round(kpoints)
-    kp[kp == 0.5] = -0.5
+
+    # account for small rounding errors for 0.5
+    round_dp = int(np.log10(1 / tol))
+    krounded = np.round(kp, round_dp)
+
+    kp[krounded == 0.5] = -0.5
     return kp
 
 
@@ -138,6 +143,8 @@ def symmetrize_kpoints(structure, kpoints, symprec=_SYMPREC, tol=1e-6,
 
     kpoints = kpoints_to_first_bz(kpoints)
 
+    # symmetrized_kpoints = np.concatenate(
+    #     [np.dot(rotation_matrices, k) for k in kpoints])
     symmetrized_kpoints = np.concatenate(
         [np.dot(kpoints, rot.T) for rot in rotation_matrices])
     symmetrized_kpoints = kpoints_to_first_bz(symmetrized_kpoints)

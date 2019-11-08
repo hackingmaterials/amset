@@ -24,6 +24,7 @@ _legend_kwargs = {"loc": "upper left", "bbox_to_anchor": (1, 1), "frameon": Fals
 
 
 class AmsetPlotter(object):
+
     def __init__(self, amset_data: AmsetData):
         # TODO: Check we have all the data we need
         self._amset_data = amset_data
@@ -37,7 +38,7 @@ class AmsetPlotter(object):
         normalize_energy: bool = True,
     ):
         if normalize_energy and self._amset_data.is_metal:
-            norm_e = self._amset_data._efermi
+            norm_e = self._amset_data.intrinsic_fermi_level
         elif normalize_energy:
             vb_idx = self._amset_data.vb_idx
             spins = self._amset_data.spins
@@ -186,6 +187,8 @@ def _plot_rates_to_axis(
 def _get_rate_ylims(
     rates, ymin: Optional[float] = None, ymax: Optional[float] = None, pad: float = 0.1
 ):
+    rates = rates[np.isfinite(rates)]
+
     if not ymin:
         min_log = np.log10(np.min(rates))
     else:

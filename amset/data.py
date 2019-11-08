@@ -6,7 +6,7 @@ from typing import Optional, Dict, List, Tuple
 import numpy as np
 
 from monty.json import MSONable
-from monty.serialization import dumpfn
+from monty.serialization import dumpfn, loadfn
 from BoltzTraP2 import units
 from BoltzTraP2.fd import dFDde, FD
 
@@ -34,7 +34,6 @@ class AmsetData(MSONable):
                  structure: Structure,
                  energies: Dict[Spin, np.ndarray],
                  vvelocities_product: Dict[Spin, np.ndarray],
-                 curvature: Dict[Spin, np.ndarray],
                  projections: Dict[Spin, Dict[str, np.ndarray]],
                  kpoint_mesh: np.ndarray,
                  full_kpoints: np.ndarray,
@@ -44,6 +43,7 @@ class AmsetData(MSONable):
                  efermi: float,
                  is_metal: bool,
                  soc: bool,
+                 curvature: Optional[Dict[Spin, np.ndarray]] = None,
                  kpoint_weights: Optional[np.ndarray] = None,
                  dos: Optional[FermiDos] = None,
                  vb_idx: Optional[Dict[Spin, int]] = None,
@@ -64,7 +64,7 @@ class AmsetData(MSONable):
         self.ir_kpoints_idx = ir_kpoints_idx
         self.ir_to_full_kpoint_mapping = ir_to_full_kpoint_mapping
         self._projections = projections
-        self._efermi = efermi
+        self.intrinsic_fermi_level = efermi
         self._soc = soc
         self.conductivity = conductivity
         self.seebeck = seebeck
@@ -130,7 +130,7 @@ class AmsetData(MSONable):
 
         dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
         self.dos = FermiDos(
-            self._efermi, emesh, dos, self.structure, atomic_units=True,
+            self.intrinsic_fermi_level, emesh, dos, self.structure, atomic_units=True,
             dos_weight=dos_weight)
 
     def set_doping_and_temperatures(self,
@@ -278,11 +278,11 @@ class AmsetData(MSONable):
                           extra_kpoints: np.ndarray,
                           extra_energies: Dict[Spin, np.ndarray],
                           extra_vvelocities: Dict[Spin, np.ndarray],
-                          extra_curvature: Dict[Spin, np.ndarray],
                           extra_projections: Dict[Spin, np.ndarray],
                           kpoint_weights: np.ndarray,
                           ir_kpoints_idx: np.ndarray,
-                          ir_to_full_idx: np.ndarray):
+                          ir_to_full_idx: np.ndarray,
+                          extra_curvature: Optional[Dict[Spin, np.ndarray]] = None):
         if len(self.full_kpoints) + len(extra_kpoints) != len(kpoint_weights):
             raise ValueError("Total number of k-points (full_kpoints + "
                              "extra_kpoints) does not equal number of kpoint "
@@ -300,10 +300,13 @@ class AmsetData(MSONable):
             s: np.concatenate((self.velocities_product[s],
                                extra_vvelocities[s]), axis=3)
             for s in self.spins}
-        self.curvature = {
-            s: np.concatenate((self.curvature[s],
-                               extra_curvature[s]), axis=1)
-            for s in self.spins}
+
+        if extra_curvature:
+            self.curvature = {
+                s: np.concatenate((self.curvature[s],
+                                   extra_curvature[s]), axis=1)
+                for s in self.spins}
+
         self._projections = {
             s: {
                 l: np.concatenate((self._projections[s][l],
@@ -385,7 +388,7 @@ class AmsetData(MSONable):
                     "ir_kpoints": self.ir_kpoints,
                     "ir_to_full_kpoint_mapping": self.ir_to_full_kpoint_mapping,
                     "dos": self.dos,
-                    "efermi": self._efermi,
+                    "efermi": self.intrinsic_fermi_level,
                     "vb_idx": cast_dict(self.vb_idx),
                     "scattering_rates": cast_dict(ir_rates),
                     "scattering_labels": self.scattering_labels})

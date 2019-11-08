@@ -178,7 +178,7 @@ class AmsetRunner(MSONable):
             inv_screening_length_sq = None
             if (self.performance_parameters["use_imp_minimum_mesh"] and
                     self.material_properties["static_dielectric"] and
-                    ("imp" in self.scattering_type or self.scattering_type == "auto")):
+                    ("IMP" in self.scattering_type or self.scattering_type == "auto")):
                 inv_screening_length_sq = np.min(calculate_inverse_screening_length_sq(
                     amset_data, self.material_properties["static_dielectric"]
                 ))
