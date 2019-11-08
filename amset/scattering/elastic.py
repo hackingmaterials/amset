@@ -132,10 +132,21 @@ class IonizedImpurityScattering(AbstractElasticScattering):
                      "(Nᵢᵢ):")
         log_list(imp_info, level=logging.DEBUG)
 
+        inv_cm_to_bohr = 100 * physical_constants["Bohr radius"][0]
+        inv_nm_to_bohr = 1e9 * physical_constants["Bohr radius"][0]
+
+        self.inverse_screening_length_sq *= inv_nm_to_bohr ** 2
+
+        # self._prefactor = (
+        #         (1e-3 / (e ** 2)) * e ** 4 * self.impurity_concentration /
+        #         (4.0 * np.pi ** 2 * epsilon_0 ** 2 * hbar *
+        #          self.properties["static_dielectric"] ** 2))
         self._prefactor = (
-                (1e-3 / (e ** 2)) * e ** 4 * self.impurity_concentration /
-                (4.0 * np.pi ** 2 * epsilon_0 ** 2 * hbar *
-                 self.properties["static_dielectric"] ** 2))
+                4 * self.impurity_concentration * inv_cm_to_bohr ** 3 * units.Second * inv_nm_to_bohr ** 3 /
+                (self.properties["static_dielectric"] ** 2 * units.eV))
+
+        # (4.0 * np.pi ** 2 * epsilon_0 ** 2 * hbar *
+        #          self.properties["static_dielectric"] ** 2))
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
@@ -143,9 +154,10 @@ class IonizedImpurityScattering(AbstractElasticScattering):
 
     def factor(self, k_diff_sq: np.ndarray):
         # tile k_diff_sq to make it commensurate with the dimensions of beta
-        return 1 / (np.tile(k_diff_sq, (len(self.doping),
-                                        len(self.temperatures), 1)) +
-                    self.inverse_screening_length_sq[..., None]) ** 2
+        k_diff_sq = np.tile(k_diff_sq, (len(self.doping), len(self.temperatures), 1))
+        inv_nm_to_bohr = 1e9 * physical_constants["Bohr radius"][0]
+        k_diff_sq = k_diff_sq * inv_nm_to_bohr ** 2
+        return 1 / (k_diff_sq + self.inverse_screening_length_sq[..., None]) ** 2
 
 
 class PiezoelectricScattering(AbstractElasticScattering):
@@ -170,8 +182,7 @@ class PiezoelectricScattering(AbstractElasticScattering):
 
     def factor(self, k_diff_sq: np.ndarray):
         # factor should have shape (ndops, ntemps, nkpts)
-        return 1 / np.tile(k_diff_sq, (len(self.doping),
-                                       len(self.temperatures), 1))
+        return 1 / np.tile(k_diff_sq, (len(self.doping), len(self.temperatures), 1))
 
 
 def calculate_inverse_screening_length_sq(amset_data, static_dielectric):
@@ -189,7 +200,6 @@ def calculate_inverse_screening_length_sq(amset_data, static_dielectric):
         integral = trapz(tdos * f * (1 - f), x=energies)
         inverse_screening_length_sq[n, t] = (
                 e ** 2 * integral * 1e12 /
-                (static_dielectric * epsilon_0 * k_B *
-                 temp * e * vol))
+                (static_dielectric * epsilon_0 * k_B * temp * e * vol))
 
     return inverse_screening_length_sq

@@ -115,7 +115,7 @@ class ScatteringCalculator(MSONable):
     def get_scatterers(scattering_type: Union[str, List[str], float],
                        materials_properties: Dict[str, Any],
                        amset_data: AmsetData,
-                       prefer_full_imp: bool = False,
+                       prefer_full_imp: bool = True,
                        ) -> List[Union[AbstractElasticScattering,
                                        AbstractInelasticScattering,
                                        AbstractBasicScattering]]:
@@ -216,9 +216,6 @@ class ScatteringCalculator(MSONable):
         integral_conversion = (
             (2 * np.pi) ** 3 / (self.amset_data.structure.lattice.volume * A_to_nm ** 3)
             / self.gauss_width)
-        # integral_conversion = (
-        #          (self.amset_data.structure.lattice.volume * A_to_nm ** 3)/ (2 * np.pi) ** 3
-        #         / self.gauss_width)
 
         # prefactors have shape [nscatterers, ndoping, ntemp)
         elastic_prefactors = integral_conversion * np.array(
@@ -591,13 +588,15 @@ def get_ir_band_rates(spin, b_idx, scatterers, ediff, gauss_width, s, k_idx,
     c_vals = c_factor[k_idx] * c_factor[k_p_idx]
 
     overlap = (a_vals[expand_k_idx] + c_vals[expand_k_idx] * k_angles) ** 2
-    weighted_overlap = (w0gauss(ediff / gauss_width)[expand_k_idx] * overlap *
-                        kpoint_weights[full_k_p_idx])
+    # weighted_overlap = (w0gauss(ediff / gauss_width)[expand_k_idx] * overlap *
+    #                     kpoint_weights[full_k_p_idx])
+    gaus_weights = w0gauss(ediff / gauss_width)[expand_k_idx]
+    weighted_overlap = gaus_weights * overlap * kpoint_weights[full_k_p_idx]
 
-    # norm of k difference squared in 1/nm
+    # norm of k difference squared in 1/nm^2
     k_diff_sq = np.linalg.norm(np.dot(
         pbc_diff(kpoints[full_k_idx], kpoints[full_k_p_idx]),
-        reciprocal_lattice_matrix) / 0.1, axis=1) ** 2
+        reciprocal_lattice_matrix), axis=1) ** 2 * 100
 
     if isinstance(scatterers[0], AbstractElasticScattering):
         # factors has shape: (n_scatterers, n_doping, n_temperatures, n_kpts)
@@ -640,48 +639,49 @@ def get_ir_band_rates(spin, b_idx, scatterers, ediff, gauss_width, s, k_idx,
     return band_rates
 
 
-def get_band_rates(spin, b_idx, scatterers, ediff, gauss_width, s, k_idx,
-                   k_p_idx, kpoints, kpoint_norms, a_factor, c_factor,
-                   reciprocal_lattice_matrix):
-    from numpy.core.umath_tests import inner1d
-
-    mask = k_idx != k_p_idx  # no self-scattering
-    k_idx = k_idx[mask]
-    k_p_idx = k_p_idx[mask]
-    ediff = ediff[mask]
-
-    k_dot = inner1d(kpoints[k_idx], kpoints[k_p_idx])
-    k_angles = k_dot / (kpoint_norms[k_idx] * kpoint_norms[k_p_idx])
-    k_angles[np.isnan(k_angles)] = 1.
-
-    overlap = (a_factor[k_idx] * a_factor[k_p_idx] +
-               c_factor[k_idx] * c_factor[k_p_idx] * k_angles) ** 2
-
-    weighted_overlap = w0gauss(ediff / gauss_width) * overlap
-
-    # norm of k difference squared in 1/nm
-    k_diff_sq = np.linalg.norm(np.dot(
-        kpoints[k_idx] - kpoints[k_p_idx],
-        reciprocal_lattice_matrix) / 0.1, axis=1) ** 2
-
-    # factors is array with shape:
-    # (n_scatterers, n_doping, n_temperatures, n_k_diff_sq)
-    factors = np.array([m.factor(k_diff_sq) for m in scatterers])
-
-    rates = weighted_overlap * factors
-
-    k_idx -= s.start
-    unique_rows = np.unique(k_idx)
-
-    # band rates has shape (n_scatterers, n_doping, n_temperatures, n_kpoints)
-    band_rates = np.zeros((list(factors.shape[:-1]) + [s.stop - s.start]))
-
-    # could vectorize this using numpy apply along axis if need be
-    for s, n, t in np.ndindex(band_rates.shape[:-1]):
-        band_rates[s, n, t, unique_rows] = np.bincount(
-            k_idx, weights=rates[s, n, t])[unique_rows]
-
-    return band_rates
+# def get_band_rates(spin, b_idx, scatterers, ediff, gauss_width, s, k_idx,
+#                    k_p_idx, kpoints, kpoint_norms, a_factor, c_factor,
+#                    reciprocal_lattice_matrix):
+#     from numpy.core.umath_tests import inner1d
+#
+#     mask = k_idx != k_p_idx  # no self-scattering
+#     k_idx = k_idx[mask]
+#     k_p_idx = k_p_idx[mask]
+#     ediff = ediff[mask]
+#
+#     k_dot = inner1d(kpoints[k_idx], kpoints[k_p_idx])
+#     k_angles = k_dot / (kpoint_norms[k_idx] * kpoint_norms[k_p_idx])
+#     k_angles[np.isnan(k_angles)] = 1.
+#
+#     overlap = (a_factor[k_idx] * a_factor[k_p_idx] +
+#                c_factor[k_idx] * c_factor[k_p_idx] * k_angles) ** 2
+#
+#     # units.eV is to convert from 1/Hatree to 1/eV
+#     weighted_overlap = w0gauss(ediff / gauss_width) * overlap * units.eV
+#
+#     # norm of k difference squared in 1/nm
+#     k_diff_sq = np.linalg.norm(np.dot(
+#         kpoints[k_idx] - kpoints[k_p_idx],
+#         reciprocal_lattice_matrix) / 0.1, axis=1) ** 2
+#
+#     # factors is array with shape:
+#     # (n_scatterers, n_doping, n_temperatures, n_k_diff_sq)
+#     factors = np.array([m.factor(k_diff_sq) for m in scatterers])
+#
+#     rates = weighted_overlap * factors
+#
+#     k_idx -= s.start
+#     unique_rows = np.unique(k_idx)
+#
+#     # band rates has shape (n_scatterers, n_doping, n_temperatures, n_kpoints)
+#     band_rates = np.zeros((list(factors.shape[:-1]) + [s.stop - s.start]))
+#
+#     # could vectorize this using numpy apply along axis if need be
+#     for s, n, t in np.ndindex(band_rates.shape[:-1]):
+#         band_rates[s, n, t, unique_rows] = np.bincount(
+#             k_idx, weights=rates[s, n, t])[unique_rows]
+#
+#     return band_rates
 
 
 def w0gauss(x):
