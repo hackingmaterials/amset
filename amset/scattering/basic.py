@@ -14,8 +14,7 @@ from scipy.interpolate import interp1d
 from amset.data import AmsetData
 from amset.constants import e, sqrt2, hbar, small_val, bohr_to_angstrom
 from amset.misc.log import log_list
-from amset.scattering.elastic import calculate_inverse_screening_length_sq, \
-    calculate_inverse_screening_length_sq_review
+from amset.scattering.elastic import calculate_inverse_screening_length_sq
 
 logger = logging.getLogger(__name__)
 
@@ -369,7 +368,7 @@ def get_normalized_energies(amset_data: AmsetData, broaden=False):
     #         spin_energies = deepcopy(amset_data.energies[spin])
     #         for n, t in np.ndindex(fermi_shape):
     #             broadening = BOLTZMANN * amset_data.temperatures[t] if broaden else 0
-    #             energies[spin][n, t] = np.abs(spin_energies - amset_data._efermi) + broadening
+    #             energies[spin][n, t] = np.abs(spin_energies - amset_data.intrinsic_fermi_level) + broadening
     # else:
     #     vb_idx = amset_data.vb_idx
     #     vbm_e = np.max([amset_data.energies[s][: vb_idx[s] + 1] for s in spins])
