@@ -76,7 +76,7 @@ class PeriodicVoronoi(object):
 
         # filter points far from the zone boundary, this will lead to errors for
         # very small meshes < 5x5x5 but we are not interested in those
-        mask = ((supercell_points > -0.75) & (supercell_points < 0.75)).all(axis=1)
+        mask = ((supercell_points > -0.65) & (supercell_points < 0.65)).all(axis=1)
         supercell_points = supercell_points[mask]
         supercell_idxs = supercell_idxs[mask]
 
@@ -111,10 +111,13 @@ class PeriodicVoronoi(object):
         # use BallTree for quickly evaluating which points are within cutoffs
         tree = BallTree(cart_points)
 
+        n_supercell_points = len(supercell_points)
+
         # big points are those which surround the extra points within the big cutoff
         # (including the extra points themselves)
         logger.debug("  ├── calculating points in big radius")
-        big_points_idx = _query_radius_iteratively(tree, cart_extra_points, big_cutoff)
+        big_points_idx = _query_radius_iteratively(
+            tree, n_supercell_points, cart_extra_points, big_cutoff)
 
         # Voronoi points are those we actually include in the Voronoi diagram
         self._voronoi_points = cart_points[big_points_idx]
@@ -124,7 +127,7 @@ class PeriodicVoronoi(object):
         # weights will just be the regular grid weight.
         logger.debug("  └── calculating points in small radius")
         small_points_idx = _query_radius_iteratively(
-            tree, cart_extra_points, small_cutoff)
+            tree, n_supercell_points, cart_extra_points, small_cutoff)
 
         # get the irreducible small points
         small_points_in_all_points = supercell_idxs[small_points_idx] % len(all_points)
@@ -150,8 +153,7 @@ class PeriodicVoronoi(object):
         # will have zero volume. This will array will be updated by
         # compute_volumes
         self._volume = reciprocal_lattice.volume
-        self._final_volumes = np.full(
-            len(all_points), self._volume / len(original_points))
+        self._final_volumes = np.full(len(all_points), 1 / len(original_points))
         self._final_volumes[len(original_points):] = 0
         self._final_volumes[self._volume_in_final_idx] = 0
 
@@ -198,7 +200,7 @@ class PeriodicVoronoi(object):
         # divide volumes by reciprocal lattice volume to get the fractional volume
         volumes[self._volume_in_final_idx] = self._get_voronoi_volumes(
             indices, vertices
-        )[self._expand_ir]
+        )[self._expand_ir] / self._volume
 
         zero_vols = volumes == 0
         if zero_vols.any():
@@ -209,7 +211,7 @@ class PeriodicVoronoi(object):
             logger.warning("{} volumes are infinite".format(inf_vols.sum()))
 
         sum_volumes = volumes.sum()
-        vol_diff = (sum_volumes - self._volume) / self._volume
+        vol_diff = sum_volumes - 1
 
         if abs(vol_diff) > 1e-7:
             logger.warning(
@@ -278,18 +280,22 @@ def get_supercell_points(points):
     return repeated_images + repeated_points
 
 
-def _query_radius_iteratively(tree: BallTree, points: np.ndarray, cutoff: float,
+def _query_radius_iteratively(tree: BallTree, n_original_points: int,
+                              points: np.ndarray, cutoff: float,
                               max_points_per_split=10000):
-    # return np.concatenate(tree.query_radius(points, cutoff), axis=0)
-    # iterative querying when we have lots of points to avoid memory issues
-    unique_neighbor_idxs = np.array([], dtype=int)
+    # this method of using a mask rather than concatenating all points then finding the
+    # unique values uses ~ 20x less memory! Very cheeky
     npoints = len(points)
     nsplits = math.ceil(npoints / max_points_per_split)
 
-    i = 0
-    for split in gen_even_slices(npoints, nsplits):
-        i += 1
-        idxs = np.concatenate(tree.query_radius(points[split], cutoff), axis=0)
-        unique_neighbor_idxs = np.unique(np.concatenate((idxs, unique_neighbor_idxs)))
+    mask = np.full(n_original_points, False)
+    idxs = np.arange(n_original_points)
 
-    return np.asarray(unique_neighbor_idxs)
+    for split in gen_even_slices(npoints, nsplits):
+        query = tree.query_radius(points[split], cutoff)
+
+        for result in query:
+            mask[result] = True
+
+    return idxs[mask]
+

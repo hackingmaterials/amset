@@ -294,7 +294,6 @@ class Interpolater(MSONable):
             self._band_structure.structure,
             energies,
             vvelocities,
-            curvature,
             projections,
             self.interpolation_mesh,
             full_kpts,
@@ -306,6 +305,7 @@ class Interpolater(MSONable):
             self._soc,
             vb_idx=new_vb_idx,
             scissor=scissor,
+            # curvature=curvature,
         )
 
     def get_amset_data_from_kpoints(
@@ -394,13 +394,13 @@ class Interpolater(MSONable):
         logger.info("Interpolation parameters:")
         log_list(mesh_info)
 
-        energies, vvelocities, curvature, projections, mapping_info, efermi, vb_idx, scissor = self.get_energies(
+        energies, vvelocities, projections, mapping_info, efermi, vb_idx, scissor = self.get_energies(
             kpoints,
             energy_cutoff=energy_cutoff,
             scissor=scissor,
             bandgap=bandgap,
             return_velocity=True,
-            return_curvature=True,
+            return_curvature=False,
             return_projections=True,
             atomic_units=True,
             return_vel_outer_prod=True,
@@ -419,7 +419,6 @@ class Interpolater(MSONable):
             self._band_structure.structure,
             energies,
             vvelocities,
-            curvature,
             projections,
             interpolation_mesh,
             kpoints,
@@ -432,6 +431,7 @@ class Interpolater(MSONable):
             vb_idx=vb_idx,
             scissor=scissor,
             kpoint_weights=weights,
+            # curvature=curvature,
         )
 
     def get_energies(
@@ -555,10 +555,12 @@ class Interpolater(MSONable):
             )
             similarity_matrix = np.array(
                 [
-                    similarity_transformation(lattice.reciprocal_lattice.matrix, r.T)
+                    similarity_transformation(lattice.reciprocal_lattice.matrix, r)
                     for r in rot_mapping
                 ]
             )
+            # similarity_matrix = rot_mapping
+
             inv_similarity_matrix = np.array(
                 [np.linalg.inv(s) for s in similarity_matrix]
             )
@@ -615,10 +617,15 @@ class Interpolater(MSONable):
                 # and appropriate rotation matrix. The weird ordering of the
                 # indices is because the velocities has the shape
                 # (3, nbands, nkpoints)
+                # velocities[spin] = np.einsum(
+                #     "kij,jkl->lij",
+                #     velocities[spin][:, :, ir_to_full_idx],
+                #     similarity_matrix,
+                # )
                 velocities[spin] = np.einsum(
-                    "kij,jkl->lij",
-                    velocities[spin][:, :, ir_to_full_idx],
+                    "jkl,kij->lij",
                     similarity_matrix,
+                    velocities[spin][:, :, ir_to_full_idx],
                 )
 
             if not self._band_structure.is_metal():
