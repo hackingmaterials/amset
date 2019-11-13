@@ -176,7 +176,7 @@ class AmsetRunner(MSONable):
             log_banner("DENSIFICATION")
 
             inv_screening_length_sq = None
-            if (self.performance_parameters["use_imp_minimum_mesh"] and
+            if (self.interpolation_parameters["use_imp_minimum_mesh"] and
                     self.material_properties["static_dielectric"] and
                     ("IMP" in self.scattering_type or self.scattering_type == "auto")):
                 inv_screening_length_sq = np.min(calculate_inverse_screening_length_sq(
