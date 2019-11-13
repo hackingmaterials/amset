@@ -115,12 +115,12 @@ def _calculate_mobility(amset_data: AmsetData,
             npts=len(amset_data.dos.energies),
             kpoint_weights=amset_data.kpoint_weights)
 
-        n, l0, l1, l2, lm11 = fermiintegrals(
+        c, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, cdos=cdos, mur=fermi, Tr=temp,
             dosweight=amset_data.dos.dos_weight)
 
-        n = (
-                (-n[0, ...] - amset_data.dos.nelect) /
+        c = (
+                (-c[0, ...] - amset_data.dos.nelect) /
                 (amset_data.structure.volume / (units.Meter / 100.) ** 3)
         )
 
@@ -135,7 +135,7 @@ def _calculate_mobility(amset_data: AmsetData,
             carrier_conc = amset_data.hole_conc[n, t]
 
         print(carrier_conc)
-        print(n)
+        print(c)
 
         # convert mobility to cm^2/V.s
         mobility[n, t] = sigma[0, ...] * 0.01 / (e * carrier_conc)
