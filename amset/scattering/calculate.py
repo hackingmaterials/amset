@@ -115,7 +115,7 @@ class ScatteringCalculator(MSONable):
     def get_scatterers(scattering_type: Union[str, List[str], float],
                        materials_properties: Dict[str, Any],
                        amset_data: AmsetData,
-                       prefer_full_imp: bool = True,
+                       prefer_full_imp: bool = False,
                        ) -> List[Union[AbstractElasticScattering,
                                        AbstractInelasticScattering,
                                        AbstractBasicScattering]]:
@@ -178,10 +178,10 @@ class ScatteringCalculator(MSONable):
         else:
             nkpoints = len(full_kpoints)
 
-        if len(self.amset_data.full_kpoints) > 1.5e6:
-            batch_size = 30
+        if len(self.amset_data.full_kpoints) > 5e5:
+            batch_size = 20
         else:
-            batch_size = 100
+            batch_size = 80
 
         nsplits = math.ceil(nkpoints/batch_size)
         logger.info("Scattering information:")
@@ -203,9 +203,9 @@ class ScatteringCalculator(MSONable):
                     "min rate: {:.4g}".format(rates[spin][..., b_idx, :].min()),
                     "time: {:.4f} s".format(time.perf_counter() - t0)])
 
-        # if the k-point density is low, some k-points may not have
-        # other k-points within the energy tolerance leading to zero rates
-        rates = _interpolate_zero_rates(rates, full_kpoints, masks)
+        # if the k-point density is low, some k-points may not have other k-points
+        # within the energy tolerance leading to zero rates
+        # rates = _interpolate_zero_rates(rates, full_kpoints, masks)
 
         return rates
 
@@ -298,6 +298,11 @@ class ScatteringCalculator(MSONable):
         if self.basic_scatterers:
             basic_rates = np.array(
                 [s.rates[spin][:, :, b_idx, :] for s in self.basic_scatterers])
+
+            if mask is not None:
+                # these k-points are outside the range of the FD distribution
+                # and therefore will not contribute to the scattering
+                basic_rates[:, :, :, fill_mask] = 1e14
 
         if self.elastic_scatterers:
             elastic_rates = self._fill_workers(
