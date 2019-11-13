@@ -151,11 +151,23 @@ class AmsetData(MSONable):
         logger.info("Calculated Fermi levels:")
 
         fermi_level_info = []
+        tols = np.logspace(-5, 0, 6)
         for n, t in np.ndindex(self.fermi_levels.shape):
-            self.fermi_levels[n, t], self.electron_conc[n, t], \
-                self.hole_conc[n, t] = self.dos.get_fermi(
-                    doping[n], temperatures[t], tol=1e-5, precision=10,
-                    return_electron_hole_conc=True)
+            for i, tol in enumerate(tols):
+                # Finding the Fermi level is quite fickle. Enumerate multiple tolerances
+                # and use the first one that works!
+                try:
+                    self.fermi_levels[n, t], self.electron_conc[n, t], \
+                        self.hole_conc[n, t] = self.dos.get_fermi(
+                            doping[n], temperatures[t], tol=tol, precision=10,
+                            return_electron_hole_conc=True)
+                    break
+                except ValueError:
+                    if i == len(tols) - 1:
+                        raise ValueError("Could not calculate Fermi level position."
+                                         "Try a denser k-point mesh.")
+                    else:
+                        pass
 
             fermi_level_info.append("{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
                 doping[n], temperatures[t], self.fermi_levels[n, t] / units.eV))
