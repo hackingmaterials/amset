@@ -76,7 +76,7 @@ class PeriodicVoronoi(object):
 
         # filter points far from the zone boundary, this will lead to errors for
         # very small meshes < 5x5x5 but we are not interested in those
-        mask = ((supercell_points > -0.65) & (supercell_points < 0.65)).all(axis=1)
+        mask = ((supercell_points > -0.75) & (supercell_points < 0.75)).all(axis=1)
         supercell_points = supercell_points[mask]
         supercell_idxs = supercell_idxs[mask]
 
