@@ -394,13 +394,13 @@ class Interpolater(MSONable):
         logger.info("Interpolation parameters:")
         log_list(mesh_info)
 
-        energies, vvelocities, projections, mapping_info, efermi, vb_idx, scissor = self.get_energies(
+        energies, vvelocities, curvature, projections, mapping_info, efermi, vb_idx, scissor = self.get_energies(
             kpoints,
             energy_cutoff=energy_cutoff,
             scissor=scissor,
             bandgap=bandgap,
             return_velocity=True,
-            return_curvature=False,
+            return_curvature=True,
             return_projections=True,
             atomic_units=True,
             return_vel_outer_prod=True,
@@ -431,7 +431,7 @@ class Interpolater(MSONable):
             vb_idx=vb_idx,
             scissor=scissor,
             kpoint_weights=weights,
-            # curvature=curvature,
+            curvature=curvature,
         )
 
     def get_energies(

@@ -6,7 +6,7 @@ from amset.interpolation.densify import BandDensifier
 from amset.interpolation.interpolate import Interpolater
 from amset.interpolation.voronoi import PeriodicVoronoi
 from amset.misc.log import initialize_amset_logger
-from amset.misc.util import get_dense_kpoint_mesh_spglib
+from amset.kpoints import get_dense_kpoint_mesh_spglib
 from pymatgen import Lattice
 from pymatgen.io.vasp import Vasprun
 

@@ -4,22 +4,24 @@ import numpy as np
 
 from numpy.testing import assert_array_equal
 
-from amset.interpolation.interpolate import Interpolater, _get_kpoints
+from amset.interpolation.interpolate import Interpolater
 from amset.misc.log import initialize_amset_logger
-from amset.misc.util import get_dense_kpoint_mesh_spglib
+from amset.kpoints import get_dense_kpoint_mesh_spglib, get_kpoints
 from pymatgen import Spin
 from pymatgen.io.vasp import Vasprun
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
-amset_files = os.path.join(test_dir, '..', '..', '..', 'examples',
-                           'GaAs')
+gaas_files = os.path.join(test_dir, '..', '..', '..', 'examples', 'GaAs')
+tin_dioxide_files = os.path.join(test_dir, '..', '..', '..', 'examples', 'SnO2')
+si_files = os.path.join(test_dir, '..', '..', '..', 'examples', 'Si')
+pbs_files = os.path.join(test_dir, '..', '..', '..', 'examples', 'PbS')
 
 
 class TestBoltzTraP2Interpolater(unittest.TestCase):
     """Tests for interpolating a band structure using BoltzTraP2."""
 
     def setUp(self):
-        vr = Vasprun(os.path.join(amset_files, 'vasprun.xml.gz'),
+        vr = Vasprun(os.path.join(gaas_files, 'vasprun.xml.gz'),
                      parse_projected_eigen=True)
         bs = vr.get_band_structure()
         num_electrons = vr.parameters['NELECT']
@@ -43,14 +45,14 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         # test just getting energy
         energies = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=False,
-            return_effective_mass=False)
+            curvature=False)
         self.assertEqual(energies.shape, (138,))
         self.assertAlmostEqual(energies[0], 3.852399483908641)
 
         # test energy + velocity
         energies, velocities = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=True,
-            return_effective_mass=False)
+            curvature=False)
         self.assertEqual(energies.shape, (138,))
         self.assertAlmostEqual(energies[0], 3.852399483908641)
         self.assertEqual(velocities.shape, (138, 3))
@@ -60,7 +62,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         # test energy + effective_mass
         energies, effective_masses = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=False,
-            return_effective_mass=True)
+            curvature=True)
         self.assertEqual(energies.shape, (138,))
         self.assertAlmostEqual(energies[0], 3.852399483908641)
         self.assertEqual(effective_masses.shape, (138, 3, 3))
@@ -69,7 +71,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         # test energy + velocity + effective_mass
         energies, velocities, effective_masses = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=True,
-            return_effective_mass=True)
+            curvature=True)
         self.assertEqual(energies.shape, (138,))
         self.assertAlmostEqual(energies[0], 3.852399483908641)
         self.assertEqual(velocities.shape, (138, 3))
@@ -84,14 +86,14 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         # test valence band
         energies = self.interpolater.get_energies(
             self.kpoints, 25, return_velocity=False,
-            return_effective_mass=False, scissor=1.)
+            curvature=False, scissor=1.)
         self.assertEqual(energies.shape, (138,))
         self.assertAlmostEqual(energies[0], 3.852399483908641 - 0.5)
 
         # test conduction band
         energies = self.interpolater.get_energies(
             self.kpoints, 33, return_velocity=False,
-            return_effective_mass=False, scissor=1.)
+            curvature=False, scissor=1.)
         self.assertEqual(energies.shape, (138,))
         self.assertAlmostEqual(energies[0], 7.301700765 + 0.5)
 
@@ -100,7 +102,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         # test just getting energy
         energies = self.interpolater.get_energies(
             self.kpoints, [25, 35], return_velocity=False,
-            return_effective_mass=False)
+            curvature=False)
         self.assertEqual(energies.shape, (2, 138,))
         self.assertAlmostEqual(energies[0][0], 3.852399483908641)
         self.assertAlmostEqual(energies[1][0], 9.594401616456384)
@@ -108,7 +110,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         # test energy + velocity
         energies, velocities = self.interpolater.get_energies(
             self.kpoints, [25, 35], return_velocity=True,
-            return_effective_mass=False)
+            curvature=False)
         self.assertEqual(energies.shape, (2, 138,))
         self.assertAlmostEqual(energies[0][0], 3.852399483908641)
         self.assertAlmostEqual(energies[1][0], 9.594401616456384)
@@ -121,7 +123,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         # test energy + effective_mass
         energies, effective_masses = self.interpolater.get_energies(
             self.kpoints, [25, 35], return_velocity=False,
-            return_effective_mass=True)
+            curvature=True)
         self.assertEqual(energies.shape, (2, 138,))
         self.assertAlmostEqual(energies[0][0], 3.852399483908641)
         self.assertAlmostEqual(energies[1][0], 9.594401616456384)
@@ -132,7 +134,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         # test energy + velocity + effective_mass
         energies, velocities, effective_masses = self.interpolater.get_energies(
             self.kpoints, [25, 35], return_velocity=True,
-            return_effective_mass=True)
+            curvature=True)
         self.assertEqual(energies.shape, (2, 138,))
         self.assertAlmostEqual(energies[0][0], 3.852399483908641)
         self.assertAlmostEqual(energies[1][0], 9.594401616456384)
@@ -149,7 +151,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         # test all bands
         energies, velocities, effective_masses = self.interpolater.get_energies(
             self.kpoints, None, return_velocity=True,
-            return_effective_mass=True)
+            curvature=True)
         self.assertEqual(energies.shape, (96, 138,))
         self.assertAlmostEqual(energies[25][0], 3.852399483908641)
         self.assertAlmostEqual(energies[35][0], 9.594401616456384)
@@ -193,27 +195,48 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
                                              [0.4167, 0.4167, -0.0019], 4)
 
     def test_get_energies_symprec(self):
-        kpoints = get_dense_kpoint_mesh_spglib([13, 15, 29],
-                                               spg_order=False, shift=0)
+        # vr = Vasprun(os.path.join(tin_dioxide_files, 'vasprun.xml.gz'),
+        #              parse_projected_eigen=True)
+        vr = Vasprun(os.path.join(pbs_files, 'vasprun.xml.gz'),
+                     parse_projected_eigen=True)
+        bs = vr.get_band_structure()
+        num_electrons = vr.parameters['NELECT']
+        interpolater = Interpolater(
+            bs, num_electrons, interpolate_projections=True,
+            interpolation_factor=1)
+
+        ir_kpoints, weights, kpoints, ir_kpoints_idx, ir_to_full_idx = get_kpoints(
+            [13, 15, 29], vr.final_structure, boltztrap_ordering=True,
+            return_full_kpoints=True)
 
         initialize_amset_logger()
 
-        energies, velocities, projections, sym_info = self.interpolater.get_energies(
-            kpoints, None, return_velocity=True, atomic_units=True,
-            return_effective_mass=False, return_projections=True, symprec=0.1,
-            return_vel_outer_prod=True, return_kpoint_mapping=True)
-
-        energies_no_sym, velocities_no_sym, projections_no_sym = \
-            self.interpolater.get_energies(
+        energies, velocities, curvature, projections, sym_info = \
+            interpolater.get_energies(
                 kpoints, None, return_velocity=True, atomic_units=True,
-                return_effective_mass=False, return_projections=True,
+                return_curvature=True, return_projections=True, symprec=0.1,
+                return_vel_outer_prod=True, return_kpoint_mapping=True)
+
+        energies_no_sym, velocities_no_sym, curvature_no_sym, projections_no_sym = \
+            interpolater.get_energies(
+                kpoints, None, return_velocity=True, atomic_units=True,
+                return_curvature=True, return_projections=True,
                 return_vel_outer_prod=True,
                 symprec=None)
 
+        np.testing.assert_array_equal(ir_to_full_idx, sym_info["ir_to_full_idx"])
+        np.testing.assert_array_equal(ir_kpoints_idx, sym_info["ir_kpoints_idx"])
+
+        # print(velocities[Spin.up][5, :, :, -3:])
+        # print(velocities_no_sym[Spin.up][5, :, :, -3:])
+        # print(sym_info["ir_to_full_idx"][-10:])
+
         np.testing.assert_array_almost_equal(
-            energies[Spin.up], energies_no_sym[Spin.up])
+            energies[Spin.up], energies_no_sym[Spin.up], decimal=12)
         np.testing.assert_array_almost_equal(
-            velocities[Spin.up], velocities_no_sym[Spin.up])
+            velocities[Spin.up], velocities_no_sym[Spin.up], decimal=12)
+        np.testing.assert_array_almost_equal(
+            curvature[Spin.up], curvature_no_sym[Spin.up], decimal=12)
 
         for l in projections[Spin.up]:
             np.testing.assert_array_almost_equal(
@@ -229,7 +252,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         energies, velocities, projections, sym_info = \
             self.interpolater.get_energies(
                 amset_data.full_kpoints, None, return_velocity=True,
-                atomic_units=True, return_effective_mass=False,
+                atomic_units=True, curvature=False,
                 return_projections=True, symprec=0.1,
                 return_vel_outer_prod=True, return_kpoint_mapping=True)
 
@@ -248,4 +271,19 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         np.testing.assert_array_equal(sym_info["ir_to_full_idx"],
                                       amset_data.ir_to_full_kpoint_mapping)
 
+    def test_get_amset_data_from_kpoints(self):
+        initialize_amset_logger()
+        amset_data = self.interpolater.get_amset_data()
+        amset_data_kpoints = self.interpolater.get_amset_data_from_kpoints(
+            amset_data.kpoint_mesh)
 
+        np.testing.assert_array_almost_equal(amset_data.energies[Spin.up],
+                                             amset_data_kpoints.energies[Spin.up])
+        np.testing.assert_array_almost_equal(amset_data.ir_kpoints_idx,
+                                             amset_data_kpoints.ir_kpoints_idx)
+        np.testing.assert_array_almost_equal(amset_data.vb_idx[Spin.up],
+                                             amset_data_kpoints.vb_idx[Spin.up])
+        np.testing.assert_array_almost_equal(amset_data.a_factor[Spin.up],
+                                             amset_data_kpoints.a_factor[Spin.up])
+        np.testing.assert_array_almost_equal(amset_data.c_factor[Spin.up],
+                                             amset_data_kpoints.c_factor[Spin.up])
