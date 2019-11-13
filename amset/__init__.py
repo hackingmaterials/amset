@@ -39,7 +39,7 @@ amset_defaults = {
         "fd_tol": 0.1,
         "ibte_tol": 1,
         "max_ibte_iter": 1,
-        "dos_estep": 0.001,
+        "dos_estep": 0.01,
         "symprec": 0.01,
         "nworkers": -1,
     },
