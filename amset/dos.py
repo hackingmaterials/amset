@@ -1,16 +1,21 @@
 """
 Customised implementation of FermiDos. Will Move back to pymatgen at some point.
 """
-import warnings
+import logging
 
 import numpy as np
 
-from typing import Optional, Union, Tuple
+from typing import Optional, Union, Tuple, Dict
 
+from BoltzTraP2 import units
+from BoltzTraP2.bandlib import _suggest_nbins
+from BoltzTraP2.fd import FD
 from monty.json import MSONable
 
 from pymatgen import Structure, Spin
-from pymatgen.electronic_structure.dos import Dos, f0
+from pymatgen.electronic_structure.dos import Dos
+
+logger = logging.getLogger(__name__)
 
 
 class FermiDos(Dos, MSONable):
@@ -22,70 +27,50 @@ class FermiDos(Dos, MSONable):
     majority carriers (p-type doping).
 
     Args:
-        dos: Pymatgen Dos object.
+        efermi: The Fermi level energy in Hartree.
+        energies: A sequences of energies in Hartree.
+        densities ({Spin: np.array}): representing the density of states
+            for each Spin.
         structure: A structure. If not provided, the structure
             of the dos object will be used. If the dos does not have an
             associated structure object, an error will be thrown.
         dos_weight: The weighting for the dos. Defaults to 2 for non-spin
             polarized calculations and 1 for spin-polarized calculations.
-        nelecs: The number of electrons included in the energy range of
-            dos used for normalizing the densities. If None, the densities
-            will not be normalized.
-        bandgap: If set, the energy values are scissored so that the electronic
-            band gap matches this value.
+        atomic_units: Whether energies are given in eV or Hartree.
     """
 
-    def __init__(self, dos: Dos, structure: Structure = None,
+    def __init__(self,
+                 efermi: float,
+                 energies: np.ndarray,
+                 densities: Dict[Spin, np.ndarray],
+                 structure: Structure,
                  dos_weight: Optional[float] = None,
-                 nelecs: Optional[float] = None,
-                 bandgap: Optional[float] = None):
-        super().__init__(dos.efermi, energies=dos.energies,
-                         densities={k: np.array(d) for k, d in
-                                    dos.densities.items()})
+                 atomic_units: bool = True):
 
-        if structure is None:
-            if hasattr(dos, "structure"):
-                structure = dos.structure
-            else:
-                raise ValueError("Structure object is not provided and not "
-                                 "present in dos")
-
+        super().__init__(efermi, energies, densities)
         self.structure = structure
-        self.nelecs = nelecs or self.structure.composition.total_electrons
-
-        self.volume = self.structure.volume
-        self.energies = np.array(dos.energies)
-        self.de = np.hstack(
-            (self.energies[1:], self.energies[-1])) - self.energies
+        self.atomic_units = atomic_units
 
         if not dos_weight:
             dos_weight = 2 if len(self.densities) == 1 else 1
         self.dos_weight = dos_weight
-
         self.tdos = np.array(self.get_densities()) * self.dos_weight
+        self.de = self.energies[1] - self.energies[0]
 
-        nelect_integ = (self.tdos * self.de)[self.energies <= self.efermi].sum()
-        if nelecs:
-            # normalize total density of states based on integral at 0K
-            self.tdos = self.tdos * self.nelecs / nelect_integ
-        else:
-            self.nelecs = nelect_integ
+        # N_electrons to concentration (in 1/cm^3) conversion; 1e-8 is
+        # conversion from Angstrom to cm
+        self._conv = self.structure.volume * 1e-8 ** 3
 
-        self.idx_fermi = np.argmin(abs(self.energies - self.efermi))
+        # integrate up to Fermi level to get number of electrons
+        self.nelect = self.tdos[self.energies <= self.efermi].sum() * self.de
 
-        if bandgap:
-            ecbm, evbm = self.get_cbm_vbm()
-            if evbm < self.efermi < ecbm:
-                eref = self.efermi
-            else:
-                eref = (evbm + ecbm) / 2.0
+        logger.debug("Intrinsic DOS Fermi level: {:.4f} eV".format(
+            self.efermi / units.eV if atomic_units else self.efermi))
+        logger.debug("DOS contains {:.3f} electrons".format(self.nelect))
 
-            idx_fermi = np.argmin(abs(self.energies - eref))
-
-            self.energies[:idx_fermi] -= (bandgap - (ecbm - evbm)) / 2.0
-            self.energies[idx_fermi:] += (bandgap - (ecbm - evbm)) / 2.0
-
-    def get_doping(self, fermi_level: float, temperature: float,
+    def get_doping(self,
+                   fermi_level: float,
+                   temperature: float,
                    return_electron_hole_conc: bool = False
                    ) -> Union[float, Tuple[float, float, float]]:
         """
@@ -95,7 +80,7 @@ class FermiDos(Dos, MSONable):
         distribution.
 
         Args:
-            fermi_level: The fermi_level level in eV.
+            fermi_level: The fermi_level level in Hartree.
             temperature: The temperature in Kelvin.
             return_electron_hole_conc: Whether to also return the separate
                 electron and hole concentrations at the doping level.
@@ -109,87 +94,38 @@ class FermiDos(Dos, MSONable):
             If return_electron_hole_conc is True: the doping concentration,
             electron concentration and hole concentration as a tuple.
         """
-        cb_integral = np.sum(
-            self.tdos[self.idx_fermi:]
-            * f0(self.energies[self.idx_fermi:], fermi_level, temperature)
-            * self.de[self.idx_fermi:], axis=0)
-        vb_integral = np.sum(
-            self.tdos[:self.idx_fermi] *
-            (1 - f0(self.energies[:self.idx_fermi], fermi_level, temperature))
-            * self.de[:self.idx_fermi], axis=0)
+        if temperature == 0.:
+            occ = np.where(self.energies < fermi_level, 1., 0.)
+            occ[self.energies == fermi_level] = .5
+        else:
+            kbt = temperature * units.BOLTZMANN
+            if self.atomic_units:
+                occ = FD(self.energies, fermi_level, kbt)
+            else:
+                occ = FD(self.energies * units.eV, fermi_level * units.eV, kbt)
 
-        # 1e-8 is conversion from Angstrom to cm
-        conv = self.volume * 1e-8 ** 3
-        doping = (vb_integral - cb_integral) / conv
+        wdos = self.tdos * occ
+        num_electrons = wdos.sum() * self.de
+        conc = (num_electrons - self.nelect) / self._conv
 
         if return_electron_hole_conc:
-            return doping, cb_integral / conv, vb_integral / conv
+            cb_conc = wdos[self.energies > self.efermi].sum() * self.de
+            vb_conc = wdos[self.energies <= self.efermi].sum() * self.de
+            cb_conc = cb_conc / self._conv
+            vb_conc = (self.nelect - vb_conc) / self._conv
+            return conc, cb_conc, vb_conc
+
         else:
-            return doping
+            return conc
 
-    def get_fermi_interextrapolated(self, concentration: float,
-                                    temperature: float, warn: bool = True,
-                                    c_ref: float = 1e10, **kwargs) -> float:
-        """
-        Similar to get_fermi except that when get_fermi fails to converge,
-        an interpolated or extrapolated fermi is returned with the assumption
-        that the fermi level changes linearly with log(abs(concentration)).
-
-        Args:
-            concentration: The doping concentration in 1/cm^3. Negative values
-                represent n-type doping and positive values represent p-type
-                doping.
-            temperature: The temperature in Kelvin.
-            warn: Whether to give a warning the first time the fermi cannot be
-                found.
-            c_ref: A doping concentration where get_fermi returns a
-                value without error for both c_ref and -c_ref.
-            **kwargs: Keyword arguments passed to the get_fermi function.
-
-        Returns:
-            The Fermi level. Note, the value is possibly interpolated or
-            extrapolated and must be used with caution.
-        """
-        try:
-            return self.get_fermi(concentration, temperature, **kwargs)
-        except ValueError as e:
-            if warn:
-                warnings.warn(str(e))
-
-            if abs(concentration) < c_ref:
-                if abs(concentration) < 1e-10:
-                    concentration = 1e-10
-
-                # max(10, ) is to avoid log(0<x<1) and log(1+x) both of which
-                # are slow
-                f2 = self.get_fermi_interextrapolated(
-                    max(10, abs(concentration) * 10.), temperature, warn=False,
-                    **kwargs)
-                f1 = self.get_fermi_interextrapolated(
-                    -max(10, abs(concentration) * 10.), temperature, warn=False,
-                    **kwargs)
-                c2 = np.log(abs(1 + self.get_doping(f2, temperature)))
-                c1 = -np.log(abs(1 + self.get_doping(f1, temperature)))
-                slope = (f2 - f1) / (c2 - c1)
-                return f2 + slope * (np.sign(concentration) *
-                                     np.log(abs(1 + concentration)) - c2)
-
-            else:
-                f_ref = self.get_fermi_interextrapolated(
-                    np.sign(concentration) * c_ref, temperature, warn=False,
-                    **kwargs)
-                f_new = self.get_fermi_interextrapolated(
-                    concentration / 10., temperature, warn=False, **kwargs)
-                clog = np.sign(concentration) * np.log(abs(concentration))
-                c_newlog = np.sign(concentration) * np.log(
-                    abs(self.get_doping(f_new, temperature)))
-                slope = (f_new - f_ref) / (c_newlog - np.sign(concentration)
-                                           * 10.)
-                return f_new + slope * (clog - c_newlog)
-
-    def get_fermi(self, concentration: float, temperature: float,
-                  rtol: float = 0.01, nstep: int = 50, step: float = 0.1,
-                  precision: int = 8, return_electron_hole_conc=False):
+    def get_fermi(self,
+                  concentration: float,
+                  temperature: float,
+                  tol: float = 0.01,
+                  nstep: int = 50,
+                  step: float = 0.1,
+                  precision: int = 10,
+                  return_electron_hole_conc=False):
         """
         Finds the fermi level at which the doping concentration at the given
         temperature (T) is equal to concentration. A greedy algorithm is used
@@ -201,10 +137,8 @@ class FermiDos(Dos, MSONable):
                 represent n-type doping and positive values represent p-type
                 doping.
             temperature: The temperature in Kelvin.
-            rtol: The maximum acceptable relative error.
-            nstep: THe number of steps checked around a given fermi level.
-            step: Initial step in energy when searching for the Fermi level.
-            precision: Essentially the decimal places of calculated Fermi level.
+            return_electron_hole_conc: Whether to also return the separate
+                electron and hole concentrations at the doping level.
 
         Returns:
             If return_electron_hole_conc is False: The Fermi level in eV. Note
@@ -225,10 +159,10 @@ class FermiDos(Dos, MSONable):
             fermi = frange[np.argmin(relative_error)]
             step /= 10.0
 
-        if min(relative_error) > rtol:
+        if min(relative_error) > tol:
             raise ValueError(
                 "Could not find fermi within {}% of concentration={}".format(
-                    rtol * 100, concentration))
+                    tol * 100, concentration))
 
         if return_electron_hole_conc:
             _, n_elec, n_hole = self.get_doping(
@@ -237,24 +171,30 @@ class FermiDos(Dos, MSONable):
         else:
             return fermi
 
-    @classmethod
-    def from_dict(cls, d):
-        """
-        Returns Dos object from dict representation of Dos.
-        """
-        dos = Dos(d["efermi"], d["energies"],
-                  {Spin(int(k)): v for k, v in d["densities"].items()})
-        return FermiDos(dos, structure=Structure.from_dict(d["structure"]),
-                        nelecs=d["nelecs"], dos_weight=d["dos_weight"])
 
-    def as_dict(self):
-        """
-        Json-serializable dict representation of Dos.
-        """
-        return {"@module": self.__class__.__module__,
-                "@class": self.__class__.__name__, "efermi": self.efermi,
-                "energies": list(self.energies),
-                "densities": {str(spin): list(dens)
-                              for spin, dens in self.densities.items()},
-                "structure": self.structure, "nelecs": self.nelecs,
-                "dos_weight": self.dos_weight}
+def get_dos(eigs, erange=None, npts=None, weights=None):
+    """Compute the density of states.
+
+    Args:
+        eigs: (nkpoints, nbands) array with the band energies
+        erange: 2-tuple with the minimum and maximum energies to be considered.
+            If its value is None, take the minimum and maximum band energies.
+        npts: number of bins to include in the histogram. If omitted,
+            _suggest_nbins will be called to obtain an estimate.
+        weights: array with the same shape as eband to be used as the weights.
+
+    Returns:
+        Two 1D numpy arrays of the same size with the bin energies and the DOS,
+        respectively.
+    """
+    nkpt, nband = np.shape(eigs)
+    if erange is None:
+        erange = (eigs.min(), eigs.max())
+    if npts is None:
+        npts = _suggest_nbins(eigs, erange)
+    pip = np.histogram(eigs, npts, weights=weights, range=erange)
+    npts = pip[1].size - 1
+    tdos = np.zeros((2, npts), dtype=float)
+    tdos[1] = pip[0] / ((erange[1] - erange[0]) / npts)
+    tdos[0] = .5 * (pip[1][:-1] + pip[1][1:])
+    return tdos

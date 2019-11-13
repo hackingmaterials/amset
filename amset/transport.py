@@ -5,10 +5,11 @@ from typing import Union, List
 import numpy as np
 from BoltzTraP2 import units
 from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients, DOS, \
-    lambda_to_tau, BTPDOS
+    lambda_to_tau
 from monty.json import MSONable
 
-from amset.misc.constants import e
+from amset.dos import get_dos
+from amset.constants import e
 from amset.data import AmsetData
 from amset.misc.log import log_time_taken
 
@@ -74,12 +75,13 @@ def _calculate_mobility(amset_data: AmsetData,
     all_rates = amset_data.scattering_rates
     all_vv = amset_data.velocities_product
     all_energies = amset_data.energies
-    kmask = amset_data.transport_mask
+    # all_curvature = amset_data.curvature
 
     mobility = np.zeros(n_t_size + (3, 3))
     for n, t in np.ndindex(n_t_size):
         energies = []
         vv = []
+        # curvature = []
         rates = []
         for spin in amset_data.spins:
             cb_idx = amset_data.vb_idx[spin] + 1
@@ -87,42 +89,40 @@ def _calculate_mobility(amset_data: AmsetData,
                 # electrons
                 energies.append(all_energies[spin][cb_idx:])
                 vv.append(all_vv[spin][cb_idx:])
+                # curvature.append(all_curvature[spin][cb_idx:])
                 rates.append(np.sum(all_rates[spin][rate_idx, n, t, cb_idx:],
                                     axis=0))
             else:
                 # holes
                 energies.append(all_energies[spin][:cb_idx])
                 vv.append(all_vv[spin][:cb_idx])
+                # curvature.append(all_curvature[spin][:cb_idx])
                 rates.append(np.sum(all_rates[spin][rate_idx, n, t, :cb_idx],
                                     axis=0))
 
         energies = np.vstack(energies)
         vv = np.vstack(vv)
+        # curvature = np.vstack(curvature)
         lifetimes = 1 / np.vstack(rates)
 
-        # mask data to remove extra k-points that are not part of the regular
-        # k-point mesh (necessary as BoltzTraP2 doesn't support custom k-point
-        # weights.
-        energies = energies[:, kmask]
-        vv = vv[..., kmask]
-        lifetimes = lifetimes[:, kmask]
-
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
-        fermi = amset_data.fermi_levels[n, t][None] * units.eV
+        fermi = amset_data.fermi_levels[n, t][None]
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals for the temperature and doping
-        epsilon, dos, vvdos, cdos = BTPDOS(
+        epsilon, dos, vvdos, cdos = get_transport_dos(
             energies, vv, scattering_model=lifetimes,
-            npts=len(amset_data.dos.energies))
-        # epsilon, dos, vvdos, cdos = AMSETDOS(
-        #     energies, vv, scattering_model=lifetimes,
-        #     npts=len(amset_data.dos.energies),
-        #     kpoint_weights=amset_data.kpoint_weights)
+            npts=len(amset_data.dos.energies),
+            kpoint_weights=amset_data.kpoint_weights)
 
-        _, l0, l1, l2, lm11 = fermiintegrals(
-            epsilon, dos, vvdos, mur=fermi, Tr=temp,
-            dosweight=amset_data.dos_weight)
+        n, l0, l1, l2, lm11 = fermiintegrals(
+            epsilon, dos, vvdos, cdos=cdos, mur=fermi, Tr=temp,
+            dosweight=amset_data.dos.dos_weight)
+
+        n = (
+                (-n[0, ...] - amset_data.dos.nelect) /
+                (amset_data.structure.volume / (units.Meter / 100.) ** 3)
+        )
 
         # Compute the Onsager coefficients from Fermi integrals
         volume = (amset_data.structure.lattice.volume * units.Angstrom ** 3)
@@ -134,6 +134,9 @@ def _calculate_mobility(amset_data: AmsetData,
         else:
             carrier_conc = amset_data.hole_conc[n, t]
 
+        print(carrier_conc)
+        print(n)
+
         # convert mobility to cm^2/V.s
         mobility[n, t] = sigma[0, ...] * 0.01 / (e * carrier_conc)
 
@@ -141,55 +144,42 @@ def _calculate_mobility(amset_data: AmsetData,
 
 
 def _calculate_transport_properties(amset_data):
-    kmask = amset_data.transport_mask
-    energies = np.vstack([amset_data.energies[spin]
-                          for spin in amset_data.spins])
-    vv = np.vstack([amset_data.velocities_product[spin]
-                    for spin in amset_data.spins])
-
-    # mask data to remove extra k-points that are not part of the regular
-    # k-point mesh (necessary as BoltzTraP2 doesn't support custom k-point
-    # weights.
-    energies = energies[:, kmask]
-    vv = vv[..., kmask]
+    energies = np.vstack([amset_data.energies[spin] for spin in amset_data.spins])
+    vv = np.vstack([amset_data.velocities_product[spin] for spin in amset_data.spins])
+    # curvature = np.vstack([amset_data.curvature[spin] for spin in amset_data.spins])
 
     n_t_size = (len(amset_data.doping), len(amset_data.temperatures))
 
     sigma = np.zeros(n_t_size + (3, 3))
     seebeck = np.zeros(n_t_size + (3, 3))
     kappa = np.zeros(n_t_size + (3, 3))
+    hall = np.zeros(n_t_size + (3, 3))
 
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in np.ndindex(n_t_size):
         sum_rates = [np.sum(amset_data.scattering_rates[s][:, n, t], axis=0)
                      for s in amset_data.spins]
         lifetimes = 1 / np.vstack(sum_rates)
-        lifetimes = lifetimes[:, kmask]
-        # print(lifetimes.min())
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
-        fermi = amset_data.fermi_levels[n, t][None] * units.eV
+        fermi = amset_data.fermi_levels[n, t][None]
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals
-        epsilon, dos, vvdos, cdos = BTPDOS(
+        epsilon, dos, vvdos, cdos = get_transport_dos(
             energies, vv, scattering_model=lifetimes,
-            npts=len(amset_data.dos.energies))
-        # epsilon, dos, vvdos, cdos = AMSETDOS(
-        #     energies, vv, scattering_model=lifetimes,
-        #     npts=len(amset_data.dos.energies),
-        #     kpoint_weights=amset_data.kpoint_weights)
+            npts=len(amset_data.dos.energies),
+            kpoint_weights=amset_data.kpoint_weights)
 
         _, l0, l1, l2, lm11 = fermiintegrals(
-            epsilon, dos, vvdos, mur=fermi, Tr=temp,
-            dosweight=amset_data.dos_weight)
+            epsilon, dos, vvdos, cdos=cdos, mur=fermi, Tr=temp,
+            dosweight=amset_data.dos.dos_weight)
 
         volume = (amset_data.structure.lattice.volume * units.Angstrom ** 3)
 
         # Compute the Onsager coefficients from Fermi integrals
         # Don't store the Hall coefficient as we don't have the curvature
         # information.
-        # TODO: Fix Hall coefficient
         sigma[n, t], seebeck[n, t], kappa[n, t], _ = \
             calc_Onsager_coefficients(l0, l1, l2, fermi, temp, volume)
 
@@ -199,14 +189,14 @@ def _calculate_transport_properties(amset_data):
     return sigma, seebeck, kappa
 
 
-def AMSETDOS(eband,
-             vvband,
-             cband=None,
-             erange=None,
-             npts=None,
-             scattering_model="uniform_tau",
-             kpoint_weights=None,
-             ):
+def get_transport_dos(eband,
+                      vvband,
+                      cband=None,
+                      erange=None,
+                      npts=None,
+                      scattering_model="uniform_tau",
+                      kpoint_weights=None,
+                      ):
     """Compute the DOS, transport DOS and "curvature DOS".
 
     The transport DOS is weighted by the outer product of the group velocity
@@ -239,31 +229,33 @@ def AMSETDOS(eband,
         value will also be none. The sizes of the returned arrays are (npts, ),
         (npts,), (3, 3, npts) and (3, 3, 3, npts).
     """
-    # kpoint_weights = kpoint_weights * len(kpoint_weights)
     kpoint_weights = np.tile(kpoint_weights, (len(eband), 1))
-    dos = ADOS(eband.T, erange=erange, npts=npts, weights=kpoint_weights.T)
+    dos = get_dos(eband.T, erange=erange, npts=npts, weights=kpoint_weights.T)
     npts = dos[0].size
     iu0 = np.array(np.triu_indices(3)).T
     vvdos = np.zeros((3, 3, npts))
     multpl = np.ones_like(eband)
+
     if isinstance(scattering_model, str) and scattering_model == "uniform_tau":
         pass
+
     elif isinstance(scattering_model,
                     str) and scattering_model == "uniform_lambda":
         multpl = lambda_to_tau(vvband, multpl)
+
     elif isinstance(scattering_model, np.ndarray):
         if scattering_model.shape != eband.shape:
             raise ValueError(
                 "scattering_model and ebands must have the same shape")
+
         multpl = scattering_model
+
     else:
         raise ValueError("unknown scattering model")
+
     for i, j in iu0:
-        weights = vvband[:, i, j, :] * multpl * kpoint_weights #/ 100
-        # print(weights)
-        # weights = vvband[:, i, j, :] * multpl * kpoint_weights
-        # print(weights)
-        vvdos[i, j] = ADOS(
+        weights = vvband[:, i, j, :] * multpl * kpoint_weights
+        vvdos[i, j] = get_dos(
             eband.T, weights=weights.T, erange=erange, npts=npts)[1]
     il1 = np.tril_indices(3, -1)
     iu1 = np.triu_indices(3, 1)
@@ -276,36 +268,8 @@ def AMSETDOS(eband,
         for i in range(3):
             for j in range(3):
                 for k in range(3):
-                    weights = cband[:, i, j, k, :] * multpl * multpl
-                    cdos[i, j, k] = DOS(
+                    weights = cband[:, i, j, k, :] * multpl * multpl * kpoint_weights
+                    cdos[i, j, k] = get_dos(
                         eband.T, weights=weights.T, erange=erange,
                         npts=npts)[1]
     return dos[0], dos[1], vvdos, cdos
-
-
-def ADOS(eigs, erange=None, npts=None, weights=None):
-    """Compute the density of states.
-
-    Args:
-        eband: (nkpoints, nbands) array with the band energies
-        erange: 2-tuple with the minimum and maximum energies to be considered.
-            If its value is None, take the minimum and maximum band energies.
-        npts: number of bins to include in the histogram. If omitted,
-            _suggest_nbins will be called to obtain an estimate.
-        weights: array with the same shape as eband to be used as the weights.
-
-    Returns:
-        Two 1D numpy arrays of the same size with the bin energies and the DOS,
-        respectively.
-    """
-    nkpt, nband = np.shape(eigs)
-    if erange is None:
-        erange = (eigs.min(), eigs.max())
-    # if npts is None:
-    #     npts = _suggest_nbins(eigs, erange)
-    pip = np.histogram(eigs, npts, weights=weights, range=erange)
-    npts = pip[1].size - 1
-    tdos = np.zeros((2, npts), dtype=float)
-    tdos[1] = pip[0] / ((erange[1] - erange[0]) / npts)
-    tdos[0] = .5 * (pip[1][:-1] + pip[1][1:])
-    return tdos

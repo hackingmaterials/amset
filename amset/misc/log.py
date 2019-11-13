@@ -6,7 +6,7 @@ import sys
 import textwrap
 import time
 
-from amset.misc.constants import output_width
+from amset.constants import output_width
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)
 
 
 def initialize_amset_logger(filepath='.', filename=None, level=None,
-                            log_traceback=False):
+                            log_error_traceback=False):
     """Initialize the default logger with stdout and file handlers.
 
     Args:
         filepath (str): Path to the folder where the log file will be written.
         filename (str): The log filename.
         level (int): The log level. For example logging.DEBUG.
-        log_traceback: Whether to log the traceback if an error occurs.
+        log_error_traceback: Whether to log the traceback if an error occurs.
 
     Returns:
         (Logger): A logging instance with customized formatter and handlers.
@@ -56,7 +56,7 @@ def initialize_amset_logger(filepath='.', filename=None, level=None,
         exit_msg = "amset exiting on {} at {}".format(now.strftime("%d %b %Y"),
                                                       now.strftime("%H:%M"))
 
-        if log_traceback:
+        if log_error_traceback:
             log.error("\n  ERROR: {}".format(exit_msg),
                          exc_info=(exc_type, exc_value, exc_traceback))
         else:

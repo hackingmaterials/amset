@@ -1,6 +1,9 @@
+import itertools
 import logging
+import math
 import sys
 import time
+from typing import Optional
 
 import numpy as np
 from multiprocessing import cpu_count
@@ -11,8 +14,9 @@ from sklearn.neighbors.ball_tree import BallTree
 from tqdm import tqdm
 
 from amset import amset_defaults
-from amset.misc.constants import output_width
+from amset.constants import output_width
 from amset.misc.log import log_time_taken
+from amset.misc.util import gen_even_slices, groupby
 from pymatgen.core.lattice import Lattice
 from pymatgen.util.coord import lattice_points_in_supercell
 
@@ -34,100 +38,145 @@ class PeriodicVoronoi(object):
     it is valid to calculate the Voronoi diagram in blocks.
     """
 
-    def __init__(self,
-                 reciprocal_lattice: Lattice,
-                 original_points: np.ndarray,
-                 original_dim: np.ndarray,
-                 extra_points: np.ndarray,
-                 nworkers: int = pdefaults["nworkers"]):
+    def __init__(
+        self,
+        reciprocal_lattice: Lattice,
+        original_points: np.ndarray,
+        original_dim: np.ndarray,
+        extra_points: np.ndarray,
+        ir_to_full_idx: Optional[np.ndarray] = None,
+        extra_ir_points_idx: Optional[np.ndarray] = None,
+        nworkers: int = pdefaults["nworkers"],
+    ):
         """
+
+        Add a warning about only using the symmetry options if you are sure your
+        extra k-points have been symmetrized
 
         Args:
             original_points:
             nworkers:
         """
         self._nworkers = nworkers if nworkers != -1 else cpu_count()
+        self._final_points = np.concatenate([original_points, extra_points])
+        self._reciprocal_lattice = reciprocal_lattice
 
-        supercell_points = get_supercell_points(
-            [2, 2, 2], original_points)
+        if ir_to_full_idx is None:
+            ir_to_full_idx = np.arange(len(original_points) + len(extra_points))
+
+        if extra_ir_points_idx is None:
+            extra_ir_points_idx = np.arange(len(extra_points))
+
+        logger.debug("Initializing periodic Voronoi calculator")
+        all_points = np.concatenate((original_points, extra_points))
+
+        logger.debug("  ├── getting supercell k-points")
+        supercell_points = get_supercell_points(all_points)
+        supercell_idxs = np.arange(supercell_points.shape[0])
+
+        # filter points far from the zone boundary, this will lead to errors for
+        # very small meshes < 5x5x5 but we are not interested in those
+        mask = ((supercell_points > -0.75) & (supercell_points < 0.75)).all(axis=1)
+        supercell_points = supercell_points[mask]
+        supercell_idxs = supercell_idxs[mask]
 
         # want points in cartesian space so we can define a regular spherical
         # cutoff even if reciprocal lattice is not cubic. If we used a
         # fractional cutoff, the cutoff regions would not be spherical
-        cart_points = reciprocal_lattice.get_cartesian_coords(
-            supercell_points)
-
+        logger.debug("  ├── getting cartesian points")
+        cart_points = reciprocal_lattice.get_cartesian_coords(supercell_points)
         cart_extra_points = reciprocal_lattice.get_cartesian_coords(
-            extra_points)
+            extra_points[extra_ir_points_idx])
 
-        # small cutoff is slighly larger than the max regular grid spacing
+        # small cutoff is slightly larger than the max regular grid spacing
         # means at least 1 neighbour point will always be included in each
-        # direction
-        dim_lengths = np.dot(1 / original_dim, reciprocal_lattice.matrix)
-        small_cutoff = np.max(dim_lengths) * 1.01
-        big_cutoff = small_cutoff * 2
+        # direction, need to find cartesian length which covers the longest direction
+        # of the mesh
+        spacing = 1 / original_dim
+        body_diagonal = reciprocal_lattice.get_cartesian_coords(spacing)
+        xy = reciprocal_lattice.get_cartesian_coords([spacing[0], spacing[1], 0])
+        xz = reciprocal_lattice.get_cartesian_coords([spacing[0], 0, spacing[2]])
+        yz = reciprocal_lattice.get_cartesian_coords([0, spacing[1], spacing[2]])
+
+        len_diagonal = np.linalg.norm(body_diagonal)
+        len_xy = np.linalg.norm(xy)
+        len_xz = np.linalg.norm(xz)
+        len_yz = np.linalg.norm(yz)
+
+        small_cutoff = (np.max([len_diagonal, len_xy, len_xz, len_yz]) * 1.6)
+        big_cutoff = (small_cutoff * 1.77)
+
+        logger.debug("  ├── initializing ball tree")
 
         # use BallTree for quickly evaluating which points are within cutoffs
         tree = BallTree(cart_points)
 
-        # big cutoff points are those which surround the extra points within
-        # the big cutoff (it does not include the extra points themselves)
-        big_cutoff_points_idx = np.concatenate(
-            tree.query_radius(cart_extra_points, big_cutoff), axis=0)
+        n_supercell_points = len(supercell_points)
 
-        # Voronoi points are those we actually calculate in the Voronoi diagram
-        # e.g. the big points + extra points
-        voronoi_points = supercell_points[big_cutoff_points_idx]
-        self._voronoi_points = np.concatenate((
-            voronoi_points, extra_points))
+        # big points are those which surround the extra points within the big cutoff
+        # (including the extra points themselves)
+        logger.debug("  ├── calculating points in big radius")
+        big_points_idx = _query_radius_iteratively(
+            tree, n_supercell_points, cart_extra_points, big_cutoff)
 
-        # small points are the points in original_points for which we want to
-        # calculate the Voronoi volumes. Note this does not include the
-        # indices of the extra points. Outside the small cutoff, the weights
-        # will just be the regular grid weight.
-        small_cutoff_points_idx = np.concatenate(
-            tree.query_radius(cart_extra_points, small_cutoff), axis=0)
+        # Voronoi points are those we actually include in the Voronoi diagram
+        self._voronoi_points = cart_points[big_points_idx]
 
-        # get the indices of small_cutoff_points in voronoi_points
-        small_in_voronoi_idx = _get_loc(
-            big_cutoff_points_idx, small_cutoff_points_idx)
+        # small points are the points in all_points (i.e., original + extra points) for
+        # which we want to calculate the Voronoi volumes. Outside the small cutoff, the
+        # weights will just be the regular grid weight.
+        logger.debug("  └── calculating points in small radius")
+        small_points_idx = _query_radius_iteratively(
+            tree, n_supercell_points, cart_extra_points, small_cutoff)
 
-        # get the indices of the small cutoff points + extra points
-        # in voronoi points that we want the volumes for. The extra points
-        # were just added at the end of big_cutoff_points, so getting their
-        # indices is simple
-        self._volume_points_idx = np.concatenate(
-            (small_in_voronoi_idx,
-             np.arange(len(extra_points)) + len(big_cutoff_points_idx)))
+        # get the irreducible small points
+        small_points_in_all_points = supercell_idxs[small_points_idx] % len(all_points)
+        mapping = ir_to_full_idx[small_points_in_all_points]
+        unique_mappings, ir_idx = np.unique(mapping, return_index=True)
+        small_points_idx = small_points_idx[ir_idx]
 
-        # get the indices of the small_cutoff_points (not including the extra
-        # points) in the original mesh. this works because the supercell
-        # points are in the same order as the original mesh, just repeated for
-        # each cell in the supercell
-        small_in_original_idx = (
-                small_cutoff_points_idx % len(original_points))
+        # get a mapping to go from the ir small points to the full BZ.
+        groups = groupby(np.arange(len(all_points)), ir_to_full_idx)
+        grouped_ir = groups[unique_mappings]
+        counts = [len(g) for g in grouped_ir]
+        self._expand_ir = np.repeat(np.arange(len(ir_idx)), counts)
 
-        # get the indices of the small cutoff points + extra points in the
-        # final volume array. Note that the final volume array has the same
-        # order as original_mesh + extra_points
-        self._volume_in_final_idx = np.concatenate(
-            (small_in_original_idx,
-             np.arange(len(extra_points)) + len(original_points)))
+        # get the indices of the expanded ir_small_points in all_points
+        self._volume_in_final_idx = np.concatenate(grouped_ir)
 
-        # prepopulate the final volumes array. By default, each point has the
+        # get the indices of ir_small_points_idx (i.e., the points for which we will
+        # calculate the volume) in voronoi_points
+        self._volume_points_idx = _get_loc(big_points_idx, small_points_idx)
+
+        # Prepopulate the final volumes array. By default, each point has the
         # volume of the original mesh. Note: at this point, the extra points
         # will have zero volume. This will array will be updated by
         # compute_volumes
-        self._final_volumes = np.full(
-            len(original_points) + len(extra_points),
-            1 / len(original_points))
+        self._volume = reciprocal_lattice.volume
+        self._final_volumes = np.full(len(all_points), 1 / len(original_points))
         self._final_volumes[len(original_points):] = 0
+        self._final_volumes[self._volume_in_final_idx] = 0
 
+        # from pymatgen import Structure
+        # s = Structure(
+        #     reciprocal_lattice.matrix * 10,
+        #     ['H'] * len(self._volume_points_idx),
+        #     reciprocal_lattice.get_fractional_coords(self._voronoi_points[self._volume_points_idx]) / 3 + 0.5,
+        # )
+        # s.to(filename="volume-points.cif")
+        #
+        # s = Structure(
+        #     reciprocal_lattice.matrix * 10,
+        #     ['H'] * len(self._voronoi_points),
+        #     reciprocal_lattice.get_fractional_coords(self._voronoi_points) / 3 + 0.5,
+        # )
+        # s.to(filename="voronoi-points.cif")
 
     def compute_volumes(self):
         logger.info("Calculating k-point Voronoi diagram:")
-        logger.debug("  ├── num k-points near extra points: {}".format(
-            len(self._voronoi_points)))
+        logger.debug(
+            "  ├── num k-points near extra points: {}".format(len(self._voronoi_points))
+        )
         t0 = time.perf_counter()
 
         # after some testing it seems like sorting the points before calculating
@@ -135,9 +184,8 @@ class PeriodicVoronoi(object):
         # points
         sorted_idx = np.argsort(self._voronoi_points, axis=0)[:, 1]
 
-        # add the QJ option to qhull, necessary to slightly jiggle the points
-        voro = Voronoi(self._voronoi_points[sorted_idx],
-                       qhull_options="Qbb Qc Qz QJ")
+        # voro = Voronoi(self._voronoi_points[sorted_idx], qhull_options="Qbb Qc Qz")
+        voro = Voronoi(self._voronoi_points[sorted_idx], qhull_options="Qbb Qc Qz")
 
         # need to unsort regions to get correct points
         inv_sorted_idx = np.argsort(sorted_idx)
@@ -148,23 +196,29 @@ class PeriodicVoronoi(object):
         log_time_taken(t0)
 
         volumes = self._final_volumes.copy()
+
+        # divide volumes by reciprocal lattice volume to get the fractional volume
         volumes[self._volume_in_final_idx] = self._get_voronoi_volumes(
-            indices, vertices)
+            indices, vertices
+        )[self._expand_ir] / self._volume
 
         zero_vols = volumes == 0
-        if any(zero_vols):
+        if zero_vols.any():
             logger.warning("{} volumes are zero".format(np.sum(zero_vols)))
 
         inf_vols: np.ndarray = volumes == np.inf
-        if any(inf_vols):
-            logger.warning("{} volumes are infinite".format(np.sum(inf_vols)))
+        if inf_vols.any():
+            logger.warning("{} volumes are infinite".format(inf_vols.sum()))
 
         sum_volumes = volumes.sum()
-        vol_diff = abs(sum_volumes - 1)
-        if vol_diff > 0.01:
-            logger.warning("Sum of weights does not equal 1 (diff = {:.1f})... "
-                           "renormalising weights".format(vol_diff * 100))
-            volumes = volumes / sum_volumes
+        vol_diff = sum_volumes - 1
+
+        if abs(vol_diff) > 1e-7:
+            logger.warning(
+                "Sum of weights does not equal 1 (diff = {:.3f} "
+                "%)... renormalising weights".format(vol_diff * 100)
+            )
+            volumes /= sum_volumes
 
         return volumes
 
@@ -177,23 +231,23 @@ class PeriodicVoronoi(object):
             ncols=output_width,
             desc="    ├── progress",
             file=sys.stdout,
-            bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}')
+            bar_format="{l_bar}{bar}| {elapsed}<{remaining}{postfix}",
+        )
 
         t0 = time.perf_counter()
         volumes = Parallel(n_jobs=self._nworkers, prefer="processes")(
-            delayed(_get_volume)(idx, verts) for idx, verts in voronoi_info)
+            delayed(_get_volume)(idx, verts) for idx, verts in voronoi_info
+        )
         log_time_taken(t0)
         return np.array(volumes)
-
 
 
 def _get_volume(indices, vertices):
     if -1 in indices:
         # some regions can be open
         return np.inf
-
     else:
-        return ConvexHull(vertices).volume
+        return ConvexHull(vertices, qhull_options="Qt C-0").volume
 
 
 def _get_loc(x, y):
@@ -216,22 +270,32 @@ def _get_loc(x, y):
     return yindex[mask]
 
 
-def get_supercell_points(supercell_dim, points,
-                         replicate_backwards=True):
-    scale_matrix = np.array(supercell_dim, np.int16)
-    if scale_matrix.shape != (3, 3):
-        scale_matrix = np.array(scale_matrix * np.eye(3), np.int16)
-
-    f_lat = lattice_points_in_supercell(scale_matrix)
-
-    # get a list of supercell images, e.g. [[1, 0, 0], [2, 0, 0]]
-    images = np.dot(f_lat, scale_matrix)
-
-    if replicate_backwards:
-        images = np.unique(np.concatenate((images, -images)), axis=0)
+def get_supercell_points(points):
+    vals = (-1, 0, 1)
+    images = np.array(list(itertools.product(vals, vals, vals)))
 
     repeated_points = np.tile(points, (len(images), 1))
     repeated_images = np.repeat(images, len(points), axis=0)
 
     return repeated_images + repeated_points
+
+
+def _query_radius_iteratively(tree: BallTree, n_original_points: int,
+                              points: np.ndarray, cutoff: float,
+                              max_points_per_split=10000):
+    # this method of using a mask rather than concatenating all points then finding the
+    # unique values uses ~ 20x less memory! Very cheeky
+    npoints = len(points)
+    nsplits = math.ceil(npoints / max_points_per_split)
+
+    mask = np.full(n_original_points, False)
+    idxs = np.arange(n_original_points)
+
+    for split in gen_even_slices(npoints, nsplits):
+        query = tree.query_radius(points[split], cutoff)
+
+        for result in query:
+            mask[result] = True
+
+    return idxs[mask]
 

@@ -1,14 +1,23 @@
 import warnings
 
+from amset.plot import AmsetPlotter
 from amset.run import AmsetRunner
 
 settings = {
     "general": {
-        "interpolation_factor": 150,
-        "scattering_type": "auto",
+        "scattering_type": ["IMP(BH)", "ACD"],
         "doping": [1.99e+14, 2.20e+15, 1.72e+16,
                    1.86e+17, 1.46e+18, 4.39e+18],
-        "temperatures": [300]
+        "temperatures": [300],
+    },
+
+    "interpolation": {
+        # "kpoints": None,
+        # "interpolation_factor": 600,
+        # "fine_mesh_de": 0.02
+        "kpoints": 80,
+        "interpolation_factor": 5,
+        "fine_mesh_de": 0.02
     },
 
     "material": {
@@ -22,19 +31,26 @@ settings = {
     },
 
     "performance": {
-        "gauss_width": 0.001,
-        "energy_cutoff": 1.5,
-        "symprec": 0.01,
-        "nworkers": -1,
+        "gauss_width": 0.01,
+        "fd_tol": 0.15,
+        "ibte_tol": 1e-32,
+        "max_ibte_iter": 1,
         "dos_estep": 0.01,
+        "use_imp_minimum_mesh": False,
     },
 
     "output": {
         "print_log": True,
+        "log_error_traceback": True,
+        "write_mesh": True,
     }
 }
 
 warnings.simplefilter("ignore")
 
 runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml.gz", settings)
-runner.run()
+amset_data = runner.run()
+
+plotter = AmsetPlotter(amset_data)
+plt = plotter.plot_rates(ymin=1e8)
+plt.savefig("Si_rates.png", bbox_inches="tight", dpi=400)

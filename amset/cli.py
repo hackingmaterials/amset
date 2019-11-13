@@ -33,7 +33,7 @@ def main():
     args_dict = vars(args)
 
     if args.print_log is not False:
-        initialize_amset_logger(log_traceback=True)
+        initialize_amset_logger(log_error_traceback=True)
 
     settings_override: Dict[str, Dict[str, Any]] = defaultdict(dict)
     for section in amset_defaults:

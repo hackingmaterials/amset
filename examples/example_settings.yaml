@@ -21,7 +21,7 @@ general:
 
     # This controls the number of "densification" points added near the Fermi
     # level
-    num_extra_kpoints: 5000
+    fine_mesh_de: 0.001
 
 
 # The materials section holds all materials parameters required to calculate
@@ -52,11 +52,10 @@ material:
 performance:
     gauss_width: 0.001                # in eV
     energy_cutoff: 1.5                # in eV
-    fd_tol: 0.005                     # in %
+    fd_tol: 0.01                     # in %
     ibte_tol: 1                          # in %
     max_ibte_iter: 1
     dos_estep: 0.01                   # in eV
-    dos_width: null                   # in eV
     symprec: 0.01                     # in Angstrom
     nworkers: -1                      # default is -1 (use all processors)
 

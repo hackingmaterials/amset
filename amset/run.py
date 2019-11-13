@@ -11,19 +11,22 @@ from pathlib import Path
 from os.path import join as joinpath
 from typing import Optional, Any, Dict, Union, List
 
+from BoltzTraP2 import units
 from tabulate import tabulate
 
 from monty.json import MSONable
 from memory_profiler import memory_usage
 
 from amset.interpolation.densify import BandDensifier
+from amset.constants import hbar
+from amset.scattering.elastic import calculate_inverse_screening_length_sq
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.io.vasp import Vasprun
 from amset import __version__, amset_defaults
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from pymatgen.util.string import unicodeify
+from pymatgen.util.string import unicodeify, unicodeify_spacegroup
 
 from amset.interpolation.interpolate import Interpolater
 from amset.scattering.calculate import ScatteringCalculator
@@ -50,25 +53,22 @@ class AmsetRunner(MSONable):
                  material_properties: Dict[str, Any],
                  doping: Optional[Union[List, np.ndarray]] = None,
                  temperatures: Optional[Union[List, np.ndarray]] = None,
-                 scattering_type: Optional[Union[str, List[str],
-                                                 float]] = "auto",
-                 num_extra_kpoints: Optional[int] = None,
+                 interpolation_parameters: Optional[Dict[str, Any]] = None,
+                 scattering_type: Optional[Union[str, List[str], float]] = "auto",
                  performance_parameters: Optional[Dict[str, float]] = None,
                  output_parameters: Optional[Dict[str, Any]] = None,
-                 interpolation_factor: int = 10,
                  scissor: Optional[float] = None,
                  user_bandgap: Optional[float] = None,
                  soc: bool = False):
         self._band_structure = band_structure
         self._num_electrons = num_electrons
         self.scattering_type = scattering_type
-        self.interpolation_factor = interpolation_factor
+        self.interpolation_parameters = interpolation_parameters
         self.scissor = scissor
         self.user_bandgap = user_bandgap
         self.soc = soc
         self.doping = doping
         self.temperatures = temperatures
-        self.num_extra_kpoints = num_extra_kpoints
 
         if self.doping is None:
             self.doping = np.concatenate([np.logspace(16, 21, 6),
@@ -90,7 +90,7 @@ class AmsetRunner(MSONable):
         if (self.output_parameters["print_log"] or
                 self.output_parameters["log_error_traceback"]):
             initialize_amset_logger(
-                log_traceback=output_parameters["log_error_traceback"])
+                log_error_traceback=output_parameters["log_error_traceback"])
 
     def run(self,
             directory: Union[str, Path] = '.',
@@ -134,34 +134,71 @@ class AmsetRunner(MSONable):
 
         interpolater = Interpolater(
             self._band_structure, num_electrons=self._num_electrons,
-            interpolation_factor=self.interpolation_factor, soc=self.soc,
-            interpolate_projections=True)
+            interpolation_factor=self.interpolation_parameters["interpolation_factor"],
+            soc=self.soc, interpolate_projections=True)
 
-        amset_data = interpolater.get_amset_data(
-            energy_cutoff=self.performance_parameters["energy_cutoff"],
-            scissor=self.scissor, bandgap=self.user_bandgap,
-            symprec=self.performance_parameters["symprec"],
-            nworkers=self.performance_parameters["nworkers"])
+        if self.interpolation_parameters["kpoints"]:
+            amset_data = interpolater.get_amset_data_from_kpoints(
+                self.interpolation_parameters["kpoints"],
+                energy_cutoff=self.performance_parameters["energy_cutoff"],
+                scissor=self.scissor, bandgap=self.user_bandgap,
+                symprec=self.performance_parameters["symprec"])
+        else:
+            amset_data = interpolater.get_amset_data(
+                energy_cutoff=self.performance_parameters["energy_cutoff"],
+                scissor=self.scissor, bandgap=self.user_bandgap,
+                symprec=self.performance_parameters["symprec"],
+                nworkers=self.performance_parameters["nworkers"])
 
         timing = {"interpolation": time.perf_counter() - t0}
 
+        if (self.material_properties["pop_frequency"] and
+                ("POP" in self.scattering_type or self.scattering_type == "auto")):
+            # convert from THz to angular frequency in Hz
+            pop_frequency = self.material_properties["pop_frequency"] * 1e12 * 2 * np.pi
+
+            # use the phonon energy to pad the fermi dirac cutoffs, this is because
+            # pop scattering from a kpoints, k, to kpoints with energies above and below
+            # k. We therefore need k-points above and below to be within the cut-offs
+            # otherwise scattering cannot occur
+            cutoff_pad = pop_frequency * hbar * units.eV
+        else:
+            cutoff_pad = 0
+
         log_banner("DOS")
         amset_data.calculate_dos(
-            dos_estep=self.performance_parameters["dos_estep"],
-            dos_width=self.performance_parameters["dos_width"])
+            estep=self.performance_parameters["dos_estep"])
         amset_data.set_doping_and_temperatures(self.doping, self.temperatures)
+        amset_data.calculate_fd_cutoffs(self.performance_parameters["fd_tol"],
+                                        cutoff_pad=cutoff_pad)
 
-        if self.num_extra_kpoints:
+        if self.interpolation_parameters["fine_mesh_de"]:
             log_banner("DENSIFICATION")
 
+            inv_screening_length_sq = None
+            if (self.interpolation_parameters["use_imp_minimum_mesh"] and
+                    self.material_properties["static_dielectric"] and
+                    ("IMP" in self.scattering_type or self.scattering_type == "auto")):
+                inv_screening_length_sq = np.min(calculate_inverse_screening_length_sq(
+                    amset_data, self.material_properties["static_dielectric"]
+                ))
+
             densifier = BandDensifier(
-                interpolater, amset_data, scissor=self.scissor,
-                bandgap=self.user_bandgap,
+                interpolater, amset_data,
                 energy_cutoff=self.performance_parameters["energy_cutoff"],
-                dos_estep=self.performance_parameters["dos_estep"])
+                dos_estep=self.performance_parameters["dos_estep"],
+                inverse_screening_length_sq=inv_screening_length_sq)
             amset_data.set_extra_kpoints(
-                *densifier.densify(
-                    self.num_extra_kpoints))
+                *densifier.densify(self.interpolation_parameters["fine_mesh_de"]))
+
+            # recalculate DOS and Fermi levels using denser band structure
+            amset_data.calculate_dos(
+                estep=self.performance_parameters["dos_estep"])
+            amset_data.set_doping_and_temperatures(
+                self.doping, self.temperatures)
+            amset_data.calculate_fd_cutoffs(
+                self.performance_parameters["fd_tol"],
+                cutoff_pad=cutoff_pad)
 
         log_banner("SCATTERING")
         t0 = time.perf_counter()
@@ -170,7 +207,6 @@ class AmsetRunner(MSONable):
             self.material_properties, amset_data,
             scattering_type=self.scattering_type,
             gauss_width=self.performance_parameters["gauss_width"],
-            fd_tol=self.performance_parameters["fd_tol"],
             g_tol=self.performance_parameters["ibte_tol"],
             max_g_iter=self.performance_parameters["max_ibte_iter"],
             use_symmetry=self.performance_parameters["symprec"] is not None,
@@ -254,10 +290,9 @@ class AmsetRunner(MSONable):
             doping=settings["general"]["doping"],
             temperatures=settings["general"]["temperatures"],
             scattering_type=settings["general"]["scattering_type"],
-            num_extra_kpoints=settings["general"]["num_extra_kpoints"],
+            interpolation_parameters=settings["interpolation"],
             performance_parameters=settings["performance"],
             output_parameters=settings["output"],
-            interpolation_factor=settings["general"]["interpolation_factor"],
             scissor=settings["general"]["scissor"],
             user_bandgap=settings["general"]["bandgap"])
 
@@ -299,13 +334,12 @@ class AmsetRunner(MSONable):
         general_settings = {
             "scissor": self.scissor,
             "bandgap": self.user_bandgap,
-            "interpolation_factor": self.interpolation_factor,
             "scattering_type": self.scattering_type,
-            "num_extra_kpoints": self.num_extra_kpoints,
             "doping": self.doping,
             "temperatures": self.temperatures}
 
         settings = {"general": general_settings,
+                    "interpolation": self.interpolation_parameters,
                     "material": self.material_properties,
                     "performance": self.performance_parameters,
                     "output": self.output_parameters}
@@ -364,7 +398,6 @@ def _log_settings(runner: AmsetRunner):
     run_params = [
         "doping: {}".format(", ".join(map("{:g}".format, runner.doping))),
         "temperatures: {}".format(", ".join(map(str, runner.temperatures))),
-        "interpolation_factor: {}".format(runner.interpolation_factor),
         "scattering_type: {}".format(runner.scattering_type),
         "soc: {}".format(runner.soc)]
 
@@ -375,6 +408,10 @@ def _log_settings(runner: AmsetRunner):
         run_params.append("scissor: {}".format(runner.scissor))
 
     log_list(run_params)
+
+    logger.info("Interpolation parameters:")
+    log_list(["{}: {}".format(k, v) for k, v in
+              runner.interpolation_parameters.items()])
 
     logger.info("Performance parameters:")
     log_list(["{}: {}".format(k, v) for k, v in
@@ -427,10 +464,10 @@ def _log_band_structure_information(band_structure: BandStructure):
     vbm_data = band_structure.get_vbm()
     cbm_data = band_structure.get_cbm()
 
-    logger.info('\nValence band maximum:')
+    logger.info('Valence band maximum:')
     _log_band_edge_information(band_structure, vbm_data)
 
-    logger.info('\nConduction band minimum:')
+    logger.info('Conduction band minimum:')
     _log_band_edge_information(band_structure, cbm_data)
 
 

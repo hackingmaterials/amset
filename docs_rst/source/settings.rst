@@ -313,7 +313,6 @@ equation.
     print("Default: ``{}``".format(
         amset_defaults["performance"]["max_ibte_iter"]))
 
-
 ``dos_estep``
 ~~~~~~~~~~~~~
 
@@ -326,19 +325,6 @@ accuracy when determining the position of the Fermi level.
     from amset import amset_defaults
     print("Default: ``{}``".format(
         amset_defaults["performance"]["dos_estep"]))
-
-``dos_width``
-~~~~~~~~~~~~~
-
-*Command-line option:* ``--dos-width``
-
-Broadening width by which to smear the density of states, in eV. It is
-recommended to leave this as the default, i.e., no broadening.
-
-.. exec::
-    from amset import amset_defaults
-    print("Default: ``{}``".format(
-        amset_defaults["performance"]["dos_width"]))
 
 ``symprec``
 ~~~~~~~~~~~

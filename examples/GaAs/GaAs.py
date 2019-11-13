@@ -1,15 +1,30 @@
 import warnings
 
+from amset.plot import AmsetPlotter
 from amset.run import AmsetRunner
 
 settings = {
     "general": {
-        "interpolation_factor": 100,
         "scattering_type": "auto",
         "doping": [3e13],
-        "temperatures": [201, 290, 300, 401, 506, 605, 789, 994],
+        "temperatures": [201, 290, 401, 506, 605, 789, 994],
         "bandgap": 1.33,
-        "num_extra_kpoints": 100
+    },
+
+    "interpolation": {
+        "kpoints": 80,
+        "interpolation_factor": 5,
+        # "fine_mesh_de": 0.02
+        "fine_mesh_de": 0.02
+    },
+
+    "performance": {
+        "gauss_width": 0.01,
+        "fd_tol": 0.15,
+        "ibte_tol": 1e-32,
+        "max_ibte_iter": 1,
+        "dos_estep": 0.01,
+        "use_imp_minimum_mesh": False,
     },
 
     "material": {
@@ -24,17 +39,17 @@ settings = {
 
     "output": {
         "separate_scattering_mobilities": True,
-        "log_traceback": True,
+        "log_error_traceback": True,
         "print_log": True
     }
+
 }
 
 warnings.simplefilter("ignore")
 
 runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml.gz", settings)
-runner.run()
+amset_data = runner.run()
 
-# for i in [100, 150, 200, 300, 400, 500]:
-#     settings["general"]["interpolation_factor"] = i
-#     runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml.gz", settings)
-#     runner.run()
+plotter = AmsetPlotter(amset_data)
+plt = plotter.plot_rates(ymin=1e8)
+plt.savefig("GaAs_rates.png", bbox_inches="tight", dpi=400)

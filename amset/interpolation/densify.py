@@ -1,18 +1,20 @@
-import itertools
 import logging
-import math
 from typing import Optional
 
 import numpy as np
-from scipy.interpolate import interp1d
 
 from BoltzTraP2 import units
-from BoltzTraP2.bandlib import DOS, dFDde
+from scipy.ndimage import maximum_filter1d, maximum_filter
+
 from amset import amset_defaults as defaults
 from amset.data import AmsetData
 from amset.interpolation.interpolate import Interpolater
 from amset.misc.log import log_list
-from amset.misc.util import kpoints_to_first_bz
+from amset.kpoints import (
+    kpoints_to_first_bz,
+    get_dense_kpoint_mesh_spglib,
+    symmetrize_kpoints,
+)
 from amset.interpolation.voronoi import PeriodicVoronoi
 
 __author__ = "Alex Ganose"
@@ -21,232 +23,275 @@ __email__ = "aganose@lbl.gov"
 __date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
-gdefaults = defaults["general"]
+idefaults = defaults["interpolation"]
 pdefaults = defaults["performance"]
+
+_kpt_str = "[{:6.3f} {:6.3f} {:6.3f}]"
+_dim_str = "[{:2d} {:2d} {:2d}]"
 
 
 class BandDensifier(object):
-
-    def __init__(self,
-                 interpolater: Interpolater,
-                 amset_data: AmsetData,
-                 dos_estep: float = pdefaults["dos_estep"],
-                 energy_cutoff: Optional[float] = None,
-                 scissor: float = None,
-                 bandgap: float = None):
+    def __init__(
+        self,
+        interpolater: Interpolater,
+        amset_data: AmsetData,
+        dos_estep: float = pdefaults["dos_estep"],
+        energy_cutoff: Optional[float] = None,
+        inverse_screening_length_sq: Optional[float] = None,
+    ):
         if amset_data.fermi_levels is None:
-            raise RuntimeError(
-                "amset_data doesn't contain Fermi level information")
+            raise RuntimeError("amset_data doesn't contain Fermi level information")
+
+        if amset_data.kpoint_mesh is None:
+            raise RuntimeError("Cannot densify user supplied k-point mesh.")
 
         self._interpolater = interpolater
         self._amset_data = amset_data
         self._dos_estep = dos_estep
         self._energy_cutoff = energy_cutoff
-        self._bandgap = bandgap
-        self._scissor = scissor
+        self._mesh = tuple(amset_data.kpoint_mesh)
 
-        logger.info("Generating densification weights")
+        if inverse_screening_length_sq:
+            self._minimum_dim = get_minimum_imp_mesh(
+                self._amset_data, inverse_screening_length_sq
+            )
+        else:
+            self._minimum_dim = None
 
-        self._densification_weights = {s: np.zeros(amset_data.energies[s].shape)
-                                       for s in amset_data.spins}
-        all_energies = {s: [] for s in amset_data.spins}
-        all_weights = {s: [] for s in amset_data.spins}
-        max_weight = 0
+        # get the indices to sort the kpoints from on the Z, then Y,
+        # then X columns
+        sort_idx = np.lexsort(
+            (
+                self._amset_data.full_kpoints[:, 2],
+                self._amset_data.full_kpoints[:, 1],
+                self._amset_data.full_kpoints[:, 0],
+            )
+        )
+
+        nkpoints = len(amset_data.full_kpoints)
+        self._idxs = np.arange(nkpoints)[sort_idx].reshape(self._mesh)
+        self._grid_energies = []
         for spin in amset_data.spins:
-            for b_idx, band_energies in enumerate(amset_data.energies[spin]):
-                # calculate the DOS and sum of Fermi integrals with doping and
-                # temperature on a band-by-band basis. Note: if we add interband
-                # scattering at a later stage this should be for the overall
-                # band structure not the band DOS etc.
-                dos_min = band_energies.min() - self._dos_estep
-                dos_max = band_energies.max() + self._dos_estep
-                npts = math.ceil((dos_max - dos_min) / self._dos_estep) * 10
-                energies, dos = DOS(band_energies[:, None], npts=npts,
-                                    erange=(dos_min, dos_max))
-                # dos = smoothen_DOS(energies, dos, 10)
+            # sort the energies then reshape them into the grid. The energies
+            # can now be indexed as energies[ikx][iky][ikz]
+            sorted_energies = amset_data.energies[spin][:, sort_idx]
+            self._grid_energies.extend(sorted_energies.reshape((-1,) + self._mesh))
 
-                # three fermi integrals govern transport properties:
-                #   1. df/de controls conductivity and mobility
-                #   2. (e-u) * df/de controls Seebeck
-                #   3. (e-u)^2 df/de controls electronic thermal cond
-                # take the absolute sum of the integrals across all doping and
-                # temperatures. this gives us which energies are important for
-                # transport for ever Fermi level and temperature
+        # put the kpoints into a 3D grid so that they can be indexed as
+        # kpoints[ikx][iky][ikz] = [kx, ky, kz]
+        self._grid_kpoints = amset_data.full_kpoints[sort_idx].reshape(
+            self._mesh + (3,)
+        )
 
-                integral_sum = np.zeros(dos.shape)
+    def get_fine_mesh(
+        self,
+        target_de: float = idefaults["fine_mesh_de"],
+        minimum_dim: Optional[np.ndarray] = None,
+    ):
+        mesh_de = np.full(self._grid_kpoints.shape, -1)
+        fd_cutoffs = self._amset_data.fd_cutoffs
 
-                for n, t in np.ndindex(amset_data.fermi_levels.shape):
-                    ef = amset_data.fermi_levels[n, t] * units.eV
-                    kbt = amset_data.temperatures[t] * units.BOLTZMANN
-                    band_dfde = dFDde(energies, ef, kbt)
-                    sigma_int = np.abs(band_dfde)
-                    seeb_int = np.abs((energies - ef) * band_dfde)
-                    ke_int = np.abs((energies - ef) ** 2 * band_dfde)
+        if minimum_dim is not None:
+            # convert minimum dim into an energy difference for ease of use
+            minimum_de = (target_de * units.eV) * minimum_dim
+        else:
+            minimum_de = None
 
-                    # normalize the transport integrals and sum
-                    integral_sum += sigma_int / sigma_int.max()
-                    integral_sum += seeb_int / seeb_int.max()
-                    integral_sum += ke_int / ke_int.max()
+        for band_energies in self._grid_energies:
+            # effectively make a supercell of the energies on the regular grid
+            # containing one extra plane of energies per dimension, on either
+            # face of the 3D energy mesh
+            pad_energies = np.pad(band_energies, 1, "wrap")
 
-                # weights for densification are the sum of Fermi integrals / DOS
-                # I.e. regions with larger Fermi integrals are prioritized
-                # and regions with low DOS are prioritized.
-                weights = np.log1p(integral_sum) / np.log1p(dos)
-                weights[np.isnan(weights) | np.isinf(weights)] = 0
-                all_energies[spin].append(energies)
-                all_weights[spin].append(weights)
+            x_diffs = np.abs(np.diff(pad_energies, axis=2))
+            y_diffs = np.abs(np.diff(pad_energies, axis=1))
+            z_diffs = np.abs(np.diff(pad_energies, axis=0))
 
-                max_weight = max(max_weight, weights.max())
+            # remove the diffs related to the extra padding
+            x_diffs = x_diffs[1:-1, 1:-1, :].astype(float)
+            y_diffs = y_diffs[1:-1, :, 1:-1].astype(float)
+            z_diffs = z_diffs[:, 1:-1, 1:-1].astype(float)
 
-        for spin in amset_data.spins:
-            for i in range(len(all_weights[spin])):
-                # normalize weightings so they are consistent across all bands
-                weights = all_weights[spin][i] / max_weight
+            #  calculate moving maxes
+            x_diff_averages = maximum_filter1d(x_diffs, 2, axis=2)[:, :, 1:]
+            y_diff_averages = maximum_filter1d(y_diffs, 2, axis=1)[:, 1:, :]
+            z_diff_averages = maximum_filter1d(z_diffs, 2, axis=0)[1:, :, :]
 
-                # interpolate the weights to all kpoints
-                interp_weights = interp1d(all_energies[spin][i], weights)(
-                    amset_data.energies[spin][i])
+            # stack the averages to get the formatted energy different array
+            band_de = np.stack(
+                (z_diff_averages, y_diff_averages, x_diff_averages), axis=-1
+            )
 
-                interp_weights[interp_weights < 0.05] = 0
-                self._densification_weights[spin][i] = interp_weights
+            if minimum_de is not None:
+                band_de = np.maximum(band_de, minimum_de)
 
-        self._sum_weights = sum([np.sum(self._densification_weights[s])
-                                 for s in amset_data.spins])
+            if fd_cutoffs:
+                # if the energies do not lie within the Fermi Dirac cutoffs
+                # set the dims to 0 as there is no point of interpolating
+                # around these k-points
+                mask = (band_energies > fd_cutoffs[0]) & (band_energies < fd_cutoffs[1])
 
-    def densify(self,
-                num_extra_kpoints: float = gdefaults["num_extra_kpoints"]):
+                # expand the mask as the Fermi surface defined by the cutoffs
+                # may also fall in the volume defined by an adjacent k-point
+                # even if the k-point itself is not included in the Fermi
+                # surface.
+                mask = maximum_filter(mask, footprint=np.ones((3, 3, 3)), mode="wrap")
+
+                # set points outside FD cutoffs to -1 so we can filter them later
+                band_de[~mask] = np.array([-1, -1, -1])
+
+            # take the dimensions if they are greater than the current dimensions
+            mesh_de = np.maximum(mesh_de, band_de)
+
+        # TODO: add test for all zero fine mesh points
+        fine_mesh_dims = np.ceil(mesh_de / (target_de * units.eV)).astype(int)
+        skip_points = (fine_mesh_dims <= 1).all(axis=3)
+
+        fine_mesh_dims[skip_points] = 1
+        fine_mesh_dims[fine_mesh_dims == 0] = 1
+
+        additional_kpoints = []
+        interpolated_idxs = []
+        kpoint_log = []
+
+        for i, j, k in np.ndindex(self._mesh):
+            dim = fine_mesh_dims[i, j, k]
+
+            if (dim == 1).all():
+                continue
+
+            grid_point = self._grid_kpoints[i, j, k]
+            kpt_str = _kpt_str.format(*grid_point)
+            dim_str = _dim_str.format(*dim)
+            kpoint_log.append("kpt: {}, mesh: {}".format(kpt_str, dim_str))
+            kpoints = get_dense_kpoint_mesh_spglib(dim, spg_order=True)
+
+            # remove [0, 0, 0] as other wise this will overlap with the existing mesh
+            kpoints = kpoints[1:]
+            kpoints /= self._mesh
+            kpoints += grid_point
+            additional_kpoints.append(kpoints)
+            interpolated_idxs.append(self._idxs[i, j, k])
+
+        if additional_kpoints:
+            additional_kpoints = np.concatenate(additional_kpoints)
+
+        interpolated_idxs = np.array(interpolated_idxs)
+        n_additional_kpoints = len(additional_kpoints)
+
+        logger.info(
+            "Densified {} kpoints with {} extra points".format(
+                len(interpolated_idxs), n_additional_kpoints
+            )
+        )
+        log_list(kpoint_log, level=logging.DEBUG)
+        additional_kpoints = kpoints_to_first_bz(additional_kpoints)
+
+        logger.info("Symmetrizing dense k-point mesh")
+        # symmetrize the interpolated k-point mesh. This is to make sure we make
+        # maximum use of symmetry as any new k-points will effective be free
+        # This step is also necessary if fd_cutoffs is true, to avoid the effects
+        # of aliasing from the maximum_filter
+        additional_kpoints = symmetrize_kpoints(
+            self._amset_data.structure, additional_kpoints
+        )
+        n_sym = len(additional_kpoints) - n_additional_kpoints
+        log_list(["{} k-points added in symmetrization".format(n_sym)])
+
+        # we may have added k-points around previously un-densified points, use
+        # the symmetry mapping to ensure that interpolated_idxs covers all
+        # symmetry equivalent points
+        ir_interpolated_idxs = np.unique(
+            self._amset_data.ir_to_full_kpoint_mapping[interpolated_idxs]
+        )
+        interpolated_idxs = np.concatenate(
+            self._amset_data.grouped_ir_to_full[ir_interpolated_idxs]
+        )
+
+        return kpoints_to_first_bz(additional_kpoints), interpolated_idxs
+
+    def densify(
+        self,
+        target_de: float = idefaults["fine_mesh_de"],
+        symprec: float = pdefaults["symprec"],
+    ):
+        densify_info = ["fine mesh de: {} eV".format(target_de)]
+
+        if self._minimum_dim is not None:
+            dim_str = _dim_str.format(*self._minimum_dim)
+            densify_info.append("minimum dim for IMP: {}".format(dim_str))
+
         logger.info("Densifying band structure around Fermi integrals")
+        log_list(densify_info)
 
-        # add additional k-points around the k-points in the existing mesh
-        # the number of additional k-points is proportional to the
-        # densification weight for that k-point
-        factor = num_extra_kpoints / self._sum_weights
-        extra_kpoint_counts = {
-            s: np.ceil(self._densification_weights[s] * factor).astype(int)
-            for s in self._densification_weights}
+        additional_kpoints, _ = self.get_fine_mesh(
+            target_de=target_de, minimum_dim=self._minimum_dim
+        )
 
-        # get the number of extra points for each kpoint. Shape of
-        # n_points_per_kpoint is (nkpoints, )
-        n_points_per_kpoint = np.sum(np.concatenate([
-            extra_kpoint_counts[s] for s in extra_kpoint_counts]), axis=0)
+        # have to use amset_data scissor and not the user specified band gap,
+        # as there is no guarantee that the extra k-points will go through the
+        # CBM & VBM
+        energies, vvelocities, curvature, projections, mapping_info = self._interpolater.get_energies(
+            additional_kpoints,
+            energy_cutoff=self._energy_cutoff,
+            scissor=self._amset_data.scissor / units.eV,
+            return_velocity=True,
+            return_curvature=True,
+            return_projections=True,
+            atomic_units=True,
+            return_vel_outer_prod=True,
+            return_kpoint_mapping=True,
+            symprec=symprec,
+        )
 
-        # recalculate the number of points to take into account rounding
-        # generally means the number of additional k-points is larger than
-        # specified by the user
-        total_points = np.sum(n_points_per_kpoint)
-
-        # max distance is just under half the distance to the nearest k-point.
-        # Note, the averaging means that this only works well if the original
-        # k-point density is isotropic, which will be the case if using
-        # BoltzTraP interpolation.
-        max_dist = np.average(1 / self._amset_data.kpoint_mesh) / 2.1
-
-        # get the kpoints which will be densified
-        k_mask = n_points_per_kpoint > 0
-        k_coords = self._amset_data.full_kpoints[k_mask]
-        n_points_per_kpoint = n_points_per_kpoint[k_mask]
-
-        # add additional points in concenctric spheres around the k-points
-        #
-        extra_kpoints = np.concatenate(
-            [_generate_points(n_extra, max_dist) + kpoint
-             for kpoint, n_extra in zip(k_coords, n_points_per_kpoint)])
-        log_list(["# extra kpoints: {}".format(total_points),
-                  "max frac k-distance: {:.5f}".format(max_dist)])
-
-        # from monty.serialization import dumpfn
-        # dumpfn(extra_kpoints, "extra_kpoints.json")
-
-        extra_kpoints = kpoints_to_first_bz(extra_kpoints)
-
-        skip = 5 / self._interpolater.interpolation_factor
-        energies, vvelocities, projections = self._interpolater.get_energies(
-            extra_kpoints, energy_cutoff=self._energy_cutoff,
-            bandgap=self._bandgap, scissor=self._scissor,
-            return_velocity=True, return_effective_mass=False,
-            return_projections=True, atomic_units=True,
-            return_vel_outer_prod=True, skip_coefficients=skip)
+        old_mapping = self._amset_data.ir_to_full_kpoint_mapping
+        new_mapping = mapping_info["ir_to_full_idx"] + old_mapping.max() + 1
+        ir_to_full_kpoint_mapping = np.concatenate((old_mapping, new_mapping))
 
         voronoi = PeriodicVoronoi(
             self._amset_data.structure.lattice.reciprocal_lattice,
             self._amset_data.full_kpoints,
             self._amset_data.kpoint_mesh,
-            extra_kpoints)
+            additional_kpoints,
+            ir_to_full_idx=ir_to_full_kpoint_mapping,
+            extra_ir_points_idx=mapping_info["ir_kpoints_idx"],
+        )
         kpoint_weights = voronoi.compute_volumes()
 
         # note k-point weights is for all k-points, whereas the other properties
         # are just for the additional k-points
-        return (extra_kpoints, energies, vvelocities, projections,
-                kpoint_weights)
+        return (
+            additional_kpoints,
+            energies,
+            vvelocities,
+            projections,
+            kpoint_weights,
+            mapping_info["ir_kpoints_idx"],
+            mapping_info["ir_to_full_idx"],
+            curvature,
+        )
 
 
-def _generate_points_cube(n_extra_kpoints: int, max_distance: float):
-    n_p = math.ceil(np.cbrt(n_extra_kpoints) / 2)
-    # forward_p = np.geomspace(max_distance/20, max_distance, n_p)
-    forward_p = np.linspace(max_distance/20, max_distance, n_p)
-    all_p = np.concatenate((-forward_p, forward_p))
-    return np.array(list(itertools.product(all_p, all_p, all_p)))
+def get_minimum_imp_mesh(amset_data, inverse_screening_length_sq):
+    # todo: explain this magic number
+    conv_dx = 0.5
+    # conv_dx = 0.3727593720314942
+    # conv_dx = 0.29470517025518095
+    # conv_dx = 200
+    # conv_dx = 0.14563484775012445
 
+    # todo: explain this madness
+    if inverse_screening_length_sq < 0.005:
+        logger.warning("Inverse screening length extremely small, using 0.001 instead")
+        inverse_screening_length_sq = 0.005
 
-def _generate_points(n_extra_kpoints: int, max_distance: float,
-                     min_n_points_per_sphere: int = 32,
-                     max_n_points_per_sphere: int = 256,
-                     default_n_spheres: int = 5):
-
-    # each sphere must contain at least min_n_points_per_sphere
-    actual_n_spheres = min(
-        default_n_spheres, math.ceil(n_extra_kpoints / min_n_points_per_sphere))
-
-    actual_n_spheres = max(
-        actual_n_spheres, math.ceil(n_extra_kpoints / max_n_points_per_sphere))
-
-    # generate radii for spheres, getting logarithmically further away, up to
-    # max_distance. Note, not all spheres may be used
-    if actual_n_spheres > default_n_spheres:
-        radii = np.geomspace(max_distance/10, max_distance, actual_n_spheres)
-    else:
-        radii = np.geomspace(max_distance/10, max_distance, default_n_spheres)
-
-    n_points_per_sphere = math.ceil(n_extra_kpoints / actual_n_spheres)
-
-    sphere_points = np.concatenate([
-        sunflower_sphere(radius=r, samples=n)
-        for r, n in zip(radii, [n_points_per_sphere] * n_points_per_sphere)])
-
-    return sphere_points[:n_extra_kpoints]
-
-
-def fibonacci_sphere(radius=1, samples=1, randomize=False):
-    rnd = 1.
-    if randomize:
-        rnd = np.random.random() * samples
-
-    points = []
-    offset = 2./samples
-    increment = math.pi * (3. - math.sqrt(5.))
-
-    for i in range(samples):
-        y = ((i * offset) - 1) + (offset / 2)
-        r = math.sqrt(1 - pow(y, 2))
-
-        phi = ((i + rnd) % samples) * increment
-
-        x = math.cos(phi) * r
-        z = math.sin(phi) * r
-
-        points.append([x, y, z])
-
-    return np.array(points) * radius
-
-
-def sunflower_sphere(radius=1, samples=1):
-    indices = np.arange(0, samples) + 0.5
-
-    phi = np.arccos(1 - 2 * indices / samples)
-    theta = np.pi * (1 + 5 ** 0.5) * indices
-
-    x = np.cos(theta) * np.sin(phi)
-    y = np.sin(theta) * np.sin(phi)
-    z = np.cos(phi)
-
-    return np.stack((x, y, z), axis=1) * radius
+    dk_sq = conv_dx * inverse_screening_length_sq
+    dk = np.sqrt(dk_sq)
+    dk_angstrom = dk * 0.1
+    k_frac = np.array([dk_angstrom, dk_angstrom, dk_angstrom])
+    k_cart = amset_data.structure.lattice.reciprocal_lattice.get_fractional_coords(
+        k_frac
+    )
+    # now get factor of dim in current mesh
+    dim = 1 / k_cart
+    return np.ceil(dim / amset_data.kpoint_mesh).astype(int)

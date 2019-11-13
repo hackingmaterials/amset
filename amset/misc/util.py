@@ -9,7 +9,6 @@ import scipy
 from monty.serialization import dumpfn, loadfn
 
 from amset import amset_defaults
-from amset.misc.constants import k_B
 from pymatgen import Spin
 from pymatgen.util.string import latexify_spacegroup
 
@@ -17,8 +16,6 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 __date__ = "June 21, 2019"
-
-spin_name = {Spin.up: "spin-up", Spin.down: "spin-down"}
 
 logger = logging.getLogger(__name__)
 
@@ -207,21 +204,6 @@ def gen_even_slices(n, n_packs):
             start = end
 
 
-def kpoints_to_first_bz(kpoints: np.ndarray) -> np.ndarray:
-    """Translate fractional k-points to the first Brillouin zone.
-
-    I.e. all k-points will have fractional coordinates:
-        -0.5 <= fractional coordinates <= 0.5
-
-    Args:
-        kpoints: The k-points in fractional coordinates.
-
-    Returns:
-        The translated k-points.
-    """
-    return kpoints - np.round(kpoints)
-
-
 def parse_doping(doping_str: str):
     doping_str = doping_str.strip().replace(" ", "")
 
@@ -278,35 +260,3 @@ def parse_deformation_potential(deformation_pot_str: str):
     except ValueError:
         raise ValueError("ERROR: Unrecognised deformation potential format: "
                          "{}".format(deformation_pot_str))
-
-
-def f0(energy, fermi, temperature):
-    """
-    Returns the value of Fermi-Dirac distribution at equilibrium.
-
-    Args:
-        energy (float): energy in eV
-        fermi (float): the Fermi level with the same reference as E (in eV)
-        temperature (float): the absolute temperature in Kelvin.
-
-    Returns (0<float<1):
-        The occupation calculated by Fermi dirac
-    """
-    return 1. / (1. + np.exp((energy - fermi) / (k_B * temperature)))
-
-
-def df0de(energy, fermi, temperature):
-    """
-    Returns the energy derivative of the Fermi-Dirac equilibrium distribution
-
-    Args: see Args for f0(energy, fermi, temperature)
-
-    Returns (float<0): the energy derivative of the Fermi-Dirac distribution.
-    """
-    exponent = (energy - fermi) / (k_B * temperature)
-    result = -1 / (k_B * temperature) * \
-           np.exp((energy - fermi) / (k_B * temperature)) / (
-                   1 + np.exp((energy - fermi) / (k_B * temperature))) ** 2
-    # This is necessary so at too low numbers python doesn't return NaN
-    result[(exponent > 40) | (exponent < -40)] = 1e-32
-    return result
