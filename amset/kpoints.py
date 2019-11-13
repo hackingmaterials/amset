@@ -11,9 +11,10 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from amset import amset_defaults
 
 _SYMPREC = amset_defaults["performance"]["symprec"]
+_KTOL = 1e-5
 
 
-def kpoints_to_first_bz(kpoints: np.ndarray, tol=1e-6) -> np.ndarray:
+def kpoints_to_first_bz(kpoints: np.ndarray, tol=_KTOL) -> np.ndarray:
     """Translate fractional k-points to the first Brillouin zone.
 
     I.e. all k-points will have fractional coordinates:
@@ -70,7 +71,7 @@ def get_dense_kpoint_mesh_spglib(mesh, spg_order=False, shift=0):
     return full_kpoints
 
 
-def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=_SYMPREC, tol=1e-6,
+def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=_SYMPREC, tol=_KTOL,
                                     return_inverse=False,
                                     time_reversal_symmetry=True):
     round_dp = int(np.log10(1 / tol))
@@ -126,7 +127,7 @@ def similarity_transformation(rot, mat):
     return np.dot(rot, np.dot(mat, np.linalg.inv(rot)))
 
 
-def symmetrize_kpoints(structure, kpoints, symprec=_SYMPREC, tol=1e-6,
+def symmetrize_kpoints(structure, kpoints, symprec=_SYMPREC, tol=_KTOL,
                        time_reversal_symmetry=True):
     round_dp = int(np.log10(1 / tol))
 
@@ -207,6 +208,7 @@ def get_kpoints(kpoint_mesh: Union[float, List[int]],
     mapping, grid = spglib.get_ir_reciprocal_mesh(
         kpoint_mesh, atoms, symprec=symprec)
     full_kpoints = grid / kpoint_mesh
+    full_kpoints = kpoints_to_first_bz(full_kpoints)
 
     if boltztrap_ordering:
         sort_idx = np.lexsort((full_kpoints[:, 2], full_kpoints[:, 2] < 0,
@@ -235,7 +237,7 @@ def get_kpoints(kpoint_mesh: Union[float, List[int]],
         return ir_kpoints, weights
 
 
-def get_kpoint_mesh(structure: Structure, cutoff_length: float):
+def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool = True):
     """Calculate reciprocal-space sampling with real-space cut-off.
 
     """
@@ -244,7 +246,12 @@ def get_kpoint_mesh(structure: Structure, cutoff_length: float):
     # Get reciprocal cell vector magnitudes
     abc_recip = np.array(reciprocal_lattice.abc)
 
-    return np.ceil(abc_recip * 2 * cutoff_length).astype(int)
+    mesh = np.ceil(abc_recip * 2 * cutoff_length).astype(int)
+
+    if force_odd:
+        mesh += (mesh + 1) % 2
+
+    return mesh
 
 
 def get_reciprocal_point_group_operations(
