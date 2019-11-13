@@ -1080,7 +1080,6 @@ def _convert_curvature(curvature: np.ndarray) -> np.ndarray:
         The curvature (i.e., inverse effective mass) in units of 1 / electron rest mass.
     """
     factor = bohr_to_angstrom ** 2 * e * hbar ** 2 / (hartree_to_ev * A_to_m ** 2 * m_e)
-    print(factor)
     return curvature / factor
 
 
