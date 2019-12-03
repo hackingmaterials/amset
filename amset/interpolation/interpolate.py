@@ -629,7 +629,9 @@ class Interpolater(MSONable):
                 )
 
             if not self._band_structure.is_metal():
-                vb_idx = max(self._band_structure.get_vbm()["band_index"][spin])
+                # valence bands are all bands that contain energies less than efermi
+                vbs = (bands < self._band_structure.efermi).any(axis=1)
+                vb_idx = np.where(vbs)[0].max()
 
                 # need to know the index of the valence band after discounting
                 # bands during the interpolation. As ibands is just a list of

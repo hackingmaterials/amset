@@ -53,6 +53,7 @@ class FermiDos(Dos, MSONable):
 
         if not dos_weight:
             dos_weight = 2 if len(self.densities) == 1 else 1
+
         self.dos_weight = dos_weight
         self.tdos = np.array(self.get_densities()) * self.dos_weight
         self.de = self.energies[1] - self.energies[0]

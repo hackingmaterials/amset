@@ -162,8 +162,8 @@ def get_normalized_energies(amset_data: AmsetData, broaden=False):
                 )
     else:
         vb_idx = amset_data.vb_idx
-        vbm_e = np.max([amset_data.energies[s][: vb_idx[s] + 1] for s in spins])
-        cbm_e = np.min([amset_data.energies[s][vb_idx[s] + 1 :] for s in spins])
+        vbm_e = np.max([np.max(amset_data.energies[s][: vb_idx[s] + 1]) for s in spins])
+        cbm_e = np.min([np.min(amset_data.energies[s][vb_idx[s] + 1 :]) for s in spins])
         for spin in spins:
             spin_energies = deepcopy(amset_data.energies[spin])
             spin_energies[: vb_idx[spin] + 1] = (

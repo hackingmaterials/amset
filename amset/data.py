@@ -113,10 +113,12 @@ class AmsetData(MSONable):
         emax = np.max([np.max(spin_eners) for spin_eners in
                        self.energies.values()])
         epoints = int(round((emax - emin) / (estep * units.eV)))
+        dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
 
         logger.debug("DOS parameters:")
         log_list(["emin: {:.2f} eV".format(emin / units.eV),
                   "emax: {:.2f} eV".format(emax / units.eV),
+                  "dos weight: {}".format(dos_weight),
                   "n points: {}".format(epoints)])
 
         dos = {}
@@ -128,7 +130,6 @@ class AmsetData(MSONable):
                 self.energies[spin].T, erange=(emin, emax), npts=epoints,
                 weights=kpoint_weights.T)
 
-        dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
         self.dos = FermiDos(
             self.intrinsic_fermi_level, emesh, dos, self.structure, atomic_units=True,
             dos_weight=dos_weight)
@@ -242,8 +243,10 @@ class AmsetData(MSONable):
 
         if not self.is_metal:
             # weights should be zero in the band gap as there will be no density
-            vb_bands = [self.energies[s][:self.vb_idx[s] + 1] for s in self.spins]
-            cb_bands = [self.energies[s][self.vb_idx[s] + 1:] for s in self.spins]
+            vb_bands = [np.max(self.energies[s][:self.vb_idx[s] + 1])
+                        for s in self.spins]
+            cb_bands = [np.min(self.energies[s][self.vb_idx[s] + 1:])
+                        for s in self.spins]
             vbm_e = np.max(vb_bands)
             cbm_e = np.min(cb_bands)
             weights[(energies > vbm_e) & (energies < cbm_e)] = 0
