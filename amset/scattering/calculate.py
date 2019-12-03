@@ -593,8 +593,7 @@ def get_ir_band_rates(spin, b_idx, scatterers, ediff, gauss_width, s, k_idx,
     c_vals = c_factor[k_idx] * c_factor[k_p_idx]
 
     overlap = (a_vals[expand_k_idx] + c_vals[expand_k_idx] * k_angles) ** 2
-    # weighted_overlap = (w0gauss(ediff / gauss_width)[expand_k_idx] * overlap *
-    #                     kpoint_weights[full_k_p_idx])
+
     gaus_weights = w0gauss(ediff / gauss_width)[expand_k_idx]
     weighted_overlap = gaus_weights * overlap * kpoint_weights[full_k_p_idx]
 

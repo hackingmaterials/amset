@@ -121,7 +121,7 @@ def _calculate_mobility(amset_data: AmsetData,
 
         c = (
                 (-c[0, ...] - amset_data.dos.nelect) /
-                (amset_data.structure.volume / (units.Meter / 100.) ** 3)
+                (amset_data.structure.volume / 1e8 ** 3)
         )
 
         # Compute the Onsager coefficients from Fermi integrals
@@ -134,8 +134,12 @@ def _calculate_mobility(amset_data: AmsetData,
         else:
             carrier_conc = amset_data.hole_conc[n, t]
 
-        print(carrier_conc)
-        print(c)
+        # print(carrier_conc)
+        # print(c)
+        # print(amset_data.electron_conc)
+        # print(amset_data.hole_conc)
+
+        # carrier_conc = np.abs(c[0])
 
         # convert mobility to cm^2/V.s
         mobility[n, t] = sigma[0, ...] * 0.01 / (e * carrier_conc)
