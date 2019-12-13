@@ -135,15 +135,15 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         inv_cm_to_bohr = 100 * physical_constants["Bohr radius"][0]
         inv_nm_to_bohr = 1e9 * physical_constants["Bohr radius"][0]
 
-        self.inverse_screening_length_sq *= inv_nm_to_bohr ** 2
+        # self.inverse_screening_length_sq *= inv_nm_to_bohr ** 2
 
-        # self._prefactor = (
-        #         (1e-3 / (e ** 2)) * e ** 4 * self.impurity_concentration /
-        #         (4.0 * np.pi ** 2 * epsilon_0 ** 2 * hbar *
-        #          self.properties["static_dielectric"] ** 2))
         self._prefactor = (
-                4 * self.impurity_concentration * inv_cm_to_bohr ** 3 * units.Second * inv_nm_to_bohr ** 3 /
-                (self.properties["static_dielectric"] ** 2 * units.eV))
+                (1e-3 / (e ** 2)) * e ** 4 * self.impurity_concentration /
+                (4.0 * np.pi ** 2 * epsilon_0 ** 2 * hbar *
+                 self.properties["static_dielectric"] ** 2))
+        # self._prefactor = (
+        #         4 * self.impurity_concentration * inv_cm_to_bohr ** 3 * units.Second * inv_nm_to_bohr ** 3 /
+        #         (self.properties["static_dielectric"] ** 2 * units.eV))
 
         # (4.0 * np.pi ** 2 * epsilon_0 ** 2 * hbar *
         #          self.properties["static_dielectric"] ** 2))
@@ -152,12 +152,17 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
         return self._prefactor
 
-    def factor(self, k_diff_sq: np.ndarray):
+    # def factor(self, k_diff_sq: np.ndarray):
+    def factor(self, w0: np.ndarray):
         # tile k_diff_sq to make it commensurate with the dimensions of beta
-        k_diff_sq = np.tile(k_diff_sq, (len(self.doping), len(self.temperatures), 1))
+        # k_diff_sq = np.tile(k_diff_sq, (len(self.doping), len(self.temperatures), 1))
         inv_nm_to_bohr = 1e9 * physical_constants["Bohr radius"][0]
-        k_diff_sq = k_diff_sq * inv_nm_to_bohr ** 2
-        return 1 / (k_diff_sq + self.inverse_screening_length_sq[..., None]) ** 2
+        # # k_diff_sq = k_diff_sq * inv_nm_to_bohr ** 2
+        # # return 1 / k_diff_sq
+        # return 1 / (k_diff_sq + self.inverse_screening_length_sq[..., None]) ** 2
+        # return lambda x: print(x.shape)
+        return self.inverse_screening_length_sq
+        # return lambda x: 1/((x[0]**2 + x[1]**2 + w0[:, None]**2) * inv_nm_to_bohr ** 2 + self.inverse_screening_length_sq[:, :, None, None]) ** 2
 
 
 class PiezoelectricScattering(AbstractElasticScattering):
