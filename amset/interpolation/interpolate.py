@@ -20,7 +20,7 @@ from amset.kpoints import (
     get_kpoints,
     get_kpoint_mesh,
     similarity_transformation,
-)
+    get_kpoints_tetrahedral, sort_boltztrap_to_spglib)
 from amset.misc.log import log_time_taken, log_list
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
@@ -212,7 +212,6 @@ class Interpolater(MSONable):
 
         energies = {}
         vvelocities = {}
-        curvature = {}
         projections = defaultdict(dict)
         new_vb_idx = {}
         for spin in self._spins:
@@ -228,28 +227,24 @@ class Interpolater(MSONable):
             )
 
             t0 = time.perf_counter()
-            energies[spin], vvelocities[spin], curvature[spin] = fite.getBTPbands(
+            energies[spin], vvelocities[spin], _ = fite.getBTPbands(
                 self._equivalences,
                 self._coefficients[spin][ibands],
                 self._lattice_matrix,
-                curvature=True,
+                curvature=False,
                 nworkers=nworkers,
             )
             log_time_taken(t0)
 
             if not is_metal:
-                # Need the largest VB index. Sometimes the index of the band
-                # containing the VBM is not the largest index of all VBs, so
-                # find all bands with energies less than the VBM and count that
-                # number
-                vbm_energy = self._band_structure.get_vbm()["energy"]
-                vb_idx = np.any(bands <= vbm_energy, axis=1).sum() - 1
+                # valence bands are all bands that contain energies less than efermi
+                vbs = (bands < self._band_structure.efermi).any(axis=1)
+                vb_idx = np.where(vbs)[0].max()
 
                 # need to know the index of the valence band after discounting
-                # bands during the interpolation (i.e., if energy_cutoff is
-                # set). As ibands is just a list of True/False, we can count the
-                # number of Trues up to and including the VBM to get the new
-                # number of valence bands
+                # bands during the interpolation. As ibands is just a list of
+                # True/False, we can count the number of Trues included up to
+                # and including the VBM to get the new number of valence bands
                 new_vb_idx[spin] = sum(ibands[: vb_idx + 1]) - 1
 
             logger.info("Interpolating {} projections".format(spin_name[spin]))
@@ -280,15 +275,28 @@ class Interpolater(MSONable):
             # if material is semiconducting, set Fermi level to middle of gap
             efermi = _get_efermi(energies, new_vb_idx)
 
+        logger.info("Generating tetrahedron mesh")
         # get the actual k-points used in the BoltzTraP2 interpolation
         # unfortunately, BoltzTraP2 doesn't expose this information so we
         # have to get it ourselves
-        ir_kpts, _, full_kpts, ir_kpts_idx, ir_to_full_idx = get_kpoints(
-            self.interpolation_mesh,
-            self._band_structure.structure,
-            symprec=symprec,
-            return_full_kpoints=True,
-        )
+        ir_kpts, _, full_kpts, ir_kpts_idx, ir_to_full_idx, tetrahedra, \
+            *ir_tetrahedra_info = get_kpoints_tetrahedral(
+                self.interpolation_mesh,
+                self._band_structure.structure,
+                symprec=symprec,
+                return_full_kpoints=True,
+            )
+        kpt_weights = np.full(len(full_kpts), 1 / len(full_kpts))
+
+        # BoltzTraP2 and spglib give k-points in different orders. We need to use the
+        # spglib ordering to make the tetrahedron method work, so get the indices
+        # that will sort from BoltzTraP2 order to spglib order
+        sort_idx = sort_boltztrap_to_spglib(full_kpts)
+
+        energies = {s: ener[:, sort_idx] for s, ener in energies.items()}
+        vvelocities = {s: vv[:, :, :, sort_idx] for s, vv in vvelocities.items()}
+        projections = {s: {l: p[:, sort_idx] for l, p in proj.items()}
+                       for s, proj in projections.items()}
 
         return AmsetData(
             self._band_structure.structure,
@@ -300,12 +308,14 @@ class Interpolater(MSONable):
             ir_kpts,
             ir_kpts_idx,
             ir_to_full_idx,
+            tetrahedra,
+            ir_tetrahedra_info,
             efermi,
             is_metal,
             self._soc,
             vb_idx=new_vb_idx,
             scissor=scissor,
-            # curvature=curvature,
+            kpoint_weights=kpt_weights,
         )
 
     def get_amset_data_from_kpoints(
@@ -356,51 +366,33 @@ class Interpolater(MSONable):
         is_metal = self._band_structure.is_metal()
 
         mesh_info = []
-        if isinstance(kpoints, numeric_types) or isinstance(kpoints[0], int_types):
-            # k-points is given as a cut-off or mesh
-            if isinstance(kpoints, numeric_types):
-                kpoints = get_kpoint_mesh(self._band_structure.structure, kpoints)
+        # k-points is given as a cut-off or mesh
+        if isinstance(kpoints, numeric_types):
+            kpoints = get_kpoint_mesh(self._band_structure.structure, kpoints)
 
-            interpolation_mesh = np.asarray(kpoints)
-            str_kmesh = "x".join(map(str, kpoints))
-            mesh_info.append("k-point mesh: {}".format(str_kmesh))
+        interpolation_mesh = np.asarray(kpoints)
+        str_kmesh = "x".join(map(str, kpoints))
+        mesh_info.append("k-point mesh: {}".format(str_kmesh))
 
-            _, _, kpoints, _, _ = get_kpoints(
-                kpoints,
-                self._band_structure.structure,
-                symprec=symprec,
-                return_full_kpoints=True,
-                boltztrap_ordering=False,
-            )
-            weights = np.full(len(kpoints), 1 / len(kpoints))
-
-        else:
-            # the full list of k-points has been specified
-            interpolation_mesh = None
-            kpoints = np.asarray(kpoints)
-            nkpoints = kpoints.shape[0]
-            if kpoints.shape[-1] == 4:
-                # kpoints have been provided with weights
-                weights = kpoints[:, 3]
-                kpoints = kpoints[:, :3]
-            else:
-                logger.warning(
-                    "User supplied k-points have no weights... assuming uniform mesh"
-                )
-                weights = np.full(nkpoints, 1 / nkpoints)
-            mesh_info.append(["# user supplied k-points: {}".format(nkpoints)])
+        _, _, kpoints, _, _, tetrahedra, *ir_tetrahedra_info = get_kpoints_tetrahedral(
+            kpoints,
+            self._band_structure.structure,
+            symprec=symprec,
+            return_full_kpoints=True,
+        )
+        weights = np.full(len(kpoints), 1 / len(kpoints))
 
         mesh_info.append("energy cutoff: {} eV".format(energy_cutoff))
         logger.info("Interpolation parameters:")
         log_list(mesh_info)
 
-        energies, vvelocities, curvature, projections, mapping_info, efermi, vb_idx, scissor = self.get_energies(
+        energies, vvelocities, projections, mapping_info, efermi, vb_idx, scissor = self.get_energies(
             kpoints,
             energy_cutoff=energy_cutoff,
             scissor=scissor,
             bandgap=bandgap,
             return_velocity=True,
-            return_curvature=True,
+            return_curvature=False,
             return_projections=True,
             atomic_units=True,
             return_vel_outer_prod=True,
@@ -425,13 +417,14 @@ class Interpolater(MSONable):
             ir_kpoints,
             ir_kpoints_idx,
             ir_to_full_idx,
+            tetrahedra,
+            ir_tetrahedra_info,
             efermi,
             is_metal,
             self._soc,
             vb_idx=vb_idx,
             scissor=scissor,
             kpoint_weights=weights,
-            curvature=curvature,
         )
 
     def get_energies(
