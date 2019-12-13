@@ -46,7 +46,7 @@ class AbstractElasticScattering(ABC):
         pass
 
     @abstractmethod
-    def factor(self, k_diff_sq: np.ndarray):
+    def factor(self):
         pass
 
 
@@ -153,17 +153,22 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         return self._prefactor
 
     # def factor(self, k_diff_sq: np.ndarray):
-    def factor(self, w0: np.ndarray):
+    def factor(self):
+        def imp_function_generator(z_coords_sq: np.ndarray):
+            return lambda x: 1 / (
+                    x[0] ** 2 + x[1] ** 2 + z_coords_sq ** 2 +
+                    self.inverse_screening_length_sq[:, :, None, None]) ** 2
+
+        return imp_function_generator
+
         # tile k_diff_sq to make it commensurate with the dimensions of beta
         # k_diff_sq = np.tile(k_diff_sq, (len(self.doping), len(self.temperatures), 1))
-        inv_nm_to_bohr = 1e9 * physical_constants["Bohr radius"][0]
+        # inv_nm_to_bohr = 1e9 * physical_constants["Bohr radius"][0]
         # # k_diff_sq = k_diff_sq * inv_nm_to_bohr ** 2
         # # return 1 / k_diff_sq
         # return 1 / (k_diff_sq + self.inverse_screening_length_sq[..., None]) ** 2
         # return lambda x: print(x.shape)
-        return self.inverse_screening_length_sq
-        # return lambda x: 1/((x[0]**2 + x[1]**2 + w0[:, None]**2) * inv_nm_to_bohr ** 2 + self.inverse_screening_length_sq[:, :, None, None]) ** 2
-
+        # return self.inverse_screening_length_sq
 
 class PiezoelectricScattering(AbstractElasticScattering):
 

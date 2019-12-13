@@ -526,15 +526,14 @@ def get_projected_intersections(intersections):
 
 
 def integrate_function_over_cross_section(
-    f,
+    function_generator,
     intersections,
     cond_a_mask,
     cond_b_mask,
     cond_c_mask,
-    triangle_method=_default_triange,
-    quadrilateral_method=_default_quadrilateral,
+    triangle_scheme=_default_triange,
+    quadrilateral_scheme=_default_quadrilateral,
     return_shape=None,
-    inverse_screening_length_sq=None,
     cross_section_weights=None,
 ):
     if cross_section_weights is None:
@@ -550,27 +549,21 @@ def integrate_function_over_cross_section(
 
     # intersections now has shape nvert, ntet, 2 (i.e., x, y coords)
     intersections = intersections[:, :, :2].transpose(1, 0, 2)
+    triangle_mask = cond_a_mask | cond_c_mask
 
-    cond_a_f = lambda x: 1 / ((x[0] ** 2 + x[1] ** 2 + z_coords_sq[cond_a_mask]) ** 2 + inverse_screening_length_sq[:, :, None, None]) ** 2
-    cond_b_f = lambda x: 1 / ((x[0] ** 2 + x[1] ** 2 + z_coords_sq[cond_b_mask]) ** 2 + inverse_screening_length_sq[:, :, None, None]) ** 2
-    cond_c_f = lambda x: 1 / ((x[0] ** 2 + x[1] ** 2 + z_coords_sq[cond_c_mask]) ** 2 + inverse_screening_length_sq[:, :, None, None]) ** 2
-
-    if np.any(cond_a_mask):
-        function_values[..., cond_a_mask] = triangle_method.integrate(
-            cond_a_f, intersections[:3, cond_a_mask]
+    if np.any(triangle_mask):
+        function = function_generator(z_coords_sq[triangle_mask])
+        function_values[..., triangle_mask] = triangle_scheme.integrate(
+            function, intersections[:3, triangle_mask]
         )
 
     if np.any(cond_b_mask):
-        function_values[..., cond_b_mask] = quadrilateral_method.integrate(
-            cond_b_f, intersections.reshape((2, 2, ninter, 2))[:, :, cond_b_mask],
+        function = function_generator(z_coords_sq[cond_b_mask])
+        function_values[..., cond_b_mask] = quadrilateral_scheme.integrate(
+            function, intersections.reshape((2, 2, ninter, 2))[:, :, cond_b_mask],
         )
 
-    if np.any(cond_c_mask):
-        function_values[..., cond_c_mask] = triangle_method.integrate(
-            cond_c_f, intersections[:3, cond_c_mask]
-        )
-
-    function_values /= (cross_section_weights * 10 ** 3)
+    function_values /= (cross_section_weights * 10)
 
     return function_values
 

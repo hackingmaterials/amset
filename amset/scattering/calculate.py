@@ -284,13 +284,15 @@ class ScatteringCalculator(MSONable):
             average=False
         )
         projected_intersections = get_projected_intersections(intersections)
-        w0 = projected_intersections[:, 0, 0]
 
-        functions = np.array([m.factor(w0) for m in self.elastic_scatterers])
+        functions = np.array([m.factor() for m in self.elastic_scatterers])
 
         rates = np.array([integrate_function_over_cross_section(
-            f, projected_intersections, *tet_contributions[0:3], return_shape=self.amset_data.fermi_levels.shape,
-            inverse_screening_length_sq=f, cross_section_weights=cs_weights
+            f,
+            projected_intersections,
+            *tet_contributions[0:3],
+            return_shape=self.amset_data.fermi_levels.shape,
+            cross_section_weights=cs_weights
         ) for f in functions])
 
         rates /= (self.amset_data.structure.lattice.reciprocal_lattice.volume * 10 ** 3)
