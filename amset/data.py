@@ -10,6 +10,7 @@ from monty.serialization import dumpfn, loadfn
 from BoltzTraP2 import units
 from BoltzTraP2.fd import dFDde, FD
 
+from amset.tetrahedron import TetrahedralBandStructure
 from pymatgen import Spin, Structure
 
 from amset.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
@@ -40,10 +41,11 @@ class AmsetData(MSONable):
                  ir_kpoints: np.ndarray,
                  ir_kpoints_idx: np.ndarray,
                  ir_to_full_kpoint_mapping: np.ndarray,
+                 tetrahedra: np.ndarray,
+                 ir_tetrahedra_info: np.ndarray,
                  efermi: float,
                  is_metal: bool,
                  soc: bool,
-                 curvature: Optional[Dict[Spin, np.ndarray]] = None,
                  kpoint_weights: Optional[np.ndarray] = None,
                  dos: Optional[FermiDos] = None,
                  vb_idx: Optional[Dict[Spin, int]] = None,
@@ -52,12 +54,11 @@ class AmsetData(MSONable):
                  electronic_thermal_conductivity: Optional[np.ndarray] = None,
                  mobility: Optional[Dict[str, np.ndarray]] = None,
                  fd_cutoffs: Optional[Tuple[float, float]] = None,
-                 scissor: Optional[Tuple] = None
+                 scissor: Optional[Tuple] = None,
                  ):
         self.structure = structure
         self.energies = energies
         self.velocities_product = vvelocities_product
-        self.curvature = curvature
         self.kpoint_mesh = kpoint_mesh
         self.full_kpoints = full_kpoints
         self.ir_kpoints = ir_kpoints
@@ -101,6 +102,14 @@ class AmsetData(MSONable):
 
         self.grouped_ir_to_full = groupby(
             np.arange(len(full_kpoints)), ir_to_full_kpoint_mapping)
+
+        self.tetrahedral_band_structure = TetrahedralBandStructure(
+            energies,
+            full_kpoints,
+            tetrahedra,
+            structure,
+            *ir_tetrahedra_info
+        )
 
     def calculate_dos(self, estep: float = pdefaults["dos_estep"]):
         """
@@ -288,65 +297,6 @@ class AmsetData(MSONable):
 
         self.scattering_rates = scattering_rates
         self.scattering_labels = scattering_labels
-
-    def set_extra_kpoints(self,
-                          extra_kpoints: np.ndarray,
-                          extra_energies: Dict[Spin, np.ndarray],
-                          extra_vvelocities: Dict[Spin, np.ndarray],
-                          extra_projections: Dict[Spin, np.ndarray],
-                          kpoint_weights: np.ndarray,
-                          ir_kpoints_idx: np.ndarray,
-                          ir_to_full_idx: np.ndarray,
-                          extra_curvature: Optional[Dict[Spin, np.ndarray]] = None):
-        if len(self.full_kpoints) + len(extra_kpoints) != len(kpoint_weights):
-            raise ValueError("Total number of k-points (full_kpoints + "
-                             "extra_kpoints) does not equal number of kpoint "
-                             "weights")
-
-        self.kpoint_weights = kpoint_weights
-        new_ir_idx = len(self.full_kpoints) + ir_kpoints_idx
-
-        # add the extra data to the storage arrays
-        self.full_kpoints = np.concatenate((self.full_kpoints, extra_kpoints))
-        self.energies = {
-            s: np.concatenate((self.energies[s], extra_energies[s]), axis=1)
-            for s in self.spins}
-        self.velocities_product = {
-            s: np.concatenate((self.velocities_product[s],
-                               extra_vvelocities[s]), axis=3)
-            for s in self.spins}
-
-        if extra_curvature:
-            self.curvature = {
-                s: np.concatenate((self.curvature[s],
-                                   extra_curvature[s]), axis=1)
-                for s in self.spins}
-
-        self._projections = {
-            s: {
-                l: np.concatenate((self._projections[s][l],
-                                   extra_projections[s][l]), axis=1)
-                for l in self._projections[s]
-            } for s in self.spins}
-        self._calculate_orbital_factors()
-
-        self.ir_kpoints = np.concatenate((self.ir_kpoints,
-                                          extra_kpoints[ir_kpoints_idx]))
-        self.ir_kpoints_idx = np.concatenate((self.ir_kpoints_idx, new_ir_idx))
-
-        # add additional indices to the end of the mapping. E.g. if
-        # mapping was originally [1, 2, 2, 3, 3] and we have 3 extra k-points
-        # the new mapping will be [1, 2, 2, 3, 3, 4, 5, 6]
-        self.ir_to_full_kpoint_mapping = np.concatenate(
-            (self.ir_to_full_kpoint_mapping,
-             ir_to_full_idx + self.ir_to_full_kpoint_mapping.max() + 1))
-
-        # recalculate kpoint norms and grouping
-        self.kpoint_norms = np.linalg.norm(self.full_kpoints, axis=1)
-        self.grouped_ir_to_full = groupby(
-            np.arange(len(self.full_kpoints)), self.ir_to_full_kpoint_mapping)
-
-        self._calculate_fermi_functions()
 
     def _calculate_orbital_factors(self):
         for spin in self.spins:
