@@ -3,6 +3,7 @@ from typing import Union, List, Tuple
 import numpy as np
 from spglib import spglib
 
+from amset.tetrahedron import get_tetrahedra
 from pymatgen import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 
@@ -235,6 +236,80 @@ def get_kpoints(kpoint_mesh: Union[float, List[int]],
         return ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx
     else:
         return ir_kpoints, weights
+
+
+def sort_boltztrap_to_spglib(kpoints):
+    sort_idx = np.lexsort((kpoints[:, 2], kpoints[:, 2] < 0,
+                           kpoints[:, 1], kpoints[:, 1] < 0,
+                           kpoints[:, 0], kpoints[:, 0] < 0))
+    return sort_idx[sort_idx]
+
+
+def get_kpoints_tetrahedral(
+        kpoint_mesh: Union[float, List[int]],
+        structure: Structure,
+        symprec: float = _SYMPREC,
+        return_full_kpoints: bool = False,
+        ) -> Tuple[np.ndarray, ...]:
+    """Gets the symmetry inequivalent k-points from a k-point mesh.
+
+    Follows the same process as SpacegroupAnalyzer.get_ir_reciprocal_mesh
+    but is faster and allows returning of the full k-point mesh and mapping.
+
+    Args:
+        kpoint_mesh: The k-point mesh as a 1x3 array. E.g.,``[6, 6, 6]``.
+            Alternatively, if a single value is provided this will be
+            treated as a k-point spacing cut-off and the k-points will be generated
+            automatically.  Cutoff is length in Angstroms and corresponds to
+            non-overlapping radius in a hypothetical supercell (Moreno-Soler length
+            cutoff).
+        structure: A structure.
+        symprec: Symmetry tolerance used when determining the symmetry
+            inequivalent k-points on which to interpolate.
+        return_full_kpoints: Whether to return the full list of k-points
+            covering the entire Brillouin zone and the indices of
+            inequivalent k-points.
+
+    Returns:
+        The irreducible k-points and their weights as tuple, formatted as::
+
+            (ir_kpoints, weights)
+
+        If return_full_kpoints, the data will be returned as::
+
+            (ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx)
+
+        Where ``ir_kpoints_idx`` is the index of the unique irreducible k-points
+        in ``full_kpoints``. ``ir_to_full_idx`` is a list of indices that can be
+        used to construct the full Brillouin zone from the ir_mesh. Note the
+        ir -> full conversion will only work with calculated scalar properties
+        such as energy (not vector properties such as velocity).
+    """
+    if isinstance(kpoint_mesh, (int, float)):
+        kpoint_mesh = get_kpoint_mesh(structure, kpoint_mesh)
+
+    atoms = AseAtomsAdaptor().get_atoms(structure)
+
+    if not symprec:
+        symprec = 1e-8
+
+    grid_mapping, grid_address = spglib.get_ir_reciprocal_mesh(
+        kpoint_mesh, atoms, symprec=symprec)
+    full_kpoints = grid_address / kpoint_mesh
+
+    tetra, ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, tet_weights = get_tetrahedra(
+        structure.lattice.reciprocal_lattice.matrix,
+        grid_address,
+        kpoint_mesh,
+        grid_mapping
+    )
+
+    ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
+        grid_mapping, return_inverse=True, return_counts=True)
+    ir_kpoints = full_kpoints[ir_kpoints_idx]
+
+    return (ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx,
+            tetra, ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, tet_weights)
 
 
 def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool = True):
