@@ -17,9 +17,7 @@ from tabulate import tabulate
 from monty.json import MSONable
 from memory_profiler import memory_usage
 
-from amset.interpolation.densify import BandDensifier
 from amset.constants import hbar
-from amset.scattering.elastic import calculate_inverse_screening_length_sq
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
@@ -171,34 +169,6 @@ class AmsetRunner(MSONable):
         amset_data.set_doping_and_temperatures(self.doping, self.temperatures)
         amset_data.calculate_fd_cutoffs(self.performance_parameters["fd_tol"],
                                         cutoff_pad=cutoff_pad)
-
-        if self.interpolation_parameters["fine_mesh_de"]:
-            log_banner("DENSIFICATION")
-
-            inv_screening_length_sq = None
-            if (self.interpolation_parameters["use_imp_minimum_mesh"] and
-                    self.material_properties["static_dielectric"] and
-                    ("IMP" in self.scattering_type or self.scattering_type == "auto")):
-                inv_screening_length_sq = np.min(calculate_inverse_screening_length_sq(
-                    amset_data, self.material_properties["static_dielectric"]
-                ))
-
-            densifier = BandDensifier(
-                interpolater, amset_data,
-                energy_cutoff=self.performance_parameters["energy_cutoff"],
-                dos_estep=self.performance_parameters["dos_estep"],
-                inverse_screening_length_sq=inv_screening_length_sq)
-            amset_data.set_extra_kpoints(
-                *densifier.densify(self.interpolation_parameters["fine_mesh_de"]))
-
-            # recalculate DOS and Fermi levels using denser band structure
-            amset_data.calculate_dos(
-                estep=self.performance_parameters["dos_estep"])
-            amset_data.set_doping_and_temperatures(
-                self.doping, self.temperatures)
-            amset_data.calculate_fd_cutoffs(
-                self.performance_parameters["fd_tol"],
-                cutoff_pad=cutoff_pad)
 
         log_banner("SCATTERING")
         t0 = time.perf_counter()
