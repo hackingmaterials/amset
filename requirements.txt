@@ -1,3 +1,4 @@
+quadpy
 numpy
 pymatgen>=2019.5.8
 scipy
