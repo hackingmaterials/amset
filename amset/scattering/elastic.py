@@ -93,9 +93,11 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
 
         return prefactor
 
-    def factor(self, k_diff_sq: np.ndarray):
-        return np.ones((len(self.doping), len(self.temperatures),
-                        k_diff_sq.shape[0]))
+    def factor(self):
+        def acd_function_generator(_):
+            return lambda x: 1 / np.ones_like(x[0])
+
+        return acd_function_generator
 
 
 class IonizedImpurityScattering(AbstractElasticScattering):
@@ -136,6 +138,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         inv_nm_to_bohr = 1e9 * physical_constants["Bohr radius"][0]
 
         # self.inverse_screening_length_sq *= inv_nm_to_bohr ** 2
+        # self.impurity_concentration = np.full_like(self.impurity_concentration, 1e15)
 
         self._prefactor = (
                 (1e-3 / (e ** 2)) * e ** 4 * self.impurity_concentration /
@@ -156,7 +159,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
     def factor(self):
         def imp_function_generator(z_coords_sq: np.ndarray):
             return lambda x: 1 / (
-                    x[0] ** 2 + x[1] ** 2 + z_coords_sq ** 2 +
+                    x[0][None, None, ...] ** 2 + x[1][None, None, ...] ** 2 + z_coords_sq[None, None, ...] +
                     self.inverse_screening_length_sq[:, :, None, None]) ** 2
 
         return imp_function_generator
@@ -169,6 +172,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         # return 1 / (k_diff_sq + self.inverse_screening_length_sq[..., None]) ** 2
         # return lambda x: print(x.shape)
         # return self.inverse_screening_length_sq
+
 
 class PiezoelectricScattering(AbstractElasticScattering):
 

@@ -50,7 +50,8 @@ _tetrahedron_vectors = np.array(
     ]
 )
 
-_default_triange = triangle.vioreanu_rokhlin_18()
+# _default_triange = triangle.vioreanu_rokhlin_19()
+_default_triange = triangle.xiao_gimbutas_50()
 _default_quadrilateral = quadrilateral.sommariva_50()
 
 
@@ -301,6 +302,8 @@ class TetrahedralBandStructure(object):
 
         else:
             return tetrahedra_dos
+
+    # def get_total_density_of_states(self, ):
 
     def get_masks(self, spin, tetrahedra_mask):
         # mask needs to be generated with symmetry_reduce=False
@@ -554,8 +557,7 @@ def integrate_function_over_cross_section(
     if np.any(triangle_mask):
         function = function_generator(z_coords_sq[triangle_mask])
         function_values[..., triangle_mask] = triangle_scheme.integrate(
-            function, intersections[:3, triangle_mask]
-        )
+            function, intersections[:3, triangle_mask])
 
     if np.any(cond_b_mask):
         function = function_generator(z_coords_sq[cond_b_mask])
@@ -563,7 +565,7 @@ def integrate_function_over_cross_section(
             function, intersections.reshape((2, 2, ninter, 2))[:, :, cond_b_mask],
         )
 
-    function_values /= (cross_section_weights * 10)
+    function_values *= cross_section_weights * 10  # convert weights from 1/Ang to 1/nm
 
     return function_values
 
@@ -658,6 +660,6 @@ def get_tetrahedra_cross_section_weights(
         energies = np.stack([e21[spin], e31[spin], e41[spin]], axis=2)
         b_vector = np.sum(contragradient * energies[..., None], axis=2)
 
-        cross_section_weights[spin] = np.linalg.norm(b_vector, axis=2)
+        cross_section_weights[spin] = 1 / np.linalg.norm(b_vector, axis=2)
 
     return cross_section_weights

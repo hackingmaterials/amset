@@ -5,17 +5,19 @@ from amset.run import AmsetRunner
 
 settings = {
     "general": {
-        "scattering_type": "auto",
+        # "scattering_type": "auto",
+        # "scattering_type": ["IMP", "ACD"],
+        "scattering_type": ["ACD"],
         "doping": [3e13],
         "temperatures": [201, 290, 401, 506, 605, 789, 994],
         "bandgap": 1.33,
     },
 
     "interpolation": {
-        "kpoints": 80,
-        "interpolation_factor": 5,
+        "kpoints": None,
+        "interpolation_factor": 50,
         # "fine_mesh_de": 0.02
-        "fine_mesh_de": 0.02
+        # "fine_mesh_de": 0.02
     },
 
     "performance": {
@@ -51,5 +53,6 @@ runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml.gz", settings)
 amset_data = runner.run()
 
 plotter = AmsetPlotter(amset_data)
-plt = plotter.plot_rates(ymin=1e8)
+# plt = plotter.plot_rates(ymin=1e3)
+plt = plotter.plot_rates()
 plt.savefig("GaAs_rates.png", bbox_inches="tight", dpi=400)

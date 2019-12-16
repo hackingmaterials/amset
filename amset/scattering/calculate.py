@@ -250,6 +250,7 @@ class ScatteringCalculator(MSONable):
 
         # TODO: how does this work with zone boundary??
         # k_primes should be something like pbc_diff(k, k_primes) + k
+        # k_primes = pbc_diff(k_primes, k) + k
         k_dot = np.dot(k, k_primes.T)
 
         # k_angles is the cosine of the angles
@@ -275,7 +276,13 @@ class ScatteringCalculator(MSONable):
         tet_overlap = get_cross_section_values(vert_overlap, *tet_contributions)
         tetrahedra = tbs.tetrahedra[spin][tet_mask]
 
-        k_diff = pbc_diff(k, self.amset_data.full_kpoints[tetrahedra])
+        # have to deal with the case where the tetrahedron cross section crosses the
+        # zone boundary. This is a slight inaccuracy but we just treat the
+        # cross section as if it is on one side of the boundary
+        tet_kpoints = self.amset_data.full_kpoints[tetrahedra]
+        base_kpoints = tet_kpoints[:, 0][:, None, :]
+        k_diff = pbc_diff(tet_kpoints, base_kpoints) + pbc_diff(base_kpoints, k)
+
         k_diff = np.dot(k_diff, rlat) * 10  # 1/angstrom -> 1/nm
 
         intersections = get_cross_section_values(
@@ -295,7 +302,32 @@ class ScatteringCalculator(MSONable):
             cross_section_weights=cs_weights
         ) for f in functions])
 
-        rates /= (self.amset_data.structure.lattice.reciprocal_lattice.volume * 10 ** 3)
+        rates /= self.amset_data.structure.lattice.reciprocal_lattice.volume * 10 ** 3
+
+        # a_mask = tet_contributions[0]
+        # b_mask = tet_contributions[1]
+        # c_mask = tet_contributions[2]
+        #
+        # if np.any(a_mask):
+        #     mask = a_mask
+        #     a_rates = rates[0, mask]
+        #     a_dos = tet_dos[mask]
+        #     a_diff = np.abs(a_rates/a_dos)
+        #     diff_idx = np.argmax(a_diff)
+        #     a_tet = tetrahedra[mask][diff_idx]
+        #     print("a diff", np.mean(a_diff))
+        #
+        # if np.any(b_mask):
+        #     mask = b_mask
+        #     a_rates = rates[0, mask]
+        #     a_dos = tet_dos[mask]
+        #     print("b diff", np.mean(np.abs(a_rates/a_dos)))
+        #
+        # if np.any(c_mask):
+        #     mask = c_mask
+        #     a_rates = rates[0, mask]
+        #     a_dos = tet_dos[mask]
+        #     print("c diff", np.mean(np.abs(a_rates/a_dos)))
 
         rates *= tet_overlap
         return np.sum(rates, axis=-1)
