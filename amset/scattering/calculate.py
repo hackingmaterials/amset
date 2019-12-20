@@ -11,6 +11,7 @@ from multiprocessing import cpu_count
 from typing import Dict, Union, List, Any, Optional
 
 import numpy as np
+from BoltzTraP2.fd import FD
 from monty.json import MSONable
 from scipy.interpolate import griddata
 from tqdm import tqdm
@@ -21,7 +22,7 @@ from amset.tetrahedron import get_cross_section_values, get_projected_intersecti
     integrate_function_over_cross_section
 from pymatgen import Spin
 
-from amset.constants import A_to_nm, output_width, small_val, spin_name
+from amset.constants import A_to_nm, output_width, small_val, spin_name, hbar
 from amset.data import AmsetData
 from amset.misc.log import log_list, log_time_taken
 from amset.scattering.elastic import AbstractElasticScattering
@@ -207,33 +208,65 @@ class ScatteringCalculator(MSONable):
             np.sum(~fill_mask)))
         elastic_prefactors = integral_conversion * np.array(
             [m.prefactor(spin, b_idx) for m in self.elastic_scatterers])
-        # inelastic_prefactors = integral_conversion * np.array(
-        #     [m.prefactor(spin, b_idx) for m in self.inelastic_scatterers])
+        inelastic_prefactors = integral_conversion * np.array(
+            [m.prefactor(spin, b_idx) for m in self.inelastic_scatterers])
 
         # get k-point indexes of k-points within FD cutoffs (faster than np.where)
         k_idx_in_cutoff = np.arange(nkpoints)[~mask]
-        elastic_rates = np.full(elastic_prefactors.shape + (nkpoints, ), 1e14)
 
-        desc = "    ├── {}".format("elastic")
-        pbar = tqdm(total=len(k_idx_in_cutoff), ncols=output_width, desc=desc,
-                    bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}',
-                    file=sys.stdout)
-        for k_idx in k_idx_in_cutoff:
-            elastic_rates[:, :, :, k_idx] = self.calculate_rate(spin, b_idx, k_idx)
-            pbar.update(1)
-        pbar.close()
+        to_stack = []
+        if len(self.elastic_scatterers) > 0:
+            elastic_rates = np.full(elastic_prefactors.shape + (nkpoints, ), 1e14)
 
-        elastic_rates *= elastic_prefactors[..., None]
-        return elastic_rates[:, :, :, self.amset_data.ir_to_full_kpoint_mapping], fill_mask
+            desc = "    ├── {}".format("elastic")
+            pbar = tqdm(total=len(k_idx_in_cutoff), ncols=output_width, desc=desc,
+                        bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}',
+                        file=sys.stdout)
+            for k_idx in k_idx_in_cutoff:
+                elastic_rates[:, :, :, k_idx] = self.calculate_rate(spin, b_idx, k_idx)
+                pbar.update(1)
+            pbar.close()
+
+            elastic_rates *= elastic_prefactors[..., None]
+            to_stack.append(elastic_rates)
+
+        if len(self.inelastic_scatterers) > 0:
+            inelastic_rates = np.full(inelastic_prefactors.shape + (nkpoints,), 1e14)
+            energy_diff = (self.materials_properties["pop_frequency"] * 1e12
+                           * 2 * np.pi * hbar * units.eV)
+
+            desc = "    ├── {}".format("inelastic")
+            pbar = tqdm(total=len(k_idx_in_cutoff), ncols=output_width, desc=desc,
+                        bar_format='{l_bar}{bar}| {elapsed}<{remaining}{postfix}',
+                        file=sys.stdout)
+
+            inelastic_rates[:, :, :, k_idx_in_cutoff] = 0
+            for k_idx in k_idx_in_cutoff:
+                for ediff in [energy_diff, -energy_diff]:
+                    inelastic_rates[:, :, :, k_idx] += self.calculate_rate(
+                        spin, b_idx, k_idx, energy_diff=ediff)
+                pbar.update(1)
+            pbar.close()
+
+            inelastic_rates *= inelastic_prefactors[..., None]
+            to_stack.append(inelastic_rates)
+
+        all_band_rates = np.vstack(to_stack)
+
+        return all_band_rates[:, :, :, self.amset_data.ir_to_full_kpoint_mapping], fill_mask
 
     def calculate_rate(self, spin, b_idx, k_idx, energy_diff=None):
         rlat = self.amset_data.structure.lattice.reciprocal_lattice.matrix
         ir_kpoints_idx = self.amset_data.ir_kpoints_idx
         energy = self.amset_data.energies[spin][b_idx, ir_kpoints_idx][k_idx]
+
+        if energy_diff:
+            energy += energy_diff
+
         tbs = self.amset_data.tetrahedral_band_structure
 
         tet_dos, tet_mask, cs_weights, tet_contributions = tbs.get_tetrahedra_density_of_states(
-            spin, energy, return_contributions=True, symmetry_reduce=False
+            spin, energy, return_contributions=True, symmetry_reduce=False,
         )
 
         if len(tet_dos) == 0:
@@ -282,7 +315,6 @@ class ScatteringCalculator(MSONable):
         tet_kpoints = self.amset_data.full_kpoints[tetrahedra]
         base_kpoints = tet_kpoints[:, 0][:, None, :]
         k_diff = pbc_diff(tet_kpoints, base_kpoints) + pbc_diff(base_kpoints, k)
-
         k_diff = np.dot(k_diff, rlat) * 10  # 1/angstrom -> 1/nm
 
         intersections = get_cross_section_values(
@@ -292,7 +324,20 @@ class ScatteringCalculator(MSONable):
         )
         projected_intersections = get_projected_intersections(intersections)
 
-        functions = np.array([m.factor() for m in self.elastic_scatterers])
+        if energy_diff:
+            f = np.zeros(self.amset_data.fermi_levels.shape)
+
+            for n, t in np.ndindex(self.amset_data.fermi_levels.shape):
+                f[n, t] = FD(
+                    energy,
+                    self.amset_data.fermi_levels[n, t],
+                    self.amset_data.temperatures[t] * units.BOLTZMANN
+                )
+
+            functions = np.array([m.factor(energy_diff <= 0, f)
+                                  for m in self.inelastic_scatterers])
+        else:
+            functions = np.array([m.factor() for m in self.elastic_scatterers])
 
         rates = np.array([integrate_function_over_cross_section(
             f,
@@ -302,8 +347,19 @@ class ScatteringCalculator(MSONable):
             cross_section_weights=cs_weights
         ) for f in functions])
 
-        rates /= self.amset_data.structure.lattice.reciprocal_lattice.volume * 10 ** 3
+        # print("energy", energy / units.eV)
+        # print("ntet", len(intersections))
+        # print("ntet over 150", np.sum(rates[0, 0, 0] > 150000))
+        # print(rates.shape)
+        #
+        max_rate = np.argsort(rates[0, 0, 0])[-1]
+        print(rates[0, 0, 0, max_rate])
+        print(projected_intersections[max_rate])
+        # print(vert_overlap[max_rate])
+        # print(a_factor[property_mask][max_rate])
+        # print(c_factor[property_mask][max_rate])
 
+        rates /= self.amset_data.structure.lattice.reciprocal_lattice.volume * 10 ** 3
         # a_mask = tet_contributions[0]
         # b_mask = tet_contributions[1]
         # c_mask = tet_contributions[2]
@@ -329,7 +385,10 @@ class ScatteringCalculator(MSONable):
         #     a_dos = tet_dos[mask]
         #     print("c diff", np.mean(np.abs(a_rates/a_dos)))
 
-        rates *= tet_overlap
+        # rates *= np.min(vert_overlap, axis=1)
+        # rates *= tet_overlap
+        rates *= 1
+
         return np.sum(rates, axis=-1)
 
 #     def calculate_band_rates(self, spin: Spin, b_idx: int, nsplits: int):

@@ -278,6 +278,7 @@ class AmsetData(MSONable):
         log_list(["min: {:.3f} eV".format(min_cutoff / units.eV),
                   "max: {:.3f} eV".format(max_cutoff / units.eV)])
         self.fd_cutoffs = (min_cutoff, max_cutoff)
+        # self.fd_cutoffs = (3.428 * units.eV, 3.718 * units.eV)
 
     def set_scattering_rates(self,
                              scattering_rates: Dict[Spin, np.ndarray],

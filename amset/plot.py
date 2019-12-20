@@ -68,9 +68,11 @@ class AmsetPlotter(object):
             fig, axes = plt.subplots(n_dopings, n_temperatures, figsize=figsize)
 
         for d, t in np.ndindex(self._amset_data.fermi_levels.shape):
-            if len(self._amset_data.doping) == 1:
+            if n_dopings == 1 and n_temperatures == 1:
+                ax = axes
+            elif n_dopings == 1:
                 ax = axes[t]
-            elif len(self._amset_data.temperatures) == 1:
+            elif n_temperatures == 1:
                 ax = axes[d]
             else:
                 ax = axes[d, t]

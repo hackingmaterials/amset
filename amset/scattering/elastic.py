@@ -13,7 +13,7 @@ from BoltzTraP2.units import BOLTZMANN
 from scipy.constants import epsilon_0, physical_constants
 from scipy.integrate import trapz
 
-from amset.constants import k_B, e, hbar
+from amset.constants import k_B, e, hbar, small_val
 from amset.data import AmsetData
 from amset.misc.log import log_list
 from pymatgen import Spin
@@ -122,8 +122,8 @@ class IonizedImpurityScattering(AbstractElasticScattering):
             p_conc = np.abs(amset_data.hole_conc[n, t])
 
             self.impurity_concentration[n, t] = (
-                    n_conc * self.properties["donor_charge"] ** 2 +
-                    p_conc * self.properties["acceptor_charge"] ** 2)
+                    n_conc * self.properties["donor_charge"] ** 2
+                    + p_conc * self.properties["acceptor_charge"] ** 2)
             imp_info.append(
                 "{:.2g} cm⁻³ & {} K: β² = {:.4g} nm⁻², Nᵢᵢ = {:.4g}".format(
                     amset_data.doping[n], amset_data.temperatures[t],
@@ -139,6 +139,8 @@ class IonizedImpurityScattering(AbstractElasticScattering):
 
         # self.inverse_screening_length_sq *= inv_nm_to_bohr ** 2
         # self.impurity_concentration = np.full_like(self.impurity_concentration, 1e15)
+        # self.inverse_screening_length_sq = np.full_like(self.inverse_screening_length_sq, 0.0000005)
+        # self.impurity_concentration *= 0.01
 
         self._prefactor = (
                 (1e-3 / (e ** 2)) * e ** 4 * self.impurity_concentration /
@@ -159,8 +161,11 @@ class IonizedImpurityScattering(AbstractElasticScattering):
     def factor(self):
         def imp_function_generator(z_coords_sq: np.ndarray):
             return lambda x: 1 / (
-                    x[0][None, None, ...] ** 2 + x[1][None, None, ...] ** 2 + z_coords_sq[None, None, ...] +
-                    self.inverse_screening_length_sq[:, :, None, None]) ** 2
+                    (x[0][None, None, :, :] ** 2
+                    + x[1][None, None, :, :] ** 2
+                    + z_coords_sq[None, None, :, None]
+                    + self.inverse_screening_length_sq[:, :, None, None])) ** 2
+                    # + self.inverse_screening_length_sq[:, :, None, None] / (self.temperatures[None, :, None, None]/ 10)) ** 2
 
         return imp_function_generator
 
@@ -199,21 +204,48 @@ class PiezoelectricScattering(AbstractElasticScattering):
         return 1 / np.tile(k_diff_sq, (len(self.doping), len(self.temperatures), 1))
 
 
-def calculate_inverse_screening_length_sq(amset_data, static_dielectric):
+# def calculate_inverse_screening_length_sq(amset_data, static_dielectric):
+#     inverse_screening_length_sq = np.zeros(amset_data.fermi_levels.shape)
+#
+#     tdos = amset_data.dos.tdos
+#     energies = amset_data.dos.energies
+#     fermi_levels = amset_data.fermi_levels
+#     vol = amset_data.structure.volume
+#
+#     for n, t in np.ndindex(inverse_screening_length_sq.shape):
+#         ef = fermi_levels[n, t]
+#         temp = amset_data.temperatures[t]
+#         f = FD(energies, ef, temp * units.BOLTZMANN)
+#         integral = trapz(tdos * f * (1 - f), x=energies)
+#         inverse_screening_length_sq[n, t] = (
+#                 e ** 2 * integral * 1e12 * 10 /
+#                 (static_dielectric * epsilon_0 * k_B * temp * e * vol * 8))
+#
+#     return inverse_screening_length_sq
+
+
+def calculate_inverse_screening_length_sq(amset_data: AmsetData, static_dielectric):
     inverse_screening_length_sq = np.zeros(amset_data.fermi_levels.shape)
 
-    tdos = amset_data.dos.tdos
-    energies = amset_data.dos.energies
     fermi_levels = amset_data.fermi_levels
-    vol = amset_data.structure.volume
+    k_norm = np.linalg.norm(np.dot(amset_data.full_kpoints, amset_data.structure.lattice.reciprocal_lattice.matrix), axis=1)
+    k_sq = (k_norm / np.pi) ** 2
 
     for n, t in np.ndindex(inverse_screening_length_sq.shape):
+
         ef = fermi_levels[n, t]
         temp = amset_data.temperatures[t]
-        f = FD(energies, ef, temp * units.BOLTZMANN)
-        integral = trapz(tdos * f * (1 - f), x=energies)
+        integral = 0
+        for spin, spin_energies in amset_data.energies.items():
+            for band_energies in spin_energies:
+                f = FD(band_energies, ef, temp * units.BOLTZMANN)
+                integral += np.sum(k_sq * f * (1 - f))
+
+        integral /= len(amset_data.full_kpoints)
+
         inverse_screening_length_sq[n, t] = (
                 e ** 2 * integral * 1e12 /
-                (static_dielectric * epsilon_0 * k_B * temp * e * vol))
+                (static_dielectric * epsilon_0 * k_B * temp * e))
 
     return inverse_screening_length_sq
+

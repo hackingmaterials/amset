@@ -1,6 +1,7 @@
 from typing import Dict, Optional
 
 import numpy as np
+import quadpy
 
 from amset.misc.util import groupby
 from pymatgen import Spin, Structure
@@ -50,9 +51,20 @@ _tetrahedron_vectors = np.array(
     ]
 )
 
-# _default_triange = triangle.vioreanu_rokhlin_19()
-_default_triange = triangle.xiao_gimbutas_50()
+# _default_triangle = triangle.vioreanu_rokhlin_19()
+# _default_triangle = quadpy.nsimplex.grundmann_moeller(2, 40)
+_default_triangle = triangle.xiao_gimbutas_50()
+# _default_triangle = triangle.dunavant_02()
+# _default_triangle = triangle.centroid()
+# _default_triangle = triangle.cubtri()
+# _default_triangle = triangle.papanicolopulos_sym_8()
+# _default_triangle = triangle.cubtri()
+# _default_triangle = triangle.strang_fix_cowper_10()
+# _default_triangle = triangle.dunavant_00()
+# _default_quadrilateral = quadrilateral.sommariva_06()
 _default_quadrilateral = quadrilateral.sommariva_50()
+# _default_quadrilateral = quadrilateral.dunavant_00()
+# _default_quadrilateral = quadrilateral.dunavant_01()
 
 
 def get_main_diagonal(reciprocal_lattice: np.ndarray) -> int:
@@ -283,6 +295,15 @@ class TetrahedralBandStructure(object):
             frac_c_41 = e4e / e41
             frac_c_42 = e4e / e42
             frac_c_43 = e4e / e43
+
+            frac_21[(frac_21 == np.nan) | (frac_21 == np.inf)] = 1
+            frac_31[(frac_31 == np.nan) | (frac_31 == np.inf)] = 1
+            frac_41[(frac_41 == np.nan) | (frac_41 == np.inf)] = 1
+            frac_32[(frac_32 == np.nan) | (frac_32 == np.inf)] = 1
+            frac_42[(frac_42 == np.nan) | (frac_42 == np.inf)] = 1
+            frac_c_41[(frac_c_41 == np.nan) | (frac_c_41 == np.inf)] = 1
+            frac_c_42[(frac_c_42 == np.nan) | (frac_c_42 == np.inf)] = 1
+            frac_c_43[(frac_c_43 == np.nan) | (frac_c_43 == np.inf)] = 1
 
             contributions = (
                 cond_a_mask,
@@ -534,7 +555,7 @@ def integrate_function_over_cross_section(
     cond_a_mask,
     cond_b_mask,
     cond_c_mask,
-    triangle_scheme=_default_triange,
+    triangle_scheme=_default_triangle,
     quadrilateral_scheme=_default_quadrilateral,
     return_shape=None,
     cross_section_weights=None,
@@ -548,7 +569,7 @@ def integrate_function_over_cross_section(
         function_values = np.zeros(len(intersections))
 
     ninter = len(intersections)
-    z_coords_sq = intersections[:, 0, 2][:, None] ** 2
+    z_coords_sq = intersections[:, 2, 2] ** 2
 
     # intersections now has shape nvert, ntet, 2 (i.e., x, y coords)
     intersections = intersections[:, :, :2].transpose(1, 0, 2)
@@ -565,6 +586,7 @@ def integrate_function_over_cross_section(
             function, intersections.reshape((2, 2, ninter, 2))[:, :, cond_b_mask],
         )
 
+    # function_values *= (cross_section_weights * 10) ** 2  # convert weights from 1/Ang to 1/nm
     function_values *= cross_section_weights * 10  # convert weights from 1/Ang to 1/nm
 
     return function_values
