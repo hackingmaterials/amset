@@ -6,7 +6,6 @@ import numpy as np
 from BoltzTraP2.bandlib import (
     fermiintegrals,
     calc_Onsager_coefficients,
-    DOS,
     lambda_to_tau,
 )
 from monty.json import MSONable

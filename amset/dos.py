@@ -12,7 +12,6 @@ from BoltzTraP2.bandlib import _suggest_nbins
 from BoltzTraP2.fd import FD
 from monty.json import MSONable
 
-from amset.constants import bohr_to_cm
 from pymatgen import Structure, Spin
 from pymatgen.electronic_structure.dos import Dos
 

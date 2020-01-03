@@ -6,14 +6,14 @@ from typing import Optional, Dict, List, Tuple
 import numpy as np
 
 from monty.json import MSONable
-from monty.serialization import dumpfn, loadfn
+from monty.serialization import dumpfn
 from BoltzTraP2 import units
 from BoltzTraP2.fd import dFDde, FD
 
 from amset.tetrahedron import TetrahedralBandStructure
 from pymatgen import Spin, Structure
 
-from amset.constants import hbar, hartree_to_ev, m_to_cm, A_to_m, bohr_to_cm, cm_to_bohr
+from amset.constants import hbar, hartree_to_ev, m_to_cm, A_to_m, cm_to_bohr
 from amset.misc.util import groupby, cast_dict
 from amset.misc.log import log_list
 from amset.dos import FermiDos, get_dos
@@ -77,7 +77,6 @@ class AmsetData(MSONable):
         self.is_metal = is_metal
         self.vb_idx = None if is_metal else vb_idx
         self.spins = self.energies.keys()
-        # self.spins = (Spin.up, )
         self.kpoint_norms = np.linalg.norm(full_kpoints, axis=1)
 
         self.a_factor = {}

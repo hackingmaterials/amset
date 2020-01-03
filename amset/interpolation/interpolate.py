@@ -45,7 +45,6 @@ from amset.constants import (
     bohr_to_angstrom,
     spin_name,
     numeric_types,
-    int_types,
     angstrom_to_bohr,
 )
 
