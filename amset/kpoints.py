@@ -242,7 +242,13 @@ def sort_boltztrap_to_spglib(kpoints):
     sort_idx = np.lexsort((kpoints[:, 2], kpoints[:, 2] < 0,
                            kpoints[:, 1], kpoints[:, 1] < 0,
                            kpoints[:, 0], kpoints[:, 0] < 0))
-    return sort_idx[sort_idx]
+    boltztrap_kpoints = kpoints[sort_idx]
+
+    sort_idx = np.lexsort((boltztrap_kpoints[:, 0], boltztrap_kpoints[:, 0] < 0,
+                           boltztrap_kpoints[:, 1], boltztrap_kpoints[:, 1] < 0,
+                           boltztrap_kpoints[:, 2], boltztrap_kpoints[:, 2] < 0))
+    return sort_idx
+    # return sort_idx[sort_idx]
 
 
 def get_kpoints_tetrahedral(
