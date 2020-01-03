@@ -40,13 +40,15 @@ class FermiDos(Dos, MSONable):
         atomic_units: Whether energies are given in eV or Hartree.
     """
 
-    def __init__(self,
-                 efermi: float,
-                 energies: np.ndarray,
-                 densities: Dict[Spin, np.ndarray],
-                 structure: Structure,
-                 dos_weight: Optional[float] = None,
-                 atomic_units: bool = True):
+    def __init__(
+        self,
+        efermi: float,
+        energies: np.ndarray,
+        densities: Dict[Spin, np.ndarray],
+        structure: Structure,
+        dos_weight: Optional[float] = None,
+        atomic_units: bool = True,
+    ):
         # structure should be atomic structure
 
         super().__init__(efermi, energies, densities)
@@ -63,15 +65,19 @@ class FermiDos(Dos, MSONable):
         # integrate up to Fermi level to get number of electrons
         self.nelect = self.tdos[self.energies <= self.efermi].sum() * self.de
 
-        logger.debug("Intrinsic DOS Fermi level: {:.4f} eV".format(
-            self.efermi / units.eV if atomic_units else self.efermi))
+        logger.debug(
+            "Intrinsic DOS Fermi level: {:.4f} eV".format(
+                self.efermi / units.eV if atomic_units else self.efermi
+            )
+        )
         logger.debug("DOS contains {:.3f} electrons".format(self.nelect))
 
-    def get_doping(self,
-                   fermi_level: float,
-                   temperature: float,
-                   return_electron_hole_conc: bool = False
-                   ) -> Union[float, Tuple[float, float, float]]:
+    def get_doping(
+        self,
+        fermi_level: float,
+        temperature: float,
+        return_electron_hole_conc: bool = False,
+    ) -> Union[float, Tuple[float, float, float]]:
         """
         Calculate the doping (majority carrier concentration) at a given
         fermi level  and temperature. A simple Left Riemann sum is used for
@@ -93,9 +99,9 @@ class FermiDos(Dos, MSONable):
             If return_electron_hole_conc is True: the doping concentration,
             electron concentration and hole concentration as a tuple.
         """
-        if temperature == 0.:
-            occ = np.where(self.energies < fermi_level, 1., 0.)
-            occ[self.energies == fermi_level] = .5
+        if temperature == 0.0:
+            occ = np.where(self.energies < fermi_level, 1.0, 0.0)
+            occ[self.energies == fermi_level] = 0.5
         else:
             kbt = temperature * units.BOLTZMANN
             if self.atomic_units:
@@ -117,14 +123,16 @@ class FermiDos(Dos, MSONable):
         else:
             return conc
 
-    def get_fermi(self,
-                  concentration: float,
-                  temperature: float,
-                  tol: float = 0.01,
-                  nstep: int = 50,
-                  step: float = 0.1,
-                  precision: int = 10,
-                  return_electron_hole_conc=False):
+    def get_fermi(
+        self,
+        concentration: float,
+        temperature: float,
+        tol: float = 0.01,
+        nstep: int = 50,
+        step: float = 0.1,
+        precision: int = 10,
+        return_electron_hole_conc=False,
+    ):
         """
         Finds the fermi level at which the doping concentration at the given
         temperature (T) is equal to concentration. A greedy algorithm is used
@@ -151,8 +159,7 @@ class FermiDos(Dos, MSONable):
         relative_error = float("inf")
         for _ in range(precision):
             frange = np.arange(-nstep, nstep + 1) * step + fermi
-            calc_doping = np.array([self.get_doping(f, temperature)
-                                    for f in frange])
+            calc_doping = np.array([self.get_doping(f, temperature) for f in frange])
             relative_error = abs(calc_doping / concentration - 1.0)
             fermi = frange[np.argmin(relative_error)]
             step /= 10.0
@@ -160,11 +167,14 @@ class FermiDos(Dos, MSONable):
         if min(relative_error) > tol:
             raise ValueError(
                 "Could not find fermi within {}% of concentration={}".format(
-                    tol * 100, concentration))
+                    tol * 100, concentration
+                )
+            )
 
         if return_electron_hole_conc:
             _, n_elec, n_hole = self.get_doping(
-                fermi, temperature, return_electron_hole_conc=True)
+                fermi, temperature, return_electron_hole_conc=True
+            )
             return fermi, n_elec, n_hole
         else:
             return fermi
@@ -194,5 +204,5 @@ def get_dos(eigs, erange=None, npts=None, weights=None):
     npts = pip[1].size - 1
     tdos = np.zeros((2, npts), dtype=float)
     tdos[1] = pip[0] / ((erange[1] - erange[0]) / npts)
-    tdos[0] = .5 * (pip[1][:-1] + pip[1][1:])
+    tdos[0] = 0.5 * (pip[1][:-1] + pip[1][1:])
     return tdos

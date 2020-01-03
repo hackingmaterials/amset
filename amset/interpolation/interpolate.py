@@ -20,7 +20,9 @@ from amset.kpoints import (
     get_kpoints,
     get_kpoint_mesh,
     similarity_transformation,
-    get_kpoints_tetrahedral, sort_boltztrap_to_spglib)
+    get_kpoints_tetrahedral,
+    sort_boltztrap_to_spglib,
+)
 from amset.misc.log import log_time_taken, log_list
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
@@ -44,7 +46,8 @@ from amset.constants import (
     spin_name,
     numeric_types,
     int_types,
-    angstrom_to_bohr)
+    angstrom_to_bohr,
+)
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -280,13 +283,12 @@ class Interpolater(MSONable):
         # get the actual k-points used in the BoltzTraP2 interpolation
         # unfortunately, BoltzTraP2 doesn't expose this information so we
         # have to get it ourselves
-        ir_kpts, _, full_kpts, ir_kpts_idx, ir_to_full_idx, tetrahedra, \
-            *ir_tetrahedra_info = get_kpoints_tetrahedral(
-                self.interpolation_mesh,
-                self._band_structure.structure,
-                symprec=symprec,
-                return_full_kpoints=True,
-            )
+        ir_kpts, _, full_kpts, ir_kpts_idx, ir_to_full_idx, tetrahedra, *ir_tetrahedra_info = get_kpoints_tetrahedral(
+            self.interpolation_mesh,
+            self._band_structure.structure,
+            symprec=symprec,
+            return_full_kpoints=True,
+        )
         kpt_weights = np.full(len(full_kpts), 1 / len(full_kpts))
 
         # BoltzTraP2 and spglib give k-points in different orders. We need to use the
@@ -296,14 +298,16 @@ class Interpolater(MSONable):
 
         energies = {s: ener[:, sort_idx] for s, ener in energies.items()}
         vvelocities = {s: vv[:, :, :, sort_idx] for s, vv in vvelocities.items()}
-        projections = {s: {l: p[:, sort_idx] for l, p in proj.items()}
-                       for s, proj in projections.items()}
+        projections = {
+            s: {l: p[:, sort_idx] for l, p in proj.items()}
+            for s, proj in projections.items()
+        }
 
         original_structure = self._band_structure.structure
         atomic_structure = Structure(
             original_structure.lattice.matrix * angstrom_to_bohr,
             original_structure.species,
-            original_structure.frac_coords
+            original_structure.frac_coords,
         )
 
         return AmsetData(

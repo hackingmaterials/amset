@@ -3,8 +3,12 @@ import time
 from typing import Union, List
 
 import numpy as np
-from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients, DOS, \
-    lambda_to_tau
+from BoltzTraP2.bandlib import (
+    fermiintegrals,
+    calc_Onsager_coefficients,
+    DOS,
+    lambda_to_tau,
+)
 from monty.json import MSONable
 
 from amset.dos import get_dos
@@ -21,22 +25,31 @@ logger = logging.getLogger(__name__)
 
 
 class TransportCalculator(MSONable):
-
-    def __init__(self,
-                 calculate_mobility: bool = True,
-                 separate_scattering_mobilities: bool = False):
+    def __init__(
+        self,
+        calculate_mobility: bool = True,
+        separate_scattering_mobilities: bool = False,
+    ):
         self.separate_scattering_mobilities = separate_scattering_mobilities
         self.calculate_mobility = calculate_mobility
 
     def solve_bte(self, amset_data: AmsetData):
-        if not all([amset_data.doping is not None,
-                    amset_data.temperatures is not None,
-                    amset_data.scattering_rates is not None]):
-            raise ValueError("Electronic structure must contain dopings "
-                             "temperatures and scattering rates")
+        if not all(
+            [
+                amset_data.doping is not None,
+                amset_data.temperatures is not None,
+                amset_data.scattering_rates is not None,
+            ]
+        ):
+            raise ValueError(
+                "Electronic structure must contain dopings "
+                "temperatures and scattering rates"
+            )
 
-        logger.info("Calculating conductivity, Seebeck, and electronic thermal "
-                    "conductivity tensors.")
+        logger.info(
+            "Calculating conductivity, Seebeck, and electronic thermal "
+            "conductivity tensors."
+        )
         t0 = time.perf_counter()
         sigma, seebeck, kappa = _calculate_transport_properties(amset_data)
         log_time_taken(t0)
@@ -45,14 +58,16 @@ class TransportCalculator(MSONable):
             return sigma, seebeck, kappa, None
 
         if amset_data.is_metal:
-            logger.info("System is metallic, refusing to calculate carrier "
-                        "mobility")
+            logger.info("System is metallic, refusing to calculate carrier " "mobility")
             return sigma, seebeck, kappa, None
 
         logger.info("Calculating overall mobility")
         t0 = time.perf_counter()
-        mobility = {"overall": _calculate_mobility(
-            amset_data, list(range(len(amset_data.scattering_labels))))}
+        mobility = {
+            "overall": _calculate_mobility(
+                amset_data, list(range(len(amset_data.scattering_labels)))
+            )
+        }
         log_time_taken(t0)
 
         if self.separate_scattering_mobilities:
@@ -65,8 +80,9 @@ class TransportCalculator(MSONable):
         return sigma, seebeck, kappa, mobility
 
 
-def _calculate_mobility(amset_data: AmsetData,
-                        rate_idx: Union[int, List[int], np.ndarray]):
+def _calculate_mobility(
+    amset_data: AmsetData, rate_idx: Union[int, List[int], np.ndarray]
+):
     if isinstance(rate_idx, int):
         rate_idx = [rate_idx]
 
@@ -87,14 +103,12 @@ def _calculate_mobility(amset_data: AmsetData,
                 # electrons
                 energies.append(all_energies[spin][cb_idx:])
                 vv.append(all_vv[spin][cb_idx:])
-                rates.append(np.sum(all_rates[spin][rate_idx, n, t, cb_idx:],
-                                    axis=0))
+                rates.append(np.sum(all_rates[spin][rate_idx, n, t, cb_idx:], axis=0))
             else:
                 # holes
                 energies.append(all_energies[spin][:cb_idx])
                 vv.append(all_vv[spin][:cb_idx])
-                rates.append(np.sum(all_rates[spin][rate_idx, n, t, :cb_idx],
-                                    axis=0))
+                rates.append(np.sum(all_rates[spin][rate_idx, n, t, :cb_idx], axis=0))
 
         energies = np.vstack(energies)
         vv = np.vstack(vv)
@@ -106,17 +120,25 @@ def _calculate_mobility(amset_data: AmsetData,
 
         # obtain the Fermi integrals for the temperature and doping
         epsilon, dos, vvdos, cdos = get_transport_dos(
-            energies, vv, scattering_model=lifetimes,
+            energies,
+            vv,
+            scattering_model=lifetimes,
             npts=len(amset_data.dos.energies),
-            kpoint_weights=amset_data.kpoint_weights)
+            kpoint_weights=amset_data.kpoint_weights,
+        )
 
         c, l0, l1, l2, lm11 = fermiintegrals(
-            epsilon, dos, vvdos, cdos=cdos, mur=fermi, Tr=temp,
-            dosweight=amset_data.dos.dos_weight)
+            epsilon,
+            dos,
+            vvdos,
+            cdos=cdos,
+            mur=fermi,
+            Tr=temp,
+            dosweight=amset_data.dos.dos_weight,
+        )
 
         # Compute the Onsager coefficients from Fermi integrals
-        sigma, _, _, _ = calc_Onsager_coefficients(
-            l0, l1, l2, fermi, temp, volume)
+        sigma, _, _, _ = calc_Onsager_coefficients(l0, l1, l2, fermi, temp, volume)
 
         if amset_data.doping[n] > 0:
             carrier_conc = amset_data.electron_conc[n, t]
@@ -143,8 +165,10 @@ def _calculate_transport_properties(amset_data):
 
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in np.ndindex(n_t_size):
-        sum_rates = [np.sum(amset_data.scattering_rates[s][:, n, t], axis=0)
-                     for s in amset_data.spins]
+        sum_rates = [
+            np.sum(amset_data.scattering_rates[s][:, n, t], axis=0)
+            for s in amset_data.spins
+        ]
         lifetimes = 1 / np.vstack(sum_rates)
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
@@ -153,19 +177,29 @@ def _calculate_transport_properties(amset_data):
 
         # obtain the Fermi integrals
         epsilon, dos, vvdos, cdos = get_transport_dos(
-            energies, vv, scattering_model=lifetimes,
+            energies,
+            vv,
+            scattering_model=lifetimes,
             npts=len(amset_data.dos.energies),
-            kpoint_weights=amset_data.kpoint_weights)
+            kpoint_weights=amset_data.kpoint_weights,
+        )
 
         _, l0, l1, l2, lm11 = fermiintegrals(
-            epsilon, dos, vvdos, cdos=cdos, mur=fermi, Tr=temp,
-            dosweight=amset_data.dos.dos_weight)
+            epsilon,
+            dos,
+            vvdos,
+            cdos=cdos,
+            mur=fermi,
+            Tr=temp,
+            dosweight=amset_data.dos.dos_weight,
+        )
 
         # Compute the Onsager coefficients from Fermi integrals
         # Don't store the Hall coefficient as we don't have the curvature
         # information.
-        sigma[n, t], seebeck[n, t], kappa[n, t], _ = \
-            calc_Onsager_coefficients(l0, l1, l2, fermi, temp, volume)
+        sigma[n, t], seebeck[n, t], kappa[n, t], _ = calc_Onsager_coefficients(
+            l0, l1, l2, fermi, temp, volume
+        )
 
     # convert seebeck to µV/K
     seebeck *= 1e6
@@ -173,14 +207,15 @@ def _calculate_transport_properties(amset_data):
     return sigma, seebeck, kappa
 
 
-def get_transport_dos(eband,
-                      vvband,
-                      cband=None,
-                      erange=None,
-                      npts=None,
-                      scattering_model="uniform_tau",
-                      kpoint_weights=None,
-                      ):
+def get_transport_dos(
+    eband,
+    vvband,
+    cband=None,
+    erange=None,
+    npts=None,
+    scattering_model="uniform_tau",
+    kpoint_weights=None,
+):
     """Compute the DOS, transport DOS and "curvature DOS".
 
     The transport DOS is weighted by the outer product of the group velocity
@@ -223,14 +258,12 @@ def get_transport_dos(eband,
     if isinstance(scattering_model, str) and scattering_model == "uniform_tau":
         pass
 
-    elif isinstance(scattering_model,
-                    str) and scattering_model == "uniform_lambda":
+    elif isinstance(scattering_model, str) and scattering_model == "uniform_lambda":
         multpl = lambda_to_tau(vvband, multpl)
 
     elif isinstance(scattering_model, np.ndarray):
         if scattering_model.shape != eband.shape:
-            raise ValueError(
-                "scattering_model and ebands must have the same shape")
+            raise ValueError("scattering_model and ebands must have the same shape")
 
         multpl = scattering_model
 
@@ -239,8 +272,7 @@ def get_transport_dos(eband,
 
     for i, j in iu0:
         weights = vvband[:, i, j, :] * multpl * kpoint_weights
-        vvdos[i, j] = get_dos(
-            eband.T, weights=weights.T, erange=erange, npts=npts)[1]
+        vvdos[i, j] = get_dos(eband.T, weights=weights.T, erange=erange, npts=npts)[1]
     il1 = np.tril_indices(3, -1)
     iu1 = np.triu_indices(3, 1)
     vvdos[il1[0], il1[1]] = vvdos[iu1[0], iu1[1]]
@@ -254,6 +286,6 @@ def get_transport_dos(eband,
                 for k in range(3):
                     weights = cband[:, i, j, k, :] * multpl * multpl * kpoint_weights
                     cdos[i, j, k] = get_dos(
-                        eband.T, weights=weights.T, erange=erange,
-                        npts=npts)[1]
+                        eband.T, weights=weights.T, erange=erange, npts=npts
+                    )[1]
     return dos[0], dos[1], vvdos, cdos

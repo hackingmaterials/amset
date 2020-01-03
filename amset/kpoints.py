@@ -53,28 +53,44 @@ def get_dense_kpoint_mesh_spglib(mesh, spg_order=False, shift=0):
     """
     mesh = np.asarray(mesh)
 
-    addresses = np.stack(np.mgrid[0:mesh[0], 0:mesh[1], 0:mesh[2]],
-                         axis=-1).reshape(np.product(mesh), -1)
+    addresses = np.stack(
+        np.mgrid[0 : mesh[0], 0 : mesh[1], 0 : mesh[2]], axis=-1
+    ).reshape(np.product(mesh), -1)
 
     if spg_order:
         # order the kpoints using the same ordering scheme as spglib
-        idx = addresses[:, 2] * (mesh[0] * mesh[1]) + addresses[:, 1] * mesh[
-            0] + addresses[:, 0]
+        idx = (
+            addresses[:, 2] * (mesh[0] * mesh[1])
+            + addresses[:, 1] * mesh[0]
+            + addresses[:, 0]
+        )
         addresses = addresses[idx]
 
     addresses -= mesh * (addresses > mesh / 2)
 
     full_kpoints = (addresses + shift) / mesh
-    sort_idx = np.lexsort((full_kpoints[:, 2], full_kpoints[:, 2] < 0,
-                           full_kpoints[:, 1], full_kpoints[:, 1] < 0,
-                           full_kpoints[:, 0], full_kpoints[:, 0] < 0))
+    sort_idx = np.lexsort(
+        (
+            full_kpoints[:, 2],
+            full_kpoints[:, 2] < 0,
+            full_kpoints[:, 1],
+            full_kpoints[:, 1] < 0,
+            full_kpoints[:, 0],
+            full_kpoints[:, 0] < 0,
+        )
+    )
     full_kpoints = full_kpoints[sort_idx]
     return full_kpoints
 
 
-def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=_SYMPREC, tol=_KTOL,
-                                    return_inverse=False,
-                                    time_reversal_symmetry=True):
+def get_symmetry_equivalent_kpoints(
+    structure,
+    kpoints,
+    symprec=_SYMPREC,
+    tol=_KTOL,
+    return_inverse=False,
+    time_reversal_symmetry=True,
+):
     round_dp = int(np.log10(1 / tol))
 
     def shift_and_round(k):
@@ -86,9 +102,7 @@ def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=_SYMPREC, tol=_K
     round_kpoints = shift_and_round(kpoints)
 
     rotation_matrices = get_reciprocal_point_group_operations(
-        structure,
-        symprec=symprec,
-        time_reversal_symmetry=time_reversal_symmetry
+        structure, symprec=symprec, time_reversal_symmetry=time_reversal_symmetry
     )
 
     equiv_points_mapping = {}
@@ -112,13 +126,20 @@ def get_symmetry_equivalent_kpoints(structure, kpoints, symprec=_SYMPREC, tol=_K
             rot_mapping.append(np.eye(3))
 
     ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
-        mapping, return_inverse=True, return_counts=True)
+        mapping, return_inverse=True, return_counts=True
+    )
 
     ir_kpoints = kpoints[ir_kpoints_idx]
 
     if return_inverse:
-        return (ir_kpoints, weights, ir_kpoints_idx, ir_to_full_idx,
-                np.array(mapping), np.array(rot_mapping))
+        return (
+            ir_kpoints,
+            weights,
+            ir_kpoints_idx,
+            ir_to_full_idx,
+            np.array(mapping),
+            np.array(rot_mapping),
+        )
     else:
         return ir_kpoints, weights
 
@@ -128,8 +149,9 @@ def similarity_transformation(rot, mat):
     return np.dot(rot, np.dot(mat, np.linalg.inv(rot)))
 
 
-def symmetrize_kpoints(structure, kpoints, symprec=_SYMPREC, tol=_KTOL,
-                       time_reversal_symmetry=True):
+def symmetrize_kpoints(
+    structure, kpoints, symprec=_SYMPREC, tol=_KTOL, time_reversal_symmetry=True
+):
     round_dp = int(np.log10(1 / tol))
 
     def shift_and_round(k):
@@ -138,9 +160,7 @@ def symmetrize_kpoints(structure, kpoints, symprec=_SYMPREC, tol=_KTOL,
         return list(map(tuple, k))
 
     rotation_matrices = get_reciprocal_point_group_operations(
-        structure,
-        symprec=symprec,
-        time_reversal_symmetry=time_reversal_symmetry
+        structure, symprec=symprec, time_reversal_symmetry=time_reversal_symmetry
     )
 
     kpoints = kpoints_to_first_bz(kpoints)
@@ -148,20 +168,23 @@ def symmetrize_kpoints(structure, kpoints, symprec=_SYMPREC, tol=_KTOL,
     # symmetrized_kpoints = np.concatenate(
     #     [np.dot(rotation_matrices, k) for k in kpoints])
     symmetrized_kpoints = np.concatenate(
-        [np.dot(kpoints, rot.T) for rot in rotation_matrices])
+        [np.dot(kpoints, rot.T) for rot in rotation_matrices]
+    )
     symmetrized_kpoints = kpoints_to_first_bz(symmetrized_kpoints)
-    _, unique_idxs = np.unique(shift_and_round(symmetrized_kpoints),
-                               axis=0, return_index=True)
+    _, unique_idxs = np.unique(
+        shift_and_round(symmetrized_kpoints), axis=0, return_index=True
+    )
 
     return symmetrized_kpoints[unique_idxs]
 
 
-def get_kpoints(kpoint_mesh: Union[float, List[int]],
-                structure: Structure,
-                symprec: float = _SYMPREC,
-                return_full_kpoints: bool = False,
-                boltztrap_ordering: bool = True
-                ) -> Tuple[np.ndarray, ...]:
+def get_kpoints(
+    kpoint_mesh: Union[float, List[int]],
+    structure: Structure,
+    symprec: float = _SYMPREC,
+    return_full_kpoints: bool = False,
+    boltztrap_ordering: bool = True,
+) -> Tuple[np.ndarray, ...]:
     """Gets the symmetry inequivalent k-points from a k-point mesh.
 
     Follows the same process as SpacegroupAnalyzer.get_ir_reciprocal_mesh
@@ -206,15 +229,21 @@ def get_kpoints(kpoint_mesh: Union[float, List[int]],
     if not symprec:
         symprec = 1e-8
 
-    mapping, grid = spglib.get_ir_reciprocal_mesh(
-        kpoint_mesh, atoms, symprec=symprec)
+    mapping, grid = spglib.get_ir_reciprocal_mesh(kpoint_mesh, atoms, symprec=symprec)
     full_kpoints = grid / kpoint_mesh
     full_kpoints = kpoints_to_first_bz(full_kpoints)
 
     if boltztrap_ordering:
-        sort_idx = np.lexsort((full_kpoints[:, 2], full_kpoints[:, 2] < 0,
-                               full_kpoints[:, 1], full_kpoints[:, 1] < 0,
-                               full_kpoints[:, 0], full_kpoints[:, 0] < 0))
+        sort_idx = np.lexsort(
+            (
+                full_kpoints[:, 2],
+                full_kpoints[:, 2] < 0,
+                full_kpoints[:, 1],
+                full_kpoints[:, 1] < 0,
+                full_kpoints[:, 0],
+                full_kpoints[:, 0] < 0,
+            )
+        )
         full_kpoints = full_kpoints[sort_idx]
         mapping = mapping[sort_idx]
 
@@ -229,7 +258,8 @@ def get_kpoints(kpoint_mesh: Union[float, List[int]],
         mapping = new_mapping
 
     ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
-        mapping, return_inverse=True, return_counts=True)
+        mapping, return_inverse=True, return_counts=True
+    )
     ir_kpoints = full_kpoints[ir_kpoints_idx]
 
     if return_full_kpoints:
@@ -239,24 +269,38 @@ def get_kpoints(kpoint_mesh: Union[float, List[int]],
 
 
 def sort_boltztrap_to_spglib(kpoints):
-    sort_idx = np.lexsort((kpoints[:, 2], kpoints[:, 2] < 0,
-                           kpoints[:, 1], kpoints[:, 1] < 0,
-                           kpoints[:, 0], kpoints[:, 0] < 0))
+    sort_idx = np.lexsort(
+        (
+            kpoints[:, 2],
+            kpoints[:, 2] < 0,
+            kpoints[:, 1],
+            kpoints[:, 1] < 0,
+            kpoints[:, 0],
+            kpoints[:, 0] < 0,
+        )
+    )
     boltztrap_kpoints = kpoints[sort_idx]
 
-    sort_idx = np.lexsort((boltztrap_kpoints[:, 0], boltztrap_kpoints[:, 0] < 0,
-                           boltztrap_kpoints[:, 1], boltztrap_kpoints[:, 1] < 0,
-                           boltztrap_kpoints[:, 2], boltztrap_kpoints[:, 2] < 0))
+    sort_idx = np.lexsort(
+        (
+            boltztrap_kpoints[:, 0],
+            boltztrap_kpoints[:, 0] < 0,
+            boltztrap_kpoints[:, 1],
+            boltztrap_kpoints[:, 1] < 0,
+            boltztrap_kpoints[:, 2],
+            boltztrap_kpoints[:, 2] < 0,
+        )
+    )
     return sort_idx
     # return sort_idx[sort_idx]
 
 
 def get_kpoints_tetrahedral(
-        kpoint_mesh: Union[float, List[int]],
-        structure: Structure,
-        symprec: float = _SYMPREC,
-        return_full_kpoints: bool = False,
-        ) -> Tuple[np.ndarray, ...]:
+    kpoint_mesh: Union[float, List[int]],
+    structure: Structure,
+    symprec: float = _SYMPREC,
+    return_full_kpoints: bool = False,
+) -> Tuple[np.ndarray, ...]:
     """Gets the symmetry inequivalent k-points from a k-point mesh.
 
     Follows the same process as SpacegroupAnalyzer.get_ir_reciprocal_mesh
@@ -300,22 +344,33 @@ def get_kpoints_tetrahedral(
         symprec = 1e-8
 
     grid_mapping, grid_address = spglib.get_ir_reciprocal_mesh(
-        kpoint_mesh, atoms, symprec=symprec)
+        kpoint_mesh, atoms, symprec=symprec
+    )
     full_kpoints = grid_address / kpoint_mesh
 
     tetra, ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, tet_weights = get_tetrahedra(
         structure.lattice.reciprocal_lattice.matrix,
         grid_address,
         kpoint_mesh,
-        grid_mapping
+        grid_mapping,
     )
 
     ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
-        grid_mapping, return_inverse=True, return_counts=True)
+        grid_mapping, return_inverse=True, return_counts=True
+    )
     ir_kpoints = full_kpoints[ir_kpoints_idx]
 
-    return (ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx,
-            tetra, ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, tet_weights)
+    return (
+        ir_kpoints,
+        weights,
+        full_kpoints,
+        ir_kpoints_idx,
+        ir_to_full_idx,
+        tetra,
+        ir_tetrahedra_idx,
+        ir_tetrahedra_to_full_idx,
+        tet_weights,
+    )
 
 
 def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool = True):
@@ -336,13 +391,11 @@ def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool 
 
 
 def get_reciprocal_point_group_operations(
-        structure: Structure,
-        symprec: float = _SYMPREC,
-        time_reversal_symmetry: bool = True
+    structure: Structure, symprec: float = _SYMPREC, time_reversal_symmetry: bool = True
 ):
     frac_real_to_frac_recip = np.dot(
         np.linalg.inv(structure.lattice.reciprocal_lattice.matrix.T),
-        structure.lattice.matrix.T
+        structure.lattice.matrix.T,
     )
     frac_recip_to_frac_real = np.linalg.inv(frac_real_to_frac_recip)
 
@@ -361,7 +414,7 @@ def get_reciprocal_point_group_operations(
         # convert to reciprocal primitive basis
         op = np.around(
             np.dot(frac_real_to_frac_recip, np.dot(op, frac_recip_to_frac_real)),
-            decimals=2
+            decimals=2,
         )
 
         reciprocal_ops.append(op)

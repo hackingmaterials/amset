@@ -23,11 +23,8 @@ class AbstractInelasticScattering(ABC):
     name: str
     required_properties: Tuple[str]
 
-    def __init__(self,
-                 materials_properties: Dict[str, Any],
-                 amset_data: AmsetData):
-        self.properties = {p: materials_properties[p]
-                           for p in self.required_properties}
+    def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
+        self.properties = {p: materials_properties[p] for p in self.required_properties}
         self.doping = amset_data.doping
         self.temperatures = amset_data.temperatures
         self.nbands = {s: len(amset_data.energies[s]) for s in amset_data.spins}
@@ -45,27 +42,37 @@ class AbstractInelasticScattering(ABC):
 class PolarOpticalScattering(AbstractInelasticScattering):
 
     name = "POP"
-    required_properties = ("pop_frequency", "static_dielectric",
-                           "high_frequency_dielectric")
+    required_properties = (
+        "pop_frequency",
+        "static_dielectric",
+        "high_frequency_dielectric",
+    )
 
-    def __init__(self,
-                 materials_properties: Dict[str, Any],
-                 amset_data: AmsetData):
+    def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
         super().__init__(materials_properties, amset_data)
         logger.debug("Initializing POP scattering")
 
         # convert from THz to angular frequency in Hz
-        self.pop_frequency = self.properties["pop_frequency"] * 1e12 * 2 * np.pi / Second
+        self.pop_frequency = (
+            self.properties["pop_frequency"] * 1e12 * 2 * np.pi / Second
+        )
 
         # n_po (phonon concentration) has shape (ntemps, )
-        n_po = 1 / (np.exp(self.pop_frequency /
-                    (BOLTZMANN * amset_data.temperatures)) - 1)
+        n_po = 1 / (
+            np.exp(self.pop_frequency / (BOLTZMANN * amset_data.temperatures)) - 1
+        )
 
         self.n_po = n_po[None, :]
 
-        log_list(["average N_po: {:.4f}".format(np.mean(n_po)),
-                  "ω_po: {:.4g} 2π THz".format(self.properties["pop_frequency"] * 2 * np.pi),
-                  "ħω: {:.4f} eV".format(self.pop_frequency * hbar * Second)])
+        log_list(
+            [
+                "average N_po: {:.4f}".format(np.mean(n_po)),
+                "ω_po: {:.4g} 2π THz".format(
+                    self.properties["pop_frequency"] * 2 * np.pi
+                ),
+                "ħω: {:.4f} eV".format(self.pop_frequency * hbar * Second),
+            ]
+        )
 
         # want to store two intermediate properties for:
         #             emission      and        absorption
@@ -87,18 +94,22 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         #     s: n_po + 1 - amset_data.f[s]
         #     for s in amset_data.spins}
         dielectric_term = (
-            4 * np.pi *
-            (1 / self.properties["high_frequency_dielectric"] -
-             1 / self.properties["static_dielectric"])
+            4
+            * np.pi
+            * (
+                1 / self.properties["high_frequency_dielectric"]
+                - 1 / self.properties["static_dielectric"]
+            )
         )
 
         # don't need Second conversion as we pop_frequency is not in atomic units anyway
-        self._prefactor = Second * self.pop_frequency * dielectric_term / (8 * np.pi ** 2)
+        self._prefactor = (
+            Second * self.pop_frequency * dielectric_term / (8 * np.pi ** 2)
+        )
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
-        return self._prefactor * np.ones(
-            (len(self.doping), len(self.temperatures)))
+        return self._prefactor * np.ones((len(self.doping), len(self.temperatures)))
 
     def factor(self, emission, f):
         # presuming that this is out scattering
@@ -109,9 +120,10 @@ class PolarOpticalScattering(AbstractInelasticScattering):
 
         def pop_function_generator(z_coords_sq: np.ndarray):
             return lambda x: factor[..., None, None] / (
-                    x[0][None, None, :, :] ** 2
-                    + x[1][None, None, :, :] ** 2
-                    + z_coords_sq[None, None, :, None])
+                x[0][None, None, :, :] ** 2
+                + x[1][None, None, :, :] ** 2
+                + z_coords_sq[None, None, :, None]
+            )
 
         return pop_function_generator
         # # factor should have shape (ndops, ntemps, nkpts)

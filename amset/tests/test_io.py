@@ -10,22 +10,24 @@ test_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 class IOTest(unittest.TestCase):
-
     def test_load_settings_from_file(self):
         """Test loading settings from a file."""
 
-        settings = load_settings_from_file(
-            path_join(test_dir, "amset_settings.yaml"))
+        settings = load_settings_from_file(path_join(test_dir, "amset_settings.yaml"))
 
         # test settings loaded correctly
-        self.assertEqual(settings["material"]["scissor"], 3.)
+        self.assertEqual(settings["material"]["scissor"], 3.0)
         self.assertEqual(settings["material"]["high_frequency_dielectric"], 10)
 
         # test defaults inferred correctly
-        self.assertEqual(settings["material"]["pop_frequency"],
-                         amset_defaults["material"]["pop_frequency"])
-        self.assertEqual(settings["performance"]["gauss_width"],
-                         amset_defaults["performance"]["gauss_width"])
+        self.assertEqual(
+            settings["material"]["pop_frequency"],
+            amset_defaults["material"]["pop_frequency"],
+        )
+        self.assertEqual(
+            settings["performance"]["gauss_width"],
+            amset_defaults["performance"]["gauss_width"],
+        )
 
     def test_write_settings_to_file(self):
         """Test writing settings to a file."""

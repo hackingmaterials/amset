@@ -25,7 +25,6 @@ _legend_kwargs = {"loc": "upper left", "bbox_to_anchor": (1, 1), "frameon": Fals
 
 
 class AmsetPlotter(object):
-
     def __init__(self, amset_data: AmsetData):
         # TODO: Check we have all the data we need
         self._amset_data = amset_data
@@ -52,7 +51,9 @@ class AmsetPlotter(object):
         norm_e /= units.eV
 
         energies = np.vstack([self._amset_data.energies[s] for s in spins])
-        rates = np.concatenate([self._amset_data.scattering_rates[s] for s in spins], axis=3)
+        rates = np.concatenate(
+            [self._amset_data.scattering_rates[s] for s in spins], axis=3
+        )
 
         n_dopings = len(self._amset_data.doping)
         n_temperatures = len(self._amset_data.temperatures)
@@ -85,7 +86,7 @@ class AmsetPlotter(object):
 
             title = "n = {:.2g} cm$^{{-3}}$\t T = {}".format(
                 self._amset_data.doping[d] * (1 / bohr_to_cm) ** 3,
-                self._amset_data.temperatures[t]
+                self._amset_data.temperatures[t],
             )
 
             _plot_rates_to_axis(
@@ -101,7 +102,7 @@ class AmsetPlotter(object):
                 show_legend=show_legend,
                 legend_kwargs=_legend_kwargs,
                 normalize_energy=norm_e,
-                title=title
+                title=title,
             )
 
         plt.subplots_adjust(wspace=0.3)

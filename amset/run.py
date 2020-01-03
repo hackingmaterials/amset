@@ -29,9 +29,13 @@ from pymatgen.util.string import unicodeify, unicodeify_spacegroup
 from amset.interpolation.interpolate import Interpolater
 from amset.scattering.calculate import ScatteringCalculator
 from amset.transport import TransportCalculator
-from amset.misc.util import (validate_settings, tensor_average,
-                             load_settings_from_file, write_settings_to_file,
-                             unicodeify_spacegroup)
+from amset.misc.util import (
+    validate_settings,
+    tensor_average,
+    load_settings_from_file,
+    write_settings_to_file,
+    unicodeify_spacegroup,
+)
 from amset.misc.log import log_banner, log_list, initialize_amset_logger
 
 __author__ = "Alex Ganose"
@@ -40,24 +44,25 @@ __email__ = "aganose@lbl.gov"
 __date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
-_kpt_str = '[{k[0]:.2f}, {k[1]:.2f}, {k[2]:.2f}]'
+_kpt_str = "[{k[0]:.2f}, {k[1]:.2f}, {k[2]:.2f}]"
 
 
 class AmsetRunner(MSONable):
-
-    def __init__(self,
-                 band_structure: BandStructure,
-                 num_electrons: int,
-                 material_properties: Dict[str, Any],
-                 doping: Optional[Union[List, np.ndarray]] = None,
-                 temperatures: Optional[Union[List, np.ndarray]] = None,
-                 interpolation_parameters: Optional[Dict[str, Any]] = None,
-                 scattering_type: Optional[Union[str, List[str], float]] = "auto",
-                 performance_parameters: Optional[Dict[str, float]] = None,
-                 output_parameters: Optional[Dict[str, Any]] = None,
-                 scissor: Optional[float] = None,
-                 user_bandgap: Optional[float] = None,
-                 soc: bool = False):
+    def __init__(
+        self,
+        band_structure: BandStructure,
+        num_electrons: int,
+        material_properties: Dict[str, Any],
+        doping: Optional[Union[List, np.ndarray]] = None,
+        temperatures: Optional[Union[List, np.ndarray]] = None,
+        interpolation_parameters: Optional[Dict[str, Any]] = None,
+        scattering_type: Optional[Union[str, List[str], float]] = "auto",
+        performance_parameters: Optional[Dict[str, float]] = None,
+        output_parameters: Optional[Dict[str, Any]] = None,
+        scissor: Optional[float] = None,
+        user_bandgap: Optional[float] = None,
+        soc: bool = False,
+    ):
         self._band_structure = band_structure
         self._num_electrons = num_electrons
         self.scattering_type = scattering_type
@@ -69,8 +74,9 @@ class AmsetRunner(MSONable):
         self.temperatures = temperatures
 
         if self.doping is None:
-            self.doping = np.concatenate([np.logspace(16, 21, 6),
-                                          -np.logspace(16, 21, 6)])
+            self.doping = np.concatenate(
+                [np.logspace(16, 21, 6), -np.logspace(16, 21, 6)]
+            )
 
         if self.temperatures is None:
             self.temperatures = np.array([300])
@@ -85,30 +91,43 @@ class AmsetRunner(MSONable):
         self.material_properties.update(material_properties)
         self.output_parameters.update(output_parameters)
 
-        if (self.output_parameters["print_log"] or
-                self.output_parameters["log_error_traceback"]):
+        if (
+            self.output_parameters["print_log"]
+            or self.output_parameters["log_error_traceback"]
+        ):
             initialize_amset_logger(
-                log_error_traceback=output_parameters["log_error_traceback"])
+                log_error_traceback=output_parameters["log_error_traceback"]
+            )
 
-    def run(self,
-            directory: Union[str, Path] = '.',
-            prefix: Optional[str] = None,
-            return_usage_stats: bool = False):
+    def run(
+        self,
+        directory: Union[str, Path] = ".",
+        prefix: Optional[str] = None,
+        return_usage_stats: bool = False,
+    ):
         mem_usage, (amset_data, usage_stats) = memory_usage(
             partial(self._run_wrapper, directory=directory, prefix=prefix),
-            max_usage=True, retval=True, interval=.1, include_children=False,
-            multiprocess=True)
+            max_usage=True,
+            retval=True,
+            interval=0.1,
+            include_children=False,
+            multiprocess=True,
+        )
 
         log_banner("END")
 
         logger.info("Timing and memory usage:")
-        timing_info = ["{} time: {:.4f} s".format(name, t)
-                       for name, t in usage_stats.items()]
+        timing_info = [
+            "{} time: {:.4f} s".format(name, t) for name, t in usage_stats.items()
+        ]
         log_list(timing_info + ["max memory: {:.1f} MB".format(mem_usage[0])])
 
         now = datetime.datetime.now()
-        logger.info("amset exiting on {} at {}".format(
-            now.strftime("%d %b %Y"), now.strftime("%H:%M")))
+        logger.info(
+            "amset exiting on {} at {}".format(
+                now.strftime("%d %b %Y"), now.strftime("%H:%M")
+            )
+        )
 
         if return_usage_stats:
             usage_stats["max memory"] = mem_usage[0]
@@ -117,41 +136,50 @@ class AmsetRunner(MSONable):
         else:
             return amset_data
 
-    def _run_wrapper(self,
-                     directory: Union[str, Path] = '.',
-                     prefix: Optional[str] = None):
+    def _run_wrapper(
+        self, directory: Union[str, Path] = ".", prefix: Optional[str] = None
+    ):
         tt = time.perf_counter()
         _log_amset_intro()
         _log_settings(self)
-        _log_structure_information(self._band_structure.structure,
-                                   self.performance_parameters["symprec"])
+        _log_structure_information(
+            self._band_structure.structure, self.performance_parameters["symprec"]
+        )
         _log_band_structure_information(self._band_structure)
 
         log_banner("INTERPOLATION")
         t0 = time.perf_counter()
 
         interpolater = Interpolater(
-            self._band_structure, num_electrons=self._num_electrons,
+            self._band_structure,
+            num_electrons=self._num_electrons,
             interpolation_factor=self.interpolation_parameters["interpolation_factor"],
-            soc=self.soc, interpolate_projections=True)
+            soc=self.soc,
+            interpolate_projections=True,
+        )
 
         if self.interpolation_parameters["kpoints"]:
             amset_data = interpolater.get_amset_data_from_kpoints(
                 self.interpolation_parameters["kpoints"],
                 energy_cutoff=self.performance_parameters["energy_cutoff"],
-                scissor=self.scissor, bandgap=self.user_bandgap,
-                symprec=self.performance_parameters["symprec"])
+                scissor=self.scissor,
+                bandgap=self.user_bandgap,
+                symprec=self.performance_parameters["symprec"],
+            )
         else:
             amset_data = interpolater.get_amset_data(
                 energy_cutoff=self.performance_parameters["energy_cutoff"],
-                scissor=self.scissor, bandgap=self.user_bandgap,
+                scissor=self.scissor,
+                bandgap=self.user_bandgap,
                 symprec=self.performance_parameters["symprec"],
-                nworkers=self.performance_parameters["nworkers"])
+                nworkers=self.performance_parameters["nworkers"],
+            )
 
         timing = {"interpolation": time.perf_counter() - t0}
 
-        if (self.material_properties["pop_frequency"] and
-                ("POP" in self.scattering_type or self.scattering_type == "auto")):
+        if self.material_properties["pop_frequency"] and (
+            "POP" in self.scattering_type or self.scattering_type == "auto"
+        ):
             # convert from THz to angular frequency in Hz
             pop_frequency = self.material_properties["pop_frequency"] * 1e12 * 2 * np.pi
 
@@ -164,43 +192,50 @@ class AmsetRunner(MSONable):
             cutoff_pad = 0
 
         log_banner("DOS")
-        amset_data.calculate_dos(
-            estep=self.performance_parameters["dos_estep"])
+        amset_data.calculate_dos(estep=self.performance_parameters["dos_estep"])
         amset_data.set_doping_and_temperatures(self.doping, self.temperatures)
-        amset_data.calculate_fd_cutoffs(self.performance_parameters["fd_tol"],
-                                        cutoff_pad=cutoff_pad)
+        amset_data.calculate_fd_cutoffs(
+            self.performance_parameters["fd_tol"], cutoff_pad=cutoff_pad
+        )
 
         log_banner("SCATTERING")
         t0 = time.perf_counter()
 
         scatter = ScatteringCalculator(
-            self.material_properties, amset_data,
+            self.material_properties,
+            amset_data,
             scattering_type=self.scattering_type,
             g_tol=self.performance_parameters["ibte_tol"],
             max_g_iter=self.performance_parameters["max_ibte_iter"],
             use_symmetry=self.performance_parameters["symprec"] is not None,
-            nworkers=self.performance_parameters["nworkers"])
+            nworkers=self.performance_parameters["nworkers"],
+        )
 
         amset_data.set_scattering_rates(
-            scatter.calculate_scattering_rates(),
-            scatter.scatterer_labels)
+            scatter.calculate_scattering_rates(), scatter.scatterer_labels
+        )
 
         timing["scattering"] = time.perf_counter() - t0
 
-        log_banner('TRANSPORT')
+        log_banner("TRANSPORT")
         t0 = time.perf_counter()
 
         solver = TransportCalculator(
             separate_scattering_mobilities=self.output_parameters[
-                "separate_scattering_mobilities"],
-            calculate_mobility=self.output_parameters["calculate_mobility"])
-        (amset_data.conductivity, amset_data.seebeck,
-         amset_data.electronic_thermal_conductivity,
-         amset_data.mobility) = solver.solve_bte(amset_data)
+                "separate_scattering_mobilities"
+            ],
+            calculate_mobility=self.output_parameters["calculate_mobility"],
+        )
+        (
+            amset_data.conductivity,
+            amset_data.seebeck,
+            amset_data.electronic_thermal_conductivity,
+            amset_data.mobility,
+        ) = solver.solve_bte(amset_data)
 
         timing["transport"] = time.perf_counter() - t0
 
-        log_banner('RESULTS')
+        log_banner("RESULTS")
         _log_results_summary(amset_data, self.output_parameters)
 
         abs_dir = os.path.abspath(directory)
@@ -214,8 +249,11 @@ class AmsetRunner(MSONable):
             self.write_settings(abs_dir)
 
         amset_data.to_file(
-            directory=abs_dir, write_mesh=self.output_parameters["write_mesh"],
-            prefix=prefix, file_format=self.output_parameters["file_format"])
+            directory=abs_dir,
+            write_mesh=self.output_parameters["write_mesh"],
+            prefix=prefix,
+            file_format=self.output_parameters["file_format"],
+        )
 
         timing["writing"] = time.perf_counter() - t0
         timing["total"] = time.perf_counter() - tt
@@ -223,9 +261,11 @@ class AmsetRunner(MSONable):
         return amset_data, timing
 
     @staticmethod
-    def from_vasprun(vasprun: Union[str, Path, Vasprun],
-                     material_parameters: Dict[str, Any],
-                     **kwargs) -> "AmsetRunner":
+    def from_vasprun(
+        vasprun: Union[str, Path, Vasprun],
+        material_parameters: Dict[str, Any],
+        **kwargs
+    ) -> "AmsetRunner":
         """Initialise an AmsetRunner from a Vasprun.
 
         The nelect and soc options will be determined from the Vasprun
@@ -247,15 +287,17 @@ class AmsetRunner(MSONable):
         soc = vasprun.parameters["LSORBIT"]
         nelect = vasprun.parameters["NELECT"]
 
-        return AmsetRunner(band_structure, nelect, material_parameters,
-                           soc=soc, **kwargs)
+        return AmsetRunner(
+            band_structure, nelect, material_parameters, soc=soc, **kwargs
+        )
 
     @staticmethod
     def from_vasprun_and_settings(vasprun, settings):
         settings = validate_settings(settings)
 
         return AmsetRunner.from_vasprun(
-            vasprun, settings["material"],
+            vasprun,
+            settings["material"],
             doping=settings["general"]["doping"],
             temperatures=settings["general"]["temperatures"],
             scattering_type=settings["general"]["scattering_type"],
@@ -263,23 +305,26 @@ class AmsetRunner(MSONable):
             performance_parameters=settings["performance"],
             output_parameters=settings["output"],
             scissor=settings["general"]["scissor"],
-            user_bandgap=settings["general"]["bandgap"])
+            user_bandgap=settings["general"]["bandgap"],
+        )
 
     @staticmethod
-    def from_directory(directory: Union[str, Path] = '.',
-                       vasprun: Optional[Union[str, Path]] = None,
-                       settings_file: Optional[Union[str, Path]] = None,
-                       settings_override: Optional[Dict[str, Any]] = None):
+    def from_directory(
+        directory: Union[str, Path] = ".",
+        vasprun: Optional[Union[str, Path]] = None,
+        settings_file: Optional[Union[str, Path]] = None,
+        settings_override: Optional[Dict[str, Any]] = None,
+    ):
         if not vasprun:
-            vr_file = joinpath(directory, 'vasprun.xml')
-            vr_file_gz = joinpath(directory, 'vasprun.xml.gz')
+            vr_file = joinpath(directory, "vasprun.xml")
+            vr_file_gz = joinpath(directory, "vasprun.xml.gz")
 
             if os.path.exists(vr_file):
                 vasprun = Vasprun(vr_file, parse_projected_eigen=True)
             elif os.path.exists(vr_file_gz):
                 vasprun = Vasprun(vr_file_gz, parse_projected_eigen=True)
             else:
-                msg = 'No vasprun.xml found in {}'.format(directory)
+                msg = "No vasprun.xml found in {}".format(directory)
                 logger.error(msg)
                 raise FileNotFoundError(msg)
 
@@ -292,26 +337,27 @@ class AmsetRunner(MSONable):
 
         return AmsetRunner.from_vasprun_and_settings(vasprun, settings)
 
-    def write_settings(self,
-                       directory: str = '.',
-                       prefix: Optional[str] = None):
+    def write_settings(self, directory: str = ".", prefix: Optional[str] = None):
         if prefix is None:
-            prefix = ''
+            prefix = ""
         else:
-            prefix += '_'
+            prefix += "_"
 
         general_settings = {
             "scissor": self.scissor,
             "bandgap": self.user_bandgap,
             "scattering_type": self.scattering_type,
             "doping": self.doping,
-            "temperatures": self.temperatures}
+            "temperatures": self.temperatures,
+        }
 
-        settings = {"general": general_settings,
-                    "interpolation": self.interpolation_parameters,
-                    "material": self.material_properties,
-                    "performance": self.performance_parameters,
-                    "output": self.output_parameters}
+        settings = {
+            "general": general_settings,
+            "interpolation": self.interpolation_parameters,
+            "material": self.material_properties,
+            "performance": self.performance_parameters,
+            "output": self.output_parameters,
+        }
 
         filename = joinpath(directory, "{}amset_settings.yaml".format(prefix))
         write_settings_to_file(settings, filename)
@@ -319,7 +365,8 @@ class AmsetRunner(MSONable):
 
 def _log_amset_intro():
     now = datetime.datetime.now()
-    logger.info("""
+    logger.info(
+        """
                █████╗ ███╗   ███╗███████╗███████╗████████╗
               ██╔══██╗████╗ ████║██╔════╝██╔════╝╚══██╔══╝
               ███████║██╔████╔██║███████╗█████╗     ██║   
@@ -334,29 +381,39 @@ def _log_amset_intro():
     
 
 amset starting on {} at {}""".format(
-        __version__, now.strftime("%d %b %Y"), now.strftime("%H:%M")))
+            __version__, now.strftime("%d %b %Y"), now.strftime("%H:%M")
+        )
+    )
 
 
 def _log_structure_information(structure: Structure, symprec):
     log_banner("STRUCTURE")
     logger.info("Structure information:")
 
-    formula = structure.composition.get_reduced_formula_and_factor(
-        iupac_ordering=True)[0]
+    formula = structure.composition.get_reduced_formula_and_factor(iupac_ordering=True)[
+        0
+    ]
 
     if not symprec:
         symprec = 0.01
 
     sga = SpacegroupAnalyzer(structure, symprec=symprec)
-    log_list(["formula: {}".format(unicodeify(formula)),
-              "# sites: {}".format(structure.num_sites),
-              "space group: {}".format(unicodeify_spacegroup(
-                  sga.get_space_group_symbol()))])
+    log_list(
+        [
+            "formula: {}".format(unicodeify(formula)),
+            "# sites: {}".format(structure.num_sites),
+            "space group: {}".format(
+                unicodeify_spacegroup(sga.get_space_group_symbol())
+            ),
+        ]
+    )
 
     logger.info("Lattice:")
-    log_list([
-        "a, b, c [Å]: {:.2f}, {:.2f}, {:.2f}".format(*structure.lattice.abc),
-        "α, β, γ [°]: {:.0f}, {:.0f}, {:.0f}".format(*structure.lattice.angles)]
+    log_list(
+        [
+            "a, b, c [Å]: {:.2f}, {:.2f}, {:.2f}".format(*structure.lattice.abc),
+            "α, β, γ [°]: {:.0f}, {:.0f}, {:.0f}".format(*structure.lattice.angles),
+        ]
     )
 
 
@@ -368,7 +425,8 @@ def _log_settings(runner: AmsetRunner):
         "doping: {}".format(", ".join(map("{:g}".format, runner.doping))),
         "temperatures: {}".format(", ".join(map(str, runner.temperatures))),
         "scattering_type: {}".format(runner.scattering_type),
-        "soc: {}".format(runner.soc)]
+        "soc: {}".format(runner.soc),
+    ]
 
     if runner.user_bandgap:
         run_params.append("bandgap: {}".format(runner.user_bandgap))
@@ -379,32 +437,39 @@ def _log_settings(runner: AmsetRunner):
     log_list(run_params)
 
     logger.info("Interpolation parameters:")
-    log_list(["{}: {}".format(k, v) for k, v in
-              runner.interpolation_parameters.items()])
+    log_list(
+        ["{}: {}".format(k, v) for k, v in runner.interpolation_parameters.items()]
+    )
 
     logger.info("Performance parameters:")
-    log_list(["{}: {}".format(k, v) for k, v in
-              runner.performance_parameters.items()])
+    log_list(["{}: {}".format(k, v) for k, v in runner.performance_parameters.items()])
 
     logger.info("Output parameters:")
-    log_list(["{}: {}".format(k, v) for k, v in
-              runner.output_parameters.items()])
+    log_list(["{}: {}".format(k, v) for k, v in runner.output_parameters.items()])
 
     logger.info("Material properties:")
-    log_list(["{}: {}".format(k, v) for k, v in
-              runner.material_properties.items() if v is not None])
+    log_list(
+        [
+            "{}: {}".format(k, v)
+            for k, v in runner.material_properties.items()
+            if v is not None
+        ]
+    )
 
 
 def _log_band_structure_information(band_structure: BandStructure):
     log_banner("BAND STRUCTURE")
 
     logger.info("Input band structure information:")
-    log_list([
-        "# bands: {}".format(band_structure.nb_bands),
-        "# k-points: {}".format(len(band_structure.kpoints)),
-        "Fermi level: {:.3f} eV".format(band_structure.efermi),
-        "spin polarized: {}".format(band_structure.is_spin_polarized),
-        "metallic: {}".format(band_structure.is_metal())])
+    log_list(
+        [
+            "# bands: {}".format(band_structure.nb_bands),
+            "# k-points: {}".format(len(band_structure.kpoints)),
+            "Fermi level: {:.3f} eV".format(band_structure.efermi),
+            "spin polarized: {}".format(band_structure.is_spin_polarized),
+            "metallic: {}".format(band_structure.is_metal()),
+        ]
+    )
 
     if band_structure.is_metal():
         return
@@ -413,19 +478,19 @@ def _log_band_structure_information(band_structure: BandStructure):
     band_gap_info = []
 
     bg_data = band_structure.get_band_gap()
-    if not bg_data['direct']:
-        band_gap_info.append(
-            'indirect band gap: {:.3f} eV'.format(bg_data['energy']))
+    if not bg_data["direct"]:
+        band_gap_info.append("indirect band gap: {:.3f} eV".format(bg_data["energy"]))
 
     direct_data = band_structure.get_direct_band_gap_dict()
-    direct_bg = min((spin_data['value'] for spin_data in direct_data.values()))
-    band_gap_info.append('direct band gap: {:.3f} eV'.format(direct_bg))
+    direct_bg = min((spin_data["value"] for spin_data in direct_data.values()))
+    band_gap_info.append("direct band gap: {:.3f} eV".format(direct_bg))
 
     direct_kpoint = []
     for spin, spin_data in direct_data.items():
-        direct_kindex = spin_data['kpoint_index']
-        direct_kpoint.append(_kpt_str.format(
-            k=band_structure.kpoints[direct_kindex].frac_coords))
+        direct_kindex = spin_data["kpoint_index"]
+        direct_kpoint.append(
+            _kpt_str.format(k=band_structure.kpoints[direct_kindex].frac_coords)
+        )
 
     band_gap_info.append("direct k-point: {}".format(", ".join(direct_kpoint)))
     log_list(band_gap_info)
@@ -433,10 +498,10 @@ def _log_band_structure_information(band_structure: BandStructure):
     vbm_data = band_structure.get_vbm()
     cbm_data = band_structure.get_cbm()
 
-    logger.info('Valence band maximum:')
+    logger.info("Valence band maximum:")
     _log_band_edge_information(band_structure, vbm_data)
 
-    logger.info('Conduction band minimum:')
+    logger.info("Conduction band minimum:")
     _log_band_edge_information(band_structure, cbm_data)
 
 
@@ -449,52 +514,69 @@ def _log_band_edge_information(band_structure, edge_data):
             ``bs.get_cbm()``
     """
     if band_structure.is_spin_polarized:
-        spins = edge_data['band_index'].keys()
-        b_indices = [', '.join([str(i+1) for i in
-                                edge_data['band_index'][spin]])
-                     + '({})'.format(spin.name.capitalize()) for spin in spins]
-        b_indices = ', '.join(b_indices)
+        spins = edge_data["band_index"].keys()
+        b_indices = [
+            ", ".join([str(i + 1) for i in edge_data["band_index"][spin]])
+            + "({})".format(spin.name.capitalize())
+            for spin in spins
+        ]
+        b_indices = ", ".join(b_indices)
     else:
-        b_indices = ', '.join([str(i+1) for i in
-                               edge_data['band_index'][Spin.up]])
+        b_indices = ", ".join([str(i + 1) for i in edge_data["band_index"][Spin.up]])
 
-    kpoint = edge_data['kpoint']
+    kpoint = edge_data["kpoint"]
     kpoint_str = _kpt_str.format(k=kpoint.frac_coords)
 
-    log_list(["energy: {:.3f} eV".format(edge_data['energy']),
-              "k-point: {}".format(kpoint_str),
-              "band indices: {}".format(b_indices)])
+    log_list(
+        [
+            "energy: {:.3f} eV".format(edge_data["energy"]),
+            "k-point: {}".format(kpoint_str),
+            "band indices: {}".format(b_indices),
+        ]
+    )
 
 
 def _log_results_summary(amset_data, output_parameters):
     results_summary = []
     if output_parameters["calculate_mobility"]:
-        logger.info("Average conductivity (σ), Seebeck (S) and mobility (μ)"
-                    " results:")
-        headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]",
-                   "μ [cm²/Vs]")
+        logger.info(
+            "Average conductivity (σ), Seebeck (S) and mobility (μ)" " results:"
+        )
+        headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]", "μ [cm²/Vs]")
         for c, t in np.ndindex(amset_data.fermi_levels.shape):
             results_summary.append(
-                (amset_data.doping[c] * (1 / bohr_to_cm) ** 3,
-                 amset_data.temperatures[t],
-                 tensor_average(amset_data.conductivity[c, t]),
-                 tensor_average(amset_data.seebeck[c, t]),
-                 tensor_average(amset_data.mobility["overall"][c, t])))
+                (
+                    amset_data.doping[c] * (1 / bohr_to_cm) ** 3,
+                    amset_data.temperatures[t],
+                    tensor_average(amset_data.conductivity[c, t]),
+                    tensor_average(amset_data.seebeck[c, t]),
+                    tensor_average(amset_data.mobility["overall"][c, t]),
+                )
+            )
 
     else:
         logger.info("Average conductivity (σ) and Seebeck (S) results:")
         headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]")
         for c, t in np.ndindex(amset_data.fermi_levels.shape):
             results_summary.append(
-                (amset_data.doping[c] * (1 / bohr_to_cm) ** 3,
-                 amset_data.temperatures[t],
-                 tensor_average(amset_data.conductivity[c, t]),
-                 tensor_average(amset_data.seebeck[c, t]),
-                 tensor_average(amset_data.mobility["overall"][c, t])))
+                (
+                    amset_data.doping[c] * (1 / bohr_to_cm) ** 3,
+                    amset_data.temperatures[t],
+                    tensor_average(amset_data.conductivity[c, t]),
+                    tensor_average(amset_data.seebeck[c, t]),
+                    tensor_average(amset_data.mobility["overall"][c, t]),
+                )
+            )
 
-    logger.info(tabulate(
-        results_summary, headers=headers, numalign="right",
-        stralign="center", floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f")))
+    logger.info(
+        tabulate(
+            results_summary,
+            headers=headers,
+            numalign="right",
+            stralign="center",
+            floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f"),
+        )
+    )
 
     if output_parameters["separate_scattering_mobilities"]:
         logger.info("Mobility breakdown by scattering mechanism, in cm²/Vs:")
@@ -503,12 +585,22 @@ def _log_results_summary(amset_data, output_parameters):
         results_summary = []
         for c, t in np.ndindex(amset_data.fermi_levels.shape):
             results_summary.append(
-                [amset_data.doping[c] * (1 / bohr_to_cm) ** 3,
-                 amset_data.temperatures[t]] +
-                [tensor_average(amset_data.mobility[s][c, t])
-                 for s in amset_data.scattering_labels])
+                [
+                    amset_data.doping[c] * (1 / bohr_to_cm) ** 3,
+                    amset_data.temperatures[t],
+                ]
+                + [
+                    tensor_average(amset_data.mobility[s][c, t])
+                    for s in amset_data.scattering_labels
+                ]
+            )
 
-        logger.info(tabulate(
-            results_summary, headers=headers, numalign="right",
-            stralign="center", floatfmt=[".2g", ".1f"] + [".2g"] *
-            len(amset_data.scattering_labels)))
+        logger.info(
+            tabulate(
+                results_summary,
+                headers=headers,
+                numalign="right",
+                stralign="center",
+                floatfmt=[".2g", ".1f"] + [".2g"] * len(amset_data.scattering_labels),
+            )
+        )

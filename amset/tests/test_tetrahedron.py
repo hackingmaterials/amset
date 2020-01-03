@@ -6,21 +6,19 @@ from pymatgen import Spin
 
 
 class TetrahedralBandStructureTest(unittest.TestCase):
-
     def setUp(self):
         self.kpoints = np.array(
-                [
-                    [0.0, 0.0, 0.0],
-                    [-0.5, 0.0, 0.0],
-                    [0.0, -0.5, 0.0],
-                    [-0.5, -0.5, 0.0],
-                    [0.0, 0.0, -0.5],
-                    [-0.5, 0.0, -0.5],
-                    [0.0, -0.5, -0.5],
-                    [-0.5, -0.5, -0.5],
-                ]
-            )
-
+            [
+                [0.0, 0.0, 0.0],
+                [-0.5, 0.0, 0.0],
+                [0.0, -0.5, 0.0],
+                [-0.5, -0.5, 0.0],
+                [0.0, 0.0, -0.5],
+                [-0.5, 0.0, -0.5],
+                [0.0, -0.5, -0.5],
+                [-0.5, -0.5, -0.5],
+            ]
+        )
 
         # self.energies = {Spin.up: np.array([[0, 1, 2, 3, 4, 5, 6, 7], [1, 2, 3, 4, 5, 6, 7, 8]])}
         # self.energies = {Spin.up: np.array([[0, 1, 2, 3, 4, 5, 6, 7], [1, 2, 3, 4, 5, 6, 7, 8], [2, 3, 4, 5, 6, 7, 8, 9]])}
@@ -82,8 +80,3 @@ class TetrahedralBandStructureTest(unittest.TestCase):
         # print(avg_kdiff[0])
 
         # density of states seems OK!
-
-
-
-
-

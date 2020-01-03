@@ -579,12 +579,13 @@ def integrate_function_over_cross_section(
     if np.any(triangle_mask):
         function = function_generator(z_coords_sq[triangle_mask])
         function_values[..., triangle_mask] = triangle_scheme.integrate(
-            function, intersections[:3, triangle_mask])
+            function, intersections[:3, triangle_mask]
+        )
 
     if np.any(cond_b_mask):
         function = function_generator(z_coords_sq[cond_b_mask])
         function_values[..., cond_b_mask] = quadrilateral_scheme.integrate(
-            function, intersections.reshape((2, 2, ninter, 2))[:, :, cond_b_mask],
+            function, intersections.reshape((2, 2, ninter, 2))[:, :, cond_b_mask]
         )
 
     function_values *= cross_section_weights

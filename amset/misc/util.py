@@ -51,24 +51,24 @@ def validate_settings(user_settings):
         settings["general"]["doping"] = [settings["general"]["doping"]]
 
     elif isinstance(settings["general"]["doping"], str):
-        settings["general"]["doping"] = parse_doping(
-            settings["general"]["doping"])
+        settings["general"]["doping"] = parse_doping(settings["general"]["doping"])
 
     if isinstance(settings["general"]["temperatures"], (int, float)):
-        settings["general"]["temperatures"] = [
-            settings["general"]["temperatures"]]
+        settings["general"]["temperatures"] = [settings["general"]["temperatures"]]
     elif isinstance(settings["general"]["temperatures"], str):
         settings["general"]["temperatures"] = parse_temperatures(
-            settings["general"]["temperatures"])
+            settings["general"]["temperatures"]
+        )
 
     if isinstance(settings["material"]["deformation_potential"], str):
-        settings["general"]["deformation_potential"] = \
-            parse_deformation_potential(
-                settings["general"]["deformation_potential"])
+        settings["general"]["deformation_potential"] = parse_deformation_potential(
+            settings["general"]["deformation_potential"]
+        )
 
     settings["general"]["doping"] = np.asarray(settings["general"]["doping"])
     settings["general"]["temperatures"] = np.asarray(
-        settings["general"]["temperatures"])
+        settings["general"]["temperatures"]
+    )
 
     return settings
 
@@ -79,17 +79,15 @@ def tensor_average(tensor):
 
 def groupby(a, b):
     # Get argsort indices, to be used to sort a and b in the next steps
-    sidx = b.argsort(kind='mergesort')
+    sidx = b.argsort(kind="mergesort")
     a_sorted = a[sidx]
     b_sorted = b[sidx]
 
     # Get the group limit indices (start, stop of groups)
-    cut_idx = np.flatnonzero(
-        np.r_[True, b_sorted[1:] != b_sorted[:-1], True])
+    cut_idx = np.flatnonzero(np.r_[True, b_sorted[1:] != b_sorted[:-1], True])
 
     # Split input array with those start, stop ones
-    out = np.array(
-        [a_sorted[i:j] for i, j in zip(cut_idx[:-1], cut_idx[1:])])
+    out = np.array([a_sorted[i:j] for i, j in zip(cut_idx[:-1], cut_idx[1:])])
     return out
 
 
@@ -192,8 +190,7 @@ def gen_even_slices(n, n_packs):
     """
     start = 0
     if n_packs < 1:
-        raise ValueError("gen_even_slices got n_packs=%s, must be >=1"
-                         % n_packs)
+        raise ValueError("gen_even_slices got n_packs=%s, must be >=1" % n_packs)
     for pack_num in range(n_packs):
         this_n = n // n_packs
         if pack_num < n % n_packs:
@@ -220,8 +217,7 @@ def parse_doping(doping_str: str):
             return np.array(list(map(float, doping_str.split(","))))
 
     except ValueError:
-        raise ValueError("ERROR: Unrecognised doping format: {}".format(
-            doping_str))
+        raise ValueError("ERROR: Unrecognised doping format: {}".format(doping_str))
 
 
 def parse_temperatures(temperatures_str: str):
@@ -240,8 +236,9 @@ def parse_temperatures(temperatures_str: str):
             return np.array(list(map(float, temperatures_str.split(","))))
 
     except ValueError:
-        raise ValueError("ERROR: Unrecognised temperature format: {}".format(
-            temperatures_str))
+        raise ValueError(
+            "ERROR: Unrecognised temperature format: {}".format(temperatures_str)
+        )
 
 
 def parse_deformation_potential(deformation_pot_str: str):
@@ -258,5 +255,7 @@ def parse_deformation_potential(deformation_pot_str: str):
             raise ValueError
 
     except ValueError:
-        raise ValueError("ERROR: Unrecognised deformation potential format: "
-                         "{}".format(deformation_pot_str))
+        raise ValueError(
+            "ERROR: Unrecognised deformation potential format: "
+            "{}".format(deformation_pot_str)
+        )
