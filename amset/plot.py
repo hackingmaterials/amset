@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from BoltzTraP2 import units
 from matplotlib import cycler
 
+from amset.constants import bohr_to_cm
 from amset.data import AmsetData
 
 _seaborn_colors = [
@@ -37,11 +38,11 @@ class AmsetPlotter(object):
         ymax: float = None,
         normalize_energy: bool = True,
     ):
+        spins = self._amset_data.spins
         if normalize_energy and self._amset_data.is_metal:
             norm_e = self._amset_data.intrinsic_fermi_level
         elif normalize_energy:
             vb_idx = self._amset_data.vb_idx
-            spins = self._amset_data.spins
             norm_e = np.max(
                 [self._amset_data.energies[s][: vb_idx[s] + 1] for s in spins]
             )
@@ -50,8 +51,8 @@ class AmsetPlotter(object):
 
         norm_e /= units.eV
 
-        energies = np.vstack(list(self._amset_data.energies.values()))
-        rates = np.concatenate(list(self._amset_data.scattering_rates.values()), axis=3)
+        energies = np.vstack([self._amset_data.energies[s] for s in spins])
+        rates = np.concatenate([self._amset_data.scattering_rates[s] for s in spins], axis=3)
 
         n_dopings = len(self._amset_data.doping)
         n_temperatures = len(self._amset_data.temperatures)
@@ -83,7 +84,7 @@ class AmsetPlotter(object):
                 show_legend = False
 
             title = "n = {:.2g} cm$^{{-3}}$\t T = {}".format(
-                self._amset_data.doping[d],
+                self._amset_data.doping[d] * (1 / bohr_to_cm) ** 3,
                 self._amset_data.temperatures[t]
             )
 
@@ -183,7 +184,6 @@ def _plot_rates_to_axis(
 
     if show_legend:
         ax.legend(**legend_kwargs)
-
 
 
 def _get_rate_ylims(
