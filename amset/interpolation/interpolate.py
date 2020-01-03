@@ -22,6 +22,7 @@ from amset.kpoints import (
     similarity_transformation,
     get_kpoints_tetrahedral, sort_boltztrap_to_spglib)
 from amset.misc.log import log_time_taken, log_list
+from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure,
@@ -43,7 +44,7 @@ from amset.constants import (
     spin_name,
     numeric_types,
     int_types,
-)
+    angstrom_to_bohr)
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -298,8 +299,15 @@ class Interpolater(MSONable):
         projections = {s: {l: p[:, sort_idx] for l, p in proj.items()}
                        for s, proj in projections.items()}
 
+        original_structure = self._band_structure.structure
+        atomic_structure = Structure(
+            original_structure.lattice.matrix * angstrom_to_bohr,
+            original_structure.species,
+            original_structure.frac_coords
+        )
+
         return AmsetData(
-            self._band_structure.structure,
+            atomic_structure,
             energies,
             vvelocities,
             projections,
