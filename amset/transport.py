@@ -3,13 +3,12 @@ import time
 from typing import Union, List
 
 import numpy as np
-from BoltzTraP2 import units
 from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients, DOS, \
     lambda_to_tau
 from monty.json import MSONable
 
 from amset.dos import get_dos
-from amset.constants import e
+from amset.constants import e, bohr_to_cm
 from amset.data import AmsetData
 from amset.misc.log import log_time_taken
 
@@ -75,13 +74,12 @@ def _calculate_mobility(amset_data: AmsetData,
     all_rates = amset_data.scattering_rates
     all_vv = amset_data.velocities_product
     all_energies = amset_data.energies
-    # all_curvature = amset_data.curvature
 
+    volume = amset_data.structure.volume
     mobility = np.zeros(n_t_size + (3, 3))
     for n, t in np.ndindex(n_t_size):
         energies = []
         vv = []
-        # curvature = []
         rates = []
         for spin in amset_data.spins:
             cb_idx = amset_data.vb_idx[spin] + 1
@@ -89,20 +87,17 @@ def _calculate_mobility(amset_data: AmsetData,
                 # electrons
                 energies.append(all_energies[spin][cb_idx:])
                 vv.append(all_vv[spin][cb_idx:])
-                # curvature.append(all_curvature[spin][cb_idx:])
                 rates.append(np.sum(all_rates[spin][rate_idx, n, t, cb_idx:],
                                     axis=0))
             else:
                 # holes
                 energies.append(all_energies[spin][:cb_idx])
                 vv.append(all_vv[spin][:cb_idx])
-                # curvature.append(all_curvature[spin][:cb_idx])
                 rates.append(np.sum(all_rates[spin][rate_idx, n, t, :cb_idx],
                                     axis=0))
 
         energies = np.vstack(energies)
         vv = np.vstack(vv)
-        # curvature = np.vstack(curvature)
         lifetimes = 1 / np.vstack(rates)
 
         # Nones are required as BoltzTraP2 expects the Fermi and temp as arrays
@@ -119,13 +114,7 @@ def _calculate_mobility(amset_data: AmsetData,
             epsilon, dos, vvdos, cdos=cdos, mur=fermi, Tr=temp,
             dosweight=amset_data.dos.dos_weight)
 
-        c = (
-                (-c[0, ...] - amset_data.dos.nelect) /
-                (amset_data.structure.volume / 1e8 ** 3)
-        )
-
         # Compute the Onsager coefficients from Fermi integrals
-        volume = (amset_data.structure.lattice.volume * units.Angstrom ** 3)
         sigma, _, _, _ = calc_Onsager_coefficients(
             l0, l1, l2, fermi, temp, volume)
 
@@ -134,15 +123,9 @@ def _calculate_mobility(amset_data: AmsetData,
         else:
             carrier_conc = amset_data.hole_conc[n, t]
 
-        # print(carrier_conc)
-        # print(c)
-        # print(amset_data.electron_conc)
-        # print(amset_data.hole_conc)
-
-        # carrier_conc = np.abs(c[0])
-
         # convert mobility to cm^2/V.s
-        mobility[n, t] = sigma[0, ...] * 0.01 / (e * carrier_conc)
+        uc = 0.01 / (e * carrier_conc * (1 / bohr_to_cm) ** 3)
+        mobility[n, t] = sigma[0, ...] * uc
 
     return mobility
 
@@ -150,14 +133,13 @@ def _calculate_mobility(amset_data: AmsetData,
 def _calculate_transport_properties(amset_data):
     energies = np.vstack([amset_data.energies[spin] for spin in amset_data.spins])
     vv = np.vstack([amset_data.velocities_product[spin] for spin in amset_data.spins])
-    # curvature = np.vstack([amset_data.curvature[spin] for spin in amset_data.spins])
 
     n_t_size = (len(amset_data.doping), len(amset_data.temperatures))
 
     sigma = np.zeros(n_t_size + (3, 3))
     seebeck = np.zeros(n_t_size + (3, 3))
     kappa = np.zeros(n_t_size + (3, 3))
-    hall = np.zeros(n_t_size + (3, 3))
+    volume = amset_data.structure.volume
 
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in np.ndindex(n_t_size):
@@ -178,8 +160,6 @@ def _calculate_transport_properties(amset_data):
         _, l0, l1, l2, lm11 = fermiintegrals(
             epsilon, dos, vvdos, cdos=cdos, mur=fermi, Tr=temp,
             dosweight=amset_data.dos.dos_weight)
-
-        volume = (amset_data.structure.lattice.volume * units.Angstrom ** 3)
 
         # Compute the Onsager coefficients from Fermi integrals
         # Don't store the Hall coefficient as we don't have the curvature
