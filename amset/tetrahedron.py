@@ -1,7 +1,6 @@
 from typing import Dict, Optional
 
 import numpy as np
-import quadpy
 
 from amset.misc.util import groupby
 from pymatgen import Spin, Structure
@@ -54,6 +53,7 @@ _tetrahedron_vectors = np.array(
 # _default_triangle = triangle.vioreanu_rokhlin_19()
 # _default_triangle = quadpy.nsimplex.grundmann_moeller(2, 40)
 _default_triangle = triangle.xiao_gimbutas_50()
+# _default_triangle = triangle.xiao_gimbutas_06()
 # _default_triangle = triangle.dunavant_02()
 # _default_triangle = triangle.centroid()
 # _default_triangle = triangle.cubtri()
@@ -63,6 +63,7 @@ _default_triangle = triangle.xiao_gimbutas_50()
 # _default_triangle = triangle.dunavant_00()
 # _default_quadrilateral = quadrilateral.sommariva_06()
 _default_quadrilateral = quadrilateral.sommariva_50()
+# _default_quadrilateral = quadrilateral.sommariva_50()
 # _default_quadrilateral = quadrilateral.dunavant_00()
 # _default_quadrilateral = quadrilateral.dunavant_01()
 
@@ -586,8 +587,7 @@ def integrate_function_over_cross_section(
             function, intersections.reshape((2, 2, ninter, 2))[:, :, cond_b_mask],
         )
 
-    # function_values *= (cross_section_weights * 10) ** 2  # convert weights from 1/Ang to 1/nm
-    function_values *= cross_section_weights * 10  # convert weights from 1/Ang to 1/nm
+    function_values *= cross_section_weights
 
     return function_values
 
