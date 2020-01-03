@@ -7,9 +7,11 @@ settings = {
     "general": {
         "scattering_type": ["IMP", "ACD"],
         # "scattering_type": ["ACD"],
-        "doping": [1.99e+14, 2.20e+15, 1.72e+16,
+        "doping": [1.99e+14, 2.20e+15, 1.72e+16, 1e17,
                    1.86e+17, 1.46e+18, 4.39e+18],
         "temperatures": [300],
+        "bandgap": 1.14,
+
     },
 
     "interpolation": {
@@ -18,7 +20,7 @@ settings = {
         # "fine_mesh_de": 0.02
         # "kpoints": [50, 50, 50],
         "kpoints": None,
-        "interpolation_factor": 10,
+        "interpolation_factor": 10
         # "fine_mesh_de": 0.02
     },
 

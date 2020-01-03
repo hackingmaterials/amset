@@ -6,18 +6,22 @@ from amset.run import AmsetRunner
 settings = {
     "general": {
         # "scattering_type": "auto",
-        # "scattering_type": ["IMP", "ACD"],
-        "scattering_type": ["ACD"],
+        "scattering_type": ["IMP", "ACD", "POP"],
+        # "scattering_type": ["ACD", "POP"],
+        # "scattering_type": ["IMP"],
         "doping": [3e13],
+        # "doping": [2e17],
         "temperatures": [201, 290, 401, 506, 605, 789, 994],
+        # "temperatures": [300],
+        # "temperatures": [994],
+        # "temperatures": [605],
         "bandgap": 1.33,
+
     },
 
     "interpolation": {
         "kpoints": None,
         "interpolation_factor": 50,
-        # "fine_mesh_de": 0.02
-        # "fine_mesh_de": 0.02
     },
 
     "performance": {
@@ -25,7 +29,7 @@ settings = {
         "fd_tol": 0.15,
         "ibte_tol": 1e-32,
         "max_ibte_iter": 1,
-        "dos_estep": 0.01,
+        "dos_estep": 0.05,
         "use_imp_minimum_mesh": False,
     },
 
@@ -47,7 +51,7 @@ settings = {
 
 }
 
-warnings.simplefilter("ignore")
+# warnings.simplefilter("ignore")
 
 runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml.gz", settings)
 amset_data = runner.run()
