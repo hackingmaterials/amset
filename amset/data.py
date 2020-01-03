@@ -13,7 +13,7 @@ from BoltzTraP2.fd import dFDde, FD
 from amset.tetrahedron import TetrahedralBandStructure
 from pymatgen import Spin, Structure
 
-from amset.constants import hbar, hartree_to_ev, m_to_cm, A_to_m
+from amset.constants import hbar, hartree_to_ev, m_to_cm, A_to_m, bohr_to_cm, cm_to_bohr
 from amset.misc.util import groupby, cast_dict
 from amset.misc.log import log_list
 from amset.dos import FermiDos, get_dos
@@ -77,6 +77,7 @@ class AmsetData(MSONable):
         self.is_metal = is_metal
         self.vb_idx = None if is_metal else vb_idx
         self.spins = self.energies.keys()
+        # self.spins = (Spin.up, )
         self.kpoint_norms = np.linalg.norm(full_kpoints, axis=1)
 
         self.a_factor = {}
@@ -151,7 +152,7 @@ class AmsetData(MSONable):
                 "The DOS should be calculated (AmsetData.calculate_dos) before "
                 "setting doping levels.")
 
-        self.doping = doping
+        self.doping = doping * (1 / cm_to_bohr) ** 3
         self.temperatures = temperatures
 
         self.fermi_levels = np.zeros((len(doping), len(temperatures)))
@@ -169,7 +170,7 @@ class AmsetData(MSONable):
                 try:
                     self.fermi_levels[n, t], self.electron_conc[n, t], \
                         self.hole_conc[n, t] = self.dos.get_fermi(
-                            doping[n], temperatures[t], tol=tol, precision=10,
+                            self.doping[n], temperatures[t], tol=tol, precision=10,
                             return_electron_hole_conc=True)
                     break
                 except ValueError:
@@ -180,7 +181,9 @@ class AmsetData(MSONable):
                         pass
 
             fermi_level_info.append("{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
-                doping[n], temperatures[t], self.fermi_levels[n, t] / units.eV))
+                doping[n],
+                temperatures[t],
+                self.fermi_levels[n, t] / units.eV))
 
         log_list(fermi_level_info)
         self._calculate_fermi_functions()
