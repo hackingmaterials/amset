@@ -12,6 +12,7 @@ from BoltzTraP2.bandlib import _suggest_nbins
 from BoltzTraP2.fd import FD
 from monty.json import MSONable
 
+from amset.constants import bohr_to_cm
 from pymatgen import Structure, Spin
 from pymatgen.electronic_structure.dos import Dos
 
@@ -46,6 +47,7 @@ class FermiDos(Dos, MSONable):
                  structure: Structure,
                  dos_weight: Optional[float] = None,
                  atomic_units: bool = True):
+        # structure should be atomic structure
 
         super().__init__(efermi, energies, densities)
         self.structure = structure
@@ -57,10 +59,6 @@ class FermiDos(Dos, MSONable):
         self.dos_weight = dos_weight
         self.tdos = np.array(self.get_densities()) * self.dos_weight
         self.de = self.energies[1] - self.energies[0]
-
-        # N_electrons to concentration (in 1/cm^3) conversion; 1e-8 is
-        # conversion from Angstrom to cm
-        self._conv = self.structure.volume * 1e-8 ** 3
 
         # integrate up to Fermi level to get number of electrons
         self.nelect = self.tdos[self.energies <= self.efermi].sum() * self.de
@@ -88,7 +86,7 @@ class FermiDos(Dos, MSONable):
 
         Returns:
             If return_electron_hole_conc is False: the doping concentration in
-            units of 1/cm^3. Negative values indicate that the majority carriers
+            units of 1/Bohr^3. Negative values indicate that the majority carriers
             are electrons (n-type doping) whereas positive values indicates the
             majority carriers are holes (p-type doping).
 
@@ -107,13 +105,13 @@ class FermiDos(Dos, MSONable):
 
         wdos = self.tdos * occ
         num_electrons = wdos.sum() * self.de
-        conc = (num_electrons - self.nelect) / self._conv
+        conc = (num_electrons - self.nelect) / self.structure.volume
 
         if return_electron_hole_conc:
             cb_conc = wdos[self.energies > self.efermi].sum() * self.de
             vb_conc = wdos[self.energies <= self.efermi].sum() * self.de
-            cb_conc = cb_conc / self._conv
-            vb_conc = (self.nelect - vb_conc) / self._conv
+            cb_conc = cb_conc / self.structure.volume
+            vb_conc = (self.nelect - vb_conc) / self.structure.volume
             return conc, cb_conc, vb_conc
 
         else:
@@ -134,7 +132,7 @@ class FermiDos(Dos, MSONable):
         grid which continually becomes finer.
 
         Args:
-            concentration: The doping concentration in 1/cm^3. Negative values
+            concentration: The doping concentration in 1/Bohr^3. Negative values
                 represent n-type doping and positive values represent p-type
                 doping.
             temperature: The temperature in Kelvin.
@@ -147,8 +145,7 @@ class FermiDos(Dos, MSONable):
 
             If return_electron_hole_conc is True: the Fermi level, electron
             concentration and hole concentration at the Fermi level as a tuple.
-            The electron and hole concentrations are in cm^-3.
-
+            The electron and hole concentrations are in Bohr^-3.
         """
         fermi = self.efermi  # initialize target fermi
         relative_error = float("inf")
