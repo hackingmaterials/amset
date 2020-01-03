@@ -17,7 +17,7 @@ from tabulate import tabulate
 from monty.json import MSONable
 from memory_profiler import memory_usage
 
-from amset.constants import hbar
+from amset.constants import hbar, bohr_to_cm
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
@@ -176,7 +176,6 @@ class AmsetRunner(MSONable):
         scatter = ScatteringCalculator(
             self.material_properties, amset_data,
             scattering_type=self.scattering_type,
-            gauss_width=self.performance_parameters["gauss_width"],
             g_tol=self.performance_parameters["ibte_tol"],
             max_g_iter=self.performance_parameters["max_ibte_iter"],
             use_symmetry=self.performance_parameters["symprec"] is not None,
@@ -476,7 +475,8 @@ def _log_results_summary(amset_data, output_parameters):
                    "μ [cm²/Vs]")
         for c, t in np.ndindex(amset_data.fermi_levels.shape):
             results_summary.append(
-                (amset_data.doping[c], amset_data.temperatures[t],
+                (amset_data.doping[c] * (1 / bohr_to_cm) ** 3,
+                 amset_data.temperatures[t],
                  tensor_average(amset_data.conductivity[c, t]),
                  tensor_average(amset_data.seebeck[c, t]),
                  tensor_average(amset_data.mobility["overall"][c, t])))
@@ -486,7 +486,8 @@ def _log_results_summary(amset_data, output_parameters):
         headers = ("conc [cm⁻³]", "temp [K]", "σ [S/m]", "S [µV/K]")
         for c, t in np.ndindex(amset_data.fermi_levels.shape):
             results_summary.append(
-                (amset_data.doping[c], amset_data.temperatures[t],
+                (amset_data.doping[c] * (1 / bohr_to_cm) ** 3,
+                 amset_data.temperatures[t],
                  tensor_average(amset_data.conductivity[c, t]),
                  tensor_average(amset_data.seebeck[c, t]),
                  tensor_average(amset_data.mobility["overall"][c, t])))
@@ -502,7 +503,8 @@ def _log_results_summary(amset_data, output_parameters):
         results_summary = []
         for c, t in np.ndindex(amset_data.fermi_levels.shape):
             results_summary.append(
-                [amset_data.doping[c], amset_data.temperatures[t]] +
+                [amset_data.doping[c] * (1 / bohr_to_cm) ** 3,
+                 amset_data.temperatures[t]] +
                 [tensor_average(amset_data.mobility[s][c, t])
                  for s in amset_data.scattering_labels])
 

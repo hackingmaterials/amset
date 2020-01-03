@@ -3,9 +3,9 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Dict, Any
 
 import numpy as np
-from scipy.constants import epsilon_0
+from BoltzTraP2.units import BOLTZMANN, Second
 
-from amset.constants import hbar, k_B, e
+from amset.constants import hbar
 from amset.data import AmsetData
 from amset.misc.log import log_list
 from pymatgen import Spin
@@ -55,17 +55,17 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         logger.debug("Initializing POP scattering")
 
         # convert from THz to angular frequency in Hz
-        self.pop_frequency = self.properties["pop_frequency"] * 1e12 * 2 * np.pi
+        self.pop_frequency = self.properties["pop_frequency"] * 1e12 * 2 * np.pi / Second
 
         # n_po (phonon concentration) has shape (ntemps, )
-        n_po = 1 / (np.exp(hbar * self.pop_frequency /
-                    (k_B * amset_data.temperatures)) - 1)
+        n_po = 1 / (np.exp(self.pop_frequency /
+                    (BOLTZMANN * amset_data.temperatures)) - 1)
 
         self.n_po = n_po[None, :]
 
         log_list(["average N_po: {:.4f}".format(np.mean(n_po)),
-                  "ω_po: {:.4g} 2π THz".format(self.pop_frequency),
-                  "ħω: {:.4f} eV".format(self.pop_frequency * hbar)])
+                  "ω_po: {:.4g} 2π THz".format(self.properties["pop_frequency"] * 2 * np.pi),
+                  "ħω: {:.4f} eV".format(self.pop_frequency * hbar * Second)])
 
         # want to store two intermediate properties for:
         #             emission      and        absorption
@@ -86,12 +86,14 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         # self.absorption_f_in = {
         #     s: n_po + 1 - amset_data.f[s]
         #     for s in amset_data.spins}
+        dielectric_term = (
+            4 * np.pi *
+            (1 / self.properties["high_frequency_dielectric"] -
+             1 / self.properties["static_dielectric"])
+        )
 
-        unit_conversion = 1e9 / e
-        self._prefactor = unit_conversion * (
-                e ** 2 * self.pop_frequency / (8 * np.pi ** 2) *
-                (1 / self.properties["high_frequency_dielectric"] -
-                 1 / self.properties["static_dielectric"]) / epsilon_0)
+        # don't need Second conversion as we pop_frequency is not in atomic units anyway
+        self._prefactor = Second * self.pop_frequency * dielectric_term / (8 * np.pi ** 2)
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
