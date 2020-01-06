@@ -35,6 +35,7 @@ class AmsetData(MSONable):
         structure: Structure,
         energies: Dict[Spin, np.ndarray],
         vvelocities_product: Dict[Spin, np.ndarray],
+        effective_mass: Dict[Spin, np.ndarray],
         projections: Dict[Spin, Dict[str, np.ndarray]],
         kpoint_mesh: np.ndarray,
         full_kpoints: np.ndarray,
@@ -59,6 +60,7 @@ class AmsetData(MSONable):
         self.structure = structure
         self.energies = energies
         self.velocities_product = vvelocities_product
+        self.effective_mass = effective_mass
         self.kpoint_mesh = kpoint_mesh
         self.full_kpoints = full_kpoints
         self.ir_kpoints = ir_kpoints
