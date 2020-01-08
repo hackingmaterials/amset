@@ -7,7 +7,6 @@ from amset.kpoints import expand_kpoints, get_mesh_dim_from_kpoints
 
 
 class OverlapCalculator(object):
-
     def __init__(self, structure, kpoints, projections, distance_function="cosine"):
         # distance function can be anything supported by the cdist metric argument,
         # including callable functions

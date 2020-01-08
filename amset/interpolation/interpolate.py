@@ -1153,7 +1153,9 @@ def _get_efermi(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> fl
     return (e_vbm + e_cbm) / 2
 
 
-def get_bands_fft(equivalences, coeffs, lattvec, return_effective_mass=False, nworkers=1):
+def get_bands_fft(
+    equivalences, coeffs, lattvec, return_effective_mass=False, nworkers=1
+):
     """Rebuild the full energy bands from the interpolation coefficients.
 
     Args:
@@ -1199,7 +1201,16 @@ def get_bands_fft(equivalences, coeffs, lattvec, return_effective_mass=False, nw
         workers.append(
             mp.Process(
                 target=fft_worker,
-                args=(equivalences, sallvec, dims, iqueue, oqueue, return_effective_mass)))
+                args=(
+                    equivalences,
+                    sallvec,
+                    dims,
+                    iqueue,
+                    oqueue,
+                    return_effective_mass,
+                ),
+            )
+        )
     for w in workers:
         w.start()
     # The results of the FFTs are processed as soon as they are ready.
@@ -1214,7 +1225,9 @@ def get_bands_fft(equivalences, coeffs, lattvec, return_effective_mass=False, nw
     return eband.real, vvband.real, cband
 
 
-def fft_worker(equivalences, sallvec, dims, iqueue, oqueue, return_effective_mass=False):
+def fft_worker(
+    equivalences, sallvec, dims, iqueue, oqueue, return_effective_mass=False
+):
     """Thin wrapper around FFTev and FFTc to be used as a worker function.
 
     Args:

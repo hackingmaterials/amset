@@ -13,10 +13,7 @@ amset_defaults = {
         "scissor": None,
         "bandgap": None,
     },
-    "interpolation": {
-        "kpoints": None,
-        "interpolation_factor": 5,
-    },
+    "interpolation": {"kpoints": None, "interpolation_factor": 5},
     "material": {
         "high_frequency_dielectric": None,
         "static_dielectric": None,

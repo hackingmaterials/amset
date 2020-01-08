@@ -3,11 +3,7 @@ import time
 from typing import Union, List
 
 import numpy as np
-from BoltzTraP2.bandlib import (
-    fermiintegrals,
-    calc_Onsager_coefficients,
-    lambda_to_tau,
-)
+from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients, lambda_to_tau
 from monty.json import MSONable
 
 from amset.dos import get_dos

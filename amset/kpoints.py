@@ -391,7 +391,7 @@ def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool 
 
 
 def expand_kpoints(
-        structure, kpoints, symprec=_SYMPREC, tol=_KTOL, time_reversal_symmetry=True
+    structure, kpoints, symprec=_SYMPREC, tol=_KTOL, time_reversal_symmetry=True
 ):
     round_dp = int(np.log10(1 / tol))
 

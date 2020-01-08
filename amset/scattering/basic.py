@@ -37,7 +37,7 @@ class AbstractBasicScattering(ABC):
 class ConstantRelaxationTime(AbstractBasicScattering):
 
     name = "CRT"
-    required_properties = ("constant_relaxation_time", )
+    required_properties = ("constant_relaxation_time",)
 
     def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
         super().__init__(materials_properties, amset_data)
@@ -76,8 +76,8 @@ class BrooksHerringScattering(AbstractBasicScattering):
             p_conc = np.abs(amset_data.hole_conc[n, t])
 
             impurity_concentration[n, t] = (
-                    n_conc * self.properties["donor_charge"] ** 2
-                    + p_conc * self.properties["acceptor_charge"] ** 2
+                n_conc * self.properties["donor_charge"] ** 2
+                + p_conc * self.properties["acceptor_charge"] ** 2
             )
             imp_info.append(
                 "{:3.2g} cm⁻³ & {} K: β² = {:4.3g} a₀⁻², Nᵢᵢ = {:4.3g} cm⁻³".format(
@@ -85,7 +85,7 @@ class BrooksHerringScattering(AbstractBasicScattering):
                     amset_data.temperatures[t],
                     inverse_screening_length_sq[n, t],
                     impurity_concentration[n, t] * (1 / bohr_to_cm) ** 3,
-                    )
+                )
             )
 
         logger.debug(
@@ -104,7 +104,8 @@ class BrooksHerringScattering(AbstractBasicScattering):
 
         prefactor = (
             impurity_concentration
-            * 8 * np.pi
+            * 8
+            * np.pi
             # * 8 * np.pi ** 2
             * Second
             / self.properties["static_dielectric"] ** 2
@@ -175,8 +176,8 @@ def get_normalized_energies(amset_data: AmsetData):
         for spin in spins:
             spin_energies = deepcopy(amset_data.energies[spin][:, ir_kpoints_idx])
             for n, t in np.ndindex(fermi_shape):
-                energies[spin][n, t] = (
-                    np.abs(spin_energies - amset_data.intrinsic_fermi_level)
+                energies[spin][n, t] = np.abs(
+                    spin_energies - amset_data.intrinsic_fermi_level
                 )
     else:
         vb_idx = amset_data.vb_idx
@@ -206,5 +207,3 @@ def get_dos_effective_masses(amset_data: AmsetData):
         dos_effective_masses[spin] = np.power(np.product(masses_abs, axis=2), 1 / 3)
 
     return dos_effective_masses
-
-

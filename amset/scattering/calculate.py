@@ -39,9 +39,9 @@ __date__ = "June 21, 2019"
 logger = logging.getLogger(__name__)
 
 _all_scatterers = (
-        AbstractElasticScattering.__subclasses__() +
-        AbstractInelasticScattering.__subclasses__() +
-        AbstractBasicScattering.__subclasses__()
+    AbstractElasticScattering.__subclasses__()
+    + AbstractInelasticScattering.__subclasses__()
+    + AbstractBasicScattering.__subclasses__()
 )
 _scattering_mechanisms = {m.name: m for m in _all_scatterers}
 
@@ -83,8 +83,7 @@ class ScatteringCalculator(object):
 
     @property
     def basic_scatterers(self):
-        return [s for s in self.scatterers
-                if isinstance(s, AbstractBasicScattering)]
+        return [s for s in self.scatterers if isinstance(s, AbstractBasicScattering)]
 
     @property
     def inelastic_scatterers(self):
@@ -172,8 +171,8 @@ class ScatteringCalculator(object):
         spins = self.amset_data.spins
         full_kpoints = self.amset_data.full_kpoints
         scattering_shape = (
-            (len(self.scatterer_labels), ) + self.amset_data.fermi_levels.shape
-        )
+            len(self.scatterer_labels),
+        ) + self.amset_data.fermi_levels.shape
 
         # rates has shape (spin, nscatterers, ndoping, ntemp, nbands, nkpoints)
         rates = {
@@ -336,7 +335,11 @@ class ScatteringCalculator(object):
         tbs = self.amset_data.tetrahedral_band_structure
 
         tet_dos, tet_mask, cs_weights, tet_contributions = tbs.get_tetrahedra_density_of_states(
-            spin, energy, return_contributions=True, symmetry_reduce=False, band_idx=b_idx
+            spin,
+            energy,
+            return_contributions=True,
+            symmetry_reduce=False,
+            band_idx=b_idx,
         )
 
         if len(tet_dos) == 0:

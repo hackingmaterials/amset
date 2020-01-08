@@ -53,16 +53,16 @@ _tetrahedron_vectors = np.array(
 numerical_integration_defaults = {
     "high": {
         "triangle": triangle.xiao_gimbutas_50(),
-        "quadrilateral": quadrilateral.sommariva_50()
+        "quadrilateral": quadrilateral.sommariva_50(),
     },
     "medium": {
         "triangle": triangle.xiao_gimbutas_06(),
-        "quadrilateral": quadrilateral.sommariva_06()
+        "quadrilateral": quadrilateral.sommariva_06(),
     },
     "low": {
         "triangle": triangle.centroid(),
-        "quadrilateral": quadrilateral.dunavant_00()
-    }
+        "quadrilateral": quadrilateral.dunavant_00(),
+    },
 }
 
 
@@ -212,11 +212,17 @@ class TetrahedralBandStructure(object):
         else:
             return (min_energies < energy) & (max_energies > energy)
 
-
     def get_tetrahedra_density_of_states(
-        self, spin, energy, return_contributions=False, symmetry_reduce=True, band_idx=None
+        self,
+        spin,
+        energy,
+        return_contributions=False,
+        symmetry_reduce=True,
+        band_idx=None,
     ):
-        tetrahedra_mask = self.get_intersecting_tetrahedra(spin, energy, band_idx=band_idx)
+        tetrahedra_mask = self.get_intersecting_tetrahedra(
+            spin, energy, band_idx=band_idx
+        )
 
         if not np.any(tetrahedra_mask):
             if return_contributions:
@@ -332,7 +338,9 @@ class TetrahedralBandStructure(object):
         else:
             return tetrahedra_dos
 
-    def get_density_of_states(self, emin, emax, npoints, weights=None, sum_spins=False, band_idx=None):
+    def get_density_of_states(
+        self, emin, emax, npoints, weights=None, sum_spins=False, band_idx=None
+    ):
         energies = np.linspace(emin, emax, npoints)
 
         dos = {}
@@ -365,14 +373,22 @@ class TetrahedralBandStructure(object):
         if weights is None:
             dos = np.zeros_like(energies)
             for i, energy in enumerate(energies):
-                dos[i] = np.sum(self.get_tetrahedra_density_of_states(spin, energy, band_idx=band_idx))
+                dos[i] = np.sum(
+                    self.get_tetrahedra_density_of_states(
+                        spin, energy, band_idx=band_idx
+                    )
+                )
 
         else:
             dos = np.zeros(weights.shape[2:] + energies.shape)
 
             for i, energy in enumerate(energies):
                 tet_dos, tet_mask, _, tet_contributions = self.get_tetrahedra_density_of_states(
-                    spin, energy, return_contributions=True, symmetry_reduce=False, band_idx=band_idx
+                    spin,
+                    energy,
+                    return_contributions=True,
+                    symmetry_reduce=False,
+                    band_idx=band_idx,
                 )
 
                 if len(tet_dos) == 0:
