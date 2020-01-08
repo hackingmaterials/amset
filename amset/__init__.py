@@ -14,10 +14,8 @@ amset_defaults = {
         "bandgap": None,
     },
     "interpolation": {
-        "kpoints": 150,
+        "kpoints": None,
         "interpolation_factor": 5,
-        "fine_mesh_de": None,
-        "use_imp_minimum_mesh": False,
     },
     "material": {
         "high_frequency_dielectric": None,
