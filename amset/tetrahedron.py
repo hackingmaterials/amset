@@ -50,10 +50,20 @@ _tetrahedron_vectors = np.array(
     ]
 )
 
-_default_triangle = triangle.xiao_gimbutas_50()
-_default_quadrilateral = quadrilateral.sommariva_50()
-# _default_triangle = triangle.xiao_gimbutas_06()
-# _default_quadrilateral = quadrilateral.sommariva_06()
+numerical_integration_defaults = {
+    "high": {
+        "triangle": triangle.xiao_gimbutas_50(),
+        "quadrilateral": quadrilateral.sommariva_50()
+    },
+    "medium": {
+        "triangle": triangle.xiao_gimbutas_06(),
+        "quadrilateral": quadrilateral.sommariva_06()
+    },
+    "low": {
+        "triangle": triangle.centroid(),
+        "quadrilateral": quadrilateral.dunavant_00()
+    }
+}
 
 
 def get_main_diagonal(reciprocal_lattice: np.ndarray) -> int:
@@ -359,7 +369,6 @@ class TetrahedralBandStructure(object):
 
         else:
             dos = np.zeros(weights.shape[2:] + energies.shape)
-            print(dos.shape)
 
             for i, energy in enumerate(energies):
                 tet_dos, tet_mask, _, tet_contributions = self.get_tetrahedra_density_of_states(
@@ -613,11 +622,13 @@ def integrate_function_over_cross_section(
     cond_a_mask,
     cond_b_mask,
     cond_c_mask,
-    triangle_scheme=_default_triangle,
-    quadrilateral_scheme=_default_quadrilateral,
+    precision="medium",
     return_shape=None,
     cross_section_weights=None,
 ):
+    triangle_scheme = numerical_integration_defaults[precision]["triangle"]
+    quadrilateral_scheme = numerical_integration_defaults[precision]["quadrilateral"]
+
     if cross_section_weights is None:
         cross_section_weights = np.ones(len(intersections))
 
