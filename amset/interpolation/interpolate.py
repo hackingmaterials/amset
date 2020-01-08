@@ -18,6 +18,7 @@ from scipy.ndimage import gaussian_filter1d
 from BoltzTraP2 import units, sphere, fite
 
 from amset.dos import FermiDos, get_dos
+from amset.interpolation.overlap import OverlapCalculator
 from amset.kpoints import (
     get_symmetry_equivalent_kpoints,
     get_kpoints,
@@ -313,6 +314,11 @@ class Interpolater(MSONable):
             original_structure.frac_coords,
         )
 
+        orig_kpoints = np.array([k.frac_coords for k in self._band_structure.kpoints])
+        overlap_calculator = OverlapCalculator(
+            atomic_structure, orig_kpoints, self._band_structure.projections
+        )
+
         return AmsetData(
             atomic_structure,
             energies,
@@ -329,6 +335,7 @@ class Interpolater(MSONable):
             efermi,
             is_metal,
             self._soc,
+            overlap_calculator,
             vb_idx=new_vb_idx,
             scissor=scissor,
             kpoint_weights=kpt_weights,

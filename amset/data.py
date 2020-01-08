@@ -47,6 +47,7 @@ class AmsetData(MSONable):
         efermi: float,
         is_metal: bool,
         soc: bool,
+        overlap_calculator,
         kpoint_weights: Optional[np.ndarray] = None,
         dos: Optional[FermiDos] = None,
         vb_idx: Optional[Dict[Spin, int]] = None,
@@ -74,6 +75,7 @@ class AmsetData(MSONable):
         self.electronic_thermal_conductivity = electronic_thermal_conductivity
         self.mobility = mobility
         self.scissor = scissor if scissor else 0
+        self.overlap_calculator = overlap_calculator
 
         self.dos = dos
         self.is_metal = is_metal
@@ -165,8 +167,6 @@ class AmsetData(MSONable):
         self.electron_conc = np.zeros((len(doping), len(temperatures)))
         self.hole_conc = np.zeros((len(doping), len(temperatures)))
 
-        logger.info("Calculated Fermi levels:")
-
         fermi_level_info = []
         tols = np.logspace(-5, 0, 6)
         for n, t in np.ndindex(self.fermi_levels.shape):
@@ -199,6 +199,7 @@ class AmsetData(MSONable):
                 )
             )
 
+        logger.info("Calculated Fermi levels:")
         log_list(fermi_level_info)
         self._calculate_fermi_functions()
 
@@ -225,27 +226,27 @@ class AmsetData(MSONable):
         for spin in self.spins:
             for n, t in np.ndindex(self.fermi_levels.shape):
                 self.f[spin][n, t] = FD(
-                    self.energies[spin],
+                    self.energies[spin][:, self.ir_kpoints_idx],
                     self.fermi_levels[n, t],
                     self.temperatures[t] * units.BOLTZMANN,
-                )
+                )[:, self.ir_to_full_kpoint_mapping]
                 self.dfde[spin][n, t] = dFDde(
-                    self.energies[spin],
+                    self.energies[spin][:, self.ir_kpoints_idx],
                     self.fermi_levels[n, t],
                     self.temperatures[t] * units.BOLTZMANN,
-                )
+                )[:, self.ir_to_full_kpoint_mapping]
                 # velocities product has shape (nbands, 3, 3, nkpoints)
                 # we want the diagonal of the 3x3 matrix for each k and band
                 # after diagonalization shape is nbands, nkpoints, 3
-                v = np.diagonal(
-                    np.sqrt(self.velocities_product[spin]), axis1=1, axis2=2
-                )
-                v = v.transpose((0, 2, 1))
-                v = np.abs(np.matmul(matrix_norm, v)) * factor
-                v = v.transpose((0, 2, 1))
-                self.dfdk[spin][n, t] = np.linalg.norm(
-                    self.dfde[spin][n, t][..., None] * v * hbar, axis=2
-                )
+                # v = np.diagonal(
+                #     np.sqrt(self.velocities_product[spin]), axis1=1, axis2=2
+                # )
+                # v = v.transpose((0, 2, 1))
+                # v = np.abs(np.matmul(matrix_norm, v)) * factor
+                # v = v.transpose((0, 2, 1))
+                # self.dfdk[spin][n, t] = np.linalg.norm(
+                #     self.dfde[spin][n, t][..., None] * v * hbar, axis=2
+                # )
 
     def calculate_fd_cutoffs(
         self, fd_tolerance: Optional[float] = 0.01, cutoff_pad: float = 0.0
@@ -310,7 +311,6 @@ class AmsetData(MSONable):
             ]
         )
         self.fd_cutoffs = (min_cutoff, max_cutoff)
-        # self.fd_cutoffs = (3.428 * units.eV, 3.718 * units.eV)
 
     def set_scattering_rates(
         self, scattering_rates: Dict[Spin, np.ndarray], scattering_labels: List[str]
