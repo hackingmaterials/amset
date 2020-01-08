@@ -16,6 +16,7 @@ from tqdm import tqdm
 
 from BoltzTraP2 import units
 
+from amset.scattering.basic import AbstractBasicScattering
 from amset.tetrahedron import (
     get_cross_section_values,
     get_projected_intersections,
@@ -38,8 +39,9 @@ __date__ = "June 21, 2019"
 logger = logging.getLogger(__name__)
 
 _all_scatterers = (
-    AbstractElasticScattering.__subclasses__()
-    + AbstractInelasticScattering.__subclasses__()
+        AbstractElasticScattering.__subclasses__() +
+        AbstractInelasticScattering.__subclasses__() +
+        AbstractBasicScattering.__subclasses__()
 )
 _scattering_mechanisms = {m.name: m for m in _all_scatterers}
 
@@ -80,6 +82,11 @@ class ScatteringCalculator(object):
             )
 
     @property
+    def basic_scatterers(self):
+        return [s for s in self.scatterers
+                if isinstance(s, AbstractBasicScattering)]
+
+    @property
     def inelastic_scatterers(self):
         return [
             s for s in self.scatterers if isinstance(s, AbstractInelasticScattering)
@@ -91,6 +98,7 @@ class ScatteringCalculator(object):
 
     @property
     def scatterer_labels(self):
+        basic_names = [s.name for s in self.basic_scatterers]
         elastic_names = [s.name for s in self.elastic_scatterers]
 
         if self.max_g_iter != 1:
@@ -103,7 +111,7 @@ class ScatteringCalculator(object):
         else:
             inelastic_names = [s.name for s in self.inelastic_scatterers]
 
-        return elastic_names + inelastic_names
+        return basic_names + elastic_names + inelastic_names
 
     @staticmethod
     def get_scatterers(
@@ -163,29 +171,17 @@ class ScatteringCalculator(object):
     def calculate_scattering_rates(self):
         spins = self.amset_data.spins
         full_kpoints = self.amset_data.full_kpoints
+        scattering_shape = (
+            (len(self.scatterer_labels), ) + self.amset_data.fermi_levels.shape
+        )
 
         # rates has shape (spin, nscatterers, ndoping, ntemp, nbands, nkpoints)
         rates = {
-            s: np.zeros(
-                (
-                    len(self.scatterer_labels),
-                    len(self.amset_data.doping),
-                    len(self.amset_data.temperatures),
-                )
-                + self.amset_data.energies[s].shape
-            )
+            s: np.zeros(scattering_shape + self.amset_data.energies[s].shape)
             for s in spins
         }
         masks = {
-            s: np.full(
-                (
-                    len(self.scatterer_labels),
-                    len(self.amset_data.doping),
-                    len(self.amset_data.temperatures),
-                )
-                + self.amset_data.energies[s].shape,
-                True,
-            )
+            s: np.full(scattering_shape + self.amset_data.energies[s].shape, True)
             for s in spins
         }
 
@@ -253,18 +249,21 @@ class ScatteringCalculator(object):
                 np.sum(~fill_mask)
             )
         )
-        elastic_prefactors = conversion * np.array(
-            [m.prefactor(spin, b_idx) for m in self.elastic_scatterers]
-        )
-        inelastic_prefactors = conversion * np.array(
-            [m.prefactor(spin, b_idx) for m in self.inelastic_scatterers]
-        )
 
         # get k-point indexes of k-points within FD cutoffs (faster than np.where)
         k_idx_in_cutoff = np.arange(nkpoints)[~mask]
 
         to_stack = []
+        if len(self.basic_scatterers) > 0:
+            basic_rates = np.array(
+                [m.rates[spin][:, :, b_idx, kpoints_idx] for m in self.basic_scatterers]
+            )
+            to_stack.append(basic_rates)
+
         if len(self.elastic_scatterers) > 0:
+            elastic_prefactors = conversion * np.array(
+                [m.prefactor(spin, b_idx) for m in self.elastic_scatterers]
+            )
             elastic_rates = np.zeros(elastic_prefactors.shape + (nkpoints,))
 
             desc = "    ├── {}".format("elastic")
@@ -284,6 +283,9 @@ class ScatteringCalculator(object):
             to_stack.append(elastic_rates)
 
         if len(self.inelastic_scatterers) > 0:
+            inelastic_prefactors = conversion * np.array(
+                [m.prefactor(spin, b_idx) for m in self.inelastic_scatterers]
+            )
             inelastic_rates = np.zeros(inelastic_prefactors.shape + (nkpoints,))
             energy_diff = (
                 self.materials_properties["pop_frequency"]
@@ -334,7 +336,7 @@ class ScatteringCalculator(object):
         tbs = self.amset_data.tetrahedral_band_structure
 
         tet_dos, tet_mask, cs_weights, tet_contributions = tbs.get_tetrahedra_density_of_states(
-            spin, energy, return_contributions=True, symmetry_reduce=False
+            spin, energy, return_contributions=True, symmetry_reduce=False, band_idx=b_idx
         )
 
         if len(tet_dos) == 0:

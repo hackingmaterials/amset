@@ -108,71 +108,71 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
         return acd_function_generator
 
 
-class IonizedImpurityScattering(AbstractElasticScattering):
-
-    name = "IMP"
-    required_properties = ("acceptor_charge", "donor_charge", "static_dielectric")
-
-    def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
-        super().__init__(materials_properties, amset_data)
-        logger.debug("Initializing IMP scattering")
-
-        self.inverse_screening_length_sq = calculate_inverse_screening_length_sq(
-            amset_data, self.properties["static_dielectric"]
-        )
-        self.impurity_concentration = np.zeros(amset_data.fermi_levels.shape)
-
-        imp_info = []
-        for n, t in np.ndindex(self.inverse_screening_length_sq.shape):
-            n_conc = np.abs(amset_data.electron_conc[n, t])
-            p_conc = np.abs(amset_data.hole_conc[n, t])
-
-            self.impurity_concentration[n, t] = (
-                n_conc * self.properties["donor_charge"] ** 2
-                + p_conc * self.properties["acceptor_charge"] ** 2
-            )
-            imp_info.append(
-                "{:.2g} cm⁻³ & {} K: β² = {:.4g} a₀⁻², Nᵢᵢ = {:.4g} cm⁻³".format(
-                    amset_data.doping[n] * (1 / bohr_to_cm) ** 3,
-                    amset_data.temperatures[t],
-                    self.inverse_screening_length_sq[n, t],
-                    self.impurity_concentration[n, t] * (1 / bohr_to_cm) ** 3,
-                )
-            )
-
-        logger.debug(
-            "Inverse screening length (β) and impurity concentration " "(Nᵢᵢ):"
-        )
-        log_list(imp_info, level=logging.DEBUG)
-
-        self._prefactor = (
-            self.impurity_concentration
-            * 4
-            * units.Second
-            / self.properties["static_dielectric"] ** 2
-        )
-
-    def prefactor(self, spin: Spin, b_idx: int):
-        # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
-        return self._prefactor
-
-    # def factor(self, k_diff_sq: np.ndarray):
-    def factor(self):
-        def imp_function_generator(z_coords_sq: np.ndarray):
-            return (
-                lambda x: 1
-                / (
-                    (
-                        x[0][None, None, :, :] ** 2
-                        + x[1][None, None, :, :] ** 2
-                        + z_coords_sq[None, None, :, None]
-                        + self.inverse_screening_length_sq[:, :, None, None]
-                    )
-                )
-                ** 2
-            )
-
-        return imp_function_generator
+# class IonizedImpurityScattering(AbstractElasticScattering):
+#
+#     name = "IMP"
+#     required_properties = ("acceptor_charge", "donor_charge", "static_dielectric")
+#
+#     def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
+#         super().__init__(materials_properties, amset_data)
+#         logger.debug("Initializing IMP scattering")
+#
+#         self.inverse_screening_length_sq = calculate_inverse_screening_length_sq(
+#             amset_data, self.properties["static_dielectric"]
+#         )
+#         self.impurity_concentration = np.zeros(amset_data.fermi_levels.shape)
+#
+#         imp_info = []
+#         for n, t in np.ndindex(self.inverse_screening_length_sq.shape):
+#             n_conc = np.abs(amset_data.electron_conc[n, t])
+#             p_conc = np.abs(amset_data.hole_conc[n, t])
+#
+#             self.impurity_concentration[n, t] = (
+#                 n_conc * self.properties["donor_charge"] ** 2
+#                 + p_conc * self.properties["acceptor_charge"] ** 2
+#             )
+#             imp_info.append(
+#                 "{:.2g} cm⁻³ & {} K: β² = {:.4g} a₀⁻², Nᵢᵢ = {:.4g} cm⁻³".format(
+#                     amset_data.doping[n] * (1 / bohr_to_cm) ** 3,
+#                     amset_data.temperatures[t],
+#                     self.inverse_screening_length_sq[n, t],
+#                     self.impurity_concentration[n, t] * (1 / bohr_to_cm) ** 3,
+#                 )
+#             )
+#
+#         logger.debug(
+#             "Inverse screening length (β) and impurity concentration " "(Nᵢᵢ):"
+#         )
+#         log_list(imp_info, level=logging.DEBUG)
+#
+#         self._prefactor = (
+#             self.impurity_concentration
+#             * 4
+#             * units.Second
+#             / self.properties["static_dielectric"] ** 2
+#         )
+#
+#     def prefactor(self, spin: Spin, b_idx: int):
+#         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
+#         return self._prefactor
+#
+#     # def factor(self, k_diff_sq: np.ndarray):
+#     def factor(self):
+#         def imp_function_generator(z_coords_sq: np.ndarray):
+#             return (
+#                 lambda x: 1
+#                 / (
+#                     (
+#                         x[0][None, None, :, :] ** 2
+#                         + x[1][None, None, :, :] ** 2
+#                         + z_coords_sq[None, None, :, None]
+#                         + self.inverse_screening_length_sq[:, :, None, None]
+#                     )
+#                 )
+#                 ** 2
+#             )
+#
+#         return imp_function_generator
 
 
 class PiezoelectricScattering(AbstractElasticScattering):
