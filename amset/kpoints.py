@@ -390,6 +390,59 @@ def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool 
     return mesh
 
 
+def expand_kpoints(
+        structure, kpoints, symprec=_SYMPREC, tol=_KTOL, time_reversal_symmetry=True
+):
+    round_dp = int(np.log10(1 / tol))
+
+    def shift_and_round(k):
+        k = kpoints_to_first_bz(k)
+        k = np.round(k, round_dp)
+        return list(map(tuple, k))
+
+    rotation_matrices = get_reciprocal_point_group_operations(
+        structure, symprec=symprec, time_reversal_symmetry=time_reversal_symmetry
+    )
+
+    kpoints = kpoints_to_first_bz(kpoints)
+    full_kpoints = []
+    reduced_to_full_idx = []
+    equiv_points_mapping = {}
+
+    for i, kpoint in enumerate(kpoints):
+
+        symmetrized_kpoints = kpoints_to_first_bz(np.dot(rotation_matrices, kpoint))
+        symmetrized_round_kpoints = shift_and_round(symmetrized_kpoints)
+        _, unique_idxs = np.unique(symmetrized_round_kpoints, axis=0, return_index=True)
+
+        for ui in unique_idxs:
+            spoint = symmetrized_kpoints[ui]
+            spoint_round = symmetrized_round_kpoints[ui]
+
+            if spoint_round not in equiv_points_mapping:
+                full_kpoints.append(spoint)
+                equiv_points_mapping[spoint_round] = i
+                reduced_to_full_idx.append(i)
+
+    return np.array(full_kpoints), np.array(reduced_to_full_idx)
+
+
+def get_mesh_dim_from_kpoints(kpoints, tol=_KTOL):
+    round_dp = int(np.log10(1 / tol))
+
+    kpoints = kpoints_to_first_bz(kpoints)
+    round_kpoints = np.round(kpoints, round_dp)
+
+    nx = len(np.unique(round_kpoints[:, 0]))
+    ny = len(np.unique(round_kpoints[:, 1]))
+    nz = len(np.unique(round_kpoints[:, 2]))
+
+    if nx * ny * nz != len(kpoints):
+        raise ValueError("Something went wrong getting k-point mesh dimensions")
+
+    return nx, ny, nz
+
+
 def get_reciprocal_point_group_operations(
     structure: Structure, symprec: float = _SYMPREC, time_reversal_symmetry: bool = True
 ):
