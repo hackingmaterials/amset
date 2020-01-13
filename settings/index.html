@@ -1,0 +1,1221 @@
+
+
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <meta http-equiv="x-ua-compatible" content="ie=edge">
+      
+        <meta name="description" content="Documentation for AMSET, electron transport from first principles">
+      
+      
+      
+      
+        <meta name="lang:clipboard.copy" content="Copy to clipboard">
+      
+        <meta name="lang:clipboard.copied" content="Copied to clipboard">
+      
+        <meta name="lang:search.language" content="en">
+      
+        <meta name="lang:search.pipeline.stopwords" content="True">
+      
+        <meta name="lang:search.pipeline.trimmer" content="True">
+      
+        <meta name="lang:search.result.none" content="No matching documents">
+      
+        <meta name="lang:search.result.one" content="1 matching document">
+      
+        <meta name="lang:search.result.other" content="# matching documents">
+      
+        <meta name="lang:search.tokenizer" content="[\s\-]+">
+      
+      <link rel="shortcut icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.6.0">
+    
+    
+      
+        <title>Settings - AMSET Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/application.1b62728e.css">
+      
+        <link rel="stylesheet" href="../assets/stylesheets/application-palette.a8b3c06d.css">
+      
+      
+        
+        
+        <meta name="theme-color" content="#546e7a">
+      
+    
+    
+      <script src="../assets/javascripts/modernizr.268332fc.js"></script>
+    
+    
+      
+        <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&display=fallback">
+        <style>body,input{font-family:"Roboto","Helvetica Neue",Helvetica,Arial,sans-serif}code,kbd,pre{font-family:"Roboto Mono","Courier New",Courier,monospace}</style>
+      
+    
+    <link rel="stylesheet" href="../assets/fonts/material-icons.css">
+    
+    
+    
+      
+    
+    
+  </head>
+  
+    
+    
+    <body dir="ltr" data-md-color-primary="blue-grey" data-md-color-accent="blue-grey">
+  
+    <svg class="md-svg">
+      <defs>
+        
+        
+          <svg xmlns="http://www.w3.org/2000/svg" width="416" height="448" viewBox="0 0 416 448" id="__github"><path fill="currentColor" d="M160 304q0 10-3.125 20.5t-10.75 19T128 352t-18.125-8.5-10.75-19T96 304t3.125-20.5 10.75-19T128 256t18.125 8.5 10.75 19T160 304zm160 0q0 10-3.125 20.5t-10.75 19T288 352t-18.125-8.5-10.75-19T256 304t3.125-20.5 10.75-19T288 256t18.125 8.5 10.75 19T320 304zm40 0q0-30-17.25-51T296 232q-10.25 0-48.75 5.25Q229.5 240 208 240t-39.25-2.75Q130.75 232 120 232q-29.5 0-46.75 21T56 304q0 22 8 38.375t20.25 25.75 30.5 15 35 7.375 37.25 1.75h42q20.5 0 37.25-1.75t35-7.375 30.5-15 20.25-25.75T360 304zm56-44q0 51.75-15.25 82.75-9.5 19.25-26.375 33.25t-35.25 21.5-42.5 11.875-42.875 5.5T212 416q-19.5 0-35.5-.75t-36.875-3.125-38.125-7.5-34.25-12.875T37 371.5t-21.5-28.75Q0 312 0 260q0-59.25 34-99-6.75-20.5-6.75-42.5 0-29 12.75-54.5 27 0 47.5 9.875t47.25 30.875Q171.5 96 212 96q37 0 70 8 26.25-20.5 46.75-30.25T376 64q12.75 25.5 12.75 54.5 0 21.75-6.75 42 34 40 34 99.5z"/></svg>
+        
+      </defs>
+    </svg>
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+    
+      <a href="#settings" tabindex="1" class="md-skip">
+        Skip to content
+      </a>
+    
+    
+      <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid">
+    <div class="md-flex">
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <a href=".." title="AMSET Documentation" class="md-header-nav__button md-logo">
+          
+            <i class="md-icon">call_missed_outgoing</i>
+          
+        </a>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+      </div>
+      <div class="md-flex__cell md-flex__cell--stretch">
+        <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+          
+            <span class="md-header-nav__topic">
+              AMSET Documentation
+            </span>
+            <span class="md-header-nav__topic">
+              
+                Settings
+              
+            </span>
+          
+        </div>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        
+          <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+          
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="query" data-md-state="active">
+      <label class="md-icon md-search__icon" for="__search"></label>
+      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
+        &#xE5CD;
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="result">
+          <div class="md-search-result__meta">
+            Type to start searching
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+        
+      </div>
+      
+        <div class="md-flex__cell md-flex__cell--shrink">
+          <div class="md-header-nav__source">
+            
+
+
+  
+
+<a href="https://github.com/hackingmaterials/amset/" title="Go to repository" class="md-source" data-md-source="github">
+  
+    <div class="md-source__icon">
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+          </div>
+        </div>
+      
+    </div>
+  </nav>
+</header>
+    
+    <div class="md-container">
+      
+        
+      
+      
+      <main class="md-main" role="main">
+        <div class="md-main__inner md-grid" data-md-component="container">
+          
+            
+              <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    <nav class="md-nav md-nav--primary" data-md-level="0">
+  <label class="md-nav__title md-nav__title--site" for="__drawer">
+    <a href=".." title="AMSET Documentation" class="md-nav__button md-logo">
+      
+        <i class="md-icon">call_missed_outgoing</i>
+      
+    </a>
+    AMSET Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      
+
+
+  
+
+<a href="https://github.com/hackingmaterials/amset/" title="Go to repository" class="md-source" data-md-source="github">
+  
+    <div class="md-source__icon">
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href=".." title="Home" class="md-nav__link">
+      Home
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    
+      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
+    
+    <label class="md-nav__link" for="nav-2">
+      User Guide
+    </label>
+    <nav class="md-nav" data-md-component="collapsible" data-md-level="1">
+      <label class="md-nav__title" for="nav-2">
+        User Guide
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../installation/" title="Installation" class="md-nav__link">
+      Installation
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../using/" title="Running AMSET" class="md-nav__link">
+      Running AMSET
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        Settings
+      </label>
+    
+    <a href="./" title="Settings" class="md-nav__link md-nav__link--active">
+      Settings
+    </a>
+    
+      
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">Table of contents</label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general-settings" class="md-nav__link">
+    General settings
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#doping" class="md-nav__link">
+    doping
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#temperatures" class="md-nav__link">
+    temperatures
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interpolation_factor" class="md-nav__link">
+    interpolation_factor
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scattering_type" class="md-nav__link">
+    scattering_type
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scissor" class="md-nav__link">
+    scissor
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bandgap" class="md-nav__link">
+    bandgap
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#material-settings" class="md-nav__link">
+    Material settings
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#high_frequency_dielectric" class="md-nav__link">
+    high_frequency_dielectric
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static_dielectric" class="md-nav__link">
+    static_dielectric
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#elastic_constant" class="md-nav__link">
+    elastic_constant
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deformation_potential" class="md-nav__link">
+    deformation_potential
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#piezoelectric_coefficient" class="md-nav__link">
+    piezoelectric_coefficient
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acceptor_charge" class="md-nav__link">
+    acceptor_charge
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#donor_charge" class="md-nav__link">
+    donor_charge
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pop_frequency" class="md-nav__link">
+    pop_frequency
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-settings" class="md-nav__link">
+    Performance settings
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#energy_cutoff" class="md-nav__link">
+    energy_cutoff
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fd_tol" class="md-nav__link">
+    fd_tol
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dos_estep" class="md-nav__link">
+    dos_estep
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#symprec" class="md-nav__link">
+    symprec
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nworkers" class="md-nav__link">
+    nworkers
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-settings" class="md-nav__link">
+    Output settings
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#calculate_mobility" class="md-nav__link">
+    calculate_mobility
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#separate_scattering_mobilities" class="md-nav__link">
+    separate_scattering_mobilities
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file_format" class="md-nav__link">
+    file_format
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_input" class="md-nav__link">
+    write_input
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_mesh" class="md-nav__link">
+    write_mesh
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#log_error_traceback" class="md-nav__link">
+    log_error_traceback
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#print_log" class="md-nav__link">
+    print_log
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+      
+      
+      
+      
+    </ul>
+  
+</nav>
+    
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../scattering/" title="Scattering Rates" class="md-nav__link">
+      Scattering Rates
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../theory/" title="Theory" class="md-nav__link">
+      Theory
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../changelog/" title="Changelog" class="md-nav__link">
+      Changelog
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../contributors/" title="Contributors" class="md-nav__link">
+      Contributors
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../contributing/" title="Contributing" class="md-nav__link">
+      Contributing
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../license/" title="License" class="md-nav__link">
+      License
+    </a>
+  </li>
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">Table of contents</label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general-settings" class="md-nav__link">
+    General settings
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#doping" class="md-nav__link">
+    doping
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#temperatures" class="md-nav__link">
+    temperatures
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interpolation_factor" class="md-nav__link">
+    interpolation_factor
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scattering_type" class="md-nav__link">
+    scattering_type
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scissor" class="md-nav__link">
+    scissor
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bandgap" class="md-nav__link">
+    bandgap
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#material-settings" class="md-nav__link">
+    Material settings
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#high_frequency_dielectric" class="md-nav__link">
+    high_frequency_dielectric
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static_dielectric" class="md-nav__link">
+    static_dielectric
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#elastic_constant" class="md-nav__link">
+    elastic_constant
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deformation_potential" class="md-nav__link">
+    deformation_potential
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#piezoelectric_coefficient" class="md-nav__link">
+    piezoelectric_coefficient
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#acceptor_charge" class="md-nav__link">
+    acceptor_charge
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#donor_charge" class="md-nav__link">
+    donor_charge
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pop_frequency" class="md-nav__link">
+    pop_frequency
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-settings" class="md-nav__link">
+    Performance settings
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#energy_cutoff" class="md-nav__link">
+    energy_cutoff
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fd_tol" class="md-nav__link">
+    fd_tol
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dos_estep" class="md-nav__link">
+    dos_estep
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#symprec" class="md-nav__link">
+    symprec
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nworkers" class="md-nav__link">
+    nworkers
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-settings" class="md-nav__link">
+    Output settings
+  </a>
+  
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#calculate_mobility" class="md-nav__link">
+    calculate_mobility
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#separate_scattering_mobilities" class="md-nav__link">
+    separate_scattering_mobilities
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file_format" class="md-nav__link">
+    file_format
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_input" class="md-nav__link">
+    write_input
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_mesh" class="md-nav__link">
+    write_mesh
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#log_error_traceback" class="md-nav__link">
+    log_error_traceback
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#print_log" class="md-nav__link">
+    print_log
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+      
+      
+      
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <div class="md-content">
+            <article class="md-content__inner md-typeset">
+              
+                
+                  <a href="https://github.com/hackingmaterials/amset/edit/master/docs/settings.md" title="Edit this page" class="md-icon md-content__icon">&#xE3C9;</a>
+                
+                
+                <h1 id="settings">Settings<a class="headerlink" href="#settings" title="Permanent link">&para;</a></h1>
+<p>Whether using AMSET via the command-line or python API, the primary controls
+are contained in the settings file or dictionary. An example AMSET settings file
+is given <a href="example-settings">here</a>.</p>
+<p>The settings are grouped into sections. The description for each section and
+settings parameter is given below.</p>
+<p>All settings are also controllable via command-line flags. The corresponding
+command-line interface options are also detailed below. Any settings specified
+via the command-line will override those in the settings file.</p>
+<h2 id="general-settings">General settings<a class="headerlink" href="#general-settings" title="Permanent link">&para;</a></h2>
+<p>The <code class="codehilite"><span class="err">general</span></code> section contains the main settings that control the AMSET run,
+including interpolation settings and temperature/doping ranges.</p>
+<h3 id="doping"><code class="codehilite"><span class="err">doping</span></code><a class="headerlink" href="#doping" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-d, --doping</span></code></p>
+<p>Controls which doping levels (carrier concentrations) to calculate.
+Concentrations given with the unit cm<sup>–3</sup>. Can be specified directly as a comma
+separated list, e.g.:</p>
+<div class="codehilite"><pre><span></span><span class="mf">1E13</span><span class="p">,</span><span class="mf">1E14</span><span class="p">,</span><span class="mf">1E15</span><span class="p">,</span><span class="mf">1E16</span><span class="p">,</span><span class="mf">1E17</span><span class="p">,</span><span class="mf">1E18</span><span class="p">,</span><span class="mf">1E19</span><span class="p">,</span><span class="mf">1E20</span>
+</pre></div>
+
+<p>Alternatively, ranges can be specified using the syntax <code class="codehilite"><span class="n">start</span><span class="o">:</span><span class="n">stop</span><span class="o">:</span><span class="n">num_steps</span></code>.
+For example, the same doping concentrations as above can be written::</p>
+<div class="codehilite"><pre><span></span><span class="mf">1E13</span><span class="p">:</span><span class="mf">1E20</span><span class="p">:</span><span class="mi">8</span>
+</pre></div>
+
+<p>Negative concentrations indicate holes (<em>p</em>-type doping), positive concentrations
+indicate electrons (<em>n</em>-type doping).</p>
+</div>
+<h3 id="temperatures"><code class="codehilite"><span class="err">temperatures</span></code><a class="headerlink" href="#temperatures" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-t, --temperatures</span></code></p>
+<p>Controls which temperatures to calculate. Temperatures given in Kelvin. Can be
+specified directly as a comma separated list, e.g.::</p>
+<div class="codehilite"><pre><span></span><span class="mi">300</span><span class="p">,</span><span class="mi">400</span><span class="p">,</span><span class="mi">500</span><span class="p">,</span><span class="mi">600</span><span class="p">,</span><span class="mi">700</span><span class="p">,</span><span class="mi">800</span><span class="p">,</span><span class="mi">900</span><span class="p">,</span><span class="mi">1000</span>
+</pre></div>
+
+<p>Alternatively, ranges can be specified using the syntax <code class="codehilite"><span class="n">start</span><span class="o">:</span><span class="n">stop</span><span class="o">:</span><span class="n">num_steps</span></code>,
+For example, the same temperature range as above can be written::</p>
+<div class="codehilite"><pre><span></span><span class="mi">300</span><span class="p">:</span><span class="mi">1000</span><span class="p">:</span><span class="mi">8</span>
+</pre></div>
+
+</div>
+<h3 id="interpolation_factor"><code class="codehilite"><span class="err">interpolation_factor</span></code><a class="headerlink" href="#interpolation_factor" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-i, --interpolation-factor</span></code></p>
+<p>Interpolation factor controlling the interpolation density. Larger numbers
+indicate greater density. The number of k-points in the interpolated band
+structure will be roughly equal to <code class="codehilite"><span class="err">interpolation_factor</span></code> times the number
+of k-points in the DFT calculation. This is the primary option for controlling
+the accuracy of the calculated scattering rates. <strong>Transport properties should
+be converged with respect to this parameter.</strong></p>
+<p>Default: <code class="codehilite"><span class="err">10</span></code></p>
+</div>
+<h3 id="scattering_type"><code class="codehilite"><span class="err">scattering_type</span></code><a class="headerlink" href="#scattering_type" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-s, --scattering-type</span></code></p>
+<p>Which scattering mechanisms to calculate. If set to <code class="codehilite"><span class="err">auto</span></code>, the scattering
+mechanisms will automatically be determined based on the specified material
+parameters. Alternatively, a comma separated list of scattering mechanism
+can be specified. Options include:</p>
+<ul>
+<li><code class="codehilite"><span class="err">ACD</span></code> (acoustic deformation potential scattering)</li>
+<li><code class="codehilite"><span class="err">IMP</span></code> (ionized impurity scattering)</li>
+<li><code class="codehilite"><span class="err">PIE</span></code> (piezoelectric scattering)</li>
+<li><code class="codehilite"><span class="err">POP</span></code> (polar optical phonon scattering)</li>
+</ul>
+<p>For example, <code class="codehilite"><span class="err">ACD,IMP,POP</span></code>. The scattering mechanism will only be calculated
+if all the required material parameters for that mechanism are set. See the
+<code class="codehilite"><span class="err">scattering section &lt;scattering&gt;</span></code>_ of the documentation for more details.</p>
+<p>Default: <code class="codehilite"><span class="err">auto</span></code></p>
+</div>
+<h3 id="scissor"><code class="codehilite"><span class="err">scissor</span></code><a class="headerlink" href="#scissor" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-s, --scissor</span></code></p>
+<p>The amount to scissor the band gap, in eV. Positive values indicate band gap
+opening, negative values indicate band gap narrowing. Has no effect for metallic
+systems.</p>
+</div>
+<h3 id="bandgap"><code class="codehilite"><span class="err">bandgap</span></code><a class="headerlink" href="#bandgap" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-b, --bandgap</span></code></p>
+<p>Set the band gap to this value, in eV. Will automatically determine and apply the
+correct band gap scissor for the specified band gap. Cannot be used in
+combination with the <a href="#scissor"><code class="codehilite"><span class="err">scissor</span></code></a> option. Has no effect for metallic systems.</p>
+</div>
+<h2 id="material-settings">Material settings<a class="headerlink" href="#material-settings" title="Permanent link">&para;</a></h2>
+<p>The <code class="codehilite"><span class="err">material</span></code> section holds all materials properties required to calculate
+the scattering rates.</p>
+<h3 id="high_frequency_dielectric"><code class="codehilite"><span class="err">high_frequency_dielectric</span></code><a class="headerlink" href="#high_frequency_dielectric" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--high-frequency-dielectric</span></code></p>
+<p>The high-frequency dielectric constant, in units of <span><span class="MathJax_Preview">\epsilon_0</span><script type="math/tex">\epsilon_0</script></span>.</p>
+<p>Required for: POP</p>
+</div>
+<h3 id="static_dielectric"><code class="codehilite"><span class="err">static_dielectric</span></code><a class="headerlink" href="#static_dielectric" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--static-dielectric</span></code></p>
+<p>The static dielectric constant, in units of <span><span class="MathJax_Preview">\epsilon_0</span><script type="math/tex">\epsilon_0</script></span>.</p>
+<p>Required for: IMP, PIE, POP</p>
+</div>
+<h3 id="elastic_constant"><code class="codehilite"><span class="err">elastic_constant</span></code><a class="headerlink" href="#elastic_constant" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--elastic-constant</span></code></p>
+<p>The direction averaged elastic constant, in GPa.</p>
+<p>Required for: ACD</p>
+</div>
+<h3 id="deformation_potential"><code class="codehilite"><span class="err">deformation_potential</span></code><a class="headerlink" href="#deformation_potential" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--deformation-potential</span></code></p>
+<p>The volume deformation potential, in eV. Can be given as a comma separated
+list of two values for the VBM and CBM, respectively, e.g.:</p>
+<div class="codehilite"><pre><span></span><span class="mf">8.6</span><span class="p">,</span> <span class="mf">7.4</span>
+</pre></div>
+
+<p>Or a single value to use for all bands in metals.</p>
+<p>Required for: ACD</p>
+</div>
+<h3 id="piezoelectric_coefficient"><code class="codehilite"><span class="err">piezoelectric_coefficient</span></code><a class="headerlink" href="#piezoelectric_coefficient" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>command-line option:</em> <code class="codehilite"><span class="err">--piezoelectric-coefficient</span></code></p>
+<p>The direction averaged piezoelectric coefficient (unitless).</p>
+<p>Required for: PIE</p>
+</div>
+<h3 id="acceptor_charge"><code class="codehilite"><span class="err">acceptor_charge</span></code><a class="headerlink" href="#acceptor_charge" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--acceptor-charge</span></code></p>
+<p>The charge of acceptor defects, in units of electron charge.</p>
+<p>Required for: IMP</p>
+<p>Default: <code class="codehilite"><span class="err">1</span></code></p>
+</div>
+<h3 id="donor_charge"><code class="codehilite"><span class="err">donor_charge</span></code><a class="headerlink" href="#donor_charge" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--donor-charge</span></code></p>
+<p>The charge of donor defects, in units of electron charge.</p>
+<p>Required for: IMP</p>
+<p>Default: <code class="codehilite"><span class="err">1</span></code></p>
+</div>
+<h3 id="pop_frequency"><code class="codehilite"><span class="err">pop_frequency</span></code><a class="headerlink" href="#pop_frequency" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--pop-frequency</span></code></p>
+<p>The polar optical phonon frequency, in THz. Generally, it is ok to take the
+highest optical phonon frequency at the Gamma point.</p>
+<p>Required for: POP</p>
+</div>
+<h2 id="performance-settings">Performance settings<a class="headerlink" href="#performance-settings" title="Permanent link">&para;</a></h2>
+<p>The <code class="codehilite"><span class="err">performance</span></code> section controls internal AMSET settings that will affect
+the speed and accuracy of calculated properties.</p>
+<h3 id="energy_cutoff"><code class="codehilite"><span class="err">energy_cutoff</span></code><a class="headerlink" href="#energy_cutoff" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--energy-cutoff</span></code></p>
+<p>The energy cut-off used to determine which bands to include in the interpolation
+and scattering rate calculation, in eV.</p>
+<p>Default: <code class="codehilite"><span class="err">1.5</span></code></p>
+</div>
+<h3 id="fd_tol"><code class="codehilite"><span class="err">fd_tol</span></code><a class="headerlink" href="#fd_tol" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--fd-tol</span></code></p>
+<p>The Fermi–Dirac derivative tolerance that controls which k-points to calculate
+the scattering for. Given as a percentage from 0 to 1. Larger values indicate
+that the fewer k-points will be calculated, smaller values indicate a larger
+portion of the Brillouin zone will be calculated.</p>
+<p>Default: <code class="codehilite"><span class="err">0.01</span></code></p>
+</div>
+<h3 id="dos_estep"><code class="codehilite"><span class="err">dos_estep</span></code><a class="headerlink" href="#dos_estep" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--dos-estep</span></code></p>
+<p>The energy step for the calculated density of states, in eV. Controls the
+accuracy when determining the position of the Fermi level.</p>
+<p>Default: <code class="codehilite"><span class="err">0.01</span></code></p>
+</div>
+<h3 id="symprec"><code class="codehilite"><span class="err">symprec</span></code><a class="headerlink" href="#symprec" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--symprec</span></code></p>
+<p>The symmetry finding tolerance, in Å.</p>
+<p>Default: <code class="codehilite"><span class="err">0.01</span></code></p>
+</div>
+<h3 id="nworkers"><code class="codehilite"><span class="err">nworkers</span></code><a class="headerlink" href="#nworkers" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--nworkers</span></code></p>
+<p>Number of processors to use. The default value is <code class="codehilite"><span class="err">-1</span></code> (use all available
+processors).</p>
+</div>
+<h2 id="output-settings">Output settings<a class="headerlink" href="#output-settings" title="Permanent link">&para;</a></h2>
+<p>The output section controls the output files and logging.</p>
+<h3 id="calculate_mobility"><code class="codehilite"><span class="err">calculate_mobility</span></code><a class="headerlink" href="#calculate_mobility" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--no-calculate-mobility</span></code></p>
+<p>Whether to calculate <em>n</em>- and <em>p</em>-type carrier mobilities. Has no effect
+for metallic systems where mobility is not well defined.</p>
+<p>Default: <code class="codehilite"><span class="err">True</span></code></p>
+</div>
+<h3 id="separate_scattering_mobilities"><code class="codehilite"><span class="err">separate_scattering_mobilities</span></code><a class="headerlink" href="#separate_scattering_mobilities" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--no-separate-scattering-mobilities</span></code></p>
+<p>Whether to report the individual scattering rate mobilities. I.e., the mobility
+if only that scattering mechanism were present.</p>
+<p>Default: <code class="codehilite"><span class="err">True</span></code></p>
+</div>
+<h3 id="file_format"><code class="codehilite"><span class="err">file_format</span></code><a class="headerlink" href="#file_format" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--file-format</span></code></p>
+<p>The output file format. Options are: <code class="codehilite"><span class="err">json</span></code>, <code class="codehilite"><span class="err">yaml</span></code>, and <code class="codehilite"><span class="err">txt</span></code>.</p>
+<p>Default: <code class="codehilite"><span class="err">json</span></code></p>
+</div>
+<h3 id="write_input"><code class="codehilite"><span class="err">write_input</span></code><a class="headerlink" href="#write_input" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--write-input</span></code></p>
+<p>Whether to write the input settings to a file called <code class="codehilite"><span class="err">amset_settings.yaml</span></code>.</p>
+<p>Default: <code class="codehilite"><span class="err">False</span></code></p>
+</div>
+<h3 id="write_mesh"><code class="codehilite"><span class="err">write_mesh</span></code><a class="headerlink" href="#write_mesh" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--write-mesh</span></code></p>
+<p>Whether to write the full k-dependent properties to disk. Properties include
+the band energy, velocity and scattering rate.</p>
+<p><strong>Note:</strong> for large values of <a href="#interpolation_factor">interpolation_factor</a> this option can use a large
+amount of disk space.</p>
+<p>Default: <code class="codehilite"><span class="err">False</span></code></p>
+</div>
+<h3 id="log_error_traceback"><code class="codehilite"><span class="err">log_error_traceback</span></code><a class="headerlink" href="#log_error_traceback" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--log-error-traceback</span></code></p>
+<p>Whether to log the full error traceback rather than just the error message. If
+you find a problem with AMSET, please enable this option and provide the AMSET
+developers with the full crash report.</p>
+<p>Default: <code class="codehilite"><span class="err">False</span></code></p>
+</div>
+<h3 id="print_log"><code class="codehilite"><span class="err">print_log</span></code><a class="headerlink" href="#print_log" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--no-log</span></code></p>
+<p>Whether to print log messages.</p>
+<p>Default: <code class="codehilite"><span class="err">True</span></code></p>
+</div>
+                
+                  
+                
+                
+              
+              
+                
+
+
+              
+            </article>
+          </div>
+        </div>
+      </main>
+      
+        
+<footer class="md-footer">
+  
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid">
+        
+          <a href="../using/" title="Running AMSET" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-flex__cell md-flex__cell--shrink">
+              <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+            </div>
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+              <span class="md-flex__ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                Running AMSET
+              </span>
+            </div>
+          </a>
+        
+        
+          <a href="../scattering/" title="Scattering Rates" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+              <span class="md-flex__ellipsis">
+                <span class="md-footer-nav__direction">
+                  Next
+                </span>
+                Scattering Rates
+              </span>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink">
+              <i class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            </div>
+          </a>
+        
+      </nav>
+    </div>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-footer-copyright">
+        
+          <div class="md-footer-copyright__highlight">
+            Built by the HackingMaterials group
+          </div>
+        
+        powered by
+        <a href="https://www.mkdocs.org">MkDocs</a>
+        and
+        <a href="https://squidfunk.github.io/mkdocs-material/">
+          Material for MkDocs</a>
+      </div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    
+      <script src="../assets/javascripts/application.808e90bb.js"></script>
+      
+      <script>app.initialize({version:"1.0.4",url:{base:".."}})</script>
+      
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+      
+    
+  </body>
+</html>
