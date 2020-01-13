@@ -1,0 +1,51 @@
+site_name: AMSET Documentation
+site_description: Documentation for AMSET, electron transport from first principles
+copyright: Built by the HackingMaterials group
+
+theme:
+  name: 'material'
+  palette:
+    primary: 'blue grey'
+    accent: 'blue grey'
+  logo:
+    icon: "call_missed_outgoing"
+
+nav:
+  - Home: index.md
+  - User Guide:
+    - Installation: installation.md
+    - Running AMSET: using.md
+    - Settings: settings.md
+    - Scattering Rates: scattering.md
+    - Theory: theory.md
+  - Changelog: changelog.md
+  - Contributors: contributors.md
+  - Contributing: contributing.md
+  - License: license.md
+
+repo_url: https://github.com/hackingmaterials/amset/
+docs_dir: docs
+markdown_extensions:
+  - admonition
+  - codehilite
+  - attr_list
+  - footnotes
+  - markdown_include.include:
+      base_path: "."
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.arithmatex
+  - toc:
+      permalink: true
+
+extra_javascript:
+  - 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'
+
+plugins:
+  - search
+  - minify
+  - mkdocstrings
+  - macros:
+      include_yaml:
+          - examples/example_settings.yaml
