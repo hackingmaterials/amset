@@ -5,18 +5,15 @@ from amset.run import AmsetRunner
 
 settings = {
     "general": {
-        # "scattering_type": "auto",
-        # "scattering_type": ["IMP", "ACD", "POP"],
-        "scattering_type": ["ACD", "POP"],
+        "scattering_type": "auto",
         "doping": [3e13],
         "temperatures": [201, 290, 401, 506, 605, 789, 994],
         "bandgap": 1.33,
-
     },
 
     "interpolation": {
         "kpoints": None,
-        "interpolation_factor": 50,
+        "interpolation_factor": 150,
     },
 
     "performance": {
