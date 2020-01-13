@@ -291,6 +291,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#installing-amset-on-mac" class="md-nav__link">
+    Installing AMSET on Mac
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#installing-amset-on-nersc" class="md-nav__link">
     Installing AMSET on NERSC
   </a>
@@ -437,6 +444,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#installing-amset-on-mac" class="md-nav__link">
+    Installing AMSET on Mac
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#installing-amset-on-nersc" class="md-nav__link">
     Installing AMSET on NERSC
   </a>
@@ -474,6 +488,11 @@ pip install .
 <p>If not installing from inside a virtual environment or conda environment, you
 may need to specify to install as a <em>user</em> via:</p>
 <div class="codehilite"><pre><span></span>pip install . --user
+</pre></div>
+
+<h2 id="installing-amset-on-mac">Installing AMSET on Mac<a class="headerlink" href="#installing-amset-on-mac" title="Permanent link">&para;</a></h2>
+<p>Due to the way BolzTraP2 must be compiled, the following snippet is required to install AMSET on Mac:</p>
+<div class="codehilite"><pre><span></span><span class="nv">MACOSX_DEPLOYMENT_TARGET</span><span class="o">=</span><span class="m">10</span>.9 pip install amset
 </pre></div>
 
 <h2 id="installing-amset-on-nersc">Installing AMSET on NERSC<a class="headerlink" href="#installing-amset-on-nersc" title="Permanent link">&para;</a></h2>
