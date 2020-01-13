@@ -3,11 +3,11 @@
 We love your input! We want to make contributing to AMSET as easy and
 transparent as possible, whether it's:
 
-_ Reporting a bug
-_ Discussing the current state of the code
-_ Submitting a fix
-_ Proposing or implementing new features
-_ Becoming a maintainer
+- Reporting a bug
+- Discussing the current state of the code
+- Submitting a fix
+- Proposing or implementing new features
+- Becoming a maintainer
 
 ## Reporting bugs, getting help, and discussion
 
