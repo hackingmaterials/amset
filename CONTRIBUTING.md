@@ -64,7 +64,7 @@ When you submit your PR, our CI service will automatically run your tests.
 We welcome good discussion on the best ways to write your code, and the comments
 on your PR are an excellent area for discussion.
 
-### References
+## References
 
 This document was adapted from the open-source contribution guidelines for
 Facebook's Draft, as well as briandk's
