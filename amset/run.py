@@ -34,7 +34,6 @@ from amset.misc.util import (
     tensor_average,
     load_settings_from_file,
     write_settings_to_file,
-    unicodeify_spacegroup,
 )
 from amset.misc.log import log_banner, log_list, initialize_amset_logger
 
@@ -369,16 +368,16 @@ def _log_amset_intro():
         """
                █████╗ ███╗   ███╗███████╗███████╗████████╗
               ██╔══██╗████╗ ████║██╔════╝██╔════╝╚══██╔══╝
-              ███████║██╔████╔██║███████╗█████╗     ██║   
-              ██╔══██║██║╚██╔╝██║╚════██║██╔══╝     ██║   
-              ██║  ██║██║ ╚═╝ ██║███████║███████╗   ██║   
-              ╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝   ╚═╝   
-              
+              ███████║██╔████╔██║███████╗█████╗     ██║
+              ██╔══██║██║╚██╔╝██║╚════██║██╔══╝     ██║
+              ██║  ██║██║ ╚═╝ ██║███████║███████╗   ██║
+              ╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝   ╚═╝
+
                                                   v{}
-                                             
+
     A. Ganose, A. Faghaninia, J. Park, F. Ricci, R. Woods-Robinson,
     J. Frost,  K. Persson, G. Hautier, A. Jain, in prep.
-    
+
 
 amset starting on {} at {}""".format(
             __version__, now.strftime("%d %b %Y"), now.strftime("%H:%M")

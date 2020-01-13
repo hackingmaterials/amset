@@ -4,22 +4,22 @@
 
 export PYTHONWARNINGS="ignore"
 
-black materialscoord
+black amset
 
 status=0
-files=$(git diff --diff-filter=d --cached --name-only | grep -E 'materialscoord.*\.(py)$' | sed '/test_/d')
+files=$(git diff --diff-filter=d --cached --name-only | grep -E 'amset.*\.(py)$' | sed '/test/d')
 files=`echo $files | tr '\n' ' '`
-pycodestyle materialscoord $files
+pycodestyle amset $files
 if [ $? -ne 0 ]; then
   echo "Bad code style detected by pycodestyle. Fix before commit."
   exit 1
 fi
-flake8 materialscoord $files
+flake8 amset $files --exclude '*test*'
 if [ $? -ne 0 ]; then
   echo "Bad code style detected by flake8. Fix before commit."
   exit 1
 fi
-pydocstyle --match='(?!test_).*\.py' materialscoord $files
+pydocstyle --match='(?!test_).*\.py' amset $files
 if [ $? -ne 0 ]; then
   echo "Bad doc style detected. Fix before commit."
   exit 1

@@ -412,6 +412,7 @@ class ScatteringCalculator(object):
 
         return np.sum(rates, axis=-1)
 
+
 #     def calculate_band_rates(self, spin: Spin, b_idx: int, nsplits: int):
 #         integral_conversion = (
 #             (2 * np.pi) ** 3 / (self.amset_data.structure.lattice.volume * A_to_nm ** 3)

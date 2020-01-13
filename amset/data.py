@@ -14,7 +14,7 @@ from amset.interpolation.overlap import OverlapCalculator
 from amset.tetrahedron import TetrahedralBandStructure
 from pymatgen import Spin, Structure
 
-from amset.constants import hbar, hartree_to_ev, m_to_cm, A_to_m, cm_to_bohr
+from amset.constants import cm_to_bohr
 from amset.misc.util import groupby, cast_dict
 from amset.misc.log import log_list
 from amset.dos import FermiDos, get_dos
@@ -220,10 +220,10 @@ class AmsetData(MSONable):
             for s in self.spins
         }
 
-        matrix_norm = self.structure.lattice.matrix / np.linalg.norm(
-            self.structure.lattice.matrix
-        )
-        factor = hartree_to_ev * m_to_cm * A_to_m / (hbar * 0.52917721067)
+        # matrix_norm = self.structure.lattice.matrix / np.linalg.norm(
+        #     self.structure.lattice.matrix
+        # )
+        # factor = hartree_to_ev * m_to_cm * A_to_m / (hbar * 0.52917721067)
         for spin in self.spins:
             for n, t in np.ndindex(self.fermi_levels.shape):
                 self.f[spin][n, t] = FD(

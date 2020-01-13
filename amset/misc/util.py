@@ -10,7 +10,6 @@ from monty.serialization import dumpfn, loadfn
 
 from amset import amset_defaults
 from pymatgen import Spin
-from pymatgen.util.string import latexify_spacegroup
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -89,35 +88,6 @@ def groupby(a, b):
     # Split input array with those start, stop ones
     out = np.array([a_sorted[i:j] for i, j in zip(cut_idx[:-1], cut_idx[1:])])
     return out
-
-
-def unicodeify_spacegroup(spacegroup_symbol: str):
-    subscript_unicode_map = {
-        0: "₀",
-        1: "₁",
-        2: "₂",
-        3: "₃",
-        4: "₄",
-        5: "₅",
-        6: "₆",
-        7: "₇",
-        8: "₈",
-        9: "₉",
-    }
-
-    symbol = latexify_spacegroup(spacegroup_symbol)
-
-    for number, unicode_number in subscript_unicode_map.items():
-        symbol = symbol.replace("$_{" + str(number) + "}$", unicode_number)
-
-    overline = "\u0305"  # u"\u0304" (macron) is also an option
-
-    symbol = symbol.replace("$\\overline{", overline)
-    symbol = symbol.replace("$", "")
-    symbol = symbol.replace("{", "")
-    symbol = symbol.replace("}", "")
-
-    return symbol
 
 
 def write_settings_to_file(settings: Dict[str, Any], filename: str):

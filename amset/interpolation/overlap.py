@@ -4,8 +4,11 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
 from amset.constants import numeric_types
-from amset.kpoints import expand_kpoints, get_mesh_dim_from_kpoints, \
-    similarity_transformation
+from amset.kpoints import (
+    expand_kpoints,
+    get_mesh_dim_from_kpoints,
+    similarity_transformation,
+)
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 
@@ -20,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 
 class OverlapCalculator(object):
-
     def __init__(self, structure, kpoints, projections):
 
         logger.info("Initializing orbital overlap calculator")
@@ -60,11 +62,16 @@ class OverlapCalculator(object):
                 expand_projections, rot_mapping, structure
             )
             # flat_projections = expand_projections.reshape((nbands, nkpoints, -1), order='F')
-            flat_projections = rot_projections.reshape((nbands, nkpoints, -1), order='F')
+            flat_projections = rot_projections.reshape(
+                (nbands, nkpoints, -1), order="F"
+            )
 
             # aim is to get the wavefunction coefficients
             # norm_projection = flat_projections / flat_projections.sum(axis=2)[..., None]
-            norm_projection = flat_projections / np.sqrt((flat_projections ** 2).sum(axis=2))[..., None]
+            norm_projection = (
+                flat_projections
+                / np.sqrt((flat_projections ** 2).sum(axis=2))[..., None]
+            )
             norm_projection[np.isnan(norm_projection)] = 0
             # coefficients = np.sqrt(norm_projection)
             coefficients = norm_projection
@@ -107,7 +114,7 @@ class OverlapCalculator(object):
             band_b = np.asarray(band_b)
 
         # centre = [0.5, 0.5, 0.5]
-        centre = [0., 0, 0]
+        centre = [0.0, 0, 0]
 
         shift_a = pbc_diff(kpoint_a, centre)
         shift_b = pbc_diff(kpoint_b, centre)
@@ -148,8 +155,11 @@ class OverlapCalculator(object):
         # print(p_product[:2])
 
         # overlap = np.sum(p_product, axis=1)
-        overlap = np.sum(p_product * (1 - scaling_factor) +
-                         p_product * scaling_factor * angles[:, None], axis=1)
+        overlap = np.sum(
+            p_product * (1 - scaling_factor)
+            + p_product * scaling_factor * angles[:, None],
+            axis=1,
+        )
         # print("\nscale", scaling_factor[:2])
 
         if single_overlap:
@@ -195,7 +205,7 @@ def rotate_p_orbitals(p_orbital_projections, similarity_matrix):
     for b_idx, k_idx, a_idx in np.ndindex((nbands, nkpoints, natoms)):
         rotated_projections[b_idx, k_idx, :, a_idx] = np.dot(
             similarity_matrix[k_idx],
-            p_orbital_projections[b_idx, k_idx, _p_orbital_order, a_idx]
+            p_orbital_projections[b_idx, k_idx, _p_orbital_order, a_idx],
         )
 
     return np.abs(rotated_projections)
@@ -212,7 +222,7 @@ def rotate_d_orbitals(d_orbital_projections, similarity_matrix, inv_similarity_m
     for b_idx, k_idx, a_idx in np.ndindex((nbands, nkpoints, natoms)):
         r1 = np.dot(
             d_orbital_projections[b_idx, k_idx, _d_orbital_order, a_idx],
-            similarity_matrix[k_idx]
+            similarity_matrix[k_idx],
         )
 
         rotated_projections[b_idx, k_idx, :, a_idx] = np.dot(

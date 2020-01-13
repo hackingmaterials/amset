@@ -10,11 +10,10 @@ from typing import Dict, Tuple, Any
 from BoltzTraP2 import units
 from BoltzTraP2.fd import FD
 from BoltzTraP2.units import BOLTZMANN
-from scipy.constants import epsilon_0, physical_constants
+from scipy.constants import epsilon_0
 
-from amset.constants import k_B, e, hbar, bohr_to_cm, gpa_to_au
+from amset.constants import k_B, e, hbar, gpa_to_au
 from amset.data import AmsetData
-from amset.misc.log import log_list
 from pymatgen import Spin
 
 __author__ = "Alex Ganose"
