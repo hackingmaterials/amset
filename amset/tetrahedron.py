@@ -395,7 +395,7 @@ class TetrahedralBandStructure(object):
                     continue
 
                 # get masks needed to find the weights inside the tetrahedra
-                property_mask, _, _ = self.get_masks(spin, tet_mask)
+                property_mask, _, _, _ = self.get_masks(spin, tet_mask)
 
                 # get the weights of the tetrahedron vertices
                 vert_weights = weights[property_mask]
@@ -434,9 +434,9 @@ class TetrahedralBandStructure(object):
         # kpoint_mask is the k-point contribution to band_kpoint_mask which allows
         # mixing of band and k-point dependent properties and just k-dependent
         # properties
-        _, kpoint_mask = np.where(band_kpoint_mask)
+        band_mask, kpoint_mask = np.where(band_kpoint_mask)
 
-        return property_mask, band_kpoint_mask, kpoint_mask
+        return property_mask, band_kpoint_mask, band_mask, kpoint_mask
 
 
 def _get_density_of_states_a(ee1, e21, e31, e41):
