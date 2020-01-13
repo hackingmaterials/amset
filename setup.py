@@ -2,11 +2,14 @@ import platform
 import sys
 import os
 
+from pathlib import Path
 from setuptools import setup, find_packages
 
 from distutils.sysconfig import get_config_vars
 from distutils.version import LooseVersion
 
+reqs_raw = Path("requirements.txt").read_text()
+reqs_list = [r for r in reqs_raw.split("\n")]
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -47,10 +50,7 @@ if __name__ == "__main__":
         package_data={},
         data_files=['LICENSE', 'requirements.txt'],
         zip_safe=False,
-        install_requires=['numpy', 'pymatgen>=2019.5.8', 'scipy', 'monty',
-                          'matplotlib', 'BoltzTraP2',
-                          'spglib>=1.12.2', "scikit-learn", "tqdm",
-                          "memory_profiler", "numexpr"],
+        install_requires=reqs_list,
         extras_require={'docs': ['sphinx']},
         classifiers=['Programming Language :: Python :: 3.6',
                      'Development Status :: 4 - Beta',
