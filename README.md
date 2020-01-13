@@ -1,4 +1,4 @@
-# <img alt="amset" src="docs_rst/source/_static/amset_logo.png" width="250">
+# <img alt="amset" src="docs/amset_logo.png" width="250">
 
 AMSET is a package for calculating electronic transport properties from
 first-principles calculations.
