@@ -19,8 +19,8 @@ if [ $? -ne 0 ]; then
   echo "Bad code style detected by flake8. Fix before commit."
   exit 1
 fi
-pydocstyle --match='(?!test_).*\.py' amset $files
-if [ $? -ne 0 ]; then
-  echo "Bad doc style detected. Fix before commit."
-  exit 1
-fi
+#pydocstyle --match='(?!test_).*\.py' amset $files
+#if [ $? -ne 0 ]; then
+#  echo "Bad doc style detected. Fix before commit."
+#  exit 1
+#fi
