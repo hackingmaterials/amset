@@ -9,7 +9,7 @@ from distutils.sysconfig import get_config_vars
 from distutils.version import LooseVersion
 
 reqs_raw = Path("requirements.txt").read_text()
-reqs_list = [r for r in reqs_raw.split("\n")]
+reqs_list = [r.replace("==", ">=") for r in reqs_raw.split("\n")]
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 

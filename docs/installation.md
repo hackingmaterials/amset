@@ -18,6 +18,14 @@ may need to specify to install as a *user* via:
 pip install . --user
 ```
 
+## Installing AMSET on Mac
+
+Due to the way BolzTraP2 must be compiled, the following snippet is required to install AMSET on Mac:
+
+```bash
+MACOSX_DEPLOYMENT_TARGET=10.9 pip install amset
+```
+
 ## Installing AMSET on NERSC
 
 The BolzTraP2 dependency requires some configuration to be installed properly on
