@@ -8,6 +8,6 @@ Alex Ganose is the primary developer.
 
 Other contributions are provided by:
 
-* Alireza Faghaninia through the research group of A. Jain at LBNL.
+* Junsoo Park and Alireza Faghaninia through the research group of A. Jain at LBNL.
 * Francesco Ricci through the research group of Prof. Geoffroy Hautier at UC Louvain
 * Jason Frost
