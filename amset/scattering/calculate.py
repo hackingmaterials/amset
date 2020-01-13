@@ -235,14 +235,6 @@ class ScatteringCalculator(object):
         )
         fill_mask = mask[self.amset_data.ir_to_full_kpoint_mapping]
 
-        print(
-            "mean diff",
-            np.mean(
-                band_energies[self.amset_data.ir_to_full_kpoint_mapping]
-                - self.amset_data.energies[spin][b_idx]
-            ),
-        )
-
         logger.debug(
             "  ├── # k-points within Fermi–Dirac cut-offs: {}".format(
                 np.sum(~fill_mask)
@@ -339,37 +331,23 @@ class ScatteringCalculator(object):
             energy,
             return_contributions=True,
             symmetry_reduce=False,
-            band_idx=b_idx,
+            # band_idx=b_idx,
         )
 
         if len(tet_dos) == 0:
             return 0
 
         # next, get k-point indices and band_indices
-        property_mask, band_kpoint_mask, kpoint_mask = tbs.get_masks(spin, tet_mask)
+        property_mask, band_kpoint_mask, band_mask, kpoint_mask = tbs.get_masks(
+            spin, tet_mask
+        )
 
         k = self.amset_data.ir_kpoints[k_idx]
-        k_norm = self.amset_data.kpoint_norms[ir_kpoints_idx][k_idx]
-
         k_primes = self.amset_data.full_kpoints[kpoint_mask]
-        k_primes_norm = self.amset_data.kpoint_norms[kpoint_mask]
 
-        # TODO: how does this work with zone boundary??
-        # k_primes should be something like pbc_diff(k, k_primes) + k
-        # k_primes = pbc_diff(k_primes, k) + k
-        k_dot = np.dot(k, k_primes.T)
-
-        # k_angles is the cosine of the angles
-        k_angles = k_dot / (k_norm * k_primes_norm)
-        k_angles[np.isnan(k_angles)] = 1.0
-
-        a_factor = self.amset_data.a_factor[spin]
-        c_factor = self.amset_data.c_factor[spin]
-
-        a_vals = a_factor[b_idx, ir_kpoints_idx][k_idx] * a_factor[band_kpoint_mask]
-        c_vals = c_factor[b_idx, ir_kpoints_idx][k_idx] * c_factor[band_kpoint_mask]
-
-        overlap = (a_vals + c_vals * k_angles) ** 2
+        overlap = self.amset_data.overlap_calculator.get_overlap(
+            spin, b_idx, k, band_mask, k_primes
+        )
 
         # put overlap back in array with shape (nbands, nkpoints)
         all_overlap = np.zeros(self.amset_data.energies[spin].shape)
@@ -423,6 +401,7 @@ class ScatteringCalculator(object):
                 for f in functions
             ]
         )
+        print("rates", np.max(rates))
 
         # sometimes the projected intersections can be nan when the density of states
         # contribution is infinitesimally small; this catches those errors
@@ -432,7 +411,6 @@ class ScatteringCalculator(object):
         rates *= tet_overlap
 
         return np.sum(rates, axis=-1)
-
 
 #     def calculate_band_rates(self, spin: Spin, b_idx: int, nsplits: int):
 #         integral_conversion = (

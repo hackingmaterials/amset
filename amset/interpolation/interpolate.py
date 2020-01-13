@@ -44,8 +44,6 @@ from amset.constants import (
     m_to_cm,
     A_to_m,
     hbar,
-    e,
-    m_e,
     bohr_to_angstrom,
     spin_name,
     numeric_types,
@@ -222,6 +220,7 @@ class Interpolater(MSONable):
         effective_mass = {}
         projections = defaultdict(dict)
         new_vb_idx = {}
+        overlap_projections = {}
         for spin in self._spins:
             bands = self._band_structure.bands[spin]
             ibands = np.any((bands > min_e) & (bands < max_e), axis=1)
@@ -267,6 +266,7 @@ class Interpolater(MSONable):
                 )[0]
 
             log_time_taken(t0)
+            overlap_projections[spin] = self._band_structure.projections[spin][ibands]
 
         if is_metal:
             efermi = self._band_structure.efermi * units.eV
@@ -316,7 +316,7 @@ class Interpolater(MSONable):
 
         orig_kpoints = np.array([k.frac_coords for k in self._band_structure.kpoints])
         overlap_calculator = OverlapCalculator(
-            atomic_structure, orig_kpoints, self._band_structure.projections
+            atomic_structure, orig_kpoints, overlap_projections
         )
 
         return AmsetData(
@@ -691,9 +691,6 @@ class Interpolater(MSONable):
             if not atomic_units:
                 energies[spin] = energies[spin] / units.eV
                 velocities[spin] = _convert_velocities(velocities[spin], lattice.matrix)
-
-                if return_curvature:
-                    curvature[spin] = _convert_curvature(curvature[spin])
 
             if return_projections:
                 logger.info("Interpolating {} projections".format(spin_name[spin]))
@@ -1088,19 +1085,6 @@ def _convert_velocities(
     return velocities
 
 
-def _convert_curvature(curvature: np.ndarray) -> np.ndarray:
-    """Convert curvature from atomic units to units of electron rest mass.
-
-    Args:
-        curvature: The band curvature in atomic units.
-
-    Returns:
-        The curvature (i.e., inverse effective mass) in units of 1 / electron rest mass.
-    """
-    factor = bohr_to_angstrom ** 2 * e * hbar ** 2 / (hartree_to_ev * A_to_m ** 2 * m_e)
-    return curvature / factor
-
-
 def _get_projections(projections: np.ndarray) -> Tuple[Tuple[str, np.ndarray], ...]:
     """Extracts and sums the band structure projections for a band.
 
@@ -1110,7 +1094,7 @@ def _get_projections(projections: np.ndarray) -> Tuple[Tuple[str, np.ndarray], .
     Returns:
         The projection labels and orbital projections, as::
 
-            ("s", s_orbital_projections), ("p", p_orbital_projections)
+            ("s", s_orbital_projections), ("p", d_orbital_projections)
     """
     s_orbital = np.sum(projections, axis=3)[:, :, 0]
 

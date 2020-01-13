@@ -70,6 +70,9 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
             )
             self.deformation_potential = self.deformation_potential[0] * units.eV
 
+        elif self.is_metal:
+            self.deformation_potential = self.deformation_potential * units.eV
+
         elif not self.is_metal and not isinstance(self.deformation_potential, tuple):
             logger.warning(
                 "System is semiconducting but only one deformation "
@@ -79,6 +82,7 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
                 self.deformation_potential * units.eV,
                 self.deformation_potential * units.eV,
             )
+
         else:
             self.deformation_potential = (
                 self.deformation_potential[0] * units.eV,

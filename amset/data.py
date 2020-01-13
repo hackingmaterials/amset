@@ -10,6 +10,7 @@ from monty.serialization import dumpfn
 from BoltzTraP2 import units
 from BoltzTraP2.fd import dFDde, FD
 
+from amset.interpolation.overlap import OverlapCalculator
 from amset.tetrahedron import TetrahedralBandStructure
 from pymatgen import Spin, Structure
 
@@ -47,7 +48,7 @@ class AmsetData(MSONable):
         efermi: float,
         is_metal: bool,
         soc: bool,
-        overlap_calculator,
+        overlap_calculator: OverlapCalculator,
         kpoint_weights: Optional[np.ndarray] = None,
         dos: Optional[FermiDos] = None,
         vb_idx: Optional[Dict[Spin, int]] = None,

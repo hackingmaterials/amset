@@ -407,6 +407,7 @@ def expand_kpoints(
     kpoints = kpoints_to_first_bz(kpoints)
     full_kpoints = []
     reduced_to_full_idx = []
+    rot_mapping = []
     equiv_points_mapping = {}
 
     for i, kpoint in enumerate(kpoints):
@@ -418,13 +419,15 @@ def expand_kpoints(
         for ui in unique_idxs:
             spoint = symmetrized_kpoints[ui]
             spoint_round = symmetrized_round_kpoints[ui]
+            rotation_matrix = rotation_matrices[ui]
 
             if spoint_round not in equiv_points_mapping:
                 full_kpoints.append(spoint)
                 equiv_points_mapping[spoint_round] = i
                 reduced_to_full_idx.append(i)
+                rot_mapping.append(rotation_matrix)
 
-    return np.array(full_kpoints), np.array(reduced_to_full_idx)
+    return np.array(full_kpoints), np.array(reduced_to_full_idx), np.array(rot_mapping)
 
 
 def get_mesh_dim_from_kpoints(kpoints, tol=_KTOL):
