@@ -538,7 +538,7 @@ def _log_band_edge_information(band_structure, edge_data):
 
 def _log_results_summary(amset_data, output_parameters):
     results_summary = []
-    if output_parameters["calculate_mobility"]:
+    if output_parameters["calculate_mobility"] and not amset_data.is_metal:
         logger.info(
             "Average conductivity (σ), Seebeck (S) and mobility (μ)" " results:"
         )
@@ -578,7 +578,7 @@ def _log_results_summary(amset_data, output_parameters):
         )
     )
 
-    if output_parameters["separate_scattering_mobilities"]:
+    if output_parameters["separate_scattering_mobilities"] and not amset_data.is_metal:
         logger.info("Mobility breakdown by scattering mechanism, in cm²/Vs:")
         headers = ["conc [cm⁻³]", "temp [K]"] + amset_data.scattering_labels
 

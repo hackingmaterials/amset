@@ -153,6 +153,9 @@ def load_settings_from_file(filename: str) -> Dict[str, Any]:
 
 
 def cast_dict(d):
+    if d is None:
+        return d
+
     new_d = {}
     for k, v in d.items():
         # cast keys
