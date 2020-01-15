@@ -119,7 +119,7 @@ class AmsetRunner(MSONable):
         timing_info = [
             "{} time: {:.4f} s".format(name, t) for name, t in usage_stats.items()
         ]
-        log_list(timing_info + ["max memory: {:.1f} MB".format(mem_usage[0])])
+        log_list(timing_info + ["max memory: {:.1f} MB".format(mem_usage)])
 
         now = datetime.datetime.now()
         logger.info(
@@ -563,7 +563,6 @@ def _log_results_summary(amset_data, output_parameters):
                     amset_data.temperatures[t],
                     tensor_average(amset_data.conductivity[c, t]),
                     tensor_average(amset_data.seebeck[c, t]),
-                    tensor_average(amset_data.mobility["overall"][c, t]),
                 )
             )
 
