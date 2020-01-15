@@ -39,7 +39,7 @@ class AmsetPlotter(object):
     ):
         spins = self._amset_data.spins
         if normalize_energy and self._amset_data.is_metal:
-            norm_e = self._amset_data.intrinsic_fermi_level
+            norm_e = self._amset_data.fermi_levels[0][0]
         elif normalize_energy:
             vb_idx = self._amset_data.vb_idx
             norm_e = np.max(
