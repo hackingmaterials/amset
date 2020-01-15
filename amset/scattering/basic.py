@@ -46,7 +46,7 @@ class ConstantRelaxationTime(AbstractBasicScattering):
             s: amset_data.fermi_levels.shape + amset_data.energies[s].shape
             for s in self.spins
         }
-        self._rates = {s: np.full_like(shape[s], crt) for s in self.spins}
+        self._rates = {s: np.full(shape[s], crt) for s in self.spins}
 
     @property
     def rates(self):
