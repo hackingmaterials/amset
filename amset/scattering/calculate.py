@@ -401,7 +401,6 @@ class ScatteringCalculator(object):
                 for f in functions
             ]
         )
-        print("rates", np.max(rates))
 
         # sometimes the projected intersections can be nan when the density of states
         # contribution is infinitesimally small; this catches those errors
