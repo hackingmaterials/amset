@@ -37,6 +37,8 @@ class FermiDos(Dos, MSONable):
         dos_weight: The weighting for the dos. Defaults to 2 for non-spin
             polarized calculations and 1 for spin-polarized calculations.
         atomic_units: Whether energies are given in eV or Hartree.
+        num_electrons: The number of electrons in the system. If None, this will be
+            calculated by integrating up to the intrinsic Fermi level.
     """
 
     def __init__(
@@ -47,6 +49,7 @@ class FermiDos(Dos, MSONable):
         structure: Structure,
         dos_weight: Optional[float] = None,
         atomic_units: bool = True,
+        num_electrons: Optional[float] = None,
     ):
         # structure should be atomic structure
 
@@ -61,8 +64,11 @@ class FermiDos(Dos, MSONable):
         self.tdos = np.array(self.get_densities()) * self.dos_weight
         self.de = self.energies[1] - self.energies[0]
 
-        # integrate up to Fermi level to get number of electrons
-        self.nelect = self.tdos[self.energies <= self.efermi].sum() * self.de
+        if num_electrons is None:
+            # integrate up to Fermi level to get number of electrons
+            self.nelect = self.tdos[self.energies <= self.efermi].sum() * self.de
+        else:
+            self.nelect = num_electrons
 
         logger.debug(
             "Intrinsic DOS Fermi level: {:.4f} eV".format(
@@ -70,6 +76,12 @@ class FermiDos(Dos, MSONable):
             )
         )
         logger.debug("DOS contains {:.3f} electrons".format(self.nelect))
+        #
+        # import matplotlib.pyplot as plt
+        #
+        # plt.plot(self.energies / units.eV, self.tdos)
+        # plt.xlim((-0.05, 1))
+        # plt.show()
 
     def get_doping(
         self,
@@ -98,17 +110,14 @@ class FermiDos(Dos, MSONable):
             If return_electron_hole_conc is True: the doping concentration,
             electron concentration and hole concentration as a tuple.
         """
-        if temperature == 0.0:
-            occ = np.where(self.energies < fermi_level, 1.0, 0.0)
-            occ[self.energies == fermi_level] = 0.5
-        else:
-            kbt = temperature * units.BOLTZMANN
-            if self.atomic_units:
-                occ = FD(self.energies, fermi_level, kbt)
-            else:
-                occ = FD(self.energies * units.eV, fermi_level * units.eV, kbt)
+        wdos = _get_weighted_dos(
+            self.energies,
+            self.tdos,
+            fermi_level,
+            temperature,
+            atomic_units=self.atomic_units,
+        )
 
-        wdos = self.tdos * occ
         num_electrons = wdos.sum() * self.de
         conc = (num_electrons - self.nelect) / self.structure.volume
 
@@ -121,6 +130,58 @@ class FermiDos(Dos, MSONable):
 
         else:
             return conc
+
+    def get_num_electrons(self, fermi_level: float, temperature: float) -> float:
+        """
+        Calculate the number of electrons at a given fermi level and temperature.
+        A simple Left Riemann sum is used for integrating the density of states over
+        energy & equilibrium Fermi-Dirac distribution.
+
+        Args:
+            fermi_level: The fermi_level level in Hartree.
+            temperature: The temperature in Kelvin.
+
+        Returns:
+            The number of electrons.
+        """
+        wdos = _get_weighted_dos(
+            self.energies,
+            self.tdos,
+            fermi_level,
+            temperature,
+            atomic_units=self.atomic_units,
+        )
+
+        num_electrons = wdos.sum() * self.de
+        return num_electrons
+
+    def get_fermi_from_num_electrons(
+        self,
+        num_electrons: float,
+        temperature: float,
+        tol: float = 0.01,
+        nstep: int = 50,
+        step: float = 0.1,
+        precision: int = 10,
+    ):
+        # this is finding the Fermi level of metals
+        fermi = self.efermi  # initialize target fermi
+        relative_error = float("inf")
+        for _ in range(precision):
+            frange = np.arange(-nstep, nstep + 1) * step + fermi
+            calc_nelectrons = [self.get_num_electrons(f, temperature) for f in frange]
+            relative_error = abs(np.array(calc_nelectrons) / num_electrons - 1.0)
+            fermi = frange[np.argmin(relative_error)]
+            step /= 10.0
+
+        if min(relative_error) > tol:
+            raise ValueError(
+                "Could not find fermi within {}% of num electrons={}".format(
+                    tol * 100, num_electrons
+                )
+            )
+
+        return fermi
 
     def get_fermi(
         self,
@@ -205,3 +266,18 @@ def get_dos(eigs, erange=None, npts=None, weights=None):
     tdos[1] = pip[0] / ((erange[1] - erange[0]) / npts)
     tdos[0] = 0.5 * (pip[1][:-1] + pip[1][1:])
     return tdos
+
+
+def _get_weighted_dos(energies, dos, fermi_level, temperature, atomic_units=True):
+    if temperature == 0.0:
+        occ = np.where(energies < fermi_level, 1.0, 0.0)
+        occ[energies == fermi_level] = 0.5
+    else:
+        kbt = temperature * units.BOLTZMANN
+        if atomic_units:
+            occ = FD(energies, fermi_level, kbt)
+        else:
+            occ = FD(energies * units.eV, fermi_level * units.eV, kbt)
+
+    wdos = dos * occ
+    return wdos
