@@ -221,9 +221,13 @@ class Interpolater(MSONable):
         projections = defaultdict(dict)
         new_vb_idx = {}
         overlap_projections = {}
+        forgotten_electrons = 0
         for spin in self._spins:
             bands = self._band_structure.bands[spin]
             ibands = np.any((bands > min_e) & (bands < max_e), axis=1)
+
+            # these are bands beneath the Fermi level that are dropped
+            forgotten_electrons += np.where(ibands)[0].min()
 
             logger.info(
                 "Interpolating {} bands {}-{}".format(
@@ -267,6 +271,8 @@ class Interpolater(MSONable):
 
             log_time_taken(t0)
             overlap_projections[spin] = self._band_structure.projections[spin][ibands]
+
+        nelectrons = self._num_electrons - forgotten_electrons
 
         if is_metal:
             efermi = self._band_structure.efermi * units.eV
@@ -333,6 +339,7 @@ class Interpolater(MSONable):
             tetrahedra,
             ir_tetrahedra_info,
             efermi,
+            nelectrons,
             is_metal,
             self._soc,
             overlap_calculator,
