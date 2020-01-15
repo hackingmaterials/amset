@@ -6,33 +6,9 @@ Deployment file to facilitate releases.
 
 import os
 import json
-import webbrowser
 import requests
 from invoke import task
 from amset import __version__
-from monty.os import cd
-
-
-@task
-def make_doc(ctx):
-    with cd("docs_rst"):
-        ctx.run("sphinx-apidoc -o source/ -f ../amset")
-        # ctx.run("make clean")
-        ctx.run("make html")
-        ctx.run("cp -r build/html/* ../docs")
-
-    with cd("docs"):
-        # Avoid the use of jekyll so that _dir works as intended.
-        ctx.run("touch .nojekyll")
-
-
-@task
-def update_doc(ctx):
-    make_doc(ctx)
-    with cd("docs"):
-        ctx.run("git add .")
-        ctx.run("git commit -a -m \"Update to v{}\"".format(__version__))
-        ctx.run("git push")
 
 
 @task
@@ -66,11 +42,4 @@ def release(ctx, nosetest=False):
     if nosetest:
         ctx.run("nosetests")
     publish(ctx)
-    update_doc(ctx)
     release_github(ctx)
-
-
-@task
-def open_doc(ctx):
-    pth = os.path.abspath("docs/index.html")
-    webbrowser.open("file://" + pth)
