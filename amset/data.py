@@ -46,6 +46,7 @@ class AmsetData(MSONable):
         tetrahedra: np.ndarray,
         ir_tetrahedra_info: np.ndarray,
         efermi: float,
+        num_electrons: float,
         is_metal: bool,
         soc: bool,
         overlap_calculator: OverlapCalculator,
@@ -71,6 +72,7 @@ class AmsetData(MSONable):
         self._projections = projections
         self.intrinsic_fermi_level = efermi
         self._soc = soc
+        self.num_electrons = num_electrons
         self.conductivity = conductivity
         self.seebeck = seebeck
         self.electronic_thermal_conductivity = electronic_thermal_conductivity
@@ -144,6 +146,13 @@ class AmsetData(MSONable):
                 npts=epoints,
                 weights=kpoint_weights.T,
             )
+        # emesh, dos = self.tetrahedral_band_structure.get_density_of_states(
+        #     emin=emin,
+        #     emax=emax,
+        #     npoints=epoints,
+        # )
+
+        num_electrons = self.num_electrons if self.is_metal else None
 
         self.dos = FermiDos(
             self.intrinsic_fermi_level,
@@ -152,6 +161,7 @@ class AmsetData(MSONable):
             self.structure,
             atomic_units=True,
             dos_weight=dos_weight,
+            num_electrons=num_electrons,
         )
 
     def set_doping_and_temperatures(self, doping: np.ndarray, temperatures: np.ndarray):
@@ -161,7 +171,13 @@ class AmsetData(MSONable):
                 "setting doping levels."
             )
 
-        self.doping = doping * (1 / cm_to_bohr) ** 3
+        if self.doping is None:
+            # Generally this is for metallic systems; here we use the intrinsic Fermi
+            # level
+            self.doping = [0]
+        else:
+            self.doping = doping * (1 / cm_to_bohr) ** 3
+
         self.temperatures = temperatures
 
         self.fermi_levels = np.zeros((len(doping), len(temperatures)))
@@ -172,18 +188,26 @@ class AmsetData(MSONable):
         tols = np.logspace(-5, 0, 6)
         for n, t in np.ndindex(self.fermi_levels.shape):
             for i, tol in enumerate(tols):
-                # Finding the Fermi level is quite fickle. Enumerate multiple tolerances
-                # and use the first one that works!
+                # Finding the Fermi level is quite fickle. Enumerate multiple
+                # tolerances and use the first one that works!
                 try:
-                    self.fermi_levels[n, t], self.electron_conc[n, t], self.hole_conc[
-                        n, t
-                    ] = self.dos.get_fermi(
-                        self.doping[n],
-                        temperatures[t],
-                        tol=tol,
-                        precision=10,
-                        return_electron_hole_conc=True,
-                    )
+                    if self.doping[n] == 0:
+                        self.fermi_levels[n, t] = self.dos.get_fermi_from_num_electrons(
+                            self.num_electrons,
+                            temperatures[t],
+                            tol=tol / 100000,
+                            precision=10,
+                        )
+                    else:
+                        self.fermi_levels[n, t], self.electron_conc[
+                            n, t
+                        ], self.hole_conc[n, t] = self.dos.get_fermi(
+                            self.doping[n],
+                            temperatures[t],
+                            tol=tol,
+                            precision=10,
+                            return_electron_hole_conc=True,
+                        )
                     break
                 except ValueError:
                     if i == len(tols) - 1:
