@@ -76,12 +76,12 @@ class FermiDos(Dos, MSONable):
             )
         )
         logger.debug("DOS contains {:.3f} electrons".format(self.nelect))
-        #
-        # import matplotlib.pyplot as plt
-        #
-        # plt.plot(self.energies / units.eV, self.tdos)
-        # plt.xlim((-0.05, 1))
-        # plt.show()
+
+        import matplotlib.pyplot as plt
+
+        plt.plot(self.energies / units.eV, self.tdos)
+        plt.xlim((-0.05, 1))
+        plt.show()
 
     def get_doping(
         self,

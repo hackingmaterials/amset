@@ -17,7 +17,7 @@ from pymatgen import Spin, Structure
 from amset.constants import cm_to_bohr
 from amset.misc.util import groupby, cast_dict
 from amset.misc.log import log_list
-from amset.dos import FermiDos, get_dos
+from amset.dos import FermiDos
 from amset import amset_defaults as defaults
 
 __author__ = "Alex Ganose"
@@ -112,7 +112,13 @@ class AmsetData(MSONable):
         )
 
         self.tetrahedral_band_structure = TetrahedralBandStructure(
-            energies, full_kpoints, tetrahedra, structure, *ir_tetrahedra_info
+            energies,
+            full_kpoints,
+            tetrahedra,
+            structure,
+            ir_kpoints_idx,
+            ir_to_full_kpoint_mapping,
+            *ir_tetrahedra_info
         )
 
     def calculate_dos(self, estep: float = pdefaults["dos_estep"]):
@@ -136,21 +142,9 @@ class AmsetData(MSONable):
             ]
         )
 
-        dos = {}
-        emesh = None
-        for spin in self.spins:
-            kpoint_weights = np.tile(self.kpoint_weights, (len(self.energies[spin]), 1))
-            emesh, dos[spin] = get_dos(
-                self.energies[spin].T,
-                erange=(emin, emax),
-                npts=epoints,
-                weights=kpoint_weights.T,
-            )
-        # emesh, dos = self.tetrahedral_band_structure.get_density_of_states(
-        #     emin=emin,
-        #     emax=emax,
-        #     npoints=epoints,
-        # )
+        emesh, dos = self.tetrahedral_band_structure.get_density_of_states_test(
+            emin=emin, emax=emax, npoints=epoints
+        )
 
         num_electrons = self.num_electrons if self.is_metal else None
 
@@ -171,10 +165,11 @@ class AmsetData(MSONable):
                 "setting doping levels."
             )
 
-        if self.doping is None:
+        if doping is None:
             # Generally this is for metallic systems; here we use the intrinsic Fermi
             # level
             self.doping = [0]
+            print("doping is none")
         else:
             self.doping = doping * (1 / cm_to_bohr) ** 3
 
@@ -195,7 +190,7 @@ class AmsetData(MSONable):
                         self.fermi_levels[n, t] = self.dos.get_fermi_from_num_electrons(
                             self.num_electrons,
                             temperatures[t],
-                            tol=tol / 100000,
+                            tol=tol / 1000,
                             precision=10,
                         )
                     else:
