@@ -50,6 +50,7 @@ class FermiDos(Dos, MSONable):
         dos_weight: Optional[float] = None,
         atomic_units: bool = True,
         num_electrons: Optional[float] = None,
+        normalise: bool = False,
     ):
         # structure should be atomic structure
 
@@ -76,12 +77,6 @@ class FermiDos(Dos, MSONable):
             )
         )
         logger.debug("DOS contains {:.3f} electrons".format(self.nelect))
-
-        import matplotlib.pyplot as plt
-
-        plt.plot(self.energies / units.eV, self.tdos)
-        plt.xlim((-0.05, 1))
-        plt.show()
 
     def get_doping(
         self,
@@ -249,7 +244,7 @@ def get_dos(eigs, erange=None, npts=None, weights=None):
             If its value is None, take the minimum and maximum band energies.
         npts: number of bins to include in the histogram. If omitted,
             _suggest_nbins will be called to obtain an estimate.
-        weights: array with the same shape as eband to be used as the weights.
+        weights: array with the same shape as eband to be used as the integrand.
 
     Returns:
         Two 1D numpy arrays of the same size with the bin energies and the DOS,

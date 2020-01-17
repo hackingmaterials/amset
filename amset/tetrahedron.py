@@ -1,7 +1,10 @@
+import sys
 from typing import Dict, Optional
 
 import numpy as np
+from tqdm import tqdm
 
+from amset.constants import output_width
 from amset.misc.util import groupby
 from pymatgen import Spin, Structure
 
@@ -143,28 +146,34 @@ class TetrahedralBandStructure(object):
         kpoints: np.ndarray,
         tetrahedra: np.ndarray,
         structure: Structure,
+        ir_kpoints_idx: np.ndarray,
+        ir_kpoint_mapping: np.ndarray,
         ir_tetrahedra_idx: Optional[np.ndarray] = None,
         ir_tetrahedra_to_full_idx: Optional[np.ndarray] = None,
-        ir_weights: Optional[np.ndarray] = None,
+        ir_tetrahedra_weights: Optional[np.ndarray] = None,
     ):
-        tparams = (ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, ir_weights)
+        tparams = (ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, ir_tetrahedra_weights)
 
         if len(set([x is None for x in tparams])) != 1:
             raise ValueError(
                 "Either all or none of ir_tetrahedra_idx, "
-                "ir_tetrahedra_to_full_idx and ir_weights should be set."
+                "ir_tetrahedra_to_full_idx and ir_tetrahedra_weights should be set."
             )
 
         if ir_tetrahedra_idx is None:
             ir_tetrahedra_idx = np.arange(len(kpoints))
             ir_tetrahedra_to_full_idx = np.ones_like(ir_tetrahedra_idx)
-            ir_weights = np.ones_like(ir_tetrahedra_idx)
+            ir_tetrahedra_weights = np.ones_like(ir_tetrahedra_idx)
 
         self.energies = energies
         self.kpoints = kpoints
         self.ir_tetrahedra_idx = ir_tetrahedra_idx
         self.ir_tetrahedra_to_full_idx = ir_tetrahedra_to_full_idx
-        self.ir_weights = ir_weights
+        self.ir_tetrahedra_weights = ir_tetrahedra_weights
+        self.ir_kpoints_idx = ir_kpoints_idx
+        self.ir_kpoint_mapping = ir_kpoint_mapping
+
+        _, self.ir_kpoint_weights = np.unique(ir_kpoint_mapping, return_counts=True)
 
         # need to keep track of full tetrahedra to recover full k-point indices
         # when calculating scattering rates (i.e., k-k' is symmetry inequivalent).
@@ -198,6 +207,13 @@ class TetrahedralBandStructure(object):
         self.grouped_ir_to_full = groupby(
             np.arange(len(ir_tetrahedra_to_full_idx)), ir_tetrahedra_to_full_idx
         )
+
+        self._ir_weights_shape = {
+            s: (len(self.energies[s]), len(ir_kpoints_idx)) for s in self.energies
+        }
+        self._weights_cache = {}
+        self._weights_mask_cache = {}
+        self._energies_cache = {}
 
     def get_intersecting_tetrahedra(self, spin, energy, band_idx=None):
         max_energies = self.max_tetrahedra_energies[spin]
@@ -269,7 +285,7 @@ class TetrahedralBandStructure(object):
         tetrahedra_dos *= self._tetrahedron_volume
 
         band_idx, tetrahedra_idx = np.where(tetrahedra_mask)
-        tetrahedra_weights = self.ir_weights[tetrahedra_idx]
+        tetrahedra_weights = self.ir_tetrahedra_weights[tetrahedra_idx]
 
         if symmetry_reduce:
             tetrahedra_dos *= tetrahedra_weights
@@ -339,17 +355,26 @@ class TetrahedralBandStructure(object):
             return tetrahedra_dos
 
     def get_density_of_states(
-        self, emin, emax, npoints, weights=None, sum_spins=False, band_idx=None
+        self,
+        energies=None,
+        integrand=None,
+        sum_spins=False,
+        band_idx=None,
+        use_cached_weights=False,
+        progress_bar=False,
     ):
-        energies = np.linspace(emin, emax, npoints)
+        if energies is None:
+            min_e = np.min([np.min(e) for e in self.energies.values()])
+            max_e = np.max([np.max(e) for e in self.energies.values()])
+            energies = np.linspace(min_e, max_e, 500)
 
         dos = {}
         for spin in self.energies.keys():
-            if isinstance(weights, dict):
-                # weights given for each spin channel
-                spin_weights = weights[spin]
+            if isinstance(integrand, dict):
+                # integrand given for each spin channel
+                spin_integrand = integrand[spin]
             else:
-                spin_weights = weights
+                spin_integrand = integrand
 
             if isinstance(band_idx, dict):
                 # band indices given for each spin channel
@@ -357,8 +382,32 @@ class TetrahedralBandStructure(object):
             else:
                 spin_band_idx = band_idx
 
+            if spin_integrand is not None:
+                if spin_integrand.shape[:2] != self.energies[spin].shape:
+                    raise ValueError(
+                        "Unexpected integrand shape, should be (nbands, nkpoints, ...)"
+                    )
+
+                nbands = len(spin_integrand)
+                n_ir_kpoints = len(self.ir_kpoints_idx)
+                new_integrand = np.zeros((nbands, n_ir_kpoints, 3, 3))
+
+                flat_k = np.tile(self.ir_kpoint_mapping, nbands)
+                flat_b = np.repeat(np.arange(nbands), len(self.ir_kpoint_mapping))
+                flat_integrand = spin_integrand.reshape(-1, 3, 3)
+
+                # sum integrand at all symmetry equivalent points, new_integrand
+                # has shape (nbands, n_ir_kpoints)
+                np.add.at(new_integrand, (flat_b, flat_k), flat_integrand)
+                spin_integrand = new_integrand
+
             emesh, dos[spin] = self.get_spin_density_of_states(
-                spin, energies, weights=spin_weights, band_idx=spin_band_idx
+                spin,
+                energies,
+                integrand=spin_integrand,
+                band_idx=spin_band_idx,
+                use_cached_weights=use_cached_weights,
+                progress_bar=progress_bar,
             )
 
         if sum_spins:
@@ -369,49 +418,171 @@ class TetrahedralBandStructure(object):
 
         return energies, dos
 
-    def get_spin_density_of_states(self, spin, energies, weights=None, band_idx=None):
-        if weights is None:
+    def get_spin_density_of_states(
+        self,
+        spin,
+        energies,
+        integrand=None,
+        band_idx=None,
+        use_cached_weights=False,
+        progress_bar=False,
+    ):
+        # integrand should have the shape (nbands, n_ir_kpts, 3, 3)
+        # the integrand should have been summed at all equivalent k-points
+        # TODO: add support for variable shaped integrands
+        if integrand is None:
             dos = np.zeros_like(energies)
-            for i, energy in enumerate(energies):
-                dos[i] = np.sum(
-                    self.get_tetrahedra_density_of_states(
-                        spin, energy, band_idx=band_idx
-                    )
-                )
-
         else:
-            dos = np.zeros(weights.shape[2:] + energies.shape)
+            dos = np.zeros((len(energies), 3, 3))
 
-            for i, energy in enumerate(energies):
-                tet_dos, tet_mask, _, tet_contributions = self.get_tetrahedra_density_of_states(
-                    spin,
-                    energy,
-                    return_contributions=True,
-                    symmetry_reduce=False,
-                    band_idx=band_idx,
+        if use_cached_weights:
+            if self._weights_cache is None:
+                raise ValueError("No integrand have been cached")
+
+            all_weights = self._weights_cache[spin]
+            all_weights_mask = self._weights_mask_cache[spin]
+            energies = self._energies_cache[spin]
+        else:
+            all_weights = []
+            all_weights_mask = []
+
+        nbands = len(self.energies[spin])
+        kpoint_multiplicity = np.tile(self.ir_kpoint_weights, (nbands, 1))
+
+        if band_idx is not None and integrand is not None:
+            integrand = integrand[band_idx]
+
+        if band_idx is not None and integrand is None:
+            kpoint_multiplicity = kpoint_multiplicity[band_idx]
+
+        energies_iter = enumerate(energies)
+        if progress_bar:
+            energies_iter = tqdm(
+                list(energies_iter),
+                ncols=output_width,
+                desc="    ├── {}".format("DOS"),
+                bar_format="{l_bar}{bar}| {elapsed}<{remaining}{postfix}",
+                file=sys.stdout,
+            )
+
+        for i, energy in energies_iter:
+            if use_cached_weights:
+                weights = all_weights[i]
+                weights_mask = all_weights_mask[i]
+            else:
+                weights = self.get_energy_dependent_integration_weights(spin, energy)
+                weights_mask = weights != 0
+                all_weights.append(weights)
+                all_weights_mask.append(weights_mask)
+
+            if band_idx is not None:
+                weights = weights[band_idx]
+                weights_mask = weights_mask[band_idx]
+
+            if integrand is None:
+                dos[i] = np.sum(
+                    weights[weights_mask] * kpoint_multiplicity[weights_mask]
                 )
 
-                if len(tet_dos) == 0:
-                    continue
+            else:
+                # don't need to include the k-point multiplicity as this is included by
+                # pre-summing the integrand at symmetry equivalent points
+                dos[i] = np.sum(
+                    weights[weights_mask, None, None] * integrand[weights_mask], axis=0
+                )
 
-                # get masks needed to find the weights inside the tetrahedra
-                property_mask, _, _, _ = self.get_masks(spin, tet_mask)
-
-                # get the weights of the tetrahedron vertices
-                vert_weights = weights[property_mask]
-
-                # now get the average weighting for each tetrahedron cross section
-                tet_weights = get_cross_section_values(vert_weights, *tet_contributions)
-
-                # finally, weight the dos and sum overall tetrahedra
-                # TODO: Don't hard code in the None, None
-                dos[..., i] = np.sum(tet_weights * tet_dos[:, None, None], axis=0)
+        if not use_cached_weights:
+            self._weights_cache[spin] = np.array(all_weights)
+            self._weights_mask_cache[spin] = np.array(all_weights_mask)
+            self._energies_cache[spin] = energies
 
         return energies, np.asarray(dos)
 
+    def get_energy_dependent_integration_weights(self, spin, energy):
+        integration_weights = np.zeros(self._ir_weights_shape[spin])
+        tetrahedra_mask = self.get_intersecting_tetrahedra(spin, energy)
+
+        if not np.any(tetrahedra_mask):
+            return integration_weights
+
+        energies = self.ir_tetrahedra_energies[spin][tetrahedra_mask]
+        e21 = self.e21[spin][tetrahedra_mask]
+        e31 = self.e31[spin][tetrahedra_mask]
+        e41 = self.e41[spin][tetrahedra_mask]
+        e32 = self.e32[spin][tetrahedra_mask]
+        e42 = self.e42[spin][tetrahedra_mask]
+        e43 = self.e43[spin][tetrahedra_mask]
+
+        cond_a_mask = (energies[:, 0] < energy) & (energy < energies[:, 1])
+        cond_b_mask = (energies[:, 1] <= energy) & (energy < energies[:, 2])
+        cond_c_mask = (energies[:, 2] <= energy) & (energy < energies[:, 3])
+
+        ee1 = energy - energies[:, 0]
+        ee2 = energy - energies[:, 1]
+        ee3 = energy - energies[:, 2]
+        e2e = energies[:, 1] - energy
+        e3e = energies[:, 2] - energy
+        e4e = energies[:, 3] - energy
+
+        kpoints_idx = self.ir_tetrahedra[spin][tetrahedra_mask]
+        ir_kpoints_idx = self.ir_kpoint_mapping[kpoints_idx]
+
+        # calculate the integrand for each vertices
+        vert_weights = np.zeros_like(energies)
+        vert_weights[cond_a_mask] = _get_energy_dependent_weight_a(
+            ee1[cond_a_mask],
+            e2e[cond_a_mask],
+            e3e[cond_a_mask],
+            e4e[cond_a_mask],
+            e21[cond_a_mask],
+            e31[cond_a_mask],
+            e41[cond_a_mask],
+        )
+
+        vert_weights[cond_b_mask] = _get_energy_dependent_weight_b(
+            ee1[cond_b_mask],
+            ee2[cond_b_mask],
+            e3e[cond_b_mask],
+            e4e[cond_b_mask],
+            e31[cond_b_mask],
+            e41[cond_b_mask],
+            e32[cond_b_mask],
+            e42[cond_b_mask],
+        )
+
+        vert_weights[cond_c_mask] = _get_energy_dependent_weight_c(
+            ee1[cond_c_mask],
+            ee2[cond_c_mask],
+            ee3[cond_c_mask],
+            e4e[cond_c_mask],
+            e41[cond_c_mask],
+            e42[cond_c_mask],
+            e43[cond_c_mask],
+        )
+
+        # finally, get the integrand for each ir_kpoint by summing over all
+        # tetrahedra and multiplying by the tetrahedra multiplicity and
+        # tetrahedra weight; Finally, divide by the k-point multiplicity
+        # to get the final weight
+        band_idx, tetrahedra_idx = np.where(tetrahedra_mask)
+
+        # include tetrahedra multiplicity
+        vert_weights *= self.ir_tetrahedra_weights[tetrahedra_idx][:, None]
+
+        flat_ir_kpoints = np.ravel(ir_kpoints_idx)
+        flat_ir_weights = np.ravel(vert_weights)
+        flat_bands = np.repeat(band_idx, 4)
+
+        # sum integrand, note this sums in place and is insanely fast
+        np.add.at(integration_weights, (flat_bands, flat_ir_kpoints), flat_ir_weights)
+        integration_weights *= (
+            self._tetrahedron_volume / self.ir_kpoint_weights[None, :]
+        )
+
+        return integration_weights
+
     def get_masks(self, spin, tetrahedra_mask):
         # mask needs to be generated with symmetry_reduce=False
-
         band_idxs = tetrahedra_mask[0]
 
         # property_mask can be used to get the values of a band and k-dependent
@@ -449,6 +620,40 @@ def _get_density_of_states_b(ee2, e21, e31, e41, e32, e42):
 
 def _get_density_of_states_c(e4e, e41, e42, e43):
     return 3 * e4e ** 2 / (e41 * e42 * e43)
+
+
+def _get_energy_dependent_weight_a(ee1, e2e, e3e, e4e, e21, e31, e41):
+    c = ee1 ** 2 / (e21 * e31 * e41)
+    i1 = c * (e2e / e21 + e3e / e31 + e4e / e41)
+    i2 = c * (ee1 / e21)
+    i3 = c * (ee1 / e31)
+    i4 = c * (ee1 / e41)
+    return np.stack([i1, i2, i3, i4], axis=1)
+
+
+def _get_energy_dependent_weight_b(ee1, ee2, e3e, e4e, e31, e41, e32, e42):
+    c = (ee1 * e4e) / (e31 * e41 * e42)
+    x = e3e / e31
+    y = e4e / e42
+    z = ee2 / (e32 * e42)
+    zx = z * x
+    k = ee1 / e31
+    n = ee2 / e42
+
+    i1 = c * (x + e4e / e41) + z * x ** 2
+    i2 = c * y + zx * (e3e / e32 + y)
+    i3 = c * k + zx * (k + ee2 / e32)
+    i4 = c * (ee1 / e41 + n) + zx * n
+    return np.stack([i1, i2, i3, i4], axis=1)
+
+
+def _get_energy_dependent_weight_c(ee1, ee2, ee3, e4e, e41, e42, e43):
+    c = e4e ** 2 / (e41 * e42 * e43)
+    i1 = c * e4e / e41
+    i2 = c * e4e / e42
+    i3 = c * e4e / e43
+    i4 = c * (ee1 / e41 + ee2 / e42 + ee3 / e43)
+    return np.stack([i1, i2, i3, i4], axis=1)
 
 
 def get_cross_section_values(
@@ -738,7 +943,7 @@ def get_tetrahedra_cross_section_weights(
     reciprocal_lattice, kpoints, tetrahedra, e21, e31, e41
 ):
     # weight (b) defined by equation 3.4 in https://doi.org/10.1002/pssb.2220540211
-    # this weight is not the Bloechl weights but a scaling needed to obtain the
+    # this weight is not the Bloechl integrand but a scaling needed to obtain the
     # DOS directly from the tetrahedron cross section
     cross_section_weights = {}
 
