@@ -90,13 +90,8 @@ class AmsetRunner(MSONable):
         self.material_properties.update(material_properties)
         self.output_parameters.update(output_parameters)
 
-        if (
-            self.output_parameters["print_log"]
-            or self.output_parameters["log_error_traceback"]
-        ):
-            initialize_amset_logger(
-                log_error_traceback=output_parameters["log_error_traceback"]
-            )
+        if self.output_parameters["print_log"]:
+            initialize_amset_logger()
 
     def run(
         self,
@@ -157,22 +152,13 @@ class AmsetRunner(MSONable):
             interpolate_projections=True,
         )
 
-        if self.interpolation_parameters["kpoints"]:
-            amset_data = interpolater.get_amset_data_from_kpoints(
-                self.interpolation_parameters["kpoints"],
-                energy_cutoff=self.performance_parameters["energy_cutoff"],
-                scissor=self.scissor,
-                bandgap=self.user_bandgap,
-                symprec=self.performance_parameters["symprec"],
-            )
-        else:
-            amset_data = interpolater.get_amset_data(
-                energy_cutoff=self.performance_parameters["energy_cutoff"],
-                scissor=self.scissor,
-                bandgap=self.user_bandgap,
-                symprec=self.performance_parameters["symprec"],
-                nworkers=self.performance_parameters["nworkers"],
-            )
+        amset_data = interpolater.get_amset_data(
+            energy_cutoff=self.performance_parameters["energy_cutoff"],
+            scissor=self.scissor,
+            bandgap=self.user_bandgap,
+            symprec=self.performance_parameters["symprec"],
+            nworkers=self.performance_parameters["nworkers"],
+        )
 
         timing = {"interpolation": time.perf_counter() - t0}
 
@@ -572,7 +558,7 @@ def _log_results_summary(amset_data, output_parameters):
             headers=headers,
             numalign="right",
             stralign="center",
-            floatfmt=(".2g", ".1f", ".2g", ".2g", ".1f"),
+            floatfmt=(".2e", ".1f", ".2e", ".2e", ".1f"),
         )
     )
 
@@ -599,6 +585,6 @@ def _log_results_summary(amset_data, output_parameters):
                 headers=headers,
                 numalign="right",
                 stralign="center",
-                floatfmt=[".2g", ".1f"] + [".2g"] * len(amset_data.scattering_labels),
+                floatfmt=[".2e", ".1f"] + [".2e"] * len(amset_data.scattering_labels),
             )
         )

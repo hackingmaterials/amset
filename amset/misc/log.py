@@ -16,9 +16,7 @@ __date__ = "June 21, 2019"
 logger = logging.getLogger(__name__)
 
 
-def initialize_amset_logger(
-    filepath=".", filename=None, level=None, log_error_traceback=False
-):
+def initialize_amset_logger(filepath=".", filename=None, level=None):
     """Initialize the default logger with stdout and file handlers.
 
     Args:
@@ -57,13 +55,10 @@ def initialize_amset_logger(
             now.strftime("%d %b %Y"), now.strftime("%H:%M")
         )
 
-        if log_error_traceback:
-            log.error(
-                "\n  ERROR: {}".format(exit_msg),
-                exc_info=(exc_type, exc_value, exc_traceback),
-            )
-        else:
-            log.error("\n  ERROR: {}\n\n  {}".format(str(exc_value), exit_msg))
+        log.error(
+            "\n  ERROR: {}".format(exit_msg),
+            exc_info=(exc_type, exc_value, exc_traceback),
+        )
 
     sys.excepthook = handle_exception
 
