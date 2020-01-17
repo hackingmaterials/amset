@@ -157,10 +157,8 @@ class ScatteringCalculator(object):
                         )
                     )
 
-        logger.info(
-            "The following scattering mechanisms will be "
-            "calculated: {}".format(", ".join(scattering_type))
-        )
+        str_scats = ", ".join(scattering_type)
+        logger.info("Scattering mechanisms to be calculated: {}".format(str_scats))
 
         return [
             _scattering_mechanisms[name](materials_properties, amset_data)
@@ -257,18 +255,21 @@ class ScatteringCalculator(object):
             )
             elastic_rates = np.zeros(elastic_prefactors.shape + (nkpoints,))
 
-            desc = "    ├── {}".format("elastic")
-            pbar = tqdm(
-                total=len(k_idx_in_cutoff),
-                ncols=output_width,
-                desc=desc,
-                bar_format="{l_bar}{bar}| {elapsed}<{remaining}{postfix}",
-                file=sys.stdout,
-            )
-            for k_idx in k_idx_in_cutoff:
-                elastic_rates[:, :, :, k_idx] = self.calculate_rate(spin, b_idx, k_idx)
-                pbar.update(1)
-            pbar.close()
+            if len(k_idx_in_cutoff) > 0:
+                desc = "    ├── {}".format("elastic")
+                pbar = tqdm(
+                    total=len(k_idx_in_cutoff),
+                    ncols=output_width,
+                    desc=desc,
+                    bar_format="{l_bar}{bar}| {elapsed}<{remaining}{postfix}",
+                    file=sys.stdout,
+                )
+                for k_idx in k_idx_in_cutoff:
+                    elastic_rates[:, :, :, k_idx] = self.calculate_rate(
+                        spin, b_idx, k_idx
+                    )
+                    pbar.update(1)
+                pbar.close()
 
             elastic_rates *= elastic_prefactors[..., None]
             to_stack.append(elastic_rates)
@@ -287,23 +288,24 @@ class ScatteringCalculator(object):
                 * units.eV
             )
 
-            desc = "    ├── {}".format("inelastic")
-            pbar = tqdm(
-                total=len(k_idx_in_cutoff),
-                ncols=output_width,
-                desc=desc,
-                bar_format="{l_bar}{bar}| {elapsed}<{remaining}{postfix}",
-                file=sys.stdout,
-            )
+            if len(k_idx_in_cutoff) > 0:
+                desc = "    ├── {}".format("inelastic")
+                pbar = tqdm(
+                    total=len(k_idx_in_cutoff),
+                    ncols=output_width,
+                    desc=desc,
+                    bar_format="{l_bar}{bar}| {elapsed}<{remaining}{postfix}",
+                    file=sys.stdout,
+                )
 
-            inelastic_rates[:, :, :, k_idx_in_cutoff] = 0
-            for k_idx in k_idx_in_cutoff:
-                for ediff in [energy_diff, -energy_diff]:
-                    inelastic_rates[:, :, :, k_idx] += self.calculate_rate(
-                        spin, b_idx, k_idx, energy_diff=ediff
-                    )
-                pbar.update(1)
-            pbar.close()
+                inelastic_rates[:, :, :, k_idx_in_cutoff] = 0
+                for k_idx in k_idx_in_cutoff:
+                    for ediff in [energy_diff, -energy_diff]:
+                        inelastic_rates[:, :, :, k_idx] += self.calculate_rate(
+                            spin, b_idx, k_idx, energy_diff=ediff
+                        )
+                    pbar.update(1)
+                pbar.close()
 
             inelastic_rates *= inelastic_prefactors[..., None]
 
@@ -838,7 +840,7 @@ class ScatteringCalculator(object):
 #     # could vectorize this using numpy apply along axis if need be
 #     for s, n, t in np.ndindex(band_rates.shape[:-1]):
 #         band_rates[s, n, t, unique_rows] = np.bincount(
-#             repeated_k_idx, weights=rates[s, n, t])[unique_rows]
+#             repeated_k_idx, integrand=rates[s, n, t])[unique_rows]
 #
 #     return band_rates
 
@@ -883,7 +885,7 @@ class ScatteringCalculator(object):
 #     # could vectorize this using numpy apply along axis if need be
 #     for s, n, t in np.ndindex(band_rates.shape[:-1]):
 #         band_rates[s, n, t, unique_rows] = np.bincount(
-#             k_idx, weights=rates[s, n, t])[unique_rows]
+#             k_idx, integrand=rates[s, n, t])[unique_rows]
 #
 #     return band_rates
 
@@ -931,8 +933,8 @@ def _interpolate_zero_rates(rates, kpoints, masks: Optional = None):
             else:
                 mask = [True] * len(rates[spin][s, d, t, b])
 
-            # non_zero_rates = rates[spin][s, d, t, b, mask] > 1e7
-            non_zero_rates = rates[spin][s, d, t, b, mask] != 0
+            non_zero_rates = rates[spin][s, d, t, b, mask] > 1e7
+            # non_zero_rates = rates[spin][s, d, t, b, mask] != 0
             zero_rate_idx = k_idx[mask][~non_zero_rates]
             non_zero_rate_idx = k_idx[mask][non_zero_rates]
 
