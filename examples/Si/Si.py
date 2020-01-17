@@ -7,7 +7,7 @@ settings = {
     "general": {
         "scattering_type": ["IMP", "ACD"],
         # "scattering_type": ["ACD"],
-        "doping": [1.99e+14, 2.20e+15, 1.72e+16, 1e17,
+        "doping": [1.99e+14, 2.20e+15, 1.72e+16,
                    1.86e+17, 1.46e+18, 4.39e+18],
         "temperatures": [300],
         "bandgap": 1.14,
@@ -15,13 +15,7 @@ settings = {
     },
 
     "interpolation": {
-        # "kpoints": None,
-        # "interpolation_factor": 600,
-        # "fine_mesh_de": 0.02
-        # "kpoints": [50, 50, 50],
-        "kpoints": None,
-        "interpolation_factor": 10
-        # "fine_mesh_de": 0.02
+        "interpolation_factor": 50
     },
 
     "material": {
@@ -35,17 +29,12 @@ settings = {
     },
 
     "performance": {
-        "gauss_width": 0.01,
         "fd_tol": 0.15,
-        "ibte_tol": 1e-32,
-        "max_ibte_iter": 1,
         "dos_estep": 0.01,
-        "use_imp_minimum_mesh": False,
     },
 
     "output": {
         "print_log": True,
-        "log_error_traceback": True,
         "write_mesh": True,
     }
 }
