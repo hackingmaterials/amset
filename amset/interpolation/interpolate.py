@@ -48,6 +48,7 @@ from amset.constants import (
     spin_name,
     numeric_types,
     angstrom_to_bohr,
+    ev_to_hartree,
 )
 
 __author__ = "Alex Ganose"
@@ -272,6 +273,8 @@ class Interpolater(MSONable):
             log_time_taken(t0)
             overlap_projections[spin] = self._band_structure.projections[spin][ibands]
 
+        if not self._soc and len(self._spins) == 1:
+            forgotten_electrons *= 2
         nelectrons = self._num_electrons - forgotten_electrons
 
         if is_metal:
@@ -320,9 +323,10 @@ class Interpolater(MSONable):
             original_structure.frac_coords,
         )
 
+        band_centers = get_band_centers(full_kpts, energies, new_vb_idx, efermi)
         orig_kpoints = np.array([k.frac_coords for k in self._band_structure.kpoints])
         overlap_calculator = OverlapCalculator(
-            atomic_structure, orig_kpoints, overlap_projections
+            atomic_structure, orig_kpoints, overlap_projections, band_centers
         )
 
         return AmsetData(
@@ -369,7 +373,7 @@ class Interpolater(MSONable):
         Args:
             kpoints: The k-points, either provided as a list of k-points (either with
                 the shape (nkpoints, 3) or (nkpoints, 4) where the 4th column is the
-                k-point weights). Alternatively, the k-points can be specified as a
+                k-point integrand). Alternatively, the k-points can be specified as a
                 1x3 mesh, e.g.,``[6, 6, 6]`` from which the full Gamma centered mesh
                 will be computed. Alternatively, if a single value is provided this will
                 be treated as a real-space length cutoff and the k-point mesh dimensions
@@ -755,7 +759,7 @@ class Interpolater(MSONable):
         if symprec and return_kpoint_mapping:
             to_return.append(
                 {
-                    "weights": weights,
+                    "integrand": weights,
                     "ir_kpoints_idx": ir_kpoints_idx,
                     "ir_to_full_idx": ir_to_full_idx,
                 }
@@ -1262,3 +1266,24 @@ def fft_worker(
         else:
             effective_mass = None
         oqueue.put((index, eband, vvband, effective_mass))
+
+
+def get_band_centers(kpoints, energies, vb_idx, efermi, tol=0.0001 * ev_to_hartree):
+    band_centers = {}
+
+    for spin, spin_energies in energies.items():
+        spin_centers = []
+        for i, band_energies in enumerate(spin_energies):
+            if vb_idx is None:
+                # handle metals
+                k_idxs = np.abs(band_energies - efermi) < tol
+
+            elif i <= vb_idx[spin]:
+                k_idxs = (np.max(band_energies) - band_energies) < tol
+
+            else:
+                k_idxs = (band_energies - np.min(band_energies)) < tol
+
+            spin_centers.append(kpoints[k_idxs])
+        band_centers[spin] = spin_centers
+    return band_centers

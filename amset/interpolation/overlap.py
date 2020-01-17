@@ -18,16 +18,16 @@ _select_d_order = ([2, 0, 1, 0, 1], [2, 2, 2, 1, 1])  # selects dz2 dxz dyz dxy 
 
 # _p_mask = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 # _d_mask = np.array([[0, 1, 0, 1, 1], [0, 0, 1, 1, 1], [1, 1, 1, 0, 0]])
-# _p_mask = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
-# _d_mask = np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]])
-_p_mask = np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
-_d_mask = np.array([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]])
+_p_mask = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
+_d_mask = np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]])
+# _p_mask = np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
+# _d_mask = np.array([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]])
 
 logger = logging.getLogger(__name__)
 
 
 class OverlapCalculator(object):
-    def __init__(self, structure, kpoints, projections):
+    def __init__(self, structure, kpoints, projections, band_centers):
 
         logger.info("Initializing orbital overlap calculator")
 
@@ -102,6 +102,8 @@ class OverlapCalculator(object):
 
         self.rotation_masks = get_rotation_masks(projections)
 
+        self.band_centers = band_centers
+
     def get_overlap(self, spin, band_a, kpoint_a, band_b, kpoint_b):
         # k-points should be in fractional
         kpoint_a = np.asarray(kpoint_a)
@@ -125,14 +127,14 @@ class OverlapCalculator(object):
         else:
             band_b = np.asarray(band_b)
 
-        # centre = [0.5, 0.5, 0.5]
-        centre = [0.0, 0, 0]
+        centers = self.band_centers[spin][band_a]
+        center = centers[np.argmin(np.linalg.norm(pbc_diff(centers, kpoint_a), axis=1))]
+        # print("\nband center", center)
 
-        shift_a = pbc_diff(kpoint_a, centre)
-        shift_b = pbc_diff(kpoint_b, centre)
+        shift_a = pbc_diff(kpoint_a, center)
+        shift_b = pbc_diff(kpoint_b, center)
 
         angles = cosine(shift_a, shift_b)
-        # angles = cosine(shift_a, pbc_diff(shift_b, shift_a) + shift_a)
         angle_weights = np.abs(pbc_diff(kpoint_a, kpoint_b))
         angle_weights /= np.max(angle_weights, axis=1)[:, None]
         angle_weights[np.isnan(angle_weights)] = 0
