@@ -10,6 +10,7 @@ hartree_si = physical_constants["Hartree energy"][0]
 hbar = physical_constants["Planck constant over 2 pi in eV s"][0]
 m_e = physical_constants["electron mass"][0]  # in kg
 hartree_to_ev = physical_constants["Hartree energy in eV"][0]
+ev_to_hartree = 1 / hartree_to_ev
 bohr_to_angstrom = bohr_si * 1e10
 bohr_to_cm = bohr_si * 100
 cm_to_bohr = 1 / (bohr_si * 100)
