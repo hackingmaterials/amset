@@ -80,7 +80,7 @@ class BrooksHerringScattering(AbstractBasicScattering):
                 + p_conc * self.properties["acceptor_charge"] ** 2
             )
             imp_info.append(
-                "{:3.2g} cm⁻³ & {} K: β² = {:4.3g} a₀⁻², Nᵢᵢ = {:4.3g} cm⁻³".format(
+                "{:3.2e} cm⁻³ & {} K: β² = {:4.3e} a₀⁻², Nᵢᵢ = {:4.3e} cm⁻³".format(
                     amset_data.doping[n] * (1 / bohr_to_cm) ** 3,
                     amset_data.temperatures[t],
                     inverse_screening_length_sq[n, t],
@@ -106,7 +106,6 @@ class BrooksHerringScattering(AbstractBasicScattering):
             impurity_concentration
             * 8
             * np.pi
-            # * 8 * np.pi ** 2
             * Second
             / self.properties["static_dielectric"] ** 2
         )
