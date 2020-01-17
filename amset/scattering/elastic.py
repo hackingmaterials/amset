@@ -231,30 +231,3 @@ def calculate_inverse_screening_length_sq(amset_data, static_dielectric):
         )
 
     return inverse_screening_length_sq
-
-
-# def calculate_inverse_screening_length_sq(amset_data: AmsetData, static_dielectric):
-#     inverse_screening_length_sq = np.zeros(amset_data.fermi_levels.shape)
-#
-#     fermi_levels = amset_data.fermi_levels
-#     k_norm = np.linalg.norm(np.dot(amset_data.full_kpoints, amset_data.structure.lattice.reciprocal_lattice.matrix), axis=1)
-#     k_sq = (k_norm / np.pi) ** 2
-#
-#     for n, t in np.ndindex(inverse_screening_length_sq.shape):
-#
-#         ef = fermi_levels[n, t]
-#         temp = amset_data.temperatures[t]
-#         integral = 0
-#         for spin, spin_energies in amset_data.energies.items():
-#             for band_energies in spin_energies:
-#                 f = FD(band_energies, ef, temp * units.BOLTZMANN)
-#                 integral += np.sum(k_sq * f * (1 - f))
-#
-#         integral /= len(amset_data.full_kpoints)
-#
-#         inverse_screening_length_sq[n, t] = (
-#                 integral * 4 * np.pi / (static_dielectric * BOLTZMANN * temp)
-#         )
-#
-#     return inverse_screening_length_sq
-#
