@@ -12,17 +12,12 @@ settings = {
     },
 
     "interpolation": {
-        "kpoints": None,
-        "interpolation_factor": 150,
+        "interpolation_factor": 10,
     },
 
     "performance": {
-        "gauss_width": 0.01,
-        "fd_tol": 0.15,
-        "ibte_tol": 1e-32,
-        "max_ibte_iter": 1,
-        "dos_estep": 0.05,
-        "use_imp_minimum_mesh": False,
+        "fd_tol": 0.1,
+        "dos_estep": 0.01,
     },
 
     "material": {
