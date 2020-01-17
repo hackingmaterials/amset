@@ -1,4 +1,5 @@
 import logging
+import time
 
 from os.path import join as joinpath
 from typing import Optional, Dict, List, Tuple
@@ -16,7 +17,7 @@ from pymatgen import Spin, Structure
 
 from amset.constants import cm_to_bohr
 from amset.misc.util import groupby, cast_dict
-from amset.misc.log import log_list
+from amset.misc.log import log_list, log_time_taken
 from amset.dos import FermiDos
 from amset import amset_defaults as defaults
 
@@ -130,6 +131,7 @@ class AmsetData(MSONable):
         emin = np.min([np.min(spin_eners) for spin_eners in self.energies.values()])
         emax = np.max([np.max(spin_eners) for spin_eners in self.energies.values()])
         epoints = int(round((emax - emin) / (estep * units.eV)))
+        energies = np.linspace(emin, emax, epoints)
         dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
 
         logger.debug("DOS parameters:")
@@ -142,9 +144,12 @@ class AmsetData(MSONable):
             ]
         )
 
-        emesh, dos = self.tetrahedral_band_structure.get_density_of_states_test(
-            emin=emin, emax=emax, npoints=epoints
+        logger.debug("Generating tetrahedral DOS:")
+        t0 = time.perf_counter()
+        emesh, dos = self.tetrahedral_band_structure.get_density_of_states(
+            energies=energies, progress_bar=True
         )
+        log_time_taken(t0)
 
         num_electrons = self.num_electrons if self.is_metal else None
 
