@@ -13,7 +13,7 @@ amset_defaults = {
         "scissor": None,
         "bandgap": None,
     },
-    "interpolation": {"interpolation_factor": 5, "kpoints": None},
+    "interpolation": {"interpolation_factor": 5},
     "material": {
         "high_frequency_dielectric": None,
         "static_dielectric": None,
@@ -40,7 +40,6 @@ amset_defaults = {
         "file_format": "json",
         "write_input": True,
         "write_mesh": False,
-        "log_error_traceback": False,
         "print_log": False,
     },
 }
