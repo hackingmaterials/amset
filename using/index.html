@@ -309,20 +309,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#output-files" class="md-nav__link">
-    Output files
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#convergence" class="md-nav__link">
-    Convergence
-  </a>
-  
-</li>
-      
       
       
       
@@ -366,6 +352,18 @@
   <li class="md-nav__item">
     <a href="../theory/" title="Theory" class="md-nav__link">
       Theory
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../integration/" title="Integration" class="md-nav__link">
+      Integration
     </a>
   </li>
 
@@ -457,20 +455,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#output-files" class="md-nav__link">
-    Output files
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#convergence" class="md-nav__link">
-    Convergence
-  </a>
-  
-</li>
-      
       
       
       
@@ -495,10 +479,11 @@
 Python API. In both cases, the primary input is a <code class="codehilite"><span class="err">vasprun.xml</span></code> file from a
 uniform band structure calculation (i.e., on a regular k-point grid and not
 along high-symmetry lines).</p>
-<p>Temperature and doping ranges, scattering rates, and calculation performance
+<p>Temperature and doping ranges, scattering rates, and calculation
 parameters are controlled through the settings file. More details on the
 available settings are provided in the <a href="../settings/">settings section</a> of the
-documentation. An example settings file is given <a href="../examples/example_settings.yaml">here</a>.</p>
+documentation. An example settings file is given 
+<a href="https://github.com/hackingmaterials/amset/blob/master/examples/GaAs/settings.yaml">here</a>.</p>
 <h2 id="from-the-command-line">From the command-line<a class="headerlink" href="#from-the-command-line" title="Permanent link">&para;</a></h2>
 <p>AMSET can be run from the command-line using the <code class="codehilite"><span class="err">amset</span></code> command. The help
 menu listing a summary of the command-line options can be printed using:</p>
@@ -523,21 +508,21 @@ For example, the following snippet will look for a <code class="codehilite"><spa
 <div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
 
 <span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
-<span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<span class="n">amset_data</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>
 
-<p>The API allows for easily converging performance parameters. For example,
-the following snippet will run AMSET using multiple interpolation parameters.</p>
+<p>The API allows for easy convergence of parameters. For example,
+the following snippet will run AMSET using multiple interpolation factors.</p>
 <div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
 
-<span class="n">settings</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;general&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;interpolation_factor&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}}</span>
+<span class="n">settings</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;interpolation_factor&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
 
+<span class="n">outputs</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="k">for</span> <span class="n">i_factor</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">10</span><span class="p">):</span>
-    <span class="n">settings</span><span class="p">[</span><span class="s2">&quot;general&quot;</span><span class="p">][</span><span class="s2">&quot;interpolation_factor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i_factor</span>
+    <span class="n">settings</span><span class="p">[</span><span class="s2">&quot;interpolation_factor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i_factor</span>
 
-    <span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span>
-        <span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">settings_override</span><span class="o">=</span><span class="n">settings</span><span class="p">)</span>
-    <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">settings_override</span><span class="o">=</span><span class="n">settings</span><span class="p">)</span>
+    <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">())</span>
 </pre></div>
 
 <p>When running AMSET from the API, it is not necessary to use a settings file
@@ -545,26 +530,18 @@ at all. Instead the settings can be passed as a dictionary. For example:</p>
 <div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
 
 <span class="n">settings</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;general&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;interpolation_factor&quot;</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>
-        <span class="s2">&quot;doping&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.99e+14</span><span class="p">,</span> <span class="mf">2.20e+15</span><span class="p">,</span> <span class="mf">1.72e+16</span><span class="p">,</span>
-                   <span class="mf">1.86e+17</span><span class="p">,</span> <span class="mf">1.46e+18</span><span class="p">,</span> <span class="mf">4.39e+18</span><span class="p">],</span>
-        <span class="s2">&quot;temperatures&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">300</span><span class="p">]</span>
-    <span class="p">},</span>
+    <span class="s2">&quot;interpolation_factor&quot;</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>
+    <span class="s2">&quot;doping&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1e15</span><span class="p">,</span> <span class="mf">1e16</span><span class="p">,</span> <span class="mf">1e17</span><span class="p">,</span> <span class="mf">1e18</span><span class="p">],</span>
+    <span class="s2">&quot;temperatures&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">300</span><span class="p">],</span>
 
-    <span class="s2">&quot;material&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;deformation_potential&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">6.5</span><span class="p">,</span> <span class="mf">6.5</span><span class="p">),</span>
-        <span class="s2">&quot;elastic_constant&quot;</span><span class="p">:</span> <span class="mi">190</span><span class="p">,</span>
-        <span class="s2">&quot;static_dielectric&quot;</span><span class="p">:</span> <span class="mf">13.1</span><span class="p">,</span>
-    <span class="p">},</span>
+    <span class="s2">&quot;deformation_potential&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">6.5</span><span class="p">,</span> <span class="mf">6.5</span><span class="p">),</span>
+    <span class="s2">&quot;elastic_constant&quot;</span><span class="p">:</span> <span class="mi">190</span><span class="p">,</span>
+    <span class="s2">&quot;static_dielectric&quot;</span><span class="p">:</span> <span class="mf">13.1</span><span class="p">,</span>
 <span class="p">}</span>
 
-<span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_vasprun_and_settings</span><span class="p">(</span><span class="s2">&quot;vasprun.xml.gz&quot;</span><span class="p">,</span> <span class="n">settings</span><span class="p">)</span>
-<span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_vasprun</span><span class="p">(</span><span class="s2">&quot;vasprun.xml.gz&quot;</span><span class="p">,</span> <span class="n">settings</span><span class="p">)</span>
+<span class="n">amset_data</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </pre></div>
-
-<h2 id="output-files">Output files<a class="headerlink" href="#output-files" title="Permanent link">&para;</a></h2>
-<h2 id="convergence">Convergence<a class="headerlink" href="#convergence" title="Permanent link">&para;</a></h2>
                 
                   
                 

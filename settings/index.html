@@ -523,13 +523,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#log_error_traceback" class="md-nav__link">
-    log_error_traceback
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#print_log" class="md-nav__link">
     print_log
   </a>
@@ -572,6 +565,18 @@
   <li class="md-nav__item">
     <a href="../theory/" title="Theory" class="md-nav__link">
       Theory
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../integration/" title="Integration" class="md-nav__link">
+      Integration
     </a>
   </li>
 
@@ -865,13 +870,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#log_error_traceback" class="md-nav__link">
-    log_error_traceback
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#print_log" class="md-nav__link">
     print_log
   </a>
@@ -905,15 +903,15 @@
                 <h1 id="settings">Settings<a class="headerlink" href="#settings" title="Permanent link">&para;</a></h1>
 <p>Whether using AMSET via the command-line or python API, the primary controls
 are contained in the settings file or dictionary. An example AMSET settings file
-is given <a href="example-settings">here</a>.</p>
+is given <a href="https://github.com/hackingmaterials/amset/blob/master/examples/GaAs/settings.yaml">here</a>.</p>
 <p>The settings are grouped into sections. The description for each section and
 settings parameter is given below.</p>
 <p>All settings are also controllable via command-line flags. The corresponding
 command-line interface options are also detailed below. Any settings specified
 via the command-line will override those in the settings file.</p>
 <h2 id="general-settings">General settings<a class="headerlink" href="#general-settings" title="Permanent link">&para;</a></h2>
-<p>The <code class="codehilite"><span class="err">general</span></code> section contains the main settings that control the AMSET run,
-including interpolation settings and temperature/doping ranges.</p>
+<p>These settings control the AMSET run, including interpolation density and 
+temperature/doping ranges.</p>
 <h3 id="doping"><code class="codehilite"><span class="err">doping</span></code><a class="headerlink" href="#doping" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">-d, --doping</span></code></p>
@@ -930,6 +928,7 @@ For example, the same doping concentrations as above can be written::</p>
 
 <p>Negative concentrations indicate holes (<em>p</em>-type doping), positive concentrations
 indicate electrons (<em>n</em>-type doping).</p>
+<p>Default: <code class="codehilite"><span class="err">[&#39;1.e15&#39;, &#39;1.e16&#39;, &#39;1.e17&#39;, &#39;1.e18&#39;, &#39;1.e19&#39;, &#39;1.e20&#39;, &#39;1.e21&#39;]</span></code></p>
 </div>
 <h3 id="temperatures"><code class="codehilite"><span class="err">temperatures</span></code><a class="headerlink" href="#temperatures" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
@@ -944,6 +943,7 @@ For example, the same temperature range as above can be written::</p>
 <div class="codehilite"><pre><span></span><span class="mi">300</span><span class="p">:</span><span class="mi">1000</span><span class="p">:</span><span class="mi">8</span>
 </pre></div>
 
+<p>Default: <code class="codehilite"><span class="err">[300]</span></code></p>
 </div>
 <h3 id="interpolation_factor"><code class="codehilite"><span class="err">interpolation_factor</span></code><a class="headerlink" href="#interpolation_factor" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
@@ -989,8 +989,8 @@ correct band gap scissor for the specified band gap. Cannot be used in
 combination with the <a href="#scissor"><code class="codehilite"><span class="err">scissor</span></code></a> option. Has no effect for metallic systems.</p>
 </div>
 <h2 id="material-settings">Material settings<a class="headerlink" href="#material-settings" title="Permanent link">&para;</a></h2>
-<p>The <code class="codehilite"><span class="err">material</span></code> section holds all materials properties required to calculate
-the scattering rates.</p>
+<p>These settings control the materials properties required to calculate the 
+scattering rates.</p>
 <h3 id="high_frequency_dielectric"><code class="codehilite"><span class="err">high_frequency_dielectric</span></code><a class="headerlink" href="#high_frequency_dielectric" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">--high-frequency-dielectric</span></code></p>
@@ -1048,8 +1048,8 @@ highest optical phonon frequency at the Gamma point.</p>
 <p>Required for: POP</p>
 </div>
 <h2 id="performance-settings">Performance settings<a class="headerlink" href="#performance-settings" title="Permanent link">&para;</a></h2>
-<p>The <code class="codehilite"><span class="err">performance</span></code> section controls internal AMSET settings that will affect
-the speed and accuracy of calculated properties.</p>
+<p>These settings control the speed and accuracy of calculated properties. In 
+general the defaults should give converged values.</p>
 <h3 id="energy_cutoff"><code class="codehilite"><span class="err">energy_cutoff</span></code><a class="headerlink" href="#energy_cutoff" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">--energy-cutoff</span></code></p>
@@ -1064,13 +1064,15 @@ and scattering rate calculation, in eV.</p>
 the scattering for. Given as a percentage from 0 to 1. Larger values indicate
 that the fewer k-points will be calculated, smaller values indicate a larger
 portion of the Brillouin zone will be calculated.</p>
-<p>Default: <code class="codehilite"><span class="err">0.01</span></code></p>
+<p>Default: <code class="codehilite"><span class="err">0.05</span></code></p>
 </div>
 <h3 id="dos_estep"><code class="codehilite"><span class="err">dos_estep</span></code><a class="headerlink" href="#dos_estep" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">--dos-estep</span></code></p>
-<p>The energy step for the calculated density of states, in eV. Controls the
-accuracy when determining the position of the Fermi level.</p>
+<p>The energy step for the calculated density of states and transport density
+of states, in eV. Controls the accuracy of determining the position of the 
+Fermi level and transport properties. Smaller is better but can quickly
+get more expensive.</p>
 <p>Default: <code class="codehilite"><span class="err">0.01</span></code></p>
 </div>
 <h3 id="symprec"><code class="codehilite"><span class="err">symprec</span></code><a class="headerlink" href="#symprec" title="Permanent link">&para;</a></h3>
@@ -1082,11 +1084,12 @@ accuracy when determining the position of the Fermi level.</p>
 <h3 id="nworkers"><code class="codehilite"><span class="err">nworkers</span></code><a class="headerlink" href="#nworkers" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">--nworkers</span></code></p>
-<p>Number of processors to use. The default value is <code class="codehilite"><span class="err">-1</span></code> (use all available
-processors).</p>
+<p>Number of processors to use. <code class="codehilite"><span class="err">-1</span></code> indicates to use all available
+processors.</p>
+<p>Default: <code class="codehilite"><span class="err">-1</span></code></p>
 </div>
 <h2 id="output-settings">Output settings<a class="headerlink" href="#output-settings" title="Permanent link">&para;</a></h2>
-<p>The output section controls the output files and logging.</p>
+<p>These settings control the output files and logging.</p>
 <h3 id="calculate_mobility"><code class="codehilite"><span class="err">calculate_mobility</span></code><a class="headerlink" href="#calculate_mobility" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">--no-calculate-mobility</span></code></p>
@@ -1105,6 +1108,7 @@ if only that scattering mechanism were present.</p>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">--file-format</span></code></p>
 <p>The output file format. Options are: <code class="codehilite"><span class="err">json</span></code>, <code class="codehilite"><span class="err">yaml</span></code>, and <code class="codehilite"><span class="err">txt</span></code>.</p>
+<p>Note, <code class="codehilite"><span class="err">write_mesh=True</span></code> is not supported using the <code class="codehilite"><span class="err">txt</span></code> format.</p>
 <p>Default: <code class="codehilite"><span class="err">json</span></code></p>
 </div>
 <h3 id="write_input"><code class="codehilite"><span class="err">write_input</span></code><a class="headerlink" href="#write_input" title="Permanent link">&para;</a></h3>
@@ -1117,17 +1121,10 @@ if only that scattering mechanism were present.</p>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">--write-mesh</span></code></p>
 <p>Whether to write the full k-dependent properties to disk. Properties include
-the band energy, velocity and scattering rate.</p>
-<p><strong>Note:</strong> for large values of <a href="#interpolation_factor">interpolation_factor</a> this option can use a large
-amount of disk space.</p>
-<p>Default: <code class="codehilite"><span class="err">False</span></code></p>
-</div>
-<h3 id="log_error_traceback"><code class="codehilite"><span class="err">log_error_traceback</span></code><a class="headerlink" href="#log_error_traceback" title="Permanent link">&para;</a></h3>
-<div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--log-error-traceback</span></code></p>
-<p>Whether to log the full error traceback rather than just the error message. If
-you find a problem with AMSET, please enable this option and provide the AMSET
-developers with the full crash report.</p>
+the band energy, velocity and scattering rate. Only k-points in the 
+irreducible wedge are included.</p>
+<p><strong>Note:</strong> for large values of <a href="#interpolation_factor">interpolation_factor</a> 
+his option can use a large amount of disk space.</p>
 <p>Default: <code class="codehilite"><span class="err">False</span></code></p>
 </div>
 <h3 id="print_log"><code class="codehilite"><span class="err">print_log</span></code><a class="headerlink" href="#print_log" title="Permanent link">&para;</a></h3>
