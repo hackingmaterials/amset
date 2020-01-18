@@ -769,7 +769,7 @@ def _shift_energies(
             energies[spin][: cb_idx[spin]] -= scissor / 2
             energies[spin][cb_idx[spin] :] += scissor / 2
 
-    return energies, scissor
+    return energies
 
 
 def _convert_velocities(
