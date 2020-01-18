@@ -53,7 +53,6 @@ class FermiDos(Dos, MSONable):
         normalise: bool = False,
     ):
         # structure should be atomic structure
-
         super().__init__(efermi, energies, densities)
         self.structure = structure
         self.atomic_units = atomic_units

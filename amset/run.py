@@ -29,7 +29,7 @@ from pymatgen.util.string import unicodeify, unicodeify_spacegroup
 
 from amset.interpolation.interpolate import Interpolater
 from amset.scattering.calculate import ScatteringCalculator
-from amset.transport import TransportCalculator
+from amset.transport import solve_boltzman_transport_equation
 from amset.util import (
     validate_settings,
     tensor_average,
@@ -171,13 +171,13 @@ class AmsetRunner(MSONable):
 
         log_banner("TRANSPORT")
         t0 = time.perf_counter()
-
         sep_scats = self.settings["separate_scattering_mobilities"]
-        solver = TransportCalculator(
+        transport_properties = solve_boltzman_transport_equation(
+            amset_data,
             separate_scattering_mobilities=sep_scats,
             calculate_mobility=self.settings["calculate_mobility"],
         )
-        amset_data.set_transport_properties(*solver.solve_bte(amset_data))
+        amset_data.set_transport_properties(*transport_properties)
         timing["transport"] = time.perf_counter() - t0
 
         log_banner("RESULTS")
