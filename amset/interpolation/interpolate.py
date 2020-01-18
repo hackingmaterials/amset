@@ -280,7 +280,7 @@ class Interpolater(MSONable):
             efermi = self._band_structure.efermi * units.eV
         else:
             energies = _shift_energies(
-                energies, new_vb_idx, scissor=scissor, bandgap=bandgap,
+                energies, new_vb_idx, scissor=scissor, bandgap=bandgap
             )
 
             # if material is semiconducting, set Fermi level to middle of gap
@@ -850,7 +850,11 @@ def _get_efermi(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> fl
 
 
 def get_bands_fft(
-    equivalences, coeffs, lattvec, return_effective_mass=False, nworkers=defaults["nworkers"]
+    equivalences,
+    coeffs,
+    lattvec,
+    return_effective_mass=False,
+    nworkers=defaults["nworkers"],
 ):
     """Rebuild the full energy bands from the interpolation coefficients.
 
