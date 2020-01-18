@@ -1,8 +1,8 @@
 from copy import deepcopy
 from typing import Optional
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from BoltzTraP2 import units
 from matplotlib import cycler
 

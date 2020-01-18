@@ -1,54 +1,33 @@
 """Band structure interpolation using BolzTraP2."""
 
 import logging
-import multiprocessing
-import time
-
-import numpy as np
 import multiprocessing as mp
 import multiprocessing.sharedctypes
-
+import time
 from collections import defaultdict
-from typing import Optional, Union, Tuple, List, Dict
+from typing import Dict, List, Optional, Tuple, Union
 
-from BoltzTraP2.fite import FFTev, FFTc
+import numpy as np
+from BoltzTraP2 import fite, sphere, units
+from BoltzTraP2.fite import FFTc, FFTev, Second
 from monty.json import MSONable
 
-from BoltzTraP2 import units, sphere, fite
-
+from amset.constants import amset_defaults as defaults
+from amset.constants import angstrom_to_bohr, bohr_to_cm, ev_to_hartree, spin_name
+from amset.data import AmsetData
 from amset.dos import FermiDos
 from amset.interpolation.overlap import OverlapCalculator
-from amset.kpoints import (
-    get_symmetry_equivalent_kpoints,
-    similarity_transformation,
-    get_kpoints_tetrahedral,
-    sort_boltztrap_to_spglib,
-)
-from amset.log import log_time_taken, log_list
+from amset.kpoints import (get_kpoints_tetrahedral, get_symmetry_equivalent_kpoints,
+                           similarity_transformation, sort_boltztrap_to_spglib)
+from amset.log import log_list, log_time_taken
 from amset.tetrahedron import TetrahedralBandStructure
-from amset.constants import amset_defaults as defaults
-
 from pymatgen import Structure
+from pymatgen.electronic_structure.bandstructure import (BandStructure,
+                                                         BandStructureSymmLine)
 from pymatgen.electronic_structure.core import Spin
-from pymatgen.electronic_structure.bandstructure import (
-    BandStructure,
-    BandStructureSymmLine,
-)
 from pymatgen.electronic_structure.dos import Dos
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.symmetry.bandstructure import HighSymmKpath
-
-from amset.data import AmsetData
-from amset.constants import (
-    hartree_to_ev,
-    m_to_cm,
-    A_to_m,
-    hbar,
-    bohr_to_angstrom,
-    spin_name,
-    angstrom_to_bohr,
-    ev_to_hartree,
-)
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -786,14 +765,7 @@ def _convert_velocities(
     Returns:
         The velocities in cm/s.
     """
-    matrix_norm = lattice_matrix / np.linalg.norm(lattice_matrix)
-
-    factor = hartree_to_ev * m_to_cm * A_to_m / (hbar * bohr_to_angstrom)
-    velocities = velocities.transpose((1, 0, 2))
-
-    velocities = np.abs(np.matmul(matrix_norm, velocities)) * factor
-    velocities = velocities.transpose((0, 2, 1))
-
+    velocities *= bohr_to_cm * Second
     return velocities
 
 

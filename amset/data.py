@@ -1,25 +1,22 @@
 import logging
 import time
-
 from os.path import join as joinpath
-from typing import Optional, Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-
-from monty.json import MSONable
-from monty.serialization import dumpfn
 from BoltzTraP2 import units
 from BoltzTraP2.fd import dFDde
+from monty.json import MSONable
+from monty.serialization import dumpfn
 
-from amset.interpolation.overlap import OverlapCalculator
-from amset.tetrahedron import TetrahedralBandStructure
-from pymatgen import Spin, Structure
-
-from amset.constants import cm_to_bohr
-from amset.util import groupby, cast_dict
-from amset.log import log_list, log_time_taken
-from amset.dos import FermiDos
 from amset.constants import amset_defaults as defaults
+from amset.constants import cm_to_bohr
+from amset.dos import FermiDos
+from amset.interpolation.overlap import OverlapCalculator
+from amset.log import log_list, log_time_taken
+from amset.tetrahedron import TetrahedralBandStructure
+from amset.util import cast_dict, groupby
+from pymatgen import Spin, Structure
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

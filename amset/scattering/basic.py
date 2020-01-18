@@ -1,11 +1,9 @@
 import logging
+from abc import ABC, abstractmethod
 from copy import deepcopy
+from typing import Any, Dict, Tuple
 
 import numpy as np
-
-from abc import ABC, abstractmethod
-from typing import Tuple, Dict, Any
-
 from BoltzTraP2.units import Second
 
 from amset.constants import bohr_to_cm

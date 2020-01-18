@@ -2,17 +2,15 @@
 Customised implementation of FermiDos. Will Move back to pymatgen at some point.
 """
 import logging
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
-
-from typing import Optional, Union, Tuple, Dict
-
 from BoltzTraP2 import units
 from BoltzTraP2.fd import FD
 from monty.json import MSONable
 
-from amset.constants import hartree_to_ev, ev_to_hartree
-from pymatgen import Structure, Spin
+from amset.constants import ev_to_hartree, hartree_to_ev
+from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.dos import Dos
 
 logger = logging.getLogger(__name__)

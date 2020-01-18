@@ -4,10 +4,12 @@
 Deployment file to facilitate releases.
 """
 
-import os
 import json
+import os
+
 import requests
 from invoke import task
+
 from amset import __version__
 
 

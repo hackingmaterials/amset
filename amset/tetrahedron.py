@@ -1,11 +1,10 @@
 from typing import Dict, Optional
 
 import numpy as np
-from amset.util import groupby, get_progress_bar
+from quadpy import quadrilateral, triangle
+
+from amset.util import get_progress_bar, groupby
 from pymatgen import Spin, Structure
-
-from quadpy import triangle, quadrilateral
-
 from pymatgen.util.coord import pbc_diff
 
 """

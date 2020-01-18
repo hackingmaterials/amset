@@ -1,42 +1,33 @@
-import os
 import copy
 import datetime
 import logging
+import os
 import time
 from functools import partial
+from os.path import join as joinpath
+from pathlib import Path
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
-
-from pathlib import Path
-from os.path import join as joinpath
-from typing import Optional, Any, Dict, Union
-
 from BoltzTraP2 import units
+from memory_profiler import memory_usage
+from monty.json import MSONable
 from tabulate import tabulate
 
-from monty.json import MSONable
-from memory_profiler import memory_usage
-
-from amset.constants import hbar, bohr_to_cm
-from pymatgen import Structure
-from pymatgen.electronic_structure.core import Spin
-from pymatgen.electronic_structure.bandstructure import BandStructure
-from pymatgen.io.vasp import Vasprun
 from amset import __version__
-from amset.constants import amset_defaults
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from pymatgen.util.string import unicodeify, unicodeify_spacegroup
-
+from amset.constants import amset_defaults, bohr_to_cm, hbar
 from amset.interpolation.interpolate import Interpolater
+from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator
 from amset.transport import solve_boltzman_transport_equation
-from amset.util import (
-    validate_settings,
-    tensor_average,
-    load_settings_from_file,
-    write_settings_to_file,
-)
-from amset.log import log_banner, log_list, initialize_amset_logger
+from amset.util import (load_settings_from_file, tensor_average, validate_settings,
+                        write_settings_to_file)
+from pymatgen import Structure
+from pymatgen.electronic_structure.bandstructure import BandStructure
+from pymatgen.electronic_structure.core import Spin
+from pymatgen.io.vasp import Vasprun
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from pymatgen.util.string import unicodeify, unicodeify_spacegroup
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

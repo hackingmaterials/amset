@@ -1,11 +1,11 @@
 import logging
 import time
-from typing import Union, List
+from typing import List, Union
 
 import numpy as np
-from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients
+from BoltzTraP2.bandlib import calc_Onsager_coefficients, fermiintegrals
 
-from amset.constants import e, bohr_to_cm, amset_defaults
+from amset.constants import amset_defaults, bohr_to_cm, e
 from amset.data import AmsetData
 from amset.log import log_time_taken
 from amset.util import get_progress_bar

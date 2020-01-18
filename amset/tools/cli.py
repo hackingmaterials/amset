@@ -2,17 +2,17 @@
 This module contains a script for using amset from the command line.
 """
 
-import click
 import warnings
-
 from collections import defaultdict
-from typing import Dict, Any
+from typing import Any, Dict
 
+import click
 from click import option
+
+from amset.constants import amset_defaults
 from amset.log import initialize_amset_logger
 from amset.run import AmsetRunner
-from amset.constants import amset_defaults
-from amset.util import parse_deformation_potential, parse_temperatures, parse_doping
+from amset.util import parse_deformation_potential, parse_doping, parse_temperatures
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

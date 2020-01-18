@@ -1,15 +1,13 @@
-from typing import Union, List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 from spglib import spglib
 
+from amset.constants import amset_defaults
 from amset.tetrahedron import get_tetrahedra
 from pymatgen import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
-
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-
-from amset.constants import amset_defaults
 
 _SYMPREC = amset_defaults["symprec"]
 _KTOL = 1e-5

@@ -1,12 +1,11 @@
+import os
 import platform
 import sys
-import os
-
-from pathlib import Path
-from setuptools import setup, find_packages
-
 from distutils.sysconfig import get_config_vars
 from distutils.version import LooseVersion
+from pathlib import Path
+
+from setuptools import find_packages, setup
 
 from amset import __version__
 

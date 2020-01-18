@@ -1,18 +1,14 @@
 import logging
-
-
 from abc import ABC, abstractmethod
+from typing import Any, Dict, Tuple
 
 import numpy as np
-
-from typing import Dict, Tuple, Any
-
 from BoltzTraP2 import units
 from BoltzTraP2.fd import FD
 from BoltzTraP2.units import BOLTZMANN
 from scipy.constants import epsilon_0
 
-from amset.constants import k_B, e, hbar, gpa_to_au
+from amset.constants import e, gpa_to_au, hbar, k_B
 from amset.data import AmsetData
 from pymatgen import Spin
 

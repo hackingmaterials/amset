@@ -1,13 +1,11 @@
 import sys
+from pathlib import Path
+from typing import Type, Union
 
 import click
 import numpy as np
 
-from pathlib import Path
-from typing import Union, Type
-
-from pymatgen.io.vasp import Vasprun
-from pymatgen.io.vasp import Outcar
+from pymatgen.io.vasp import Outcar, Vasprun
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))

@@ -6,28 +6,23 @@ AmsetData object.
 import logging
 import time
 from multiprocessing import cpu_count
-from typing import Dict, Union, List, Any, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
+from BoltzTraP2 import units
 from BoltzTraP2.fd import FD
 from scipy.interpolate import griddata
 
-from BoltzTraP2 import units
-
-from amset.scattering.basic import AbstractBasicScattering
-from amset.tetrahedron import (
-    get_cross_section_values,
-    get_projected_intersections,
-    integrate_function_over_cross_section,
-)
-from amset.util import get_progress_bar
-from pymatgen import Spin
-
-from amset.constants import small_val, spin_name, hbar
+from amset.constants import hbar, small_val, spin_name
 from amset.data import AmsetData
 from amset.log import log_list, log_time_taken
+from amset.scattering.basic import AbstractBasicScattering
 from amset.scattering.elastic import AbstractElasticScattering
 from amset.scattering.inelastic import AbstractInelasticScattering
+from amset.tetrahedron import (get_cross_section_values, get_projected_intersections,
+                               integrate_function_over_cross_section)
+from amset.util import get_progress_bar
+from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 
 __author__ = "Alex Ganose"

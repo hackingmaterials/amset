@@ -2,7 +2,7 @@ import collections
 import copy
 import logging
 import sys
-from typing import Dict, Any
+from typing import Any, Dict
 
 import numpy as np
 import scipy
