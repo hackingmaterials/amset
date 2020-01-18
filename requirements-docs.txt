@@ -1,6 +1,6 @@
 mkdocs==1.0.4
 mkdocs-material==4.6.0
 mkdocs-minify-plugin==0.2.1
-mkdocstrings==0.6.1
+mkdocstrings==0.7.0
 mkdocs-macros-plugin==0.3.3
 markdown-include==0.5.1
