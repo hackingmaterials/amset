@@ -266,4 +266,3 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         np.testing.assert_array_equal(
             sym_info["ir_to_full_idx"], amset_data.ir_to_full_kpoint_mapping
         )
-
