@@ -9,9 +9,9 @@ from pymatgen.io.ase import AseAtomsAdaptor
 
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
-from amset import amset_defaults
+from amset.constants import amset_defaults
 
-_SYMPREC = amset_defaults["performance"]["symprec"]
+_SYMPREC = amset_defaults["symprec"]
 _KTOL = 1e-5
 
 

@@ -23,7 +23,6 @@ def initialize_amset_logger(filepath=".", filename=None, level=None):
         filepath (str): Path to the folder where the log file will be written.
         filename (str): The log filename.
         level (int): The log level. For example logging.DEBUG.
-        log_error_traceback: Whether to log the traceback if an error occurs.
 
     Returns:
         (Logger): A logging instance with customized formatter and handlers.

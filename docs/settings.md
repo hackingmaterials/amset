@@ -2,7 +2,7 @@
 
 Whether using AMSET via the command-line or python API, the primary controls
 are contained in the settings file or dictionary. An example AMSET settings file
-is given [here](example-settings).
+is given [here](https://github.com/hackingmaterials/amset/blob/master/examples/GaAs/settings.yaml).
 
 The settings are grouped into sections. The description for each section and
 settings parameter is given below.
@@ -14,12 +14,10 @@ via the command-line will override those in the settings file.
 
 ## General settings
 
-The `general` section contains the main settings that control the AMSET run,
-including interpolation settings and temperature/doping ranges.
-
+These settings control the AMSET run, including interpolation density and 
+temperature/doping ranges.
 
 ### `doping`
-
 
 !!! quote ""
     *Command-line option:* `-d, --doping`
@@ -41,6 +39,8 @@ including interpolation settings and temperature/doping ranges.
 
     Negative concentrations indicate holes (*p*-type doping), positive concentrations
     indicate electrons (*n*-type doping).
+    
+    Default: `{{ doping }}`
 
 ### `temperatures`
 
@@ -60,6 +60,8 @@ including interpolation settings and temperature/doping ranges.
     ```python
     300:1000:8
     ```
+    
+    Default: `{{ temperatures }}`
 
 ### `interpolation_factor`
 
@@ -73,8 +75,7 @@ including interpolation settings and temperature/doping ranges.
     the accuracy of the calculated scattering rates. **Transport properties should
     be converged with respect to this parameter.**
 
-    Default: `{{ general.interpolation_factor }}`
-
+    Default: `{{ interpolation_factor }}`
 
 ### `scattering_type`
 
@@ -95,7 +96,7 @@ including interpolation settings and temperature/doping ranges.
     if all the required material parameters for that mechanism are set. See the
     `scattering section <scattering>`_ of the documentation for more details.
 
-    Default: `{{ general.scattering_type }}`
+    Default: `{{ scattering_type }}`
 
 ### `scissor`
 
@@ -118,8 +119,8 @@ including interpolation settings and temperature/doping ranges.
 
 ## Material settings
 
-The `material` section holds all materials properties required to calculate
-the scattering rates.
+These settings control the materials properties required to calculate the 
+scattering rates.
 
 ### `high_frequency_dielectric`
 
@@ -182,8 +183,7 @@ the scattering rates.
 
     Required for: IMP
 
-    Default: `{{ material.acceptor_charge }}`
-
+    Default: `{{ acceptor_charge }}`
 
 ### `donor_charge`
 
@@ -194,7 +194,7 @@ the scattering rates.
 
     Required for: IMP
 
-    Default: `{{ material.donor_charge }}`
+    Default: `{{ donor_charge }}`
 
 ### `pop_frequency`
 
@@ -208,8 +208,8 @@ the scattering rates.
 
 ## Performance settings
 
-The `performance` section controls internal AMSET settings that will affect
-the speed and accuracy of calculated properties.
+These settings control the speed and accuracy of calculated properties. In 
+general the defaults should give converged values.
 
 ### `energy_cutoff`
 
@@ -219,8 +219,7 @@ the speed and accuracy of calculated properties.
     The energy cut-off used to determine which bands to include in the interpolation
     and scattering rate calculation, in eV.
 
-    Default: `{{ performance.energy_cutoff }}`
-
+    Default: `{{ energy_cutoff }}`
 
 ### `fd_tol`
 
@@ -232,19 +231,19 @@ the speed and accuracy of calculated properties.
     that the fewer k-points will be calculated, smaller values indicate a larger
     portion of the Brillouin zone will be calculated.
 
-    Default: `{{ performance.fd_tol }}`
-
+    Default: `{{ fd_tol }}`
 
 ### `dos_estep`
 
 !!! quote ""
     *Command-line option:* `--dos-estep`
 
-    The energy step for the calculated density of states, in eV. Controls the
-    accuracy when determining the position of the Fermi level.
+    The energy step for the calculated density of states and transport density
+    of states, in eV. Controls the accuracy of determining the position of the 
+    Fermi level and transport properties. Smaller is better but can quickly
+    get more expensive.
 
-    Default: `{{ performance.dos_estep }}`
-
+    Default: `{{ dos_estep }}`
 
 ### `symprec`
 
@@ -253,20 +252,22 @@ the speed and accuracy of calculated properties.
 
     The symmetry finding tolerance, in Å.
 
-    Default: `{{ performance.symprec }}`
+    Default: `{{ symprec }}`
 
 ### `nworkers`
 
 !!! quote ""
     *Command-line option:* `--nworkers`
 
-    Number of processors to use. The default value is `-1` (use all available
-    processors).
+    Number of processors to use. `-1` indicates to use all available
+    processors.
+    
+    Default: `{{ nworkers }}`
 
 
 ## Output settings
 
-The output section controls the output files and logging.
+These settings control the output files and logging.
 
 ### `calculate_mobility`
 
@@ -276,7 +277,7 @@ The output section controls the output files and logging.
     Whether to calculate *n*- and *p*-type carrier mobilities. Has no effect
     for metallic systems where mobility is not well defined.
 
-    Default: `{{ output.calculate_mobility }}`
+    Default: `{{ calculate_mobility }}`
 
 ### `separate_scattering_mobilities`
 
@@ -286,7 +287,7 @@ The output section controls the output files and logging.
     Whether to report the individual scattering rate mobilities. I.e., the mobility
     if only that scattering mechanism were present.
 
-    Default: `{{ output.separate_scattering_mobilities }}`
+    Default: `{{ separate_scattering_mobilities }}`
 
 ### `file_format`
 
@@ -294,8 +295,10 @@ The output section controls the output files and logging.
     *Command-line option:* `--file-format`
 
     The output file format. Options are: `json`, `yaml`, and `txt`.
+    
+    Note, `write_mesh=True` is not supported using the `txt` format.
 
-    Default: `{{ output.file_format }}`
+    Default: `{{ file_format }}`
 
 ### `write_input`
 
@@ -304,7 +307,7 @@ The output section controls the output files and logging.
 
     Whether to write the input settings to a file called `amset_settings.yaml`.
 
-    Default: `{{ output.write_input }}`
+    Default: `{{ write_input }}`
 
 ### `write_mesh`
 
@@ -312,23 +315,13 @@ The output section controls the output files and logging.
     *Command-line option:* `--write-mesh`
 
     Whether to write the full k-dependent properties to disk. Properties include
-    the band energy, velocity and scattering rate.
+    the band energy, velocity and scattering rate. Only k-points in the 
+    irreducible wedge are included.
 
-    **Note:** for large values of [interpolation_factor](#interpolation_factor) this option can use a large
-    amount of disk space.
+    **Note:** for large values of [interpolation_factor](#interpolation_factor) 
+    his option can use a large amount of disk space.
 
-    Default: `{{ output.write_mesh }}`
-
-### `log_error_traceback`
-
-!!! quote ""
-    *Command-line option:* ``--log-error-traceback``
-
-    Whether to log the full error traceback rather than just the error message. If
-    you find a problem with AMSET, please enable this option and provide the AMSET
-    developers with the full crash report.
-
-    Default: `{{ output.log_error_traceback }}`
+    Default: `{{ write_mesh }}`
 
 ### `print_log`
 
@@ -337,4 +330,4 @@ The output section controls the output files and logging.
 
     Whether to print log messages.
 
-    Default: `{{ output.print_log }}`
+    Default: `{{ print_log }}`

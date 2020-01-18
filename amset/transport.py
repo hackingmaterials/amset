@@ -1,21 +1,21 @@
 import logging
-import sys
 import time
 from typing import Union, List
 
 import numpy as np
 from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients
 from monty.json import MSONable
-from tqdm import tqdm
 
-from amset.constants import e, bohr_to_cm, output_width
+from amset.constants import e, bohr_to_cm
 from amset.data import AmsetData
-from amset.misc.log import log_time_taken
+from amset.log import log_time_taken
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 __date__ = "June 21, 2019"
+
+from amset.util import get_progress_bar
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class TransportCalculator(MSONable):
             t0 = time.perf_counter()
             for rate_idx, name in enumerate(amset_data.scattering_labels):
                 mobility[name] = _calculate_mobility(
-                    amset_data, rate_idx, pbar_label="mobility ({})".format(name)
+                    amset_data, rate_idx, pbar_label=name
                 )
             log_time_taken(t0)
 
@@ -82,12 +82,8 @@ def _calculate_mobility(
     volume = amset_data.structure.volume
     mobility = np.zeros(amset_data.fermi_levels.shape + (3, 3))
 
-    pbar = tqdm(
-        list(np.ndindex(amset_data.fermi_levels.shape)),
-        ncols=output_width,
-        desc="    ├── {}".format(pbar_label),
-        bar_format="{l_bar}{bar}| {elapsed}<{remaining}{postfix}",
-        file=sys.stdout,
+    pbar = get_progress_bar(
+        iterable=list(np.ndindex(amset_data.fermi_levels.shape)), desc=pbar_label,
     )
     for n, t in pbar:
         br = {s: np.arange(len(amset_data.energies[s])) for s in amset_data.spins}
@@ -145,13 +141,7 @@ def _calculate_transport_properties(amset_data, pbar_label="transport"):
     kappa = np.zeros(n_t_size + (3, 3))
     volume = amset_data.structure.volume
 
-    pbar = tqdm(
-        list(np.ndindex(n_t_size)),
-        ncols=output_width,
-        desc="    ├── {}".format(pbar_label),
-        bar_format="{l_bar}{bar}| {elapsed}<{remaining}{postfix}",
-        file=sys.stdout,
-    )
+    pbar = get_progress_bar(iterable=list(np.ndindex(n_t_size)), desc=pbar_label)
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in pbar:
         lifetimes = {

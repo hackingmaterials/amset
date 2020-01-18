@@ -8,10 +8,11 @@ import warnings
 from collections import defaultdict
 from typing import Dict, Any
 
-from amset.misc.log import initialize_amset_logger
+from amset.log import initialize_amset_logger
 from amset.run import AmsetRunner
-from amset import __version__, amset_defaults
-from amset.misc.util import (
+from amset import __version__
+from amset.constants import amset_defaults
+from amset.util import (
     parse_deformation_potential,
     parse_temperatures,
     parse_doping,
@@ -33,7 +34,7 @@ def main():
     args_dict = vars(args)
 
     if args.print_log is not False:
-        initialize_amset_logger(log_error_traceback=True)
+        initialize_amset_logger()
 
     settings_override: Dict[str, Dict[str, Any]] = defaultdict(dict)
     for section in amset_defaults:
@@ -82,15 +83,6 @@ def _get_parser():
         default=None,
         type=float,
         help="band structure interpolation factor",
-    )
-
-    parser.add_argument(
-        "-n",
-        "--num-extra-kpoints",
-        metavar="N",
-        default=None,
-        type=float,
-        help="number of additional k-points to add around the Fermi level",
     )
 
     parser.add_argument(
@@ -200,14 +192,6 @@ def _get_parser():
     )
 
     parser.add_argument(
-        "--gauss-width",
-        metavar="W",
-        default=None,
-        type=float,
-        help="gaussian width used to evaluate scattering delta [eV]",
-    )
-
-    parser.add_argument(
         "--energy-cutoff",
         metavar="E",
         default=None,
@@ -225,35 +209,11 @@ def _get_parser():
     )
 
     parser.add_argument(
-        "--ibte-tol",
-        metavar="T",
-        default=None,
-        type=float,
-        help="convergence tolerance for IBTE solution [%%]",
-    )
-
-    parser.add_argument(
-        "--max-ibte-iter",
-        metavar="N",
-        default=None,
-        type=int,
-        help="maximum number of iterations for solving the IBTE",
-    )
-
-    parser.add_argument(
         "--dos-estep",
         metavar="E",
         default=None,
         type=float,
         help="dos energy step [eV]",
-    )
-
-    parser.add_argument(
-        "--dos-width",
-        metavar="W",
-        default=None,
-        type=float,
-        help="dos smearing width [eV]",
     )
 
     parser.add_argument(
@@ -311,13 +271,6 @@ def _get_parser():
         dest="print_log",
         action="store_false",
         help="don't print log messages",
-    )
-
-    parser.add_argument(
-        "--log-error-traceback",
-        default=None,
-        action="store_true",
-        help="log full error message tracebacks",
     )
 
     return parser

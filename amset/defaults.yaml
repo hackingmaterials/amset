@@ -1,0 +1,45 @@
+# Define AMSET defaults
+
+# scattering type options include ACD, PIE, IMP, DIS, POP and auto,
+# where auto will automatically determine which scattering mechanisms are
+# possible based on the supplied materials parameters
+scattering_type: auto
+
+# positive doping concentrations indicates n-type doping, negative = p-type
+doping: [1.e15, 1.e16, 1.e17, 1.e18, 1.e19, 1.e20, 1.e21]
+temperatures: [300]
+
+# band gap settings, only one of the two options can be set simultaneously
+scissor: null  # in eV
+bandgap: null  # in eV
+
+# whether the calculation was performed with spin orbit coupling
+soc: false
+
+# The band structure interpolation factor that determines the k-mesh density
+interpolation_factor: 10
+
+# The following settings are required to calculate scattering rates
+high_frequency_dielectric: null
+static_dielectric: null
+elastic_constant: null  # in GPa
+deformation_potential: null  # in eV, given for the VBM and CBM
+piezeoelectric_coefficient: 0.15  # unitless
+acceptor_charge: 1
+donor_charge: 1
+pop_frequency: null  # in THz
+
+# The following settings will affect the speed and accuracy of the results
+energy_cutoff: 1.5  # in eV
+fd_tol: 0.05  # in %
+dos_estep: 0.01  # in eV
+symprec: 0.01  # in Angstrom
+nworkers: -1  # default is -1 (use all processors)
+
+# The output section controls AMSET output files and logging
+calculate_mobility: true
+separate_scattering_mobilities: true
+file_format: json
+write_input: false
+write_mesh: false
+print_log: true

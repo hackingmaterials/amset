@@ -18,6 +18,7 @@ nav:
     - Settings: settings.md
     - Scattering Rates: scattering.md
     - Theory: theory.md
+    - Integration: integration.md
   - Changelog: changelog.md
   - Contributors: contributors.md
   - Contributing: contributing.md
@@ -48,4 +49,4 @@ plugins:
   - mkdocstrings
   - macros:
       include_yaml:
-          - examples/example_settings.yaml
+          - amset/defaults.yaml

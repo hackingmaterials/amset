@@ -1,4 +1,6 @@
 import numpy as np
+from monty.serialization import loadfn
+from pkg_resources import resource_filename
 
 from scipy.constants import physical_constants
 
@@ -31,3 +33,5 @@ spin_name = {Spin.up: "spin-up", Spin.down: "spin-down"}
 numeric_types = (float, int, np.integer, np.floating)
 float_types = (float, np.floating)
 int_types = (int, np.integer)
+
+amset_defaults = loadfn(resource_filename('amset', 'defaults.yaml'))

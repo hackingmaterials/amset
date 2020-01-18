@@ -9,17 +9,17 @@ import numpy as np
 from monty.json import MSONable
 from monty.serialization import dumpfn
 from BoltzTraP2 import units
-from BoltzTraP2.fd import dFDde, FD
+from BoltzTraP2.fd import dFDde
 
 from amset.interpolation.overlap import OverlapCalculator
 from amset.tetrahedron import TetrahedralBandStructure
 from pymatgen import Spin, Structure
 
 from amset.constants import cm_to_bohr
-from amset.misc.util import groupby, cast_dict
-from amset.misc.log import log_list, log_time_taken
+from amset.util import groupby, cast_dict
+from amset.log import log_list, log_time_taken
 from amset.dos import FermiDos
-from amset import amset_defaults as defaults
+from amset.constants import amset_defaults as defaults
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -28,7 +28,6 @@ __date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
 _kpt_str = "[{k[0]:.5f} {k[1]:.5f} {k[2]:.5f}]"
-pdefaults = defaults["performance"]
 
 
 class AmsetData(MSONable):
@@ -59,7 +58,6 @@ class AmsetData(MSONable):
         electronic_thermal_conductivity: Optional[np.ndarray] = None,
         mobility: Optional[Dict[str, np.ndarray]] = None,
         fd_cutoffs: Optional[Tuple[float, float]] = None,
-        scissor: Optional[Tuple] = None,
     ):
         self.structure = structure
         self.energies = energies
@@ -78,14 +76,12 @@ class AmsetData(MSONable):
         self.seebeck = seebeck
         self.electronic_thermal_conductivity = electronic_thermal_conductivity
         self.mobility = mobility
-        self.scissor = scissor if scissor else 0
         self.overlap_calculator = overlap_calculator
 
         self.dos = dos
         self.is_metal = is_metal
         self.vb_idx = None if is_metal else vb_idx
         self.spins = self.energies.keys()
-        self.kpoint_norms = np.linalg.norm(full_kpoints, axis=1)
 
         self.a_factor = {}
         self.c_factor = {}
@@ -103,9 +99,6 @@ class AmsetData(MSONable):
         self.fermi_levels = None
         self.electron_conc = None
         self.hole_conc = None
-        self.f = None
-        self.dfde = None
-        self.dfdk = None
         self.fd_cutoffs = fd_cutoffs
 
         self.grouped_ir_to_full = groupby(
@@ -122,7 +115,7 @@ class AmsetData(MSONable):
             *ir_tetrahedra_info
         )
 
-    def calculate_dos(self, estep: float = pdefaults["dos_estep"]):
+    def calculate_dos(self, estep: float = defaults["dos_estep"]):
         """
         Args:
             estep: The DOS energy step in eV, where smaller numbers give more
@@ -226,52 +219,6 @@ class AmsetData(MSONable):
 
         logger.info("Calculated Fermi levels:")
         log_list(fermi_level_info)
-        self._calculate_fermi_functions()
-
-    def _calculate_fermi_functions(self):
-        # calculate Fermi dirac distributions and derivatives for each Fermi
-        # level
-        self.f = {
-            s: np.zeros(self.fermi_levels.shape + self.energies[s].shape)
-            for s in self.spins
-        }
-        self.dfde = {
-            s: np.zeros(self.fermi_levels.shape + self.energies[s].shape)
-            for s in self.spins
-        }
-        self.dfdk = {
-            s: np.zeros(self.fermi_levels.shape + self.energies[s].shape)
-            for s in self.spins
-        }
-
-        # matrix_norm = self.structure.lattice.matrix / np.linalg.norm(
-        #     self.structure.lattice.matrix
-        # )
-        # factor = hartree_to_ev * m_to_cm * A_to_m / (hbar * 0.52917721067)
-        for spin in self.spins:
-            for n, t in np.ndindex(self.fermi_levels.shape):
-                self.f[spin][n, t] = FD(
-                    self.energies[spin][:, self.ir_kpoints_idx],
-                    self.fermi_levels[n, t],
-                    self.temperatures[t] * units.BOLTZMANN,
-                )[:, self.ir_to_full_kpoint_mapping]
-                self.dfde[spin][n, t] = dFDde(
-                    self.energies[spin][:, self.ir_kpoints_idx],
-                    self.fermi_levels[n, t],
-                    self.temperatures[t] * units.BOLTZMANN,
-                )[:, self.ir_to_full_kpoint_mapping]
-                # velocities product has shape (nbands, 3, 3, nkpoints)
-                # we want the diagonal of the 3x3 matrix for each k and band
-                # after diagonalization shape is nbands, nkpoints, 3
-                # v = np.diagonal(
-                #     np.sqrt(self.velocities_product[spin]), axis1=1, axis2=2
-                # )
-                # v = v.transpose((0, 2, 1))
-                # v = np.abs(np.matmul(matrix_norm, v)) * factor
-                # v = v.transpose((0, 2, 1))
-                # self.dfdk[spin][n, t] = np.linalg.norm(
-                #     self.dfde[spin][n, t][..., None] * v * hbar, axis=2
-                # )
 
     def calculate_fd_cutoffs(
         self, fd_tolerance: Optional[float] = 0.01, cutoff_pad: float = 0.0
@@ -359,6 +306,18 @@ class AmsetData(MSONable):
         self.scattering_rates = scattering_rates
         self.scattering_labels = scattering_labels
 
+    def set_transport_properties(
+        self,
+        conductivity: np.ndarray,
+        seebeck: np.ndarray,
+        electronic_thermal_conductivity: np.ndarray,
+        mobility: Optional[np.ndarray] = None
+    ):
+        self.conductivity = conductivity
+        self.seebeck = seebeck
+        self.electronic_thermal_conductivity = electronic_thermal_conductivity
+        self.mobility = mobility
+
     def _calculate_orbital_factors(self):
         for spin in self.spins:
             self.a_factor[spin] = (
@@ -375,8 +334,8 @@ class AmsetData(MSONable):
         self,
         directory: str = ".",
         prefix: Optional[str] = None,
-        write_mesh: bool = defaults["output"]["write_mesh"],
-        file_format: str = defaults["output"]["file_format"],
+        write_mesh: bool = defaults["write_mesh"],
+        file_format: str = defaults["file_format"],
         suffix_mesh: bool = True,
     ):
         if (
@@ -484,88 +443,8 @@ class AmsetData(MSONable):
             )
             np.savetxt(filename, data, header=" ".join(headers))
 
-            if not write_mesh:
-                return
-
-            # write separate files for k-point mesh, energy mesh and
-            # temp/doping dependent scattering rate mesh
-            kpt_file = joinpath(
-                directory, "{}amset_k_mesh{}.{}".format(prefix, suffix, file_format)
-            )
-            data = np.array(
-                [
-                    [i + 1, str(_kpt_str.format(k=kpt))]
-                    for i, kpt in enumerate(self.full_kpoints)
-                ],
-                dtype=object,
-            )
-            np.savetxt(
-                kpt_file, data, fmt=["%d", "%s"], header="k-point_index frac_kpt_coord"
-            )
-
-            # todo: update this to only write the irreducible energies & rates
-
-            # write energy mesh
-            energy_file = joinpath(
-                directory, "{}amset_e_mesh{}.{}".format(prefix, suffix, file_format)
-            )
-            with open(energy_file, "w") as f:
-                for spin in self.spins:
-                    eshape = self.energies[spin].shape
-                    b_idx = np.repeat(np.arange(eshape[0]), eshape[1])
-                    k_idx = np.tile(np.arange(eshape[1]), eshape[0])
-                    data = np.column_stack(
-                        (b_idx, k_idx, self.energies[spin].flatten())
-                    )
-
-                    np.savetxt(
-                        f,
-                        data,
-                        fmt="%d %d %.8f",
-                        header="band_index kpt_index energy[eV]",
-                    )
-                    f.write("\n")
-
-            # write scatter mesh
-            scatter_file = joinpath(
-                directory, "{}amset_scatter{}.{}".format(prefix, suffix, file_format)
-            )
-            # + 1 accounts for total rate column
-            labels = self.scattering_labels + ["total"]
-            fmt = "%d %d" + " %.5g" * len(labels)
-            header = ["band_index", "kpt_index"]
-            header += ["{}_rate[s^-1]".format(label) for label in labels]
-            header = " ".join(header)
-            with open(scatter_file, "w") as f:
-                for spin in self.spins:
-                    for n, t in np.ndindex((len(self.doping), len(self.temperatures))):
-                        f.write(
-                            "# n = {:g} cm^-3, T = {} K E_F = {} eV\n".format(
-                                self.doping[n],
-                                self.temperatures[t],
-                                self.fermi_levels[n, t],
-                            )
-                        )
-                        shape = self.energies[spin].shape
-                        b_idx = np.repeat(np.arange(shape[0]), shape[1]) + 1
-                        k_idx = np.tile(np.arange(shape[1]), shape[0]) + 1
-                        cols = [b_idx, k_idx]
-                        cols.extend(
-                            self.scattering_rates[spin][:, n, t].reshape(
-                                len(self.scattering_labels), -1
-                            )
-                        )
-
-                        # add "total rate" column
-                        cols.extend(
-                            np.sum(
-                                self.scattering_rates[spin][:, n, t], axis=0
-                            ).reshape(1, -1)
-                        )
-                        data = np.column_stack(cols)
-
-                        np.savetxt(f, data, fmt=fmt, header=header)
-                        f.write("\n")
+            if write_mesh:
+                logger.warning("Writing mesh data as txt or csv not supported")
 
         else:
             raise ValueError("Unrecognised output format: {}".format(file_format))

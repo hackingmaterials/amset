@@ -1,11 +1,7 @@
-import sys
 from typing import Dict, Optional
 
 import numpy as np
-from tqdm import tqdm
-
-from amset.constants import output_width
-from amset.misc.util import groupby
+from amset.util import groupby, get_progress_bar
 from pymatgen import Spin, Structure
 
 from quadpy import triangle, quadrilateral
@@ -455,15 +451,9 @@ class TetrahedralBandStructure(object):
         if band_idx is not None and integrand is None:
             kpoint_multiplicity = kpoint_multiplicity[band_idx]
 
-        energies_iter = enumerate(energies)
+        energies_iter = list(enumerate(energies))
         if progress_bar:
-            energies_iter = tqdm(
-                list(energies_iter),
-                ncols=output_width,
-                desc="    ├── {}".format("DOS"),
-                bar_format="{l_bar}{bar}| {elapsed}<{remaining}{postfix}",
-                file=sys.stdout,
-            )
+            energies_iter = get_progress_bar(iterable=energies_iter, desc="DOS")
 
         for i, energy in energies_iter:
             if use_cached_weights:

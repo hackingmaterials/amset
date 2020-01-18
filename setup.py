@@ -47,7 +47,7 @@ if __name__ == "__main__":
         license='modified BSD',
         keywords='conductivity scattering seebeck dft vasp',
         packages=find_packages(),
-        package_data={},
+        package_data={'amset': ['defaults.yaml']},
         data_files=['LICENSE', 'requirements.txt'],
         zip_safe=False,
         install_requires=reqs_list,

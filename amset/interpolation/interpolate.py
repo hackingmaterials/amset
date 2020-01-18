@@ -27,7 +27,7 @@ from amset.kpoints import (
     get_kpoints_tetrahedral,
     sort_boltztrap_to_spglib,
 )
-from amset.misc.log import log_time_taken, log_list
+from amset.log import log_time_taken, log_list
 from pymatgen import Structure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
@@ -348,7 +348,6 @@ class Interpolater(MSONable):
             self._soc,
             overlap_calculator,
             vb_idx=new_vb_idx,
-            scissor=scissor,
             kpoint_weights=kpt_weights,
         )
 

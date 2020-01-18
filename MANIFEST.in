@@ -1,4 +1,4 @@
-include LICENSE *.txt
+include LICENSE
 recursive-include amset *
 recursive-exclude amset *.pyc
 recursive-include docs *

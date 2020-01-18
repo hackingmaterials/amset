@@ -1,73 +1,48 @@
 import collections
 import copy
 import logging
-from multiprocessing.sharedctypes import RawArray
+import sys
 from typing import Dict, Any
 
 import numpy as np
 import scipy
 from monty.serialization import dumpfn, loadfn
+from tqdm import tqdm
 
-from amset import amset_defaults
+from amset.constants import amset_defaults, output_width
 from pymatgen import Spin
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
-__date__ = "June 21, 2019"
 
 logger = logging.getLogger(__name__)
 
-
-def create_shared_array(data, return_buffer=False):
-    data = np.asarray(data)
-    shared_data = RawArray("d", int(np.prod(data.shape)))
-    buffered_data = np.frombuffer(shared_data).reshape(data.shape)
-    buffered_data[:] = data[:]
-
-    if return_buffer:
-        return shared_data, buffered_data
-    else:
-        return shared_data
+_bar_format = "{desc} {percentage:3.0f}%|{bar}| {elapsed}<{remaining}{postfix}"
 
 
 def validate_settings(user_settings):
     settings = copy.deepcopy(amset_defaults)
-
-    def recursive_update(d, u):
-        """ Recursive dict update."""
-        for k, v in u.items():
-            if isinstance(v, collections.Mapping):
-                d[k] = recursive_update(d.get(k, {}), v)
-            else:
-                d[k] = v
-        return d
-
-    recursive_update(settings, user_settings)
+    settings.update(user_settings)
 
     # validate the type of some settings
-    if isinstance(settings["general"]["doping"], (int, float)):
-        settings["general"]["doping"] = [settings["general"]["doping"]]
+    if isinstance(settings["doping"], (int, float)):
+        settings["doping"] = [settings["doping"]]
+    elif isinstance(settings["doping"], str):
+        settings["doping"] = parse_doping(settings["doping"])
 
-    elif isinstance(settings["general"]["doping"], str):
-        settings["general"]["doping"] = parse_doping(settings["general"]["doping"])
+    if isinstance(settings["temperatures"], (int, float)):
+        settings["temperatures"] = [settings["temperatures"]]
+    elif isinstance(settings["temperatures"], str):
+        settings["temperatures"] = parse_temperatures(settings["temperatures"])
 
-    if isinstance(settings["general"]["temperatures"], (int, float)):
-        settings["general"]["temperatures"] = [settings["general"]["temperatures"]]
-    elif isinstance(settings["general"]["temperatures"], str):
-        settings["general"]["temperatures"] = parse_temperatures(
-            settings["general"]["temperatures"]
+    if isinstance(settings["deformation_potential"], str):
+        settings["deformation_potential"] = parse_deformation_potential(
+            settings["deformation_potential"]
         )
 
-    if isinstance(settings["material"]["deformation_potential"], str):
-        settings["general"]["deformation_potential"] = parse_deformation_potential(
-            settings["general"]["deformation_potential"]
-        )
-
-    settings["general"]["doping"] = np.asarray(settings["general"]["doping"])
-    settings["general"]["temperatures"] = np.asarray(
-        settings["general"]["temperatures"]
-    )
+    settings["doping"] = np.asarray(settings["doping"])
+    settings["temperatures"] = np.asarray(settings["temperatures"])
 
     return settings
 
@@ -145,35 +120,6 @@ def cast_dict(d):
     return new_d
 
 
-def gen_even_slices(n, n_packs):
-    """Generator to create n_packs slices going up to n.
-
-    Parameters
-    ----------
-    n : int
-    n_packs : int
-        Number of slices to generate.
-
-    Yields
-    ------
-    slice
-
-    Examples
-    --------
-    """
-    start = 0
-    if n_packs < 1:
-        raise ValueError("gen_even_slices got n_packs=%s, must be >=1" % n_packs)
-    for pack_num in range(n_packs):
-        this_n = n // n_packs
-        if pack_num < n % n_packs:
-            this_n += 1
-        if this_n > 0:
-            end = start + this_n
-            yield slice(start, end, None)
-            start = end
-
-
 def parse_doping(doping_str: str):
     doping_str = doping_str.strip().replace(" ", "")
 
@@ -232,3 +178,39 @@ def parse_deformation_potential(deformation_pot_str: str):
             "ERROR: Unrecognised deformation potential format: "
             "{}".format(deformation_pot_str)
         )
+
+
+def get_progress_bar(
+    iterable=None,
+    total=None,
+    desc="",
+    min_desc_width=18,
+    prepend_pipe=True
+):
+    if prepend_pipe:
+        desc = "    ├── " + desc
+
+    desc += ":"
+
+    if len(desc) < min_desc_width:
+        desc += " " * (min_desc_width - len(desc))
+
+    if iterable is not None:
+        return tqdm(
+            iterable=iterable,
+            total=total,
+            ncols=output_width,
+            desc=desc,
+            bar_format=_bar_format,
+            file=sys.stdout,
+        )
+    elif total is not None:
+        return tqdm(
+            total=total,
+            ncols=output_width,
+            desc=desc,
+            bar_format=_bar_format,
+            file=sys.stdout,
+        )
+    else:
+        raise ValueError("Error creating progress bar, need total or iterable")

@@ -7,7 +7,7 @@ from BoltzTraP2.units import BOLTZMANN, Second
 
 from amset.constants import hbar
 from amset.data import AmsetData
-from amset.misc.log import log_list
+from amset.log import log_list
 from pymatgen import Spin
 
 __author__ = "Alex Ganose"

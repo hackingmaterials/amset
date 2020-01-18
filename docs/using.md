@@ -5,10 +5,11 @@ Python API. In both cases, the primary input is a `vasprun.xml` file from a
 uniform band structure calculation (i.e., on a regular k-point grid and not
 along high-symmetry lines).
 
-Temperature and doping ranges, scattering rates, and calculation performance
+Temperature and doping ranges, scattering rates, and calculation
 parameters are controlled through the settings file. More details on the
 available settings are provided in the [settings section](settings.md) of the
-documentation. An example settings file is given [here](../examples/example_settings.yaml).
+documentation. An example settings file is given 
+[here](https://github.com/hackingmaterials/amset/blob/master/examples/GaAs/settings.yaml).
 
 ## From the command-line
 
@@ -45,57 +46,41 @@ For example, the following snippet will look for a `vasprun.xml` and
 from amset.run import AmsetRunner
 
 runner = AmsetRunner.from_directory(directory='.')
-runner.run()
+amset_data = runner.run()
 ```
 
-The API allows for easily converging performance parameters. For example,
-the following snippet will run AMSET using multiple interpolation parameters.
+The API allows for easy convergence of parameters. For example,
+the following snippet will run AMSET using multiple interpolation factors.
 
 ```python
-
 from amset.run import AmsetRunner
 
-settings = {'general': {'interpolation_factor': 5}}
+settings = {'interpolation_factor': 5}
 
+outputs = []
 for i_factor in range(10, 100, 10):
-    settings["general"]["interpolation_factor"] = i_factor
+    settings["interpolation_factor"] = i_factor
 
-    runner = AmsetRunner.from_directory(
-        directory='.', settings_override=settings)
-    runner.run()
+    runner = AmsetRunner.from_directory(directory='.', settings_override=settings)
+    outputs.append(runner.run())
 ```
 
 When running AMSET from the API, it is not necessary to use a settings file
 at all. Instead the settings can be passed as a dictionary. For example:
 
-
 ```python
 from amset.run import AmsetRunner
 
 settings = {
-    "general": {
-        "interpolation_factor": 150,
-        "doping": [1.99e+14, 2.20e+15, 1.72e+16,
-                   1.86e+17, 1.46e+18, 4.39e+18],
-        "temperatures": [300]
-    },
+    "interpolation_factor": 150,
+    "doping": [1e15, 1e16, 1e17, 1e18],
+    "temperatures": [300],
 
-    "material": {
-        "deformation_potential": (6.5, 6.5),
-        "elastic_constant": 190,
-        "static_dielectric": 13.1,
-    },
+    "deformation_potential": (6.5, 6.5),
+    "elastic_constant": 190,
+    "static_dielectric": 13.1,
 }
 
-runner = AmsetRunner.from_vasprun_and_settings("vasprun.xml.gz", settings)
-runner.run()
+runner = AmsetRunner.from_vasprun("vasprun.xml.gz", settings)
+amset_data = runner.run()
 ```
-
-Output files
-------------
-
-Convergence
------------
-
-
-
