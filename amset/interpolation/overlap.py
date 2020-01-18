@@ -16,12 +16,8 @@ _p_orbital_order = [2, 0, 1]  # VASP sorts p orbitals as py, pz, px
 _d_orbital_order = [[4, 0, 3], [0, 4, 1], [3, 1, 2]]
 _select_d_order = ([2, 0, 1, 0, 1], [2, 2, 2, 1, 1])  # selects dz2 dxz dyz dxy dx2
 
-# _p_mask = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-# _d_mask = np.array([[0, 1, 0, 1, 1], [0, 0, 1, 1, 1], [1, 1, 1, 0, 0]])
 _p_mask = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
 _d_mask = np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]])
-# _p_mask = np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
-# _d_mask = np.array([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]])
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +125,6 @@ class OverlapCalculator(object):
 
         centers = self.band_centers[spin][band_a]
         center = centers[np.argmin(np.linalg.norm(pbc_diff(centers, kpoint_a), axis=1))]
-        # print("\nband center", center)
 
         shift_a = pbc_diff(kpoint_a, center)
         shift_b = pbc_diff(kpoint_b, center)
