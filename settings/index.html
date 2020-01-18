@@ -1092,14 +1092,14 @@ processors.</p>
 <p>These settings control the output files and logging.</p>
 <h3 id="calculate_mobility"><code class="codehilite"><span class="err">calculate_mobility</span></code><a class="headerlink" href="#calculate_mobility" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--no-calculate-mobility</span></code></p>
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--calculate-mobility/--no-calculate-mobility</span></code></p>
 <p>Whether to calculate <em>n</em>- and <em>p</em>-type carrier mobilities. Has no effect
 for metallic systems where mobility is not well defined.</p>
 <p>Default: <code class="codehilite"><span class="err">True</span></code></p>
 </div>
 <h3 id="separate_scattering_mobilities"><code class="codehilite"><span class="err">separate_scattering_mobilities</span></code><a class="headerlink" href="#separate_scattering_mobilities" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--no-separate-scattering-mobilities</span></code></p>
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--separate-mobility/--no-separate-mobility</span></code></p>
 <p>Whether to report the individual scattering rate mobilities. I.e., the mobility
 if only that scattering mechanism were present.</p>
 <p>Default: <code class="codehilite"><span class="err">True</span></code></p>
@@ -1113,13 +1113,13 @@ if only that scattering mechanism were present.</p>
 </div>
 <h3 id="write_input"><code class="codehilite"><span class="err">write_input</span></code><a class="headerlink" href="#write_input" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--write-input</span></code></p>
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--write-input/--no-write-input</span></code></p>
 <p>Whether to write the input settings to a file called <code class="codehilite"><span class="err">amset_settings.yaml</span></code>.</p>
 <p>Default: <code class="codehilite"><span class="err">False</span></code></p>
 </div>
 <h3 id="write_mesh"><code class="codehilite"><span class="err">write_mesh</span></code><a class="headerlink" href="#write_mesh" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--write-mesh</span></code></p>
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--write-mesh/--no-write-mesh</span></code></p>
 <p>Whether to write the full k-dependent properties to disk. Properties include
 the band energy, velocity and scattering rate. Only k-points in the 
 irreducible wedge are included.</p>
@@ -1129,7 +1129,7 @@ his option can use a large amount of disk space.</p>
 </div>
 <h3 id="print_log"><code class="codehilite"><span class="err">print_log</span></code><a class="headerlink" href="#print_log" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--no-log</span></code></p>
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--print-log/--no-log</span></code></p>
 <p>Whether to print log messages.</p>
 <p>Default: <code class="codehilite"><span class="err">True</span></code></p>
 </div>
