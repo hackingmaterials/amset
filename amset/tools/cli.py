@@ -11,7 +11,7 @@ from click import option
 
 from amset.constants import amset_defaults
 from amset.log import initialize_amset_logger
-from amset.run import AmsetRunner
+from amset.core.run import AmsetRunner
 from amset.util import parse_deformation_potential, parse_doping, parse_temperatures
 
 __author__ = "Alex Ganose"
@@ -28,9 +28,9 @@ __date__ = "June 21, 2019"
 @option("-s", "--settings", help="path to settings file")
 @option(
     "-i",
-    "--interpolation-factor",
+    "--electronic_structure-factor",
     type=float,
-    help="band structure interpolation factor",
+    help="band structure electronic_structure factor",
 )
 @option(
     "--d",
@@ -65,7 +65,9 @@ __date__ = "June 21, 2019"
 @option("--donor-charge", type=float, help="donor defect charge")
 @option("--pop-frequency", type=float, help="polar optical phonon frequency [THz]")
 @option(
-    "--energy-cutoff", type=float, help="energy cut-off for band interpolation [eV]"
+    "--energy-cutoff",
+    type=float,
+    help="energy cut-off for band electronic_structure [eV]",
 )
 @option(
     "--fd-tol",

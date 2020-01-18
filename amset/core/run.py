@@ -16,10 +16,10 @@ from tabulate import tabulate
 
 from amset import __version__
 from amset.constants import amset_defaults, bohr_to_cm, hbar
-from amset.interpolation.interpolate import Interpolater
+from amset.electronic_structure.interpolate import Interpolater
 from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator
-from amset.transport import solve_boltzman_transport_equation
+from amset.core.transport import solve_boltzman_transport_equation
 from amset.util import (
     load_settings_from_file,
     tensor_average,
@@ -126,7 +126,7 @@ class AmsetRunner(MSONable):
             nworkers=self.settings["nworkers"],
         )
 
-        timing = {"interpolation": time.perf_counter() - t0}
+        timing = {"electronic_structure": time.perf_counter() - t0}
 
         pop_frequency = self.settings["pop_frequency"]
         scattering_type = self.settings["scattering_type"]

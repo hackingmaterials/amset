@@ -11,10 +11,10 @@ from monty.serialization import dumpfn
 
 from amset.constants import amset_defaults as defaults
 from amset.constants import cm_to_bohr
-from amset.dos import FermiDos
-from amset.interpolation.overlap import OverlapCalculator
+from amset.electronic_structure.dos import FermiDos
+from amset.electronic_structure.overlap import OverlapCalculator
+from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
-from amset.tetrahedron import TetrahedralBandStructure
 from amset.util import cast_dict, groupby
 from pymatgen import Spin, Structure
 

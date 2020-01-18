@@ -7,7 +7,7 @@ import numpy as np
 from BoltzTraP2.units import Second
 
 from amset.constants import bohr_to_cm
-from amset.data import AmsetData
+from amset.core.data import AmsetData
 from amset.log import log_list
 from amset.scattering.elastic import calculate_inverse_screening_length_sq
 

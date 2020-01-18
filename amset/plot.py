@@ -7,7 +7,7 @@ from BoltzTraP2 import units
 from matplotlib import cycler
 
 from amset.constants import bohr_to_cm
-from amset.data import AmsetData
+from amset.core.data import AmsetData
 
 _seaborn_colors = [
     (0.2980392156862745, 0.4470588235294118, 0.6901960784313725),

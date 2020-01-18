@@ -14,12 +14,12 @@ from BoltzTraP2.fd import FD
 from scipy.interpolate import griddata
 
 from amset.constants import hbar, small_val, spin_name
-from amset.data import AmsetData
+from amset.core.data import AmsetData
 from amset.log import log_list, log_time_taken
 from amset.scattering.basic import AbstractBasicScattering
 from amset.scattering.elastic import AbstractElasticScattering
 from amset.scattering.inelastic import AbstractInelasticScattering
-from amset.tetrahedron import (
+from amset.electronic_structure.tetrahedron import (
     get_cross_section_values,
     get_projected_intersections,
     integrate_function_over_cross_section,
@@ -378,7 +378,7 @@ def _interpolate_zero_rates(rates, kpoints, masks: Optional = None):
                 rates[spin][s, d, t, b, mask] += small_val
 
             elif np.sum(non_zero_rates) != np.sum(mask):
-                # interpolation seems to work best when all the kpoints are +ve
+                # electronic_structure seems to work best when all the kpoints are +ve
                 # therefore add 0.5
                 # Todo: Use cartesian coordinates (will be more robust to
                 #  oddly shaped cells)

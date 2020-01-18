@@ -9,7 +9,7 @@ from BoltzTraP2.units import BOLTZMANN
 from scipy.constants import epsilon_0
 
 from amset.constants import e, gpa_to_au, hbar, k_B
-from amset.data import AmsetData
+from amset.core.data import AmsetData
 from pymatgen import Spin
 
 __author__ = "Alex Ganose"

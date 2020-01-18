@@ -2,7 +2,6 @@ import unittest
 
 import numpy as np
 
-from amset.tetrahedron import TetrahedralBandStructure
 from pymatgen import Spin
 
 

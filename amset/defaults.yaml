@@ -16,7 +16,7 @@ bandgap: null  # in eV
 # whether the calculation was performed with spin orbit coupling
 soc: false
 
-# The band structure interpolation factor that determines the k-mesh density
+# The band structure electronic_structure factor that determines the k-mesh density
 interpolation_factor: 10
 
 # The following settings are required to calculate scattering rates

@@ -1,4 +1,4 @@
-"""Band structure interpolation using BolzTraP2."""
+"""Band structure electronic_structure using BolzTraP2."""
 
 import logging
 import multiprocessing as mp
@@ -14,17 +14,17 @@ from monty.json import MSONable
 
 from amset.constants import amset_defaults as defaults
 from amset.constants import angstrom_to_bohr, bohr_to_cm, ev_to_hartree, spin_name
-from amset.data import AmsetData
-from amset.dos import FermiDos
+from amset.core.data import AmsetData
+from amset.electronic_structure.dos import FermiDos
 from amset.interpolation.overlap import OverlapCalculator
-from amset.kpoints import (
+from amset.electronic_structure.kpoints import (
     get_kpoints_tetrahedral,
     get_symmetry_equivalent_kpoints,
     similarity_transformation,
     sort_boltztrap_to_spglib,
 )
 from amset.log import log_list, log_time_taken
-from amset.tetrahedron import TetrahedralBandStructure
+from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure,
@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 class Interpolater(MSONable):
     """Class to interpolate band structures based on BoltzTraP2.
 
-    Details of the interpolation method are available in:
+    Details of the electronic_structure method are available in:
 
     3. Madsen, G. K. & Singh, D. J. Computer Physics Communications 175, 67–71
        (2006)
@@ -57,7 +57,7 @@ class Interpolater(MSONable):
         band_structure: A pymatgen band structure object.
         num_electrons: The number of electrons in the system.
         interpolation_factor: Factor used to determine the accuracy of the
-            band structure interpolation. Also controls the k-point mesh density
+            band structure electronic_structure. Also controls the k-point mesh density
             for :meth:`Interpolater.get_amset_data`.
         soc: Whether the system was calculated using spin–orbit coupling.
         magmom: The magnetic moments for each atom.
@@ -89,14 +89,14 @@ class Interpolater(MSONable):
         kpoints = np.array([k.frac_coords for k in band_structure.kpoints])
         atoms = AseAtomsAdaptor.get_atoms(band_structure.structure)
 
-        logger.info("Getting band interpolation coefficients")
+        logger.info("Getting band electronic_structure coefficients")
 
         t0 = time.perf_counter()
         self._equivalences = sphere.get_equivalences(
             atoms=atoms, nkpt=kpoints.shape[0] * interpolation_factor, magmom=magmom
         )
 
-        # get the interpolation mesh used by BoltzTraP2
+        # get the electronic_structure mesh used by BoltzTraP2
         self.interpolation_mesh = (
             2 * np.max(np.abs(np.vstack(self._equivalences)), axis=0) + 1
         )
@@ -109,7 +109,7 @@ class Interpolater(MSONable):
         log_time_taken(t0)
 
         if self._interpolate_projections:
-            logger.info("Getting projection interpolation coefficients")
+            logger.info("Getting projection electronic_structure coefficients")
 
             if not band_structure.projections:
                 raise ValueError(
@@ -139,7 +139,7 @@ class Interpolater(MSONable):
     ) -> AmsetData:
         """Gets an AmsetData object using the interpolated bands.
 
-        Note, the interpolation mesh is determined using by
+        Note, the electronic_structure mesh is determined using by
         ``interpolate_factor`` option in the ``Inteprolater`` constructor.
 
         This method is much faster than the ``get_energies`` function but
@@ -149,7 +149,7 @@ class Interpolater(MSONable):
 
         Args:
             energy_cutoff: The energy cut-off to determine which bands are
-                included in the interpolation. If the energy of a band falls
+                included in the electronic_structure. If the energy of a band falls
                 within the cut-off at any k-point it will be included. For
                 metals the range is defined as the Fermi level ± energy_cutoff.
                 For gapped materials, the energy range is from the VBM -
@@ -163,7 +163,7 @@ class Interpolater(MSONable):
             symprec: The symmetry tolerance used when determining the symmetry
                 inequivalent k-points on which to interpolate.
             nworkers: The number of processors used to perform the
-                interpolation. If set to ``-1``, the number of workers will
+                electronic_structure. If set to ``-1``, the number of workers will
                 be set to the number of CPU cores.
 
         Returns:
@@ -238,7 +238,7 @@ class Interpolater(MSONable):
                 vb_idx = np.where(vbs)[0].max()
 
                 # need to know the index of the valence band after discounting
-                # bands during the interpolation. As ibands is just a list of
+                # bands during the electronic_structure. As ibands is just a list of
                 # True/False, we can count the number of Trues included up to
                 # and including the VBM to get the new number of valence bands
                 new_vb_idx[spin] = sum(ibands[: vb_idx + 1]) - 1
@@ -272,7 +272,7 @@ class Interpolater(MSONable):
             efermi = _get_efermi(energies, new_vb_idx)
 
         logger.info("Generating tetrahedron mesh")
-        # get the actual k-points used in the BoltzTraP2 interpolation
+        # get the actual k-points used in the BoltzTraP2 electronic_structure
         # unfortunately, BoltzTraP2 doesn't expose this information so we
         # have to get it ourselves
         ir_kpts, _, full_kpts, ir_kpts_idx, ir_to_full_idx, tetrahedra, *ir_tetrahedra_info = get_kpoints_tetrahedral(
@@ -341,13 +341,13 @@ class Interpolater(MSONable):
     ) -> Union[Dict[Spin, np.ndarray], Tuple[Dict[Spin, np.ndarray], ...]]:
         """Gets the interpolated energies for multiple k-points in a band.
 
-        Note, the accuracy of the interpolation is dependant on the
+        Note, the accuracy of the electronic_structure is dependant on the
         ``interpolate_factor`` used to initialize the Interpolater.
 
         Args:
             kpoints: The k-point coordinates.
             energy_cutoff: The energy cut-off to determine which bands are
-                included in the interpolation. If the energy of a band falls
+                included in the electronic_structure. If the energy of a band falls
                 within the cut-off at any k-point it will be included. For
                 metals the range is defined as the Fermi level ± energy_cutoff.
                 For gapped materials, the energy range is from the VBM -
@@ -489,7 +489,7 @@ class Interpolater(MSONable):
                 vb_idx = np.where(vbs)[0].max()
 
                 # need to know the index of the valence band after discounting
-                # bands during the interpolation. As ibands is just a list of
+                # bands during the electronic_structure. As ibands is just a list of
                 # True/False, we can count the number of Trues included up to
                 # and including the VBM to get the new number of valence bands
                 new_vb_idx[spin] = sum(ibands[: vb_idx + 1]) - 1
@@ -565,7 +565,7 @@ class Interpolater(MSONable):
                 treated as a reciprocal density and the k-point mesh dimensions
                 generated automatically.
             energy_cutoff: The energy cut-off to determine which bands are
-                included in the interpolation. If the energy of a band falls
+                included in the electronic_structure. If the energy of a band falls
                 within the cut-off at any k-point it will be included. For
                 metals the range is defined as the Fermi level ± energy_cutoff.
                 For gapped materials, the energy range is from the VBM -
@@ -632,7 +632,7 @@ class Interpolater(MSONable):
             line_density: The maximum number of k-points between each two
                 consecutive high-symmetry k-points
             energy_cutoff: The energy cut-off to determine which bands are
-                included in the interpolation. If the energy of a band falls
+                included in the electronic_structure. If the energy of a band falls
                 within the cut-off at any k-point it will be included. For
                 metals the range is defined as the Fermi level ± energy_cutoff.
                 For gapped materials, the energy range is from the VBM -
@@ -678,7 +678,7 @@ class Interpolater(MSONable):
 
 
 class DFTData(object):
-    """DFTData object used for BoltzTraP2 interpolation.
+    """DFTData object used for BoltzTraP2 electronic_structure.
 
     Note that the units used by BoltzTraP are different to those used by VASP.
 
@@ -834,11 +834,11 @@ def get_bands_fft(
     return_effective_mass=False,
     nworkers=defaults["nworkers"],
 ):
-    """Rebuild the full energy bands from the interpolation coefficients.
+    """Rebuild the full energy bands from the electronic_structure coefficients.
 
     Args:
         equivalences: list of k-point equivalence classes in direct coordinates
-        coeffs: interpolation coefficients
+        coeffs: electronic_structure coefficients
         lattvec: lattice vectors of the system
         return_effective_mass: Whether to calculate the effective mass.
         nworkers: number of working processes to span
@@ -916,7 +916,7 @@ def fft_worker(
         iqueue: input multiprocessing.Queue used to read bad indices
             and coefficients.
         oqueue: output multiprocessing.Queue where all results of the
-            interpolation are put. Each element of the queue is a 4-tuple
+            electronic_structure are put. Each element of the queue is a 4-tuple
             of the form (index, eband, vvband, cband), containing the band
             index, the energies, the v x v outer product and the curvatures
             if requested.

@@ -6,7 +6,7 @@ import numpy as np
 from BoltzTraP2.bandlib import calc_Onsager_coefficients, fermiintegrals
 
 from amset.constants import amset_defaults, bohr_to_cm, e
-from amset.data import AmsetData
+from amset.core.data import AmsetData
 from amset.log import log_time_taken
 from amset.util import get_progress_bar
 
@@ -124,7 +124,7 @@ def _calculate_mobility(
     return mobility
 
 
-def _calculate_transport_properties(amset_data, pbar_label="transport"):
+def _calculate_transport_properties(amset_data):
     n_t_size = (len(amset_data.doping), len(amset_data.temperatures))
 
     sigma = np.zeros(n_t_size + (3, 3))
@@ -132,7 +132,7 @@ def _calculate_transport_properties(amset_data, pbar_label="transport"):
     kappa = np.zeros(n_t_size + (3, 3))
     volume = amset_data.structure.volume
 
-    pbar = get_progress_bar(iterable=list(np.ndindex(n_t_size)), desc=pbar_label)
+    pbar = get_progress_bar(iterable=list(np.ndindex(n_t_size)), desc="transport")
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in pbar:
         lifetimes = {

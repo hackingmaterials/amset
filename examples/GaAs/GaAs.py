@@ -1,7 +1,7 @@
 import warnings
 
 from amset.plot import AmsetPlotter
-from amset.run import AmsetRunner
+from amset.core.run import AmsetRunner
 
 warnings.simplefilter("ignore")
 
@@ -11,7 +11,7 @@ settings = {
     "temperatures": [201, 290, 401, 506, 605, 789, 994],
     "bandgap": 1.33,
 
-    # interpolation settings
+    # electronic_structure settings
     "interpolation_factor": 50,
 
     # scattering rate settings
