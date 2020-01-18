@@ -181,11 +181,7 @@ def parse_deformation_potential(deformation_pot_str: str):
 
 
 def get_progress_bar(
-    iterable=None,
-    total=None,
-    desc="",
-    min_desc_width=18,
-    prepend_pipe=True
+    iterable=None, total=None, desc="", min_desc_width=18, prepend_pipe=True
 ):
     if prepend_pipe:
         desc = "    ├── " + desc

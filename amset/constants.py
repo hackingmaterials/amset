@@ -34,4 +34,4 @@ numeric_types = (float, int, np.integer, np.floating)
 float_types = (float, np.floating)
 int_types = (int, np.integer)
 
-amset_defaults = loadfn(resource_filename('amset', 'defaults.yaml'))
+amset_defaults = loadfn(resource_filename("amset", "defaults.yaml"))

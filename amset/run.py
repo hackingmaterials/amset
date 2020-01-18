@@ -47,7 +47,6 @@ _kpt_str = "[{k[0]:.2f}, {k[1]:.2f}, {k[2]:.2f}]"
 
 
 class AmsetRunner(MSONable):
-
     def __init__(
         self,
         band_structure: BandStructure,
@@ -207,8 +206,9 @@ class AmsetRunner(MSONable):
         return amset_data, timing
 
     @staticmethod
-    def from_vasprun(vasprun: Union[str, Path, Vasprun],
-                     settings: Dict[str, Any]) -> "AmsetRunner":
+    def from_vasprun(
+        vasprun: Union[str, Path, Vasprun], settings: Dict[str, Any]
+    ) -> "AmsetRunner":
         """Initialise an AmsetRunner from a Vasprun.
 
         The nelect and soc options will be determined from the Vasprun
@@ -311,7 +311,7 @@ def _log_structure_information(structure: Structure, symprec):
     comp_info = [
         "formula: {}".format(unicodeify(formula)),
         "# sites: {}".format(structure.num_sites),
-        "space group: {}".format(spg)
+        "space group: {}".format(spg),
     ]
     log_list(comp_info)
 
@@ -440,12 +440,12 @@ def _log_results_summary(amset_data, output_parameters):
             results_summary.append(results)
 
     table = tabulate(
-            results_summary,
-            headers=headers,
-            numalign="right",
-            stralign="center",
-            floatfmt=(".2e", ".1f", ".2e", ".2e", ".1f"),
-        )
+        results_summary,
+        headers=headers,
+        numalign="right",
+        stralign="center",
+        floatfmt=(".2e", ".1f", ".2e", ".2e", ".1f"),
+    )
     logger.info(table)
 
     if output_parameters["separate_scattering_mobilities"] and not amset_data.is_metal:

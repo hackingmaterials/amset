@@ -51,7 +51,6 @@ if __name__ == "__main__":
         data_files=['LICENSE', 'requirements.txt'],
         zip_safe=False,
         install_requires=reqs_list,
-        extras_require={'docs': ['sphinx']},
         classifiers=['Programming Language :: Python :: 3.6',
                      'Development Status :: 4 - Beta',
                      'Intended Audience :: Science/Research',
@@ -62,5 +61,6 @@ if __name__ == "__main__":
                      'Topic :: Scientific/Engineering'],
         test_suite='nose.collector',
         tests_require=['nose'],
-        entry_points={'console_scripts': ['amset = amset.cli:main']}
+        entry_points={'console_scripts': ['amset = amset.cli:main',
+                                          'eff-phonon-freq = amset.tools.phonon_frequency:main']}
     )

@@ -62,9 +62,7 @@ class ScatteringCalculator(object):
         self.settings = settings
         self.nworkers = nworkers if nworkers != -1 else cpu_count()
         self.use_symmetry = use_symmetry
-        self.scatterers = self.get_scatterers(
-            scattering_type, settings, amset_data
-        )
+        self.scatterers = self.get_scatterers(scattering_type, settings, amset_data)
         self.amset_data = amset_data
 
         if self.amset_data.fd_cutoffs:
@@ -123,7 +121,8 @@ class ScatteringCalculator(object):
         else:
             for name in scattering_type:
                 missing_properties = [
-                    p for p in _scattering_mechanisms[name].required_properties
+                    p
+                    for p in _scattering_mechanisms[name].required_properties
                     if not settings.get(p, False)
                 ]
 
@@ -146,7 +145,7 @@ class ScatteringCalculator(object):
         spins = self.amset_data.spins
         full_kpoints = self.amset_data.full_kpoints
         f_shape = self.amset_data.fermi_levels.shape
-        scattering_shape = (len(self.scatterer_labels), ) + f_shape
+        scattering_shape = (len(self.scatterer_labels),) + f_shape
 
         # rates has shape (spin, nscatterers, ndoping, ntemp, nbands, nkpoints)
         rates = {
@@ -172,9 +171,9 @@ class ScatteringCalculator(object):
                 logger.info(str_b.format(spin_name[spin], b_idx + 1))
 
                 t0 = time.perf_counter()
-                rates[spin][..., b_idx, :], masks[spin][..., b_idx, :] = self.calculate_band_rates(
-                    spin, b_idx
-                )
+                rates[spin][..., b_idx, :], masks[spin][
+                    ..., b_idx, :
+                ] = self.calculate_band_rates(spin, b_idx)
 
                 info = [
                     "max rate: {:.4g}".format(rates[spin][..., b_idx, :].max()),

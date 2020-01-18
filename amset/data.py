@@ -311,7 +311,7 @@ class AmsetData(MSONable):
         conductivity: np.ndarray,
         seebeck: np.ndarray,
         electronic_thermal_conductivity: np.ndarray,
-        mobility: Optional[np.ndarray] = None
+        mobility: Optional[np.ndarray] = None,
     ):
         self.conductivity = conductivity
         self.seebeck = seebeck

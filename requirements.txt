@@ -9,3 +9,4 @@ tqdm==4.41.1
 tabulate==0.8.6
 memory_profiler==0.57.0
 spglib==1.14.1.post0
+click==7.0

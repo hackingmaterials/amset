@@ -83,7 +83,7 @@ def _calculate_mobility(
     mobility = np.zeros(amset_data.fermi_levels.shape + (3, 3))
 
     pbar = get_progress_bar(
-        iterable=list(np.ndindex(amset_data.fermi_levels.shape)), desc=pbar_label,
+        iterable=list(np.ndindex(amset_data.fermi_levels.shape)), desc=pbar_label
     )
     for n, t in pbar:
         br = {s: np.arange(len(amset_data.energies[s])) for s in amset_data.spins}
