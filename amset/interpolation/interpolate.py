@@ -17,13 +17,19 @@ from amset.constants import angstrom_to_bohr, bohr_to_cm, ev_to_hartree, spin_na
 from amset.data import AmsetData
 from amset.dos import FermiDos
 from amset.interpolation.overlap import OverlapCalculator
-from amset.kpoints import (get_kpoints_tetrahedral, get_symmetry_equivalent_kpoints,
-                           similarity_transformation, sort_boltztrap_to_spglib)
+from amset.kpoints import (
+    get_kpoints_tetrahedral,
+    get_symmetry_equivalent_kpoints,
+    similarity_transformation,
+    sort_boltztrap_to_spglib,
+)
 from amset.log import log_list, log_time_taken
 from amset.tetrahedron import TetrahedralBandStructure
 from pymatgen import Structure
-from pymatgen.electronic_structure.bandstructure import (BandStructure,
-                                                         BandStructureSymmLine)
+from pymatgen.electronic_structure.bandstructure import (
+    BandStructure,
+    BandStructureSymmLine,
+)
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.dos import Dos
 from pymatgen.io.ase import AseAtomsAdaptor

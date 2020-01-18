@@ -19,8 +19,11 @@ from amset.log import log_list, log_time_taken
 from amset.scattering.basic import AbstractBasicScattering
 from amset.scattering.elastic import AbstractElasticScattering
 from amset.scattering.inelastic import AbstractInelasticScattering
-from amset.tetrahedron import (get_cross_section_values, get_projected_intersections,
-                               integrate_function_over_cross_section)
+from amset.tetrahedron import (
+    get_cross_section_values,
+    get_projected_intersections,
+    integrate_function_over_cross_section,
+)
 from amset.util import get_progress_bar
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
