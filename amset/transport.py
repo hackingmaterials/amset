@@ -5,7 +5,7 @@ from typing import Union, List
 import numpy as np
 from BoltzTraP2.bandlib import fermiintegrals, calc_Onsager_coefficients
 
-from amset.constants import e, bohr_to_cm
+from amset.constants import e, bohr_to_cm, amset_defaults
 from amset.data import AmsetData
 from amset.log import log_time_taken
 from amset.util import get_progress_bar
@@ -22,8 +22,8 @@ _e_str = "Electronic structure must contain dopings temperatures and scattering 
 
 def solve_boltzman_transport_equation(
     amset_data: AmsetData,
-    calculate_mobility: bool = True,
-    separate_scattering_mobilities: bool = False,
+    calculate_mobility: bool = amset_defaults["calculate_mobility"],
+    separate_mobility: bool = amset_defaults["separate_mobility"],
 ):
     has_doping = amset_data.doping is not None
     has_temps = amset_data.temperatures is not None
@@ -52,13 +52,11 @@ def solve_boltzman_transport_equation(
     mobility = {"overall": _calculate_mobility(amset_data, np.arange(n_scats))}
     log_time_taken(t0)
 
-    if separate_scattering_mobilities:
+    if separate_mobility:
         logger.info("Calculating individual scattering rate mobilities")
         t0 = time.perf_counter()
         for rate_idx, name in enumerate(amset_data.scattering_labels):
-            mobility[name] = _calculate_mobility(
-                amset_data, rate_idx, pbar_label=name
-            )
+            mobility[name] = _calculate_mobility(amset_data, rate_idx, pbar_label=name)
         log_time_taken(t0)
 
     return sigma, seebeck, kappa, mobility

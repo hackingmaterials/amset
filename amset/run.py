@@ -171,10 +171,9 @@ class AmsetRunner(MSONable):
 
         log_banner("TRANSPORT")
         t0 = time.perf_counter()
-        sep_scats = self.settings["separate_scattering_mobilities"]
         transport_properties = solve_boltzman_transport_equation(
             amset_data,
-            separate_scattering_mobilities=sep_scats,
+            separate_mobility=self.settings["separate_mobility"],
             calculate_mobility=self.settings["calculate_mobility"],
         )
         amset_data.set_transport_properties(*transport_properties)
@@ -448,7 +447,7 @@ def _log_results_summary(amset_data, output_parameters):
     )
     logger.info(table)
 
-    if output_parameters["separate_scattering_mobilities"] and not amset_data.is_metal:
+    if output_parameters["separate_mobility"] and not amset_data.is_metal:
         labels = amset_data.scattering_labels
         logger.info("Mobility breakdown by scattering mechanism, in cm²/Vs:")
         headers = ["conc [cm⁻³]", "temp [K]"] + labels

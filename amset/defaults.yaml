@@ -38,7 +38,7 @@ nworkers: -1  # default is -1 (use all processors)
 
 # The output section controls AMSET output files and logging
 calculate_mobility: true
-separate_scattering_mobilities: true
+separate_mobility: true
 file_format: json
 write_input: false
 write_mesh: false

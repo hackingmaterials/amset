@@ -272,7 +272,7 @@ These settings control the output files and logging.
 ### `calculate_mobility`
 
 !!! quote ""
-    *Command-line option:* ``--no-calculate-mobility``
+    *Command-line option:* ``--calculate-mobility/--no-calculate-mobility``
 
     Whether to calculate *n*- and *p*-type carrier mobilities. Has no effect
     for metallic systems where mobility is not well defined.
@@ -282,12 +282,12 @@ These settings control the output files and logging.
 ### `separate_scattering_mobilities`
 
 !!! quote ""
-    *Command-line option:* `--no-separate-scattering-mobilities`
+    *Command-line option:* `--separate-mobility/--no-separate-mobility`
 
     Whether to report the individual scattering rate mobilities. I.e., the mobility
     if only that scattering mechanism were present.
 
-    Default: `{{ separate_scattering_mobilities }}`
+    Default: `{{ separate_mobility }}`
 
 ### `file_format`
 
@@ -303,7 +303,7 @@ These settings control the output files and logging.
 ### `write_input`
 
 !!! quote ""
-    *Command-line option:* `--write-input`
+    *Command-line option:* `--write-input/--no-write-input`
 
     Whether to write the input settings to a file called `amset_settings.yaml`.
 
@@ -312,7 +312,7 @@ These settings control the output files and logging.
 ### `write_mesh`
 
 !!! quote ""
-    *Command-line option:* `--write-mesh`
+    *Command-line option:* `--write-mesh/--no-write-mesh`
 
     Whether to write the full k-dependent properties to disk. Properties include
     the band energy, velocity and scattering rate. Only k-points in the 
@@ -326,7 +326,7 @@ These settings control the output files and logging.
 ### `print_log`
 
 !!! quote ""
-    *Command-line option:* ``--no-log``
+    *Command-line option:* ``--print-log/--no-log``
 
     Whether to print log messages.
 
