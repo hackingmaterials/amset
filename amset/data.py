@@ -50,7 +50,6 @@ class AmsetData(MSONable):
         is_metal: bool,
         soc: bool,
         overlap_calculator: OverlapCalculator,
-        kpoint_weights: Optional[np.ndarray] = None,
         dos: Optional[FermiDos] = None,
         vb_idx: Optional[Dict[Spin, int]] = None,
         conductivity: Optional[np.ndarray] = None,
@@ -86,11 +85,6 @@ class AmsetData(MSONable):
         self.a_factor = {}
         self.c_factor = {}
         self._calculate_orbital_factors()
-
-        if kpoint_weights is None:
-            self.kpoint_weights = np.ones(len(full_kpoints)) / len(full_kpoints)
-        else:
-            self.kpoint_weights = kpoint_weights
 
         self.scattering_rates = None
         self.scattering_labels = None

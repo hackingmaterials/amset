@@ -9,13 +9,12 @@ from monty.json import MSONable
 from amset.constants import e, bohr_to_cm
 from amset.data import AmsetData
 from amset.log import log_time_taken
+from amset.util import get_progress_bar
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 __date__ = "June 21, 2019"
-
-from amset.util import get_progress_bar
 
 logger = logging.getLogger(__name__)
 

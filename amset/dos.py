@@ -8,10 +8,10 @@ import numpy as np
 from typing import Optional, Union, Tuple, Dict
 
 from BoltzTraP2 import units
-from BoltzTraP2.bandlib import _suggest_nbins
 from BoltzTraP2.fd import FD
 from monty.json import MSONable
 
+from amset.constants import hartree_to_ev, ev_to_hartree
 from pymatgen import Structure, Spin
 from pymatgen.electronic_structure.dos import Dos
 
@@ -73,7 +73,7 @@ class FermiDos(Dos, MSONable):
 
         logger.debug(
             "Intrinsic DOS Fermi level: {:.4f} eV".format(
-                self.efermi / units.eV if atomic_units else self.efermi
+                self.efermi * hartree_to_ev if atomic_units else self.efermi
             )
         )
         logger.debug("DOS contains {:.3f} electrons".format(self.nelect))
@@ -235,34 +235,6 @@ class FermiDos(Dos, MSONable):
             return fermi
 
 
-def get_dos(eigs, erange=None, npts=None, weights=None):
-    """Compute the density of states.
-
-    Args:
-        eigs: (nkpoints, nbands) array with the band energies
-        erange: 2-tuple with the minimum and maximum energies to be considered.
-            If its value is None, take the minimum and maximum band energies.
-        npts: number of bins to include in the histogram. If omitted,
-            _suggest_nbins will be called to obtain an estimate.
-        weights: array with the same shape as eband to be used as the integrand.
-
-    Returns:
-        Two 1D numpy arrays of the same size with the bin energies and the DOS,
-        respectively.
-    """
-    nkpt, nband = np.shape(eigs)
-    if erange is None:
-        erange = (eigs.min(), eigs.max())
-    if npts is None:
-        npts = _suggest_nbins(eigs, erange)
-    pip = np.histogram(eigs, npts, weights=weights, range=erange)
-    npts = pip[1].size - 1
-    tdos = np.zeros((2, npts), dtype=float)
-    tdos[1] = pip[0] / ((erange[1] - erange[0]) / npts)
-    tdos[0] = 0.5 * (pip[1][:-1] + pip[1][1:])
-    return tdos
-
-
 def _get_weighted_dos(energies, dos, fermi_level, temperature, atomic_units=True):
     if temperature == 0.0:
         occ = np.where(energies < fermi_level, 1.0, 0.0)
@@ -272,7 +244,7 @@ def _get_weighted_dos(energies, dos, fermi_level, temperature, atomic_units=True
         if atomic_units:
             occ = FD(energies, fermi_level, kbt)
         else:
-            occ = FD(energies * units.eV, fermi_level * units.eV, kbt)
+            occ = FD(energies * ev_to_hartree, fermi_level * ev_to_hartree, kbt)
 
     wdos = dos * occ
     return wdos
