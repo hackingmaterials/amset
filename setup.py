@@ -8,6 +8,8 @@ from setuptools import setup, find_packages
 from distutils.sysconfig import get_config_vars
 from distutils.version import LooseVersion
 
+from amset import __version__
+
 reqs_raw = Path("requirements.txt").read_text()
 reqs_list = [r.replace("==", ">=") for r in reqs_raw.split("\n")]
 
@@ -38,7 +40,7 @@ with open("README.md", "r") as file:
 if __name__ == "__main__":
     setup(
         name="amset",
-        version="0.1.0",
+        version=__version__,
         description="AMSET is a tool to calculate carrier transport properties "
         "from ab initio calculation data",
         long_description=long_description,
