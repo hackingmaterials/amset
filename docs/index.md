@@ -27,7 +27,7 @@ AMSET is built on top of state-of-the-art open-source libraries:
     Currently, AMSET is best integrated with VASP, however,
     support for additional periodic DFT codes will be added in the future.
 
-### Scattering Mechanisms
+## Scattering Mechanisms
 
 The scattering mechanisms currently implemented in AMSET are:
 
