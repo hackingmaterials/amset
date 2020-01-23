@@ -41,7 +41,7 @@ def validate_settings(user_settings):
             settings["deformation_potential"]
         )
 
-    settings["doping"] = np.asarray(settings["doping"])
+    settings["doping"] = np.asarray(settings["doping"], dtype=np.float)
     settings["temperatures"] = np.asarray(settings["temperatures"])
 
     return settings
