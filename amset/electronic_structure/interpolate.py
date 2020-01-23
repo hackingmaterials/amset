@@ -8,15 +8,15 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from BoltzTraP2 import fite, sphere, units
+from BoltzTraP2 import fite, sphere
 from BoltzTraP2.fite import FFTc, FFTev, Second
 from monty.json import MSONable
 
-from amset.constants import amset_defaults as defaults
+from amset.constants import amset_defaults as defaults, hartree_to_ev
 from amset.constants import angstrom_to_bohr, bohr_to_cm, ev_to_hartree, spin_name
 from amset.core.data import AmsetData
 from amset.electronic_structure.dos import FermiDos
-from amset.interpolation.overlap import OverlapCalculator
+from amset.electronic_structure.overlap import OverlapCalculator
 from amset.electronic_structure.kpoints import (
     get_kpoints_tetrahedral,
     get_symmetry_equivalent_kpoints,
@@ -82,7 +82,9 @@ class Interpolater(MSONable):
         self._spins = self._band_structure.bands.keys()
         self._interpolate_projections = interpolate_projections
         self.interpolation_factor = interpolation_factor
-        self._lattice_matrix = band_structure.structure.lattice.matrix * units.Angstrom
+        self._lattice_matrix = (
+            band_structure.structure.lattice.matrix.T * angstrom_to_bohr
+        )
         self._coefficients = {}
         self._projection_coefficients = defaultdict(dict)
 
@@ -102,7 +104,7 @@ class Interpolater(MSONable):
         )
 
         for spin in self._spins:
-            energies = band_structure.bands[spin] * units.eV
+            energies = band_structure.bands[spin] * ev_to_hartree
             data = DFTData(kpoints, energies, self._lattice_matrix, mommat=mommat)
             self._coefficients[spin] = fite.fitde3D(data, self._equivalences)
 
@@ -262,7 +264,7 @@ class Interpolater(MSONable):
         nelectrons = self._num_electrons - forgotten_electrons
 
         if is_metal:
-            efermi = self._band_structure.efermi * units.eV
+            efermi = self._band_structure.efermi * ev_to_hartree
         else:
             energies = _shift_energies(
                 energies, new_vb_idx, scissor=scissor, bandgap=bandgap
@@ -513,7 +515,7 @@ class Interpolater(MSONable):
                     curvature[spin] = new_curvature
 
             if not atomic_units:
-                energies[spin] = energies[spin] / units.eV
+                energies[spin] = energies[spin] * hartree_to_ev
                 velocities[spin] = _convert_velocities(velocities[spin], lattice.matrix)
 
         if not self._band_structure.is_metal():
@@ -536,7 +538,7 @@ class Interpolater(MSONable):
             if self._band_structure.is_metal():
                 efermi = self._band_structure.efermi
                 if atomic_units:
-                    efermi *= units.eV
+                    efermi *= ev_to_hartree
             else:
                 # if semiconducting, set Fermi level to middle of gap
                 efermi = _get_efermi(energies, new_vb_idx)
@@ -598,7 +600,7 @@ class Interpolater(MSONable):
         )
 
         tetrahedral_band_structure = TetrahedralBandStructure(
-            energies[ir_to_full_idx],
+            {s: e[:, ir_to_full_idx] for s, e in energies.items()},
             full_kpts,
             tetrahedra,
             self._band_structure.structure,
@@ -740,7 +742,7 @@ def _shift_energies(
         interp_bandgap = (
             min([energies[s][cb_idx[s] :].min() for s in energies])
             - max([energies[s][: cb_idx[s]].max() for s in energies])
-        ) / units.eV
+        ) * hartree_to_ev
 
         scissor = bandgap - interp_bandgap
         logger.debug(
@@ -749,7 +751,7 @@ def _shift_energies(
         )
 
     if scissor:
-        scissor *= units.eV  # convert to Hartree
+        scissor *= ev_to_hartree
         for spin in energies:
             energies[spin][: cb_idx[spin]] -= scissor / 2
             energies[spin][cb_idx[spin] :] += scissor / 2
