@@ -43,7 +43,7 @@ For example, the following snippet will look for a `vasprun.xml` and
 `settings.yaml` file in the current directory, then run AMSET.
 
 ```python
-from amset.core import AmsetRunner
+from amset.core.run import AmsetRunner
 
 runner = AmsetRunner.from_directory(directory='.')
 amset_data = runner.run()
@@ -53,7 +53,7 @@ The API allows for easy convergence of parameters. For example,
 the following snippet will run AMSET using multiple interpolation factors.
 
 ```python
-from amset.core import AmsetRunner
+from amset.core.run import AmsetRunner
 
 settings = {'interpolation_factor': 5}
 
@@ -69,7 +69,7 @@ When running AMSET from the API, it is not necessary to use a settings file
 at all. Instead the settings can be passed as a dictionary. For example:
 
 ```python
-from amset.core import AmsetRunner
+from amset.core.run import AmsetRunner
 
 settings = {
     "interpolation_factor": 150,
