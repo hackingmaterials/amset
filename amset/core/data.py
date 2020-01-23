@@ -362,6 +362,7 @@ class AmsetData(MSONable):
                 "seebeck": self.seebeck,
                 "electronic_thermal_conductivity": self.electronic_thermal_conductivity,
                 "mobility": self.mobility,
+                "dos": self.dos,
             }
 
             if write_mesh:
@@ -370,17 +371,15 @@ class AmsetData(MSONable):
                     for spin, rates in self.scattering_rates.items()
                 }
                 ir_energies = {
-                    spin: energies[:, self.ir_kpoints_idx] / units.eV
+                    spin: energies[:, self.ir_kpoints_idx]
                     for spin, energies in self.energies.items()
                 }
                 data.update(
                     {
                         "energies": cast_dict(ir_energies),
                         "kpoints": self.full_kpoints,
-                        "kpoint_weights": self.kpoint_weights,
                         "ir_kpoints": self.ir_kpoints,
                         "ir_to_full_kpoint_mapping": self.ir_to_full_kpoint_mapping,
-                        "dos": self.dos,
                         "efermi": self.intrinsic_fermi_level,
                         "vb_idx": cast_dict(self.vb_idx),
                         "scattering_rates": cast_dict(ir_rates),
