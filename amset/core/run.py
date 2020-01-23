@@ -56,14 +56,11 @@ class AmsetRunner(MSONable):
         self.settings = copy.deepcopy(amset_defaults)
         self.settings.update(settings)
 
-        if self.settings["print_log"]:
-            initialize_amset_logger()
-
     def run(
         self,
         directory: Union[str, Path] = ".",
-        prefix: Optional[str] = None,
         return_usage_stats: bool = False,
+        prefix: Optional[str] = None,
     ):
         mem_usage, (amset_data, usage_stats) = memory_usage(
             partial(self._run_wrapper, directory=directory, prefix=prefix),
@@ -99,6 +96,10 @@ class AmsetRunner(MSONable):
     def _run_wrapper(
         self, directory: Union[str, Path] = ".", prefix: Optional[str] = None
     ):
+        if self.settings["print_log"]:
+            log_file = "{}_amset.log".format(prefix) if prefix else "amset.log"
+            initialize_amset_logger(directory=directory, filename=log_file)
+
         tt = time.perf_counter()
         _log_amset_intro()
         _log_settings(self)
@@ -142,11 +143,13 @@ class AmsetRunner(MSONable):
             cutoff_pad = pop_frequency * hbar * units.eV
 
         log_banner("DOS")
+        t0 = time.perf_counter()
         amset_data.calculate_dos(estep=self.settings["dos_estep"])
         amset_data.set_doping_and_temperatures(
             self.settings["doping"], self.settings["temperatures"]
         )
         amset_data.calculate_fd_cutoffs(self.settings["fd_tol"], cutoff_pad=cutoff_pad)
+        timing["dos"] = time.perf_counter() - t0
 
         log_banner("SCATTERING")
         t0 = time.perf_counter()
@@ -161,7 +164,6 @@ class AmsetRunner(MSONable):
         amset_data.set_scattering_rates(
             scatter.calculate_scattering_rates(), scatter.scatterer_labels
         )
-
         timing["scattering"] = time.perf_counter() - t0
 
         log_banner("TRANSPORT")
@@ -297,7 +299,7 @@ def _log_structure_information(structure: Structure, symprec):
     formula = comp.get_reduced_formula_and_factor(iupac_ordering=True)[0]
 
     if not symprec:
-        symprec = 0.01
+        symprec = 1e-32
 
     sga = SpacegroupAnalyzer(structure, symprec=symprec)
     spg = unicodeify_spacegroup(sga.get_space_group_symbol())
@@ -449,7 +451,7 @@ def _log_results_summary(amset_data, output_parameters):
 
         results_summary = []
         for c, t in np.ndindex(amset_data.fermi_levels.shape):
-            results = [doping[c] + temps[t]]
+            results = [doping[c], temps[t]]
             results += [tensor_average(amset_data.mobility[s][c, t]) for s in labels]
             results_summary.append(results)
 
