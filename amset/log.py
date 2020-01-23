@@ -16,11 +16,11 @@ __date__ = "June 21, 2019"
 logger = logging.getLogger(__name__)
 
 
-def initialize_amset_logger(filepath=".", filename=None, level=None):
+def initialize_amset_logger(directory=".", filename=None, level=None):
     """Initialize the default logger with stdout and file handlers.
 
     Args:
-        filepath (str): Path to the folder where the log file will be written.
+        directory (str): Path to the folder where the log file will be written.
         filename (str): The log filename.
         level (int): The log level. For example logging.DEBUG.
 
@@ -37,7 +37,7 @@ def initialize_amset_logger(filepath=".", filename=None, level=None):
 
     formatter = WrappingFormatter(fmt="%(message)s")
 
-    handler = logging.FileHandler(os.path.join(filepath, filename), mode="w")
+    handler = logging.FileHandler(os.path.join(directory, filename), mode="w")
     handler.setFormatter(formatter)
     screen_handler = logging.StreamHandler(stream=sys.stdout)
     screen_handler.setFormatter(formatter)
