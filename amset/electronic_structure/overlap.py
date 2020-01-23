@@ -19,6 +19,9 @@ _select_d_order = ([2, 0, 1, 0, 1], [2, 2, 2, 1, 1])  # selects dz2 dxz dyz dxy 
 _p_mask = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
 _d_mask = np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]])
 
+# _p_mask = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+# _d_mask = np.array([[0, 1, 0, 1, 1], [0, 0, 1, 1, 1], [1, 1, 1, 0, 0]])
+
 logger = logging.getLogger(__name__)
 
 
