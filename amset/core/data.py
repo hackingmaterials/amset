@@ -279,10 +279,8 @@ class AmsetData(MSONable):
         self, scattering_rates: Dict[Spin, np.ndarray], scattering_labels: List[str]
     ):
         for spin in self.spins:
-            expected_shape = (len(self.doping), len(self.temperatures)) + self.energies[
-                spin
-            ].shape
-            if scattering_rates[spin].shape[1:] != expected_shape:
+            s = (len(self.doping), len(self.temperatures)) + self.energies[spin].shape
+            if scattering_rates[spin].shape[1:] != s:
                 raise ValueError(
                     "Shape of scattering_type rates array does not match the "
                     "number of dopings, temperatures, bands, or kpoints"
@@ -321,22 +319,77 @@ class AmsetData(MSONable):
             )
             self.c_factor[spin] = (1 - self.a_factor[spin] ** 2) ** 0.5
 
+    def to_dict(self, include_mesh=defaults["write_mesh"]):
+        data = {
+            "doping": self.doping,
+            "temperatures": self.temperatures,
+            "fermi_levels": self.fermi_levels,
+            "conductivity": self.conductivity,
+            "seebeck": self.seebeck,
+            "electronic_thermal_conductivity": self.electronic_thermal_conductivity,
+            "mobility": self.mobility,
+        }
+
+        if include_mesh:
+            rates = self.scattering_rates
+            energies = self.energies
+            ir_rates = {s: r[..., self.ir_kpoints_idx] for s, r in rates.items()}
+            ir_energies = {s: e[:, self.ir_kpoints_idx] for s, e in energies.items()}
+
+            mesh_data = {
+                "energies": cast_dict(ir_energies),
+                "kpoints": self.full_kpoints,
+                "ir_kpoints": self.ir_kpoints,
+                "ir_to_full_kpoint_mapping": self.ir_to_full_kpoint_mapping,
+                "efermi": self.intrinsic_fermi_level,
+                "vb_idx": cast_dict(self.vb_idx),
+                "dos": self.dos,
+                "scattering_rates": cast_dict(ir_rates),
+                "scattering_labels": self.scattering_labels,
+                "is_metal": self.is_metal,
+                "fd_cutoffs": self.fd_cutoffs
+            }
+            data.update(mesh_data)
+        return data
+
+    def to_data(self):
+        data = []
+
+        triu = np.triu_indices(3)
+        for n, t in np.ndindex(len(self.doping), len(self.temperatures)):
+            row = [self.doping[n], self.temperatures[t], self.fermi_levels[n, t]]
+            row.extend(self.conductivity[n, t][triu])
+            row.extend(self.seebeck[n, t][triu])
+            row.extend(self.electronic_thermal_conductivity[n, t][triu])
+
+            if self.mobility is not None:
+                for mob in self.mobility.values():
+                    row.extend(mob[n, t][triu])
+            data.append(row)
+
+        headers = ["doping[cm^-3]", "temperature[K]", "Fermi_level[eV]"]
+        ds = ("xx", "xy", "xz", "yy", "yz", "zz")
+
+        # TODO: confirm unit of kappa
+        for prop, unit in [("cond", "S/m"), ("seebeck", "µV/K"), ("kappa", "?")]:
+            headers.extend(["{}_{}[{}]".format(prop, d, unit) for d in ds])
+
+        if self.mobility is not None:
+            for name in self.mobility.keys():
+                headers.extend(["{}_mobility_{}[cm^2/V.s]".format(name, d) for d in ds])
+
+        return data, headers
+
     def to_file(
-        self,
-        directory: str = ".",
-        prefix: Optional[str] = None,
-        write_mesh: bool = defaults["write_mesh"],
-        file_format: str = defaults["file_format"],
-        suffix_mesh: bool = True,
+            self,
+            directory: str = ".",
+            prefix: Optional[str] = None,
+            write_mesh: bool = defaults["write_mesh"],
+            file_format: str = defaults["file_format"],
+            suffix_mesh: bool = True,
     ):
-        if (
-            self.conductivity is None
-            or self.seebeck is None
-            or self.electronic_thermal_conductivity is None
-        ):
-            raise ValueError(
-                "Cannot write AmsetData to file, transport " "properties not set"
-            )
+        if self.conductivity is None:
+            raise ValueError("Can't write AmsetData, transport properties not set")
 
         if not prefix:
             prefix = ""
@@ -344,48 +397,12 @@ class AmsetData(MSONable):
             prefix += "_"
 
         if suffix_mesh:
-            if self.kpoint_mesh is not None:
-                mesh = "x".join(map(str, self.kpoint_mesh))
-            else:
-                # user supplied k-points
-                mesh = len(self.full_kpoints)
-            suffix = "_{}".format(mesh)
+            suffix = "_{}".format("x".join(map(str, self.kpoint_mesh)))
         else:
             suffix = ""
 
         if file_format in ["json", "yaml"]:
-            data = {
-                "doping": self.doping,
-                "temperature": self.temperatures,
-                "fermi_levels": self.fermi_levels,
-                "conductivity": self.conductivity,
-                "seebeck": self.seebeck,
-                "electronic_thermal_conductivity": self.electronic_thermal_conductivity,
-                "mobility": self.mobility,
-                "dos": self.dos,
-            }
-
-            if write_mesh:
-                ir_rates = {
-                    spin: rates[:, :, :, :, self.ir_kpoints_idx]
-                    for spin, rates in self.scattering_rates.items()
-                }
-                ir_energies = {
-                    spin: energies[:, self.ir_kpoints_idx]
-                    for spin, energies in self.energies.items()
-                }
-                data.update(
-                    {
-                        "energies": cast_dict(ir_energies),
-                        "kpoints": self.full_kpoints,
-                        "ir_kpoints": self.ir_kpoints,
-                        "ir_to_full_kpoint_mapping": self.ir_to_full_kpoint_mapping,
-                        "efermi": self.intrinsic_fermi_level,
-                        "vb_idx": cast_dict(self.vb_idx),
-                        "scattering_rates": cast_dict(ir_rates),
-                        "scattering_labels": self.scattering_labels,
-                    }
-                )
+            data = self.to_dict(include_mesh=write_mesh)
 
             filename = joinpath(
                 directory, "{}amset_data{}.{}".format(prefix, suffix, file_format)
@@ -394,40 +411,7 @@ class AmsetData(MSONable):
 
         elif file_format in ["csv", "txt"]:
             # don't write the data as JSON, instead write raw text files
-            data = []
-
-            triu = np.triu_indices(3)
-            for n, t in np.ndindex(len(self.doping), len(self.temperatures)):
-                row = [self.doping[n], self.temperatures[t], self.fermi_levels[n, t]]
-                row.extend(self.conductivity[n, t][triu])
-                row.extend(self.seebeck[n, t][triu])
-                row.extend(self.electronic_thermal_conductivity[n, t][triu])
-
-                if self.mobility is not None:
-                    for mob in self.mobility.values():
-                        row.extend(mob[n, t][triu])
-                data.append(row)
-
-            headers = ["doping[cm^-3]", "temperature[K]", "Fermi_level[eV]"]
-
-            # TODO: confirm unit of kappa
-            for prop, unit in [("cond", "S/m"), ("seebeck", "µV/K"), ("kappa", "?")]:
-                headers.extend(
-                    [
-                        "{}_{}[{}]".format(prop, d, unit)
-                        for d in ("xx", "xy", "xz", "yy", "yz", "zz")
-                    ]
-                )
-
-            if self.mobility is not None:
-                for name in self.mobility.keys():
-                    headers.extend(
-                        [
-                            "{}_mobility_{}[cm^2/V.s]".format(name, d)
-                            for d in ("xx", "xy", "xz", "yy", "yz", "zz")
-                        ]
-                    )
-
+            data, headers = self.to_data()
             filename = joinpath(
                 directory, "{}amset_transport{}.{}".format(prefix, suffix, file_format)
             )
