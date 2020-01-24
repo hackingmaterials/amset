@@ -347,7 +347,7 @@ class AmsetData(MSONable):
                 "scattering_rates": cast_dict(ir_rates),
                 "scattering_labels": self.scattering_labels,
                 "is_metal": self.is_metal,
-                "fd_cutoffs": self.fd_cutoffs
+                "fd_cutoffs": self.fd_cutoffs,
             }
             data.update(mesh_data)
         return data
@@ -381,12 +381,12 @@ class AmsetData(MSONable):
         return data, headers
 
     def to_file(
-            self,
-            directory: str = ".",
-            prefix: Optional[str] = None,
-            write_mesh: bool = defaults["write_mesh"],
-            file_format: str = defaults["file_format"],
-            suffix_mesh: bool = True,
+        self,
+        directory: str = ".",
+        prefix: Optional[str] = None,
+        write_mesh: bool = defaults["write_mesh"],
+        file_format: str = defaults["file_format"],
+        suffix_mesh: bool = True,
     ):
         if self.conductivity is None:
             raise ValueError("Can't write AmsetData, transport properties not set")
