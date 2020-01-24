@@ -131,6 +131,7 @@ def get_kpoints_tetrahedral(
     kpoint_mesh: Union[float, List[int]],
     structure: Structure,
     symprec: float = _SYMPREC,
+    time_reversal_symmetry: bool = True,
 ) -> Tuple[np.ndarray, ...]:
     """Gets the symmetry inequivalent k-points from a k-point mesh.
 
@@ -147,6 +148,7 @@ def get_kpoints_tetrahedral(
         structure: A structure.
         symprec: Symmetry tolerance used when determining the symmetry
             inequivalent k-points on which to interpolate.
+        time_reversal_symmetry: Whether the system has time reversal symmetry.
 
     Returns:
         The irreducible k-points and their weights as tuple, formatted as::
@@ -172,7 +174,7 @@ def get_kpoints_tetrahedral(
         symprec = 1e-8
 
     grid_mapping, grid_address = spglib.get_ir_reciprocal_mesh(
-        kpoint_mesh, atoms, symprec=symprec
+        kpoint_mesh, atoms, symprec=symprec, is_time_reversal=time_reversal_symmetry
     )
     full_kpoints = grid_address / kpoint_mesh
 
