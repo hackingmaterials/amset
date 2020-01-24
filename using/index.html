@@ -505,7 +505,7 @@ file. For example, the interpolation factor can be easily controlled using:</p>
 <p>Greater configurability is available when running AMSET from the Python API.
 For example, the following snippet will look for a <code class="codehilite"><span class="err">vasprun.xml</span></code> and
 <code class="codehilite"><span class="err">settings.yaml</span></code> file in the current directory, then run AMSET.</p>
-<div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.core</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
+<div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
 
 <span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
 <span class="n">amset_data</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
@@ -513,7 +513,7 @@ For example, the following snippet will look for a <code class="codehilite"><spa
 
 <p>The API allows for easy convergence of parameters. For example,
 the following snippet will run AMSET using multiple interpolation factors.</p>
-<div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.core</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
+<div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
 
 <span class="n">settings</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;interpolation_factor&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
 
@@ -527,7 +527,7 @@ the following snippet will run AMSET using multiple interpolation factors.</p>
 
 <p>When running AMSET from the API, it is not necessary to use a settings file
 at all. Instead the settings can be passed as a dictionary. For example:</p>
-<div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.core</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
+<div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
 
 <span class="n">settings</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;interpolation_factor&quot;</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>
