@@ -25,6 +25,7 @@ from amset.util import (
     tensor_average,
     validate_settings,
     write_settings_to_file,
+    get_summed_projections,
 )
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
@@ -111,12 +112,13 @@ class AmsetRunner(MSONable):
         log_banner("INTERPOLATION")
         t0 = time.perf_counter()
 
+        summed_projections = get_summed_projections(self._band_structure)
         interpolater = Interpolater(
             self._band_structure,
             num_electrons=self._num_electrons,
             interpolation_factor=self.settings["interpolation_factor"],
             soc=self.settings["soc"],
-            interpolate_projections=True,
+            other_properties=summed_projections,
         )
 
         amset_data = interpolater.get_amset_data(
