@@ -1,10 +1,13 @@
+import abc
 from copy import deepcopy
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 from BoltzTraP2 import units
 from matplotlib import cycler
+from monty.serialization import loadfn
 
 from amset.constants import bohr_to_cm
 from amset.core.data import AmsetData
@@ -24,11 +27,24 @@ _seaborn_colors = [
 _legend_kwargs = {"loc": "upper left", "bbox_to_anchor": (1, 1), "frameon": False}
 
 
-class AmsetPlotter(object):
-    def __init__(self, amset_data: AmsetData):
-        # TODO: Check we have all the data we need
-        self._amset_data = amset_data
+class AmsetPlotter(abc.ABC):
+    def __init__(self, data: Union[str, Path, AmsetData, dict]):
+        if isinstance(data, (str, Path)):
+            self._data = loadfn(data)
+        elif isinstance(data, AmsetData):
+            self._data = data.to_dict(include_mesh=True)
+        elif isinstance(data, dict):
+            self._data = data
+        else:
+            raise ValueError("Unrecognised data format")
 
+        self.spins = list(self.energies.keys())
+
+    def __getattr__(self, item):
+        return self._data[item]
+
+
+class AmsetRatesPlotter(AmsetPlotter):
     def plot_rates(
         self,
         plot_fd_tols: bool = True,
@@ -37,26 +53,21 @@ class AmsetPlotter(object):
         ymax: float = None,
         normalize_energy: bool = True,
     ):
-        spins = self._amset_data.spins
-        if normalize_energy and self._amset_data.is_metal:
-            norm_e = self._amset_data.fermi_levels[0][0]
+        if normalize_energy and self.is_metal:
+            norm_e = self.fermi_levels[0][0]
         elif normalize_energy:
-            vb_idx = self._amset_data.vb_idx
-            norm_e = np.max(
-                [self._amset_data.energies[s][: vb_idx[s] + 1] for s in spins]
-            )
+            cb_idx = {s: v + 1 for s, v in self.vb_idx.items()}
+            norm_e = np.max([self.energies[s][: cb_idx[s]] for s in self.spins])
         else:
             norm_e = 0
 
         norm_e /= units.eV
 
-        energies = np.vstack([self._amset_data.energies[s] for s in spins])
-        rates = np.concatenate(
-            [self._amset_data.scattering_rates[s] for s in spins], axis=3
-        )
+        energies = np.vstack([self.energies[s] for s in self.spins])
+        rates = np.concatenate([self.scattering_rates[s] for s in self.spins], axis=3)
 
-        n_dopings = len(self._amset_data.doping)
-        n_temperatures = len(self._amset_data.temperatures)
+        n_dopings = len(self.doping)
+        n_temperatures = len(self.temperatures)
         base_size = 4
 
         if n_dopings == 1:
@@ -69,7 +80,7 @@ class AmsetPlotter(object):
             figsize = (1.2 * base_size * n_dopings, base_size * n_temperatures)
             fig, axes = plt.subplots(n_dopings, n_temperatures, figsize=figsize)
 
-        for d, t in np.ndindex(self._amset_data.fermi_levels.shape):
+        for d, t in np.ndindex(self.fermi_levels.shape):
             if n_dopings == 1 and n_temperatures == 1:
                 ax = axes
             elif n_dopings == 1:
@@ -85,16 +96,15 @@ class AmsetPlotter(object):
                 show_legend = False
 
             title = "n = {:.2g} cm$^{{-3}}$\t T = {}".format(
-                self._amset_data.doping[d] * (1 / bohr_to_cm) ** 3,
-                self._amset_data.temperatures[t],
+                self.doping[d] * (1 / bohr_to_cm) ** 3, self.temperatures[t]
             )
 
             _plot_rates_to_axis(
                 ax,
                 energies,
                 rates[:, d, t],
-                self._amset_data.scattering_labels,
-                self._amset_data.fd_cutoffs,
+                self.scattering_labels,
+                self.fd_cutoffs,
                 plot_total_rate=plot_total_rate,
                 plot_fd_tols=plot_fd_tols,
                 ymin=ymin,
