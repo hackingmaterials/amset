@@ -48,7 +48,6 @@ class FermiDos(Dos, MSONable):
         dos_weight: Optional[float] = None,
         atomic_units: bool = True,
         num_electrons: Optional[float] = None,
-        normalise: bool = False,
     ):
         # structure should be atomic structure
         super().__init__(efermi, energies, densities)
@@ -61,6 +60,7 @@ class FermiDos(Dos, MSONable):
         self.dos_weight = dos_weight
         self.tdos = np.array(self.get_densities()) * self.dos_weight
         self.de = self.energies[1] - self.energies[0]
+        self._num_electrons = num_electrons  # this is just for msonability
 
         if num_electrons is None:
             # integrate up to Fermi level to get number of electrons
