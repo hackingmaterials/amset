@@ -16,6 +16,8 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
+from pymatgen.electronic_structure.bandstructure import BandStructure
+
 logger = logging.getLogger(__name__)
 
 _bar_format = "{desc} {percentage:3.0f}%|{bar}| {elapsed}<{remaining}{postfix}"
@@ -210,3 +212,34 @@ def get_progress_bar(
         )
     else:
         raise ValueError("Error creating progress bar, need total or iterable")
+
+
+def get_summed_projections(
+    band_structure: BandStructure
+) -> Dict[Spin, Dict[str, np.ndarray]]:
+    """Extracts and sums the band structure projections.
+
+    Args:
+        band_structure: A band structure object.
+
+    Returns:
+        The projection labels and orbital projections, as::
+
+            ("s", s_orbital_projections), ("p", d_orbital_projections)
+    """
+    if not band_structure.projections:
+        raise ValueError("Band structure has no projections")
+
+    summed_projections = {}
+    for spin, spin_projections in band_structure.projections.items():
+        s_orbital = np.sum(spin_projections, axis=3)[:, :, 0]
+
+        if spin_projections.shape[2] > 5:
+            # lm decomposed projections therefore sum across px, py, and pz
+            p_orbital = np.sum(np.sum(spin_projections, axis=3)[:, :, 1:4], axis=2)
+        else:
+            p_orbital = np.sum(spin_projections, axis=3)[:, :, 1]
+
+        summed_projections[spin] = {"s": s_orbital, "p": p_orbital}
+
+    return summed_projections
