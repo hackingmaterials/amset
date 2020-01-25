@@ -9,8 +9,8 @@ from pymatgen.io.vasp import Outcar, Vasprun
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
-@click.option("--vasprun", default="vasprun.xml", help="vasprun.xml file")
-@click.option("--outcar", default="OUTCAR", help="OUTCAR file")
+@click.option("-v", "--vasprun", default="vasprun.xml", help="vasprun.xml file")
+@click.option("-o", "--outcar", default="OUTCAR", help="OUTCAR file")
 def main(vasprun, outcar):
     """Command line tool to extract an effective phonon frequency from a VASP
     calculation
