@@ -9,14 +9,11 @@ import scipy
 from monty.serialization import dumpfn, loadfn
 from tqdm import tqdm
 
-from amset.constants import amset_defaults, output_width
-from pymatgen import Spin
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
-from pymatgen.electronic_structure.bandstructure import BandStructure
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +21,8 @@ _bar_format = "{desc} {percentage:3.0f}%|{bar}| {elapsed}<{remaining}{postfix}"
 
 
 def validate_settings(user_settings):
+    from amset.constants import amset_defaults
+
     settings = copy.deepcopy(amset_defaults)
     settings.update(user_settings)
 
@@ -42,6 +41,8 @@ def validate_settings(user_settings):
         settings["deformation_potential"] = parse_deformation_potential(
             settings["deformation_potential"]
         )
+    elif isinstance(settings["deformation_potential"], list):
+        settings["deformation_potential"] = tuple(settings["deformation_potential"])
 
     settings["doping"] = np.asarray(settings["doping"], dtype=np.float)
     settings["temperatures"] = np.asarray(settings["temperatures"])
@@ -74,7 +75,7 @@ def write_settings_to_file(settings: Dict[str, Any], filename: str):
         settings: The configuration settings.
         filename: A filename.
     """
-    settings = cast_dict(settings)
+    settings = cast_dict_list(settings)
     dumpfn(settings, filename, indent=4, default_flow_style=False)
 
 
@@ -99,7 +100,9 @@ def load_settings_from_file(filename: str) -> Dict[str, Any]:
     return validate_settings(settings)
 
 
-def cast_dict(d):
+def cast_dict_list(d):
+    from pymatgen.electronic_structure.core import Spin
+
     if d is None:
         return d
 
@@ -107,16 +110,39 @@ def cast_dict(d):
     for k, v in d.items():
         # cast keys
         if isinstance(k, Spin):
-            k = k.value
+            k = k.name
 
         if isinstance(v, collections.Mapping):
-            new_d[k] = cast_dict(v)
+            new_d[k] = cast_dict_list(v)
         else:
             # cast values
             if isinstance(v, np.ndarray):
                 v = v.tolist()
             elif isinstance(v, tuple):
                 v = list(v)
+
+            new_d[k] = v
+    return new_d
+
+
+def cast_dict_ndarray(d):
+    from pymatgen.electronic_structure.core import Spin
+
+    if d is None:
+        return d
+
+    new_d = {}
+    for k, v in d.items():
+        # cast keys back to spin
+        if isinstance(k, str) and k in ["up", "down"]:
+            k = Spin.up if "k" == "up" else Spin.up
+
+        if isinstance(v, collections.Mapping):
+            new_d[k] = cast_dict_ndarray(v)
+        else:
+            # cast values
+            if isinstance(v, list):
+                v = np.array(v)
 
             new_d[k] = v
     return new_d
@@ -185,6 +211,8 @@ def parse_deformation_potential(deformation_pot_str: str):
 def get_progress_bar(
     iterable=None, total=None, desc="", min_desc_width=18, prepend_pipe=True
 ):
+    from amset.constants import output_width
+
     if prepend_pipe:
         desc = "    ├── " + desc
 
@@ -212,34 +240,3 @@ def get_progress_bar(
         )
     else:
         raise ValueError("Error creating progress bar, need total or iterable")
-
-
-def get_summed_projections(
-    band_structure: BandStructure
-) -> Dict[Spin, Dict[str, np.ndarray]]:
-    """Extracts and sums the band structure projections.
-
-    Args:
-        band_structure: A band structure object.
-
-    Returns:
-        The projection labels and orbital projections, as::
-
-            ("s", s_orbital_projections), ("p", d_orbital_projections)
-    """
-    if not band_structure.projections:
-        raise ValueError("Band structure has no projections")
-
-    summed_projections = {}
-    for spin, spin_projections in band_structure.projections.items():
-        s_orbital = np.sum(spin_projections, axis=3)[:, :, 0]
-
-        if spin_projections.shape[2] > 5:
-            # lm decomposed projections therefore sum across px, py, and pz
-            p_orbital = np.sum(np.sum(spin_projections, axis=3)[:, :, 1:4], axis=2)
-        else:
-            p_orbital = np.sum(spin_projections, axis=3)[:, :, 1]
-
-        summed_projections[spin] = {"s": s_orbital, "p": p_orbital}
-
-    return summed_projections
