@@ -152,6 +152,10 @@ class BrooksHerringScattering(AbstractBasicScattering):
                 / (velocities * k_sq)
             )[..., amset_data.ir_to_full_kpoint_mapping]
 
+            # these will be interpolated
+            self._rates[spin][np.isnan(self.rates[spin])] = 0
+            self.rates[spin][energies < 1e-8] = 0
+
     @property
     def rates(self):
         # need to return rates with shape (nspins, ndops, ntemps, nbands, nkpoints)
@@ -190,7 +194,7 @@ def get_normalized_energies(amset_data: AmsetData):
             )
 
             for n, t in np.ndindex(fermi_shape):
-                energies[spin][n, t] = spin_energies + 1e-5  # add small broadening
+                energies[spin][n, t] = spin_energies
 
     return energies
 
