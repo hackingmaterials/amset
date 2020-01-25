@@ -26,6 +26,7 @@ from amset.electronic_structure.kpoints import (
 from amset.log import log_list, log_time_taken
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from pymatgen import Structure
+from pymatgen.core.units import bohr_to_angstrom
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure,
     BandStructureSymmLine,
@@ -110,6 +111,7 @@ class Interpolater(MSONable):
 
         log_time_taken(t0)
 
+        t0 = time.perf_counter()
         if self._other_properties:
             logger.info("Getting additional interpolation coefficients")
 
@@ -962,7 +964,7 @@ def symmetrize_results(
             )
 
         if other_properties:
-            for label, prop in other_properties[spin]:
+            for label, prop in other_properties[spin].items():
                 other_properties[spin][label] = prop[:, ir_to_full_idx]
 
     return energies, velocities, curvature, other_properties
@@ -991,6 +993,14 @@ def rotate_curvature(curvature, similarity_matrices, inv_similarity_matrices):
 def get_atomic_structure(structure):
     return Structure(
         structure.lattice.matrix * angstrom_to_bohr,
+        structure.species,
+        structure.frac_coords,
+    )
+
+
+def get_angstrom_structure(structure):
+    return Structure(
+        structure.lattice.matrix * bohr_to_angstrom,
         structure.species,
         structure.frac_coords,
     )
