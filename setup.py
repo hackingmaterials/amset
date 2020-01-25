@@ -67,7 +67,7 @@ if __name__ == "__main__":
         tests_require=["nose"],
         entry_points={
             "console_scripts": [
-                "amset = amset.tools.cli:main",
+                "amset = amset.tools.cli:cli",
                 "eff-phonon-freq = amset.tools.phonon_frequency:main",
             ]
         },
