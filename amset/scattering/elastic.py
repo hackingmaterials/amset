@@ -3,13 +3,13 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import numpy as np
-from BoltzTraP2 import units
-from BoltzTraP2.fd import FD
-from BoltzTraP2.units import BOLTZMANN
 from scipy.constants import epsilon_0
 
 from amset.constants import e, gpa_to_au, hbar, k_B
 from amset.core.data import AmsetData
+from BoltzTraP2 import units
+from BoltzTraP2.fd import FD
+from BoltzTraP2.units import BOLTZMANN
 from pymatgen import Spin
 
 __author__ = "Alex Ganose"

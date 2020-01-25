@@ -4,8 +4,6 @@ from os.path import join as joinpath
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from BoltzTraP2 import units
-from BoltzTraP2.fd import dFDde
 from monty.json import MSONable
 from monty.serialization import dumpfn
 
@@ -16,6 +14,8 @@ from amset.electronic_structure.overlap import OverlapCalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
 from amset.util import cast_dict_list, groupby
+from BoltzTraP2 import units
+from BoltzTraP2.fd import dFDde
 from pymatgen import Spin, Structure
 
 __author__ = "Alex Ganose"

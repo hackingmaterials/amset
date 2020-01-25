@@ -9,7 +9,6 @@ import scipy
 from monty.serialization import dumpfn, loadfn
 from tqdm import tqdm
 
-
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"

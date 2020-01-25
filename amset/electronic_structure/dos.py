@@ -5,11 +5,11 @@ import logging
 from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
-from BoltzTraP2 import units
-from BoltzTraP2.fd import FD
 from monty.json import MSONable
 
 from amset.constants import ev_to_hartree, hartree_to_ev
+from BoltzTraP2 import units
+from BoltzTraP2.fd import FD
 from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.dos import Dos
 

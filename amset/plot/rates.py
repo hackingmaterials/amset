@@ -3,16 +3,16 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-from BoltzTraP2 import units
 from matplotlib import cycler
 
 from amset.constants import bohr_to_cm
 from amset.plot.base import BaseAmsetPlotter, seaborn_colors
+from BoltzTraP2 import units
 
 _legend_kwargs = {"loc": "upper left", "bbox_to_anchor": (1, 1), "frameon": False}
 
 
-class AmsetRatesPlotter(BaseAmsetPlotter):
+class RatesPlotter(BaseAmsetPlotter):
     def get_plot(
         self,
         plot_fd_tols: bool = True,

@@ -1,26 +1,26 @@
 import logging
-
-import numpy as np
 from collections import defaultdict
 
+import numpy as np
 from matplotlib import rcParams
 from matplotlib.colors import LogNorm
-from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
 
+from amset.constants import amset_defaults as defaults
+from amset.constants import hartree_to_ev, hbar
 from amset.electronic_structure.interpolate import Interpolater, get_angstrom_structure
 from amset.log import initialize_amset_logger
-from amset.plot import BaseAmsetPlotter, amset_base_style, styled_plot
-from amset.constants import amset_defaults as defaults, hartree_to_ev, hbar
-from amset.plot.base import pretty_plot
+from amset.plot import BaseAmsetPlotter, amset_base_style
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.plotter import BSPlotter
+from sumo.plotting import pretty_plot, styled_plot
 
 logger = logging.getLogger(__name__)
 
 
-class AmsetBandStructurePlotter(BaseAmsetPlotter):
+class LineshapePlotter(BaseAmsetPlotter):
     def __init__(self, data, interpolation_factor=1, print_log=defaults["print_log"]):
         super().__init__(data)
         self.interpolation_factor = interpolation_factor
@@ -75,6 +75,7 @@ class AmsetBandStructurePlotter(BaseAmsetPlotter):
         distance_factor=10,
         style=None,
         no_base_style=False,
+        fonts=None
     ):
         interpolater = self._get_interpolater(n_idx, t_idx)
 

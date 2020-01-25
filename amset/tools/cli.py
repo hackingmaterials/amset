@@ -3,6 +3,7 @@ This module contains a script for using amset from the command line.
 """
 
 import click
+
 from amset.tools.plot import plot
 from amset.tools.run import run
 

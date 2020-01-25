@@ -32,9 +32,9 @@ def lineshape(filename, **kwargs):
     """
     Plot band structures with electron lineshape
     """
-    from amset.plot.band_structure import AmsetBandStructurePlotter
+    from amset.plot.lineshape import LineshapePlotter
 
-    plotter = AmsetBandStructurePlotter(
+    plotter = LineshapePlotter(
         filename, print_log=True, interpolation_factor=kwargs["interpolation_factor"]
     )
     plt = plotter.get_plot(
@@ -66,9 +66,9 @@ def rates(filename, **kwargs):
     """
     Plot scattering rates
     """
-    from amset.plot.rates import AmsetRatesPlotter
+    from amset.plot.rates import RatesPlotter
 
-    plotter = AmsetRatesPlotter(filename)
+    plotter = RatesPlotter(filename)
     plt = plotter.get_plot(separate_rates=kwargs["separate_rates"])
 
     save_plot(

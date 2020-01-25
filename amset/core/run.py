@@ -9,23 +9,19 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
-from BoltzTraP2 import units
 from memory_profiler import memory_usage
 from monty.json import MSONable
 from tabulate import tabulate
 
 from amset import __version__
 from amset.constants import amset_defaults, bohr_to_cm, hbar
+from amset.core.transport import solve_boltzman_transport_equation
 from amset.electronic_structure.interpolate import Interpolater
 from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator
-from amset.core.transport import solve_boltzman_transport_equation
-from amset.util import (
-    load_settings_from_file,
-    tensor_average,
-    validate_settings,
-    write_settings_to_file,
-)
+from amset.util import (load_settings_from_file, tensor_average, validate_settings,
+                        write_settings_to_file)
+from BoltzTraP2 import units
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.core import Spin
