@@ -1,273 +1,26 @@
-import abc
-from collections import defaultdict
 from copy import deepcopy
-from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import cauchy
 from BoltzTraP2 import units
 from matplotlib import cycler
-from monty.serialization import loadfn
 
-from amset.constants import bohr_to_cm, hartree_to_ev, hbar
-from amset.constants import amset_defaults as defaults
-from amset.core.data import AmsetData
-from amset.electronic_structure.interpolate import Interpolater
-from amset.log import initialize_amset_logger
-from pymatgen.electronic_structure.bandstructure import BandStructure
-from pymatgen.electronic_structure.plotter import BSPlotter
+from amset.constants import bohr_to_cm
+from amset.plot.base import BaseAmsetPlotter, seaborn_colors
 
-class AmsetBandStructurePlotter(BaseAmsetPlotter):
-
-    def __init__(
-        self,
-        data,
-        interpolation_factor=defaults["interpolation_factor"],
-        print_log=defaults["print_log"],
-    ):
-        super().__init__(data)
-
-        # interpolater expects energies in eV
-        energies = {s: e * hartree_to_ev for s, e in self.energies.items()}
-        bs = BandStructure(
-            self.ir_kpoints,
-            energies,
-            self.structure.lattice,
-            self.efermi * hartree_to_ev
-        )
-        nelect = sum([idx for idx in self.vb_idx])
-
-        props = defaultdict(dict)
-        for spin in self.spins:
-            for n, t in np.ndindex(self.fermi_levels.shape):
-                name = "{}-{}".format(n, t)
-                props[spin][name] = np.sum(self.scattering_rates[spin][:, n, t], axis=0)
-
-        if print_log:
-            initialize_amset_logger(filename="amset_bandstructure_plot.log")
-
-        self.interpolater = Interpolater(
-            bs,
-            nelect,
-            interpolation_factor=interpolation_factor,
-            soc=self.soc,
-            other_properties=props
-        )
-
-    def get_plot(self, n_idx, t_idx, zero_to_efermi=True, estep=0.001):
-        bs, prop = self.interpolater.get_line_mode_band_structure(
-            return_other_properties=True
-        )
-
-        # get the linewidths for the doping and temperatures we want
-        name = "{}-{}".format(n_idx, t_idx)
-        linewidths = {s: d[name] for s, d in prop.items()}
-
-        bs_plotter = BSPlotter(bs)
-        plot_data = bs_plotter.bs_plot_data(zero_to_efermi=zero_to_efermi)
-
-        emin, emax = self.fd_tols
-        emin *= hartree_to_ev
-        emax *= hartree_to_ev
-
-        energies = np.linspace(emin, emax, int((emax - emin) / estep))
-        distances = plot_data["distances"]
-
-        mesh_data = np.zeros((len(distances), len(energies)))
-        for d_idx in enumerate(distances):
-            for spin in self.spins:
-                for b_idx, band_energies in bs.bands[spin].items():
-                    lw = linewidths[spin][b_idx, d_idx] * hbar
-                    energy = band_energies[d_idx]
-
-                    mesh_data[d_idx] += cauchy.pdf(energies, loc=energy, scale=lw)
-
-        ax = plt.gca()
-        ax.pcolormesh(distances, energies, mesh_data.T)
-
-    def _makeplot(self, ax, fig, data, zero_to_efermi=True,
-                  vbm_cbm_marker=False, ymin=-6., ymax=6.,
-                  height=None, width=None,
-                  dos_plotter=None, dos_options=None, dos_label=None,
-                  aspect=None):
-        """Tidy the band structure & add the density of states if required."""
-        # draw line at Fermi level if not zeroing to e-Fermi
-        if not zero_to_efermi:
-            ytick_color = rcParams['ytick.color']
-            ef = self._bs.efermi
-            ax.axhline(ef, color=ytick_color)
-
-        # set x and y limits
-        ax.set_xlim(0, data['distances'][-1][-1])
-        if self._bs.is_metal() and not zero_to_efermi:
-            ax.set_ylim(self._bs.efermi + ymin, self._bs.efermi + ymax)
-        else:
-            ax.set_ylim(ymin, ymax)
-
-        if vbm_cbm_marker:
-            for cbm in data['cbm']:
-                ax.scatter(cbm[0], cbm[1], color='C2', marker='o', s=100)
-            for vbm in data['vbm']:
-                ax.scatter(vbm[0], vbm[1], color='C3', marker='o', s=100)
-
-        if dos_plotter:
-            ax = fig.axes[1]
-
-            if not dos_options:
-                dos_options = {}
-
-            dos_options.update({'xmin': ymin, 'xmax': ymax})
-            self._makedos(ax, dos_plotter, dos_options, dos_label=dos_label)
-        else:
-            # keep correct aspect ratio for axes based on canvas size
-            x0, x1 = ax.get_xlim()
-            y0, y1 = ax.get_ylim()
-            if width is None:
-                width = rcParams['figure.figsize'][0]
-            if height is None:
-                height = rcParams['figure.figsize'][1]
-
-            if not aspect:
-                aspect = height / width
-
-            ax.set_aspect(aspect * ((x1 - x0) / (y1 - y0)))
-
-    def _makedos(self, ax, dos_plotter, dos_options, dos_label=None):
-        """This is basically the same as the SDOSPlotter get_plot function."""
-
-        # don't use first 4 colours; these are the band structure line colours
-        cycle = cycler(
-            'color', rcParams['axes.prop_cycle'].by_key()['color'][4:])
-        with context({'axes.prop_cycle': cycle}):
-            plot_data = dos_plotter.dos_plot_data(**dos_options)
-
-        mask = plot_data['mask']
-        energies = plot_data['energies'][mask]
-        lines = plot_data['lines']
-        spins = [Spin.up] if len(lines[0][0]['dens']) == 1 else \
-            [Spin.up, Spin.down]
-
-        for line_set in plot_data['lines']:
-            for line, spin in it.product(line_set, spins):
-                if spin == Spin.up:
-                    label = line['label']
-                    densities = line['dens'][spin][mask]
-                else:
-                    label = ""
-                    densities = -line['dens'][spin][mask]
-                ax.fill_betweenx(energies, densities, 0, lw=0,
-                                 facecolor=line['colour'],
-                                 alpha=line['alpha'])
-                ax.plot(densities, energies, label=label,
-                        color=line['colour'])
-
-            # x and y axis reversed versus normal dos plotting
-            ax.set_ylim(dos_options['xmin'], dos_options['xmax'])
-            ax.set_xlim(plot_data['ymin'], plot_data['ymax'])
-
-            if dos_label is not None:
-                ax.set_xlabel(dos_label)
-
-        ax.set_xticklabels([])
-        ax.legend(loc=2, frameon=False, ncol=1, bbox_to_anchor=(1., 1.))
-
-    @staticmethod
-    def _sanitise_label(label):
-        """Implement label hacks: Hide trailing @, remove label with leading @
-        """
-
-        import re
-        if re.match('^@.*$', label):
-            return None
-        else:
-            return re.sub('@+$', '', label)
-
-    @classmethod
-    def _sanitise_label_group(cls, labelgroup):
-        """Implement label hacks: Hide trailing @, remove label with leading @
-
-        Labels split with $\mid$ symbol will be treated for each part.
-        """
-
-        if r'$\mid$' in labelgroup:
-            label_components = labelgroup.split(r'$\mid$')
-            good_labels = [l for l in
-                           map(cls._sanitise_label, label_components)
-                           if l is not None]
-            if len(good_labels) == 0:
-                return None
-            else:
-                return r'$\mid$'.join(good_labels)
-        else:
-            return cls._sanitise_label(labelgroup)
-
-    def _maketicks(self, ax, ylabel='Energy (eV)'):
-        """Utility method to add tick marks to a band structure."""
-        # set y-ticks
-        ax.yaxis.set_major_locator(MaxNLocator(6))
-        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-
-        # set x-ticks; only plot the unique tick labels
-        ticks = self.get_ticks()
-        unique_d = []
-        unique_l = []
-        if ticks['distance']:
-            temp_ticks = list(zip(ticks['distance'], ticks['label']))
-            unique_d.append(temp_ticks[0][0])
-            unique_l.append(temp_ticks[0][1])
-            for i in range(1, len(temp_ticks)):
-                # Hide labels marked with @
-                if '@' in temp_ticks[i][1]:
-                    # If a branch connection, check all parts of label
-                    if r'$\mid$' in temp_ticks[i][1]:
-                        label_components = temp_ticks[i][1].split(r'$\mid$')
-                        good_labels = [l for l in label_components
-                                       if l[0] != '@']
-                        if len(good_labels) == 0:
-                            continue
-                        else:
-                            temp_ticks[i] = (temp_ticks[i][0],
-                                             r'$\mid$'.join(good_labels))
-                    # If a single label, check first character
-                    elif temp_ticks[i][1][0] == '@':
-                        continue
-
-                # Append label to sequence if it is not same as predecessor
-                if unique_l[-1] != temp_ticks[i][1]:
-                    unique_d.append(temp_ticks[i][0])
-                    unique_l.append(temp_ticks[i][1])
-
-        logging.info('Label positions:')
-        for dist, label in list(zip(unique_d, unique_l)):
-            logging.info('\t{:.4f}: {}'.format(dist, label))
-
-        ax.set_xticks(unique_d)
-        ax.set_xticklabels(unique_l)
-        ax.xaxis.grid(True, ls='-')
-        ax.set_ylabel(ylabel)
-
-        trans_xdata_yaxes = blended_transform_factory(ax.transData,
-                                                      ax.transAxes)
-        ax.vlines(unique_d, 0, 1,
-                  transform=trans_xdata_yaxes,
-                  colors=rcParams['grid.color'],
-                  linewidth=rcParams['grid.linewidth'],
-                  zorder=3)
-
-
-
+_legend_kwargs = {"loc": "upper left", "bbox_to_anchor": (1, 1), "frameon": False}
 
 
 class AmsetRatesPlotter(BaseAmsetPlotter):
-    def plot_rates(
+    def get_plot(
         self,
         plot_fd_tols: bool = True,
         plot_total_rate: bool = False,
         ymin: float = None,
         ymax: float = None,
         normalize_energy: bool = True,
+        separate_rates: bool = True,
     ):
         if normalize_energy and self.is_metal:
             norm_e = self.fermi_levels[0][0]
@@ -315,11 +68,19 @@ class AmsetRatesPlotter(BaseAmsetPlotter):
                 self.doping[d] * (1 / bohr_to_cm) ** 3, self.temperatures[t]
             )
 
+            if separate_rates:
+                plot_rates = rates[:, d, t]
+                labels = self.scattering_labels
+
+            else:
+                plot_rates = np.sum(rates[:, d, t], axis=0)[None, ...]
+                labels = ["overall"]
+
             _plot_rates_to_axis(
                 ax,
                 energies,
-                rates[:, d, t],
-                self.scattering_labels,
+                plot_rates,
+                labels,
                 self.fd_cutoffs,
                 plot_total_rate=plot_total_rate,
                 plot_fd_tols=plot_fd_tols,
@@ -353,7 +114,7 @@ def _plot_rates_to_axis(
     title=None,
 ):
     if colors is None:
-        color_cycler = cycler(color=_seaborn_colors)
+        color_cycler = cycler(color=seaborn_colors)
         ax.set_prop_cycle(color_cycler)
 
     if legend_kwargs is None:
@@ -439,7 +200,3 @@ def _get_rate_ylims(
         ymax = 10 ** log_tmp
 
     return ymin, ymax
-
-
-def lorentzian(x, x0, gamma):
-    return 1 / np.pi * gamma / ((x - x0) ** 2 + gamma ** 2)
