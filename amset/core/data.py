@@ -15,7 +15,7 @@ from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.overlap import OverlapCalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
-from amset.util import cast_dict, groupby
+from amset.util import cast_dict_list, groupby
 from pymatgen import Spin, Structure
 
 __author__ = "Alex Ganose"
@@ -337,17 +337,19 @@ class AmsetData(MSONable):
             ir_energies = {s: e[:, self.ir_kpoints_idx] for s, e in energies.items()}
 
             mesh_data = {
-                "energies": cast_dict(ir_energies),
+                "energies": cast_dict_list(ir_energies),
                 "kpoints": self.full_kpoints,
                 "ir_kpoints": self.ir_kpoints,
                 "ir_to_full_kpoint_mapping": self.ir_to_full_kpoint_mapping,
                 "efermi": self.intrinsic_fermi_level,
-                "vb_idx": cast_dict(self.vb_idx),
+                "vb_idx": cast_dict_list(self.vb_idx),
                 "dos": self.dos,
-                "scattering_rates": cast_dict(ir_rates),
+                "scattering_rates": cast_dict_list(ir_rates),
                 "scattering_labels": self.scattering_labels,
                 "is_metal": self.is_metal,
                 "fd_cutoffs": self.fd_cutoffs,
+                "structure": self.structure,
+                "soc": self._soc,
             }
             data.update(mesh_data)
         return data
@@ -422,3 +424,5 @@ class AmsetData(MSONable):
 
         else:
             raise ValueError("Unrecognised output format: {}".format(file_format))
+
+        return filename
