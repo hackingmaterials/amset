@@ -11,14 +11,21 @@ import numpy as np
 from monty.json import MSONable
 
 from amset.constants import amset_defaults as defaults
-from amset.constants import (angstrom_to_bohr, bohr_to_cm, ev_to_hartree, hartree_to_ev,
-                             spin_name)
+from amset.constants import (
+    angstrom_to_bohr,
+    bohr_to_cm,
+    ev_to_hartree,
+    hartree_to_ev,
+    spin_name,
+)
 from amset.core.data import AmsetData
 from amset.electronic_structure.dos import FermiDos
-from amset.electronic_structure.kpoints import (get_kpoints_tetrahedral,
-                                                get_symmetry_equivalent_kpoints,
-                                                similarity_transformation,
-                                                sort_boltztrap_to_spglib)
+from amset.electronic_structure.kpoints import (
+    get_kpoints_tetrahedral,
+    get_symmetry_equivalent_kpoints,
+    similarity_transformation,
+    sort_boltztrap_to_spglib,
+)
 from amset.electronic_structure.overlap import OverlapCalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
@@ -26,8 +33,10 @@ from BoltzTraP2 import fite, sphere
 from BoltzTraP2.fite import FFTc, FFTev, Second
 from pymatgen import Structure
 from pymatgen.core.units import bohr_to_angstrom
-from pymatgen.electronic_structure.bandstructure import (BandStructure,
-                                                         BandStructureSymmLine)
+from pymatgen.electronic_structure.bandstructure import (
+    BandStructure,
+    BandStructureSymmLine,
+)
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.dos import Dos
 from pymatgen.io.ase import AseAtomsAdaptor

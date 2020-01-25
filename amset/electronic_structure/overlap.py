@@ -4,9 +4,11 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
 from amset.constants import numeric_types
-from amset.electronic_structure.kpoints import (expand_kpoints,
-                                                get_mesh_dim_from_kpoints,
-                                                similarity_transformation)
+from amset.electronic_structure.kpoints import (
+    expand_kpoints,
+    get_mesh_dim_from_kpoints,
+    similarity_transformation,
+)
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 

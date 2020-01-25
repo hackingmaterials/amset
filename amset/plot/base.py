@@ -2,7 +2,6 @@ import abc
 from pathlib import Path
 from typing import Union
 
-import matplotlib.pyplot
 from monty.serialization import loadfn
 from pkg_resources import resource_filename
 

@@ -75,7 +75,7 @@ class LineshapePlotter(BaseAmsetPlotter):
         distance_factor=10,
         style=None,
         no_base_style=False,
-        fonts=None
+        fonts=None,
     ):
         interpolater = self._get_interpolater(n_idx, t_idx)
 
