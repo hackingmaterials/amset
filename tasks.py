@@ -26,7 +26,7 @@ def release_github(ctx):
         "name": "v" + __version__,
         "body": "",
         "draft": False,
-        "prerelease": False
+        "prerelease": False,
     }
     # For this to work properly, you need to go to your Github profile,
     # generate a "Personal access token". Then do export
@@ -34,8 +34,8 @@ def release_github(ctx):
     response = requests.post(
         "https://api.github.com/repos/hackingmaterials/amset/releases",
         data=json.dumps(payload),
-        headers={"Authorization":
-                 "token " + os.environ["GITHUB_RELEASES_TOKEN"]})
+        headers={"Authorization": "token " + os.environ["GITHUB_RELEASES_TOKEN"]},
+    )
     print(response.text)
 
 
