@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from amset.interpolation.interpolate import Interpolater
+from amset.electronic_structure.interpolate import Interpolater
 from amset.log import initialize_amset_logger
 from pymatgen import Spin
 from pymatgen.io.vasp import Vasprun
