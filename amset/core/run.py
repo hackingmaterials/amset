@@ -133,7 +133,7 @@ class AmsetRunner(MSONable):
         pop_frequency = self.settings["pop_frequency"]
         scattering_type = self.settings["scattering_type"]
         cutoff_pad = 0
-        if pop_frequency and "POP" in scattering_type or scattering_type == "auto":
+        if pop_frequency and ("POP" in scattering_type or scattering_type == "auto"):
             # convert from THz to angular frequency in Hz
             pop_frequency = pop_frequency * 1e12 * 2 * np.pi
 
