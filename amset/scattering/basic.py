@@ -109,6 +109,7 @@ class BrooksHerringScattering(AbstractBasicScattering):
         )
 
         ir_kpoints_idx = amset_data.ir_kpoints_idx
+        ir_to_full_idx = amset_data.ir_to_full_kpoint_mapping
         self._rates = {}
         for spin in self.spins:
             masses = np.tile(
@@ -150,11 +151,12 @@ class BrooksHerringScattering(AbstractBasicScattering):
                 prefactor[:, :, None, None]
                 * (d_factor * np.log(1 + b) - b_factor)
                 / (velocities * k_sq)
-            )[..., amset_data.ir_to_full_kpoint_mapping]
+            )
 
             # these will be interpolated
             self._rates[spin][np.isnan(self.rates[spin])] = 0
             self.rates[spin][energies < 1e-8] = 0
+            self.rates[spin] = self.rates[spin][..., ir_to_full_idx]
 
     @property
     def rates(self):
