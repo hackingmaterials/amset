@@ -4,10 +4,8 @@ import numpy as np
 from spglib import spglib
 
 from amset.constants import amset_defaults
-from amset.electronic_structure.tetrahedron import get_tetrahedra
 from pymatgen import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 _SYMPREC = amset_defaults["symprec"]
 _KTOL = 1e-5
@@ -165,6 +163,8 @@ def get_kpoints_tetrahedral(
         ir -> full conversion will only work with calculated scalar properties
         such as energy (not vector properties such as velocity).
     """
+    from amset.electronic_structure.tetrahedron import get_tetrahedra
+
     if isinstance(kpoint_mesh, (int, float)):
         kpoint_mesh = get_kpoint_mesh(structure, kpoint_mesh)
 
@@ -279,6 +279,8 @@ def get_mesh_dim_from_kpoints(kpoints, tol=_KTOL):
 def get_reciprocal_point_group_operations(
     structure: Structure, symprec: float = _SYMPREC, time_reversal_symmetry: bool = True
 ):
+    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+
     frac_real_to_frac_recip = np.dot(
         np.linalg.inv(structure.lattice.reciprocal_lattice.matrix.T),
         structure.lattice.matrix.T,
