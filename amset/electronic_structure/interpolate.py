@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from monty.json import MSONable
 
-from amset.constants import amset_defaults as defaults
+from amset.constants import amset_defaults as defaults, numeric_types
 from amset.constants import (
     angstrom_to_bohr,
     bohr_to_cm,
@@ -40,12 +40,13 @@ from pymatgen.electronic_structure.bandstructure import (
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.dos import Dos
 from pymatgen.io.ase import AseAtomsAdaptor
-from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 __date__ = "June 21, 2019"
+
+from sumo.symmetry import PymatgenKpath, Kpath
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +259,7 @@ class Interpolater(MSONable):
 
         if is_metal:
             efermi = self._band_structure.efermi * ev_to_hartree
+            new_vb_idx = None
         else:
             energies = _shift_energies(
                 energies, new_vb_idx, scissor=scissor, bandgap=bandgap
@@ -508,8 +510,6 @@ class Interpolater(MSONable):
             else:
                 # if semiconducting, set Fermi level to middle of gap
                 efermi = _get_efermi(energies, new_vb_idx)
-                if not atomic_units:
-                    efermi *= hartree_to_ev
 
             to_return.append(efermi)
 
@@ -560,20 +560,31 @@ class Interpolater(MSONable):
         Returns:
             The density of states.
         """
+        if isinstance(kpoint_mesh, numeric_types):
+            logger.info("DOS k-point length cutoff: {}".format(kpoint_mesh))
+        else:
+            str_mesh = "x".join(map(str, kpoint_mesh))
+            logger.info("DOS k-point mesh: {}".format(str_mesh))
+
         structure = self._band_structure.structure
         tri = not self._soc
         ir_kpts, _, full_kpts, ir_kpts_idx, ir_to_full_idx, tetrahedra, *ir_tetrahedra_info = get_kpoints_tetrahedral(
             kpoint_mesh, structure, symprec=symprec, time_reversal_symmetry=tri
         )
 
-        energies, efermi = self.get_energies(
+        energies, efermi, vb_idx = self.get_energies(
             ir_kpts,
             scissor=scissor,
             bandgap=bandgap,
             energy_cutoff=energy_cutoff,
             atomic_units=atomic_units,
             return_efermi=True,
+            return_vb_idx=True,
         )
+
+        if not self._band_structure.is_metal():
+            # if not a metal, set the Fermi level to the top of the valence band.
+            efermi = np.max([np.max(e[vb_idx[spin]]) for spin, e in energies.items()])
 
         full_energies = {s: e[:, ir_to_full_idx] for s, e in energies.items()}
         tetrahedral_band_structure = TetrahedralBandStructure(
@@ -598,6 +609,7 @@ class Interpolater(MSONable):
     def get_line_mode_band_structure(
         self,
         line_density: int = 50,
+        kpath: Optional[Kpath] = None,
         energy_cutoff: Optional[float] = None,
         scissor: Optional[float] = None,
         bandgap: Optional[float] = None,
@@ -632,11 +644,10 @@ class Interpolater(MSONable):
         Returns:
             The line mode band structure.
         """
+        if not kpath:
+            kpath = PymatgenKpath(self._band_structure.structure, symprec=symprec)
 
-        hsk = HighSymmKpath(self._band_structure.structure, symprec=symprec)
-        kpoints, labels = hsk.get_kpoints(
-            line_density=line_density, coords_are_cartesian=True
-        )
+        kpoints, labels = kpath.get_kpoints(line_density=line_density, cart_coords=True)
         labels_dict = {
             label: kpoint for kpoint, label in zip(kpoints, labels) if label != ""
         }
@@ -649,6 +660,7 @@ class Interpolater(MSONable):
             energy_cutoff=energy_cutoff,
             coords_are_cartesian=True,
             return_other_properties=return_other_properties,
+            symprec=symprec,
         )
 
         if return_other_properties:
@@ -936,6 +948,9 @@ def get_band_centers(kpoints, energies, vb_idx, efermi, tol=0.0001 * ev_to_hartr
 
             else:
                 k_idxs = (band_energies - np.min(band_energies)) < tol
+
+            if len(k_idxs) > 0:
+                k_idxs = [0]
 
             spin_centers.append(kpoints[k_idxs])
         band_centers[spin] = spin_centers
