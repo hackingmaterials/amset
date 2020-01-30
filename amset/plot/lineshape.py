@@ -24,7 +24,9 @@ class LineshapePlotter(BaseAmsetPlotter):
     def __init__(self, data, interpolation_factor=1, print_log=defaults["print_log"]):
         super().__init__(data)
         self.interpolation_factor = interpolation_factor
-        self.print_log = print_log
+
+        if print_log:
+            initialize_amset_logger(filename="amset_lineshape_plot.log")
 
     def _get_interpolater(self, n_idx, t_idx):
         # interpolater expects energies in eV and structure in angstrom
@@ -46,9 +48,6 @@ class LineshapePlotter(BaseAmsetPlotter):
                 np.sum(self.scattering_rates[spin][:, n_idx, t_idx], axis=0)
             )
 
-        if self.print_log:
-            initialize_amset_logger(filename="amset_bandstructure_plot.log")
-
         return Interpolater(
             bs,
             nelect,
@@ -67,12 +66,13 @@ class LineshapePlotter(BaseAmsetPlotter):
         line_density=100,
         height=6,
         width=6,
-        ymin=None,
-        ymax=None,
+        emin=None,
+        emax=None,
         ylabel="Energy (eV)",
         plt=None,
         aspect=None,
         distance_factor=10,
+        kpath=None,
         style=None,
         no_base_style=False,
         fonts=None,
@@ -80,19 +80,19 @@ class LineshapePlotter(BaseAmsetPlotter):
         interpolater = self._get_interpolater(n_idx, t_idx)
 
         bs, prop = interpolater.get_line_mode_band_structure(
-            line_density=line_density, return_other_properties=True
+            line_density=line_density, return_other_properties=True, kpath=kpath
         )
 
-        emin, emax = self.fd_cutoffs
-        if not ymin:
-            ymin = emin * hartree_to_ev
+        fd_emin, fd_emax = self.fd_cutoffs
+        if not emin:
+            emin = fd_emin * hartree_to_ev
             if zero_to_efermi:
-                ymin -= bs.efermi
+                emin -= bs.efermi
 
-        if not ymax:
-            ymax = emax * hartree_to_ev
+        if not emax:
+            emax = fd_emax * hartree_to_ev
             if zero_to_efermi:
-                ymax -= bs.efermi
+                emax -= bs.efermi
 
         logger.info("Plotting band structure")
         plt = pretty_plot(width=width, height=height, plt=plt)
@@ -105,7 +105,7 @@ class LineshapePlotter(BaseAmsetPlotter):
         bs_plotter = BSPlotter(bs)
         plot_data = bs_plotter.bs_plot_data(zero_to_efermi=zero_to_efermi)
 
-        energies = np.linspace(ymin, ymax, int((ymax - ymin) / estep))
+        energies = np.linspace(emin, emax, int((emax - emin) / estep))
         distances = np.array([d for x in plot_data["distances"] for d in x])
 
         # rates are currently log(rate)
@@ -116,14 +116,17 @@ class LineshapePlotter(BaseAmsetPlotter):
             rates[spin][rates[spin] >= 15] = 15
 
         interp_distances = np.linspace(
-            distances.min(), distances.max(), len(distances) * distance_factor
+            distances.min(), distances.max(), int(len(distances) * distance_factor)
         )
 
+        window = np.min([len(distances) - 2, 71])
+        window += window % 2 + 1
         mesh_data = np.full((len(interp_distances), len(energies)), 1e-2)
+
         for spin in self.spins:
             for spin_energies, spin_rates in zip(bs.bands[spin], rates[spin]):
                 interp_energies = interp1d(distances, spin_energies)(interp_distances)
-                spin_rates = savgol_filter(spin_rates, 71, 3)
+                spin_rates = savgol_filter(spin_rates, window, 3)
                 interp_rates = interp1d(distances, spin_rates)(interp_distances)
                 linewidths = 10 ** interp_rates * hbar / 2
 
@@ -151,8 +154,8 @@ class LineshapePlotter(BaseAmsetPlotter):
             zero_to_efermi=zero_to_efermi,
             width=width,
             height=height,
-            ymin=ymin,
-            ymax=ymax,
+            ymin=emin,
+            ymax=emax,
             aspect=aspect,
         )
         return plt
