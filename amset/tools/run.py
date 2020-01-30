@@ -2,13 +2,11 @@
 This module contains a script for using amset from the command line.
 """
 
-import warnings
 from collections import defaultdict
 from typing import Any, Dict
 
 import click
 from click import option
-from ruamel.yaml.error import MantissaNoDotYAML1_1Warning
 
 from amset.util import parse_deformation_potential, parse_doping, parse_temperatures
 
@@ -104,12 +102,6 @@ def run(**kwargs):
     from amset.constants import amset_defaults
     from amset.log import initialize_amset_logger
     from amset.core.run import AmsetRunner
-
-    warnings.filterwarnings("ignore", category=UserWarning, module="pymatgen")
-    warnings.filterwarnings("ignore", category=RuntimeWarning, module="amset")
-    warnings.filterwarnings("ignore", category=FutureWarning, module="scipy")
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    warnings.simplefilter("ignore", MantissaNoDotYAML1_1Warning)
 
     if kwargs["print_log"] is not False:
         initialize_amset_logger()
