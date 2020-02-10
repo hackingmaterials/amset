@@ -34,7 +34,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.6.0">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.6.2">
     
     
       
@@ -42,7 +42,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/application.1b62728e.css">
+      <link rel="stylesheet" href="../assets/stylesheets/application.adb8469c.css">
       
         <link rel="stylesheet" href="../assets/stylesheets/application-palette.a8b3c06d.css">
       
@@ -53,7 +53,7 @@
       
     
     
-      <script src="../assets/javascripts/modernizr.268332fc.js"></script>
+      <script src="../assets/javascripts/modernizr.86422ebf.js"></script>
     
     
       
@@ -87,7 +87,7 @@
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
     <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
     
-      <a href="#settings" tabindex="1" class="md-skip">
+      <a href="#settings" tabindex="0" class="md-skip">
         Skip to content
       </a>
     
@@ -96,7 +96,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href=".." title="AMSET Documentation" class="md-header-nav__button md-logo">
+        <a href=".." title="AMSET Documentation" aria-label="AMSET Documentation" class="md-header-nav__button md-logo">
           
             <i class="md-icon">call_missed_outgoing</i>
           
@@ -127,7 +127,7 @@
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
     <form class="md-search__form" name="search">
-      <input type="text" class="md-search__input" name="query" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="query" data-md-state="active">
+      <input type="text" class="md-search__input" aria-label="search" name="query" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="query" data-md-state="active">
       <label class="md-icon md-search__icon" for="__search"></label>
       <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
         &#xE5CD;
@@ -918,13 +918,13 @@ temperature/doping ranges.</p>
 <p>Controls which doping levels (carrier concentrations) to calculate.
 Concentrations given with the unit cm<sup>–3</sup>. Can be specified directly as a comma
 separated list, e.g.:</p>
-<div class="codehilite"><pre><span></span><span class="mf">1E13</span><span class="p">,</span><span class="mf">1E14</span><span class="p">,</span><span class="mf">1E15</span><span class="p">,</span><span class="mf">1E16</span><span class="p">,</span><span class="mf">1E17</span><span class="p">,</span><span class="mf">1E18</span><span class="p">,</span><span class="mf">1E19</span><span class="p">,</span><span class="mf">1E20</span>
-</pre></div>
+<div class="codehilite"><pre><span></span><code><span class="mf">1E13</span><span class="p">,</span><span class="mf">1E14</span><span class="p">,</span><span class="mf">1E15</span><span class="p">,</span><span class="mf">1E16</span><span class="p">,</span><span class="mf">1E17</span><span class="p">,</span><span class="mf">1E18</span><span class="p">,</span><span class="mf">1E19</span><span class="p">,</span><span class="mf">1E20</span>
+</code></pre></div>
 
 <p>Alternatively, ranges can be specified using the syntax <code class="codehilite"><span class="n">start</span><span class="o">:</span><span class="n">stop</span><span class="o">:</span><span class="n">num_steps</span></code>.
 For example, the same doping concentrations as above can be written::</p>
-<div class="codehilite"><pre><span></span><span class="mf">1E13</span><span class="p">:</span><span class="mf">1E20</span><span class="p">:</span><span class="mi">8</span>
-</pre></div>
+<div class="codehilite"><pre><span></span><code><span class="mf">1E13</span><span class="p">:</span><span class="mf">1E20</span><span class="p">:</span><span class="mi">8</span>
+</code></pre></div>
 
 <p>Negative concentrations indicate holes (<em>p</em>-type doping), positive concentrations
 indicate electrons (<em>n</em>-type doping).</p>
@@ -935,13 +935,13 @@ indicate electrons (<em>n</em>-type doping).</p>
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">-t, --temperatures</span></code></p>
 <p>Controls which temperatures to calculate. Temperatures given in Kelvin. Can be
 specified directly as a comma separated list, e.g.::</p>
-<div class="codehilite"><pre><span></span><span class="mi">300</span><span class="p">,</span><span class="mi">400</span><span class="p">,</span><span class="mi">500</span><span class="p">,</span><span class="mi">600</span><span class="p">,</span><span class="mi">700</span><span class="p">,</span><span class="mi">800</span><span class="p">,</span><span class="mi">900</span><span class="p">,</span><span class="mi">1000</span>
-</pre></div>
+<div class="codehilite"><pre><span></span><code><span class="mi">300</span><span class="p">,</span><span class="mi">400</span><span class="p">,</span><span class="mi">500</span><span class="p">,</span><span class="mi">600</span><span class="p">,</span><span class="mi">700</span><span class="p">,</span><span class="mi">800</span><span class="p">,</span><span class="mi">900</span><span class="p">,</span><span class="mi">1000</span>
+</code></pre></div>
 
 <p>Alternatively, ranges can be specified using the syntax <code class="codehilite"><span class="n">start</span><span class="o">:</span><span class="n">stop</span><span class="o">:</span><span class="n">num_steps</span></code>,
 For example, the same temperature range as above can be written::</p>
-<div class="codehilite"><pre><span></span><span class="mi">300</span><span class="p">:</span><span class="mi">1000</span><span class="p">:</span><span class="mi">8</span>
-</pre></div>
+<div class="codehilite"><pre><span></span><code><span class="mi">300</span><span class="p">:</span><span class="mi">1000</span><span class="p">:</span><span class="mi">8</span>
+</code></pre></div>
 
 <p>Default: <code class="codehilite"><span class="err">[300]</span></code></p>
 </div>
@@ -1014,8 +1014,8 @@ scattering rates.</p>
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">--deformation-potential</span></code></p>
 <p>The volume deformation potential, in eV. Can be given as a comma separated
 list of two values for the VBM and CBM, respectively, e.g.:</p>
-<div class="codehilite"><pre><span></span><span class="mf">8.6</span><span class="p">,</span> <span class="mf">7.4</span>
-</pre></div>
+<div class="codehilite"><pre><span></span><code><span class="mf">8.6</span><span class="p">,</span> <span class="mf">7.4</span>
+</code></pre></div>
 
 <p>Or a single value to use for all bands in metals.</p>
 <p>Required for: ACD</p>
@@ -1195,9 +1195,9 @@ his option can use a large amount of disk space.</p>
           </div>
         
         powered by
-        <a href="https://www.mkdocs.org">MkDocs</a>
+        <a href="https://www.mkdocs.org" target="_blank" rel="noopener">MkDocs</a>
         and
-        <a href="https://squidfunk.github.io/mkdocs-material/">
+        <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
           Material for MkDocs</a>
       </div>
       
@@ -1207,7 +1207,7 @@ his option can use a large amount of disk space.</p>
       
     </div>
     
-      <script src="../assets/javascripts/application.808e90bb.js"></script>
+      <script src="../assets/javascripts/application.c33a9706.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:".."}})</script>
       

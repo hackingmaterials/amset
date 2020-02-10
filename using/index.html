@@ -34,7 +34,7 @@
         <meta name="lang:search.tokenizer" content="[\s\-]+">
       
       <link rel="shortcut icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.6.0">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.6.2">
     
     
       
@@ -42,7 +42,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/application.1b62728e.css">
+      <link rel="stylesheet" href="../assets/stylesheets/application.adb8469c.css">
       
         <link rel="stylesheet" href="../assets/stylesheets/application-palette.a8b3c06d.css">
       
@@ -53,7 +53,7 @@
       
     
     
-      <script src="../assets/javascripts/modernizr.268332fc.js"></script>
+      <script src="../assets/javascripts/modernizr.86422ebf.js"></script>
     
     
       
@@ -87,7 +87,7 @@
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
     <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
     
-      <a href="#using-amset" tabindex="1" class="md-skip">
+      <a href="#using-amset" tabindex="0" class="md-skip">
         Skip to content
       </a>
     
@@ -96,7 +96,7 @@
   <nav class="md-header-nav md-grid">
     <div class="md-flex">
       <div class="md-flex__cell md-flex__cell--shrink">
-        <a href=".." title="AMSET Documentation" class="md-header-nav__button md-logo">
+        <a href=".." title="AMSET Documentation" aria-label="AMSET Documentation" class="md-header-nav__button md-logo">
           
             <i class="md-icon">call_missed_outgoing</i>
           
@@ -127,7 +127,7 @@
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
     <form class="md-search__form" name="search">
-      <input type="text" class="md-search__input" name="query" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="query" data-md-state="active">
+      <input type="text" class="md-search__input" aria-label="search" name="query" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="query" data-md-state="active">
       <label class="md-icon md-search__icon" for="__search"></label>
       <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
         &#xE5CD;
@@ -487,33 +487,33 @@ documentation. An example settings file is given
 <h2 id="from-the-command-line">From the command-line<a class="headerlink" href="#from-the-command-line" title="Permanent link">&para;</a></h2>
 <p>AMSET can be run from the command-line using the <code class="codehilite"><span class="err">amset</span></code> command. The help
 menu listing a summary of the command-line options can be printed using:</p>
-<div class="codehilite"><pre><span></span>amset -h
-</pre></div>
+<div class="codehilite"><pre><span></span><code>amset -h
+</code></pre></div>
 
 <p>By default, AMSET will look for a <code class="codehilite"><span class="err">vasprun.xml</span></code> file and <code class="codehilite"><span class="err">settings.yaml</span></code>
 file in the current directory. A different directory can be specified using
 the <code class="codehilite"><span class="err">directory</span></code> option, e.g.:</p>
-<div class="codehilite"><pre><span></span>amset --directory path/to/files
-</pre></div>
+<div class="codehilite"><pre><span></span><code>amset --directory path/to/files
+</code></pre></div>
 
 <p>Any settings specified via the command line will override those in the settings
 file. For example, the interpolation factor can be easily controlled using:</p>
-<div class="codehilite"><pre><span></span>amset --interpolation-factor <span class="m">20</span>
-</pre></div>
+<div class="codehilite"><pre><span></span><code>amset --interpolation-factor <span class="m">20</span>
+</code></pre></div>
 
 <h2 id="from-the-python-api">From the Python API<a class="headerlink" href="#from-the-python-api" title="Permanent link">&para;</a></h2>
 <p>Greater configurability is available when running AMSET from the Python API.
 For example, the following snippet will look for a <code class="codehilite"><span class="err">vasprun.xml</span></code> and
 <code class="codehilite"><span class="err">settings.yaml</span></code> file in the current directory, then run AMSET.</p>
-<div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
 
 <span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
 <span class="n">amset_data</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</pre></div>
+</code></pre></div>
 
 <p>The API allows for easy convergence of parameters. For example,
 the following snippet will run AMSET using multiple interpolation factors.</p>
-<div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
 
 <span class="n">settings</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;interpolation_factor&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
 
@@ -523,11 +523,11 @@ the following snippet will run AMSET using multiple interpolation factors.</p>
 
     <span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">settings_override</span><span class="o">=</span><span class="n">settings</span><span class="p">)</span>
     <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">())</span>
-</pre></div>
+</code></pre></div>
 
 <p>When running AMSET from the API, it is not necessary to use a settings file
 at all. Instead the settings can be passed as a dictionary. For example:</p>
-<div class="codehilite"><pre><span></span><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
 
 <span class="n">settings</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;interpolation_factor&quot;</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>
@@ -541,7 +541,7 @@ at all. Instead the settings can be passed as a dictionary. For example:</p>
 
 <span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_vasprun</span><span class="p">(</span><span class="s2">&quot;vasprun.xml.gz&quot;</span><span class="p">,</span> <span class="n">settings</span><span class="p">)</span>
 <span class="n">amset_data</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-</pre></div>
+</code></pre></div>
                 
                   
                 
@@ -604,9 +604,9 @@ at all. Instead the settings can be passed as a dictionary. For example:</p>
           </div>
         
         powered by
-        <a href="https://www.mkdocs.org">MkDocs</a>
+        <a href="https://www.mkdocs.org" target="_blank" rel="noopener">MkDocs</a>
         and
-        <a href="https://squidfunk.github.io/mkdocs-material/">
+        <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
           Material for MkDocs</a>
       </div>
       
@@ -616,7 +616,7 @@ at all. Instead the settings can be passed as a dictionary. For example:</p>
       
     </div>
     
-      <script src="../assets/javascripts/application.808e90bb.js"></script>
+      <script src="../assets/javascripts/application.c33a9706.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:".."}})</script>
       
