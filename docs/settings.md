@@ -205,6 +205,32 @@ scattering rates.
     highest optical phonon frequency at the Gamma point.
 
     Required for: POP
+    
+### `mean_free_path`
+
+!!! quote ""
+    *Command-line option:* `--mean-free-path`
+
+    Basic version of boundary scattering in which the scattering rate is set to
+    $v_g / L$, where $v_g$ is the group velocity and $L$ is the mean free path
+    in nm.
+    
+    Required for: MFP
+    
+### `constant_relaxation_time`
+
+!!! quote ""
+    *Command-line option:* `--constant-relaxation-time`
+
+    A constant relaxation time to use as the minimum relaxation time for
+    all k-points.
+    
+    It is not recommended to use this option in conjunction with any other
+    scattering rates. Instead, this should be used to compare against
+    results calculated in the constant relaxation time approximation.
+    
+    Required for: CRT
+
 
 ## Performance settings
 
