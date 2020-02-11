@@ -19,9 +19,6 @@ _select_d_order = ([2, 0, 1, 0, 1], [2, 2, 2, 1, 1])  # selects dz2 dxz dyz dxy 
 _p_mask = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
 _d_mask = np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]])
 
-# _p_mask = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-# _d_mask = np.array([[0, 1, 0, 1, 1], [0, 0, 1, 1, 1], [1, 1, 1, 0, 0]])
-
 logger = logging.getLogger(__name__)
 
 
@@ -61,24 +58,16 @@ class OverlapCalculator(object):
             nprojections = np.product(spin_projections.shape[2:])
 
             expand_projections = spin_projections[:, ir_to_full_idx]
-            rot_projections = rotate_projections(
-                expand_projections, rot_mapping, structure
-            )
-            flat_projections = rot_projections.reshape(
-                (nbands, nkpoints, -1), order="F"
-            )
             flat_projections = expand_projections.reshape(
                 (nbands, nkpoints, -1), order="F"
             )
 
             # aim is to get the wavefunction coefficients
-            # norm_projection = flat_projections / flat_projections.sum(axis=2)[..., None]
             norm_projection = (
                 flat_projections
                 / np.sqrt((flat_projections ** 2).sum(axis=2))[..., None]
             )
             norm_projection[np.isnan(norm_projection)] = 0
-            # coefficients = np.sqrt(norm_projection)
             coefficients = norm_projection
 
             # sort the coefficients then reshape them into the grid. The coefficients
@@ -164,6 +153,7 @@ class OverlapCalculator(object):
             + p_product * scaling_factor * angles[:, None],
             axis=1,
         )
+        # overlap = np.ones_like(overlap)
 
         if single_overlap:
             return overlap[0] ** 2
