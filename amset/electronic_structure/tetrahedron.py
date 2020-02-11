@@ -359,9 +359,12 @@ class TetrahedralBandStructure(object):
         progress_bar=False,
     ):
         if energies is None:
+            from amset.constants import amset_defaults as defaults
+            from amset.constants import ev_to_hartree
+
             min_e = np.min([np.min(e) for e in self.energies.values()])
             max_e = np.max([np.max(e) for e in self.energies.values()])
-            energies = np.linspace(min_e, max_e, 500)
+            energies = np.arange(min_e, max_e, defaults["dos_estep"] * ev_to_hartree)
 
         dos = {}
         for spin in self.energies.keys():
