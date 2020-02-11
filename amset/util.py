@@ -5,7 +5,6 @@ import sys
 from typing import Any, Dict
 
 import numpy as np
-import scipy
 from monty.serialization import dumpfn, loadfn
 from tqdm import tqdm
 
@@ -50,7 +49,7 @@ def validate_settings(user_settings):
 
 
 def tensor_average(tensor):
-    return np.average(scipy.linalg.eigvalsh(tensor))
+    return np.average(np.linalg.eigvalsh(tensor), axis=-1)
 
 
 def groupby(a, b):
@@ -239,3 +238,8 @@ def get_progress_bar(
         )
     else:
         raise ValueError("Error creating progress bar, need total or iterable")
+
+
+def load_amset_data(filename):
+    data = loadfn(filename)
+    return cast_dict_ndarray(data)
