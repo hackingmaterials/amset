@@ -13,6 +13,13 @@ _legend_kwargs = {"loc": "upper left", "bbox_to_anchor": (1, 1), "frameon": Fals
 
 
 class RatesPlotter(BaseAmsetPlotter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.plot_energies = np.vstack([self.energies[s] for s in self.spins])
+        self.plot_rates = np.concatenate(
+            [self.scattering_rates[s] for s in self.spins], axis=3
+        )
+
     def get_plot(
         self,
         plot_fd_tols: bool = True,
@@ -21,6 +28,9 @@ class RatesPlotter(BaseAmsetPlotter):
         ymax: float = None,
         normalize_energy: bool = True,
         separate_rates: bool = True,
+        doping_idx=0,
+        temperature_idx=0,
+        legend=True,
     ):
         if normalize_energy and self.is_metal:
             norm_e = self.fermi_levels[0][0]
@@ -30,148 +40,153 @@ class RatesPlotter(BaseAmsetPlotter):
         else:
             norm_e = 0
 
+        if doping_idx is None and temperature_idx is None:
+            ny = len(self.doping)
+            nx = len(self.temperatures)
+            p_idx = [[(x, y) for y in range(nx)] for x in range(ny)]
+        elif doping_idx is None:
+            nx = len(self.doping)
+            ny = 1
+            p_idx = [[(x, temperature_idx) for x in range(nx)]]
+        elif temperature_idx is None:
+            nx = len(self.temperatures)
+            ny = 1
+            p_idx = [[(doping_idx, x) for x in range(nx)]]
+        else:
+            nx = 1
+            ny = 1
+            p_idx = [[(doping_idx, temperature_idx)]]
+
         norm_e /= units.eV
-
-        energies = np.vstack([self.energies[s] for s in self.spins])
-        rates = np.concatenate([self.scattering_rates[s] for s in self.spins], axis=3)
-
-        n_dopings = len(self.doping)
-        n_temperatures = len(self.temperatures)
         base_size = 4
 
-        if n_dopings == 1:
-            figsize = (1.2 * base_size * n_temperatures, base_size)
-            fig, axes = plt.subplots(1, n_temperatures, figsize=figsize)
-        elif n_temperatures == 1:
-            figsize = (1.2 * base_size * n_dopings, base_size)
-            fig, axes = plt.subplots(1, n_dopings, figsize=figsize)
+        if ny == 1:
+            figsize = (1.2 * base_size * nx, base_size)
+            fig, axes = plt.subplots(1, nx, figsize=figsize)
         else:
-            figsize = (1.2 * base_size * n_dopings, base_size * n_temperatures)
-            fig, axes = plt.subplots(n_dopings, n_temperatures, figsize=figsize)
+            figsize = (1.2 * base_size * nx, base_size * ny)
+            fig, axes = plt.subplots(ny, nx, figsize=figsize)
 
-        for d, t in np.ndindex(self.fermi_levels.shape):
-            if n_dopings == 1 and n_temperatures == 1:
-                ax = axes
-            elif n_dopings == 1:
-                ax = axes[t]
-            elif n_temperatures == 1:
-                ax = axes[d]
-            else:
-                ax = axes[d, t]
+        for y_idx, p_x_idx in enumerate(p_idx):
+            for x_idx, (n, t) in enumerate(p_x_idx):
+                if nx == 1 and ny == 1:
+                    ax = axes
+                elif ny == 1:
+                    ax = axes[x_idx]
+                else:
+                    ax = axes[x_idx, y_idx]
 
-            if d == n_dopings - 1 and t == n_temperatures - 1:
-                show_legend = True
-            else:
-                show_legend = False
+                if x_idx == nx - 1 and y_idx == ny - 1 and legend:
+                    show_legend = True
+                else:
+                    show_legend = False
 
-            title = "n = {:.2g} cm$^{{-3}}$\t T = {}".format(
-                self.doping[d] * (1 / bohr_to_cm) ** 3, self.temperatures[t]
-            )
+                title = "n = {:.2g} cm$^{{-3}}$\t T = {}".format(
+                    self.doping[n] * (1 / bohr_to_cm) ** 3, self.temperatures[t]
+                )
 
-            if separate_rates:
-                plot_rates = rates[:, d, t]
-                labels = self.scattering_labels
-
-            else:
-                plot_rates = np.sum(rates[:, d, t], axis=0)[None, ...]
-                labels = ["overall"]
-
-            _plot_rates_to_axis(
-                ax,
-                energies,
-                plot_rates,
-                labels,
-                self.fd_cutoffs,
-                plot_total_rate=plot_total_rate,
-                plot_fd_tols=plot_fd_tols,
-                ymin=ymin,
-                ymax=ymax,
-                show_legend=show_legend,
-                legend_kwargs=_legend_kwargs,
-                normalize_energy=norm_e,
-                title=title,
-            )
-
-        plt.subplots_adjust(wspace=0.3)
+                self.plot_rates_to_axis(
+                    ax,
+                    n,
+                    t,
+                    separate_rates=separate_rates,
+                    plot_total_rate=plot_total_rate,
+                    plot_fd_tols=plot_fd_tols,
+                    ymin=ymin,
+                    ymax=ymax,
+                    show_legend=show_legend,
+                    legend_kwargs=_legend_kwargs,
+                    normalize_energy=norm_e,
+                )
+                ax.set(title=title)
 
         return plt
 
+    def plot_rates_to_axis(
+        self,
+        ax,
+        doping_idx,
+        temperature_idx,
+        separate_rates=True,
+        plot_total_rate: bool = False,
+        plot_fd_tols: bool = True,
+        show_legend: bool = True,
+        legend_kwargs=None,
+        ymin=None,
+        ymax=None,
+        colors=None,
+        normalize_energy=0,
+    ):
+        if separate_rates:
+            rates = self.plot_rates[:, doping_idx, temperature_idx]
+            labels = self.scattering_labels
 
-def _plot_rates_to_axis(
-    ax,
-    energies,
-    rates,
-    labels,
-    fd_cutoffs,
-    plot_total_rate: bool = False,
-    plot_fd_tols: bool = True,
-    show_legend: bool = True,
-    legend_kwargs=None,
-    ymin=None,
-    ymax=None,
-    colors=None,
-    normalize_energy=0,
-    title=None,
-):
-    if colors is None:
-        color_cycler = cycler(color=seaborn_colors)
-        ax.set_prop_cycle(color_cycler)
+        else:
+            rates = np.sum(self.plot_rates[:, doping_idx, temperature_idx], axis=0)[
+                None, ...
+            ]
+            labels = ["overall"]
 
-    if legend_kwargs is None:
-        legend_kwargs = {}
+        if colors is None:
+            color_cycler = cycler(color=seaborn_colors)
+            ax.set_prop_cycle(color_cycler)
 
-    labels = deepcopy(labels)
-    rates = deepcopy(rates)
-    if plot_total_rate:
-        # add total rates column
-        rates = np.concatenate((rates, rates.sum(axis=0)[None, ...]))
-        labels += ["total"]
+        if legend_kwargs is None:
+            legend_kwargs = {}
 
-    min_fd = fd_cutoffs[0]
-    max_fd = fd_cutoffs[1]
-    min_e = min_fd - (max_fd - min_fd) * 0.1
-    max_e = max_fd + (max_fd - min_fd) * 0.1
+        labels = deepcopy(labels)
+        if plot_total_rate:
+            # add total rates column
+            rates = np.concatenate((rates, rates.sum(axis=0)[None, ...]))
+            labels += ["total"]
 
-    energies = energies.ravel()
-    energy_mask = (energies > min_e) & (energies < max_e)
-    energies = energies[energy_mask]
+        min_fd = self.fd_cutoffs[0]
+        max_fd = self.fd_cutoffs[1]
+        min_e = min_fd - (max_fd - min_fd) * 0.1
+        max_e = max_fd + (max_fd - min_fd) * 0.1
 
-    plt_rates = {}
-    for label, rate in zip(labels, rates):
-        rate = rate.ravel()
-        plt_rates[label] = rate[energy_mask]
+        energies = self.plot_energies.ravel()
+        energy_mask = (energies > min_e) & (energies < max_e)
+        energies = energies[energy_mask]
 
-    rates_in_cutoffs = np.array(list(plt_rates.values()))
-    ymin, ymax = _get_rate_ylims(rates_in_cutoffs, ymin=ymin, ymax=ymax)
+        plt_rates = {}
+        for label, rate in zip(labels, rates):
+            rate = rate.ravel()
+            plt_rates[label] = rate[energy_mask]
 
-    # convert energies to eV and normalise
-    norm_energies = energies / units.eV - normalize_energy
-    norm_min_fd = min_fd / units.eV - normalize_energy
-    norm_max_fd = max_fd / units.eV - normalize_energy
-    norm_min_e = min_e / units.eV - normalize_energy
-    norm_max_e = max_e / units.eV - normalize_energy
+        rates_in_cutoffs = np.array(list(plt_rates.values()))
+        ymin, ymax = _get_rate_ylims(rates_in_cutoffs, ymin=ymin, ymax=ymax)
 
-    for label, rate in plt_rates.items():
-        ax.scatter(norm_energies, rate, label=label)
+        # convert energies to eV and normalise
+        norm_energies = energies / units.eV - normalize_energy
+        norm_min_fd = min_fd / units.eV - normalize_energy
+        norm_max_fd = max_fd / units.eV - normalize_energy
+        norm_min_e = min_e / units.eV - normalize_energy
+        norm_max_e = max_e / units.eV - normalize_energy
 
-    if plot_fd_tols:
-        ax.plot((norm_min_fd, norm_min_fd), (ymin, ymax), c="gray", ls="--", alpha=0.5)
-        ax.plot(
-            (norm_max_fd, norm_max_fd),
-            (ymin, ymax),
-            c="gray",
-            ls="--",
-            alpha=0.5,
-            label="FD cutoffs",
-        )
+        for label, rate in plt_rates.items():
+            ax.scatter(norm_energies, rate, label=label)
 
-    ax.semilogy()
-    ax.set_ylim(ymin, ymax)
-    ax.set_xlim((norm_min_e, norm_max_e))
-    ax.set(xlabel="energy (eV)", ylabel="scattering rate (s$^-1$)", title=title)
+        if plot_fd_tols:
+            ax.plot(
+                (norm_min_fd, norm_min_fd), (ymin, ymax), c="gray", ls="--", alpha=0.5
+            )
+            ax.plot(
+                (norm_max_fd, norm_max_fd),
+                (ymin, ymax),
+                c="gray",
+                ls="--",
+                alpha=0.5,
+                label="FD cutoffs",
+            )
 
-    if show_legend:
-        ax.legend(**legend_kwargs)
+        ax.semilogy()
+        ax.set_ylim(ymin, ymax)
+        ax.set_xlim((norm_min_e, norm_max_e))
+        ax.set(xlabel="energy (eV)", ylabel="scattering rate (s$^-1$)")
+
+        if show_legend:
+            ax.legend(**legend_kwargs)
 
 
 def _get_rate_ylims(
