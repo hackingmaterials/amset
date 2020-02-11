@@ -60,6 +60,8 @@ __date__ = "June 21, 2019"
 @option("--acceptor-charge", type=float, help="acceptor defect charge")
 @option("--donor-charge", type=float, help="donor defect charge")
 @option("--pop-frequency", type=float, help="polar optical phonon frequency [THz]")
+@option("--mean-free-path", type=float, help="set the mean free path of electrons [nm]")
+@option("--constant-relaxation-time", type=float, help="constant relaxation time [s]")
 @option(
     "--energy-cutoff",
     type=float,

@@ -28,6 +28,8 @@ piezeoelectric_coefficient: 0.15  # unitless
 acceptor_charge: 1
 donor_charge: 1
 pop_frequency: null  # in THz
+mean_free_path: null  # in nm
+constant_relaxation_time: null  # in S
 
 # The following settings will affect the speed and accuracy of the results
 energy_cutoff: 1.5  # in eV
