@@ -5,7 +5,7 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 
-from amset.constants import bohr_to_cm
+from amset.constants import bohr_to_cm, nm_to_bohr
 from amset.core.data import AmsetData
 from amset.log import log_list
 from amset.scattering.elastic import calculate_inverse_screening_length_sq
@@ -39,12 +39,41 @@ class ConstantRelaxationTime(AbstractBasicScattering):
 
     def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
         super().__init__(materials_properties, amset_data)
-        crt = self.properties["constant_relaxation_time"]
+        rate = 1 / self.properties["constant_relaxation_time"]
         shape = {
             s: amset_data.fermi_levels.shape + amset_data.energies[s].shape
             for s in self.spins
         }
-        self._rates = {s: np.full(shape[s], crt) for s in self.spins}
+        self._rates = {s: np.full(shape[s], rate) for s in self.spins}
+
+    @property
+    def rates(self):
+        # need to return rates with shape (nspins, ndops, ntemps, nbands, nkpoints)
+        return self._rates
+
+
+class MeanFreePathScattering(AbstractBasicScattering):
+
+    name = "MFP"
+    required_properties = ("mean_free_path",)
+
+    def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
+        super().__init__(materials_properties, amset_data)
+
+        # convert mean free path from nm to bohr
+        mfp = self.properties["mean_free_path"] * nm_to_bohr
+
+        self._rates = {}
+        ir_kpoints_idx = amset_data.ir_kpoints_idx
+        for spin in self.spins:
+            vvelocities = amset_data.velocities_product[spin][..., ir_kpoints_idx]
+            v = np.sqrt(np.diagonal(vvelocities, axis1=1, axis2=2))
+            v = np.linalg.norm(v, axis=2)
+            v[v < 0.005] = 0.005  # handle very small velocities
+            velocities = np.tile(v, (len(self.doping), len(self.temperatures), 1, 1))
+
+            rates = velocities * Second / mfp
+            self._rates[spin] = rates[..., amset_data.ir_to_full_kpoint_mapping]
 
     @property
     def rates(self):
