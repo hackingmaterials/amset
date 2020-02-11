@@ -426,6 +426,20 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mean_free_path" class="md-nav__link">
+    mean_free_path
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constant_relaxation_time" class="md-nav__link">
+    constant_relaxation_time
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -773,6 +787,20 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mean_free_path" class="md-nav__link">
+    mean_free_path
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constant_relaxation_time" class="md-nav__link">
+    constant_relaxation_time
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1046,6 +1074,24 @@ list of two values for the VBM and CBM, respectively, e.g.:</p>
 <p>The polar optical phonon frequency, in THz. Generally, it is ok to take the
 highest optical phonon frequency at the Gamma point.</p>
 <p>Required for: POP</p>
+</div>
+<h3 id="mean_free_path"><code class="codehilite"><span class="err">mean_free_path</span></code><a class="headerlink" href="#mean_free_path" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--mean-free-path</span></code></p>
+<p>Basic version of boundary scattering in which the scattering rate is set to
+<span><span class="MathJax_Preview">v_g / L</span><script type="math/tex">v_g / L</script></span>, where <span><span class="MathJax_Preview">v_g</span><script type="math/tex">v_g</script></span> is the group velocity and <span><span class="MathJax_Preview">L</span><script type="math/tex">L</script></span> is the mean free path
+in nm.</p>
+<p>Required for: MFP</p>
+</div>
+<h3 id="constant_relaxation_time"><code class="codehilite"><span class="err">constant_relaxation_time</span></code><a class="headerlink" href="#constant_relaxation_time" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--constant-relaxation-time</span></code></p>
+<p>A constant relaxation time to use as the minimum relaxation time for
+all k-points.</p>
+<p>It is not recommended to use this option in conjunction with any other
+scattering rates. Instead, this should be used to compare against
+results calculated in the constant relaxation time approximation.</p>
+<p>Required for: CRT</p>
 </div>
 <h2 id="performance-settings">Performance settings<a class="headerlink" href="#performance-settings" title="Permanent link">&para;</a></h2>
 <p>These settings control the speed and accuracy of calculated properties. In 
