@@ -14,6 +14,7 @@ bohr_to_cm = bohr_si * 100
 cm_to_bohr = 1 / (bohr_si * 100)
 bohr_to_angstrom = bohr_si * 1e10
 angstrom_to_bohr = 1 / bohr_to_angstrom
+nm_to_bohr = 1 / (bohr_si * 1e9)
 gpa_to_au = bohr_si ** 3 / (1e-9 * hartree_si)
 e = physical_constants["elementary charge"][0]
 k_B = physical_constants["Boltzmann constant in eV/K"][0]
