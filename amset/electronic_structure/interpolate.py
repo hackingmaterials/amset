@@ -926,8 +926,9 @@ def fft_worker(
         vvband[iu0[0], iu0[1]] = vb[iu0[0]] * vb[iu0[1]]
         vvband[il1[0], il1[1]] = vvband[iu1[0], iu1[1]]
         if return_effective_mass:
-            effective_mass[iu0] = 1 / FFTc(equivalences, bandcoeff, allvec, dims)
+            effective_mass[iu0] = FFTc(equivalences, bandcoeff, allvec, dims)
             effective_mass[il1] = effective_mass[iu1]
+            effective_mass = np.linalg.inv(effective_mass.T).T
         else:
             effective_mass = None
         oqueue.put((index, eband, vvband, effective_mass))
