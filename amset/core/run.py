@@ -17,8 +17,10 @@ from amset import __version__
 from amset.constants import defaults, bohr_to_cm, hbar
 from amset.core.transport import solve_boltzman_transport_equation
 from amset.electronic_structure.interpolate import Interpolater
-from amset.electronic_structure.overlap import ProjectionOverlapCalculator, \
-    WavefunctionOverlapCalculator
+from amset.electronic_structure.overlap import (
+    ProjectionOverlapCalculator,
+    WavefunctionOverlapCalculator,
+)
 from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator
 from amset.util import (

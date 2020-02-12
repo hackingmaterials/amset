@@ -4,7 +4,7 @@ from typing import List, Union
 
 import numpy as np
 
-from amset.constants import amset_defaults, bohr_to_cm, e
+from amset.constants import defaults, bohr_to_cm, e
 from amset.core.data import AmsetData
 from amset.log import log_time_taken
 from amset.util import get_progress_bar
@@ -22,8 +22,8 @@ _e_str = "Electronic structure must contain dopings temperatures and scattering 
 
 def solve_boltzman_transport_equation(
     amset_data: AmsetData,
-    calculate_mobility: bool = amset_defaults["calculate_mobility"],
-    separate_mobility: bool = amset_defaults["separate_mobility"],
+    calculate_mobility: bool = defaults["calculate_mobility"],
+    separate_mobility: bool = defaults["separate_mobility"],
 ):
     has_doping = amset_data.doping is not None
     has_temps = amset_data.temperatures is not None
