@@ -3,18 +3,13 @@ import logging
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
-from amset.constants import numeric_types
-from amset.electronic_structure.kpoints import (
-    expand_kpoints,
-    get_mesh_dim_from_kpoints,
-    similarity_transformation,
-)
+from amset.constants import numeric_types, defaults
+from amset.electronic_structure.common import get_ibands, get_vb_idx
+from amset.electronic_structure.kpoints import expand_kpoints, get_mesh_dim_from_kpoints
+from amset.electronic_structure.wavefunction import load_coefficients
 from pymatgen import Spin
+from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.util.coord import pbc_diff
-
-_p_orbital_order = [2, 0, 1]  # VASP sorts p orbitals as py, pz, px
-_d_orbital_order = [[4, 0, 3], [0, 4, 1], [3, 1, 2]]
-_select_d_order = ([2, 0, 1, 0, 1], [2, 2, 2, 1, 1])  # selects dz2 dxz dyz dxy dx2
 
 _p_mask = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
 _d_mask = np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]])
@@ -22,16 +17,17 @@ _d_mask = np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]])
 logger = logging.getLogger(__name__)
 
 
-class OverlapCalculator(object):
-    def __init__(self, structure, kpoints, projections, band_centers):
-
-        logger.info("Initializing orbital overlap calculator")
+class WavefunctionOverlapCalculator(object):
+    def __init__(self, structure, kpoints, coefficients, symprec=defaults["symprec"]):
+        logger.info("Initializing wavefunction overlap calculator")
 
         # k-points have to be on a regular grid, even if only the irreducible part of
         # the grid is used. If the irreducible part is given, we have to expand it
         # to the full BZ. Also need to expand the projections to the full BZ using
         # the rotation mapping
-        full_kpoints, ir_to_full_idx, rot_mapping = expand_kpoints(structure, kpoints)
+        full_kpoints, ir_to_full_idx, rot_mapping = expand_kpoints(
+            structure, kpoints, symprec=symprec
+        )
         mesh_dim = get_mesh_dim_from_kpoints(full_kpoints)
 
         round_dp = int(np.log10(1 / 1e-6))
@@ -49,6 +45,123 @@ class OverlapCalculator(object):
         x = grid_kpoints[:, 0, 0, 0]
         y = grid_kpoints[0, :, 0, 1]
         z = grid_kpoints[0, 0, :, 2]
+
+        self.nbands = {s: c.shape[0] for s, c in coefficients.items()}
+
+        # TODO: Expand the k-point mesh to account for periodic boundary conditions
+        self.interpolators = {}
+        for spin, spin_coefficients in coefficients.items():
+            nbands = spin_coefficients.shape[0]
+            ncoefficients = spin_coefficients.shape[-1]
+
+            expand_coefficients = spin_coefficients[:, ir_to_full_idx]
+
+            # sort the coefficients then reshape them into the grid. The coefficients
+            # can now be indexed as coefficients[iband][ikx][iky][ikz]
+            sorted_coefficients = expand_coefficients[:, sort_idx]
+            grid_shape = (nbands,) + mesh_dim + (ncoefficients,)
+            grid_coefficients = sorted_coefficients.reshape(grid_shape)
+
+            if nbands == 1:
+                # this can cause a bug in RegularGridInterpolator. Have to fake
+                # having at least two bands
+                nbands = 2
+                grid_coefficients = np.tile(grid_coefficients, (2, 1, 1, 1, 1))
+
+            interp_range = (np.arange(nbands), x, y, z)
+
+            self.interpolators[spin] = RegularGridInterpolator(
+                interp_range, grid_coefficients, bounds_error=False, fill_value=None
+            )
+
+    @classmethod
+    def from_file(cls, filename, **kwargs):
+        coeff, kpoints, structure = load_coefficients(filename)
+        return cls(structure, kpoints, coeff, **kwargs)
+
+    def get_overlap(self, spin, band_a, kpoint_a, band_b, kpoint_b):
+        # k-points should be in fractional
+        kpoint_a = np.asarray(kpoint_a)
+        kpoint_b = np.asarray(kpoint_b)
+        v1 = np.array([[band_a] + kpoint_a.tolist()])
+
+        single_overlap = False
+        if isinstance(band_b, numeric_types):
+            # only one band index given
+
+            if len(kpoint_b.shape) > 1:
+                # multiple k-point indices given
+                band_b = np.array([band_b] * len(kpoint_b))
+
+            else:
+                band_b = np.array([band_b])
+                kpoint_b = [kpoint_b]
+                single_overlap = True
+
+        else:
+            band_b = np.asarray(band_b)
+
+        # v2 now has shape of (nkpoints_b, 4)
+        v2 = np.concatenate([band_b[:, None], kpoint_b], axis=1)
+
+        # get a big array of all the k-points to interpolate
+        all_v = np.vstack([v1, v2])
+
+        # get the interpolate projections for the k-points; p1 is the projections for
+        # kpoint_a, p2 is a list of projections for the kpoint_b
+        p1, *p2 = self.interpolators[spin](all_v)
+
+        p_product = np.vdot(p1, p2)
+        overlap = np.abs(p_product) ** 2
+
+        if single_overlap:
+            return overlap[0]
+        else:
+            return overlap
+
+
+class ProjectionOverlapCalculator(object):
+    def __init__(
+        self,
+        structure,
+        kpoints,
+        projections,
+        band_centers,
+        symprec=defaults["symprec"],
+        kpoint_symmetry_mapping=None,
+    ):
+        logger.info("Initializing orbital overlap calculator")
+
+        # k-points have to be on a regular grid, even if only the irreducible part of
+        # the grid is used. If the irreducible part is given, we have to expand it
+        # to the full BZ. Also need to expand the projections to the full BZ using
+        # the rotation mapping
+        if kpoint_symmetry_mapping:
+            full_kpoints, ir_to_full_idx, rot_mapping = kpoint_symmetry_mapping
+        else:
+            full_kpoints, ir_to_full_idx, rot_mapping = expand_kpoints(
+                structure, kpoints, symprec=symprec
+            )
+
+        mesh_dim = get_mesh_dim_from_kpoints(full_kpoints)
+
+        round_dp = int(np.log10(1 / 1e-6))
+        full_kpoints = np.round(full_kpoints, round_dp)
+
+        # get the indices to sort the k-points on the Z, then Y, then X columns
+        sort_idx = np.lexsort(
+            (full_kpoints[:, 2], full_kpoints[:, 1], full_kpoints[:, 0])
+        )
+
+        # put the kpoints into a 3D grid so that they can be indexed as
+        # kpoints[ikx][iky][ikz] = [kx, ky, kz]
+        grid_kpoints = full_kpoints[sort_idx].reshape(mesh_dim + (3,))
+
+        x = grid_kpoints[:, 0, 0, 0]
+        y = grid_kpoints[0, :, 0, 1]
+        z = grid_kpoints[0, 0, :, 2]
+
+        self.nbands = {s: p.shape[0] for s, p in projections.items()}
 
         # TODO: Expand the k-point mesh to account for periodic boundary conditions
         self.interpolators = {}
@@ -89,8 +202,42 @@ class OverlapCalculator(object):
             )
 
         self.rotation_masks = get_rotation_masks(projections)
-
         self.band_centers = band_centers
+
+    @classmethod
+    def from_band_structure(
+        cls,
+        band_structure: BandStructure,
+        energy_cutoff=defaults["energy_cutoff"],
+        symprec=defaults["symprec"],
+    ):
+        kpoints = np.array([k.frac_coords for k in band_structure.kpoints])
+        efermi = band_structure.efermi
+        structure = band_structure.structure
+
+        full_kpoints, ir_to_full_idx, rot_mapping = expand_kpoints(
+            structure, kpoints, symprec=symprec
+        )
+
+        ibands = get_ibands(energy_cutoff, band_structure)
+        vb_idx = get_vb_idx(energy_cutoff, band_structure)
+
+        # energies = {
+        #     s: e[ibands[s], ir_to_full_idx] for s, e in band_structure.bands.items()
+        # }
+        energies = {s: e[ibands[s]] for s, e in band_structure.bands.items()}
+        energies = {s: e[:, ir_to_full_idx] for s, e in energies.items()}
+        projections = {s: p[ibands[s]] for s, p in band_structure.projections.items()}
+
+        band_centers = get_band_centers(full_kpoints, energies, vb_idx, efermi)
+
+        return cls(
+            structure,
+            kpoints,
+            projections,
+            band_centers,
+            kpoint_symmetry_mapping=(full_kpoints, ir_to_full_idx, rot_mapping),
+        )
 
     def get_overlap(self, spin, band_a, kpoint_a, band_b, kpoint_b):
         # k-points should be in fractional
@@ -161,70 +308,6 @@ class OverlapCalculator(object):
             return overlap ** 2
 
 
-def rotate_projections(projections, rotation_mapping, structure):
-    rlat = structure.lattice.reciprocal_lattice.matrix
-
-    similarity_matrix = [similarity_transformation(rlat, r) for r in rotation_mapping]
-    inv_similarity_matrix = [np.linalg.inv(s) for s in similarity_matrix]
-
-    # projections given as (nbands, nkpoints, nprojections, natoms)
-    nprojections = projections.shape[2]
-    rotated_projections = projections.copy()
-
-    if nprojections >= 4:
-        # includes p orbitals
-        rotated_projections[:, :, 1:4, :] = rotate_p_orbitals(
-            projections[:, :, 1:4, :], similarity_matrix
-        )
-
-    if nprojections >= 9:
-        # includes 9 orbitals
-        rotated_projections[:, :, 4:9, :] = rotate_d_orbitals(
-            projections[:, :, 4:9, :], similarity_matrix, inv_similarity_matrix
-        )
-
-    # TODO: Rotate f-orbitals?
-    return rotated_projections
-
-
-def rotate_p_orbitals(p_orbital_projections, similarity_matrix):
-    # p_orbital_projections has the shape (nbands, nkpoints, 3, natoms)
-    # similarity_matrix has the shape (nkpoints, 3, 3)
-
-    # this function both reorders and rotates the p orbitals
-    nbands, nkpoints, _, natoms = p_orbital_projections.shape
-
-    rotated_projections = np.zeros_like(p_orbital_projections)
-    for b_idx, k_idx, a_idx in np.ndindex((nbands, nkpoints, natoms)):
-        rotated_projections[b_idx, k_idx, :, a_idx] = np.dot(
-            similarity_matrix[k_idx],
-            p_orbital_projections[b_idx, k_idx, _p_orbital_order, a_idx],
-        )
-
-    return np.abs(rotated_projections)
-
-
-def rotate_d_orbitals(d_orbital_projections, similarity_matrix, inv_similarity_matrix):
-    # d_orbital_projections has the shape (nbands, nkpoints, 3, natoms)
-    # similarity_matrix has the shape (nkpoints, 3, 3)
-
-    # this function both reorders and rotates the p orbitals
-    nbands, nkpoints, _, natoms = d_orbital_projections.shape
-
-    rotated_projections = np.zeros_like(d_orbital_projections)
-    for b_idx, k_idx, a_idx in np.ndindex((nbands, nkpoints, natoms)):
-        r1 = np.dot(
-            d_orbital_projections[b_idx, k_idx, _d_orbital_order, a_idx],
-            similarity_matrix[k_idx],
-        )
-
-        rotated_projections[b_idx, k_idx, :, a_idx] = np.dot(
-            inv_similarity_matrix[k_idx], r1
-        )[_select_d_order]
-
-    return np.abs(rotated_projections)
-
-
 def get_rotation_masks(projections):
     nprojections, natoms = projections[Spin.up].shape[2:]
     mask = np.zeros((3, nprojections))
@@ -261,3 +344,27 @@ def cosine(v1, v2):
         return v_angle[0]
     else:
         return v_angle
+
+
+def get_band_centers(kpoints, energies, vb_idx, efermi, tol=0.0001):
+    band_centers = {}
+
+    for spin, spin_energies in energies.items():
+        spin_centers = []
+        for i, band_energies in enumerate(spin_energies):
+            if vb_idx is None:
+                # handle metals
+                k_idxs = np.abs(band_energies - efermi) < tol
+
+            elif i <= vb_idx[spin]:
+                k_idxs = (np.max(band_energies) - band_energies) < tol
+
+            else:
+                k_idxs = (band_energies - np.min(band_energies)) < tol
+
+            if len(k_idxs) > 0:
+                k_idxs = [0]
+
+            spin_centers.append(kpoints[k_idxs])
+        band_centers[spin] = spin_centers
+    return band_centers
