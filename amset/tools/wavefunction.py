@@ -10,6 +10,9 @@ import click
 @click.option("-d", "--directory", help="directory to look for files")
 @click.option("-e", "--energy-cutoff", help="energy cutoff for finding bands")
 @click.option(
+    "-s", "--symprec", type=float, help="symprec for desymmetrizing the wavefunction"
+)
+@click.option(
     "-c", "--planewave-cutoff", default=400.0, help="planewave cutoff for coefficients"
 )
 @click.option("-o", "--output", default="coeffs.h5", help="output file path")

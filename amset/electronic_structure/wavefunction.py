@@ -8,7 +8,7 @@ from pymatgen import Spin, Structure
 from pymatgen.io.vasp import Potcar, Vasprun
 
 try:
-    import pawpyseed.core as pawpy
+    import pawpyseed as pawpy
 except ImportError:
     pawpy = None
 
@@ -25,11 +25,14 @@ pawpy_msg = (
 
 @requires(pawpy, pawpy_msg)
 def get_wavefunction(
-    potcar="POTCAR", wavecar="WAVECAR", vasprun="vasprun.xml", directory=None
+    potcar="POTCAR", wavecar="WAVECAR", vasprun="vasprun.xml", directory=None,
+    symprec=None
 ):
-    # Add symprec option
+    from pawpyseed.core.wavefunction import Wavefunction, CoreRegion
+    from pawpyseed.core import pawpyc
+
     if directory:
-        wf = pawpy.wavefunction.Wavefunction.from_directory(path=directory)
+        wf = Wavefunction.from_directory(path=directory)
     else:
         if isinstance(vasprun, str):
             vasprun = Vasprun(vasprun)
@@ -44,20 +47,22 @@ def get_wavefunction(
         symprec = vasprun.parameters["SYMPREC"]
         structure = vasprun.final_structure
 
-        pwf = pawpy.pawpyc.PWFPointer(wavecar, vasprun)
-        core_region = pawpy.wavefunction.CoreRegion(potcar)
+        pwf = pawpyc.PWFPointer(wavecar, vasprun)
+        core_region = CoreRegion(potcar)
 
-        wf = pawpy.wavefunction.Wavefunction(
+        wf = Wavefunction(
             structure, pwf, core_region, dim, symprec, False
         )
 
-    dwf = wf.desymmetrized_copy()
+    dwf = wf.desymmetrized_copy(time_reversal_symmetry=False, symprec=symprec)
     return dwf
 
 
 @requires(pawpy, pawpy_msg)
 def get_wavefunction_coefficients(wavefunction, bs, iband=None, encut=600, pbar=True):
-    mm = pawpy.momentum.MomentumMatrix(wavefunction, encut=encut)
+    from pawpyseed.core.momentum import MomentumMatrix
+
+    mm = MomentumMatrix(wavefunction, encut=encut)
     if not iband:
         iband = {}
 
