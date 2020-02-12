@@ -23,4 +23,4 @@ output_width = 69
 spin_name = {Spin.up: "spin-up", Spin.down: "spin-down"}
 numeric_types = (float, int, np.integer, np.floating)
 
-amset_defaults = loadfn(resource_filename("amset", "defaults.yaml"))
+defaults = loadfn(resource_filename("amset", "defaults.yaml"))
