@@ -39,9 +39,9 @@ def get_bands_fft(
     eband = np.zeros((len(coeffs), np.prod(dims)))
     vvband = np.zeros((len(coeffs), 3, 3, np.prod(dims)))
     if return_effective_mass:
-        cband = np.zeros((len(coeffs), 3, 3, np.prod(dims)))
+        effective_mass = np.zeros((len(coeffs), 3, 3, np.prod(dims)))
     else:
-        cband = None
+        effective_mass = None
 
     # Span as many worker processes as needed, put all the bands in the queue,
     # and let them work until all the required FFTs have been computed.
@@ -74,12 +74,12 @@ def get_bands_fft(
     for r in range(len(coeffs)):
         iband, eband[iband], vvband[iband], cb = oqueue.get()
         if return_effective_mass:
-            cband[iband] = cb
+            effective_mass[iband] = cb
     for w in workers:
         w.join()
-    if cband is not None:
-        cband = cband.real
-    return eband.real, vvband.real, cband
+    if effective_mass is not None:
+        effective_mass = effective_mass.real
+    return eband.real, vvband.real, effective_mass
 
 
 def fft_worker(
