@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from amset.constants import amset_defaults as defaults
+from amset.constants import defaults
 from amset.electronic_structure.interpolate import Interpolater
 from amset.log import initialize_amset_logger
 from pymatgen.electronic_structure.bandstructure import BandStructure

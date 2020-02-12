@@ -19,9 +19,9 @@ _bar_format = "{desc} {percentage:3.0f}%|{bar}| {elapsed}<{remaining}{postfix}"
 
 
 def validate_settings(user_settings):
-    from amset.constants import amset_defaults
+    from amset.constants import defaults
 
-    settings = copy.deepcopy(amset_defaults)
+    settings = copy.deepcopy(defaults)
     settings.update(user_settings)
 
     # validate the type of some settings
@@ -89,8 +89,7 @@ def load_settings_from_file(filename: str) -> Dict[str, Any]:
         filename: Path to settings file.
 
     Returns:
-        The settings, with any missing values set according to the amset
-        defaults.
+        The settings, with any missing values set according to the amset defaults.
     """
     logger.info("Loading settings from: {}".format(filename))
     settings = loadfn(filename)

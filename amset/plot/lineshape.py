@@ -8,7 +8,7 @@ from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
 
-from amset.constants import amset_defaults as defaults
+from amset.constants import defaults
 from amset.constants import hartree_to_ev, hbar
 from amset.electronic_structure.interpolate import Interpolater, get_angstrom_structure
 from amset.log import initialize_amset_logger

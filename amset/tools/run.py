@@ -101,7 +101,7 @@ def run(**kwargs):
     Run AMSET on an ab initio band structure
     """
 
-    from amset.constants import amset_defaults
+    from amset.constants import defaults
     from amset.log import initialize_amset_logger
     from amset.core.run import AmsetRunner
 
@@ -109,7 +109,7 @@ def run(**kwargs):
         initialize_amset_logger()
 
     settings_override: Dict[str, Dict[str, Any]] = defaultdict(dict)
-    for setting in amset_defaults:
+    for setting in defaults:
         if setting in kwargs and kwargs[setting] is not None:
             settings_override[setting] = kwargs[setting]
 
