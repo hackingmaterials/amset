@@ -5,16 +5,14 @@ from typing import Type, Union
 import click
 import numpy as np
 
-from pymatgen.io.vasp import Outcar, Vasprun
 
-
-@click.command(context_settings=dict(help_option_names=["-h", "--help"]))
+@click.command()
 @click.option("-v", "--vasprun", default="vasprun.xml", help="vasprun.xml file")
 @click.option("-o", "--outcar", default="OUTCAR", help="OUTCAR file")
-def main(vasprun, outcar):
-    """Command line tool to extract an effective phonon frequency from a VASP
-    calculation
-    """
+def phonon_frequency(vasprun, outcar):
+    """Extract the effective phonon frequency from a VASP calculation"""
+    from pymatgen.io.vasp import Outcar, Vasprun
+
     vasprun = get_file(vasprun, Vasprun)
     outcar = get_file(outcar, Outcar)
 
@@ -22,17 +20,17 @@ def main(vasprun, outcar):
         vasprun, outcar
     )
 
-    print("Freq & weights: ")
+    click.echo("Freq & weights: ")
     for w, f in zip(weights, freqs):
         print("   {:.2f} THz   {:.2f}".format(f, w))
 
-    print("max frequency: {:.2f} THz".format(freqs.max()))
-    print("effective frequency: {:.2f} THz".format(effective_frequency))
+    click.echo("max frequency: {:.2f} THz".format(freqs.max()))
+    click.echo("effective frequency: {:.2f} THz".format(effective_frequency))
 
     return effective_frequency
 
 
-def effective_phonon_frequency_from_vasp_files(vasprun: Vasprun, outcar: Outcar):
+def effective_phonon_frequency_from_vasp_files(vasprun: "Vasprun", outcar: "Outcar"):
     eigenvalues = -vasprun.normalmode_eigenvals[::-1]
     eigenvectors = vasprun.normalmode_eigenvecs[::-1]
     born_effective_charges = outcar.born
@@ -71,9 +69,9 @@ def calculate_effective_phonon_frequency(
 
 
 def get_file(
-    filename: Union[str, Vasprun, Outcar],
-    class_type: Union[Type[Vasprun], Type[Outcar]],
-) -> Union[Vasprun, Outcar]:
+    filename: Union[str, "Vasprun", "Outcar"],
+    class_type: Union[Type["Vasprun"], Type["Outcar"]],
+) -> Union["Vasprun", "Outcar"]:
     if isinstance(filename, str):
         filename_gz = filename + ".gz"
 
