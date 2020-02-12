@@ -141,7 +141,7 @@ class ScatteringCalculator(object):
 
     def calculate_scattering_rates(self):
         spins = self.amset_data.spins
-        full_kpoints = self.amset_data.full_kpoints
+        kpoints = self.amset_data.kpoints
         f_shape = self.amset_data.fermi_levels.shape
         scattering_shape = (len(self.scatterer_labels),) + f_shape
 
@@ -158,7 +158,7 @@ class ScatteringCalculator(object):
         if self.use_symmetry:
             nkpoints = len(self.amset_data.ir_kpoints_idx)
         else:
-            nkpoints = len(full_kpoints)
+            nkpoints = len(kpoints)
 
         logger.info("Scattering information:")
         log_list(["# k-points: {}".format(nkpoints)])
@@ -185,7 +185,7 @@ class ScatteringCalculator(object):
 
         # if the k-point density is low, some k-points may not have other k-points
         # within the energy tolerance leading to zero rates
-        rates = _interpolate_zero_rates(rates, full_kpoints, masks)
+        rates = _interpolate_zero_rates(rates, kpoints, masks)
 
         return rates
 
@@ -280,7 +280,7 @@ class ScatteringCalculator(object):
         )
 
         k = self.amset_data.ir_kpoints[k_idx]
-        k_primes = self.amset_data.full_kpoints[kpoint_mask]
+        k_primes = self.amset_data.kpoints[kpoint_mask]
 
         overlap = self.amset_data.overlap_calculator.get_overlap(
             spin, b_idx, k, band_mask, k_primes
@@ -300,7 +300,7 @@ class ScatteringCalculator(object):
         # have to deal with the case where the tetrahedron cross section crosses the
         # zone boundary. This is a slight inaccuracy but we just treat the
         # cross section as if it is on one side of the boundary
-        tet_kpoints = self.amset_data.full_kpoints[tetrahedra]
+        tet_kpoints = self.amset_data.kpoints[tetrahedra]
         base_kpoints = tet_kpoints[:, 0][:, None, :]
         k_diff = pbc_diff(tet_kpoints, base_kpoints) + pbc_diff(base_kpoints, k)
         k_diff = np.dot(k_diff, rlat)
