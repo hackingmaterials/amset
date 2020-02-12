@@ -8,9 +8,11 @@ try:
     from pawpyseed.core.wavefunction import Wavefunction
     from pawpyseed.core.momentum import MomentumMatrix
 except ImportError:
-    raise ImportError("Pawpyseed is required for extracting wavefunction coefficients\n"
-                      "Follow the installation instrucations at "
-                      "https://github.com/kylebystrom/pawpyseed")
+    raise ImportError(
+        "Pawpyseed is required for extracting wavefunction coefficients\n"
+        "Follow the installation instrucations at "
+        "https://github.com/kylebystrom/pawpyseed"
+    )
 
 
 from pymatgen import Spin, Structure
