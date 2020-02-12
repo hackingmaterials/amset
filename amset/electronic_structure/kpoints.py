@@ -3,11 +3,11 @@ from typing import List, Tuple, Union
 import numpy as np
 from spglib import spglib
 
-from amset.constants import amset_defaults
+from amset.constants import defaults
 from pymatgen import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 
-_SYMPREC = amset_defaults["symprec"]
+_SYMPREC = defaults["symprec"]
 _KTOL = 1e-5
 
 
@@ -155,10 +155,10 @@ def get_kpoints_tetrahedral(
 
         If return_full_kpoints, the data will be returned as::
 
-            (ir_kpoints, weights, full_kpoints, ir_kpoints_idx, ir_to_full_idx)
+            (ir_kpoints, weights, kpoints, ir_kpoints_idx, ir_to_full_idx)
 
         Where ``ir_kpoints_idx`` is the index of the unique irreducible k-points
-        in ``full_kpoints``. ``ir_to_full_idx`` is a list of indices that can be
+        in ``kpoints``. ``ir_to_full_idx`` is a list of indices that can be
         used to construct the full Brillouin zone from the ir_mesh. Note the
         ir -> full conversion will only work with calculated scalar properties
         such as energy (not vector properties such as velocity).
