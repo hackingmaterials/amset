@@ -237,7 +237,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         amset_data = self.interpolater.get_amset_data()
 
         energies, velocities, projections, sym_info = self.interpolater.get_energies(
-            amset_data.full_kpoints,
+            amset_data.kpoints,
             None,
             return_velocity=True,
             atomic_units=True,

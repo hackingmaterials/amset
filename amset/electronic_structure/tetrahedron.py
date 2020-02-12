@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, Optional
 
 import numpy as np
@@ -62,6 +63,8 @@ numerical_integration_defaults = {
         "quadrilateral": quadrilateral.dunavant_00(),
     },
 }
+
+logger = logging.getLogger(__name__)
 
 
 def get_main_diagonal(reciprocal_lattice: np.ndarray) -> int:
@@ -147,6 +150,8 @@ class TetrahedralBandStructure(object):
         ir_tetrahedra_to_full_idx: Optional[np.ndarray] = None,
         ir_tetrahedra_weights: Optional[np.ndarray] = None,
     ):
+        logger.info("Generating tetrahedron mesh")
+
         tparams = (ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, ir_tetrahedra_weights)
 
         if len(set([x is None for x in tparams])) != 1:
@@ -359,7 +364,7 @@ class TetrahedralBandStructure(object):
         progress_bar=False,
     ):
         if energies is None:
-            from amset.constants import amset_defaults as defaults
+            from amset.constants import defaults
             from amset.constants import ev_to_hartree
 
             min_e = np.min([np.min(e) for e in self.energies.values()])
