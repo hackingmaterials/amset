@@ -111,8 +111,15 @@ class WavefunctionOverlapCalculator(object):
         # kpoint_a, p2 is a list of projections for the kpoint_b
         p1, *p2 = self.interpolators[spin](all_v)
 
-        p_product = np.vdot(p1, p2)
-        overlap = np.abs(p_product) ** 2
+        p1 = np.asarray(p1) / np.linalg.norm(p1)
+        p2 = np.asarray(p2) / np.linalg.norm(p2, axis=-1)[:, None]
+
+        conj_p1 = np.conj(p1)
+        p_product = np.abs(conj_p1[None, :] * p2).sum(axis=-1)
+
+        overlap = p_product ** 2
+        # p_product = np.vdot(p1, np.array(p2))
+        # overlap = np.abs(p_product) ** 2
 
         if single_overlap:
             return overlap[0]
