@@ -8,6 +8,8 @@ from ruamel.yaml.error import MantissaNoDotYAML1_1Warning
 
 from amset.tools.plot import plot
 from amset.tools.run import run
+from amset.tools.phonon_frequency import phonon_frequency
+from amset.tools.wavefunction import dump_wavefunction
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -32,3 +34,5 @@ def cli():
 
 cli.add_command(plot)
 cli.add_command(run)
+cli.add_command(phonon_frequency)
+cli.add_command(dump_wavefunction)
