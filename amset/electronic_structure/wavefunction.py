@@ -1,19 +1,16 @@
 import h5py
 
 import numpy as np
+from monty.dev import requires
 
 from tqdm.auto import tqdm
 
-try:
-    from pawpyseed.core.wavefunction import Wavefunction
-    from pawpyseed.core.momentum import MomentumMatrix
-except ImportError:
-    raise ImportError(
-        "Pawpyseed is required for extracting wavefunction coefficients\n"
-        "Follow the installation instrucations at "
-        "https://github.com/kylebystrom/pawpyseed"
-    )
+from pymatgen.io.vasp import Vasprun, Potcar
 
+try:
+    import pawpyseed.core as pawpy
+except ImportError:
+    pawpy = None
 
 from pymatgen import Spin, Structure
 from amset.constants import numeric_types
@@ -22,27 +19,47 @@ str_to_spin = {"up": Spin.up, "down": Spin.down}
 spin_to_int = {Spin.up: 0, Spin.down: 1}
 int_to_spin = {0: Spin.up, 1: Spin.down}
 
+pawpy_msg = (
+    "Pawpyseed is required for extracting wavefunction coefficients\nFollow the"
+    "installation instructions at https://github.com/kylebystrom/pawpyseed"
+)
 
+
+@requires(pawpy, pawpy_msg)
 def get_wavefunction(
-    structure="CONTCAR",
-    potcar="POTCAR",
-    wavecar="WAVECAR",
-    vasprun="vasprun.xml",
-    directory=None,
+    potcar="POTCAR", wavecar="WAVECAR", vasprun="vasprun.xml", directory=None
 ):
     # Add symprec option
     if directory:
-        wf = Wavefunction.from_directory(path=directory)
+        wf = pawpy.wavefunction.Wavefunction.from_directory(path=directory)
     else:
-        wf = Wavefunction.from_files(
-            struct=structure, wavecar=wavecar, cr=potcar, vr=vasprun
+        if isinstance(vasprun, str):
+            vasprun = Vasprun(vasprun)
+
+        if isinstance(potcar, str):
+            potcar = Potcar.from_file(potcar)
+
+        ngx = vasprun.parameters["NGX"]
+        ngy = vasprun.parameters["NGY"]
+        ngz = vasprun.parameters["NGZ"]
+        dim = np.array([ngx, ngy, ngz])
+        symprec = vasprun.parameters["SYMPREC"]
+        structure = vasprun.final_structure
+
+        pwf = pawpy.pawpyc.PWFPointer(wavecar, vasprun)
+        core_region = pawpy.wavefunction.CoreRegion(potcar)
+
+        wf = pawpy.wavefunction.Wavefunction(
+            structure, pwf, core_region, dim, symprec, False
         )
+
     dwf = wf.desymmetrized_copy()
     return dwf
 
 
+@requires(pawpy, pawpy_msg)
 def get_wavefunction_coefficients(wavefunction, bs, iband=None, encut=600, pbar=True):
-    mm = MomentumMatrix(wavefunction, encut=encut)
+    mm = pawpy.momentum.MomentumMatrix(wavefunction, encut=encut)
     if not iband:
         iband = {}
 
@@ -58,6 +75,8 @@ def get_wavefunction_coefficients(wavefunction, bs, iband=None, encut=600, pbar=
 
 
 def _get_spin_wavefunction_coefficients(mm, bs, spin, iband=None, pbar=True):
+    from amset.constants import output_width
+
     ncoeffs = mm.momentum_grid.shape[0]
     nkpoints = mm.wf.kpts.shape[0]
 
@@ -73,7 +92,7 @@ def _get_spin_wavefunction_coefficients(mm, bs, spin, iband=None, pbar=True):
     state_idxs = list(np.ndindex(coeff_shape))
 
     if pbar:
-        state_idxs = tqdm(state_idxs)
+        state_idxs = tqdm(state_idxs, ncols=output_width)
 
     for nb, nk in state_idxs:
         coeffs[nb, nk] = mm.get_reciprocal_fullfw(nb, nk, ns)
