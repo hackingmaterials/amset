@@ -1,16 +1,15 @@
 import logging
 import time
 from os.path import join as joinpath
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 from monty.json import MSONable
 from monty.serialization import dumpfn
 
-from amset.constants import amset_defaults as defaults
+from amset.constants import defaults as defaults
 from amset.constants import cm_to_bohr
 from amset.electronic_structure.dos import FermiDos
-from amset.electronic_structure.overlap import OverlapCalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
 from amset.util import cast_dict_list, groupby
@@ -36,7 +35,7 @@ class AmsetData(MSONable):
         effective_mass: Dict[Spin, np.ndarray],
         projections: Dict[Spin, Dict[str, np.ndarray]],
         kpoint_mesh: np.ndarray,
-        full_kpoints: np.ndarray,
+        kpoints: np.ndarray,
         ir_kpoints: np.ndarray,
         ir_kpoints_idx: np.ndarray,
         ir_to_full_kpoint_mapping: np.ndarray,
@@ -46,43 +45,26 @@ class AmsetData(MSONable):
         num_electrons: float,
         is_metal: bool,
         soc: bool,
-        overlap_calculator: OverlapCalculator,
-        dos: Optional[FermiDos] = None,
         vb_idx: Optional[Dict[Spin, int]] = None,
-        conductivity: Optional[np.ndarray] = None,
-        seebeck: Optional[np.ndarray] = None,
-        electronic_thermal_conductivity: Optional[np.ndarray] = None,
-        mobility: Optional[Dict[str, np.ndarray]] = None,
-        fd_cutoffs: Optional[Tuple[float, float]] = None,
     ):
         self.structure = structure
         self.energies = energies
         self.velocities_product = vvelocities_product
         self.effective_mass = effective_mass
         self.kpoint_mesh = kpoint_mesh
-        self.full_kpoints = full_kpoints
+        self.kpoints = kpoints
         self.ir_kpoints = ir_kpoints
         self.ir_kpoints_idx = ir_kpoints_idx
         self.ir_to_full_kpoint_mapping = ir_to_full_kpoint_mapping
-        self._projections = projections
         self.intrinsic_fermi_level = efermi
         self._soc = soc
         self.num_electrons = num_electrons
-        self.conductivity = conductivity
-        self.seebeck = seebeck
-        self.electronic_thermal_conductivity = electronic_thermal_conductivity
-        self.mobility = mobility
-        self.overlap_calculator = overlap_calculator
-
-        self.dos = dos
         self.is_metal = is_metal
-        self.vb_idx = None if is_metal else vb_idx
+        self.vb_idx = vb_idx
         self.spins = self.energies.keys()
+        self.a_factor, self.c_factor = _calculate_orbital_factors(projections)
 
-        self.a_factor = {}
-        self.c_factor = {}
-        self._calculate_orbital_factors()
-
+        self.dos = None
         self.scattering_rates = None
         self.scattering_labels = None
         self.doping = None
@@ -90,21 +72,41 @@ class AmsetData(MSONable):
         self.fermi_levels = None
         self.electron_conc = None
         self.hole_conc = None
-        self.fd_cutoffs = fd_cutoffs
+        self.conductivity = None
+        self.seebeck = None
+        self.electronic_thermal_conductivity = None
+        self.mobility = None
+        self.overlap_calculator = None
+        self.fd_cutoffs = None
 
         self.grouped_ir_to_full = groupby(
-            np.arange(len(full_kpoints)), ir_to_full_kpoint_mapping
+            np.arange(len(kpoints)), ir_to_full_kpoint_mapping
         )
 
         self.tetrahedral_band_structure = TetrahedralBandStructure(
             energies,
-            full_kpoints,
+            kpoints,
             tetrahedra,
             structure,
             ir_kpoints_idx,
             ir_to_full_kpoint_mapping,
             *ir_tetrahedra_info
         )
+
+    def set_overlap_calculator(self, overlap_calculator):
+        nbands_equal = [
+            self.energies[s].shape[0] == overlap_calculator.nbands[s]
+            for s in self.spins
+        ]
+
+        if not all(nbands_equal):
+            raise RuntimeError(
+                "Overlap calculator does not have the correct number of bands\n"
+                "If using wavefunction coefficients, ensure they were generated using"
+                "the same energy_cutoff (not encut)"
+            )
+
+        self.overlap_calculator = overlap_calculator
 
     def calculate_dos(self, estep: float = defaults["dos_estep"]):
         """
@@ -307,18 +309,6 @@ class AmsetData(MSONable):
         self.electronic_thermal_conductivity = electronic_thermal_conductivity
         self.mobility = mobility
 
-    def _calculate_orbital_factors(self):
-        for spin in self.spins:
-            self.a_factor[spin] = (
-                self._projections[spin]["s"]
-                / (
-                    self._projections[spin]["s"] ** 2
-                    + self._projections[spin]["p"] ** 2
-                )
-                ** 0.5
-            )
-            self.c_factor[spin] = (1 - self.a_factor[spin] ** 2) ** 0.5
-
     def to_dict(self, include_mesh=defaults["write_mesh"]):
         data = {
             "doping": self.doping,
@@ -338,7 +328,7 @@ class AmsetData(MSONable):
 
             mesh_data = {
                 "energies": cast_dict_list(ir_energies),
-                "kpoints": self.full_kpoints,
+                "kpoints": self.kpoints,
                 "ir_kpoints": self.ir_kpoints,
                 "ir_to_full_kpoint_mapping": self.ir_to_full_kpoint_mapping,
                 "efermi": self.intrinsic_fermi_level,
@@ -426,3 +416,16 @@ class AmsetData(MSONable):
             raise ValueError("Unrecognised output format: {}".format(file_format))
 
         return filename
+
+
+def _calculate_orbital_factors(projections):
+    a_factor = {}
+    c_factor = {}
+    for spin, spin_projections in projections.items():
+        s = spin_projections["s"]
+        p = spin_projections["p"]
+
+        a_factor[spin] = s / (s ** 2 + p ** 2) ** 0.5
+        c_factor[spin] = (1 - a_factor[spin] ** 2) ** 0.5
+
+    return a_factor, c_factor
