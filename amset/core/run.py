@@ -14,9 +14,11 @@ from monty.json import MSONable
 from tabulate import tabulate
 
 from amset import __version__
-from amset.constants import amset_defaults, bohr_to_cm, hbar
+from amset.constants import defaults, bohr_to_cm, hbar
 from amset.core.transport import solve_boltzman_transport_equation
 from amset.electronic_structure.interpolate import Interpolater
+from amset.electronic_structure.overlap import ProjectionOverlapCalculator, \
+    WavefunctionOverlapCalculator
 from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator
 from amset.util import (
@@ -53,7 +55,7 @@ class AmsetRunner(MSONable):
 
         # set materials and performance parameters
         # if the user doesn't specify a value then use the default
-        self.settings = copy.deepcopy(amset_defaults)
+        self.settings = copy.deepcopy(defaults)
         self.settings.update(settings)
 
     def run(
@@ -108,6 +110,25 @@ class AmsetRunner(MSONable):
         )
         _log_band_structure_information(self._band_structure)
 
+        amset_data, interpolation_time = self._do_interpolation()
+        timing = {"interpolation": interpolation_time}
+
+        amset_data, dos_time = self._do_dos(amset_data)
+        timing["dos"] = dos_time
+
+        amset_data, scattering_time = self._do_scattering(amset_data)
+        timing["scattering"] = scattering_time
+
+        amset_data, transport_time = self._do_transport(amset_data)
+        timing["transport"] = scattering_time
+
+        filepath, writing_time = self._do_writing(amset_data, directory, prefix)
+        timing["writing"] = writing_time
+
+        timing["total"] = time.perf_counter() - tt
+        return amset_data, timing
+
+    def _do_interpolation(self):
         log_banner("INTERPOLATION")
         t0 = time.perf_counter()
 
@@ -128,45 +149,52 @@ class AmsetRunner(MSONable):
             nworkers=self.settings["nworkers"],
         )
 
-        timing = {"electronic_structure": time.perf_counter() - t0}
+        if self.settings["wavefunction_coefficients"]:
+            overlap_calculator = WavefunctionOverlapCalculator.from_file(
+                self.settings["wavefunction_coefficients"]
+            )
+        else:
+            overlap_calculator = ProjectionOverlapCalculator.from_band_structure(
+                self._band_structure,
+                energy_cutoff=self.settings["energy_cutoff"],
+                symprec=self.settings["symprec"],
+            )
+        amset_data.set_overlap_calculator(overlap_calculator)
 
-        pop_frequency = self.settings["pop_frequency"]
-        scattering_type = self.settings["scattering_type"]
-        cutoff_pad = 0
-        if pop_frequency and ("POP" in scattering_type or scattering_type == "auto"):
-            # convert from THz to angular frequency in Hz
-            pop_frequency = pop_frequency * 1e12 * 2 * np.pi
+        return amset_data, time.perf_counter() - t0
 
-            # use the phonon energy to pad the fermi dirac cutoffs, this is because
-            # pop scattering from a kpoints, k, to kpoints with energies above and below
-            # k. We therefore need k-points above and below to be within the cut-offs
-            # otherwise scattering cannot occur
-            cutoff_pad = pop_frequency * hbar * units.eV
-
+    def _do_dos(self, amset_data):
         log_banner("DOS")
         t0 = time.perf_counter()
+
         amset_data.calculate_dos(estep=self.settings["dos_estep"])
         amset_data.set_doping_and_temperatures(
             self.settings["doping"], self.settings["temperatures"]
         )
-        amset_data.calculate_fd_cutoffs(self.settings["fd_tol"], cutoff_pad=cutoff_pad)
-        timing["dos"] = time.perf_counter() - t0
 
+        cutoff_pad = _get_cutoff_pad(
+            self.settings["pop_frequency"], self.settings["scattering_type"]
+        )
+        amset_data.calculate_fd_cutoffs(self.settings["fd_tol"], cutoff_pad=cutoff_pad)
+        return amset_data, time.perf_counter() - t0
+
+    def _do_scattering(self, amset_data):
         log_banner("SCATTERING")
         t0 = time.perf_counter()
 
         scatter = ScatteringCalculator(
             self.settings,
             amset_data,
-            scattering_type=scattering_type,
+            scattering_type=self.settings["scattering_type"],
             use_symmetry=self.settings["symprec"] is not None,
         )
 
         amset_data.set_scattering_rates(
             scatter.calculate_scattering_rates(), scatter.scatterer_labels
         )
-        timing["scattering"] = time.perf_counter() - t0
+        return amset_data, time.perf_counter() - t0
 
+    def _do_transport(self, amset_data):
         log_banner("TRANSPORT")
         t0 = time.perf_counter()
         transport_properties = solve_boltzman_transport_equation(
@@ -175,8 +203,9 @@ class AmsetRunner(MSONable):
             calculate_mobility=self.settings["calculate_mobility"],
         )
         amset_data.set_transport_properties(*transport_properties)
-        timing["transport"] = time.perf_counter() - t0
+        return amset_data, time.perf_counter() - t0
 
+    def _do_writing(self, amset_data, directory, prefix):
         log_banner("RESULTS")
         _log_results_summary(amset_data, self.settings)
 
@@ -198,10 +227,7 @@ class AmsetRunner(MSONable):
 
         full_filename = Path(abs_dir) / filename
         logger.info("Results written to:\n{}".format(full_filename))
-        timing["writing"] = time.perf_counter() - t0
-        timing["total"] = time.perf_counter() - tt
-
-        return amset_data, timing
+        return full_filename, time.perf_counter() - t0
 
     @staticmethod
     def from_vasprun(
@@ -496,3 +522,17 @@ def get_summed_projections(
         summed_projections[spin] = {"s": s_orbital, "p": p_orbital}
 
     return summed_projections
+
+
+def _get_cutoff_pad(pop_frequency, scattering_type):
+    cutoff_pad = 0
+    if pop_frequency and ("POP" in scattering_type or scattering_type == "auto"):
+        # convert from THz to angular frequency in Hz
+        pop_frequency = pop_frequency * 1e12 * 2 * np.pi
+
+        # use the phonon energy to pad the fermi dirac cutoffs, this is because
+        # pop scattering from a kpoints, k, to kpoints with energies above and below
+        # k. We therefore need k-points above and below to be within the cut-offs
+        # otherwise scattering cannot occur
+        cutoff_pad = pop_frequency * hbar * units.eV
+    return cutoff_pad
