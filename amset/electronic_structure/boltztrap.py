@@ -1,9 +1,9 @@
 import multiprocessing as mp
-from BoltzTraP2.fite import FFTc, FFTev
 
 import numpy as np
 
 from amset.constants import defaults
+from BoltzTraP2.fite import FFTc, FFTev
 
 
 def get_bands_fft(

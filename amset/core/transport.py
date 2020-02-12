@@ -4,7 +4,7 @@ from typing import List, Union
 
 import numpy as np
 
-from amset.constants import defaults, bohr_to_cm, e
+from amset.constants import bohr_to_cm, defaults, e
 from amset.core.data import AmsetData
 from amset.log import log_time_taken
 from amset.util import get_progress_bar

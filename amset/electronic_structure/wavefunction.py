@@ -1,19 +1,17 @@
 import h5py
-
 import numpy as np
 from monty.dev import requires
-
 from tqdm.auto import tqdm
 
-from pymatgen.io.vasp import Vasprun, Potcar
+from amset.constants import numeric_types
+from pymatgen import Spin, Structure
+from pymatgen.io.vasp import Potcar, Vasprun
 
 try:
     import pawpyseed.core as pawpy
 except ImportError:
     pawpy = None
 
-from pymatgen import Spin, Structure
-from amset.constants import numeric_types
 
 str_to_spin = {"up": Spin.up, "down": Spin.down}
 spin_to_int = {Spin.up: 0, Spin.down: 1}

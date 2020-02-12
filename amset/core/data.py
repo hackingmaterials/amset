@@ -7,8 +7,8 @@ import numpy as np
 from monty.json import MSONable
 from monty.serialization import dumpfn
 
-from amset.constants import defaults as defaults
 from amset.constants import cm_to_bohr
+from amset.constants import defaults as defaults
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
