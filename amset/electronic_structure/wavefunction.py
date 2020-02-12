@@ -4,8 +4,15 @@ import numpy as np
 
 from tqdm.auto import tqdm
 
-from pawpyseed.core.wavefunction import Wavefunction
-from pawpyseed.core.momentum import MomentumMatrix
+try:
+    from pawpyseed.core.wavefunction import Wavefunction
+    from pawpyseed.core.momentum import MomentumMatrix
+except ImportError:
+    raise ImportError("Pawpyseed is required for extracting wavefunction coefficients\n"
+                      "Follow the installation instrucations at "
+                      "https://github.com/kylebystrom/pawpyseed")
+
+
 from pymatgen import Spin, Structure
 from amset.constants import numeric_types
 
@@ -14,9 +21,20 @@ spin_to_int = {Spin.up: 0, Spin.down: 1}
 int_to_spin = {0: Spin.up, 1: Spin.down}
 
 
-def get_wavefunction(directory="."):
+def get_wavefunction(
+    structure="CONTCAR",
+    potcar="POTCAR",
+    wavecar="WAVECAR",
+    vasprun="vasprun.xml",
+    directory=None,
+):
     # Add symprec option
-    wf = Wavefunction.from_directory(path=directory)
+    if directory:
+        wf = Wavefunction.from_directory(path=directory)
+    else:
+        wf = Wavefunction.from_files(
+            struct=structure, wavecar=wavecar, cr=potcar, vr=vasprun
+        )
     dwf = wf.desymmetrized_copy()
     return dwf
 
