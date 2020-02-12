@@ -117,14 +117,11 @@ class RatesPlotter(BaseAmsetPlotter):
         colors=None,
         normalize_energy=0,
     ):
+        rates = self.plot_rates[:, doping_idx, temperature_idx]
         if separate_rates:
-            rates = self.plot_rates[:, doping_idx, temperature_idx]
             labels = self.scattering_labels
-
         else:
-            rates = np.sum(self.plot_rates[:, doping_idx, temperature_idx], axis=0)[
-                None, ...
-            ]
+            rates = np.sum(rates, axis=0)[None, ...]
             labels = ["overall"]
 
         if colors is None:
