@@ -11,3 +11,4 @@ memory_profiler==0.57.0
 spglib==1.14.1.post0
 click==7.0
 sumo==1.4.0
+h5py==2.10.0
