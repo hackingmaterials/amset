@@ -19,6 +19,10 @@ soc: false
 # The band structure electronic_structure factor that determines the k-mesh density
 interpolation_factor: 10
 
+# Path to a Wavefunction coefficients file. If null, use band structure
+# projections to calculate k-space overlaps instead
+wavefunction_coefficients: null
+
 # The following settings are required to calculate scattering rates
 high_frequency_dielectric: null
 static_dielectric: null
