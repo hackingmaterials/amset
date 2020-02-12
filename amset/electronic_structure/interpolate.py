@@ -1,16 +1,15 @@
 """Band structure interpolation using BolzTraP2."""
 
 import logging
-import multiprocessing as mp
-import multiprocessing.sharedctypes
 import time
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, Union
 
+import multiprocessing
 import numpy as np
 from monty.json import MSONable
 
-from amset.constants import amset_defaults as defaults, numeric_types
+from amset.constants import defaults as defaults, numeric_types
 from amset.constants import (
     angstrom_to_bohr,
     bohr_to_cm,
@@ -19,6 +18,8 @@ from amset.constants import (
     spin_name,
 )
 from amset.core.data import AmsetData
+from amset.electronic_structure.boltztrap import get_bands_fft
+from amset.electronic_structure.common import get_ibands, get_vb_idx
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.kpoints import (
     get_kpoints_tetrahedral,
@@ -26,11 +27,10 @@ from amset.electronic_structure.kpoints import (
     similarity_transformation,
     sort_boltztrap_to_spglib,
 )
-from amset.electronic_structure.overlap import OverlapCalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
 from BoltzTraP2 import fite, sphere
-from BoltzTraP2.fite import FFTc, FFTev, Second
+from BoltzTraP2.fite import Second
 from pymatgen import Structure
 from pymatgen.core.units import bohr_to_angstrom
 from pymatgen.electronic_structure.bandstructure import (
@@ -40,13 +40,13 @@ from pymatgen.electronic_structure.bandstructure import (
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.dos import Dos
 from pymatgen.io.ase import AseAtomsAdaptor
+from sumo.symmetry import PymatgenKpath, Kpath
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 __date__ = "June 21, 2019"
 
-from sumo.symmetry import PymatgenKpath, Kpath
 
 logger = logging.getLogger(__name__)
 
@@ -196,22 +196,18 @@ class Interpolater(MSONable):
         ]
         log_list(iinfo)
 
-        # only calculate the energies for the bands within the energy cutoff
-        min_e, max_e = _get_energy_cutoffs(energy_cutoff, self._band_structure)
+        ibands = get_ibands(energy_cutoff, self._band_structure)
+        new_vb_idx = get_vb_idx(energy_cutoff, self._band_structure)
 
         energies = {}
         vvelocities = {}
         effective_mass = {}
         projections = defaultdict(dict)
-        new_vb_idx = {}
-        overlap_projections = {}
         forgotten_electrons = 0
         for spin in self._spins:
-            bands = self._band_structure.bands[spin]
-            ibands = np.any((bands > min_e) & (bands < max_e), axis=1)
-
-            min_b = np.where(ibands)[0].min() + 1
-            max_b = np.where(ibands)[0].max() + 1
+            spin_ibands = ibands[spin]
+            min_b = spin_ibands.min() + 1
+            max_b = spin_ibands.max() + 1
             info = "Interpolating {} bands {}-{}".format(spin_name[spin], min_b, max_b)
             logger.info(info)
 
@@ -221,23 +217,12 @@ class Interpolater(MSONable):
             t0 = time.perf_counter()
             energies[spin], vvelocities[spin], effective_mass[spin] = get_bands_fft(
                 self._equivalences,
-                self._coefficients[spin][ibands],
+                self._coefficients[spin][spin_ibands],
                 self._lattice_matrix,
                 return_effective_mass=True,
                 nworkers=nworkers,
             )
             log_time_taken(t0)
-
-            if not is_metal:
-                # valence bands are all bands that contain energies less than efermi
-                vbs = (bands < self._band_structure.efermi).any(axis=1)
-                vb_idx = np.where(vbs)[0].max()
-
-                # need to know the index of the valence band after discounting
-                # bands during the interpolation. As ibands is just a list of
-                # True/False, we can count the number of Trues included up to
-                # and including the VBM to get the new number of valence bands
-                new_vb_idx[spin] = sum(ibands[: vb_idx + 1]) - 1
 
             logger.info("Interpolating {} projections".format(spin_name[spin]))
             t0 = time.perf_counter()
@@ -245,13 +230,12 @@ class Interpolater(MSONable):
             for label in ["s", "p"]:
                 projections[spin][label], _, _ = get_bands_fft(
                     self._equivalences,
-                    self._other_coefficients[spin][label][ibands],
+                    self._other_coefficients[spin][label][spin_ibands],
                     self._lattice_matrix,
                     nworkers=nworkers,
                 )
 
             log_time_taken(t0)
-            overlap_projections[spin] = self._band_structure.projections[spin][ibands]
 
         if not self._soc and len(self._spins) == 1:
             forgotten_electrons *= 2
@@ -259,7 +243,7 @@ class Interpolater(MSONable):
 
         if is_metal:
             efermi = self._band_structure.efermi * ev_to_hartree
-            new_vb_idx = None
+
         else:
             energies = _shift_energies(
                 energies, new_vb_idx, scissor=scissor, bandgap=bandgap
@@ -268,7 +252,6 @@ class Interpolater(MSONable):
             # if material is semiconducting, set Fermi level to middle of gap
             efermi = _get_efermi(energies, new_vb_idx)
 
-        logger.info("Generating tetrahedron mesh")
         # get the actual k-points used in the BoltzTraP2 interpolation
         # unfortunately, BoltzTraP2 doesn't expose this information so we
         # have to get it ourselves
@@ -283,12 +266,6 @@ class Interpolater(MSONable):
             full_kpts, energies, vvelocities, projections
         )
         atomic_structure = get_atomic_structure(self._band_structure.structure)
-
-        band_centers = get_band_centers(full_kpts, energies, new_vb_idx, efermi)
-        orig_kpoints = np.array([k.frac_coords for k in self._band_structure.kpoints])
-        overlap_calculator = OverlapCalculator(
-            atomic_structure, orig_kpoints, overlap_projections, band_centers
-        )
 
         return AmsetData(
             atomic_structure,
@@ -307,7 +284,6 @@ class Interpolater(MSONable):
             nelectrons,
             is_metal,
             self._soc,
-            overlap_calculator,
             vb_idx=new_vb_idx,
         )
 
@@ -390,7 +366,6 @@ class Interpolater(MSONable):
             )
 
         # only calculate the energies for the bands within the energy cutoff
-        min_e, max_e = _get_energy_cutoffs(energy_cutoff, self._band_structure)
         lattice = self._band_structure.structure.lattice
         kpoints = np.asarray(kpoints)
         nkpoints = len(kpoints)
@@ -413,17 +388,17 @@ class Interpolater(MSONable):
             ]
             log_list(k_info)
 
+        ibands = get_ibands(energy_cutoff, self._band_structure)
+        new_vb_idx = get_vb_idx(energy_cutoff, self._band_structure)
+
         energies = {}
         velocities = {}
         curvature = {}
-        new_vb_idx = {}
         other_properties = defaultdict(dict)
         for spin in self._spins:
-            bands = self._band_structure.bands[spin]
-            ibands = np.any((bands > min_e) & (bands < max_e), axis=1)
-
-            min_b = np.where(ibands)[0].min() + 1
-            max_b = np.where(ibands)[0].max() + 1
+            spin_ibands = ibands[spin]
+            min_b = spin_ibands.min() + 1
+            max_b = spin_ibands.max() + 1
             info = "Interpolating {} bands {}-{}".format(spin_name[spin], min_b, max_b)
             logger.info(info)
 
@@ -432,24 +407,13 @@ class Interpolater(MSONable):
                 kpoints,
                 self._equivalences,
                 self._lattice_matrix,
-                self._coefficients[spin][ibands],
+                self._coefficients[spin][spin_ibands],
                 curvature=return_curvature,
             )
             log_time_taken(t0)
 
             energies[spin] = fitted[0]
             velocities[spin] = fitted[1]
-
-            if not self._band_structure.is_metal():
-                # valence bands are all bands that contain energies less than efermi
-                vbs = (bands < self._band_structure.efermi).any(axis=1)
-                vb_idx = np.where(vbs)[0].max()
-
-                # need to know the index of the valence band after discounting
-                # bands during the interpolation. As ibands is just a list of
-                # True/False, we can count the number of Trues included up to
-                # and including the VBM to get the new number of valence bands
-                new_vb_idx[spin] = sum(ibands[: vb_idx + 1]) - 1
 
             if return_curvature:
                 # make curvature have the shape ((nbands, nkpoints, 3, 3)
@@ -465,7 +429,7 @@ class Interpolater(MSONable):
                         kpoints,
                         self._equivalences,
                         self._lattice_matrix,
-                        coeffs[ibands],
+                        coeffs[spin_ibands],
                         curvature=False,
                     )
 
@@ -766,8 +730,6 @@ def _convert_velocities(
 ) -> np.ndarray:
     """Convert velocities from atomic units to cm/s.
 
-    # TODO: Check this...
-
     Args:
         velocities: The velocities in atomic units.
         lattice_matrix: The lattice matrix in Angstrom.
@@ -779,26 +741,6 @@ def _convert_velocities(
     return velocities
 
 
-def _get_energy_cutoffs(
-    energy_cutoff: float, band_structure: BandStructure
-) -> Tuple[float, float]:
-    if energy_cutoff and band_structure.is_metal():
-        min_e = band_structure.efermi - energy_cutoff
-        max_e = band_structure.efermi + energy_cutoff
-    elif energy_cutoff:
-        min_e = band_structure.get_vbm()["energy"] - energy_cutoff
-        max_e = band_structure.get_cbm()["energy"] + energy_cutoff
-    else:
-        min_e = min(
-            [band_structure.bands[spin].min() for spin in band_structure.bands.keys()]
-        )
-        max_e = max(
-            [band_structure.bands[spin].max() for spin in band_structure.bands.keys()]
-        )
-
-    return min_e, max_e
-
-
 def _get_efermi(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> float:
     e_vbm = max(
         [np.max(energies[spin][: vb_idx[spin] + 1]) for spin in energies.keys()]
@@ -807,155 +749,6 @@ def _get_efermi(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> fl
         [np.min(energies[spin][vb_idx[spin] + 1 :]) for spin in energies.keys()]
     )
     return (e_vbm + e_cbm) / 2
-
-
-def get_bands_fft(
-    equivalences,
-    coeffs,
-    lattvec,
-    return_effective_mass=False,
-    nworkers=defaults["nworkers"],
-):
-    """Rebuild the full energy bands from the interpolation coefficients.
-
-    Args:
-        equivalences: list of k-point equivalence classes in direct coordinates
-        coeffs: interpolation coefficients
-        lattvec: lattice vectors of the system
-        return_effective_mass: Whether to calculate the effective mass.
-        nworkers: number of working processes to span
-
-    Returns:
-        A 3-tuple (eband, vvband, cband): energy bands, v x v outer product
-        of the velocities, and curvature of the bands (if requested). The
-        shapes of those arrays are (nbands, nkpoints), (nbands, 3, 3, nkpoints)
-        and (nbands, 3, 3, 3, nkpoints), where nkpoints is the total number of
-        k points on the grid. If curvature is None, so will the third element
-        of the tuple.
-    """
-    dallvec = np.vstack(equivalences)
-    sallvec = mp.sharedctypes.RawArray("d", dallvec.shape[0] * 3)
-    allvec = np.frombuffer(sallvec)
-    allvec.shape = (-1, 3)
-    dims = 2 * np.max(np.abs(dallvec), axis=0) + 1
-    np.matmul(dallvec, lattvec.T, out=allvec)
-    eband = np.zeros((len(coeffs), np.prod(dims)))
-    vvband = np.zeros((len(coeffs), 3, 3, np.prod(dims)))
-    if return_effective_mass:
-        cband = np.zeros((len(coeffs), 3, 3, np.prod(dims)))
-    else:
-        cband = None
-
-    # Span as many worker processes as needed, put all the bands in the queue,
-    # and let them work until all the required FFTs have been computed.
-    workers = []
-    iqueue = mp.Queue()
-    oqueue = mp.Queue()
-    for iband, bandcoeff in enumerate(coeffs):
-        iqueue.put((iband, bandcoeff))
-    # The "None"s at the end of the queue signal the workers that there are
-    # no more jobs left and they must therefore exit.
-    for i in range(nworkers):
-        iqueue.put(None)
-    for i in range(nworkers):
-        workers.append(
-            mp.Process(
-                target=fft_worker,
-                args=(
-                    equivalences,
-                    sallvec,
-                    dims,
-                    iqueue,
-                    oqueue,
-                    return_effective_mass,
-                ),
-            )
-        )
-    for w in workers:
-        w.start()
-    # The results of the FFTs are processed as soon as they are ready.
-    for r in range(len(coeffs)):
-        iband, eband[iband], vvband[iband], cb = oqueue.get()
-        if return_effective_mass:
-            cband[iband] = cb
-    for w in workers:
-        w.join()
-    if cband is not None:
-        cband = cband.real
-    return eband.real, vvband.real, cband
-
-
-def fft_worker(
-    equivalences, sallvec, dims, iqueue, oqueue, return_effective_mass=False
-):
-    """Thin wrapper around FFTev and FFTc to be used as a worker function.
-
-    Args:
-        equivalences: list of k-point equivalence classes in direct coordinates
-        sallvec: Cartesian coordinates of all k points as a 1D vector stored
-                    in shared memory.
-        dims: upper bound on the dimensions of the k-point grid
-        iqueue: input multiprocessing.Queue used to read bad indices
-            and coefficients.
-        oqueue: output multiprocessing.Queue where all results of the
-            interpolation are put. Each element of the queue is a 4-tuple
-            of the form (index, eband, vvband, cband), containing the band
-            index, the energies, the v x v outer product and the curvatures
-            if requested.
-        return_effective_mass: Whether to calculate the effective mass.
-
-    Returns:
-        None. The results of the calculation are put in oqueue.
-    """
-    iu0 = np.triu_indices(3)
-    il1 = np.tril_indices(3, -1)
-    iu1 = np.triu_indices(3, 1)
-    allvec = np.frombuffer(sallvec)
-    allvec.shape = (-1, 3)
-
-    while True:
-        task = iqueue.get()
-        if task is None:
-            break
-        else:
-            index, bandcoeff = task
-        eband, vb = FFTev(equivalences, bandcoeff, allvec, dims)
-        vvband = np.zeros((3, 3, np.prod(dims)))
-        effective_mass = np.zeros((3, 3, np.prod(dims)))
-
-        vvband[iu0[0], iu0[1]] = vb[iu0[0]] * vb[iu0[1]]
-        vvband[il1[0], il1[1]] = vvband[iu1[0], iu1[1]]
-        if return_effective_mass:
-            effective_mass[iu0] = FFTc(equivalences, bandcoeff, allvec, dims)
-            effective_mass[il1] = effective_mass[iu1]
-            effective_mass = np.linalg.inv(effective_mass.T).T
-        else:
-            effective_mass = None
-        oqueue.put((index, eband, vvband, effective_mass))
-
-
-def get_band_centers(kpoints, energies, vb_idx, efermi, tol=0.0001 * ev_to_hartree):
-    band_centers = {}
-
-    for spin, spin_energies in energies.items():
-        spin_centers = []
-        for i, band_energies in enumerate(spin_energies):
-            if vb_idx is None:
-                # handle metals
-                k_idxs = np.abs(band_energies - efermi) < tol
-
-            elif i <= vb_idx[spin]:
-                k_idxs = (np.max(band_energies) - band_energies) < tol
-
-            else:
-                k_idxs = (band_energies - np.min(band_energies)) < tol
-
-            if len(k_idxs) > 0:
-                k_idxs = [0]
-
-            spin_centers.append(kpoints[k_idxs])
-        band_centers[spin] = spin_centers
-    return band_centers
 
 
 def symmetrize_results(
