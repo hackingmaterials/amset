@@ -1,3 +1,5 @@
+import itertools
+
 import h5py
 import numpy as np
 from monty.dev import requires
@@ -25,8 +27,11 @@ pawpy_msg = (
 
 @requires(pawpy, pawpy_msg)
 def get_wavefunction(
-    potcar="POTCAR", wavecar="WAVECAR", vasprun="vasprun.xml", directory=None,
-    symprec=None
+    potcar="POTCAR",
+    wavecar="WAVECAR",
+    vasprun="vasprun.xml",
+    directory=None,
+    symprec=None,
 ):
     from pawpyseed.core.wavefunction import Wavefunction, CoreRegion
     from pawpyseed.core import pawpyc
@@ -50,9 +55,7 @@ def get_wavefunction(
         pwf = pawpyc.PWFPointer(wavecar, vasprun)
         core_region = CoreRegion(potcar)
 
-        wf = Wavefunction(
-            structure, pwf, core_region, dim, symprec, False
-        )
+        wf = Wavefunction(structure, pwf, core_region, dim, symprec, False)
 
     dwf = wf.desymmetrized_copy(time_reversal_symmetry=False, symprec=symprec)
     return dwf
@@ -80,26 +83,24 @@ def get_wavefunction_coefficients(wavefunction, bs, iband=None, encut=600, pbar=
 def _get_spin_wavefunction_coefficients(mm, bs, spin, iband=None, pbar=True):
     from amset.constants import output_width
 
-    ncoeffs = mm.momentum_grid.shape[0]
-    nkpoints = mm.wf.kpts.shape[0]
-
     if iband is None:
         iband = np.arange(bs.bands[spin].shape[0], dtype=int)
 
     elif isinstance(iband, numeric_types):
         iband = [iband]
 
-    coeff_shape = (len(iband), nkpoints)
-    coeffs = np.zeros(coeff_shape + (ncoeffs,), dtype=complex)
+    ncoeffs = mm.momentum_grid.shape[0]
+    nkpoints = mm.wf.kpts.shape[0]
     ns = spin_to_int[spin]
-    state_idxs = list(np.ndindex(coeff_shape))
+    coeffs = np.zeros((len(iband), nkpoints, ncoeffs), dtype=complex)
 
+    state_idxs = list(itertools.product(enumerate(iband), range(nkpoints)))
     if pbar:
         state_idxs = tqdm(state_idxs, ncols=output_width)
 
-    for nb, nk in state_idxs:
-        coeffs[nb, nk] = mm.get_reciprocal_fullfw(nb, nk, ns)
-        coeffs[nb, nk] /= np.linalg.norm(coeffs[nb, nk])
+    for (i, nb), nk in state_idxs:
+        coeffs[i, nk] = mm.get_reciprocal_fullfw(nb, nk, ns)
+        coeffs[i, nk] /= np.linalg.norm(coeffs[i, nk])
 
     return coeffs
 
