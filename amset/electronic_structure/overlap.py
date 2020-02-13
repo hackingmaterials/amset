@@ -5,7 +5,11 @@ from scipy.interpolate import RegularGridInterpolator
 
 from amset.constants import defaults, numeric_types
 from amset.electronic_structure.common import get_ibands, get_vb_idx
-from amset.electronic_structure.kpoints import expand_kpoints, get_mesh_dim_from_kpoints
+from amset.electronic_structure.kpoints import (
+    expand_kpoints,
+    get_mesh_dim_from_kpoints,
+    kpoints_to_first_bz,
+)
 from amset.electronic_structure.wavefunction import load_coefficients
 from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
@@ -18,29 +22,23 @@ logger = logging.getLogger(__name__)
 
 
 class WavefunctionOverlapCalculator(object):
-    def __init__(self, structure, kpoints, coefficients, symprec=defaults["symprec"]):
+    def __init__(self, structure, kpoints, coefficients):
         logger.info("Initializing wavefunction overlap calculator")
+        self.structure = structure
 
-        # k-points have to be on a regular grid, even if only the irreducible part of
-        # the grid is used. If the irreducible part is given, we have to expand it
-        # to the full BZ. Also need to expand the projections to the full BZ using
-        # the rotation mapping
-        full_kpoints, ir_to_full_idx, rot_mapping = expand_kpoints(
-            structure, kpoints, symprec=symprec
-        )
-        mesh_dim = get_mesh_dim_from_kpoints(full_kpoints)
+        # k-points has to cover the full BZ
+        kpoints = kpoints_to_first_bz(kpoints)
+        mesh_dim = get_mesh_dim_from_kpoints(kpoints, tol=1e-4)
 
         round_dp = int(np.log10(1 / 1e-6))
-        full_kpoints = np.round(full_kpoints, round_dp)
+        kpoints = np.round(kpoints, round_dp)
 
         # get the indices to sort the k-points on the Z, then Y, then X columns
-        sort_idx = np.lexsort(
-            (full_kpoints[:, 2], full_kpoints[:, 1], full_kpoints[:, 0])
-        )
+        sort_idx = np.lexsort((kpoints[:, 2], kpoints[:, 1], kpoints[:, 0]))
 
         # put the kpoints into a 3D grid so that they can be indexed as
         # kpoints[ikx][iky][ikz] = [kx, ky, kz]
-        grid_kpoints = full_kpoints[sort_idx].reshape(mesh_dim + (3,))
+        grid_kpoints = kpoints[sort_idx].reshape(mesh_dim + (3,))
 
         x = grid_kpoints[:, 0, 0, 0]
         y = grid_kpoints[0, :, 0, 1]
@@ -54,11 +52,9 @@ class WavefunctionOverlapCalculator(object):
             nbands = spin_coefficients.shape[0]
             ncoefficients = spin_coefficients.shape[-1]
 
-            expand_coefficients = spin_coefficients[:, ir_to_full_idx]
-
             # sort the coefficients then reshape them into the grid. The coefficients
             # can now be indexed as coefficients[iband][ikx][iky][ikz]
-            sorted_coefficients = expand_coefficients[:, sort_idx]
+            sorted_coefficients = spin_coefficients[:, sort_idx]
             grid_shape = (nbands,) + mesh_dim + (ncoefficients,)
             grid_coefficients = sorted_coefficients.reshape(grid_shape)
 
@@ -75,9 +71,9 @@ class WavefunctionOverlapCalculator(object):
             )
 
     @classmethod
-    def from_file(cls, filename, **kwargs):
+    def from_file(cls, filename):
         coeff, kpoints, structure = load_coefficients(filename)
-        return cls(structure, kpoints, coeff, **kwargs)
+        return cls(structure, kpoints, coeff)
 
     def get_overlap(self, spin, band_a, kpoint_a, band_b, kpoint_b):
         # k-points should be in fractional
@@ -114,12 +110,8 @@ class WavefunctionOverlapCalculator(object):
         p1 = np.asarray(p1) / np.linalg.norm(p1)
         p2 = np.asarray(p2) / np.linalg.norm(p2, axis=-1)[:, None]
 
-        conj_p1 = np.conj(p1)
-        p_product = np.abs(conj_p1[None, :] * p2).sum(axis=-1)
-
-        overlap = p_product ** 2
-        # p_product = np.vdot(p1, np.array(p2))
-        # overlap = np.abs(p_product) ** 2
+        braket = np.abs(np.dot(np.conj(p1), p2.T))
+        overlap = braket ** 2
 
         if single_overlap:
             return overlap[0]
