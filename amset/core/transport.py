@@ -73,6 +73,10 @@ def _calculate_mobility(
     volume = amset_data.structure.volume
     mobility = np.zeros(amset_data.fermi_levels.shape + (3, 3))
 
+    epsilon, dos = amset_data.tetrahedral_band_structure.get_density_of_states(
+        amset_data.dos.energies, sum_spins=True, use_cached_weights=True
+    )
+
     pbar = get_progress_bar(
         iterable=list(np.ndindex(amset_data.fermi_levels.shape)), desc=pbar_label
     )
@@ -95,7 +99,7 @@ def _calculate_mobility(
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals for the temperature and doping
-        epsilon, dos, vvdos = get_transport_dos(
+        vvdos = get_transport_dos(
             amset_data.tetrahedral_band_structure,
             amset_data.velocities_product,
             lifetimes,
@@ -115,6 +119,7 @@ def _calculate_mobility(
         else:
             carrier_conc = amset_data.hole_conc[n, t]
 
+        # don't use c as we don't use the correct DOS each time
         # c = -c[0, ...] / (volume / (Meter / 100.)**3)
 
         # convert mobility to cm^2/V.s
@@ -132,6 +137,10 @@ def _calculate_transport_properties(amset_data):
     kappa = np.zeros(n_t_size + (3, 3))
     volume = amset_data.structure.volume
 
+    epsilon, dos = amset_data.tetrahedral_band_structure.get_density_of_states(
+        amset_data.dos.energies, sum_spins=True, use_cached_weights=True
+    )
+
     pbar = get_progress_bar(iterable=list(np.ndindex(n_t_size)), desc="transport")
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in pbar:
@@ -145,7 +154,7 @@ def _calculate_transport_properties(amset_data):
         temp = amset_data.temperatures[t][None]
 
         # obtain the Fermi integrals
-        epsilon, dos, vvdos = get_transport_dos(
+        vvdos = get_transport_dos(
             amset_data.tetrahedral_band_structure,
             amset_data.velocities_product,
             lifetimes,
@@ -172,28 +181,18 @@ def _calculate_transport_properties(amset_data):
 def get_transport_dos(
     tetrahedron_band_structure, vvband, lifetimes, energies, band_idx=None
 ):
-    """Compute the DOS, transport DOS and "curvature DOS".
+    """Compute the transport DOS
 
     The transport DOS is weighted by the outer product of the group velocity
-    with itself, and by the relaxation time. The "curvature DOS" is weighted by
-    the curvature and the relaxation time.
-
-    In order to use a custom mean free path instead of a custom lifetime, use
-    the auxiliary function lambda_to_tau().
+    with itself, and by the relaxation time.
 
     Args:
         vvband: (nbands, 3, 3, nkpoints) array with the outer product of each
             group velocity with itself.
 
     Returns:
-        Three arrays containing the bin energies, the DOS, and the transport dos.
-         The sizes of the returned arrays are (npts, ), (npts, ), and (3, 3, npts).
+        The transport dos with the same (3, 3, npts).
     """
-
-    emesh, dos = tetrahedron_band_structure.get_density_of_states(
-        energies, sum_spins=True, band_idx=band_idx, use_cached_weights=True
-    )
-
     # vvband is nb, 3, 3, nk it should be nb, nk, 3, 3
     vvband = {s: v.transpose(0, 3, 1, 2) for s, v in vvband.items()}
     weights = {s: vvband[s] * lifetimes[s][:, :, None, None] for s in lifetimes}
@@ -209,4 +208,4 @@ def get_transport_dos(
     # vvdos is npts, 3, 3 it should be 3, 3, npts
     vvdos = vvdos.transpose(1, 2, 0)
 
-    return emesh, dos, vvdos
+    return vvdos
