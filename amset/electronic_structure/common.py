@@ -59,3 +59,30 @@ def get_vb_idx(energy_cutoff: float, band_structure: BandStructure):
         new_vb_idx[spin] = sum(spin_ibands[: vb_idx + 1]) - 1
 
     return new_vb_idx
+
+
+def get_velocities_from_outer_product(
+    velocities_product, return_norm=False, symmetry_information=None
+):
+    # not recommended to give symmetry information AND return_norm=False
+    # probably raise a warning
+    velocities = {}
+
+    for spin, spin_velocities_product in velocities_product.items():
+
+        if symmetry_information:
+            ir_kpoints_idx = symmetry_information["ir_kpoints_idx"]
+            spin_velocities_product = spin_velocities_product[..., ir_kpoints_idx]
+
+        v = np.sqrt(np.diagonal(spin_velocities_product, axis1=1, axis2=2))
+
+        if return_norm:
+            v = np.linalg.norm(v, axis=2)
+
+        if symmetry_information:
+            ir_to_full_idx = symmetry_information["ir_to_full_kpoint_mapping"]
+            v = spin_velocities_product[..., ir_to_full_idx]
+
+        velocities[spin] = v
+
+    return velocities
