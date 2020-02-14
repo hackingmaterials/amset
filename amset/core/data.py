@@ -323,8 +323,11 @@ class AmsetData(MSONable):
         if include_mesh:
             rates = self.scattering_rates
             energies = self.energies
+            vv = self.velocities_product
+
             ir_rates = {s: r[..., self.ir_kpoints_idx] for s, r in rates.items()}
             ir_energies = {s: e[:, self.ir_kpoints_idx] for s, e in energies.items()}
+            ir_vv = {s: v[..., self.ir_kpoints_idx] for s, v in vv.items()}
 
             mesh_data = {
                 "energies": cast_dict_list(ir_energies),
@@ -334,6 +337,7 @@ class AmsetData(MSONable):
                 "efermi": self.intrinsic_fermi_level,
                 "vb_idx": cast_dict_list(self.vb_idx),
                 "dos": self.dos,
+                "velocities_product": cast_dict_list(ir_vv),
                 "scattering_rates": cast_dict_list(ir_rates),
                 "scattering_labels": self.scattering_labels,
                 "is_metal": self.is_metal,
