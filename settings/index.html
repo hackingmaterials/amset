@@ -234,27 +234,6 @@
       
       
 
-  
-
-
-  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-    
-      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
-    
-    <label class="md-nav__link" for="nav-2">
-      User Guide
-    </label>
-    <nav class="md-nav" data-md-component="collapsible" data-md-level="1">
-      <label class="md-nav__title" for="nav-2">
-        User Guide
-      </label>
-      <ul class="md-nav__list" data-md-scrollfix>
-        
-        
-          
-          
-          
-
 
   <li class="md-nav__item">
     <a href="../installation/" title="Installation" class="md-nav__link">
@@ -262,22 +241,22 @@
     </a>
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
 
   <li class="md-nav__item">
-    <a href="../using/" title="Running AMSET" class="md-nav__link">
-      Running AMSET
+    <a href="../using/" title="Getting Started" class="md-nav__link">
+      Getting Started
     </a>
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
   
 
@@ -558,10 +537,10 @@
     
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
 
   <li class="md-nav__item">
@@ -570,33 +549,16 @@
     </a>
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
 
   <li class="md-nav__item">
-    <a href="../theory/" title="Theory" class="md-nav__link">
-      Theory
+    <a href="../transport-properties/" title="Transport Properties" class="md-nav__link">
+      Transport Properties
     </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../integration/" title="Integration" class="md-nav__link">
-      Integration
-    </a>
-  </li>
-
-        
-      </ul>
-    </nav>
   </li>
 
     
@@ -928,7 +890,19 @@
                   <a href="https://github.com/hackingmaterials/amset/edit/master/docs/settings.md" title="Edit this page" class="md-icon md-content__icon">&#xE3C9;</a>
                 
                 
-                <h1 id="settings">Settings<a class="headerlink" href="#settings" title="Permanent link">&para;</a></h1>
+                <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/katex.css"
+    integrity="sha256-SSjvSe9BDSZMUczwnbB1ywCyIk2XaNly9nn6yRm6WJo="
+    crossorigin="anonymous">
+<style type="text/css">
+    .katex img {
+      display: block;
+      position: absolute;
+      width: 100%;
+      height: inherit;
+    }
+</style>
+<h1 id="settings">Settings<a class="headerlink" href="#settings" title="Permanent link">&para;</a></h1>
 <p>Whether using AMSET via the command-line or python API, the primary controls
 are contained in the settings file or dictionary. An example AMSET settings file
 is given <a href="https://github.com/hackingmaterials/amset/blob/master/examples/GaAs/settings.yaml">here</a>.</p>
@@ -1022,13 +996,13 @@ scattering rates.</p>
 <h3 id="high_frequency_dielectric"><code class="codehilite"><span class="err">high_frequency_dielectric</span></code><a class="headerlink" href="#high_frequency_dielectric" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">--high-frequency-dielectric</span></code></p>
-<p>The high-frequency dielectric constant, in units of <span><span class="MathJax_Preview">\epsilon_0</span><script type="math/tex">\epsilon_0</script></span>.</p>
+<p>The high-frequency dielectric constant, in units of <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>ϵ</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\epsilon_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>.</p>
 <p>Required for: POP</p>
 </div>
 <h3 id="static_dielectric"><code class="codehilite"><span class="err">static_dielectric</span></code><a class="headerlink" href="#static_dielectric" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">--static-dielectric</span></code></p>
-<p>The static dielectric constant, in units of <span><span class="MathJax_Preview">\epsilon_0</span><script type="math/tex">\epsilon_0</script></span>.</p>
+<p>The static dielectric constant, in units of <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>ϵ</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\epsilon_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>.</p>
 <p>Required for: IMP, PIE, POP</p>
 </div>
 <h3 id="elastic_constant"><code class="codehilite"><span class="err">elastic_constant</span></code><a class="headerlink" href="#elastic_constant" title="Permanent link">&para;</a></h3>
@@ -1079,8 +1053,8 @@ highest optical phonon frequency at the Gamma point.</p>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code class="codehilite"><span class="err">--mean-free-path</span></code></p>
 <p>Basic version of boundary scattering in which the scattering rate is set to
-<span><span class="MathJax_Preview">v_g / L</span><script type="math/tex">v_g / L</script></span>, where <span><span class="MathJax_Preview">v_g</span><script type="math/tex">v_g</script></span> is the group velocity and <span><span class="MathJax_Preview">L</span><script type="math/tex">L</script></span> is the mean free path
-in nm.</p>
+<span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>v</mi><mi>g</mi></msub><mi mathvariant="normal">/</mi><mi>L</mi></mrow><annotation encoding="application/x-tex">v_g / L</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.036108em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">v</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathdefault mtight" style="margin-right:0.03588em;">g</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mord">/</span><span class="mord mathdefault">L</span></span></span></span>, where <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>v</mi><mi>g</mi></msub></mrow><annotation encoding="application/x-tex">v_g</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.716668em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">v</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathdefault mtight" style="margin-right:0.03588em;">g</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span> is the group velocity and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>L</mi></mrow><annotation encoding="application/x-tex">L</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault">L</span></span></span></span> is the mean free
+path in nm.</p>
 <p>Required for: MFP</p>
 </div>
 <h3 id="constant_relaxation_time"><code class="codehilite"><span class="err">constant_relaxation_time</span></code><a class="headerlink" href="#constant_relaxation_time" title="Permanent link">&para;</a></h3>
@@ -1200,7 +1174,7 @@ his option can use a large amount of disk space.</p>
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid">
         
-          <a href="../using/" title="Running AMSET" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+          <a href="../using/" title="Getting Started" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
             <div class="md-flex__cell md-flex__cell--shrink">
               <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
             </div>
@@ -1209,7 +1183,7 @@ his option can use a large amount of disk space.</p>
                 <span class="md-footer-nav__direction">
                   Previous
                 </span>
-                Running AMSET
+                Getting Started
               </span>
             </div>
           </a>
@@ -1256,8 +1230,6 @@ his option can use a large amount of disk space.</p>
       <script src="../assets/javascripts/application.c33a9706.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:".."}})</script>
-      
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML"></script>
       
     
   </body>

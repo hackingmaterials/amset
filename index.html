@@ -294,47 +294,28 @@
       
 
 
-  <li class="md-nav__item md-nav__item--nested">
-    
-      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
-    
-    <label class="md-nav__link" for="nav-2">
-      User Guide
-    </label>
-    <nav class="md-nav" data-md-component="collapsible" data-md-level="1">
-      <label class="md-nav__title" for="nav-2">
-        User Guide
-      </label>
-      <ul class="md-nav__list" data-md-scrollfix>
-        
-        
-          
-          
-          
-
-
   <li class="md-nav__item">
     <a href="installation/" title="Installation" class="md-nav__link">
       Installation
     </a>
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
 
   <li class="md-nav__item">
-    <a href="using/" title="Running AMSET" class="md-nav__link">
-      Running AMSET
+    <a href="using/" title="Getting Started" class="md-nav__link">
+      Getting Started
     </a>
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
 
   <li class="md-nav__item">
@@ -343,10 +324,10 @@
     </a>
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
 
   <li class="md-nav__item">
@@ -355,33 +336,16 @@
     </a>
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
 
   <li class="md-nav__item">
-    <a href="theory/" title="Theory" class="md-nav__link">
-      Theory
+    <a href="transport-properties/" title="Transport Properties" class="md-nav__link">
+      Transport Properties
     </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="integration/" title="Integration" class="md-nav__link">
-      Integration
-    </a>
-  </li>
-
-        
-      </ul>
-    </nav>
   </li>
 
     
@@ -502,30 +466,24 @@
                 
                 <h1 id="amset-ab-initio-scattering-and-transport">AMSET: <em>ab initio</em> scattering and transport<a class="headerlink" href="#amset-ab-initio-scattering-and-transport" title="Permanent link">&para;</a></h1>
 <h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h2>
-<p>Accurately calculating electronic transport properties from first-principles
-is often highly computationally expensive and difficult to perform. AMSET is a
-fast and easy-to-use package to model carrier transport in solid-state materials.
-A primary aim of AMSET is to be <strong>amenable to high-throughput screenings</strong>.
+<p>AMSET is an efficient package for calculating electron lifetimes and 
+transport properties in solid-state materials from first principles.
+A primary aim of AMSET is to be amenable to high-throughput computational 
+screening.
 Features of AMSET include:</p>
 <ul>
-<li>All inputs easily obtainable from first-principles calculations. The
-  primary input for AMSET is an <em>ab initio</em> uniform band structure.</li>
-<li>Scattering rates approximated based on common materials properties
-  such as phonon frequencies and dielectric constants.</li>
-<li>Transport properties calculated by solving the iterative Boltzmann transport
+<li>Inputs obtainable from first-principles calculations. The
+  primary input for AMSET is an uniform band structure calculation.</li>
+<li>Scattering rates calculated in the Born approximation using common materials 
+  properties such as phonon frequencies and dielectric constants.</li>
+<li>Transport properties calculated through the iterative Boltzmann transport
   equation.</li>
-<li>Heavily optimised code that can run on a personal laptop. High-performance
-  computing clusters not necessary.</li>
+<li>Efficient implementation that can run on a personal laptop. </li>
 </ul>
-<p>AMSET is built on top of state-of-the-art open-source libraries:
-<a href="http://boltztrap.org/">BoltzTraP2</a> for band structure interpolation,
-<a href="https://www.numpy.org/">numpy</a> and
-<a href="https://scipy.org">scipy</a> to enable high-performance matrix operations, and
-<a href="http://pymatgen.org">pymatgen</a> for handling DFT calculation data.</p>
 <div class="admonition info">
 <p class="admonition-title">Supported ab initio codes</p>
-<p>Currently, AMSET is best integrated with VASP, however,
-support for additional periodic DFT codes will be added in the future.</p>
+<p>Currently, AMSET only supports VASP calculations, however,
+additional periodic DFT codes will be added in the future.</p>
 </div>
 <h2 id="scattering-mechanisms">Scattering Mechanisms<a class="headerlink" href="#scattering-mechanisms" title="Permanent link">&para;</a></h2>
 <p>The scattering mechanisms currently implemented in AMSET are:</p>
@@ -615,8 +573,6 @@ Read more about contributing code to AMSET <a href="contributing">here</a>.</p>
       <script src="assets/javascripts/application.c33a9706.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:"."}})</script>
-      
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML"></script>
       
     
   </body>

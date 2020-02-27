@@ -87,7 +87,7 @@
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
     <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
     
-      <a href="#scattering-rates" tabindex="0" class="md-skip">
+      <a href="#calculating-scattering-rates" tabindex="0" class="md-skip">
         Skip to content
       </a>
     
@@ -234,27 +234,6 @@
       
       
 
-  
-
-
-  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-    
-      <input class="md-toggle md-nav__toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
-    
-    <label class="md-nav__link" for="nav-2">
-      User Guide
-    </label>
-    <nav class="md-nav" data-md-component="collapsible" data-md-level="1">
-      <label class="md-nav__title" for="nav-2">
-        User Guide
-      </label>
-      <ul class="md-nav__list" data-md-scrollfix>
-        
-        
-          
-          
-          
-
 
   <li class="md-nav__item">
     <a href="../installation/" title="Installation" class="md-nav__link">
@@ -262,22 +241,22 @@
     </a>
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
 
   <li class="md-nav__item">
-    <a href="../using/" title="Running AMSET" class="md-nav__link">
-      Running AMSET
+    <a href="../using/" title="Getting Started" class="md-nav__link">
+      Getting Started
     </a>
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
 
   <li class="md-nav__item">
@@ -286,10 +265,10 @@
     </a>
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
   
 
@@ -320,37 +299,43 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    Overview
+  <a href="#summary-of-scattering-rates" class="md-nav__link">
+    Summary of scattering rates
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#acoustic-deformation-potential-scattering" class="md-nav__link">
     Acoustic deformation potential scattering
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#ionized-impurity-scattering" class="md-nav__link">
     Ionized impurity scattering
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#piezoelectric-scattering" class="md-nav__link">
     Piezoelectric scattering
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#polar-optical-phonon-scattering" class="md-nav__link">
     Polar optical phonon scattering
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -378,33 +363,16 @@
     
   </li>
 
-        
-          
-          
-          
+    
+      
+      
+      
 
 
   <li class="md-nav__item">
-    <a href="../theory/" title="Theory" class="md-nav__link">
-      Theory
+    <a href="../transport-properties/" title="Transport Properties" class="md-nav__link">
+      Transport Properties
     </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../integration/" title="Integration" class="md-nav__link">
-      Integration
-    </a>
-  </li>
-
-        
-      </ul>
-    </nav>
   </li>
 
     
@@ -477,37 +445,43 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    Overview
+  <a href="#summary-of-scattering-rates" class="md-nav__link">
+    Summary of scattering rates
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
+    <nav class="md-nav">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#acoustic-deformation-potential-scattering" class="md-nav__link">
     Acoustic deformation potential scattering
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#ionized-impurity-scattering" class="md-nav__link">
     Ionized impurity scattering
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#piezoelectric-scattering" class="md-nav__link">
     Piezoelectric scattering
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#polar-optical-phonon-scattering" class="md-nav__link">
     Polar optical phonon scattering
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -544,24 +518,31 @@
                   <a href="https://github.com/hackingmaterials/amset/edit/master/docs/scattering.md" title="Edit this page" class="md-icon md-content__icon">&#xE3C9;</a>
                 
                 
-                <h1 id="scattering-rates">Scattering rates<a class="headerlink" href="#scattering-rates" title="Permanent link">&para;</a></h1>
-<p>AMSET approximates electron scattering rates using common materials properties
-in combination with information contained in a DFT band structure calculation.
-For every scattering mechanism, the scattering rates are calculated at each
-band and k-point in the band structure. This is achieved through the
-differential scattering rate, <span><span class="MathJax_Preview">s_b(\mathbf{k}, \mathbf{k}^\prime)</span><script type="math/tex">s_b(\mathbf{k}, \mathbf{k}^\prime)</script></span>, which
-gives the rate of scattering from k-point, <span><span class="MathJax_Preview">\mathbf{k}</span><script type="math/tex">\mathbf{k}</script></span>, to a second
-k-point, <span><span class="MathJax_Preview">\mathbf{k}^\prime</span><script type="math/tex">\mathbf{k}^\prime</script></span>, in band <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span>.</p>
-<p>The overall scattering rate for each k-point and
-band is obtained by integrating the differential scattering rates over the
-full Brillouin zone. Umklapp-type scattering is included by considering
-periodic boundary conditions.</p>
-<p>In this section we report the differential scattering rate equation and
-references for each mechanism. More information about how carrier
-transport properties are calculated is given in the <a href="../theory/">theory section</a>.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>Below, we give a summary of each mechanism, its abbreviation, and the material
-parameters needed to calculate it.</p>
+                <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/katex@0.10.2/dist/katex.css"
+    integrity="sha256-SSjvSe9BDSZMUczwnbB1ywCyIk2XaNly9nn6yRm6WJo="
+    crossorigin="anonymous">
+<style type="text/css">
+    .katex img {
+      display: block;
+      position: absolute;
+      width: 100%;
+      height: inherit;
+    }
+</style>
+<h1 id="calculating-scattering-rates">Calculating scattering rates<a class="headerlink" href="#calculating-scattering-rates" title="Permanent link">&para;</a></h1>
+<p>AMSET calculates mode dependent scattering rates within the Born approximation 
+using common materials parameters. The differential scattering rate, 
+<span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>s</mi><mrow><mi>n</mi><mi>m</mi></mrow></msub><mo stretchy="false">(</mo><mi mathvariant="bold">k</mi><mo separator="true">,</mo><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">s_{nm}(\mathbf{k}, \mathbf{k}^\prime)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.001892em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathdefault">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">n</span><span class="mord mathdefault mtight">m</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathbf">k</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.751892em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span>,
+gives the rate from band <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>n</mi></mrow><annotation encoding="application/x-tex">n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault">n</span></span></span></span>, k-point <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi mathvariant="bold">k</mi></mrow><annotation encoding="application/x-tex">\mathbf{k}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord"><span class="mord mathbf">k</span></span></span></span></span> to band <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>m</mi></mrow><annotation encoding="application/x-tex">m</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.43056em;vertical-align:0em;"></span><span class="mord mathdefault">m</span></span></span></span>, k-point 
+<span class="katex"><span class="katex-mathml"><math><semantics><mrow><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup></mrow><annotation encoding="application/x-tex">\mathbf{k}^\prime</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.751892em;vertical-align:0em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.751892em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span> .</p>
+<p>The final scattering rate at each band and k-point is obtained by 
+<a href="#brillouin-zone-integration">integrating the differential scattering rates</a> 
+over the full Brillouin zone.  In this section report the differential 
+scattering rate equations and references for each scattering mechanism. More 
+information on calculating transport properties is given in the 
+<a href="../transport-properties/">transport properties section</a>.</p>
+<h2 id="summary-of-scattering-rates">Summary of scattering rates<a class="headerlink" href="#summary-of-scattering-rates" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -585,7 +566,7 @@ parameters needed to calculate it.</p>
 <td>Elastic</td>
 </tr>
 <tr>
-<td><a href="piezoelectric-scattering">Piezoelectric scattering</a></td>
+<td><a href="#piezoelectric-scattering">Piezoelectric scattering</a></td>
 <td>PIE</td>
 <td>static dielectric constant, piezoelectric coefficient</td>
 <td>Elastic</td>
@@ -598,248 +579,147 @@ parameters needed to calculate it.</p>
 </tr>
 </tbody>
 </table>
-<p>The differential scattering rate equations include
-<span><span class="MathJax_Preview">G_b(\mathbf{k}, \mathbf{k}^\prime)</span><script type="math/tex">G_b(\mathbf{k}, \mathbf{k}^\prime)</script></span>, the <code class="codehilite"><span class="err">overlap integral</span></code>,
-and <span><span class="MathJax_Preview">\delta</span><script type="math/tex">\delta</script></span>, the <a href="#brillouin-zone-integration">Dirac delta function</a>.
-A description of these factors is given at the bottom of this page.</p>
-<h2 id="acoustic-deformation-potential-scattering">Acoustic deformation potential scattering<a class="headerlink" href="#acoustic-deformation-potential-scattering" title="Permanent link">&para;</a></h2>
+<h3 id="acoustic-deformation-potential-scattering">Acoustic deformation potential scattering<a class="headerlink" href="#acoustic-deformation-potential-scattering" title="Permanent link">&para;</a></h3>
 <p>The acoustic deformation potential differential scattering rate is given by</p>
-<div>
-<div class="MathJax_Preview">
-   s_b(\mathbf{k}, \mathbf{k}^\prime) =
-        \frac{e^2 k_\mathrm{B}T E_\mathrm{d}^2}{4 \pi^2 \hbar C_\mathrm{el}}
-        G_b(\mathbf{k}, \mathbf{k}^\prime) \delta ( E - E^\prime ),
-</div>
-<script type="math/tex; mode=display">
-   s_b(\mathbf{k}, \mathbf{k}^\prime) =
-        \frac{e^2 k_\mathrm{B}T E_\mathrm{d}^2}{4 \pi^2 \hbar C_\mathrm{el}}
-        G_b(\mathbf{k}, \mathbf{k}^\prime) \delta ( E - E^\prime ),
-</script>
-</div>
-<p>where <span><span class="MathJax_Preview">E_\mathrm{d}</span><script type="math/tex">E_\mathrm{d}</script></span> is the acoustic-phonon deformation-potential,
-and <span><span class="MathJax_Preview">C_\mathrm{el}</span><script type="math/tex">C_\mathrm{el}</script></span> is the elastic constant.</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>s</mi><mrow><mi>n</mi><mi>m</mi></mrow></msub><mo stretchy="false">(</mo><mi mathvariant="bold">k</mi><mo separator="true">,</mo><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup><mo stretchy="false">)</mo><mo>=</mo><mfrac><mrow><msup><mi>e</mi><mn>2</mn></msup><msub><mi>k</mi><mi mathvariant="normal">B</mi></msub><mi>T</mi><msubsup><mi>E</mi><mi mathvariant="normal">d</mi><mn>2</mn></msubsup></mrow><mrow><mn>4</mn><msup><mi>π</mi><mn>2</mn></msup><mi mathvariant="normal">ℏ</mi><msub><mi>C</mi><mrow><mi mathvariant="normal">e</mi><mi mathvariant="normal">l</mi></mrow></msub></mrow></mfrac><mo stretchy="false">∣</mo><mo stretchy="false">⟨</mo><mrow><msub><mi>ψ</mi><mrow><mi>m</mi><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup></mrow></msub><mi mathvariant="normal">∣</mi><msub><mi>ψ</mi><mrow><mi>n</mi><mi mathvariant="bold">k</mi></mrow></msub></mrow><mo stretchy="false">⟩</mo><msup><mo stretchy="false">∣</mo><mn>2</mn></msup><mi>δ</mi><mo stretchy="false">(</mo><mi>E</mi><mo>−</mo><msup><mi>E</mi><mo mathvariant="normal">′</mo></msup><mo stretchy="false">)</mo><mo separator="true">,</mo></mrow><annotation encoding="application/x-tex">
+s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
+    \frac{e^2 k_\mathrm{B}T E_\mathrm{d}^2}{4 \pi^2 \hbar C_\mathrm{el}}
+    \lvert \mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}\rvert^2 
+    \delta ( E - E^\prime ),
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.051892em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathdefault">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">n</span><span class="mord mathdefault mtight">m</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathbf">k</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.801892em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:2.327108em;vertical-align:-0.8360000000000001em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.491108em;"><span style="top:-2.3139999999999996em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">4</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">π</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.740108em;"><span style="top:-2.9890000000000003em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mord">ℏ</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.07153em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.07153em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">e</span><span class="mord mathrm mtight">l</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"><span class="mord mathdefault">e</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03148em;">k</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.32833099999999993em;"><span style="top:-2.5500000000000003em;margin-left:-0.03148em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">B</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-2.4168920000000003em;margin-left:-0.05764em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">d</span></span></span></span><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2831079999999999em;"><span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.8360000000000001em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mopen">∣</span><span class="minner"><span class="mopen">⟨</span><span class="mord"><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ψ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">m</span><span class="mord mtight"><span class="mord mtight"><span class="mord mathbf mtight">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6828285714285715em;"><span style="top:-2.786em;margin-right:0.07142857142857144em;"><span class="pstrut" style="height:2.5em;"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord">∣</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ψ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">n</span><span class="mord mtight"><span class="mord mathbf mtight">k</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span><span class="mclose">⟩</span></span><span class="mclose"><span class="mclose">∣</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641079999999999em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mord mathdefault" style="margin-right:0.03785em;">δ</span><span class="mopen">(</span><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1.051892em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.801892em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose">)</span><span class="mpunct">,</span></span></span></span></span></p>
+
+<p>where <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>E</mi><mi mathvariant="normal">d</mi></msub></mrow><annotation encoding="application/x-tex">E_\mathrm{d}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.05764em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">d</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span> is the acoustic-phonon deformation-potential,
+and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>C</mi><mrow><mi mathvariant="normal">e</mi><mi mathvariant="normal">l</mi></mrow></msub></mrow><annotation encoding="application/x-tex">C_\mathrm{el}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.07153em;">C</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.07153em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">e</span><span class="mord mathrm mtight">l</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span> is the elastic constant.</p>
 <div class="admonition info">
 <p class="admonition-title">Acoustic deformation potential scattering information</p>
 <ul>
 <li><em>Abbreviation:</em> ACD</li>
 <li><em>Type:</em> Elastic</li>
-<li><em>References:</em> <sup id="fnref:Bardeen"><a class="footnote-ref" href="#fn:Bardeen">3</a></sup>, <sup id="fnref:Shockley"><a class="footnote-ref" href="#fn:Shockley">2</a></sup>, <sup id="fnref5:Rode"><a class="footnote-ref" href="#fn:Rode">1</a></sup></li>
+<li><em>References:</em> <sup id="fnref:Bardeen"><a class="footnote-ref" href="#fn:Bardeen">3</a></sup>, <sup id="fnref:Shockley"><a class="footnote-ref" href="#fn:Shockley">2</a></sup>, <sup id="fnref4:Rode"><a class="footnote-ref" href="#fn:Rode">1</a></sup></li>
 <li><em>Requires:</em> <code class="codehilite"><span class="err">deformation_potential</span></code>, <code class="codehilite"><span class="err">elastic_constant</span></code></li>
 </ul>
 </div>
-<h2 id="ionized-impurity-scattering">Ionized impurity scattering<a class="headerlink" href="#ionized-impurity-scattering" title="Permanent link">&para;</a></h2>
+<h3 id="ionized-impurity-scattering">Ionized impurity scattering<a class="headerlink" href="#ionized-impurity-scattering" title="Permanent link">&para;</a></h3>
 <p>The ionized impurity differential scattering rate is given by</p>
-<div>
-<div class="MathJax_Preview">
-   s_b(\mathbf{k}, \mathbf{k}^\prime) =
-        \frac{e^4 N_\mathrm{imp}}{4 \pi^2 \hbar \epsilon_\mathrm{s}^2}
-        \frac{G_b(\mathbf{k}, \mathbf{k}^\prime)}
-             {(\left | \mathbf{k} - \mathbf{k}^\prime \right | ^2 + \beta^2)^2}
-        \delta ( E - E^\prime ),
-</div>
-<script type="math/tex; mode=display">
-   s_b(\mathbf{k}, \mathbf{k}^\prime) =
-        \frac{e^4 N_\mathrm{imp}}{4 \pi^2 \hbar \epsilon_\mathrm{s}^2}
-        \frac{G_b(\mathbf{k}, \mathbf{k}^\prime)}
-             {(\left | \mathbf{k} - \mathbf{k}^\prime \right | ^2 + \beta^2)^2}
-        \delta ( E - E^\prime ),
-</script>
-</div>
-<p>where <span><span class="MathJax_Preview">\epsilon_\mathrm{s}</span><script type="math/tex">\epsilon_\mathrm{s}</script></span> is the static dielectric constant,
-<span><span class="MathJax_Preview">N_\mathrm{imp}</span><script type="math/tex">N_\mathrm{imp}</script></span> is the concentration of ionized impurities
-(i.e., <span><span class="MathJax_Preview">N_\mathrm{holes} + N_\mathrm{electrons}</span><script type="math/tex">N_\mathrm{holes} + N_\mathrm{electrons}</script></span>),
-and <span><span class="MathJax_Preview">\beta</span><script type="math/tex">\beta</script></span> is the inverse screening length, defined as</p>
-<div>
-<div class="MathJax_Preview">
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>s</mi><mrow><mi>n</mi><mi>m</mi></mrow></msub><mo stretchy="false">(</mo><mi mathvariant="bold">k</mi><mo separator="true">,</mo><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup><mo stretchy="false">)</mo><mo>=</mo><mfrac><mrow><msup><mi>e</mi><mn>4</mn></msup><msub><mi>N</mi><mrow><mi mathvariant="normal">i</mi><mi mathvariant="normal">m</mi><mi mathvariant="normal">p</mi></mrow></msub></mrow><mrow><mn>4</mn><msup><mi>π</mi><mn>2</mn></msup><mi mathvariant="normal">ℏ</mi><msubsup><mi>ϵ</mi><mi mathvariant="normal">s</mi><mn>2</mn></msubsup></mrow></mfrac><mfrac><mrow><mo stretchy="false">∣</mo><mo stretchy="false">⟨</mo><mrow><msub><mi>ψ</mi><mrow><mi>m</mi><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup></mrow></msub><mi mathvariant="normal">∣</mi><msub><mi>ψ</mi><mrow><mi>n</mi><mi mathvariant="bold">k</mi></mrow></msub></mrow><mo stretchy="false">⟩</mo><msup><mo stretchy="false">∣</mo><mn>2</mn></msup></mrow><mrow><mo stretchy="false">(</mo><msup><mrow><mo fence="true">∣</mo><mi mathvariant="bold">k</mi><mo>−</mo><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup><mo fence="true">∣</mo></mrow><mn>2</mn></msup><mo>+</mo><msup><mi>β</mi><mn>2</mn></msup><msup><mo stretchy="false">)</mo><mn>2</mn></msup></mrow></mfrac><mi>δ</mi><mo stretchy="false">(</mo><mi>E</mi><mo>−</mo><msup><mi>E</mi><mo mathvariant="normal">′</mo></msup><mo stretchy="false">)</mo><mo separator="true">,</mo></mrow><annotation encoding="application/x-tex">
+s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
+    \frac{e^4 N_\mathrm{imp}}{4 \pi^2 \hbar \epsilon_\mathrm{s}^2}
+    \frac{\lvert \mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}\rvert^2}
+         {(\left | \mathbf{k} - \mathbf{k}^\prime \right | ^2 + \beta^2)^2}
+    \delta ( E - E^\prime ),
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.051892em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathdefault">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">n</span><span class="mord mathdefault mtight">m</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathbf">k</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.801892em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:2.585116em;vertical-align:-1.094008em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.4911079999999999em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">4</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">π</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.740108em;"><span style="top:-2.9890000000000003em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mord">ℏ</span><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.740108em;"><span style="top:-2.4530000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">s</span></span></span></span><span style="top:-2.9890000000000003em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.247em;"><span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"><span class="mord mathdefault">e</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">4</span></span></span></span></span></span></span></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.10903em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.317502em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">i</span><span class="mord mathrm mtight">m</span><span class="mord mathrm mtight">p</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.933em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.491108em;"><span style="top:-2.155992em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mopen">(</span><span class="minner"><span class="minner"><span class="mopen delimcenter" style="top:0em;">∣</span><span class="mord"><span class="mord mathbf">k</span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6778919999999999em;"><span style="top:-2.9890000000000003em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose delimcenter" style="top:0em;">∣</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.954008em;"><span style="top:-3.2029em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.05278em;">β</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.740108em;"><span style="top:-2.9890000000000003em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.740108em;"><span style="top:-2.9890000000000003em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mopen">∣</span><span class="minner"><span class="mopen">⟨</span><span class="mord"><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ψ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">m</span><span class="mord mtight"><span class="mord mtight"><span class="mord mathbf mtight">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6828285714285715em;"><span style="top:-2.786em;margin-right:0.07142857142857144em;"><span class="pstrut" style="height:2.5em;"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord">∣</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ψ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">n</span><span class="mord mtight"><span class="mord mathbf mtight">k</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span><span class="mclose">⟩</span></span><span class="mclose"><span class="mclose">∣</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.094008em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mord mathdefault" style="margin-right:0.03785em;">δ</span><span class="mopen">(</span><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1.051892em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.801892em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose">)</span><span class="mpunct">,</span></span></span></span></span></p>
+
+<p>where <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>ϵ</mi><mi mathvariant="normal">s</mi></msub></mrow><annotation encoding="application/x-tex">\epsilon_\mathrm{s}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">s</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span> is the static dielectric constant,
+<span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>N</mi><mrow><mi mathvariant="normal">i</mi><mi mathvariant="normal">m</mi><mi mathvariant="normal">p</mi></mrow></msub></mrow><annotation encoding="application/x-tex">N_\mathrm{imp}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.969438em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.10903em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.317502em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">i</span><span class="mord mathrm mtight">m</span><span class="mord mathrm mtight">p</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span> is the concentration of ionized impurities
+(i.e., <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>N</mi><mrow><mi mathvariant="normal">h</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">s</mi></mrow></msub><mo>+</mo><msub><mi>N</mi><mrow><mi mathvariant="normal">e</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">c</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">s</mi></mrow></msub></mrow><annotation encoding="application/x-tex">N_\mathrm{holes} + N_\mathrm{electrons}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.10903em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">h</span><span class="mord mathrm mtight">o</span><span class="mord mathrm mtight">l</span><span class="mord mathrm mtight">e</span><span class="mord mathrm mtight">s</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.10903em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">e</span><span class="mord mathrm mtight">l</span><span class="mord mathrm mtight">e</span><span class="mord mathrm mtight">c</span><span class="mord mathrm mtight">t</span><span class="mord mathrm mtight">r</span><span class="mord mathrm mtight">o</span><span class="mord mathrm mtight">n</span><span class="mord mathrm mtight">s</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>),
+and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>β</mi></mrow><annotation encoding="application/x-tex">\beta</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="mord mathdefault" style="margin-right:0.05278em;">β</span></span></span></span> is the inverse screening length, defined as</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msup><mi>β</mi><mn>2</mn></msup><mo>=</mo><mfrac><msup><mi>e</mi><mn>2</mn></msup><mrow><msub><mi>ϵ</mi><mi mathvariant="normal">s</mi></msub><msub><mi>k</mi><mi mathvariant="normal">B</mi></msub><mi>T</mi></mrow></mfrac><mo>∫</mo><mo stretchy="false">(</mo><mi mathvariant="bold">k</mi><mi mathvariant="normal">/</mi><mi>π</mi><msup><mo stretchy="false">)</mo><mn>2</mn></msup><mi>f</mi><mo stretchy="false">(</mo><mn>1</mn><mo>−</mo><mi>f</mi><mo stretchy="false">)</mo><mtext> </mtext><mi mathvariant="normal">d</mi><mi mathvariant="bold">k</mi><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
     \beta^2 = \frac{e^2}{\epsilon_\mathrm{s}  k_\mathrm{B} T}
         \int (\mathbf{k} / \pi)^2 f(1-f) \,\mathrm{d}\mathbf{k}.
-</div>
-<script type="math/tex; mode=display">
-    \beta^2 = \frac{e^2}{\epsilon_\mathrm{s}  k_\mathrm{B} T}
-        \int (\mathbf{k} / \pi)^2 f(1-f) \,\mathrm{d}\mathbf{k}.
-</script>
-</div>
-<p>where <span><span class="MathJax_Preview">f</span><script type="math/tex">f</script></span> is the Fermi dirac distribution given in the
-<a href="../theory/">theory section</a>.</p>
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.0585479999999998em;vertical-align:-0.19444em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.05278em;">β</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641079999999999em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:2.353358em;vertical-align:-0.86225em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.491108em;"><span style="top:-2.3139999999999996em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">s</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03148em;">k</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.32833099999999993em;"><span style="top:-2.5500000000000003em;margin-left:-0.03148em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">B</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"><span class="mord mathdefault">e</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.8360000000000001em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mop op-symbol large-op" style="margin-right:0.44445em;position:relative;top:-0.0011249999999999316em;">∫</span><span class="mopen">(</span><span class="mord"><span class="mord mathbf">k</span></span><span class="mord">/</span><span class="mord mathdefault" style="margin-right:0.03588em;">π</span><span class="mclose"><span class="mclose">)</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641079999999999em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mord mathdefault" style="margin-right:0.10764em;">f</span><span class="mopen">(</span><span class="mord">1</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathdefault" style="margin-right:0.10764em;">f</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord"><span class="mord mathrm">d</span></span><span class="mord"><span class="mord mathbf">k</span></span><span class="mord">.</span></span></span></span></span></p>
+
+<p>where $f$ is the Fermi dirac distribution given in the
+<a href="../transport-properties/">transport properties section</a>.</p>
 <div class="admonition info">
 <p class="admonition-title">Ionized impurity scattering information</p>
 <ul>
 <li><em>Abbreviation:</em> IMP</li>
 <li><em>Type:</em> Elastic</li>
-<li><em>References:</em> <sup id="fnref:Dingle"><a class="footnote-ref" href="#fn:Dingle">4</a></sup>, <sup id="fnref4:Rode"><a class="footnote-ref" href="#fn:Rode">1</a></sup></li>
+<li><em>References:</em> <sup id="fnref:Dingle"><a class="footnote-ref" href="#fn:Dingle">4</a></sup>, <sup id="fnref3:Rode"><a class="footnote-ref" href="#fn:Rode">1</a></sup></li>
 <li><em>Requires:</em> <code class="codehilite"><span class="err">static_dielectric</span></code></li>
 </ul>
 </div>
-<h2 id="piezoelectric-scattering">Piezoelectric scattering<a class="headerlink" href="#piezoelectric-scattering" title="Permanent link">&para;</a></h2>
+<h3 id="piezoelectric-scattering">Piezoelectric scattering<a class="headerlink" href="#piezoelectric-scattering" title="Permanent link">&para;</a></h3>
 <p>The piezoelectric differential scattering rate is given by</p>
-<div>
-<div class="MathJax_Preview">
-   s_b(\mathbf{k}, \mathbf{k}^\prime) =
-        \frac{e^2 k_\mathrm{B} T P_\mathrm{pie}^2}{4 \pi \hbar \epsilon_\mathrm{s}}
-        \frac{G_b(\mathbf{k}, \mathbf{k}^\prime)}
-             {\left | \mathbf{k} - \mathbf{k}^\prime \right | ^2 }
-        \delta ( E - E^\prime ),
-</div>
-<script type="math/tex; mode=display">
-   s_b(\mathbf{k}, \mathbf{k}^\prime) =
-        \frac{e^2 k_\mathrm{B} T P_\mathrm{pie}^2}{4 \pi \hbar \epsilon_\mathrm{s}}
-        \frac{G_b(\mathbf{k}, \mathbf{k}^\prime)}
-             {\left | \mathbf{k} - \mathbf{k}^\prime \right | ^2 }
-        \delta ( E - E^\prime ),
-</script>
-</div>
-<p>where <span><span class="MathJax_Preview">\epsilon_\mathrm{s}</span><script type="math/tex">\epsilon_\mathrm{s}</script></span> is the static dielectric constant and
-<span><span class="MathJax_Preview">P_\mathrm{pie}</span><script type="math/tex">P_\mathrm{pie}</script></span> is the dimensionless piezoelectric coefficient.</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>s</mi><mrow><mi>n</mi><mi>m</mi></mrow></msub><mo stretchy="false">(</mo><mi mathvariant="bold">k</mi><mo separator="true">,</mo><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup><mo stretchy="false">)</mo><mo>=</mo><mfrac><mrow><msup><mi>e</mi><mn>2</mn></msup><msub><mi>k</mi><mi mathvariant="normal">B</mi></msub><mi>T</mi><msubsup><mi>P</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">e</mi></mrow><mn>2</mn></msubsup></mrow><mrow><mn>4</mn><mi>π</mi><mi mathvariant="normal">ℏ</mi><msub><mi>ϵ</mi><mi mathvariant="normal">s</mi></msub></mrow></mfrac><mfrac><mrow><mo stretchy="false">∣</mo><mo stretchy="false">⟨</mo><mrow><msub><mi>ψ</mi><mrow><mi>m</mi><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup></mrow></msub><mi mathvariant="normal">∣</mi><msub><mi>ψ</mi><mrow><mi>n</mi><mi mathvariant="bold">k</mi></mrow></msub></mrow><mo stretchy="false">⟩</mo><msup><mo stretchy="false">∣</mo><mn>2</mn></msup></mrow><msup><mrow><mo fence="true">∣</mo><mi mathvariant="bold">k</mi><mo>−</mo><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup><mo fence="true">∣</mo></mrow><mn>2</mn></msup></mfrac><mi>δ</mi><mo stretchy="false">(</mo><mi>E</mi><mo>−</mo><msup><mi>E</mi><mo mathvariant="normal">′</mo></msup><mo stretchy="false">)</mo><mo separator="true">,</mo></mrow><annotation encoding="application/x-tex">
+s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
+    \frac{e^2 k_\mathrm{B} T P_\mathrm{pie}^2}{4 \pi \hbar \epsilon_\mathrm{s}}
+    \frac{\lvert \mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}\rvert^2}
+         {\left | \mathbf{k} - \mathbf{k}^\prime \right | ^2 }
+    \delta ( E - E^\prime ),
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.051892em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathdefault">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">n</span><span class="mord mathdefault mtight">m</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathbf">k</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.801892em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:2.698726em;vertical-align:-1.094008em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.604718em;"><span style="top:-2.3139999999999996em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">4</span><span class="mord mathdefault" style="margin-right:0.03588em;">π</span><span class="mord">ℏ</span><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">s</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.79061em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"><span class="mord mathdefault">e</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03148em;">k</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.32833099999999993em;"><span style="top:-2.5500000000000003em;margin-left:-0.03148em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">B</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.13889em;">P</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-2.4354980000000004em;margin-left:-0.13889em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">i</span><span class="mord mathrm mtight">e</span></span></span></span><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.40061em;"><span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.8360000000000001em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.491108em;"><span style="top:-2.155992em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="minner"><span class="minner"><span class="mopen delimcenter" style="top:0em;">∣</span><span class="mord"><span class="mord mathbf">k</span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6778919999999999em;"><span style="top:-2.9890000000000003em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose delimcenter" style="top:0em;">∣</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.954008em;"><span style="top:-3.2029em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mopen">∣</span><span class="minner"><span class="mopen">⟨</span><span class="mord"><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ψ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">m</span><span class="mord mtight"><span class="mord mtight"><span class="mord mathbf mtight">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6828285714285715em;"><span style="top:-2.786em;margin-right:0.07142857142857144em;"><span class="pstrut" style="height:2.5em;"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord">∣</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ψ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">n</span><span class="mord mtight"><span class="mord mathbf mtight">k</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span><span class="mclose">⟩</span></span><span class="mclose"><span class="mclose">∣</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.094008em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mord mathdefault" style="margin-right:0.03785em;">δ</span><span class="mopen">(</span><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1.051892em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.801892em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose">)</span><span class="mpunct">,</span></span></span></span></span></p>
+
+<p>where <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>ϵ</mi><mi mathvariant="normal">s</mi></msub></mrow><annotation encoding="application/x-tex">\epsilon_\mathrm{s}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">s</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span> is the static dielectric constant and
+<span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>P</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">e</mi></mrow></msub></mrow><annotation encoding="application/x-tex">P_\mathrm{pie}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.969438em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.13889em;">P</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.317502em;"><span style="top:-2.5500000000000003em;margin-left:-0.13889em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">i</span><span class="mord mathrm mtight">e</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span> is the dimensionless piezoelectric coefficient.</p>
 <div class="admonition info">
 <p class="admonition-title">Piezoelectric scattering information</p>
 <ul>
 <li><em>Abbreviation:</em> PIE</li>
 <li><em>Type:</em> Elastic</li>
-<li><em>References:</em> <sup id="fnref3:Rode"><a class="footnote-ref" href="#fn:Rode">1</a></sup></li>
+<li><em>References:</em> <sup id="fnref2:Rode"><a class="footnote-ref" href="#fn:Rode">1</a></sup></li>
 <li><em>Requires:</em> <code class="codehilite"><span class="err">piezoelectric_coefficient</span></code>, <code class="codehilite"><span class="err">static_dielectric</span></code></li>
 </ul>
 </div>
-<h2 id="polar-optical-phonon-scattering">Polar optical phonon scattering<a class="headerlink" href="#polar-optical-phonon-scattering" title="Permanent link">&para;</a></h2>
+<h3 id="polar-optical-phonon-scattering">Polar optical phonon scattering<a class="headerlink" href="#polar-optical-phonon-scattering" title="Permanent link">&para;</a></h3>
 <p>The polar optical phonon differential scattering rate is given by</p>
-<div>
-<div class="MathJax_Preview">
-  \begin{align}
-   s_b(\mathbf{k}, \mathbf{k}^\prime) =
-        {}&amp; \frac{e^2 \omega_\mathrm{po}}{8 \pi^2}
-        \left (\frac{1}{\epsilon_\infty} - \frac{1}{\epsilon_\mathrm{s}}\right)
-        \frac{G_b(\mathbf{k}, \mathbf{k}^\prime)}
-             {\left | \mathbf{k} - \mathbf{k}^\prime \right | ^2 } \\
-        {}&amp; \times \begin{cases}
-            \delta ( E - E^\prime + \hbar \omega_\mathrm{po})(N_\mathrm{po} + 1), &amp; \text{emission},\\
-            \delta ( E - E^\prime - \hbar \omega_\mathrm{po})(N_\mathrm{po}), &amp; \text{absorption},\\
-         \end{cases}
-  \end{align}
-</div>
-<script type="math/tex; mode=display">
-  \begin{align}
-   s_b(\mathbf{k}, \mathbf{k}^\prime) =
-        {}& \frac{e^2 \omega_\mathrm{po}}{8 \pi^2}
-        \left (\frac{1}{\epsilon_\infty} - \frac{1}{\epsilon_\mathrm{s}}\right)
-        \frac{G_b(\mathbf{k}, \mathbf{k}^\prime)}
-             {\left | \mathbf{k} - \mathbf{k}^\prime \right | ^2 } \\
-        {}& \times \begin{cases}
-            \delta ( E - E^\prime + \hbar \omega_\mathrm{po})(N_\mathrm{po} + 1), & \text{emission},\\
-            \delta ( E - E^\prime - \hbar \omega_\mathrm{po})(N_\mathrm{po}), & \text{absorption},\\
-         \end{cases}
-  \end{align}
-</script>
-</div>
-<p>where <span><span class="MathJax_Preview">\omega_\mathrm{po}</span><script type="math/tex">\omega_\mathrm{po}</script></span> is the polar optical phonon frequency,
-<span><span class="MathJax_Preview">\epsilon_\infty</span><script type="math/tex">\epsilon_\infty</script></span> is the high-frequency dielectric constant,
-and <span><span class="MathJax_Preview">N_\mathrm{po}</span><script type="math/tex">N_\mathrm{po}</script></span> is the phonon density of states. The
-<span><span class="MathJax_Preview">-\hbar \omega_\mathrm{po}</span><script type="math/tex">-\hbar \omega_\mathrm{po}</script></span> and <span><span class="MathJax_Preview">+\hbar \omega_\mathrm{po}</span><script type="math/tex">+\hbar \omega_\mathrm{po}</script></span> terms
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mtable rowspacing="0.24999999999999992em" columnalign="right left" columnspacing="0em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><msub><mi>s</mi><mrow><mi>n</mi><mi>m</mi></mrow></msub><mo stretchy="false">(</mo><mi mathvariant="bold">k</mi><mo separator="true">,</mo><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup><mo stretchy="false">)</mo><mo>=</mo><mrow></mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mfrac><mrow><msup><mi>e</mi><mn>2</mn></msup><msub><mi>ω</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub></mrow><mrow><mn>8</mn><msup><mi>π</mi><mn>2</mn></msup></mrow></mfrac><mrow><mo fence="true">(</mo><mfrac><mn>1</mn><msub><mi>ϵ</mi><mi mathvariant="normal">∞</mi></msub></mfrac><mo>−</mo><mfrac><mn>1</mn><msub><mi>ϵ</mi><mi mathvariant="normal">s</mi></msub></mfrac><mo fence="true">)</mo></mrow><mfrac><mrow><mo stretchy="false">∣</mo><mo stretchy="false">⟨</mo><mrow><msub><mi>ψ</mi><mrow><mi>m</mi><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup></mrow></msub><mi mathvariant="normal">∣</mi><msub><mi>ψ</mi><mrow><mi>n</mi><mi mathvariant="bold">k</mi></mrow></msub></mrow><mo stretchy="false">⟩</mo><msup><mo stretchy="false">∣</mo><mn>2</mn></msup></mrow><mrow><mo stretchy="false">∣</mo><mi mathvariant="bold">k</mi><mo>−</mo><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup><msup><mo stretchy="false">∣</mo><mn>2</mn></msup></mrow></mfrac></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mo>×</mo><mrow><mo fence="true">{</mo><mtable rowspacing="0.3599999999999999em" columnalign="left left" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mi>δ</mi><mo stretchy="false">(</mo><mi>E</mi><mo>−</mo><msup><mi>E</mi><mo mathvariant="normal">′</mo></msup><mo>+</mo><mi mathvariant="normal">ℏ</mi><msub><mi>ω</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub><mo stretchy="false">)</mo><mo stretchy="false">(</mo><msub><mi>N</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub><mo>+</mo><mn>1</mn><mo stretchy="false">)</mo><mo separator="true">,</mo></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mtext>emission</mtext><mo separator="true">,</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mi>δ</mi><mo stretchy="false">(</mo><mi>E</mi><mo>−</mo><msup><mi>E</mi><mo mathvariant="normal">′</mo></msup><mo>−</mo><mi mathvariant="normal">ℏ</mi><msub><mi>ω</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub><mo stretchy="false">)</mo><mo stretchy="false">(</mo><msub><mi>N</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub><mo stretchy="false">)</mo><mo separator="true">,</mo></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mtext>absorption</mtext><mo separator="true">,</mo></mrow></mstyle></mtd></mtr></mtable></mrow></mrow></mstyle></mtd></mtr></mtable><annotation encoding="application/x-tex">
+\begin{aligned}
+s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
+    {}&amp; \frac{e^2 \omega_\mathrm{po}}{8 \pi^2}
+    \left (\frac{1}{\epsilon_\infty} - \frac{1}{\epsilon_\mathrm{s}}\right)
+    \frac{\lvert \mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}\rvert^2}
+         {\lvert \mathbf{k} - \mathbf{k}^\prime \rvert ^2 } \\
+    {}&amp; \times \begin{cases}
+        \delta ( E - E^\prime + \hbar \omega_\mathrm{po})(N_\mathrm{po} + 1), &amp; \text{emission},\\
+        \delta ( E - E^\prime - \hbar \omega_\mathrm{po})(N_\mathrm{po}), &amp; \text{absorption},\\
+     \end{cases}
+\end{aligned}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:6.041168000000001em;vertical-align:-2.7705840000000004em;"></span><span class="mord"><span class="mtable"><span class="col-align-r"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:3.2705840000000004em;"><span style="top:-5.529476000000001em;"><span class="pstrut" style="height:3.75em;"></span><span class="mord"><span class="mord"><span class="mord mathdefault">s</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">n</span><span class="mord mathdefault mtight">m</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathbf">k</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.801892em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mord"></span></span></span><span style="top:-2.5294459999999996em;"><span class="pstrut" style="height:3.75em;"></span><span class="mord"><span class="mord"></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.7705840000000004em;"><span></span></span></span></span></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:3.2705840000000004em;"><span style="top:-5.529476000000001em;"><span class="pstrut" style="height:3.75em;"></span><span class="mord"><span class="mord"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.4911079999999999em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">8</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">π</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.740108em;"><span style="top:-2.9890000000000003em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"><span class="mord mathdefault">e</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ω</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="minner"><span class="mopen delimcenter" style="top:0em;"><span class="delimsizing size3">(</span></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.32144em;"><span style="top:-2.3139999999999996em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">∞</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.8360000000000001em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.32144em;"><span style="top:-2.3139999999999996em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">s</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.8360000000000001em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mclose delimcenter" style="top:0em;"><span class="delimsizing size3">)</span></span></span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.491108em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mopen">∣</span><span class="mord"><span class="mord mathbf">k</span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6778919999999999em;"><span style="top:-2.9890000000000003em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose"><span class="mclose">∣</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.740108em;"><span style="top:-2.9890000000000003em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mopen">∣</span><span class="minner"><span class="mopen">⟨</span><span class="mord"><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ψ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">m</span><span class="mord mtight"><span class="mord mtight"><span class="mord mathbf mtight">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6828285714285715em;"><span style="top:-2.786em;margin-right:0.07142857142857144em;"><span class="pstrut" style="height:2.5em;"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord">∣</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ψ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">n</span><span class="mord mtight"><span class="mord mathbf mtight">k</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span><span class="mclose">⟩</span></span><span class="mclose"><span class="mclose">∣</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.936em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span><span style="top:-2.5294459999999996em;"><span class="pstrut" style="height:3.75em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="minner"><span class="mopen delimcenter" style="top:0em;"><span class="delimsizing size4">{</span></span><span class="mord"><span class="mtable"><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.69em;"><span style="top:-3.69em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03785em;">δ</span><span class="mopen">(</span><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.751892em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord">ℏ</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ω</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mopen">(</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.10903em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord">1</span><span class="mclose">)</span><span class="mpunct">,</span></span></span><span style="top:-2.25em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03785em;">δ</span><span class="mopen">(</span><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.751892em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord">ℏ</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ω</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mopen">(</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.10903em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mpunct">,</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.19em;"><span></span></span></span></span></span><span class="arraycolsep" style="width:1em;"></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.69em;"><span style="top:-3.69em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord text"><span class="mord">emission</span></span><span class="mpunct">,</span></span></span><span style="top:-2.25em;"><span class="pstrut" style="height:3.008em;"></span><span class="mord"><span class="mord text"><span class="mord">absorption</span></span><span class="mpunct">,</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.19em;"><span></span></span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:2.7705840000000004em;"><span></span></span></span></span></span></span></span></span></span></span></span></p>
+
+<p>where <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>ω</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub></mrow><annotation encoding="application/x-tex">\omega_\mathrm{po}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.716668em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ω</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span> is the polar optical phonon frequency,
+<span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>ϵ</mi><mi mathvariant="normal">∞</mi></msub></mrow><annotation encoding="application/x-tex">\epsilon_\infty</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">∞</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span> is the high-frequency dielectric constant,
+and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>N</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub></mrow><annotation encoding="application/x-tex">N_\mathrm{po}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.969438em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.10903em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span> is the phonon density of states. The
+<span class="katex"><span class="katex-mathml"><math><semantics><mrow><mo>−</mo><mi mathvariant="normal">ℏ</mi><msub><mi>ω</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub></mrow><annotation encoding="application/x-tex">-\hbar \omega_\mathrm{po}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.974998em;vertical-align:-0.286108em;"></span><span class="mord">−</span><span class="mord">ℏ</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ω</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span> and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mo>+</mo><mi mathvariant="normal">ℏ</mi><msub><mi>ω</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub></mrow><annotation encoding="application/x-tex">+\hbar \omega_\mathrm{po}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.974998em;vertical-align:-0.286108em;"></span><span class="mord">+</span><span class="mord">ℏ</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ω</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span> terms
 correspond to scattering by phonon absorption and emission, respectively.</p>
 <p>The phonon density of states is given by the Bose-Einstein distribution,
 according to</p>
-<div>
-<div class="MathJax_Preview">
-    N_\mathrm{po} = \frac{1}{\exp (\hbar \omega_\mathrm{po} / k_\mathrm{B} T) - 1}.
-</div>
-<script type="math/tex; mode=display">
-    N_\mathrm{po} = \frac{1}{\exp (\hbar \omega_\mathrm{po} / k_\mathrm{B} T) - 1}.
-</script>
-</div>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>N</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub><mo>=</mo><mfrac><mn>1</mn><mrow><mi>exp</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi mathvariant="normal">ℏ</mi><msub><mi>ω</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub><mi mathvariant="normal">/</mi><msub><mi>k</mi><mi mathvariant="normal">B</mi></msub><mi>T</mi><mo stretchy="false">)</mo><mo>−</mo><mn>1</mn></mrow></mfrac><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+N_\mathrm{po} = \frac{1}{\exp (\hbar \omega_\mathrm{po} / k_\mathrm{B} T) - 1}.
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.969438em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.10903em;">N</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:2.293548em;vertical-align:-0.972108em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.32144em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mop">exp</span><span class="mopen">(</span><span class="mord">ℏ</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ω</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mord">/</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03148em;">k</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.32833099999999993em;"><span style="top:-2.5500000000000003em;margin-left:-0.03148em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">B</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord mathdefault" style="margin-right:0.13889em;">T</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord">1</span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.972108em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mord">.</span></span></span></span></span></p>
+
 <div class="admonition info">
 <p class="admonition-title">Polar optical phonon scattering information</p>
 <ul>
 <li><em>Abbreviation:</em> POP</li>
 <li><em>Type:</em> Inelastic</li>
-<li><em>References:</em> <sup id="fnref:Frohlich"><a class="footnote-ref" href="#fn:Frohlich">5</a></sup>, <sup id="fnref:Conwell"><a class="footnote-ref" href="#fn:Conwell">6</a></sup>, <sup id="fnref2:Rode"><a class="footnote-ref" href="#fn:Rode">1</a></sup></li>
+<li><em>References:</em> <sup id="fnref:Frohlich"><a class="footnote-ref" href="#fn:Frohlich">5</a></sup>, <sup id="fnref:Conwell"><a class="footnote-ref" href="#fn:Conwell">6</a></sup>, <sup id="fnref:Rode"><a class="footnote-ref" href="#fn:Rode">1</a></sup></li>
 <li><em>Requires:</em> <code class="codehilite"><span class="err">pop_frequency</span></code>, <code class="codehilite"><span class="err">static_dielectric</span></code>, <code class="codehilite"><span class="err">high_frequency_dielectric</span></code></li>
 </ul>
 </div>
 <h2 id="overlap-integral">Overlap integral<a class="headerlink" href="#overlap-integral" title="Permanent link">&para;</a></h2>
-<p>Each differential scattering rate equation depends on the integral overlap,
-<span><span class="MathJax_Preview">G_b(\mathbf{k}, \mathbf{k}^\prime)</span><script type="math/tex">G_b(\mathbf{k}, \mathbf{k}^\prime)</script></span>, which gives the degree of
-orbital overlap between a k-point, <span><span class="MathJax_Preview">\mathbf{k}</span><script type="math/tex">\mathbf{k}</script></span> and a second
-k-point, <span><span class="MathJax_Preview">\mathbf{k}^\prime</span><script type="math/tex">\mathbf{k}^\prime</script></span>, in band <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span>.</p>
-<p>In general, calculating the overlap integral between two k-points requires
-access to the wavefunctions of the states of interest. For interpolated band
-structures, this poses a problem as the wavefunctions now must also be interpolated.</p>
-<p>In AMSET, we use an approximation for the orbital integral based on the projected
-orbital contributions. Currently, a simple expression for the overlap is used,
-however, in future releases a more sophisticated expression will be developed.
-The orbital integral is implemented as</p>
-<div>
-<div class="MathJax_Preview">
-    G_b(\mathbf{k}, \mathbf{k}^\prime)
-        = (a_{b,\mathbf{k}} a_{b,\mathbf{k^\prime}}
-          + c_{b,\mathbf{k}} c_{b,\mathbf{k^\prime}} x )^2,
-</div>
-<script type="math/tex; mode=display">
-    G_b(\mathbf{k}, \mathbf{k}^\prime)
-        = (a_{b,\mathbf{k}} a_{b,\mathbf{k^\prime}}
-          + c_{b,\mathbf{k}} c_{b,\mathbf{k^\prime}} x )^2,
-</script>
-</div>
-<p>where <span><span class="MathJax_Preview">x</span><script type="math/tex">x</script></span> is the cosine of the angle between <span><span class="MathJax_Preview">\mathbf{k}</span><script type="math/tex">\mathbf{k}</script></span>
-and <span><span class="MathJax_Preview">\mathbf{k}^\prime)</span><script type="math/tex">\mathbf{k}^\prime)</script></span>, and <span><span class="MathJax_Preview">a</span><script type="math/tex">a</script></span> and <span><span class="MathJax_Preview">c</span><script type="math/tex">c</script></span> depend
-on the <em>s</em> (<span><span class="MathJax_Preview">\phi_s</span><script type="math/tex">\phi_s</script></span>) and <em>p</em>-orbital projections (<span><span class="MathJax_Preview">\phi_p</span><script type="math/tex">\phi_p</script></span>)
-as:</p>
-<div>
-<div class="MathJax_Preview">
-\begin{align}
-    a_{b,\mathbf{k}} = {}&amp; \frac{\phi_{s,b,\mathbf{k}}}
-                            {\sqrt{(\phi_{s,b,\mathbf{k}}^2 +
-                              \phi_{p,b,\mathbf{k}}^2)}}, \\
-    c_{b,\mathbf{k}} = {}&amp; \sqrt{1 - a_{b,\mathbf{k}}^2}.
-\end{align}
-</div>
-<script type="math/tex; mode=display">
-\begin{align}
-    a_{b,\mathbf{k}} = {}& \frac{\phi_{s,b,\mathbf{k}}}
-                            {\sqrt{(\phi_{s,b,\mathbf{k}}^2 +
-                              \phi_{p,b,\mathbf{k}}^2)}}, \\
-    c_{b,\mathbf{k}} = {}& \sqrt{1 - a_{b,\mathbf{k}}^2}.
-\end{align}
-</script>
-</div>
-<p>The justification for the above form of the overlap integral is given in <sup id="fnref:Rode"><a class="footnote-ref" href="#fn:Rode">1</a></sup>.</p>
+<p>In the Born approximation, the scattering rate equations depend on the 
+wavefunction overlap 
+<span class="katex"><span class="katex-mathml"><math><semantics><mrow><mo stretchy="false">⟨</mo><mrow><msub><mi>ψ</mi><mrow><mi>m</mi><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup></mrow></msub><mi mathvariant="normal">∣</mi><msub><mi>ψ</mi><mrow><mi>n</mi><mi mathvariant="bold">k</mi></mrow></msub></mrow><mo stretchy="false">⟩</mo></mrow><annotation encoding="application/x-tex">\mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="minner"><span class="mopen">⟨</span><span class="mord"><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ψ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">m</span><span class="mord mtight"><span class="mord mtight"><span class="mord mathbf mtight">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6828285714285715em;"><span style="top:-2.786em;margin-right:0.07142857142857144em;"><span class="pstrut" style="height:2.5em;"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord">∣</span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">ψ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathdefault mtight">n</span><span class="mord mtight"><span class="mord mathbf mtight">k</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span><span class="mclose">⟩</span></span></span></span></span>.
+AMSET uses <a href="https://pypi.org/project/pawpyseed/">pawpyseed</a> to obtain
+wavefunction coefficients including PAW core regions from the pseudo wavefunction
+coefficients written by VASP.
+The wavefunctions coefficients are linearly interpolated onto the mesh used to
+calculate scattering rates.</p>
 <h2 id="brillouin-zone-integration">Brillouin zone integration<a class="headerlink" href="#brillouin-zone-integration" title="Permanent link">&para;</a></h2>
-<p>All scattering rate equations depend on the Dirac delta function,
-<span><span class="MathJax_Preview">\delta(E - E^\prime)</span><script type="math/tex">\delta(E - E^\prime)</script></span>, which is 1 when the energy of the two states
-<span><span class="MathJax_Preview">E</span><script type="math/tex">E</script></span> and <span><span class="MathJax_Preview">E^\prime</span><script type="math/tex">E^\prime</script></span> are equal and 0 otherwise.</p>
-<p>Due to finite k-point sampling and numerical noise, it is unlikely that two
-states will ever have exactly the same energy. To account for this, we replace
-the Dirac function with a Gaussian distribution, according to</p>
-<div>
-<div class="MathJax_Preview">
-    \frac{1}{\sigma \sqrt{2 \pi}} \exp{ \left ( \frac{E - E^\prime}{\sigma} \right )^2}
-</div>
-<script type="math/tex; mode=display">
-    \frac{1}{\sigma \sqrt{2 \pi}} \exp{ \left ( \frac{E - E^\prime}{\sigma} \right )^2}
-</script>
-</div>
-<p>where <span><span class="MathJax_Preview">\sigma</span><script type="math/tex">\sigma</script></span> is the broadening width.</p>
-<p>The overall scattering rate at k-point, <span><span class="MathJax_Preview">\mathbf{k}</span><script type="math/tex">\mathbf{k}</script></span>, and band, <span><span class="MathJax_Preview">b</span><script type="math/tex">b</script></span>,
-can therefore be calculated as a discrete summation over all k-points in the
-Brillouin zone. I.e.,</p>
-<div>
-<div class="MathJax_Preview">
-    s_b(\mathbf{k}) = \frac{\Omega}{N_\mathrm{kpts}}
-        \sum_{\mathbf{k} \neq \mathbf{k}^\prime}^{\mathbf{k}^\prime}
-        s_b(\mathbf{k}, \mathbf{k}^\prime),
-</div>
-<script type="math/tex; mode=display">
-    s_b(\mathbf{k}) = \frac{\Omega}{N_\mathrm{kpts}}
-        \sum_{\mathbf{k} \neq \mathbf{k}^\prime}^{\mathbf{k}^\prime}
-        s_b(\mathbf{k}, \mathbf{k}^\prime),
-</script>
-</div>
-<p>where <span><span class="MathJax_Preview">N_\mathrm{kpts}</span><script type="math/tex">N_\mathrm{kpts}</script></span> is the total number of k-points in the full
-Brillouin zone and <span><span class="MathJax_Preview">\Omega</span><script type="math/tex">\Omega</script></span> is the reciprocal lattice volume.</p>
-<p>The methodology for combining the scattering rates for multiple scattering
-mechanisms is given in the <a href="../theory/">theory section</a>.</p>
+<p>All scattering rates depend on the Dirac delta function, <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>δ</mi><mo stretchy="false">(</mo><mi>E</mi><mo>−</mo><msup><mi>E</mi><mo mathvariant="normal">′</mo></msup><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\delta(E - E^\prime)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathdefault" style="margin-right:0.03785em;">δ</span><span class="mopen">(</span><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1.001892em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.05764em;">E</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.751892em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span>,
+which imposes conservation of energy. Due to finite k-point sampling and 
+numerical noise, it is unlikely that two states will ever have exactly the same
+energy. Furthermore, many scattering rates have a 
+<span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn><mi mathvariant="normal">/</mi><mrow><mo stretchy="false">∣</mo><mi mathvariant="bold">k</mi><mo>−</mo><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup><msup><mo stretchy="false">∣</mo><mn>2</mn></msup></mrow></mrow><annotation encoding="application/x-tex">1 / {\lvert \mathbf{k} - \mathbf{k}^\prime \rvert ^2 }</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.064108em;vertical-align:-0.25em;"></span><span class="mord">1</span><span class="mord">/</span><span class="mord"><span class="mopen">∣</span><span class="mord"><span class="mord mathbf">k</span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.751892em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose"><span class="mclose">∣</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span></span> dependence which
+requires extremely dense k-point meshes to achieve convergence.</p>
+<p>To account for this, AMSET employs a modified tetrahedron integration
+scheme. Similar to the traditional implementation of the tetrahedron method, 
+tetrahedra cross sections representing regions of the constant energy surface are 
+identified. If the area of these cross section is integrated using the
+analytical expressions detailed by Blöchl, this will not satisfactorily account
+for the strong k-point dependence at small 
+<span class="katex"><span class="katex-mathml"><math><semantics><mrow><mo stretchy="false">∣</mo><mi mathvariant="bold">k</mi><mo>−</mo><msup><mi mathvariant="bold">k</mi><mo mathvariant="normal">′</mo></msup><msup><mo stretchy="false">∣</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">{\lvert \mathbf{k} - \mathbf{k}^\prime \rvert ^2 }</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.064108em;vertical-align:-0.25em;"></span><span class="mord"><span class="mopen">∣</span><span class="mord"><span class="mord mathbf">k</span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">k</span></span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.751892em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span><span class="mclose"><span class="mclose">∣</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span></span> values. In AMSET, 
+we explicitly calculate the scattering rates on a ultra-fine mesh on the 
+tetrahedron cross sections and integrate numerically. As the cross sections
+represent a constant energy surface, the band structure does not need to be 
+interpolated onto the ultra-fine mesh resulting in significant speed-ups.</p>
+<p>The methodology for combining scattering rates for multiple scattering
+mechanisms is given in the <a href="../transport-properties/">transport properties section</a>.</p>
 <div class="footnote">
 <hr />
 <ol>
 <li id="fn:Rode">
-<p>Rode, D. L. <em>Low-field electron transport. Semiconductors and semimetals</em> <strong>10</strong>, (Elsevier, 1975).&#160;<a class="footnote-backref" href="#fnref:Rode" title="Jump back to footnote 1 in the text">&#8617;</a><a class="footnote-backref" href="#fnref2:Rode" title="Jump back to footnote 1 in the text">&#8617;</a><a class="footnote-backref" href="#fnref3:Rode" title="Jump back to footnote 1 in the text">&#8617;</a><a class="footnote-backref" href="#fnref4:Rode" title="Jump back to footnote 1 in the text">&#8617;</a><a class="footnote-backref" href="#fnref5:Rode" title="Jump back to footnote 1 in the text">&#8617;</a></p>
+<p>Rode, D. L. <em>Low-field electron transport. Semiconductors and semimetals</em> <strong>10</strong>, (Elsevier, 1975).&#160;<a class="footnote-backref" href="#fnref:Rode" title="Jump back to footnote 1 in the text">&#8617;</a><a class="footnote-backref" href="#fnref2:Rode" title="Jump back to footnote 1 in the text">&#8617;</a><a class="footnote-backref" href="#fnref3:Rode" title="Jump back to footnote 1 in the text">&#8617;</a><a class="footnote-backref" href="#fnref4:Rode" title="Jump back to footnote 1 in the text">&#8617;</a></p>
 </li>
 <li id="fn:Shockley">
 <p>Shockley, W. &amp; others. <em>Electrons and holes in semiconductors: with applications to transistor electronics.</em> (van Nostrand New York, 1950).&#160;<a class="footnote-backref" href="#fnref:Shockley" title="Jump back to footnote 2 in the text">&#8617;</a></p>
@@ -894,13 +774,13 @@ mechanisms is given in the <a href="../theory/">theory section</a>.</p>
           </a>
         
         
-          <a href="../theory/" title="Theory" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
+          <a href="../transport-properties/" title="Transport Properties" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
             <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
               <span class="md-flex__ellipsis">
                 <span class="md-footer-nav__direction">
                   Next
                 </span>
-                Theory
+                Transport Properties
               </span>
             </div>
             <div class="md-flex__cell md-flex__cell--shrink">
@@ -935,8 +815,6 @@ mechanisms is given in the <a href="../theory/">theory section</a>.</p>
       <script src="../assets/javascripts/application.c33a9706.js"></script>
       
       <script>app.initialize({version:"1.0.4",url:{base:".."}})</script>
-      
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML"></script>
       
     
   </body>
