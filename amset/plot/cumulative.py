@@ -7,6 +7,10 @@ from amset.electronic_structure.common import get_velocities_from_outer_product
 from amset.plot import BaseAmsetPlotter, amset_base_style
 from sumo.plotting import styled_plot, pretty_plot
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 _y_labels = {"conductivity": r"Cumulative conductivity (\%)"}
 
 _x_labels = {

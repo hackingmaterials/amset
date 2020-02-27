@@ -7,6 +7,10 @@ from amset.constants import defaults
 from pymatgen import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 _SYMPREC = defaults["symprec"]
 _KTOL = 1e-5
 

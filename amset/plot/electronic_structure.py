@@ -8,6 +8,10 @@ from pymatgen.electronic_structure.bandstructure import BandStructure
 from sumo.plotting.bs_plotter import SBSPlotter
 from sumo.plotting.dos_plotter import SDOSPlotter
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 logger = logging.getLogger(__name__)
 
 

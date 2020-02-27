@@ -2,6 +2,10 @@ from pathlib import Path
 
 import click
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 
 @click.command()
 @click.option("-p", "--potcar", default="POTCAR", help="POTCAR file")

@@ -3,6 +3,10 @@ from pathlib import Path
 import click
 from click import argument, option
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 image_type = click.Choice(["pdf", "png", "svg"], case_sensitive=False)
 kpaths = click.Choice(["pymatgen", "seekpath"], case_sensitive=False)
 path_type = click.Path(exists=True)

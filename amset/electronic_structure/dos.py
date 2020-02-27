@@ -13,6 +13,10 @@ from BoltzTraP2.fd import FD
 from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.dos import Dos
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 logger = logging.getLogger(__name__)
 
 

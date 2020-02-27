@@ -11,6 +11,10 @@ from amset.log import log_list
 from amset.scattering.elastic import calculate_inverse_screening_length_sq
 from BoltzTraP2.units import Second
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 logger = logging.getLogger(__name__)
 
 

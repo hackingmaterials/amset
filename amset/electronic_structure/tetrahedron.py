@@ -8,6 +8,10 @@ from amset.util import get_progress_bar, groupby
 from pymatgen import Spin, Structure
 from pymatgen.util.coord import pbc_diff
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 """
      6-------7
     /|      /|

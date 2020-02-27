@@ -5,6 +5,10 @@ from scipy.constants import physical_constants
 
 from pymatgen import Spin
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 bohr_to_m = physical_constants["Bohr radius"][0]
 hartree_si = physical_constants["Hartree energy"][0]
 hbar = physical_constants["Planck constant over 2 pi in eV s"][0]

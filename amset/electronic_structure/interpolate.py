@@ -40,8 +40,6 @@ from sumo.symmetry import Kpath, PymatgenKpath
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
-__date__ = "June 21, 2019"
-
 
 logger = logging.getLogger(__name__)
 

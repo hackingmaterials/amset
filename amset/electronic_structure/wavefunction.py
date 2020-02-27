@@ -14,6 +14,9 @@ try:
 except ImportError:
     pawpy = None
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
 
 str_to_spin = {"up": Spin.up, "down": Spin.down}
 spin_to_int = {Spin.up: 0, Spin.down: 1}

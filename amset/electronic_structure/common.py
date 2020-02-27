@@ -4,6 +4,10 @@ import numpy as np
 
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 
 def get_energy_cutoffs(
     energy_cutoff: float, band_structure: BandStructure

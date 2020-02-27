@@ -5,6 +5,10 @@ from typing import Type, Union
 import click
 import numpy as np
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 
 @click.command()
 @click.option("-v", "--vasprun", default="vasprun.xml", help="vasprun.xml file")

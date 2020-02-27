@@ -16,6 +16,10 @@ from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.plotter import BSPlotter
 from sumo.plotting import pretty_plot, styled_plot
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 logger = logging.getLogger(__name__)
 
 

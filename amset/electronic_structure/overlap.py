@@ -15,6 +15,10 @@ from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.util.coord import pbc_diff
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 _p_mask = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
 _d_mask = np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]])
 

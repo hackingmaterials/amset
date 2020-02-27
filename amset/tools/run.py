@@ -13,7 +13,6 @@ from amset.util import parse_deformation_potential, parse_doping, parse_temperat
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
-__date__ = "June 21, 2019"
 
 
 @click.command()

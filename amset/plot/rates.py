@@ -9,6 +9,10 @@ from amset.constants import bohr_to_cm
 from amset.plot.base import BaseAmsetPlotter, seaborn_colors
 from BoltzTraP2 import units
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 _legend_kwargs = {"loc": "upper left", "bbox_to_anchor": (1, 1), "frameon": False}
 
 

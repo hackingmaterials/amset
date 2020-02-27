@@ -14,7 +14,6 @@ from amset.tools.wavefunction import dump_wavefunction
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
-__date__ = "June 21, 2019"
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pymatgen")
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="amset")
