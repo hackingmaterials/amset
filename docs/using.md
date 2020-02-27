@@ -1,4 +1,4 @@
-# Using AMSET
+# Getting started
 
 AMSET can be used from the command-line as a standalone program or from the
 Python API. In both cases, the primary input is a `vasprun.xml` file from a
