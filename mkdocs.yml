@@ -12,13 +12,11 @@ theme:
 
 nav:
   - Home: index.md
-  - User Guide:
-    - Installation: installation.md
-    - Running AMSET: using.md
-    - Settings: settings.md
-    - Scattering Rates: scattering.md
-    - Theory: theory.md
-    - Integration: integration.md
+  - Installation: installation.md
+  - Getting Started: using.md
+  - Settings: settings.md
+  - Scattering Rates: scattering.md
+  - Transport Properties: transport-properties.md
   - Changelog: changelog.md
   - Contributors: contributors.md
   - Contributing: contributing.md
@@ -36,12 +34,11 @@ markdown_extensions:
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.inlinehilite
-  - pymdownx.arithmatex
+  - markdown_katex:
+      no_inline_svg: True
+      insert_fonts_css: True
   - toc:
       permalink: true
-
-extra_javascript:
-  - 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'
 
 plugins:
   - search
