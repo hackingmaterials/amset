@@ -127,7 +127,7 @@ scattering rates.
 !!! quote ""
     *Command-line option:* `--high-frequency-dielectric`
 
-    The high-frequency dielectric constant, in units of $\epsilon_0$.
+    The high-frequency dielectric constant, in units of $`\epsilon_0`$.
 
     Required for: POP
 
@@ -136,7 +136,7 @@ scattering rates.
 !!! quote ""
     *Command-line option:* `--static-dielectric`
 
-    The static dielectric constant, in units of $\epsilon_0$.
+    The static dielectric constant, in units of $`\epsilon_0`$.
 
     Required for: IMP, PIE, POP
 
@@ -212,8 +212,8 @@ scattering rates.
     *Command-line option:* `--mean-free-path`
 
     Basic version of boundary scattering in which the scattering rate is set to
-    $v_g / L$, where $v_g$ is the group velocity and $L$ is the mean free path
-    in nm.
+    $`v_g / L`$, where $`v_g`$ is the group velocity and $`L`$ is the mean free
+    path in nm.
     
     Required for: MFP
     
