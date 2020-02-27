@@ -2,30 +2,23 @@
 
 ## Introduction
 
-Accurately calculating electronic transport properties from first-principles
-is often highly computationally expensive and difficult to perform. AMSET is a
-fast and easy-to-use package to model carrier transport in solid-state materials.
-A primary aim of AMSET is to be **amenable to high-throughput screenings**.
+AMSET is an efficient package for calculating electron lifetimes and 
+transport properties in solid-state materials from first principles.
+A primary aim of AMSET is to be amenable to high-throughput computational 
+screening.
 Features of AMSET include:
 
-- All inputs easily obtainable from first-principles calculations. The
-  primary input for AMSET is an *ab initio* uniform band structure.
-- Scattering rates approximated based on common materials properties
-  such as phonon frequencies and dielectric constants.
-- Transport properties calculated by solving the iterative Boltzmann transport
+- Inputs obtainable from first-principles calculations. The
+  primary input for AMSET is an uniform band structure calculation.
+- Scattering rates calculated in the Born approximation using common materials 
+  properties such as phonon frequencies and dielectric constants.
+- Transport properties calculated through the iterative Boltzmann transport
   equation.
-- Heavily optimised code that can run on a personal laptop. High-performance
-  computing clusters not necessary.
-
-AMSET is built on top of state-of-the-art open-source libraries:
-[BoltzTraP2](http://boltztrap.org/) for band structure interpolation,
-[numpy](https://www.numpy.org/) and
-[scipy](https://scipy.org) to enable high-performance matrix operations, and
-[pymatgen](http://pymatgen.org) for handling DFT calculation data.
+- Efficient implementation that can run on a personal laptop. 
 
 !!! info "Supported ab initio codes"
-    Currently, AMSET is best integrated with VASP, however,
-    support for additional periodic DFT codes will be added in the future.
+    Currently, AMSET only supports VASP calculations, however,
+    additional periodic DFT codes will be added in the future.
 
 ## Scattering Mechanisms
 
