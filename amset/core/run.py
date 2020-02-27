@@ -496,7 +496,7 @@ def _log_results_summary(amset_data, output_parameters):
 
 
 def get_summed_projections(
-    band_structure: BandStructure
+    band_structure: BandStructure,
 ) -> Dict[Spin, Dict[str, np.ndarray]]:
     """Extracts and sums the band structure projections.
 

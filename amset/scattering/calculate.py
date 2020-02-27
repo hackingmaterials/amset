@@ -169,9 +169,10 @@ class ScatteringCalculator(object):
                 logger.info(str_b.format(spin_name[spin], b_idx + 1))
 
                 t0 = time.perf_counter()
-                rates[spin][..., b_idx, :], masks[spin][
-                    ..., b_idx, :
-                ] = self.calculate_band_rates(spin, b_idx)
+                (
+                    rates[spin][..., b_idx, :],
+                    masks[spin][..., b_idx, :],
+                ) = self.calculate_band_rates(spin, b_idx)
 
                 info = [
                     "max rate: {:.4g}".format(rates[spin][..., b_idx, :].max()),
@@ -263,7 +264,12 @@ class ScatteringCalculator(object):
 
         tbs = self.amset_data.tetrahedral_band_structure
 
-        tet_dos, tet_mask, cs_weights, tet_contributions = tbs.get_tetrahedra_density_of_states(
+        (
+            tet_dos,
+            tet_mask,
+            cs_weights,
+            tet_contributions,
+        ) = tbs.get_tetrahedra_density_of_states(
             spin,
             energy,
             return_contributions=True,

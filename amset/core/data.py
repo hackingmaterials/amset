@@ -185,9 +185,11 @@ class AmsetData(MSONable):
                             precision=10,
                         )
                     else:
-                        self.fermi_levels[n, t], self.electron_conc[
-                            n, t
-                        ], self.hole_conc[n, t] = self.dos.get_fermi(
+                        (
+                            self.fermi_levels[n, t],
+                            self.electron_conc[n, t],
+                            self.hole_conc[n, t],
+                        ) = self.dos.get_fermi(
                             self.doping[n],
                             temperatures[t],
                             tol=tol,

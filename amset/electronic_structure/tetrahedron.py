@@ -185,13 +185,19 @@ class TetrahedralBandStructure(object):
         )
 
         # the remaining properties are given for each irreducible tetrahedra
-        self.e21, self.e31, self.e41, self.e32, self.e42, self.e43 = get_tetrahedra_energy_diffs(
-            self.ir_tetrahedra_energies
-        )
+        (
+            self.e21,
+            self.e31,
+            self.e41,
+            self.e32,
+            self.e42,
+            self.e43,
+        ) = get_tetrahedra_energy_diffs(self.ir_tetrahedra_energies)
 
-        self.max_tetrahedra_energies, self.min_tetrahedra_energies = get_max_min_tetrahedra_energies(
-            self.ir_tetrahedra_energies
-        )
+        (
+            self.max_tetrahedra_energies,
+            self.min_tetrahedra_energies,
+        ) = get_max_min_tetrahedra_energies(self.ir_tetrahedra_energies)
 
         self.cross_section_weights = get_tetrahedra_cross_section_weights(
             structure.lattice.reciprocal_lattice.matrix,

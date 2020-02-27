@@ -185,7 +185,13 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
 
         initialize_amset_logger()
 
-        energies, velocities, curvature, projections, sym_info = interpolater.get_energies(
+        (
+            energies,
+            velocities,
+            curvature,
+            projections,
+            sym_info,
+        ) = interpolater.get_energies(
             kpoints,
             None,
             return_velocity=True,
@@ -197,7 +203,12 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
             return_kpoint_mapping=True,
         )
 
-        energies_no_sym, velocities_no_sym, curvature_no_sym, projections_no_sym = interpolater.get_energies(
+        (
+            energies_no_sym,
+            velocities_no_sym,
+            curvature_no_sym,
+            projections_no_sym,
+        ) = interpolater.get_energies(
             kpoints,
             None,
             return_velocity=True,

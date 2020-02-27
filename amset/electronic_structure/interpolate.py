@@ -250,7 +250,15 @@ class Interpolater(MSONable):
         # get the actual k-points used in the BoltzTraP2 interpolation
         # unfortunately, BoltzTraP2 doesn't expose this information so we
         # have to get it ourselves
-        ir_kpts, _, full_kpts, ir_kpts_idx, ir_to_full_idx, tetrahedra, *ir_tetrahedra_info = get_kpoints_tetrahedral(
+        (
+            ir_kpts,
+            _,
+            full_kpts,
+            ir_kpts_idx,
+            ir_to_full_idx,
+            tetrahedra,
+            *ir_tetrahedra_info,
+        ) = get_kpoints_tetrahedral(
             self.interpolation_mesh,
             self._band_structure.structure,
             symprec=symprec,
@@ -370,7 +378,14 @@ class Interpolater(MSONable):
 
         if symprec:
             logger.info("Reducing # k-points using symmetry")
-            kpoints, weights, ir_kpoints_idx, ir_to_full_idx, _, rot_mapping = get_symmetry_equivalent_kpoints(
+            (
+                kpoints,
+                weights,
+                ir_kpoints_idx,
+                ir_to_full_idx,
+                _,
+                rot_mapping,
+            ) = get_symmetry_equivalent_kpoints(
                 self._band_structure.structure,
                 kpoints,
                 symprec=symprec,
@@ -527,7 +542,15 @@ class Interpolater(MSONable):
 
         structure = self._band_structure.structure
         tri = not self._soc
-        ir_kpts, _, full_kpts, ir_kpts_idx, ir_to_full_idx, tetrahedra, *ir_tetrahedra_info = get_kpoints_tetrahedral(
+        (
+            ir_kpts,
+            _,
+            full_kpts,
+            ir_kpts_idx,
+            ir_to_full_idx,
+            tetrahedra,
+            *ir_tetrahedra_info,
+        ) = get_kpoints_tetrahedral(
             kpoint_mesh, structure, symprec=symprec, time_reversal_symmetry=tri
         )
 
