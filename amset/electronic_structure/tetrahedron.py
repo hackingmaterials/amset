@@ -836,12 +836,13 @@ def get_projected_intersections(intersections):
     axis_b = np.cross(axis_a, axis_c)
 
     # define a transformation matrix to transform the points to our new basis
-    transform = np.linalg.inv(np.stack([axis_a, axis_b, axis_c], axis=2))
+    basis = np.stack([axis_a, axis_b, axis_c], axis=2)
+    transform = np.linalg.inv(basis)
 
     # finally transform the intersection coordinates. This syntax is equivalent to
     # np.dot(transform[0], intersections[0][0]) for all intersections in all triangles/
     # quadrilaterals.
-    return np.einsum("ikj,ilj->ilk", transform, intersections)
+    return np.einsum("ikj,ilj->ilk", transform, intersections), basis
 
 
 def integrate_function_over_cross_section(
@@ -850,7 +851,7 @@ def integrate_function_over_cross_section(
     cond_a_mask,
     cond_b_mask,
     cond_c_mask,
-    precision="medium",
+    precision="high",
     return_shape=None,
     cross_section_weights=None,
 ):
@@ -866,7 +867,7 @@ def integrate_function_over_cross_section(
         function_values = np.zeros(len(intersections))
 
     ninter = len(intersections)
-    z_coords_sq = intersections[:, 2, 2] ** 2
+    z_coords_sq = intersections[:, 0, 2] ** 2
 
     # intersections now has shape nvert, ntet, 2 (i.e., x, y coords)
     intersections = intersections[:, :, :2].transpose(1, 0, 2)
