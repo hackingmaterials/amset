@@ -17,7 +17,7 @@ information on calculating transport properties is given in the
 
 Mechanism                                                                               | Code  | Requires                                                                       | Type
 ---                                                                                     | ---   | ---                                                                            | ---
-[Acoustic deformation potential scattering](#acoustic-deformation-potential-scattering) | ACD   | *n*- and *p*-type deformation potential,  elastic constant                     | Elastic
+[Acoustic deformation potential scattering](#acoustic-deformation-potential-scattering) | ADP   | *n*- and *p*-type deformation potential,  elastic constant                     | Elastic
 [Ionized impurity scattering](#ionized-impurity-scattering)                             | IMP   | static dielectric constant                                                     | Elastic
 [Piezoelectric scattering](#piezoelectric-scattering)                                   | PIE   | static dielectric constant, piezoelectric coefficient                          | Elastic
 [Polar optical phonon scattering](#polar-optical-phonon-scattering)                     | POP   | polar optical phonon frequency, static and high-frequency dielectric constants | Inelastic
@@ -34,12 +34,18 @@ s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
     \delta ( E - E^\prime ),
 ```
 
+```math
+g_{nm}(\mathbf{k}, \mathbf{q}) =
+    \left [ \frac{k_\mathrm{B} T E_\mathrm{d}^2}{C_\mathrm{el}} \right ] ^\frac{1}{2}
+    \mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}
+```
+
 
 where $`E_\mathrm{d}`$ is the acoustic-phonon deformation-potential,
 and $`C_\mathrm{el}`$ is the elastic constant.
 
 !!! info "Acoustic deformation potential scattering information"
-    - *Abbreviation:* ACD
+    - *Abbreviation:* APD
     - *Type:* Elastic
     - *References:* [^Bardeen], [^Shockley], [^Rode]
     - *Requires:* `deformation_potential`, `elastic_constant`
@@ -54,6 +60,13 @@ s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
     \frac{\lvert \mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}\rvert^2}
          {(\left | \mathbf{k} - \mathbf{k}^\prime \right | ^2 + \beta^2)^2}
     \delta ( E - E^\prime ),
+```
+
+```math
+g_{nm}(\mathbf{k}, \mathbf{q}) =
+    \left [ \frac{e^2 N_\mathrm{imp}}{\epsilon_\mathrm{s}^2} \right ] ^\frac{1}{2}
+    \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
+         {\left | \mathbf{q} \right | ^2 + \beta^2}
 ```
 
 where $`\epsilon_\mathrm{s}`$ is the static dielectric constant,
@@ -87,6 +100,13 @@ s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
     \delta ( E - E^\prime ),
 ```
 
+```math
+g_{nm}(\mathbf{k}, \mathbf{q}) =
+    \left [ \frac{k_\mathrm{B} T P_\mathrm{pie}^2}{\epsilon_\mathrm{s}} \right ] ^\frac{1}{2}
+    \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
+         {\left | \mathbf{q} \right |}
+```
+
 where $`\epsilon_\mathrm{s}`$ is the static dielectric constant and
 $`P_\mathrm{pie}`$ is the dimensionless piezoelectric coefficient.
 
@@ -112,6 +132,16 @@ s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
         \delta ( E - E^\prime - \hbar \omega_\mathrm{po})(N_\mathrm{po}), & \text{absorption},\\
      \end{cases}
 \end{aligned}
+```
+
+```math
+g_{nm}(\mathbf{k}, \mathbf{q}) =
+    \left [ 
+        \frac{\hbar \omega_\mathrm{po}}{2} 
+        \left (\frac{1}{\epsilon_\infty} - \frac{1}{\epsilon_\mathrm{s}}\right)
+    \right ] ^\frac{1}{2}
+    \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
+         {\left | \mathbf{q} \right |}
 ```
 
 where $`\omega_\mathrm{po}`$ is the polar optical phonon frequency,
