@@ -1,4 +1,4 @@
-quadpy==0.14.5
+quadpy==0.14.6
 numpy==1.18.1
 pymatgen==2020.1.28
 scipy==1.4.1
