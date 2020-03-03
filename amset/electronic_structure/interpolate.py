@@ -194,6 +194,7 @@ class Interpolater(MSONable):
 
         energies = {}
         vvelocities = {}
+        velocities = {}
         effective_mass = {}
         projections = defaultdict(dict)
         forgotten_electrons = 0
@@ -208,7 +209,12 @@ class Interpolater(MSONable):
             forgotten_electrons += min_b - 1
 
             t0 = time.perf_counter()
-            energies[spin], vvelocities[spin], effective_mass[spin] = get_bands_fft(
+            (
+                energies[spin],
+                vvelocities[spin],
+                effective_mass[spin],
+                velocities[spin],
+            ) = get_bands_fft(
                 self._equivalences,
                 self._coefficients[spin][spin_ibands],
                 self._lattice_matrix,
@@ -221,7 +227,7 @@ class Interpolater(MSONable):
             t0 = time.perf_counter()
 
             for label in ["s", "p"]:
-                projections[spin][label], _, _ = get_bands_fft(
+                projections[spin][label], _, _, _ = get_bands_fft(
                     self._equivalences,
                     self._other_coefficients[spin][label][spin_ibands],
                     self._lattice_matrix,
@@ -263,8 +269,8 @@ class Interpolater(MSONable):
             time_reversal_symmetry=not self._soc,
         )
 
-        energies, vvelocities, projections = sort_amset_results(
-            full_kpts, energies, vvelocities, projections
+        energies, vvelocities, velocities, projections = sort_amset_results(
+            full_kpts, energies, vvelocities, velocities, projections
         )
         atomic_structure = get_atomic_structure(self._band_structure.structure)
 
@@ -273,6 +279,7 @@ class Interpolater(MSONable):
             energies,
             vvelocities,
             effective_mass,
+            velocities,
             projections,
             self.interpolation_mesh,
             full_kpts,
@@ -837,7 +844,7 @@ def get_angstrom_structure(structure):
     )
 
 
-def sort_amset_results(kpoints, energies, vvelocities, projections):
+def sort_amset_results(kpoints, energies, vvelocities, velocities, projections):
     # BoltzTraP2 and spglib give k-points in different orders. We need to use the
     # spglib ordering to make the tetrahedron method work, so get the indices
     # that will sort from BoltzTraP2 order to spglib order
@@ -845,8 +852,9 @@ def sort_amset_results(kpoints, energies, vvelocities, projections):
 
     energies = {s: ener[:, sort_idx] for s, ener in energies.items()}
     vvelocities = {s: vv[:, :, :, sort_idx] for s, vv in vvelocities.items()}
+    velocities = {s: v[:, :, sort_idx] for s, v in velocities.items()}
     projections = {
         s: {label: p[:, sort_idx] for label, p in proj.items()}
         for s, proj in projections.items()
     }
-    return energies, vvelocities, projections
+    return energies, vvelocities, velocities, projections

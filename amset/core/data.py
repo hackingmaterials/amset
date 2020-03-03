@@ -32,6 +32,7 @@ class AmsetData(MSONable):
         energies: Dict[Spin, np.ndarray],
         vvelocities_product: Dict[Spin, np.ndarray],
         effective_mass: Dict[Spin, np.ndarray],
+        velocities: Dict[Spin, np.ndarray],
         projections: Dict[Spin, Dict[str, np.ndarray]],
         kpoint_mesh: np.ndarray,
         kpoints: np.ndarray,
@@ -77,6 +78,8 @@ class AmsetData(MSONable):
         self.mobility = None
         self.overlap_calculator = None
         self.fd_cutoffs = None
+
+        self.velocities = {s: v.transpose((0, 2, 1)) for s, v in velocities.items()}
 
         self.grouped_ir_to_full = groupby(
             np.arange(len(kpoints)), ir_to_full_kpoint_mapping

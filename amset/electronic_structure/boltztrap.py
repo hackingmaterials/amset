@@ -38,6 +38,7 @@ def get_bands_fft(
     np.matmul(dallvec, lattvec.T, out=allvec)
     eband = np.zeros((len(coeffs), np.prod(dims)))
     vvband = np.zeros((len(coeffs), 3, 3, np.prod(dims)))
+    vb = np.zeros((len(coeffs), 3, np.prod(dims)))
     if return_effective_mass:
         effective_mass = np.zeros((len(coeffs), 3, 3, np.prod(dims)))
     else:
@@ -72,14 +73,14 @@ def get_bands_fft(
         w.start()
     # The results of the FFTs are processed as soon as they are ready.
     for r in range(len(coeffs)):
-        iband, eband[iband], vvband[iband], cb = oqueue.get()
+        iband, eband[iband], vvband[iband], cb, vb[iband] = oqueue.get()
         if return_effective_mass:
             effective_mass[iband] = cb
     for w in workers:
         w.join()
     if effective_mass is not None:
         effective_mass = effective_mass.real
-    return eband.real, vvband.real, effective_mass
+    return eband.real, vvband.real, effective_mass, vb
 
 
 def fft_worker(
@@ -128,4 +129,4 @@ def fft_worker(
             effective_mass = np.linalg.inv(effective_mass.T).T
         else:
             effective_mass = None
-        oqueue.put((index, eband, vvband, effective_mass))
+        oqueue.put((index, eband, vvband, effective_mass, vb))
