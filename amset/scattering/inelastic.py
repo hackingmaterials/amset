@@ -34,7 +34,7 @@ class AbstractInelasticScattering(ABC):
         pass
 
     @abstractmethod
-    def factor(self, emission, f):
+    def factor(self, norm_q_sq, emission, f):
         pass
 
 
@@ -110,21 +110,15 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
         return self._prefactor * np.ones((len(self.doping), len(self.temperatures)))
 
-    def factor(self, emission, f):
+    def factor(self, norm_q_sq: np.ndarray, emission, f):
         # presuming that this is out scattering
         if emission:
             factor = self.n_po + 1 - f
         else:
             factor = self.n_po + f
 
-        def pop_function_generator(z_coords_sq: np.ndarray):
-            return lambda x: factor[..., None, None] / (
-                x[0][None, None, :, :] ** 2
-                + x[1][None, None, :, :] ** 2
-                + z_coords_sq[None, None, :, None]
-            )
+        return factor[..., None, None] / norm_q_sq[None, None]
 
-        return pop_function_generator
         # # factor should have shape (ndops, ntemps, nkpts)
         # factor = 1 / np.tile(k_diff_sq, (len(self.doping),
         #                                  len(self.temperatures), 1))

@@ -6,6 +6,8 @@ AmsetData object.
 import logging
 import time
 from multiprocessing import cpu_count
+
+from quadpy import nsimplex, ncube
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -16,7 +18,7 @@ from amset.core.data import AmsetData
 from amset.electronic_structure.tetrahedron import (
     get_cross_section_values,
     get_projected_intersections,
-    integrate_function_over_cross_section,
+    numerical_integration_defaults,
 )
 from amset.log import log_list, log_time_taken
 from amset.scattering.basic import AbstractBasicScattering
@@ -274,7 +276,7 @@ class ScatteringCalculator(object):
             energy,
             return_contributions=True,
             symmetry_reduce=False,
-            # band_idx=b_idx,
+            # band_idx=b_idx,  # turn this on to disable interband scattering
         )
 
         if len(tet_dos) == 0:
@@ -299,9 +301,35 @@ class ScatteringCalculator(object):
         # now select the properties at the tetrahedron vertices
         vert_overlap = all_overlap[property_mask]
 
-        # get interpolated overlap and k-point at centre of tetrahedra cross sections
+        # get interpolated overlap at centre of tetrahedra cross sections
         tet_overlap = get_cross_section_values(vert_overlap, *tet_contributions)
         tetrahedra = tbs.tetrahedra[spin][tet_mask]
+
+        # get interpolated velocities at center of tetrahedra cross sections
+        # vert_velocities = self.amset_data.velocities[spin][property_mask]
+        # tet_velocities = get_cross_section_values(vert_velocities, *tet_contributions)
+        #
+        # # # get the scaling factor for the momentum relaxation time approximation
+        # k_velocity = self.amset_data.velocities[spin][b_idx, ir_kpoints_idx][k_idx]
+        # mrta_scale = 1 - cosine(k_velocity, tet_velocities)
+
+        # vert_velocities = self.amset_data.velocities[spin][property_mask]
+        # tet_velocities = get_cross_section_values(
+        #     vert_velocities, *tet_contributions, average=False
+        # )
+        #
+        # # # get the scaling factor for the momentum relaxation time approximation
+        # k_velocity = self.amset_data.velocities[spin][b_idx, ir_kpoints_idx][k_idx]
+        # mrta_scale = 1 - cosine(k_velocity, tet_velocities.reshape(-1, 3))
+        # mrta_scale = mrta_scale.reshape(-1, 4)
+        #
+        # if energy_diff is None:
+        #     print(mrta_scale)
+        # # mrta_scale = np.mean(mrta_scale, axis=-1)
+        # mrta_scale = np.min(mrta_scale[:, :3], axis=-1)
+
+        # k_norm_sq = np.linalg.norm(k_velocity) ** 2
+        # mrta_scale = 1 - np.dot(k_velocity, tet_velocities.T) / k_norm_sq
 
         # have to deal with the case where the tetrahedron cross section crosses the
         # zone boundary. This is a slight inaccuracy but we just treat the
@@ -314,8 +342,10 @@ class ScatteringCalculator(object):
         intersections = get_cross_section_values(
             k_diff, *tet_contributions, average=False
         )
-        projected_intersections = get_projected_intersections(intersections)
 
+        projected_intersections, basis = get_projected_intersections(intersections)
+
+        ref_kpoint = np.dot(self.amset_data.structure.lattice.matrix, k)
         if energy_diff:
             f = np.zeros(self.amset_data.fermi_levels.shape)
 
@@ -325,24 +355,21 @@ class ScatteringCalculator(object):
                     self.amset_data.fermi_levels[n, t],
                     self.amset_data.temperatures[t] * units.BOLTZMANN,
                 )
-
-            functions = np.array(
-                [m.factor(energy_diff <= 0, f) for m in self.inelastic_scatterers]
-            )
+            scatterer_args = [(energy_diff <= 0, f)] * len(self.inelastic_scatterers)
+            scatterers = self.inelastic_scatterers
         else:
-            functions = np.array([m.factor() for m in self.elastic_scatterers])
+            scatterers = self.elastic_scatterers
+            scatterer_args = None
 
-        rates = np.array(
-            [
-                integrate_function_over_cross_section(
-                    f,
-                    projected_intersections,
-                    *tet_contributions[0:3],
-                    return_shape=self.amset_data.fermi_levels.shape,
-                    cross_section_weights=cs_weights
-                )
-                for f in functions
-            ]
+        rates = calculate_rates_over_cross_section(
+            scatterers,
+            projected_intersections,
+            basis,
+            ref_kpoint,
+            *tet_contributions[0:3],
+            return_shape=self.amset_data.fermi_levels.shape,
+            scatterer_args=scatterer_args,
+            cross_section_weights=cs_weights
         )
 
         # sometimes the projected intersections can be nan when the density of states
@@ -394,9 +421,103 @@ def _interpolate_zero_rates(rates, kpoints, masks: Optional = None):
                     xi=kpoints[zero_rate_idx] + 0.5,
                     method="nearest",
                 )
+                # rates[spin][s, d, t, b, zero_rate_idx] = 1e15
 
             pbar.update()
     pbar.close()
     log_time_taken(t0)
 
     return rates
+
+
+def calculate_rates_over_cross_section(
+    scatterers,
+    intersections,
+    basis,
+    ref_kpoint,
+    cond_a_mask,
+    cond_b_mask,
+    cond_c_mask,
+    precision="high",
+    scatterer_args=None,
+    return_shape=None,
+    cross_section_weights=None,
+):
+    triangle_scheme = numerical_integration_defaults[precision]["triangle"]
+    quadrilateral_scheme = numerical_integration_defaults[precision]["quadrilateral"]
+    ninter = len(intersections)
+    nscatter = len(scatterers)
+
+    if cross_section_weights is None:
+        cross_section_weights = np.ones(ninter)
+
+    if return_shape:
+        function_values = np.zeros((nscatter,) + return_shape + (ninter,))
+    else:
+        function_values = np.zeros((nscatter, ninter))
+
+    if scatterer_args is None:
+        scatterer_args = [[] for _ in range(nscatter)]
+
+    z_coords = intersections[:, 0, 2]
+
+    # intersections now has shape nvert, ntet, 2 (i.e., x, y coords)
+    intersections = intersections[:, :, :2].transpose(1, 0, 2)
+    triangle_mask = cond_a_mask | cond_c_mask
+
+    if np.any(triangle_mask):
+        # based on quadpy.NSimplexScheme.integrate
+        flt = np.vectorize(float)
+        simplex = intersections[:3, triangle_mask]
+        weights = flt(triangle_scheme.weights)
+        x = nsimplex.transform(flt(triangle_scheme.points).T, simplex.T)
+        vol = nsimplex.get_vol(simplex)
+
+        q = get_q(x, z_coords[triangle_mask])
+        norm_q_sq = np.linalg.norm(q, axis=-1) ** 2
+        mrta_scale = np.ones_like(norm_q_sq)
+
+        for i, (s, args) in enumerate(zip(scatterers, scatterer_args)):
+            q_factors = s.factor(norm_q_sq, *args)
+            q_factors *= mrta_scale
+            function_values[i][..., triangle_mask] = vol * np.dot(q_factors, weights)
+
+    if np.any(cond_b_mask):
+        # based on quadpy.NCubeScheme.integrate
+        cube = intersections.reshape((2, 2, ninter, 2))[:, :, cond_b_mask]
+        x = ncube.transform(quadrilateral_scheme.points.T, cube).T
+        vol = np.abs(ncube._helpers.get_detJ(quadrilateral_scheme.points.T, cube))
+        weights = quadrilateral_scheme.weights
+
+        q = get_q(x, z_coords[cond_b_mask])
+        norm_q_sq = np.linalg.norm(q, axis=-1) ** 2
+        mrta_scale = np.ones_like(norm_q_sq)
+
+        for i, (s, args) in enumerate(zip(scatterers, scatterer_args)):
+            q_factors = s.factor(norm_q_sq, *args)
+            q_factors *= mrta_scale
+            function_values[i][..., cond_b_mask] = np.dot(q_factors * vol, weights)
+
+    function_values *= cross_section_weights
+
+    return function_values
+
+
+def get_q(x, z_coords):
+    z = np.repeat(z_coords[:, None], len(x[0][0]), axis=-1)
+    return np.stack([x[0], x[1], z], axis=-1)
+
+
+def get_kpoints_in_original_basis(x, z_coords, basis, ref_kpoint, rlat):
+    k = np.stack(
+        [x[0], x[1], np.repeat(z_coords[:, None], len(x[0][0]), axis=-1)], axis=-1
+    )
+
+    # k has shape ntet, nk, 3
+    orig_shape = k.shape
+
+    # transform k back to original lattice basis in cartesian coords
+    cart_k = np.einsum("ikj,ilj->ilk", basis, k) + ref_kpoint
+
+    # flatten k-points so we can transform them easily
+    return np.dot(rlat, cart_k.reshape(-1, 3).T).T.reshape(orig_shape)
