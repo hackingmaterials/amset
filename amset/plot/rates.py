@@ -44,6 +44,12 @@ class RatesPlotter(BaseAmsetPlotter):
         else:
             norm_e = 0
 
+        if doping_idx is None and len(self.doping) == 1:
+            doping_idx = 0
+
+        if temperature_idx is None and len(self.temperatures) == 1:
+            temperature_idx = 0
+
         if doping_idx is None and temperature_idx is None:
             ny = len(self.doping)
             nx = len(self.temperatures)
@@ -78,6 +84,7 @@ class RatesPlotter(BaseAmsetPlotter):
                 elif ny == 1:
                     ax = axes[x_idx]
                 else:
+                    print(nx, ny)
                     ax = axes[x_idx, y_idx]
 
                 if x_idx == nx - 1 and y_idx == ny - 1 and legend:
