@@ -44,6 +44,10 @@ def validate_settings(user_settings):
     settings["doping"] = np.asarray(settings["doping"], dtype=np.float)
     settings["temperatures"] = np.asarray(settings["temperatures"])
 
+    for setting in settings:
+        if setting not in defaults:
+            raise ValueError("Unrecognised setting: {}".format(setting))
+
     return settings
 
 
