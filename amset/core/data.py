@@ -10,6 +10,7 @@ from monty.serialization import dumpfn
 from amset.constants import cm_to_bohr
 from amset.constants import defaults as defaults
 from amset.electronic_structure.dos import FermiDos
+from amset.electronic_structure.mrta import MRTACalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
 from amset.util import cast_dict_list, groupby
@@ -77,6 +78,7 @@ class AmsetData(MSONable):
         self.electronic_thermal_conductivity = None
         self.mobility = None
         self.overlap_calculator = None
+        self.mrta_calculator = None
         self.fd_cutoffs = None
 
         self.velocities = {s: v.transpose((0, 2, 1)) for s, v in velocities.items()}
@@ -93,6 +95,10 @@ class AmsetData(MSONable):
             ir_kpoints_idx,
             ir_to_full_kpoint_mapping,
             *ir_tetrahedra_info
+        )
+
+        self.mrta_calculator = MRTACalculator(
+            self.kpoints, self.kpoint_mesh, self.velocities
         )
 
     def set_overlap_calculator(self, overlap_calculator):
