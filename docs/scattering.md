@@ -170,7 +170,7 @@ where $`\Omega`$ is the volume of the Brillouin zone.
 
 ### Elastic
 
-Elastic rates are calculated using the momeuntum relaxation time approximation
+Elastic rates are calculated using the *momentum relaxation time approximation*
 (MRTA), given by
 
 ```math
@@ -203,7 +203,7 @@ which imposes conservation of energy. Due to finite k-point sampling and
 numerical noise, it is unlikely that this condition will ever be satisfied 
 exactly. Furthermore, many scattering rates have a 
 $`1 / \lvert\mathbf{q}\rvert ^2`$ dependence which
-require extremely dense k-point meshes to achieve convergence.
+requires an extremely dense k-point mesh to achieve convergence.
 
 To account for this, AMSET employs a modified tetrahedron integration
 scheme. AMSET first identifies a constant energy surface by computing
