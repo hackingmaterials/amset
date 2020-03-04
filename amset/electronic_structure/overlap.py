@@ -15,6 +15,12 @@ from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.util.coord import pbc_diff
 
+try:
+    from interpolation.splines import eval_linear, UCGrid
+    from interpolation.splines import extrap_options as xto
+except ImportError:
+    eval_linear = None
+
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
@@ -68,11 +74,20 @@ class WavefunctionOverlapCalculator(object):
                 nbands = 2
                 grid_coefficients = np.tile(grid_coefficients, (2, 1, 1, 1, 1))
 
-            interp_range = (np.arange(nbands), x, y, z)
+            if eval_linear:
+                grid = UCGrid(
+                    (0, nbands - 1, nbands),
+                    (x[0], x[-1], len(x)),
+                    (y[0], y[-1], len(y)),
+                    (z[0], z[-1], len(z)),
+                )
+                self.interpolators[spin] = (grid, grid_coefficients)
+            else:
+                interp_range = (np.arange(nbands), x, y, z)
 
-            self.interpolators[spin] = RegularGridInterpolator(
-                interp_range, grid_coefficients, bounds_error=False, fill_value=None
-            )
+                self.interpolators[spin] = RegularGridInterpolator(
+                    interp_range, grid_coefficients, bounds_error=False, fill_value=None
+                )
 
     @classmethod
     def from_file(cls, filename):
@@ -109,7 +124,16 @@ class WavefunctionOverlapCalculator(object):
 
         # get the interpolate projections for the k-points; p1 is the projections for
         # kpoint_a, p2 is a list of projections for the kpoint_b
-        p1, *p2 = self.interpolators[spin](all_v)
+        if eval_linear:
+            grid, coeffs = self.interpolators[spin]
+
+            # only allows interpolating floats, so have to separate real and imag parts
+            p1_real, *p2_real = eval_linear(grid, coeffs.real, all_v, xto.LINEAR)
+            p1_imag, *p2_imag = eval_linear(grid, coeffs.imag, all_v, xto.LINEAR)
+            p1 = p1_real + 1j * np.asarray(p1_imag)
+            p2 = p2_real + 1j * np.asarray(p2_imag)
+        else:
+            p1, *p2 = self.interpolators[spin](all_v)
 
         p1 = np.asarray(p1) / np.linalg.norm(p1)
         p2 = np.asarray(p2) / np.linalg.norm(p2, axis=-1)[:, None]
