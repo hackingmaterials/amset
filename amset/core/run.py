@@ -134,13 +134,11 @@ class AmsetRunner(MSONable):
         log_banner("INTERPOLATION")
         t0 = time.perf_counter()
 
-        summed_projections = get_summed_projections(self._band_structure)
         interpolater = Interpolater(
             self._band_structure,
             num_electrons=self._num_electrons,
             interpolation_factor=self.settings["interpolation_factor"],
             soc=self.settings["soc"],
-            other_properties=summed_projections,
         )
 
         amset_data = interpolater.get_amset_data(
@@ -493,37 +491,6 @@ def _log_results_summary(amset_data, output_parameters):
             floatfmt=[".2e", ".1f"] + [".2e"] * len(labels),
         )
         logger.info(table)
-
-
-def get_summed_projections(
-    band_structure: BandStructure,
-) -> Dict[Spin, Dict[str, np.ndarray]]:
-    """Extracts and sums the band structure projections.
-
-    Args:
-        band_structure: A band structure object.
-
-    Returns:
-        The projection labels and orbital projections, as::
-
-            ("s", s_orbital_projections), ("p", d_orbital_projections)
-    """
-    if not band_structure.projections:
-        raise ValueError("Band structure has no projections")
-
-    summed_projections = {}
-    for spin, spin_projections in band_structure.projections.items():
-        s_orbital = np.sum(spin_projections, axis=3)[:, :, 0]
-
-        if spin_projections.shape[2] > 5:
-            # lm decomposed projections therefore sum across px, py, and pz
-            p_orbital = np.sum(np.sum(spin_projections, axis=3)[:, :, 1:4], axis=2)
-        else:
-            p_orbital = np.sum(spin_projections, axis=3)[:, :, 1]
-
-        summed_projections[spin] = {"s": s_orbital, "p": p_orbital}
-
-    return summed_projections
 
 
 def _get_cutoff_pad(pop_frequency, scattering_type):

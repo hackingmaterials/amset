@@ -32,9 +32,7 @@ class AmsetData(MSONable):
         structure: Structure,
         energies: Dict[Spin, np.ndarray],
         vvelocities_product: Dict[Spin, np.ndarray],
-        effective_mass: Dict[Spin, np.ndarray],
         velocities: Dict[Spin, np.ndarray],
-        projections: Dict[Spin, Dict[str, np.ndarray]],
         kpoint_mesh: np.ndarray,
         kpoints: np.ndarray,
         ir_kpoints: np.ndarray,
@@ -51,7 +49,6 @@ class AmsetData(MSONable):
         self.structure = structure
         self.energies = energies
         self.velocities_product = vvelocities_product
-        self.effective_mass = effective_mass
         self.kpoint_mesh = kpoint_mesh
         self.kpoints = kpoints
         self.ir_kpoints = ir_kpoints
@@ -63,7 +60,6 @@ class AmsetData(MSONable):
         self.is_metal = is_metal
         self.vb_idx = vb_idx
         self.spins = self.energies.keys()
-        self.a_factor, self.c_factor = _calculate_orbital_factors(projections)
 
         self.dos = None
         self.scattering_rates = None
@@ -431,15 +427,3 @@ class AmsetData(MSONable):
 
         return filename
 
-
-def _calculate_orbital_factors(projections):
-    a_factor = {}
-    c_factor = {}
-    for spin, spin_projections in projections.items():
-        s = spin_projections["s"]
-        p = spin_projections["p"]
-
-        a_factor[spin] = s / (s ** 2 + p ** 2) ** 0.5
-        c_factor[spin] = (1 - a_factor[spin] ** 2) ** 0.5
-
-    return a_factor, c_factor

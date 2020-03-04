@@ -173,13 +173,6 @@ class Interpolater(MSONable):
                 )
             )
 
-        if not self._other_properties:
-            raise ValueError(
-                "Band structure projections needed to obtain full "
-                "electronic structure. Reinitialise the "
-                "interpolater with the projections given as other_properties"
-            )
-
         nworkers = multiprocessing.cpu_count() if nworkers == -1 else nworkers
 
         logger.info("Interpolation parameters:")
@@ -195,8 +188,6 @@ class Interpolater(MSONable):
         energies = {}
         vvelocities = {}
         velocities = {}
-        effective_mass = {}
-        projections = defaultdict(dict)
         forgotten_electrons = 0
         for spin in self._spins:
             spin_ibands = ibands[spin]
@@ -212,28 +203,15 @@ class Interpolater(MSONable):
             (
                 energies[spin],
                 vvelocities[spin],
-                effective_mass[spin],
+                _,
                 velocities[spin],
             ) = get_bands_fft(
                 self._equivalences,
                 self._coefficients[spin][spin_ibands],
                 self._lattice_matrix,
-                return_effective_mass=True,
+                return_effective_mass=False,
                 nworkers=nworkers,
             )
-            log_time_taken(t0)
-
-            logger.info("Interpolating {} projections".format(spin_name[spin]))
-            t0 = time.perf_counter()
-
-            for label in ["s", "p"]:
-                projections[spin][label], _, _, _ = get_bands_fft(
-                    self._equivalences,
-                    self._other_coefficients[spin][label][spin_ibands],
-                    self._lattice_matrix,
-                    nworkers=nworkers,
-                )
-
             log_time_taken(t0)
 
         if not self._soc and len(self._spins) == 1:
@@ -269,8 +247,8 @@ class Interpolater(MSONable):
             time_reversal_symmetry=not self._soc,
         )
 
-        energies, vvelocities, velocities, projections = sort_amset_results(
-            full_kpts, energies, vvelocities, velocities, projections
+        energies, vvelocities, velocities = sort_amset_results(
+            full_kpts, energies, vvelocities, velocities
         )
         atomic_structure = get_atomic_structure(self._band_structure.structure)
 
@@ -278,9 +256,7 @@ class Interpolater(MSONable):
             atomic_structure,
             energies,
             vvelocities,
-            effective_mass,
             velocities,
-            projections,
             self.interpolation_mesh,
             full_kpts,
             ir_kpts,
@@ -844,7 +820,7 @@ def get_angstrom_structure(structure):
     )
 
 
-def sort_amset_results(kpoints, energies, vvelocities, velocities, projections):
+def sort_amset_results(kpoints, energies, vvelocities, velocities):
     # BoltzTraP2 and spglib give k-points in different orders. We need to use the
     # spglib ordering to make the tetrahedron method work, so get the indices
     # that will sort from BoltzTraP2 order to spglib order
@@ -853,8 +829,4 @@ def sort_amset_results(kpoints, energies, vvelocities, velocities, projections):
     energies = {s: ener[:, sort_idx] for s, ener in energies.items()}
     vvelocities = {s: vv[:, :, :, sort_idx] for s, vv in vvelocities.items()}
     velocities = {s: v[:, :, sort_idx] for s, v in velocities.items()}
-    projections = {
-        s: {label: p[:, sort_idx] for label, p in proj.items()}
-        for s, proj in projections.items()
-    }
-    return energies, vvelocities, velocities, projections
+    return energies, vvelocities, velocities

@@ -463,8 +463,14 @@ def calculate_rates_over_cross_section(
 
         if has_imp:
             mrta_scale = get_mrta_factor(
-                spin, q, basis[triangle_mask], ref_kpoint, ref_band,
-                intersection_bands[triangle_mask], rlat, mrta_calculator
+                spin,
+                q,
+                basis[triangle_mask],
+                ref_kpoint,
+                ref_band,
+                intersection_bands[triangle_mask],
+                rlat,
+                mrta_calculator,
             )
         else:
             mrta_scale = np.ones_like(norm_q_sq)
@@ -487,8 +493,14 @@ def calculate_rates_over_cross_section(
 
         if has_imp:
             mrta_scale = get_mrta_factor(
-                spin, q, basis[cond_b_mask], ref_kpoint, ref_band,
-                intersection_bands[cond_b_mask], rlat, mrta_calculator
+                spin,
+                q,
+                basis[cond_b_mask],
+                ref_kpoint,
+                ref_band,
+                intersection_bands[cond_b_mask],
+                rlat,
+                mrta_calculator,
             )
         else:
             mrta_scale = np.ones_like(norm_q_sq)
@@ -509,13 +521,17 @@ def get_q(x, z_coords):
     return np.stack([x[0], x[1], z], axis=-1)
 
 
-def get_mrta_factor(spin, q, basis, ref_kpoint, ref_band, q_bands, rlat, mrta_calculator):
+def get_mrta_factor(
+    spin, q, basis, ref_kpoint, ref_band, q_bands, rlat, mrta_calculator
+):
     # kpoints has shape ntet, nk, 3
     kpoints = get_kpoints_in_original_basis(q, basis, ref_kpoint, rlat)
     orig_shape = kpoints.shape[:-1]
     q_bands = np.repeat(q_bands, kpoints.shape[1])
     kpoints = kpoints.reshape(-1, 3)
-    factors = mrta_calculator.get_mrta_factor(spin, ref_band, ref_kpoint, q_bands, kpoints)
+    factors = mrta_calculator.get_mrta_factor(
+        spin, ref_band, ref_kpoint, q_bands, kpoints
+    )
     return factors.reshape(orig_shape)
 
 
@@ -526,6 +542,8 @@ def get_kpoints_in_original_basis(q, basis, ref_kpoint, rlat):
 
     # transform k back to original lattice basis in cartesian coords
     cart_k = np.einsum("ikj,ilj->ilk", basis, q)
-    frac_kpoints = np.dot(cart_k.reshape(-1, 3), np.linalg.inv(rlat)).reshape(orig_shape) + ref_kpoint
+    frac_kpoints = (
+        np.dot(cart_k.reshape(-1, 3), np.linalg.inv(rlat)).reshape(orig_shape)
+        + ref_kpoint
+    )
     return kpoints_to_first_bz(frac_kpoints)
-
