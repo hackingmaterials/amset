@@ -7,7 +7,7 @@ warnings.simplefilter("ignore")
 
 settings = {
     # general settings
-    "doping": [3e13],
+    "doping": [-3e13],
     "temperatures": [201, 290, 401, 506, 605, 789, 994],
     "bandgap": 1.33,
 

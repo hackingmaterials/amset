@@ -8,7 +8,7 @@ warnings.simplefilter("ignore")
 settings = {
     # general settings
     "scattering_type": ["IMP", "ADP"],
-    "doping": [1.99e14, 2.20e15, 1.72e16, 1.86e17, 1.46e18, 4.39e18],
+    "doping": [-1.99e14, -2.20e15, -1.72e16, -1.86e17, -1.46e18, -4.39e18],
     "temperatures": [300],
     "bandgap": 1.14,
 
