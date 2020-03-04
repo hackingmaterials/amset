@@ -1,16 +1,34 @@
 # Calculating scattering rates
 
 AMSET calculates mode dependent scattering rates within the Born approximation 
-using common materials parameters. The differential scattering rate, 
-$`s_{nm}(\mathbf{k}, \mathbf{k}^\prime)`$,
-gives the rate from band $`n`$, k-point $`\mathbf{k}`$ to band $`m`$, k-point 
-$`\mathbf{k}^\prime`$ .
+using common materials parameters. The differential scattering rate from state 
+$`\mathinner{|n\mathbf{k}\rangle}`$ to state 
+$`\mathinner{|m\mathbf{k} + \mathbf{q}\rangle}`$ is calculated using 
+Fermi's golden rule as
 
-The final scattering rate at each band and k-point is obtained by 
-[integrating the differential scattering rates](#brillouin-zone-integration) 
-over the full Brillouin zone.  In this section report the differential 
-scattering rate equations and references for each scattering mechanism. More 
-information on calculating transport properties is given in the 
+```math
+    \tilde{\tau}_{n\mathbf{k}\rightarrow m\mathbf{k}+\mathbf{q}}^{-1} = 
+        \frac{2\pi}{\hbar} \lvert g_{nm}(\mathbf{k}, \mathbf{q}) \rvert^2
+        \delta(\varepsilon_{n\mathbf{k}} - 
+        \varepsilon_{m\mathbf{k}+\mathbf{q}}),
+```
+
+where $`\varepsilon_{n\mathbf{k}}`$ is the energy of state
+$`\mathinner{|n\mathbf{k}\rangle}`$, and $`g_{nm}(\mathbf{k}, \mathbf{q})`$
+is the matrix element for scattering from state 
+$`\mathinner{|n\mathbf{k}\rangle}`$ into 
+state $`\mathinner{|m\mathbf{k} + \mathbf{q}\rangle}`$. 
+
+!!! info 
+    Note, this is the expression for elastic scattering. Inelastic scattering
+    contains addition terms, as detailed in the 
+    [elastic vs inelastic scattering section](#elastic-vs-inelastic-scattering).
+
+The overall mode-dependent scattering rate is obtained by 
+[integrating the scattering rates](#brillouin-zone-integration) 
+over the full Brillouin zone.  In this section, we report the matrix elements
+for each scattering mechanism implemented in AMSET. Information on calculating 
+transport properties is given in the 
 [transport properties section](transport-properties.md).
 
 ## Summary of scattering rates
@@ -24,27 +42,18 @@ Mechanism                                                                       
 
 ### Acoustic deformation potential scattering
 
-The acoustic deformation potential differential scattering rate is given by
-
-
-```math
-s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
-    \frac{e^2 k_\mathrm{B}T E_\mathrm{d}^2}{4 \pi^2 \hbar C_\mathrm{el}}
-    \lvert \mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}\rvert^2 
-    \delta ( E - E^\prime ),
-```
+The acoustic deformation potential matrix element is given by
 
 ```math
 g_{nm}(\mathbf{k}, \mathbf{q}) =
-    \left [ \frac{k_\mathrm{B} T E_\mathrm{d}^2}{C_\mathrm{el}} \right ] ^\frac{1}{2}
-    \mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}
+    \left [ \frac{k_\mathrm{B} T \varepsilon_\mathrm{d}^2}{C_\mathrm{el}} \right ] ^\frac{1}{2}
+    \mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle},
 ```
 
-
-where $`E_\mathrm{d}`$ is the acoustic-phonon deformation-potential,
+where $`\varepsilon_\mathrm{d}`$ is the acoustic-phonon deformation-potential,
 and $`C_\mathrm{el}`$ is the elastic constant.
 
-!!! info "Acoustic deformation potential scattering information"
+!!! quote ""
     - *Abbreviation:* APD
     - *Type:* Elastic
     - *References:* [^Bardeen], [^Shockley], [^Rode]
@@ -52,37 +61,30 @@ and $`C_\mathrm{el}`$ is the elastic constant.
 
 ### Ionized impurity scattering
 
-The ionized impurity differential scattering rate is given by
-
-```math
-s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
-    \frac{e^4 N_\mathrm{imp}}{4 \pi^2 \hbar \epsilon_\mathrm{s}^2}
-    \frac{\lvert \mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}\rvert^2}
-         {(\left | \mathbf{k} - \mathbf{k}^\prime \right | ^2 + \beta^2)^2}
-    \delta ( E - E^\prime ),
-```
+The ionized impurity matrix element is given by
 
 ```math
 g_{nm}(\mathbf{k}, \mathbf{q}) =
-    \left [ \frac{e^2 N_\mathrm{imp}}{\epsilon_\mathrm{s}^2} \right ] ^\frac{1}{2}
+    \left [ \frac{e^2 n_\mathrm{ii}}{\epsilon_\mathrm{s}^2} \right ] ^\frac{1}{2}
     \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
-         {\left | \mathbf{q} \right | ^2 + \beta^2}
+         {\left | \mathbf{q} \right | ^2 + \beta^2},
 ```
 
 where $`\epsilon_\mathrm{s}`$ is the static dielectric constant,
-$`N_\mathrm{imp}`$ is the concentration of ionized impurities
-(i.e., $`N_\mathrm{holes} + N_\mathrm{electrons}`$),
+$`n_\mathrm{ii}`$ is the concentration of ionized impurities
+(i.e., $`n_\mathrm{holes} + n_\mathrm{electrons}`$),
 and $`\beta`$ is the inverse screening length, defined as
 
 ```math
     \beta^2 = \frac{e^2}{\epsilon_\mathrm{s}  k_\mathrm{B} T}
-        \int (\mathbf{k} / \pi)^2 f(1-f) \,\mathrm{d}\mathbf{k}.
+        \int \frac{\mathrm{d}\varepsilon}{V}\,D(\varepsilon) f(1-f),
 ```
 
-where $f$ is the Fermi dirac distribution given in the
+where $`V`$ is the unit cell volume, $`D`$ is the density of states, and 
+$`f`$ is the Fermi–Dirac distribution given in the
 [transport properties section](transport-properties.md).
 
-!!! info "Ionized impurity scattering information"
+!!! quote ""
     - *Abbreviation:* IMP
     - *Type:* Elastic
     - *References:* [^Dingle], [^Rode]
@@ -93,24 +95,15 @@ where $f$ is the Fermi dirac distribution given in the
 The piezoelectric differential scattering rate is given by
 
 ```math
-s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
-    \frac{e^2 k_\mathrm{B} T P_\mathrm{pie}^2}{4 \pi \hbar \epsilon_\mathrm{s}}
-    \frac{\lvert \mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}\rvert^2}
-         {\left | \mathbf{k} - \mathbf{k}^\prime \right | ^2 }
-    \delta ( E - E^\prime ),
-```
-
-```math
 g_{nm}(\mathbf{k}, \mathbf{q}) =
     \left [ \frac{k_\mathrm{B} T P_\mathrm{pie}^2}{\epsilon_\mathrm{s}} \right ] ^\frac{1}{2}
     \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
-         {\left | \mathbf{q} \right |}
+         {\left | \mathbf{q} \right |},
 ```
 
-where $`\epsilon_\mathrm{s}`$ is the static dielectric constant and
-$`P_\mathrm{pie}`$ is the dimensionless piezoelectric coefficient.
+where $`P_\mathrm{pie}`$ is the dimensionless piezoelectric coefficient.
 
-!!! info "Piezoelectric scattering information"
+!!! quote ""
     - *Abbreviation:* PIE
     - *Type:* Elastic
     - *References:* [^Rode]
@@ -121,47 +114,76 @@ $`P_\mathrm{pie}`$ is the dimensionless piezoelectric coefficient.
 The polar optical phonon differential scattering rate is given by
 
 ```math
-\begin{aligned}
-s_{nm}(\mathbf{k}, \mathbf{k}^\prime) =
-    {}& \frac{e^2 \omega_\mathrm{po}}{8 \pi^2}
-    \left (\frac{1}{\epsilon_\infty} - \frac{1}{\epsilon_\mathrm{s}}\right)
-    \frac{\lvert \mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}\rvert^2}
-         {\lvert \mathbf{k} - \mathbf{k}^\prime \rvert ^2 } \\
-    {}& \times \begin{cases}
-        \delta ( E - E^\prime + \hbar \omega_\mathrm{po})(N_\mathrm{po} + 1), & \text{emission},\\
-        \delta ( E - E^\prime - \hbar \omega_\mathrm{po})(N_\mathrm{po}), & \text{absorption},\\
-     \end{cases}
-\end{aligned}
-```
-
-```math
 g_{nm}(\mathbf{k}, \mathbf{q}) =
     \left [ 
         \frac{\hbar \omega_\mathrm{po}}{2} 
         \left (\frac{1}{\epsilon_\infty} - \frac{1}{\epsilon_\mathrm{s}}\right)
     \right ] ^\frac{1}{2}
     \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
-         {\left | \mathbf{q} \right |}
+         {\left | \mathbf{q} \right |},
 ```
 
 where $`\omega_\mathrm{po}`$ is the polar optical phonon frequency,
-$`\epsilon_\infty`$ is the high-frequency dielectric constant,
-and $`N_\mathrm{po}`$ is the phonon density of states. The
-$`-\hbar \omega_\mathrm{po}`$ and $`+\hbar \omega_\mathrm{po}`$ terms
-correspond to scattering by phonon absorption and emission, respectively.
+$`\epsilon_\infty`$ is the high-frequency dielectric constant.
 
-The phonon density of states is given by the Bose-Einstein distribution,
-according to
-
-```math
-N_\mathrm{po} = \frac{1}{\exp (\hbar \omega_\mathrm{po} / k_\mathrm{B} T) - 1}.
-```
-
-!!! info "Polar optical phonon scattering information"
+!!! quote ""
     - *Abbreviation:* POP
     - *Type:* Inelastic
     - *References:* [^Frohlich], [^Conwell], [^Rode]
     - *Requires:* `pop_frequency`, `static_dielectric`, `high_frequency_dielectric`
+
+## Elastic vs inelastic scattering
+
+AMSET treats elastic and inelastic scattering mechanisms separately. 
+
+### Inelastic
+
+The  differential scattering rate for inelastic processes is calculated as
+
+```math
+\begin{aligned}
+    \tau_{n\mathbf{k}\rightarrow m\mathbf{k}+\mathbf{q}}^{-1} = 
+        \frac{2\pi}{\hbar} \lvert g_{nm}(\mathbf{k}, \mathbf{q}) \rvert^2
+        \times [ &{} (n_\mathrm{po} + 1 - f_{m\mathbf{k} + \mathbf{q}})
+        \delta(\varepsilon_{n\mathbf{k}} -  \varepsilon_{m\mathbf{k}+\mathbf{q}} - \hbar\omega_\mathrm{po}) \\
+        &{} (n_\mathrm{po} + f_{m\mathbf{k} + \mathbf{q}})
+        \delta(\varepsilon_{n\mathbf{k}} -  \varepsilon_{m\mathbf{k}+\mathbf{q}} + \hbar\omega_\mathrm{po})],
+\end{aligned}
+```
+
+where $`\omega_\mathrm{po}`$ is an effective phonon frequency, 
+$`n_\mathrm{po} = 1 / [\exp (\hbar \omega_\mathrm{po} / k_\mathrm{B} T) - 1]`$
+denotes the Bose–Einstein distribution of phonons, and the
+$`-\hbar \omega_\mathrm{po}`$ and 
+$`+\hbar \omega_\mathrm{po}`$ terms correspond to scattering by phonon 
+absorption and emission, respectively.
+
+The overall inelastic scattering rate for state 
+$`\mathinner{|n\mathbf{k}\rangle}`$ is calculated as
+
+```math
+\tau^{-1}_{n\mathbf{k}} = \sum_m \int \frac{\mathrm{d}^3q}{\Omega} 
+\tau_{n\mathbf{k}\rightarrow m\mathbf{k}+\mathbf{q}}^{-1}
+```
+
+where $`\Omega`$ is the volume of the Brillouin zone.
+
+### Elastic
+
+Elastic rates are calculated using the momeuntum relaxation time approximation
+(MRTA), given by
+
+```math
+\tilde{\tau}^{-1}_{n\mathbf{k}} = \sum_m \int \frac{\mathrm{d}^3q}{\Omega} 
+    \left [ 1 - \frac{\mathbf{v}_{n\mathbf{k}} \cdot \mathbf{v}_{m\mathbf{k} + 
+        \mathbf{q}}}{\lvert \mathbf{v}_{n\mathbf{k}} \rvert^2} \right ]
+
+    \tilde{\tau}_{n\mathbf{k}\rightarrow m\mathbf{k}+\mathbf{q}}^{-1}
+```
+where $`\tilde{\tau}_{n\mathbf{k}\rightarrow m\mathbf{k}+\mathbf{q}}^{-1}`$ is
+the elastic differential scattering rate defined at the top of this page and 
+$`\mathbf{v}_{n\mathbf{k}}`$ is the group velocity of state 
+$`\mathinner{|n\mathbf{k}\rangle}`$.
 
 ## Overlap integral
 
@@ -171,32 +193,30 @@ $`\mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}`$.
 AMSET uses [pawpyseed](https://pypi.org/project/pawpyseed/) to obtain
 wavefunction coefficients including PAW core regions from the pseudo wavefunction
 coefficients written by VASP.
-The wavefunctions coefficients are linearly interpolated onto the mesh used to
+The wavefunctions coefficient are linearly interpolated onto the mesh used to
 calculate scattering rates.
 
 ## Brillouin zone integration
 
-All scattering rates depend on the Dirac delta function, $`\delta(E - E^\prime)`$,
+All scattering rates depend on the Dirac delta function $`\delta`$,
 which imposes conservation of energy. Due to finite k-point sampling and 
-numerical noise, it is unlikely that two states will ever have exactly the same
-energy. Furthermore, many scattering rates have a 
-$`1 / {\lvert \mathbf{k} - \mathbf{k}^\prime \rvert ^2 }`$ dependence which
-requires extremely dense k-point meshes to achieve convergence.
+numerical noise, it is unlikely that this condition will ever be satisfied 
+exactly. Furthermore, many scattering rates have a 
+$`1 / \lvert\mathbf{q}\rvert ^2`$ dependence which
+require extremely dense k-point meshes to achieve convergence.
 
 To account for this, AMSET employs a modified tetrahedron integration
-scheme. Similar to the traditional implementation of the tetrahedron method, 
-tetrahedra cross sections representing regions of the constant energy surface are 
-identified. If the area of these cross section is integrated using the
-analytical expressions detailed by Blöchl, this will not satisfactorily account
-for the strong k-point dependence at small 
-$`{\lvert \mathbf{k} - \mathbf{k}^\prime \rvert ^2 }`$ values. In AMSET, 
-we explicitly calculate the scattering rates on a ultra-fine mesh on the 
-tetrahedron cross sections and integrate numerically. As the cross sections
-represent a constant energy surface, the band structure does not need to be 
-interpolated onto the ultra-fine mesh resulting in significant speed-ups.
+scheme. AMSET first identifies a constant energy surface by computing
+tetrahedral cross sections using the tetrahedron method. Next, the constant 
+energy surface is resampled using an ultra-fine mesh of k-points generated using
+the [quadpy](https://github.com/nschloe/quadpy) numerical integration package.
+The wavefunction coefficients and group velocities are reinterpolated into the 
+ultra-fine mesh using linear interpolation and the matrix elements are 
+calculated directly. This methodology allows for significantly faster 
+convergence than the regular tetrahedron method.
 
-The methodology for combining scattering rates for multiple scattering
-mechanisms is given in the [transport properties section](transport-properties.md).
+The methodology for combining rates from multiple scattering mechanisms is given
+in the [transport properties section](transport-properties.md).
 
 [^Rode]: Rode, D. L. *Low-field electron transport. Semiconductors and semimetals* **10**, (Elsevier, 1975).
 
