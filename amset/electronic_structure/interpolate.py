@@ -200,7 +200,7 @@ class Interpolater(MSONable):
             forgotten_electrons += min_b - 1
 
             t0 = time.perf_counter()
-            (energies[spin], vvelocities[spin], _, velocities[spin],) = get_bands_fft(
+            energies[spin], vvelocities[spin], _, velocities[spin] = get_bands_fft(
                 self._equivalences,
                 self._coefficients[spin][spin_ibands],
                 self._lattice_matrix,
