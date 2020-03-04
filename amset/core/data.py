@@ -426,4 +426,3 @@ class AmsetData(MSONable):
             raise ValueError("Unrecognised output format: {}".format(file_format))
 
         return filename
-
