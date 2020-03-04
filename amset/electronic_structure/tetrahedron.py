@@ -56,16 +56,13 @@ _tetrahedron_vectors = np.array(
 numerical_integration_defaults = {
     "high": {
         "triangle": triangle.xiao_gimbutas_50(),
-        "quadrilateral": quadrilateral.sommariva_50(),
+        "quad": quadrilateral.sommariva_50(),
     },
     "medium": {
         "triangle": triangle.xiao_gimbutas_06(),
-        "quadrilateral": quadrilateral.sommariva_06(),
+        "quad": quadrilateral.sommariva_06(),
     },
-    "low": {
-        "triangle": triangle.centroid(),
-        "quadrilateral": quadrilateral.dunavant_00(),
-    },
+    "low": {"triangle": triangle.centroid(), "quad": quadrilateral.dunavant_00()},
 }
 
 logger = logging.getLogger(__name__)
