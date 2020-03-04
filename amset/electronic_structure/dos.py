@@ -115,7 +115,7 @@ class FermiDos(Dos, MSONable):
         )
 
         num_electrons = wdos.sum() * self.de
-        conc = (num_electrons - self.nelect) / self.structure.volume
+        conc = (self.nelect - num_electrons) / self.structure.volume
 
         if return_electron_hole_conc:
             cb_conc = wdos[self.energies > self.efermi].sum() * self.de

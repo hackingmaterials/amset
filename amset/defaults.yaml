@@ -5,7 +5,7 @@
 # possible based on the supplied materials parameters
 scattering_type: auto
 
-# positive doping concentrations indicates n-type doping, negative = p-type
+# positive doping concentrations indicate p-type doping, negative is n-type
 doping: [1.e15, 1.e16, 1.e17, 1.e18, 1.e19, 1.e20, 1.e21]
 temperatures: [300]
 

@@ -37,8 +37,8 @@ temperature/doping ranges.
     1E13:1E20:8
     ```
 
-    Negative concentrations indicate holes (*p*-type doping), positive concentrations
-    indicate electrons (*n*-type doping).
+    Negative concentrations indicate electrons (*n*-type doping), positive concentrations
+    indicate holes (*p*-type doping).
     
     Default: `{{ doping }}`
 

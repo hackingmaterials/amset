@@ -83,7 +83,7 @@ def _calculate_mobility(
         br = {s: np.arange(len(amset_data.energies[s])) for s in amset_data.spins}
         cb_idx = {s: amset_data.vb_idx[s] + 1 for s in amset_data.spins}
 
-        if amset_data.doping[n] > 0:
+        if amset_data.doping[n] < 0:
             band_idx = {s: br[s][cb_idx[s] :] for s in amset_data.spins}
         else:
             band_idx = {s: br[s][: cb_idx[s]] for s in amset_data.spins}
@@ -113,7 +113,7 @@ def _calculate_mobility(
         # Compute the Onsager coefficients from Fermi integrals
         sigma, _, _, _ = calc_Onsager_coefficients(l0, l1, l2, fermi, temp, volume)
 
-        if amset_data.doping[n] > 0:
+        if amset_data.doping[n] < 0:
             carrier_conc = amset_data.electron_conc[n, t]
         else:
             carrier_conc = amset_data.hole_conc[n, t]
