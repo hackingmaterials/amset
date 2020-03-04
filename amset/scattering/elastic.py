@@ -49,6 +49,7 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
         super().__init__(materials_properties, amset_data)
         self.vb_idx = amset_data.vb_idx
         self.is_metal = amset_data.is_metal
+        self.fermi_levels = amset_data.fermi_levels
         self._prefactor = (
             BOLTZMANN
             * units.Second
@@ -100,7 +101,7 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
         return prefactor
 
     def factor(self, norm_q_sq: np.ndarray):
-        return np.ones_like(norm_q_sq)
+        return np.ones(self.fermi_levels.shape + norm_q_sq.shape)
 
 
 class IonizedImpurityScattering(AbstractElasticScattering):
@@ -147,6 +148,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         self._prefactor = (
             impurity_concentration
             * 4
+            * np.pi
             * units.Second
             / self.properties["static_dielectric"] ** 2
         )
@@ -158,11 +160,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
     def factor(self, norm_q_sq: np.ndarray):
         return (
             1
-            / (
-                norm_q_sq[None, None]
-                + self.inverse_screening_length_sq[..., None, None]
-            )
-            ** 2
+            / (norm_q_sq[None, None] + self.inverse_screening_length_sq[..., None]) ** 2
         )
 
 

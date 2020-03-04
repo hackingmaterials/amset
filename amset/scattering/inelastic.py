@@ -117,7 +117,7 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         else:
             factor = self.n_po + f
 
-        return factor[..., None, None] / norm_q_sq[None, None]
+        return factor[..., None] / norm_q_sq[None, None]
 
         # # factor should have shape (ndops, ntemps, nkpts)
         # factor = 1 / np.tile(k_diff_sq, (len(self.doping),

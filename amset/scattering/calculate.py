@@ -19,8 +19,8 @@ from amset.electronic_structure.kpoints import kpoints_to_first_bz
 from amset.electronic_structure.tetrahedron import (
     get_cross_section_values,
     get_projected_intersections,
-    numerical_integration_defaults,
 )
+from amset.electronic_structure.tetrahedron import numerical_integration_defaults as ni
 from amset.log import log_list, log_time_taken
 from amset.scattering.basic import AbstractBasicScattering
 from amset.scattering.elastic import AbstractElasticScattering
@@ -284,26 +284,26 @@ class ScatteringCalculator(object):
             return 0
 
         # next, get k-point indices and band_indices
-        property_mask, band_kpoint_mask, band_mask, kpoint_mask = tbs.get_masks(
-            spin, tet_mask
-        )
+        # property_mask, band_kpoint_mask, band_mask, kpoint_mask = tbs.get_masks(
+        #     spin, tet_mask
+        # )
 
         k = self.amset_data.ir_kpoints[k_idx]
-        k_primes = self.amset_data.kpoints[kpoint_mask]
+        # k_primes = self.amset_data.kpoints[kpoint_mask]
 
-        overlap = self.amset_data.overlap_calculator.get_overlap(
-            spin, b_idx, k, band_mask, k_primes
-        )
-
-        # put overlap back in array with shape (nbands, nkpoints)
-        all_overlap = np.zeros(self.amset_data.energies[spin].shape)
-        all_overlap[band_kpoint_mask] = overlap
-
-        # now select the properties at the tetrahedron vertices
-        vert_overlap = all_overlap[property_mask]
-
-        # get interpolated overlap at centre of tetrahedra cross sections
-        tet_overlap = get_cross_section_values(vert_overlap, *tet_contributions)
+        # overlap = self.amset_data.overlap_calculator.get_overlap(
+        #     spin, b_idx, k, band_mask, k_primes
+        # )
+        #
+        # # put overlap back in array with shape (nbands, nkpoints)
+        # all_overlap = np.zeros(self.amset_data.energies[spin].shape)
+        # all_overlap[band_kpoint_mask] = overlap
+        #
+        # # now select the properties at the tetrahedron vertices
+        # vert_overlap = all_overlap[property_mask]
+        #
+        # # get interpolated overlap at centre of tetrahedra cross sections
+        # tet_overlap = get_cross_section_values(vert_overlap, *tet_contributions)
         tetrahedra = tbs.tetrahedra[spin][tet_mask]
 
         # have to deal with the case where the tetrahedron cross section crosses the
@@ -317,46 +317,47 @@ class ScatteringCalculator(object):
         intersections = get_cross_section_values(
             k_diff, *tet_contributions, average=False
         )
-
         projected_intersections, basis = get_projected_intersections(intersections)
 
-        if energy_diff:
-            f = np.zeros(self.amset_data.fermi_levels.shape)
-
-            for n, t in np.ndindex(self.amset_data.fermi_levels.shape):
-                f[n, t] = FD(
-                    energy,
-                    self.amset_data.fermi_levels[n, t],
-                    self.amset_data.temperatures[t] * units.BOLTZMANN,
-                )
-            scatterer_args = [(energy_diff <= 0, f)] * len(self.inelastic_scatterers)
-            scatterers = self.inelastic_scatterers
-        else:
-            scatterers = self.elastic_scatterers
-            scatterer_args = None
-
-        rates = calculate_rates_over_cross_section(
-            scatterers,
+        k_spacing = np.linalg.norm(np.dot(rlat, 1 / self.amset_data.kpoint_mesh))
+        qpoints, weights, mapping = get_fine_mesh_qpoints(
             projected_intersections,
             basis,
-            spin,
-            k,
-            b_idx,
-            tet_mask[0],
-            rlat,
-            self.amset_data.mrta_calculator,
             *tet_contributions[0:3],
-            return_shape=self.amset_data.fermi_levels.shape,
-            scatterer_args=scatterer_args,
+            high_tol=k_spacing * 0.5,
+            med_tol=k_spacing * 2,
             cross_section_weights=cs_weights
         )
+        qpoint_norm_sq = np.sum(qpoints ** 2, axis=-1)
+
+        k_primes = np.dot(qpoints, np.linalg.inv(rlat)) + k
+        k_primes = kpoints_to_first_bz(k_primes)
+        if energy_diff:
+            fd = _get_fd(energy, self.amset_data)
+            emission = energy_diff <= 0
+            rates = [
+                s.factor(qpoint_norm_sq, emission, fd)
+                for s in self.inelastic_scatterers
+            ]
+            mrta_factor = 1
+        else:
+            mrta_factor = self.amset_data.mrta_calculator.get_mrta_factor(
+                spin, b_idx, k, tet_mask[0][mapping], k_primes
+            )
+            rates = [s.factor(qpoint_norm_sq) for s in self.elastic_scatterers]
+
+        rates = np.array(rates)
 
         # sometimes the projected intersections can be nan when the density of states
         # contribution is infinitesimally small; this catches those errors
         rates[np.isnan(rates)] = 0
 
+        overlap = self.amset_data.overlap_calculator.get_overlap(
+            spin, b_idx, k, tet_mask[0][mapping], k_primes
+        )
+
         rates /= self.amset_data.structure.lattice.reciprocal_lattice.volume
-        rates *= tet_overlap
+        rates *= overlap * weights * mrta_factor
 
         return np.sum(rates, axis=-1)
 
@@ -409,141 +410,101 @@ def _interpolate_zero_rates(rates, kpoints, masks: Optional = None):
     return rates
 
 
-def calculate_rates_over_cross_section(
-    scatterers,
+def get_fine_mesh_qpoints(
     intersections,
     basis,
-    spin,
-    ref_kpoint,
-    ref_band,
-    intersection_bands,
-    rlat,
-    mrta_calculator,
     cond_a_mask,
     cond_b_mask,
     cond_c_mask,
-    precision="high",
-    scatterer_args=None,
-    return_shape=None,
+    high_tol=0.1,
+    med_tol=0.2,
     cross_section_weights=None,
 ):
-    triangle_scheme = numerical_integration_defaults[precision]["triangle"]
-    quadrilateral_scheme = numerical_integration_defaults[precision]["quadrilateral"]
-    ninter = len(intersections)
-    nscatter = len(scatterers)
-
     if cross_section_weights is None:
-        cross_section_weights = np.ones(ninter)
+        cross_section_weights = np.ones(len(intersections))
 
-    if return_shape:
-        function_values = np.zeros((nscatter,) + return_shape + (ninter,))
-    else:
-        function_values = np.zeros((nscatter, ninter))
-
-    if scatterer_args is None:
-        scatterer_args = [[] for _ in range(nscatter)]
-
-    z_coords = intersections[:, 0, 2]
+    # minimum norm in each intersection
+    all_norms = np.linalg.norm(intersections, axis=-1)
 
     # intersections now has shape nvert, ntet, 2 (i.e., x, y coords)
+    intersection_idxs = np.arange(len(intersections))
+    z_coords = intersections[:, 0, 2]
     intersections = intersections[:, :, :2].transpose(1, 0, 2)
     triangle_mask = cond_a_mask | cond_c_mask
-    has_imp = [s.name == "IMP" for s in scatterers]
 
-    if np.any(triangle_mask):
-        # based on quadpy.NSimplexScheme.integrate
-        flt = np.vectorize(float)
-        simplex = intersections[:3, triangle_mask]
-        weights = flt(triangle_scheme.weights)
-        x = nsimplex.transform(flt(triangle_scheme.points).T, simplex.T)
+    # have to do these separately as the triangle intersections always have [0, 0, 0]
+    # as the last coordinate
+    norms = np.ones(len(all_norms))
+    norms[triangle_mask] = np.min(all_norms[:, :3][triangle_mask], axis=-1)
+    norms[cond_b_mask] = np.min(all_norms[cond_b_mask], axis=-1)
+
+    qpoints = []
+    qweights = []
+    mapping = []  # maps a qpoint to an intersection index
+
+    def _get_tri_mesh(prec, min_norm, max_norm):
+        scheme = ni[prec]["triangle"]
+        mask = (min_norm <= norms) & (norms < max_norm) & triangle_mask
+        if not np.any(mask):
+            return
+
+        simplex = intersections[:3, mask]
         vol = nsimplex.get_vol(simplex)
+        xy_coords = nsimplex.transform(scheme.points.T, simplex.T)
+        weights = (
+            scheme.weights[None] * vol[:, None] * cross_section_weights[mask][:, None]
+        )
 
-        q = get_q(x, z_coords[triangle_mask])
-        norm_q_sq = np.sum(q ** 2, axis=-1)
+        qpoints.append(get_q(xy_coords, z_coords[mask]))
+        qweights.append(weights.reshape(-1))
+        mapping.append(np.repeat(intersection_idxs[mask], len(scheme.weights)))
 
-        if has_imp:
-            mrta_scale = get_mrta_factor(
-                spin,
-                q,
-                basis[triangle_mask],
-                ref_kpoint,
-                ref_band,
-                intersection_bands[triangle_mask],
-                rlat,
-                mrta_calculator,
-            )
-        else:
-            mrta_scale = np.ones_like(norm_q_sq)
+    def _get_quad_mesh(prec, min_norm, max_norm):
+        scheme = ni[prec]["quad"]
+        mask = (min_norm <= norms) & (norms < max_norm) & cond_b_mask
+        if not np.any(mask):
+            return
 
-        for i, (s, args) in enumerate(zip(scatterers, scatterer_args)):
-            q_factors = s.factor(norm_q_sq, *args)
-            if s.name == "IMP":
-                q_factors *= mrta_scale
-            function_values[i][..., triangle_mask] = vol * np.dot(q_factors, weights)
+        cube = intersections.reshape((2, 2, -1, 2))[:, :, mask]
+        vol = np.abs(ncube._helpers.get_detJ(scheme.points.T, cube))
+        xy_coords = ncube.transform(scheme.points.T, cube).T
+        weights = scheme.weights[None] * vol * cross_section_weights[mask][:, None]
 
-    if np.any(cond_b_mask):
-        # based on quadpy.NCubeScheme.integrate
-        cube = intersections.reshape((2, 2, ninter, 2))[:, :, cond_b_mask]
-        x = ncube.transform(quadrilateral_scheme.points.T, cube).T
-        vol = np.abs(ncube._helpers.get_detJ(quadrilateral_scheme.points.T, cube))
-        weights = quadrilateral_scheme.weights
+        qpoints.append(get_q(xy_coords, z_coords[mask]))
+        qweights.append(weights.reshape(-1))
+        mapping.append(np.repeat(intersection_idxs[mask], len(scheme.weights)))
 
-        q = get_q(x, z_coords[cond_b_mask])
-        norm_q_sq = np.sum(q ** 2, axis=-1)
+    _get_tri_mesh("high", 0, high_tol)
+    _get_tri_mesh("medium", high_tol, med_tol)
+    _get_tri_mesh("low", med_tol, np.Inf)
+    _get_quad_mesh("high", 0, high_tol)
+    _get_quad_mesh("medium", high_tol, med_tol)
+    _get_quad_mesh("low", med_tol, np.Inf)
 
-        if has_imp:
-            mrta_scale = get_mrta_factor(
-                spin,
-                q,
-                basis[cond_b_mask],
-                ref_kpoint,
-                ref_band,
-                intersection_bands[cond_b_mask],
-                rlat,
-                mrta_calculator,
-            )
-        else:
-            mrta_scale = np.ones_like(norm_q_sq)
+    qpoints = np.concatenate(qpoints)
+    qweights = np.concatenate(qweights)
+    mapping = np.concatenate(mapping)
 
-        for i, (s, args) in enumerate(zip(scatterers, scatterer_args)):
-            q_factors = s.factor(norm_q_sq, *args)
-            if s.name == "IMP":
-                q_factors *= mrta_scale
-            function_values[i][..., cond_b_mask] = np.dot(q_factors * vol, weights)
+    return get_kpoints_in_original_basis(qpoints, basis[mapping]), qweights, mapping
 
-    function_values *= cross_section_weights
 
-    return function_values
+def get_kpoints_in_original_basis(q, basis):
+    # transform k back to original lattice basis in cartesian coords
+    return np.einsum("ikj,ij->ik", basis, q)
 
 
 def get_q(x, z_coords):
     z = np.repeat(z_coords[:, None], len(x[0][0]), axis=-1)
-    return np.stack([x[0], x[1], z], axis=-1)
+    return np.stack([x[0], x[1], z], axis=-1).reshape(-1, 3)
 
 
-def get_mrta_factor(
-    spin, q, basis, ref_kpoint, ref_band, q_bands, rlat, mrta_calculator
-):
-    # kpoints has shape ntet, nk, 3
-    kpoints = get_kpoints_in_original_basis(q, basis, ref_kpoint, rlat)
-    orig_shape = kpoints.shape[:-1]
-    q_bands = np.repeat(q_bands, kpoints.shape[1])
-    kpoints = kpoints.reshape(-1, 3)
-    factors = mrta_calculator.get_mrta_factor(
-        spin, ref_band, ref_kpoint, q_bands, kpoints
-    )
-    return factors.reshape(orig_shape)
+def _get_fd(energy, amset_data):
+    f = np.zeros(amset_data.fermi_levels.shape)
 
-
-def get_kpoints_in_original_basis(q, basis, ref_kpoint, rlat):
-    # returns k-points in fractional coords
-    # q has shape ntet, nk, 3
-    orig_shape = q.shape
-
-    # transform k back to original lattice basis in cartesian coords
-    cart_k = np.einsum("ikj,ilj->ilk", basis, q)
-    frac_kpoints = (
-        np.dot(cart_k.reshape(-1, 3), np.linalg.inv(rlat)).reshape(orig_shape)
-        + ref_kpoint
-    )
-    return kpoints_to_first_bz(frac_kpoints)
+    for n, t in np.ndindex(amset_data.fermi_levels.shape):
+        f[n, t] = FD(
+            energy,
+            amset_data.fermi_levels[n, t],
+            amset_data.temperatures[t] * units.BOLTZMANN,
+        )
+    return f
