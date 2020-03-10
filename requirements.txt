@@ -9,6 +9,6 @@ tqdm==4.43.0
 tabulate==0.8.6
 memory_profiler==0.57.0
 spglib==1.14.1.post0
-click==7.0
+click==7.1.1
 sumo==1.4.0
 h5py==2.10.0
