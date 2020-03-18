@@ -1,5 +1,5 @@
 quadpy==0.14.5
-numpy==1.18.1
+numpy==1.18.2
 pymatgen==2020.1.28
 scipy==1.4.1
 monty==3.0.2
