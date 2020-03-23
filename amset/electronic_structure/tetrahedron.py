@@ -1,9 +1,12 @@
+from collections import defaultdict
+
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Union, List
 
 import numpy as np
 from quadpy import quadrilateral, triangle
 
+from amset.constants import numeric_types
 from amset.util import get_progress_bar, groupby
 from pymatgen import Spin, Structure
 from pymatgen.util.coord import pbc_diff
@@ -222,7 +225,33 @@ class TetrahedralBandStructure(object):
         self._weights_mask_cache = {}
         self._energies_cache = {}
 
+        self._tetrahedra_connections = defaultdict(set)
+        for tet in tetrahedra:
+            self._tetrahedra_connections[tet[0]].update(tet)
+            self._tetrahedra_connections[tet[1]].update(tet)
+            self._tetrahedra_connections[tet[2]].update(tet)
+            self._tetrahedra_connections[tet[3]].update(tet)
+
+    def get_connected_kpoints(self, kpoint_idx: Union[int, List[int], np.ndarray]):
+        """Given one or more k-point indices, get a list of all k-points that are in
+        the same tetrahedra
+
+        Args:
+            kpoint_idx: One or mode k-point indices.
+
+        Returns:
+            A list of k-point indices that are in the same tetrahedra.
+        """
+        if isinstance(kpoint_idx, numeric_types):
+            kpoint_idx = [kpoint_idx]
+
+        all_kpoints = set()
+        for idx in kpoint_idx:
+            all_kpoints.update(self._tetrahedra_connections[idx])
+        return np.array(list(all_kpoints))
+
     def get_intersecting_tetrahedra(self, spin, energy, band_idx=None):
+
         max_energies = self.max_tetrahedra_energies[spin]
         min_energies = self.min_tetrahedra_energies[spin]
 
