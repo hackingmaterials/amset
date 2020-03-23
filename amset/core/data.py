@@ -7,8 +7,9 @@ import numpy as np
 from monty.json import MSONable
 from monty.serialization import dumpfn
 
-from amset.constants import cm_to_bohr
+from amset.constants import cm_to_bohr, hartree_to_ev
 from amset.constants import defaults as defaults
+from amset.electronic_structure.common import get_angstrom_structure
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.mrta import MRTACalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
@@ -317,9 +318,9 @@ class AmsetData(MSONable):
 
     def to_dict(self, include_mesh=defaults["write_mesh"]):
         data = {
-            "doping": self.doping,
+            "doping": self.doping * cm_to_bohr ** 3,
             "temperatures": self.temperatures,
-            "fermi_levels": self.fermi_levels,
+            "fermi_levels": self.fermi_levels * hartree_to_ev,
             "conductivity": self.conductivity,
             "seebeck": self.seebeck,
             "electronic_thermal_conductivity": self.electronic_thermal_conductivity,
@@ -332,7 +333,10 @@ class AmsetData(MSONable):
             vv = self.velocities_product
 
             ir_rates = {s: r[..., self.ir_kpoints_idx] for s, r in rates.items()}
-            ir_energies = {s: e[:, self.ir_kpoints_idx] for s, e in energies.items()}
+            ir_energies = {
+                s: e[:, self.ir_kpoints_idx] * hartree_to_ev
+                for s, e in energies.items()
+            }
             ir_vv = {s: v[..., self.ir_kpoints_idx] for s, v in vv.items()}
 
             mesh_data = {
@@ -340,15 +344,18 @@ class AmsetData(MSONable):
                 "kpoints": self.kpoints,
                 "ir_kpoints": self.ir_kpoints,
                 "ir_to_full_kpoint_mapping": self.ir_to_full_kpoint_mapping,
-                "efermi": self.intrinsic_fermi_level,
+                "efermi": self.intrinsic_fermi_level * hartree_to_ev,
                 "vb_idx": cast_dict_list(self.vb_idx),
-                "dos": self.dos,
-                "velocities_product": cast_dict_list(ir_vv),
+                "dos": self.dos,  # TODO: Convert dos to eV
+                "velocities_product": cast_dict_list(ir_vv),  # TODO: convert units
                 "scattering_rates": cast_dict_list(ir_rates),
                 "scattering_labels": self.scattering_labels,
                 "is_metal": self.is_metal,
-                "fd_cutoffs": self.fd_cutoffs,
-                "structure": self.structure,
+                "fd_cutoffs": (
+                    self.fd_cutoffs[0] * hartree_to_ev,
+                    self.fd_cutoffs[1] * hartree_to_ev
+                ),
+                "structure": get_angstrom_structure(self.structure),
                 "soc": self._soc,
             }
             data.update(mesh_data)
@@ -359,7 +366,11 @@ class AmsetData(MSONable):
 
         triu = np.triu_indices(3)
         for n, t in np.ndindex(len(self.doping), len(self.temperatures)):
-            row = [self.doping[n], self.temperatures[t], self.fermi_levels[n, t]]
+            row = [
+                self.doping[n] * cm_to_bohr ** 3,
+                self.temperatures[t],
+                self.fermi_levels[n, t] * hartree_to_ev
+            ]
             row.extend(self.conductivity[n, t][triu])
             row.extend(self.seebeck[n, t][triu])
             row.extend(self.electronic_thermal_conductivity[n, t][triu])
