@@ -50,8 +50,8 @@ class ScatteringCalculator(object):
         self,
         settings: Dict[str, float],
         amset_data: AmsetData,
+        cutoff_pad: float,
         scattering_type: Union[str, List[str], float] = "auto",
-        use_symmetry: bool = True,
         nworkers: int = -1,
     ):
         if amset_data.temperatures is None or amset_data.doping is None:
@@ -62,17 +62,59 @@ class ScatteringCalculator(object):
         self.scattering_type = scattering_type
         self.settings = settings
         self.nworkers = nworkers if nworkers != -1 else cpu_count()
-        self.use_symmetry = use_symmetry
         self.scatterers = self.get_scatterers(scattering_type, settings, amset_data)
         self.amset_data = amset_data
 
+        buf = 0.05 * units.eV
         if self.amset_data.fd_cutoffs:
-            self.scattering_energy_cutoffs = self.amset_data.fd_cutoffs
+            self.scattering_energy_cutoffs = (
+                self.amset_data.fd_cutoffs[0] - buf,
+                self.amset_data.fd_cutoffs[1] + buf,
+            )
         else:
             self.scattering_energy_cutoffs = (
-                min(self.amset_data.dos.energies),
-                max(self.amset_data.dos.energies),
+                min(self.amset_data.dos.energies) - buf,
+                max(self.amset_data.dos.energies) + buf,
             )
+
+        # precompute the coefficients we will need to for calculating overlaps
+        # could do this on the fly but caching will really speed things up.
+        # we need to interpolate as the wavefunction coefficients were calculated on a
+        # dense mesh but we calculate the orbital overlap on a fine mesh.
+        self._coeffs = {}
+        self._coeffs_mapping = {}
+        tbs = self.amset_data.tetrahedral_band_structure
+        for spin in amset_data.spins:
+            spin_b_idxs = []
+            spin_k_idxs = []
+            for b_idx, b_energies in enumerate(self.amset_data.energies[spin]):
+                # find all k-points that fall inside Fermi cutoffs
+                k_idxs = np.where(
+                    (b_energies > self.scattering_energy_cutoffs[0] - cutoff_pad) &
+                    (b_energies < self.scattering_energy_cutoffs[1] + cutoff_pad)
+                )[0]
+
+                # find k-points connected to the k-points inside Fermi cutoffs
+                k_idxs = tbs.get_connected_kpoints(k_idxs)
+
+                spin_k_idxs.extend(k_idxs.tolist())
+                spin_b_idxs.extend([b_idx] * len(k_idxs))
+
+            # calculate the coefficients for all bands and k-point simultaneously
+            self._coeffs[spin] = self.amset_data.overlap_calculator.get_coefficients(
+                spin, spin_b_idxs, self.amset_data.kpoints[spin_k_idxs],
+            )
+
+            # because we are only storing the coefficients for the band/k-points we
+            # want, we need a way of mapping from the original band/k-point indices to
+            # the reduced indices. I.e., it allows us to get the coefficients for
+            # band b_idx, and k-point k_idx using:
+            # self._coeffs[spin][self._coeffs_mapping[b_idx, k_idx]]
+            # use a default value of 100000 as this was it will throw an error
+            # if we don't precache the correct values
+            mapping = np.full_like(self.amset_data.energies[spin], 100000, dtype=int)
+            mapping[spin_b_idxs, spin_k_idxs] = np.arange(len(spin_b_idxs)).astype(int)
+            self._coeffs_mapping[spin] = mapping
 
     @property
     def basic_scatterers(self):
@@ -158,13 +200,10 @@ class ScatteringCalculator(object):
             for s in spins
         }
 
-        if self.use_symmetry:
-            nkpoints = len(self.amset_data.ir_kpoints_idx)
-        else:
-            nkpoints = len(kpoints)
+        nkpoints = len(self.amset_data.ir_kpoints_idx)
 
         logger.info("Scattering information:")
-        log_list(["# k-points: {}".format(nkpoints)])
+        log_list(["# ir k-points: {}".format(nkpoints)])
 
         for spin in spins:
             for b_idx in range(len(self.amset_data.energies[spin])):
@@ -195,22 +234,20 @@ class ScatteringCalculator(object):
 
     def calculate_band_rates(self, spin: Spin, b_idx: int):
         conversion = self.amset_data.structure.lattice.reciprocal_lattice.volume
-
         kpoints_idx = self.amset_data.ir_kpoints_idx
         nkpoints = len(kpoints_idx)
 
-        buf = 0.01 * 5 * units.eV
         band_energies = self.amset_data.energies[spin][b_idx, kpoints_idx]
-        mask = (band_energies < self.scattering_energy_cutoffs[0] - buf) | (
-            band_energies > self.scattering_energy_cutoffs[1] + buf
-        )
+        mask = band_energies < self.scattering_energy_cutoffs[0]
+        mask |= band_energies > self.scattering_energy_cutoffs[1]
         fill_mask = mask[self.amset_data.ir_to_full_kpoint_mapping]
 
         n = np.sum(~fill_mask)
         logger.debug("  ├── # k-points within Fermi–Dirac cut-offs: {}".format(n))
 
-        # get k-point indexes of k-points within FD cutoffs (faster than np.where)
-        k_idx_in_cutoff = np.arange(nkpoints)[~mask]
+        k_idx_in_cutoff = kpoints_idx[~mask]
+        ir_idx_in_cutoff = np.arange(nkpoints)[~mask]
+        iterable = list(zip(k_idx_in_cutoff, ir_idx_in_cutoff))
 
         to_stack = []
         if len(self.basic_scatterers) > 0:
@@ -226,9 +263,9 @@ class ScatteringCalculator(object):
             elastic_rates = np.zeros(elastic_prefactors.shape + (nkpoints,))
 
             if len(k_idx_in_cutoff) > 0:
-                pbar = get_progress_bar(k_idx_in_cutoff, desc="elastic")
-                for k_idx in pbar:
-                    elastic_rates[..., k_idx] = self.calculate_rate(spin, b_idx, k_idx)
+                pbar = get_progress_bar(iterable, desc="elastic")
+                for k_idx, ir_idx, in pbar:
+                    elastic_rates[..., ir_idx] = self.calculate_rate(spin, b_idx, k_idx)
 
             elastic_rates *= elastic_prefactors[..., None]
             to_stack.append(elastic_rates)
@@ -242,11 +279,11 @@ class ScatteringCalculator(object):
             energy_diff = f_pop * 1e12 * 2 * np.pi * hbar * units.eV
 
             if len(k_idx_in_cutoff) > 0:
-                pbar = get_progress_bar(k_idx_in_cutoff, desc="inelastic")
-                inelastic_rates[:, :, :, k_idx_in_cutoff] = 0
-                for k_idx in pbar:
+                pbar = get_progress_bar(iterable, desc="inelastic")
+                inelastic_rates[:, :, :, ir_idx_in_cutoff] = 0
+                for k_idx, ir_idx in pbar:
                     for ediff in [energy_diff, -energy_diff]:
-                        inelastic_rates[:, :, :, k_idx] += self.calculate_rate(
+                        inelastic_rates[:, :, :, ir_idx] += self.calculate_rate(
                             spin, b_idx, k_idx, energy_diff=ediff
                         )
 
@@ -259,8 +296,7 @@ class ScatteringCalculator(object):
 
     def calculate_rate(self, spin, b_idx, k_idx, energy_diff=None):
         rlat = self.amset_data.structure.lattice.reciprocal_lattice.matrix
-        ir_kpoints_idx = self.amset_data.ir_kpoints_idx
-        energy = self.amset_data.energies[spin][b_idx, ir_kpoints_idx][k_idx]
+        energy = self.amset_data.energies[spin][b_idx, k_idx]
 
         if energy_diff:
             energy += energy_diff
@@ -284,26 +320,27 @@ class ScatteringCalculator(object):
             return 0
 
         # next, get k-point indices and band_indices
-        # property_mask, band_kpoint_mask, band_mask, kpoint_mask = tbs.get_masks(
-        #     spin, tet_mask
-        # )
+        property_mask, band_kpoint_mask, band_mask, kpoint_mask = tbs.get_masks(
+            spin, tet_mask
+        )
+        k = self.amset_data.kpoints[k_idx]
 
-        k = self.amset_data.ir_kpoints[k_idx]
-        # k_primes = self.amset_data.kpoints[kpoint_mask]
+        # use cached coefficients to calculate the overlap on the fine mesh
+        # tetrahedron vertices
+        p1 = self._coeffs[spin][self._coeffs_mapping[spin][b_idx, k_idx]]
+        p2 = self._coeffs[spin][self._coeffs_mapping[spin][band_mask, kpoint_mask]]
+        braket = np.abs(np.dot(np.conj(p1), np.asarray(p2).T))
+        overlap = braket ** 2
 
-        # overlap = self.amset_data.overlap_calculator.get_overlap(
-        #     spin, b_idx, k, band_mask, k_primes
-        # )
-        #
-        # # put overlap back in array with shape (nbands, nkpoints)
-        # all_overlap = np.zeros(self.amset_data.energies[spin].shape)
-        # all_overlap[band_kpoint_mask] = overlap
-        #
-        # # now select the properties at the tetrahedron vertices
-        # vert_overlap = all_overlap[property_mask]
-        #
-        # # get interpolated overlap at centre of tetrahedra cross sections
-        # tet_overlap = get_cross_section_values(vert_overlap, *tet_contributions)
+        # put overlap back in array with shape (nbands, nkpoints)
+        all_overlap = np.zeros(self.amset_data.energies[spin].shape)
+        all_overlap[band_kpoint_mask] = overlap
+
+        # now select the properties at the tetrahedron vertices
+        vert_overlap = all_overlap[property_mask]
+
+        # get interpolated overlap at centre of tetrahedra cross sections
+        tet_overlap = get_cross_section_values(vert_overlap, *tet_contributions)
         tetrahedra = tbs.tetrahedra[spin][tet_mask]
 
         # have to deal with the case where the tetrahedron cross section crosses the
@@ -352,12 +389,15 @@ class ScatteringCalculator(object):
         # contribution is infinitesimally small; this catches those errors
         rates[np.isnan(rates)] = 0
 
-        overlap = self.amset_data.overlap_calculator.get_overlap(
-            spin, b_idx, k, tet_mask[0][mapping], k_primes
-        )
+        # this is too expensive vs tetrahedron integration and doesn't add much more
+        # accuracy; could offer this as an option
+        # overlap = self.amset_data.overlap_calculator.get_overlap(
+        #     spin, b_idx, k, tet_mask[0][mapping], k_primes
+        # )
 
         rates /= self.amset_data.structure.lattice.reciprocal_lattice.volume
-        rates *= overlap * weights * mrta_factor
+        # rates *= overlap * weights * mrta_factor
+        rates *= tet_overlap[mapping] * weights * mrta_factor
 
         return np.sum(rates, axis=-1)
 

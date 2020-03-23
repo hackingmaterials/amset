@@ -182,11 +182,15 @@ class AmsetRunner(MSONable):
         log_banner("SCATTERING")
         t0 = time.perf_counter()
 
+        cutoff_pad = _get_cutoff_pad(
+            self.settings["pop_frequency"], self.settings["scattering_type"]
+        )
+
         scatter = ScatteringCalculator(
             self.settings,
             amset_data,
+            cutoff_pad,
             scattering_type=self.settings["scattering_type"],
-            use_symmetry=self.settings["symprec"] is not None,
         )
 
         amset_data.set_scattering_rates(
