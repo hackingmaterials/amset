@@ -353,7 +353,7 @@ class AmsetData(MSONable):
                 "is_metal": self.is_metal,
                 "fd_cutoffs": (
                     self.fd_cutoffs[0] * hartree_to_ev,
-                    self.fd_cutoffs[1] * hartree_to_ev
+                    self.fd_cutoffs[1] * hartree_to_ev,
                 ),
                 "structure": get_angstrom_structure(self.structure),
                 "soc": self._soc,
@@ -369,7 +369,7 @@ class AmsetData(MSONable):
             row = [
                 self.doping[n] * cm_to_bohr ** 3,
                 self.temperatures[t],
-                self.fermi_levels[n, t] * hartree_to_ev
+                self.fermi_levels[n, t] * hartree_to_ev,
             ]
             row.extend(self.conductivity[n, t][triu])
             row.extend(self.seebeck[n, t][triu])
