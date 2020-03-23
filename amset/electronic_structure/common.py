@@ -2,6 +2,8 @@ from typing import Tuple
 
 import numpy as np
 
+from amset.constants import angstrom_to_bohr, bohr_to_angstrom
+from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
 __author__ = "Alex Ganose"
@@ -90,3 +92,19 @@ def get_velocities_from_outer_product(
         velocities[spin] = v
 
     return velocities
+
+
+def get_atomic_structure(structure):
+    return Structure(
+        structure.lattice.matrix * angstrom_to_bohr,
+        structure.species,
+        structure.frac_coords,
+    )
+
+
+def get_angstrom_structure(structure):
+    return Structure(
+        structure.lattice.matrix * bohr_to_angstrom,
+        structure.species,
+        structure.frac_coords,
+    )

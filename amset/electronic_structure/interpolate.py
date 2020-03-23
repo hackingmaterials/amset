@@ -14,7 +14,11 @@ from amset.constants import defaults as defaults
 from amset.constants import ev_to_hartree, hartree_to_ev, numeric_types, spin_name
 from amset.core.data import AmsetData
 from amset.electronic_structure.boltztrap import get_bands_fft
-from amset.electronic_structure.common import get_ibands, get_vb_idx
+from amset.electronic_structure.common import (
+    get_ibands,
+    get_vb_idx,
+    get_atomic_structure,
+)
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.kpoints import (
     get_kpoints_tetrahedral,
@@ -26,8 +30,6 @@ from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
 from BoltzTraP2 import fite, sphere
 from BoltzTraP2.fite import Second
-from pymatgen import Structure
-from pymatgen.core.units import bohr_to_angstrom
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure,
     BandStructureSymmLine,
@@ -797,22 +799,6 @@ def rotate_curvature(curvature, similarity_matrices, inv_similarity_matrices):
         rot_curvature[b_idx, k_idx] = np.dot(inv_similarity_matrices[k_idx], inner)
 
     return rot_curvature
-
-
-def get_atomic_structure(structure):
-    return Structure(
-        structure.lattice.matrix * angstrom_to_bohr,
-        structure.species,
-        structure.frac_coords,
-    )
-
-
-def get_angstrom_structure(structure):
-    return Structure(
-        structure.lattice.matrix * bohr_to_angstrom,
-        structure.species,
-        structure.frac_coords,
-    )
 
 
 def sort_amset_results(kpoints, energies, vvelocities, velocities):
