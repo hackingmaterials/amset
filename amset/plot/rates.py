@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from sumo.plotting import styled_plot
-from amset.constants import bohr_to_cm
 from amset.plot.base import BaseAmsetPlotter, amset_base_style
 from BoltzTraP2 import units
 
@@ -105,7 +104,7 @@ class RatesPlotter(BaseAmsetPlotter):
                 else:
                     show_legend = False
 
-                str_doping = _latex_float(self.doping[n] * (1 / bohr_to_cm) ** 3)
+                str_doping = _latex_float(self.doping[n])
 
                 title = r"n = ${}$ cm$^{{-3}}$    " "T = {} K".format(
                     str_doping, self.temperatures[t]

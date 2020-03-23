@@ -8,8 +8,8 @@ from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
 
-from amset.constants import defaults, hartree_to_ev, hbar
-from amset.electronic_structure.interpolate import Interpolater, get_angstrom_structure
+from amset.constants import defaults, hbar
+from amset.electronic_structure.interpolate import Interpolater
 from amset.log import initialize_amset_logger
 from amset.plot import BaseAmsetPlotter, amset_base_style
 from pymatgen.electronic_structure.bandstructure import BandStructure
@@ -33,14 +33,12 @@ class LineshapePlotter(BaseAmsetPlotter):
 
     def _get_interpolater(self, n_idx, t_idx):
         # interpolater expects energies in eV and structure in angstrom
-        energies = {s: e * hartree_to_ev for s, e in self.energies.items()}
-        structure = get_angstrom_structure(self.structure)
         bs = BandStructure(
             self.ir_kpoints,
-            energies,
-            structure.lattice,
-            self.efermi * hartree_to_ev,
-            structure=structure,
+            self.energies,
+            self.structure.lattice,
+            self.efermi,
+            structure=self.structure,
         )
         nelect = sum([idx for idx in self.vb_idx.values()])
 
@@ -88,12 +86,12 @@ class LineshapePlotter(BaseAmsetPlotter):
 
         fd_emin, fd_emax = self.fd_cutoffs
         if not emin:
-            emin = fd_emin * hartree_to_ev
+            emin = fd_emin
             if zero_to_efermi:
                 emin -= bs.efermi
 
         if not emax:
-            emax = fd_emax * hartree_to_ev
+            emax = fd_emax
             if zero_to_efermi:
                 emax -= bs.efermi
 
