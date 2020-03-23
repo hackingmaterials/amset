@@ -94,6 +94,23 @@ class WavefunctionOverlapCalculator(object):
         coeff, kpoints, structure = load_coefficients(filename)
         return cls(structure, kpoints, coeff)
 
+    def get_coefficients(self, spin, bands, kpoints):
+        v = np.concatenate([np.asarray(bands)[:, None], np.asarray(kpoints)], axis=1)
+
+        if eval_linear:
+            grid, coeffs = self.interpolators[spin]
+
+            # only allows interpolating floats, so have to separate real and imag parts
+            real_part = eval_linear(grid, coeffs.real, v, xto.LINEAR)
+            imag_part = eval_linear(grid, coeffs.imag, v, xto.LINEAR)
+
+            interp_coeffs = real_part + 1j * imag_part
+        else:
+            interp_coeffs = self.interpolators[spin](v)
+
+        # need to renormalize coefficients
+        return interp_coeffs / np.linalg.norm(interp_coeffs, axis=-1)[:, None]
+
     def get_overlap(self, spin, band_a, kpoint_a, band_b, kpoint_b):
         # k-points should be in fractional
         kpoint_a = np.asarray(kpoint_a)
@@ -265,6 +282,10 @@ class ProjectionOverlapCalculator(object):
             band_centers,
             kpoint_symmetry_mapping=(full_kpoints, ir_to_full_idx, rot_mapping),
         )
+
+    def get_coefficients(self, spin, bands, kpoints):
+        v = np.concatenate([np.asarray(bands)[:, None], kpoints], axis=1)
+        return self.interpolators[spin](v)
 
     def get_overlap(self, spin, band_a, kpoint_a, band_b, kpoint_b):
         # k-points should be in fractional
