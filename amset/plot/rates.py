@@ -3,15 +3,16 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import cycler
 
+from sumo.plotting import styled_plot
 from amset.constants import bohr_to_cm
-from amset.plot.base import BaseAmsetPlotter, seaborn_colors
+from amset.plot.base import BaseAmsetPlotter, amset_base_style
 from BoltzTraP2 import units
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
+
 
 _legend_kwargs = {"loc": "upper left", "bbox_to_anchor": (1, 1), "frameon": False}
 
@@ -24,17 +25,23 @@ class RatesPlotter(BaseAmsetPlotter):
             [self.scattering_rates[s] for s in self.spins], axis=3
         )
 
+    @styled_plot(amset_base_style)
     def get_plot(
         self,
-        plot_fd_tols: bool = True,
+        plot_fd_tols: bool = False,
         plot_total_rate: bool = False,
         ymin: float = None,
         ymax: float = None,
+        xmin: float = None,
+        xmax: float = None,
         normalize_energy: bool = True,
         separate_rates: bool = True,
         doping_idx=0,
         temperature_idx=0,
         legend=True,
+        style=None,
+        no_base_style=False,
+        fonts=None,
     ):
         if normalize_energy and self.is_metal:
             norm_e = self.fermi_levels[0][0]
@@ -68,13 +75,20 @@ class RatesPlotter(BaseAmsetPlotter):
             p_idx = [[(doping_idx, temperature_idx)]]
 
         norm_e /= units.eV
-        base_size = 4
+        base_size = 3.2
+
+        def get_size(nplots):
+            width = base_size * nplots
+            width += (
+                base_size * 0.25 * (nplots - 1)
+            )  # account for spacing between plots
+            return width
 
         if ny == 1:
-            figsize = (1.2 * base_size * nx, base_size)
+            figsize = (get_size(nx), base_size)
             fig, axes = plt.subplots(1, nx, figsize=figsize)
         else:
-            figsize = (1.2 * base_size * nx, base_size * ny)
+            figsize = (get_size(nx), get_size(ny))
             fig, axes = plt.subplots(ny, nx, figsize=figsize)
 
         for y_idx, p_x_idx in enumerate(p_idx):
@@ -84,16 +98,17 @@ class RatesPlotter(BaseAmsetPlotter):
                 elif ny == 1:
                     ax = axes[x_idx]
                 else:
-                    print(nx, ny)
-                    ax = axes[x_idx, y_idx]
+                    ax = axes[y_idx, x_idx]
 
                 if x_idx == nx - 1 and y_idx == ny - 1 and legend:
                     show_legend = True
                 else:
                     show_legend = False
 
-                title = "n = {:.2g} cm$^{{-3}}$\t T = {}".format(
-                    self.doping[n] * (1 / bohr_to_cm) ** 3, self.temperatures[t]
+                str_doping = _latex_float(self.doping[n] * (1 / bohr_to_cm) ** 3)
+
+                title = r"n = ${}$ cm$^{{-3}}$    " "T = {} K".format(
+                    str_doping, self.temperatures[t]
                 )
 
                 self.plot_rates_to_axis(
@@ -105,6 +120,8 @@ class RatesPlotter(BaseAmsetPlotter):
                     plot_fd_tols=plot_fd_tols,
                     ymin=ymin,
                     ymax=ymax,
+                    xmin=xmin,
+                    xmax=xmax,
                     show_legend=show_legend,
                     legend_kwargs=_legend_kwargs,
                     normalize_energy=norm_e,
@@ -125,7 +142,8 @@ class RatesPlotter(BaseAmsetPlotter):
         legend_kwargs=None,
         ymin=None,
         ymax=None,
-        colors=None,
+        xmin=None,
+        xmax=None,
         normalize_energy=0,
     ):
         rates = self.plot_rates[:, doping_idx, temperature_idx]
@@ -134,10 +152,6 @@ class RatesPlotter(BaseAmsetPlotter):
         else:
             rates = np.sum(rates, axis=0)[None, ...]
             labels = ["overall"]
-
-        if colors is None:
-            color_cycler = cycler(color=seaborn_colors)
-            ax.set_prop_cycle(color_cycler)
 
         if legend_kwargs is None:
             legend_kwargs = {}
@@ -150,8 +164,10 @@ class RatesPlotter(BaseAmsetPlotter):
 
         min_fd = self.fd_cutoffs[0]
         max_fd = self.fd_cutoffs[1]
-        min_e = min_fd - (max_fd - min_fd) * 0.1
-        max_e = max_fd + (max_fd - min_fd) * 0.1
+        if not xmin:
+            min_e = min_fd
+        if not xmax:
+            max_e = max_fd
 
         energies = self.plot_energies.ravel()
         energy_mask = (energies > min_e) & (energies < max_e)
@@ -191,7 +207,7 @@ class RatesPlotter(BaseAmsetPlotter):
         ax.semilogy()
         ax.set_ylim(ymin, ymax)
         ax.set_xlim((norm_min_e, norm_max_e))
-        ax.set(xlabel="energy (eV)", ylabel="scattering rate (s$^-1$)")
+        ax.set(xlabel="Energy (eV)", ylabel="Scattering rate (s$^{-1}$)")
 
         if show_legend:
             ax.legend(**legend_kwargs)
@@ -223,3 +239,12 @@ def _get_rate_ylims(
         ymax = 10 ** log_tmp
 
     return ymin, ymax
+
+
+def _latex_float(f):
+    float_str = "{0:.2g}".format(f)
+    if "e" in float_str:
+        base, exponent = float_str.split("e")
+        return r"{0} x 10^{{{1}}}".format(base, int(exponent))
+    else:
+        return float_str
