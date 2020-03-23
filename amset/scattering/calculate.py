@@ -90,8 +90,8 @@ class ScatteringCalculator(object):
             for b_idx, b_energies in enumerate(self.amset_data.energies[spin]):
                 # find all k-points that fall inside Fermi cutoffs
                 k_idxs = np.where(
-                    (b_energies > self.scattering_energy_cutoffs[0] - cutoff_pad) &
-                    (b_energies < self.scattering_energy_cutoffs[1] + cutoff_pad)
+                    (b_energies > self.scattering_energy_cutoffs[0] - cutoff_pad)
+                    & (b_energies < self.scattering_energy_cutoffs[1] + cutoff_pad)
                 )[0]
 
                 # find k-points connected to the k-points inside Fermi cutoffs
