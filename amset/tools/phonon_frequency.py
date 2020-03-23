@@ -34,7 +34,7 @@ def phonon_frequency(vasprun, outcar):
     return effective_frequency
 
 
-def effective_phonon_frequency_from_vasp_files(vasprun: "Vasprun", outcar: "Outcar"):
+def effective_phonon_frequency_from_vasp_files(vasprun, outcar):
     eigenvalues = -vasprun.normalmode_eigenvals[::-1]
     eigenvectors = vasprun.normalmode_eigenvecs[::-1]
     born_effective_charges = outcar.born

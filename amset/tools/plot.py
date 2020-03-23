@@ -10,9 +10,19 @@ __email__ = "aganose@lbl.gov"
 image_type = click.Choice(["pdf", "png", "svg"], case_sensitive=False)
 kpaths = click.Choice(["pymatgen", "seekpath"], case_sensitive=False)
 path_type = click.Path(exists=True)
+
 _symprec = 0.01  # redefine symprec to avoid loading constants from file
 _dos_estep = 0.01  # redefine symprec to avoid loading constants from file
 _interpolation_factor = 5
+
+
+def _all_or_int(value):
+    if value == "all":
+        return None
+    elif value is None:
+        return 0
+    else:
+        return int(value)
 
 
 def _parse_kpoints(kpoints):
@@ -149,7 +159,7 @@ def lineshape(filename, **kwargs):
 @option("-p", "--prefix", help="output filename prefix")
 @option("--directory", type=path_type, help="file output directory")
 @option("--image-format", default="pdf", type=image_type, help="image format")
-@option("--style", help="matplotlib style specification")
+@option("--style", help="path to matplotlib style specification")
 @option("--no-base-style", default=False, is_flag=True, help="don't apply base style")
 def band(filename, **kwargs):
     """
@@ -204,26 +214,37 @@ def band(filename, **kwargs):
 
 @plot.command()
 @argument("filename", type=path_type)
-@option("-p", "--prefix", help="output filename prefix")
-@option("--directory", type=path_type, help="file output directory")
-@option("--image-format", default="pdf", type=image_type, help="image format")
+@option("--ymin", default=None, type=float, help="minimum y-axis limit")
+@option("--ymax", default=None, type=float, help="maximum y-axis limit")
+@option("-d", "--doping-idx", metavar="N", help="doping index to plot")
+@option("-t", "--temperature-idx", metavar="N", help="temperature index to plot")
 @option(
-    "--separate-rates/--no-separate-rates",
+    "-s",
+    "--separate-rates",
+    is_flag=True,
     default=False,
     help="whether to separate scattering mechanisms",
 )
+@option("-p", "--prefix", help="output filename prefix")
+@option("--directory", type=path_type, help="file output directory")
+@option("--image-format", default="pdf", type=image_type, help="image format")
+@option("--style", help="path to matplotlib style specification")
+@option("--no-base-style", default=False, is_flag=True, help="don't apply base style")
 def rates(filename, **kwargs):
     """
     Plot scattering rates
     """
     from amset.plot.rates import RatesPlotter
 
-    plotter = RatesPlotter(filename)
-    plt = plotter.get_plot(separate_rates=kwargs["separate_rates"])
+    save_kwargs = [kwargs.pop(d) for d in ["directory", "prefix", "image_format"]]
 
-    save_plot(
-        plt, "rates", kwargs["directory"], kwargs["prefix"], kwargs["image_format"]
-    )
+    kwargs["doping_idx"] = _all_or_int(kwargs["doping_idx"])
+    kwargs["temperature_idx"] = _all_or_int(kwargs["temperature_idx"])
+
+    plotter = RatesPlotter(filename)
+    plt = plotter.get_plot(**kwargs)
+    plt.subplots_adjust(hspace=0.3, wspace=0.3)
+    save_plot(plt, "rates", *save_kwargs)
     return plt
 
 
