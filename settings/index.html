@@ -1,40 +1,19 @@
 
 
 
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
     
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
-      <meta http-equiv="x-ua-compatible" content="ie=edge">
       
         <meta name="description" content="Documentation for AMSET, electron transport from first principles">
       
       
       
-      
-        <meta name="lang:clipboard.copy" content="Copy to clipboard">
-      
-        <meta name="lang:clipboard.copied" content="Copied to clipboard">
-      
-        <meta name="lang:search.language" content="en">
-      
-        <meta name="lang:search.pipeline.stopwords" content="True">
-      
-        <meta name="lang:search.pipeline.trimmer" content="True">
-      
-        <meta name="lang:search.result.none" content="No matching documents">
-      
-        <meta name="lang:search.result.one" content="1 matching document">
-      
-        <meta name="lang:search.result.other" content="# matching documents">
-      
-        <meta name="lang:search.tokenizer" content="[\s\-]+">
-      
       <link rel="shortcut icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-4.6.3">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.0.1">
     
     
       
@@ -42,9 +21,9 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/application.adb8469c.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.c3000690.min.css">
       
-        <link rel="stylesheet" href="../assets/stylesheets/application-palette.a8b3c06d.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.4444686e.min.css">
       
       
         
@@ -53,16 +32,13 @@
       
     
     
-      <script src="../assets/javascripts/modernizr.86422ebf.js"></script>
-    
     
       
         <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&display=fallback">
-        <style>body,input{font-family:"Roboto","Helvetica Neue",Helvetica,Arial,sans-serif}code,kbd,pre{font-family:"Roboto Mono","Courier New",Courier,monospace}</style>
+        <style>body,input{font-family:"Roboto",-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif}code,kbd,pre{font-family:"Roboto Mono",SFMono-Regular,Consolas,Menlo,monospace}</style>
       
     
-    <link rel="stylesheet" href="../assets/fonts/material-icons.css">
     
     
     
@@ -71,71 +47,72 @@
     
   </head>
   
+  
     
     
     <body dir="ltr" data-md-color-primary="blue-grey" data-md-color-accent="blue-grey">
   
-    <svg class="md-svg">
-      <defs>
-        
-        
-          <svg xmlns="http://www.w3.org/2000/svg" width="416" height="448" viewBox="0 0 416 448" id="__github"><path fill="currentColor" d="M160 304q0 10-3.125 20.5t-10.75 19T128 352t-18.125-8.5-10.75-19T96 304t3.125-20.5 10.75-19T128 256t18.125 8.5 10.75 19T160 304zm160 0q0 10-3.125 20.5t-10.75 19T288 352t-18.125-8.5-10.75-19T256 304t3.125-20.5 10.75-19T288 256t18.125 8.5 10.75 19T320 304zm40 0q0-30-17.25-51T296 232q-10.25 0-48.75 5.25Q229.5 240 208 240t-39.25-2.75Q130.75 232 120 232q-29.5 0-46.75 21T56 304q0 22 8 38.375t20.25 25.75 30.5 15 35 7.375 37.25 1.75h42q20.5 0 37.25-1.75t35-7.375 30.5-15 20.25-25.75T360 304zm56-44q0 51.75-15.25 82.75-9.5 19.25-26.375 33.25t-35.25 21.5-42.5 11.875-42.875 5.5T212 416q-19.5 0-35.5-.75t-36.875-3.125-38.125-7.5-34.25-12.875T37 371.5t-21.5-28.75Q0 312 0 260q0-59.25 34-99-6.75-20.5-6.75-42.5 0-29 12.75-54.5 27 0 47.5 9.875t47.25 30.875Q171.5 96 212 96q37 0 70 8 26.25-20.5 46.75-30.25T376 64q12.75 25.5 12.75 54.5 0 21.75-6.75 42 34 40 34 99.5z"/></svg>
-        
-      </defs>
-    </svg>
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
-    <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
-    
-      <a href="#settings" tabindex="0" class="md-skip">
-        Skip to content
-      </a>
-    
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#settings" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
     
       <header class="md-header" data-md-component="header">
-  <nav class="md-header-nav md-grid">
-    <div class="md-flex">
-      <div class="md-flex__cell md-flex__cell--shrink">
-        <a href=".." title="AMSET Documentation" aria-label="AMSET Documentation" class="md-header-nav__button md-logo">
-          
-            <i class="md-icon">call_missed_outgoing</i>
-          
-        </a>
-      </div>
-      <div class="md-flex__cell md-flex__cell--shrink">
-        <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
-      </div>
-      <div class="md-flex__cell md-flex__cell--stretch">
-        <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
-          
-            <span class="md-header-nav__topic">
-              AMSET Documentation
-            </span>
-            <span class="md-header-nav__topic">
-              
-                Settings
-              
-            </span>
-          
+  <nav class="md-header-nav md-grid" aria-label="Header">
+    <a href=".." title="AMSET Documentation" class="md-header-nav__button md-logo" aria-label="AMSET Documentation">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.59,7L12,14.59L6.41,9H11V7H3V15H5V10.41L12,17.41L21,8.41" /></svg>
+
+    </a>
+    <label class="md-header-nav__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" /></svg>
+    </label>
+    <div class="md-header-nav__title" data-md-component="header-title">
+      
+        <div class="md-header-nav__ellipsis">
+          <span class="md-header-nav__topic md-ellipsis">
+            AMSET Documentation
+          </span>
+          <span class="md-header-nav__topic md-ellipsis">
+            
+              Settings
+            
+          </span>
         </div>
-      </div>
-      <div class="md-flex__cell md-flex__cell--shrink">
-        
-          <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
-          
+      
+    </div>
+    
+      <label class="md-header-nav__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z" /></svg>
+      </label>
+      
 <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
     <form class="md-search__form" name="search">
-      <input type="text" class="md-search__input" aria-label="search" name="query" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="query" data-md-state="active">
-      <label class="md-icon md-search__icon" for="__search"></label>
-      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
-        &#xE5CD;
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" data-md-state="active">
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z" /></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg>
+      </label>
+      <button type="reset" class="md-search__icon md-icon" aria-label="Clear" data-md-component="search-reset" tabindex="-1">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" /></svg>
       </button>
     </form>
     <div class="md-search__output">
       <div class="md-search__scrollwrap" data-md-scrollfix>
-        <div class="md-search-result" data-md-component="result">
+        <div class="md-search-result" data-md-component="search-result">
           <div class="md-search-result__meta">
             Type to start searching
           </div>
@@ -145,71 +122,56 @@
     </div>
   </div>
 </div>
+    
+    
+      <div class="md-header-nav__source">
         
-      </div>
-      
-        <div class="md-flex__cell md-flex__cell--shrink">
-          <div class="md-header-nav__source">
-            
-
-
-  
-
-<a href="https://github.com/hackingmaterials/amset/" title="Go to repository" class="md-source" data-md-source="github">
-  
-    <div class="md-source__icon">
-      <svg viewBox="0 0 24 24" width="24" height="24">
-        <use xlink:href="#__github" width="24" height="24"></use>
-      </svg>
-    </div>
-  
+<a href="https://github.com/hackingmaterials/amset/" title="Go to repository" class="md-source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05L244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
   <div class="md-source__repository">
     GitHub
   </div>
 </a>
-          </div>
-        </div>
-      
-    </div>
+      </div>
+    
   </nav>
 </header>
     
-    <div class="md-container">
+    <div class="md-container" data-md-component="container">
       
         
       
       
-      <main class="md-main" role="main">
-        <div class="md-main__inner md-grid" data-md-component="container">
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
           
             
               <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
-                    <nav class="md-nav md-nav--primary" data-md-level="0">
-  <label class="md-nav__title md-nav__title--site" for="__drawer">
-    <a href=".." title="AMSET Documentation" class="md-nav__button md-logo">
+                    <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="AMSET Documentation" class="md-nav__button md-logo" aria-label="AMSET Documentation">
       
-        <i class="md-icon">call_missed_outgoing</i>
-      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.59,7L12,14.59L6.41,9H11V7H3V15H5V10.41L12,17.41L21,8.41" /></svg>
+
     </a>
     AMSET Documentation
   </label>
   
     <div class="md-nav__source">
       
-
-
-  
-
-<a href="https://github.com/hackingmaterials/amset/" title="Go to repository" class="md-source" data-md-source="github">
-  
-    <div class="md-source__icon">
-      <svg viewBox="0 0 24 24" width="24" height="24">
-        <use xlink:href="#__github" width="24" height="24"></use>
-      </svg>
-    </div>
-  
+<a href="https://github.com/hackingmaterials/amset/" title="Go to repository" class="md-source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05L244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
   <div class="md-source__repository">
     GitHub
   </div>
@@ -263,13 +225,16 @@
 
   <li class="md-nav__item md-nav__item--active">
     
-    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
     
       
     
     
       <label class="md-nav__link md-nav__link--active" for="__toc">
         Settings
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3,9H17V7H3V9M3,13H17V11H3V13M3,17H17V15H3V17M19,17H21V15H19V17M19,7V9H21V7H19M19,13H21V11H19V13Z" /></svg>
+        </span>
       </label>
     
     <a href="./" title="Settings" class="md-nav__link md-nav__link--active">
@@ -277,13 +242,18 @@
     </a>
     
       
-<nav class="md-nav md-nav--secondary">
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
   
     
   
   
-    <label class="md-nav__title" for="__toc">Table of contents</label>
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg>
+      </span>
+      Table of contents
+    </label>
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
@@ -291,7 +261,7 @@
     General settings
   </a>
   
-    <nav class="md-nav">
+    <nav class="md-nav" aria-label="General settings">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -353,7 +323,7 @@
     Material settings
   </a>
   
-    <nav class="md-nav">
+    <nav class="md-nav" aria-label="Material settings">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -436,7 +406,7 @@
     Performance settings
   </a>
   
-    <nav class="md-nav">
+    <nav class="md-nav" aria-label="Performance settings">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -484,7 +454,7 @@
     Output settings
   </a>
   
-    <nav class="md-nav">
+    <nav class="md-nav" aria-label="Output settings">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -533,10 +503,6 @@
     </nav>
   
 </li>
-      
-      
-      
-      
       
     </ul>
   
@@ -628,13 +594,18 @@
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
                     
-<nav class="md-nav md-nav--secondary">
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
   
     
   
   
-    <label class="md-nav__title" for="__toc">Table of contents</label>
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg>
+      </span>
+      Table of contents
+    </label>
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
@@ -642,7 +613,7 @@
     General settings
   </a>
   
-    <nav class="md-nav">
+    <nav class="md-nav" aria-label="General settings">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -704,7 +675,7 @@
     Material settings
   </a>
   
-    <nav class="md-nav">
+    <nav class="md-nav" aria-label="Material settings">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -787,7 +758,7 @@
     Performance settings
   </a>
   
-    <nav class="md-nav">
+    <nav class="md-nav" aria-label="Performance settings">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -835,7 +806,7 @@
     Output settings
   </a>
   
-    <nav class="md-nav">
+    <nav class="md-nav" aria-label="Output settings">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -885,10 +856,6 @@
   
 </li>
       
-      
-      
-      
-      
     </ul>
   
 </nav>
@@ -901,7 +868,12 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/hackingmaterials/amset/edit/master/docs/settings.md" title="Edit this page" class="md-icon md-content__icon">&#xE3C9;</a>
+                  <a href="https://github.com/hackingmaterials/amset/edit/master/docs/settings.md" title="Edit this page" class="md-content__button md-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z" /></svg>
+                  </a>
+                
+                
+                  
                 
                 
                 <link rel="stylesheet"
@@ -928,162 +900,162 @@ via the command-line will override those in the settings file.</p>
 <h2 id="general-settings">General settings<a class="headerlink" href="#general-settings" title="Permanent link">&para;</a></h2>
 <p>These settings control the AMSET run, including interpolation density and 
 temperature/doping ranges.</p>
-<h3 id="doping"><code class="codehilite"><span class="err">doping</span></code><a class="headerlink" href="#doping" title="Permanent link">&para;</a></h3>
+<h3 id="doping"><code>doping</code><a class="headerlink" href="#doping" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-d, --doping</span></code></p>
+<p><em>Command-line option:</em> <code>-d, --doping</code></p>
 <p>Controls which doping levels (carrier concentrations) to calculate.
 Concentrations given with the unit cm<sup>–3</sup>. Can be specified directly as a comma
 separated list, e.g.:</p>
-<div class="codehilite"><pre><span></span><code><span class="mf">1E13</span><span class="p">,</span><span class="mf">1E14</span><span class="p">,</span><span class="mf">1E15</span><span class="p">,</span><span class="mf">1E16</span><span class="p">,</span><span class="mf">1E17</span><span class="p">,</span><span class="mf">1E18</span><span class="p">,</span><span class="mf">1E19</span><span class="p">,</span><span class="mf">1E20</span>
+<div class="highlight"><pre><span></span><code><span class="mf">1E13</span><span class="p">,</span><span class="mf">1E14</span><span class="p">,</span><span class="mf">1E15</span><span class="p">,</span><span class="mf">1E16</span><span class="p">,</span><span class="mf">1E17</span><span class="p">,</span><span class="mf">1E18</span><span class="p">,</span><span class="mf">1E19</span><span class="p">,</span><span class="mf">1E20</span>
 </code></pre></div>
 
-<p>Alternatively, ranges can be specified using the syntax <code class="codehilite"><span class="n">start</span><span class="o">:</span><span class="n">stop</span><span class="o">:</span><span class="n">num_steps</span></code>.
+<p>Alternatively, ranges can be specified using the syntax <code>start:stop:num_steps</code>.
 For example, the same doping concentrations as above can be written::</p>
-<div class="codehilite"><pre><span></span><code><span class="mf">1E13</span><span class="p">:</span><span class="mf">1E20</span><span class="p">:</span><span class="mi">8</span>
+<div class="highlight"><pre><span></span><code><span class="mf">1E13</span><span class="p">:</span><span class="mf">1E20</span><span class="p">:</span><span class="mi">8</span>
 </code></pre></div>
 
 <p>Negative concentrations indicate electrons (<em>n</em>-type doping), positive concentrations
 indicate holes (<em>p</em>-type doping).</p>
-<p>Default: <code class="codehilite"><span class="err">[&#39;1.e15&#39;, &#39;1.e16&#39;, &#39;1.e17&#39;, &#39;1.e18&#39;, &#39;1.e19&#39;, &#39;1.e20&#39;, &#39;1.e21&#39;]</span></code></p>
+<p>Default: <code>['1.e15', '1.e16', '1.e17', '1.e18', '1.e19', '1.e20', '1.e21']</code></p>
 </div>
-<h3 id="temperatures"><code class="codehilite"><span class="err">temperatures</span></code><a class="headerlink" href="#temperatures" title="Permanent link">&para;</a></h3>
+<h3 id="temperatures"><code>temperatures</code><a class="headerlink" href="#temperatures" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-t, --temperatures</span></code></p>
+<p><em>Command-line option:</em> <code>-t, --temperatures</code></p>
 <p>Controls which temperatures to calculate. Temperatures given in Kelvin. Can be
 specified directly as a comma separated list, e.g.::</p>
-<div class="codehilite"><pre><span></span><code><span class="mi">300</span><span class="p">,</span><span class="mi">400</span><span class="p">,</span><span class="mi">500</span><span class="p">,</span><span class="mi">600</span><span class="p">,</span><span class="mi">700</span><span class="p">,</span><span class="mi">800</span><span class="p">,</span><span class="mi">900</span><span class="p">,</span><span class="mi">1000</span>
+<div class="highlight"><pre><span></span><code><span class="mi">300</span><span class="p">,</span><span class="mi">400</span><span class="p">,</span><span class="mi">500</span><span class="p">,</span><span class="mi">600</span><span class="p">,</span><span class="mi">700</span><span class="p">,</span><span class="mi">800</span><span class="p">,</span><span class="mi">900</span><span class="p">,</span><span class="mi">1000</span>
 </code></pre></div>
 
-<p>Alternatively, ranges can be specified using the syntax <code class="codehilite"><span class="n">start</span><span class="o">:</span><span class="n">stop</span><span class="o">:</span><span class="n">num_steps</span></code>,
+<p>Alternatively, ranges can be specified using the syntax <code>start:stop:num_steps</code>,
 For example, the same temperature range as above can be written::</p>
-<div class="codehilite"><pre><span></span><code><span class="mi">300</span><span class="p">:</span><span class="mi">1000</span><span class="p">:</span><span class="mi">8</span>
+<div class="highlight"><pre><span></span><code><span class="mi">300</span><span class="p">:</span><span class="mi">1000</span><span class="p">:</span><span class="mi">8</span>
 </code></pre></div>
 
-<p>Default: <code class="codehilite"><span class="err">[300]</span></code></p>
+<p>Default: <code>[300]</code></p>
 </div>
-<h3 id="interpolation_factor"><code class="codehilite"><span class="err">interpolation_factor</span></code><a class="headerlink" href="#interpolation_factor" title="Permanent link">&para;</a></h3>
+<h3 id="interpolation_factor"><code>interpolation_factor</code><a class="headerlink" href="#interpolation_factor" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-i, --interpolation-factor</span></code></p>
+<p><em>Command-line option:</em> <code>-i, --interpolation-factor</code></p>
 <p>Interpolation factor controlling the interpolation density. Larger numbers
 indicate greater density. The number of k-points in the interpolated band
-structure will be roughly equal to <code class="codehilite"><span class="err">interpolation_factor</span></code> times the number
+structure will be roughly equal to <code>interpolation_factor</code> times the number
 of k-points in the DFT calculation. This is the primary option for controlling
 the accuracy of the calculated scattering rates. <strong>Transport properties should
 be converged with respect to this parameter.</strong></p>
-<p>Default: <code class="codehilite"><span class="err">10</span></code></p>
+<p>Default: <code>10</code></p>
 </div>
-<h3 id="scattering_type"><code class="codehilite"><span class="err">scattering_type</span></code><a class="headerlink" href="#scattering_type" title="Permanent link">&para;</a></h3>
+<h3 id="scattering_type"><code>scattering_type</code><a class="headerlink" href="#scattering_type" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-s, --scattering-type</span></code></p>
-<p>Which scattering mechanisms to calculate. If set to <code class="codehilite"><span class="err">auto</span></code>, the scattering
+<p><em>Command-line option:</em> <code>-s, --scattering-type</code></p>
+<p>Which scattering mechanisms to calculate. If set to <code>auto</code>, the scattering
 mechanisms will automatically be determined based on the specified material
 parameters. Alternatively, a comma separated list of scattering mechanism
 can be specified. Options include:</p>
 <ul>
-<li><code class="codehilite"><span class="err">ACD</span></code> (acoustic deformation potential scattering)</li>
-<li><code class="codehilite"><span class="err">IMP</span></code> (ionized impurity scattering)</li>
-<li><code class="codehilite"><span class="err">PIE</span></code> (piezoelectric scattering)</li>
-<li><code class="codehilite"><span class="err">POP</span></code> (polar optical phonon scattering)</li>
+<li><code>ACD</code> (acoustic deformation potential scattering)</li>
+<li><code>IMP</code> (ionized impurity scattering)</li>
+<li><code>PIE</code> (piezoelectric scattering)</li>
+<li><code>POP</code> (polar optical phonon scattering)</li>
 </ul>
-<p>For example, <code class="codehilite"><span class="err">ACD,IMP,POP</span></code>. The scattering mechanism will only be calculated
+<p>For example, <code>ACD,IMP,POP</code>. The scattering mechanism will only be calculated
 if all the required material parameters for that mechanism are set. See the
-<code class="codehilite"><span class="err">scattering section &lt;scattering&gt;</span></code>_ of the documentation for more details.</p>
-<p>Default: <code class="codehilite"><span class="err">auto</span></code></p>
+<code>scattering section &lt;scattering&gt;</code>_ of the documentation for more details.</p>
+<p>Default: <code>auto</code></p>
 </div>
-<h3 id="wavefunction_coefficients"><code class="codehilite"><span class="err">wavefunction_coefficients</span></code><a class="headerlink" href="#wavefunction_coefficients" title="Permanent link">&para;</a></h3>
+<h3 id="wavefunction_coefficients"><code>wavefunction_coefficients</code><a class="headerlink" href="#wavefunction_coefficients" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-s, --wavefunction-coefficients</span></code></p>
+<p><em>Command-line option:</em> <code>-s, --wavefunction-coefficients</code></p>
 <p>Path to wavefunction coefficients file. The coefficients can be extracted
 from a VASP WAVECAR using the command:</p>
-<div class="codehilite"><pre><span></span><code>amset dump-wavefunction
+<div class="highlight"><pre><span></span><code>amset dump-wavefunction
 </code></pre></div>
 
 <p>This requires the vasprun.xml and POTCAR to be in the same folder.</p>
 </div>
-<h3 id="scissor"><code class="codehilite"><span class="err">scissor</span></code><a class="headerlink" href="#scissor" title="Permanent link">&para;</a></h3>
+<h3 id="scissor"><code>scissor</code><a class="headerlink" href="#scissor" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-s, --scissor</span></code></p>
+<p><em>Command-line option:</em> <code>-s, --scissor</code></p>
 <p>The amount to scissor the band gap, in eV. Positive values indicate band gap
 opening, negative values indicate band gap narrowing. Has no effect for metallic
 systems.</p>
 </div>
-<h3 id="bandgap"><code class="codehilite"><span class="err">bandgap</span></code><a class="headerlink" href="#bandgap" title="Permanent link">&para;</a></h3>
+<h3 id="bandgap"><code>bandgap</code><a class="headerlink" href="#bandgap" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">-b, --bandgap</span></code></p>
+<p><em>Command-line option:</em> <code>-b, --bandgap</code></p>
 <p>Set the band gap to this value, in eV. Will automatically determine and apply the
 correct band gap scissor for the specified band gap. Cannot be used in
-combination with the <a href="#scissor"><code class="codehilite"><span class="err">scissor</span></code></a> option. Has no effect for metallic systems.</p>
+combination with the <a href="#scissor"><code>scissor</code></a> option. Has no effect for metallic systems.</p>
 </div>
 <h2 id="material-settings">Material settings<a class="headerlink" href="#material-settings" title="Permanent link">&para;</a></h2>
 <p>These settings control the materials properties required to calculate the 
 scattering rates.</p>
-<h3 id="high_frequency_dielectric"><code class="codehilite"><span class="err">high_frequency_dielectric</span></code><a class="headerlink" href="#high_frequency_dielectric" title="Permanent link">&para;</a></h3>
+<h3 id="high_frequency_dielectric"><code>high_frequency_dielectric</code><a class="headerlink" href="#high_frequency_dielectric" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--high-frequency-dielectric</span></code></p>
+<p><em>Command-line option:</em> <code>--high-frequency-dielectric</code></p>
 <p>The high-frequency dielectric constant, in units of <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>ϵ</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\epsilon_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>.</p>
 <p>Required for: POP</p>
 </div>
-<h3 id="static_dielectric"><code class="codehilite"><span class="err">static_dielectric</span></code><a class="headerlink" href="#static_dielectric" title="Permanent link">&para;</a></h3>
+<h3 id="static_dielectric"><code>static_dielectric</code><a class="headerlink" href="#static_dielectric" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--static-dielectric</span></code></p>
+<p><em>Command-line option:</em> <code>--static-dielectric</code></p>
 <p>The static dielectric constant, in units of <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>ϵ</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\epsilon_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathdefault">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>.</p>
 <p>Required for: IMP, PIE, POP</p>
 </div>
-<h3 id="elastic_constant"><code class="codehilite"><span class="err">elastic_constant</span></code><a class="headerlink" href="#elastic_constant" title="Permanent link">&para;</a></h3>
+<h3 id="elastic_constant"><code>elastic_constant</code><a class="headerlink" href="#elastic_constant" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--elastic-constant</span></code></p>
+<p><em>Command-line option:</em> <code>--elastic-constant</code></p>
 <p>The direction averaged elastic constant, in GPa.</p>
 <p>Required for: ACD</p>
 </div>
-<h3 id="deformation_potential"><code class="codehilite"><span class="err">deformation_potential</span></code><a class="headerlink" href="#deformation_potential" title="Permanent link">&para;</a></h3>
+<h3 id="deformation_potential"><code>deformation_potential</code><a class="headerlink" href="#deformation_potential" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--deformation-potential</span></code></p>
+<p><em>Command-line option:</em> <code>--deformation-potential</code></p>
 <p>The volume deformation potential, in eV. Can be given as a comma separated
 list of two values for the VBM and CBM, respectively, e.g.:</p>
-<div class="codehilite"><pre><span></span><code><span class="mf">8.6</span><span class="p">,</span> <span class="mf">7.4</span>
+<div class="highlight"><pre><span></span><code><span class="mf">8.6</span><span class="p">,</span> <span class="mf">7.4</span>
 </code></pre></div>
 
 <p>Or a single value to use for all bands in metals.</p>
 <p>Required for: ACD</p>
 </div>
-<h3 id="piezoelectric_coefficient"><code class="codehilite"><span class="err">piezoelectric_coefficient</span></code><a class="headerlink" href="#piezoelectric_coefficient" title="Permanent link">&para;</a></h3>
+<h3 id="piezoelectric_coefficient"><code>piezoelectric_coefficient</code><a class="headerlink" href="#piezoelectric_coefficient" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>command-line option:</em> <code class="codehilite"><span class="err">--piezoelectric-coefficient</span></code></p>
+<p><em>command-line option:</em> <code>--piezoelectric-coefficient</code></p>
 <p>The direction averaged piezoelectric coefficient (unitless).</p>
 <p>Required for: PIE</p>
 </div>
-<h3 id="acceptor_charge"><code class="codehilite"><span class="err">acceptor_charge</span></code><a class="headerlink" href="#acceptor_charge" title="Permanent link">&para;</a></h3>
+<h3 id="acceptor_charge"><code>acceptor_charge</code><a class="headerlink" href="#acceptor_charge" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--acceptor-charge</span></code></p>
+<p><em>Command-line option:</em> <code>--acceptor-charge</code></p>
 <p>The charge of acceptor defects, in units of electron charge.</p>
 <p>Required for: IMP</p>
-<p>Default: <code class="codehilite"><span class="err">1</span></code></p>
+<p>Default: <code>1</code></p>
 </div>
-<h3 id="donor_charge"><code class="codehilite"><span class="err">donor_charge</span></code><a class="headerlink" href="#donor_charge" title="Permanent link">&para;</a></h3>
+<h3 id="donor_charge"><code>donor_charge</code><a class="headerlink" href="#donor_charge" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--donor-charge</span></code></p>
+<p><em>Command-line option:</em> <code>--donor-charge</code></p>
 <p>The charge of donor defects, in units of electron charge.</p>
 <p>Required for: IMP</p>
-<p>Default: <code class="codehilite"><span class="err">1</span></code></p>
+<p>Default: <code>1</code></p>
 </div>
-<h3 id="pop_frequency"><code class="codehilite"><span class="err">pop_frequency</span></code><a class="headerlink" href="#pop_frequency" title="Permanent link">&para;</a></h3>
+<h3 id="pop_frequency"><code>pop_frequency</code><a class="headerlink" href="#pop_frequency" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--pop-frequency</span></code></p>
+<p><em>Command-line option:</em> <code>--pop-frequency</code></p>
 <p>The polar optical phonon frequency, in THz. Generally, it is ok to take the
 highest optical phonon frequency at the Gamma point.</p>
 <p>Required for: POP</p>
 </div>
-<h3 id="mean_free_path"><code class="codehilite"><span class="err">mean_free_path</span></code><a class="headerlink" href="#mean_free_path" title="Permanent link">&para;</a></h3>
+<h3 id="mean_free_path"><code>mean_free_path</code><a class="headerlink" href="#mean_free_path" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--mean-free-path</span></code></p>
+<p><em>Command-line option:</em> <code>--mean-free-path</code></p>
 <p>Basic version of boundary scattering in which the scattering rate is set to
 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>v</mi><mi>g</mi></msub><mi mathvariant="normal">/</mi><mi>L</mi></mrow><annotation encoding="application/x-tex">v_g / L</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.036108em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">v</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathdefault mtight" style="margin-right:0.03588em;">g</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mord">/</span><span class="mord mathdefault">L</span></span></span></span>, where <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>v</mi><mi>g</mi></msub></mrow><annotation encoding="application/x-tex">v_g</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.716668em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathdefault" style="margin-right:0.03588em;">v</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathdefault mtight" style="margin-right:0.03588em;">g</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span> is the group velocity and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>L</mi></mrow><annotation encoding="application/x-tex">L</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathdefault">L</span></span></span></span> is the mean free
 path in nm.</p>
 <p>Required for: MFP</p>
 </div>
-<h3 id="constant_relaxation_time"><code class="codehilite"><span class="err">constant_relaxation_time</span></code><a class="headerlink" href="#constant_relaxation_time" title="Permanent link">&para;</a></h3>
+<h3 id="constant_relaxation_time"><code>constant_relaxation_time</code><a class="headerlink" href="#constant_relaxation_time" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--constant-relaxation-time</span></code></p>
+<p><em>Command-line option:</em> <code>--constant-relaxation-time</code></p>
 <p>A constant relaxation time to use as the minimum relaxation time for
 all k-points.</p>
 <p>It is not recommended to use this option in conjunction with any other
@@ -1094,92 +1066,89 @@ results calculated in the constant relaxation time approximation.</p>
 <h2 id="performance-settings">Performance settings<a class="headerlink" href="#performance-settings" title="Permanent link">&para;</a></h2>
 <p>These settings control the speed and accuracy of calculated properties. In 
 general the defaults should give converged values.</p>
-<h3 id="energy_cutoff"><code class="codehilite"><span class="err">energy_cutoff</span></code><a class="headerlink" href="#energy_cutoff" title="Permanent link">&para;</a></h3>
+<h3 id="energy_cutoff"><code>energy_cutoff</code><a class="headerlink" href="#energy_cutoff" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--energy-cutoff</span></code></p>
+<p><em>Command-line option:</em> <code>--energy-cutoff</code></p>
 <p>The energy cut-off used to determine which bands to include in the interpolation
 and scattering rate calculation, in eV.</p>
-<p>Default: <code class="codehilite"><span class="err">1.5</span></code></p>
+<p>Default: <code>1.5</code></p>
 </div>
-<h3 id="fd_tol"><code class="codehilite"><span class="err">fd_tol</span></code><a class="headerlink" href="#fd_tol" title="Permanent link">&para;</a></h3>
+<h3 id="fd_tol"><code>fd_tol</code><a class="headerlink" href="#fd_tol" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--fd-tol</span></code></p>
+<p><em>Command-line option:</em> <code>--fd-tol</code></p>
 <p>The Fermi–Dirac derivative tolerance that controls which k-points to calculate
 the scattering for. Given as a percentage from 0 to 1. Larger values indicate
 that the fewer k-points will be calculated, smaller values indicate a larger
 portion of the Brillouin zone will be calculated.</p>
-<p>Default: <code class="codehilite"><span class="err">0.05</span></code></p>
+<p>Default: <code>0.05</code></p>
 </div>
-<h3 id="dos_estep"><code class="codehilite"><span class="err">dos_estep</span></code><a class="headerlink" href="#dos_estep" title="Permanent link">&para;</a></h3>
+<h3 id="dos_estep"><code>dos_estep</code><a class="headerlink" href="#dos_estep" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--dos-estep</span></code></p>
+<p><em>Command-line option:</em> <code>--dos-estep</code></p>
 <p>The energy step for the calculated density of states and transport density
 of states, in eV. Controls the accuracy of determining the position of the 
 Fermi level and transport properties. Smaller is better but can quickly
 get more expensive.</p>
-<p>Default: <code class="codehilite"><span class="err">0.01</span></code></p>
+<p>Default: <code>0.01</code></p>
 </div>
-<h3 id="symprec"><code class="codehilite"><span class="err">symprec</span></code><a class="headerlink" href="#symprec" title="Permanent link">&para;</a></h3>
+<h3 id="symprec"><code>symprec</code><a class="headerlink" href="#symprec" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--symprec</span></code></p>
+<p><em>Command-line option:</em> <code>--symprec</code></p>
 <p>The symmetry finding tolerance, in Å.</p>
-<p>Default: <code class="codehilite"><span class="err">0.01</span></code></p>
+<p>Default: <code>0.01</code></p>
 </div>
-<h3 id="nworkers"><code class="codehilite"><span class="err">nworkers</span></code><a class="headerlink" href="#nworkers" title="Permanent link">&para;</a></h3>
+<h3 id="nworkers"><code>nworkers</code><a class="headerlink" href="#nworkers" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--nworkers</span></code></p>
-<p>Number of processors to use. <code class="codehilite"><span class="err">-1</span></code> indicates to use all available
+<p><em>Command-line option:</em> <code>--nworkers</code></p>
+<p>Number of processors to use. <code>-1</code> indicates to use all available
 processors.</p>
-<p>Default: <code class="codehilite"><span class="err">-1</span></code></p>
+<p>Default: <code>-1</code></p>
 </div>
 <h2 id="output-settings">Output settings<a class="headerlink" href="#output-settings" title="Permanent link">&para;</a></h2>
 <p>These settings control the output files and logging.</p>
-<h3 id="calculate_mobility"><code class="codehilite"><span class="err">calculate_mobility</span></code><a class="headerlink" href="#calculate_mobility" title="Permanent link">&para;</a></h3>
+<h3 id="calculate_mobility"><code>calculate_mobility</code><a class="headerlink" href="#calculate_mobility" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--calculate-mobility/--no-calculate-mobility</span></code></p>
+<p><em>Command-line option:</em> <code>--calculate-mobility/--no-calculate-mobility</code></p>
 <p>Whether to calculate <em>n</em>- and <em>p</em>-type carrier mobilities. Has no effect
 for metallic systems where mobility is not well defined.</p>
-<p>Default: <code class="codehilite"><span class="err">True</span></code></p>
+<p>Default: <code>True</code></p>
 </div>
-<h3 id="separate_scattering_mobilities"><code class="codehilite"><span class="err">separate_scattering_mobilities</span></code><a class="headerlink" href="#separate_scattering_mobilities" title="Permanent link">&para;</a></h3>
+<h3 id="separate_scattering_mobilities"><code>separate_scattering_mobilities</code><a class="headerlink" href="#separate_scattering_mobilities" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--separate-mobility/--no-separate-mobility</span></code></p>
+<p><em>Command-line option:</em> <code>--separate-mobility/--no-separate-mobility</code></p>
 <p>Whether to report the individual scattering rate mobilities. I.e., the mobility
 if only that scattering mechanism were present.</p>
-<p>Default: <code class="codehilite"><span class="err">True</span></code></p>
+<p>Default: <code>True</code></p>
 </div>
-<h3 id="file_format"><code class="codehilite"><span class="err">file_format</span></code><a class="headerlink" href="#file_format" title="Permanent link">&para;</a></h3>
+<h3 id="file_format"><code>file_format</code><a class="headerlink" href="#file_format" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--file-format</span></code></p>
-<p>The output file format. Options are: <code class="codehilite"><span class="err">json</span></code>, <code class="codehilite"><span class="err">yaml</span></code>, and <code class="codehilite"><span class="err">txt</span></code>.</p>
-<p>Note, <code class="codehilite"><span class="err">write_mesh=True</span></code> is not supported using the <code class="codehilite"><span class="err">txt</span></code> format.</p>
-<p>Default: <code class="codehilite"><span class="err">json</span></code></p>
+<p><em>Command-line option:</em> <code>--file-format</code></p>
+<p>The output file format. Options are: <code>json</code>, <code>yaml</code>, and <code>txt</code>.</p>
+<p>Note, <code>write_mesh=True</code> is not supported using the <code>txt</code> format.</p>
+<p>Default: <code>json</code></p>
 </div>
-<h3 id="write_input"><code class="codehilite"><span class="err">write_input</span></code><a class="headerlink" href="#write_input" title="Permanent link">&para;</a></h3>
+<h3 id="write_input"><code>write_input</code><a class="headerlink" href="#write_input" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--write-input/--no-write-input</span></code></p>
-<p>Whether to write the input settings to a file called <code class="codehilite"><span class="err">amset_settings.yaml</span></code>.</p>
-<p>Default: <code class="codehilite"><span class="err">False</span></code></p>
+<p><em>Command-line option:</em> <code>--write-input/--no-write-input</code></p>
+<p>Whether to write the input settings to a file called <code>amset_settings.yaml</code>.</p>
+<p>Default: <code>False</code></p>
 </div>
-<h3 id="write_mesh"><code class="codehilite"><span class="err">write_mesh</span></code><a class="headerlink" href="#write_mesh" title="Permanent link">&para;</a></h3>
+<h3 id="write_mesh"><code>write_mesh</code><a class="headerlink" href="#write_mesh" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--write-mesh/--no-write-mesh</span></code></p>
+<p><em>Command-line option:</em> <code>--write-mesh/--no-write-mesh</code></p>
 <p>Whether to write the full k-dependent properties to disk. Properties include
 the band energy, velocity and scattering rate. Only k-points in the 
 irreducible wedge are included.</p>
 <p><strong>Note:</strong> for large values of <a href="#interpolation_factor">interpolation_factor</a> 
 his option can use a large amount of disk space.</p>
-<p>Default: <code class="codehilite"><span class="err">False</span></code></p>
+<p>Default: <code>False</code></p>
 </div>
-<h3 id="print_log"><code class="codehilite"><span class="err">print_log</span></code><a class="headerlink" href="#print_log" title="Permanent link">&para;</a></h3>
+<h3 id="print_log"><code>print_log</code><a class="headerlink" href="#print_log" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code class="codehilite"><span class="err">--print-log/--no-log</span></code></p>
+<p><em>Command-line option:</em> <code>--print-log/--no-log</code></p>
 <p>Whether to print log messages.</p>
-<p>Default: <code class="codehilite"><span class="err">True</span></code></p>
+<p>Default: <code>True</code></p>
 </div>
-                
-                  
-                
                 
               
               
@@ -1196,34 +1165,34 @@ his option can use a large amount of disk space.</p>
 <footer class="md-footer">
   
     <div class="md-footer-nav">
-      <nav class="md-footer-nav__inner md-grid">
+      <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
         
-          <a href="../using/" title="Getting Started" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
-            <div class="md-flex__cell md-flex__cell--shrink">
-              <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+          <a href="../using/" title="Getting Started" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg>
             </div>
-            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
-              <span class="md-flex__ellipsis">
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
                 <span class="md-footer-nav__direction">
                   Previous
                 </span>
                 Getting Started
-              </span>
+              </div>
             </div>
           </a>
         
         
-          <a href="../scattering/" title="Scattering Rates" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
-            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
-              <span class="md-flex__ellipsis">
+          <a href="../scattering/" title="Scattering Rates" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
                 <span class="md-footer-nav__direction">
                   Next
                 </span>
                 Scattering Rates
-              </span>
+              </div>
             </div>
-            <div class="md-flex__cell md-flex__cell--shrink">
-              <i class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4,11V13H16L10.5,18.5L11.92,19.92L19.84,12L11.92,4.08L10.5,5.5L16,11H4Z" /></svg>
             </div>
           </a>
         
@@ -1238,11 +1207,10 @@ his option can use a large amount of disk space.</p>
             Built by the HackingMaterials group
           </div>
         
-        powered by
-        <a href="https://www.mkdocs.org" target="_blank" rel="noopener">MkDocs</a>
-        and
+        Made with
         <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
-          Material for MkDocs</a>
+          Material for MkDocs
+        </a>
       </div>
       
     </div>
@@ -1251,9 +1219,18 @@ his option can use a large amount of disk space.</p>
       
     </div>
     
-      <script src="../assets/javascripts/application.c33a9706.js"></script>
+      <script src="../assets/javascripts/vendor.f45d2d8d.min.js"></script>
+      <script src="../assets/javascripts/bundle.74d0b805.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
-      <script>app.initialize({version:"1.0.4",url:{base:".."}})</script>
+      <script>
+        app = initialize({
+          base: "..",
+          features: [],
+          search: Object.assign({
+            worker: "../assets/javascripts/worker/search.7f7c8775.min.js"
+          }, typeof search !== "undefined" && search)
+        })
+      </script>
       
     
   </body>
