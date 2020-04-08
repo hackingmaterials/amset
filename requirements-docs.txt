@@ -1,7 +1,7 @@
 mkdocs==1.0.4
 mkdocs-material==4.6.3
 mkdocs-minify-plugin==0.2.3
-mkdocstrings==0.7.1
+mkdocstrings==0.10.2
 mkdocs-macros-plugin==0.3.3
 markdown-include==0.5.1
 markdown-katex==202001.13b0
