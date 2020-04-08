@@ -2,19 +2,19 @@
 
 ## Introduction
 
-AMSET is an efficient package for calculating electron lifetimes and 
+AMSET is an efficient package for calculating electron lifetimes and
 transport properties in solid-state materials from first principles.
-A primary aim of AMSET is to be amenable to high-throughput computational 
+A primary aim of AMSET is to be amenable to high-throughput computational
 screening.
 Features of AMSET include:
 
 - Inputs obtainable from first-principles calculations. The
   primary input for AMSET is an uniform band structure calculation.
-- Scattering rates calculated in the Born approximation using common materials 
+- Scattering rates calculated in the Born approximation using common materials
   properties such as phonon frequencies and dielectric constants.
 - Transport properties calculated through the iterative Boltzmann transport
   equation.
-- Efficient implementation that can run on a personal laptop. 
+- Efficient implementation that can run on a personal laptop.
 
 !!! info "Supported ab initio codes"
     Currently, AMSET only supports VASP calculations, however,
