@@ -1,3 +1,1 @@
 pawpyseed==0.6.2
-interpolation=2.1.2
-pyFFTW=0.12.0
