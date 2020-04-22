@@ -6,7 +6,6 @@ import numpy as np
 
 from sumo.plotting import styled_plot
 from amset.plot.base import BaseAmsetPlotter, amset_base_style
-from BoltzTraP2 import units
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -73,7 +72,6 @@ class RatesPlotter(BaseAmsetPlotter):
             ny = 1
             p_idx = [[(doping_idx, temperature_idx)]]
 
-        norm_e /= units.eV
         base_size = 3.2
 
         def get_size(nplots):
@@ -181,11 +179,11 @@ class RatesPlotter(BaseAmsetPlotter):
         ymin, ymax = _get_rate_ylims(rates_in_cutoffs, ymin=ymin, ymax=ymax)
 
         # convert energies to eV and normalise
-        norm_energies = energies / units.eV - normalize_energy
-        norm_min_fd = min_fd / units.eV - normalize_energy
-        norm_max_fd = max_fd / units.eV - normalize_energy
-        norm_min_e = min_e / units.eV - normalize_energy
-        norm_max_e = max_e / units.eV - normalize_energy
+        norm_energies = energies - normalize_energy
+        norm_min_fd = min_fd - normalize_energy
+        norm_max_fd = max_fd - normalize_energy
+        norm_min_e = min_e - normalize_energy
+        norm_max_e = max_e - normalize_energy
 
         for label, rate in plt_rates.items():
             ax.scatter(norm_energies, rate, label=label)
