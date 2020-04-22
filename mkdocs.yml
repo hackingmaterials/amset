@@ -7,8 +7,9 @@ theme:
   palette:
     primary: 'blue grey'
     accent: 'blue grey'
-  logo:
-    icon: "call_missed_outgoing"
+  icon:
+    logo: material/call-missed
+    repo: fontawesome/brands/git-alt
 
 nav:
   - Home: index.md
@@ -43,7 +44,6 @@ markdown_extensions:
 plugins:
   - search
   - minify
-  - mkdocstrings
   - macros:
       include_yaml:
           - amset/defaults.yaml
