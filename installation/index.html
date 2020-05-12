@@ -13,7 +13,7 @@
       
       
       <link rel="shortcut icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.5">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -21,9 +21,9 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.df84b5fe.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.4b9ffd7b.min.css">
       
-        <link rel="stylesheet" href="../assets/stylesheets/palette.8435c73a.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.b79bcd20.min.css">
       
       
         
@@ -246,6 +246,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#installing-amset-on-nersc" class="md-nav__link">
+    Installing AMSET on NERSC
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -388,6 +395,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#installing-amset-on-nersc" class="md-nav__link">
+    Installing AMSET on NERSC
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -412,24 +426,26 @@
 <h2 id="from-source">From source<a class="headerlink" href="#from-source" title="Permanent link">&para;</a></h2>
 <p>To install AMSET from source, first clone the repository from GitHub, then
 install using pip:</p>
-<p>git clone https://github.com/hackingmaterials/amset.git
-cd amset
+<div class="highlight"><pre><span></span><code>git clone https://github.com/hackingmaterials/amset.git
+<span class="nb">cd</span> amset
 pip install .
-<div class="highlight"><pre><span></span><code>If not installing from inside a virtual environment or conda environment, you
-may need to specify to install as a *user* via:
+</code></pre></div>
 
-pip install . --user
-</code></pre></div></p>
+<p>If not installing from inside a virtual environment or conda environment, you
+may need to specify to install as a <em>user</em> via:</p>
+<div class="highlight"><pre><span></span><code>pip install . --user
+</code></pre></div>
+
 <h2 id="installing-amset-on-mac">Installing AMSET on Mac<a class="headerlink" href="#installing-amset-on-mac" title="Permanent link">&para;</a></h2>
 <p>Due to the way BolzTraP2 must be compiled, the following snippet is required to install AMSET on Mac:</p>
-<p>MACOSX_DEPLOYMENT_TARGET=10.9 pip install amset
-<div class="highlight"><pre><span></span><code>## Installing AMSET on NERSC
+<div class="highlight"><pre><span></span><code><span class="nv">MACOSX_DEPLOYMENT_TARGET</span><span class="o">=</span><span class="m">10</span>.9 pip install amset
+</code></pre></div>
 
-The BolzTraP2 dependency requires some configuration to be installed properly on
-CRAY systems. Accordingly, AMSET can be installed using:
-
-CXX=icpc CC=icc pip install amset
-</code></pre></div></p>
+<h2 id="installing-amset-on-nersc">Installing AMSET on NERSC<a class="headerlink" href="#installing-amset-on-nersc" title="Permanent link">&para;</a></h2>
+<p>The BolzTraP2 dependency requires some configuration to be installed properly on
+CRAY systems. Accordingly, AMSET can be installed using:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">CXX</span><span class="o">=</span>icpc <span class="nv">CC</span><span class="o">=</span>icc pip install amset
+</code></pre></div>
                 
               
               
@@ -500,8 +516,8 @@ CXX=icpc CC=icc pip install amset
       
     </div>
     
-      <script src="../assets/javascripts/vendor.83fe6e3c.min.js"></script>
-      <script src="../assets/javascripts/bundle.7e1cb91c.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
+      <script src="../assets/javascripts/vendor.a0c4167b.min.js"></script>
+      <script src="../assets/javascripts/bundle.fb26dd1d.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({

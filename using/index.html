@@ -13,7 +13,7 @@
       
       
       <link rel="shortcut icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.5">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -21,9 +21,9 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.df84b5fe.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.4b9ffd7b.min.css">
       
-        <link rel="stylesheet" href="../assets/stylesheets/palette.8435c73a.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.b79bcd20.min.css">
       
       
         
@@ -251,6 +251,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#from-the-python-api" class="md-nav__link">
+    From the Python API
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -374,6 +381,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#from-the-python-api" class="md-nav__link">
+    From the Python API
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -407,56 +421,61 @@ documentation. An example settings file is given
 <h2 id="from-the-command-line">From the command-line<a class="headerlink" href="#from-the-command-line" title="Permanent link">&para;</a></h2>
 <p>AMSET can be run from the command-line using the <code>amset</code> command. The help
 menu listing a summary of the command-line options can be printed using:</p>
-<p>amset -h
-<div class="highlight"><pre><span></span><code>By default, AMSET will look for a `vasprun.xml` file and `settings.yaml`
-file in the current directory. A different directory can be specified using
-the `directory` option, e.g.:
-
-amset --directory path/to/files
-</code></pre></div></p>
-<p>Any settings specified via the command line will override those in the settings
-file. For example, the interpolation factor can be easily controlled using:</p>
-<p>amset --interpolation-factor 20
-<div class="highlight"><pre><span></span><code>## From the Python API
-
-Greater configurability is available when running AMSET from the Python API.
-For example, the following snippet will look for a `vasprun.xml` and
-`settings.yaml` file in the current directory, then run AMSET.
-
-from amset.core.run import AmsetRunner
-
-runner = AmsetRunner.from_directory(directory=&#39;.&#39;)
-amset_data = runner.run()
-</code></pre></div></p>
-<p>The API allows for easy convergence of parameters. For example,
-the following snippet will run AMSET using multiple interpolation factors.</p>
-<p>from amset.core.run import AmsetRunner</p>
-<p>settings = {'interpolation_factor': 5}</p>
-<p>outputs = []
-for i_factor in range(10, 100, 10):
-    settings["interpolation_factor"] = i_factor</p>
-<div class="codehilite"><pre><span></span><code><span class="err">runner = AmsetRunner.from_directory(directory=&#39;.&#39;, settings_override=settings)</span>
-<span class="err">outputs.append(runner.run())</span>
+<div class="highlight"><pre><span></span><code>amset -h
 </code></pre></div>
 
+<p>By default, AMSET will look for a <code>vasprun.xml</code> file and <code>settings.yaml</code>
+file in the current directory. A different directory can be specified using
+the <code>directory</code> option, e.g.:</p>
+<div class="highlight"><pre><span></span><code>amset --directory path/to/files
+</code></pre></div>
 
-<p><code>When running AMSET from the API, it is not necessary to use a settings file
-at all. Instead the settings can be passed as a dictionary. For example:
+<p>Any settings specified via the command line will override those in the settings
+file. For example, the interpolation factor can be easily controlled using:</p>
+<div class="highlight"><pre><span></span><code>amset --interpolation-factor <span class="m">20</span>
+</code></pre></div>
 
-from amset.core.run import AmsetRunner
+<h2 id="from-the-python-api">From the Python API<a class="headerlink" href="#from-the-python-api" title="Permanent link">&para;</a></h2>
+<p>Greater configurability is available when running AMSET from the Python API.
+For example, the following snippet will look for a <code>vasprun.xml</code> and
+<code>settings.yaml</code> file in the current directory, then run AMSET.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
 
-settings = {
-    "interpolation_factor": 150,
-    "doping": [1e15, 1e16, 1e17, 1e18],
-    "temperatures": [300],
+<span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+<span class="n">amset_data</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</code></pre></div>
 
-    "deformation_potential": (6.5, 6.5),
-    "elastic_constant": 190,
-    "static_dielectric": 13.1,
-}
+<p>The API allows for easy convergence of parameters. For example,
+the following snippet will run AMSET using multiple interpolation factors.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
 
-runner = AmsetRunner.from_vasprun("vasprun.xml.gz", settings)
-amset_data = runner.run()</code></p>
+<span class="n">settings</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;interpolation_factor&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
+
+<span class="n">outputs</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">i_factor</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">10</span><span class="p">):</span>
+    <span class="n">settings</span><span class="p">[</span><span class="s2">&quot;interpolation_factor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i_factor</span>
+
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">settings_override</span><span class="o">=</span><span class="n">settings</span><span class="p">)</span>
+    <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">())</span>
+</code></pre></div>
+
+<p>When running AMSET from the API, it is not necessary to use a settings file
+at all. Instead the settings can be passed as a dictionary. For example:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
+
+<span class="n">settings</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;interpolation_factor&quot;</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>
+    <span class="s2">&quot;doping&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1e15</span><span class="p">,</span> <span class="mf">1e16</span><span class="p">,</span> <span class="mf">1e17</span><span class="p">,</span> <span class="mf">1e18</span><span class="p">],</span>
+    <span class="s2">&quot;temperatures&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">300</span><span class="p">],</span>
+
+    <span class="s2">&quot;deformation_potential&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">6.5</span><span class="p">,</span> <span class="mf">6.5</span><span class="p">),</span>
+    <span class="s2">&quot;elastic_constant&quot;</span><span class="p">:</span> <span class="mi">190</span><span class="p">,</span>
+    <span class="s2">&quot;static_dielectric&quot;</span><span class="p">:</span> <span class="mf">13.1</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_vasprun</span><span class="p">(</span><span class="s2">&quot;vasprun.xml.gz&quot;</span><span class="p">,</span> <span class="n">settings</span><span class="p">)</span>
+<span class="n">amset_data</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</code></pre></div>
                 
               
               
@@ -527,8 +546,8 @@ amset_data = runner.run()</code></p>
       
     </div>
     
-      <script src="../assets/javascripts/vendor.83fe6e3c.min.js"></script>
-      <script src="../assets/javascripts/bundle.7e1cb91c.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
+      <script src="../assets/javascripts/vendor.a0c4167b.min.js"></script>
+      <script src="../assets/javascripts/bundle.fb26dd1d.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({
