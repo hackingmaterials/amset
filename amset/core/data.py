@@ -113,11 +113,16 @@ class AmsetData(MSONable):
 
         self.overlap_calculator = overlap_calculator
 
-    def calculate_dos(self, estep: float = defaults["dos_estep"]):
+    def calculate_dos(
+        self,
+        estep: float = defaults["dos_estep"],
+        progress_bar: bool = defaults["print_log"]
+    ):
         """
         Args:
             estep: The DOS energy step in eV, where smaller numbers give more
                 accuracy but are more expensive.
+            progress_bar: Show a progress bar for DOS calculation.
         """
         emin = np.min([np.min(spin_eners) for spin_eners in self.energies.values()])
         emax = np.max([np.max(spin_eners) for spin_eners in self.energies.values()])
@@ -138,7 +143,7 @@ class AmsetData(MSONable):
         logger.debug("Generating tetrahedral DOS:")
         t0 = time.perf_counter()
         emesh, dos = self.tetrahedral_band_structure.get_density_of_states(
-            energies=energies, progress_bar=True
+            energies=energies, progress_bar=progress_bar
         )
         log_time_taken(t0)
 

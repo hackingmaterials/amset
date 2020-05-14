@@ -147,8 +147,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
 
         self._prefactor = (
             impurity_concentration
-            * 4
-            * np.pi
+            * (4 * np.pi) ** 2
             * units.Second
             / self.properties["static_dielectric"] ** 2
         )

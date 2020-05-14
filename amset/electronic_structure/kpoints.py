@@ -209,7 +209,6 @@ def get_kpoints_tetrahedral(
 
 def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool = True):
     """Calculate reciprocal-space sampling with real-space cut-off.
-
     """
     reciprocal_lattice = structure.lattice.reciprocal_lattice_crystallographic
 

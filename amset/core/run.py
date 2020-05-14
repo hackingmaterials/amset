@@ -57,8 +57,7 @@ class AmsetRunner(MSONable):
 
         # set materials and performance parameters
         # if the user doesn't specify a value then use the default
-        self.settings = copy.deepcopy(defaults)
-        self.settings.update(settings)
+        self.settings = validate_settings(settings)
 
     def run(
         self,
@@ -167,7 +166,9 @@ class AmsetRunner(MSONable):
         log_banner("DOS")
         t0 = time.perf_counter()
 
-        amset_data.calculate_dos(estep=self.settings["dos_estep"])
+        amset_data.calculate_dos(
+            estep=self.settings["dos_estep"], progress_bar=self.settings["print_log"]
+        )
         amset_data.set_doping_and_temperatures(
             self.settings["doping"], self.settings["temperatures"]
         )
@@ -191,6 +192,7 @@ class AmsetRunner(MSONable):
             amset_data,
             cutoff_pad,
             scattering_type=self.settings["scattering_type"],
+            progress_bar=self.settings["print_log"],
         )
 
         amset_data.set_scattering_rates(
@@ -205,6 +207,7 @@ class AmsetRunner(MSONable):
             amset_data,
             separate_mobility=self.settings["separate_mobility"],
             calculate_mobility=self.settings["calculate_mobility"],
+            progress_bar=self.settings["print_log"],
         )
         amset_data.set_transport_properties(*transport_properties)
         return amset_data, time.perf_counter() - t0
@@ -255,8 +258,6 @@ class AmsetRunner(MSONable):
         band_structure = vasprun.get_band_structure()
         nelect = vasprun.parameters["NELECT"]
         settings["soc"] = vasprun.parameters["LSORBIT"]
-
-        settings = validate_settings(settings)
 
         return AmsetRunner(band_structure, nelect, settings)
 

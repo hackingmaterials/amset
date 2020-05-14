@@ -25,6 +25,7 @@ from amset.log import log_list, log_time_taken
 from amset.scattering.basic import AbstractBasicScattering
 from amset.scattering.elastic import AbstractElasticScattering
 from amset.scattering.inelastic import AbstractInelasticScattering
+from amset.constants import defaults
 from amset.util import get_progress_bar
 from BoltzTraP2 import units
 from BoltzTraP2.fd import FD
@@ -52,7 +53,8 @@ class ScatteringCalculator(object):
         amset_data: AmsetData,
         cutoff_pad: float,
         scattering_type: Union[str, List[str], float] = "auto",
-        nworkers: int = -1,
+        nworkers: int = defaults["nworkers"],
+        progress_bar: bool = defaults["print_log"],
     ):
         if amset_data.temperatures is None or amset_data.doping is None:
             raise RuntimeError(
@@ -64,6 +66,7 @@ class ScatteringCalculator(object):
         self.nworkers = nworkers if nworkers != -1 else cpu_count()
         self.scatterers = self.get_scatterers(scattering_type, settings, amset_data)
         self.amset_data = amset_data
+        self.progress_bar = progress_bar
 
         buf = 0.05 * units.eV
         if self.amset_data.fd_cutoffs:
@@ -228,7 +231,9 @@ class ScatteringCalculator(object):
 
         # if the k-point density is low, some k-points may not have other k-points
         # within the energy tolerance leading to zero rates
-        rates = _interpolate_zero_rates(rates, kpoints, masks)
+        rates = _interpolate_zero_rates(
+            rates, kpoints, masks, progress_bar=self.progress_bar
+        )
 
         return rates
 
@@ -263,7 +268,10 @@ class ScatteringCalculator(object):
             elastic_rates = np.zeros(elastic_prefactors.shape + (nkpoints,))
 
             if len(k_idx_in_cutoff) > 0:
-                pbar = get_progress_bar(iterable, desc="elastic")
+                if self.progress_bar:
+                    pbar = get_progress_bar(iterable, desc="elastic")
+                else:
+                    pbar = iterable
                 for k_idx, ir_idx, in pbar:
                     elastic_rates[..., ir_idx] = self.calculate_rate(spin, b_idx, k_idx)
 
@@ -279,7 +287,10 @@ class ScatteringCalculator(object):
             energy_diff = f_pop * 1e12 * 2 * np.pi * hbar * units.eV
 
             if len(k_idx_in_cutoff) > 0:
-                pbar = get_progress_bar(iterable, desc="inelastic")
+                if self.progress_bar:
+                    pbar = get_progress_bar(iterable, desc="inelastic")
+                else:
+                    pbar = iterable
                 inelastic_rates[:, :, :, ir_idx_in_cutoff] = 0
                 for k_idx, ir_idx in pbar:
                     for ediff in [energy_diff, -energy_diff]:
@@ -402,12 +413,20 @@ class ScatteringCalculator(object):
         return np.sum(rates, axis=-1)
 
 
-def _interpolate_zero_rates(rates, kpoints, masks: Optional = None):
+def _interpolate_zero_rates(
+    rates,
+    kpoints,
+    masks: Optional = None,
+    progress_bar: bool = defaults["print_log"],
+):
     # loop over all scattering types, doping, temps, and bands and interpolate
     # zero scattering rates based on the nearest k-point
     logger.info("Interpolating missing scattering rates")
     n_rates = sum([np.product(rates[spin].shape[:-1]) for spin in rates])
-    pbar = get_progress_bar(total=n_rates, desc="progress")
+    if progress_bar:
+        pbar = get_progress_bar(total=n_rates, desc="progress")
+    else:
+        pbar = None
 
     t0 = time.perf_counter()
     k_idx = np.arange(len(kpoints))
@@ -443,8 +462,11 @@ def _interpolate_zero_rates(rates, kpoints, masks: Optional = None):
                 )
                 # rates[spin][s, d, t, b, zero_rate_idx] = 1e15
 
-            pbar.update()
-    pbar.close()
+            if pbar is not None:
+                pbar.update()
+
+    if pbar is not None:
+        pbar.close()
     log_time_taken(t0)
 
     return rates

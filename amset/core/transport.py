@@ -23,6 +23,7 @@ def solve_boltzman_transport_equation(
     amset_data: AmsetData,
     calculate_mobility: bool = defaults["calculate_mobility"],
     separate_mobility: bool = defaults["separate_mobility"],
+    progress_bar: bool = defaults["print_log"],
 ):
     has_doping = amset_data.doping is not None
     has_temps = amset_data.temperatures is not None
@@ -34,7 +35,9 @@ def solve_boltzman_transport_equation(
         "Calculating conductivity, Seebeck, and electronic thermal conductivity"
     )
     t0 = time.perf_counter()
-    sigma, seebeck, kappa = _calculate_transport_properties(amset_data)
+    sigma, seebeck, kappa = _calculate_transport_properties(
+        amset_data, progress_bar=progress_bar
+    )
     log_time_taken(t0)
 
     if not calculate_mobility:
@@ -48,14 +51,19 @@ def solve_boltzman_transport_equation(
 
     logger.info("Calculating overall mobility")
     t0 = time.perf_counter()
-    mobility = {"overall": _calculate_mobility(amset_data, np.arange(n_scats))}
+    overall = _calculate_mobility(
+        amset_data, np.arange(n_scats), pbar_label="mobility" if progress_bar else None
+    )
+    mobility = {"overall": overall}
     log_time_taken(t0)
 
     if separate_mobility:
         logger.info("Calculating individual scattering rate mobilities")
         t0 = time.perf_counter()
         for rate_idx, name in enumerate(amset_data.scattering_labels):
-            mobility[name] = _calculate_mobility(amset_data, rate_idx, pbar_label=name)
+            mobility[name] = _calculate_mobility(
+                amset_data, rate_idx, pbar_label=name if progress_bar else None
+            )
         log_time_taken(t0)
 
     return sigma, seebeck, kappa, mobility
@@ -76,9 +84,13 @@ def _calculate_mobility(
         amset_data.dos.energies, sum_spins=True, use_cached_weights=True
     )
 
-    pbar = get_progress_bar(
-        iterable=list(np.ndindex(amset_data.fermi_levels.shape)), desc=pbar_label
-    )
+    if pbar_label is not None:
+        pbar = get_progress_bar(
+            iterable=list(np.ndindex(amset_data.fermi_levels.shape)), desc=pbar_label
+        )
+    else:
+        pbar = list(np.ndindex(amset_data.fermi_levels.shape))
+
     for n, t in pbar:
         br = {s: np.arange(len(amset_data.energies[s])) for s in amset_data.spins}
         cb_idx = {s: amset_data.vb_idx[s] + 1 for s in amset_data.spins}
@@ -128,7 +140,9 @@ def _calculate_mobility(
     return mobility
 
 
-def _calculate_transport_properties(amset_data):
+def _calculate_transport_properties(
+    amset_data, progress_bar: bool = defaults["print_log"]
+):
     n_t_size = (len(amset_data.doping), len(amset_data.temperatures))
 
     sigma = np.zeros(n_t_size + (3, 3))
@@ -140,7 +154,12 @@ def _calculate_transport_properties(amset_data):
         amset_data.dos.energies, sum_spins=True, use_cached_weights=True
     )
 
-    pbar = get_progress_bar(iterable=list(np.ndindex(n_t_size)), desc="transport")
+    iterable = list(np.ndindex(n_t_size))
+    if progress_bar:
+        pbar = get_progress_bar(iterable=iterable, desc="transport")
+    else:
+        pbar = iterable
+
     # solve sigma, seebeck, kappa and hall using information from all bands
     for n, t in pbar:
         lifetimes = {
