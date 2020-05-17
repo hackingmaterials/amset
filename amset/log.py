@@ -21,13 +21,12 @@ def initialize_amset_logger(directory=".", filename=None, level=None):
     Args:
         directory (str): Path to the folder where the log file will be written.
         filename (str): The log filename.
-        level (int): The log level. For example logging.DEBUG.
 
     Returns:
         (Logger): A logging instance with customized formatter and handlers.
     """
 
-    level = level or logging.DEBUG
+    level = level or logging.INFO
     filename = filename or "amset.log"
 
     log = logging.getLogger("amset")

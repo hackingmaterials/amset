@@ -49,7 +49,7 @@ class PolarOpticalScattering(AbstractInelasticScattering):
 
     def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
         super().__init__(materials_properties, amset_data)
-        logger.debug("Initializing POP scattering")
+        logger.info("Initializing POP scattering")
 
         # convert from THz to angular frequency in Hz
         self.pop_frequency = (

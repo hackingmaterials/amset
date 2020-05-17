@@ -115,7 +115,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
 
         self._rlat = amset_data.structure.lattice.reciprocal_lattice.matrix
 
-        logger.debug("Initializing IMP scattering")
+        logger.info("Initializing IMP scattering")
 
         self.inverse_screening_length_sq = calculate_inverse_screening_length_sq(
             amset_data, self.properties["static_dielectric"]
@@ -140,14 +140,15 @@ class IonizedImpurityScattering(AbstractElasticScattering):
                 )
             )
 
-        logger.debug(
+        logger.info(
             "Inverse screening length (β) and impurity concentration " "(Nᵢᵢ):"
         )
-        log_list(imp_info, level=logging.DEBUG)
+        log_list(imp_info)
 
         self._prefactor = (
             impurity_concentration
-            * (4 * np.pi) ** 2
+            * 4
+            * np.pi
             * units.Second
             / self.properties["static_dielectric"] ** 2
         )
