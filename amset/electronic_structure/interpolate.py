@@ -707,7 +707,7 @@ def _shift_energies(
         ) * hartree_to_ev
 
         scissor = bandgap - interp_bandgap
-        logger.debug(
+        logger.info(
             "Bandgap set to {:.3f} eV, automatically scissoring by "
             "{:.3f} eV".format(bandgap, scissor)
         )

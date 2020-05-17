@@ -83,7 +83,7 @@ class ScatteringCalculator(object):
         # precompute the coefficients we will need to for calculating overlaps
         # could do this on the fly but caching will really speed things up.
         # we need to interpolate as the wavefunction coefficients were calculated on a
-        # dense mesh but we calculate the orbital overlap on a fine mesh.
+        # coarse mesh but we calculate the orbital overlap on a fine mesh.
         self._coeffs = {}
         self._coeffs_mapping = {}
         tbs = self.amset_data.tetrahedral_band_structure
@@ -161,7 +161,7 @@ class ScatteringCalculator(object):
 
             if not scattering_type:
                 raise ValueError(
-                    "No scattering mechanisms possible with " "material properties"
+                    "No scattering mechanisms possible with material properties"
                 )
 
         else:
@@ -222,9 +222,9 @@ class ScatteringCalculator(object):
                 info = [
                     "max rate: {:.4g}".format(rates[spin][..., b_idx, :].max()),
                     "min rate: {:.4g}".format(rates[spin][..., b_idx, :].min()),
-                    "time: {:.4f} s".format(time.perf_counter() - t0),
                 ]
-                log_list(info)
+                log_list(info, level=logging.DEBUG)
+                log_list(["time: {:.4f} s".format(time.perf_counter() - t0)])
 
             # fill in k-points outside Fermi-Dirac cutoffs with a default value
             rates[spin][masks[spin]] = 1e14
@@ -248,7 +248,7 @@ class ScatteringCalculator(object):
         fill_mask = mask[self.amset_data.ir_to_full_kpoint_mapping]
 
         n = np.sum(~fill_mask)
-        logger.debug("  ├── # k-points within Fermi–Dirac cut-offs: {}".format(n))
+        logger.info("  ├── # k-points within Fermi–Dirac cut-offs: {}".format(n))
 
         k_idx_in_cutoff = kpoints_idx[~mask]
         ir_idx_in_cutoff = np.arange(nkpoints)[~mask]
@@ -361,6 +361,8 @@ class ScatteringCalculator(object):
         base_kpoints = tet_kpoints[:, 0][:, None, :]
         k_diff = pbc_diff(tet_kpoints, base_kpoints) + pbc_diff(base_kpoints, k)
 
+        # project the tetrahedron cross sections onto 2D surfaces in either a triangle
+        # or quadrilateral
         k_diff = np.dot(k_diff, rlat)
         intersections = get_cross_section_values(
             k_diff, *tet_contributions, average=False
@@ -395,20 +397,20 @@ class ScatteringCalculator(object):
             rates = [s.factor(qpoint_norm_sq) for s in self.elastic_scatterers]
 
         rates = np.array(rates)
-
-        # sometimes the projected intersections can be nan when the density of states
-        # contribution is infinitesimally small; this catches those errors
-        rates[np.isnan(rates)] = 0
+        rates /= self.amset_data.structure.lattice.reciprocal_lattice.volume
+        rates *= tet_overlap[mapping] * weights * mrta_factor
+        # rates *= weights * mrta_factor
 
         # this is too expensive vs tetrahedron integration and doesn't add much more
         # accuracy; could offer this as an option
         # overlap = self.amset_data.overlap_calculator.get_overlap(
         #     spin, b_idx, k, tet_mask[0][mapping], k_primes
         # )
-
-        rates /= self.amset_data.structure.lattice.reciprocal_lattice.volume
         # rates *= overlap * weights * mrta_factor
-        rates *= tet_overlap[mapping] * weights * mrta_factor
+
+        # sometimes the projected intersections can be nan when the density of states
+        # contribution is infinitesimally small; this catches those errors
+        rates[np.isnan(rates)] = 0
 
         return np.sum(rates, axis=-1)
 
@@ -450,15 +452,13 @@ def _interpolate_zero_rates(
                 rates[spin][s, d, t, b, mask] += small_val
 
             elif np.sum(non_zero_rates) != np.sum(mask):
-                # electronic_structure seems to work best when all the kpoints are +ve
-                # therefore add 0.5
-                # Todo: Use cartesian coordinates (will be more robust to
-                #  oddly shaped cells)
+                # seems to work best when all the kpoints are +ve therefore add 0.5
+                # Todo: Use cartesian coordinates?
                 rates[spin][s, d, t, b, zero_rate_idx] = griddata(
                     points=kpoints[non_zero_rate_idx] + 0.5,
                     values=rates[spin][s, d, t, b, non_zero_rate_idx],
                     xi=kpoints[zero_rate_idx] + 0.5,
-                    method="nearest",
+                    method="linear",
                 )
                 # rates[spin][s, d, t, b, zero_rate_idx] = 1e15
 
