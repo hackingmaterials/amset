@@ -38,11 +38,21 @@ class MRTACalculator(object):
         # kpoints[ikx][iky][ikz] = [kx, ky, kz]
         grid_kpoints = kpoints[sort_idx].reshape(kpoint_mesh + (3,))
 
+        # Expand the k-point mesh to account for periodic boundary conditions
+        grid_kpoints = np.pad(
+            grid_kpoints, ((1, 1), (1, 1), (1, 1), (0, 0)), mode="wrap"
+        )
+        grid_kpoints[0, :, :] -= [1, 0, 0]
+        grid_kpoints[:, 0, :] -= [0, 1, 0]
+        grid_kpoints[:, :, 0] -= [0, 0, 1]
+        grid_kpoints[-1, :, :] += [1, 0, 0]
+        grid_kpoints[:, -1, :] += [0, 1, 0]
+        grid_kpoints[:, :, -1] += [0, 0, 1]
+
         x = grid_kpoints[:, 0, 0, 0]
         y = grid_kpoints[0, :, 0, 1]
         z = grid_kpoints[0, 0, :, 2]
 
-        # TODO: Expand the k-point mesh to account for periodic boundary conditions
         self.interpolators = {}
         for spin, spin_velocities in velocities.items():
             nbands = spin_velocities.shape[0]
@@ -52,6 +62,11 @@ class MRTACalculator(object):
             sorted_velocities = spin_velocities[:, sort_idx]
             grid_shape = (nbands,) + kpoint_mesh + (3,)
             grid_velocities = sorted_velocities.reshape(grid_shape)
+
+            # wrap the velocities to account for PBC
+            grid_velocities = np.pad(
+                grid_velocities, ((0, 0), (1, 1), (1, 1), (1, 1), (0, 0)), mode="wrap"
+            )
 
             if nbands == 1:
                 # this can cause a bug in RegularGridInterpolator. Have to fake

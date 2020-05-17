@@ -50,13 +50,23 @@ class WavefunctionOverlapCalculator(object):
         # kpoints[ikx][iky][ikz] = [kx, ky, kz]
         grid_kpoints = kpoints[sort_idx].reshape(mesh_dim + (3,))
 
+        # Expand the k-point mesh to account for periodic boundary conditions
+        grid_kpoints = np.pad(
+            grid_kpoints, ((1, 1), (1, 1), (1, 1), (0, 0)), mode="wrap"
+        )
+        grid_kpoints[0, :, :] -= [1, 0, 0]
+        grid_kpoints[:, 0, :] -= [0, 1, 0]
+        grid_kpoints[:, :, 0] -= [0, 0, 1]
+        grid_kpoints[-1, :, :] += [1, 0, 0]
+        grid_kpoints[:, -1, :] += [0, 1, 0]
+        grid_kpoints[:, :, -1] += [0, 0, 1]
+
         x = grid_kpoints[:, 0, 0, 0]
         y = grid_kpoints[0, :, 0, 1]
         z = grid_kpoints[0, 0, :, 2]
 
         self.nbands = {s: c.shape[0] for s, c in coefficients.items()}
 
-        # TODO: Expand the k-point mesh to account for periodic boundary conditions
         self.interpolators = {}
         for spin, spin_coefficients in coefficients.items():
             nbands = spin_coefficients.shape[0]
@@ -67,6 +77,11 @@ class WavefunctionOverlapCalculator(object):
             sorted_coefficients = spin_coefficients[:, sort_idx]
             grid_shape = (nbands,) + mesh_dim + (ncoefficients,)
             grid_coefficients = sorted_coefficients.reshape(grid_shape)
+
+            # wrap the coefficients to account for PBC
+            grid_coefficients = np.pad(
+                grid_coefficients, ((0, 0), (1, 1), (1, 1), (1, 1), (0, 0)), mode="wrap"
+            )
 
             if nbands == 1:
                 # this can cause a bug in RegularGridInterpolator. Have to fake
