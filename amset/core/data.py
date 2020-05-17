@@ -130,7 +130,7 @@ class AmsetData(MSONable):
         energies = np.linspace(emin, emax, epoints)
         dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
 
-        logger.debug("DOS parameters:")
+        logger.info("DOS parameters:")
         log_list(
             [
                 "emin: {:.2f} eV".format(emin / units.eV),
@@ -140,7 +140,7 @@ class AmsetData(MSONable):
             ]
         )
 
-        logger.debug("Generating tetrahedral DOS:")
+        logger.info("Generating tetrahedral DOS:")
         t0 = time.perf_counter()
         emesh, dos = self.tetrahedral_band_structure.get_density_of_states(
             energies=energies, progress_bar=progress_bar
