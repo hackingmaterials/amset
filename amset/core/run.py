@@ -14,7 +14,7 @@ from monty.json import MSONable
 from tabulate import tabulate
 
 from amset import __version__
-from amset.constants import bohr_to_cm, defaults, hbar
+from amset.constants import bohr_to_cm, hbar
 from amset.core.transport import solve_boltzman_transport_equation
 from amset.electronic_structure.interpolate import Interpolater
 from amset.electronic_structure.overlap import (
@@ -90,7 +90,7 @@ class AmsetRunner(MSONable):
         )
 
         if return_usage_stats:
-            usage_stats["max memory"] = mem_usage[0]
+            usage_stats["max memory"] = mem_usage
             return amset_data, usage_stats
 
         else:
@@ -121,7 +121,7 @@ class AmsetRunner(MSONable):
         timing["scattering"] = scattering_time
 
         amset_data, transport_time = self._do_transport(amset_data)
-        timing["transport"] = scattering_time
+        timing["transport"] = transport_time
 
         filepath, writing_time = self._do_writing(amset_data, directory, prefix)
         timing["writing"] = writing_time
