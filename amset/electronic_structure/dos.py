@@ -72,12 +72,12 @@ class FermiDos(Dos, MSONable):
         else:
             self.nelect = num_electrons
 
-        logger.debug(
+        logger.info(
             "Intrinsic DOS Fermi level: {:.4f} eV".format(
                 self.efermi * hartree_to_ev if atomic_units else self.efermi
             )
         )
-        logger.debug("DOS contains {:.3f} electrons".format(self.nelect))
+        logger.info("DOS contains {:.3f} electrons".format(self.nelect))
 
     def get_doping(
         self,
