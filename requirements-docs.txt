@@ -1,5 +1,5 @@
 mkdocs==1.1.1
-mkdocs-material==5.1.7
+mkdocs-material==5.2.0
 mkdocs-minify-plugin==0.3.0
 mkdocs-macros-plugin==0.4.8
 markdown-include==0.5.1
