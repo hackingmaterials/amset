@@ -428,12 +428,14 @@ class TetrahedralBandStructure(object):
                     )
 
                 nbands = len(spin_integrand)
+                integrand_shape = spin_integrand.shape[2:]
                 n_ir_kpoints = len(self.ir_kpoints_idx)
-                new_integrand = np.zeros((nbands, n_ir_kpoints, 3, 3))
+                new_integrand = np.zeros((nbands, n_ir_kpoints) + integrand_shape)
 
                 flat_k = np.tile(self.ir_kpoint_mapping, nbands)
                 flat_b = np.repeat(np.arange(nbands), len(self.ir_kpoint_mapping))
-                flat_integrand = spin_integrand.reshape(-1, 3, 3)
+                flat_integrand = spin_integrand.reshape((-1, ) + integrand_shape)
+                # flat_integrand = spin_integrand.reshape(-1, 3, 3)
 
                 # sum integrand at all symmetry equivalent points, new_integrand
                 # has shape (nbands, n_ir_kpoints)
@@ -466,13 +468,14 @@ class TetrahedralBandStructure(object):
         use_cached_weights=False,
         progress_bar=False,
     ):
-        # integrand should have the shape (nbands, n_ir_kpts, 3, 3)
+        # integrand should have the shape (nbands, n_ir_kpts, ...)
         # the integrand should have been summed at all equivalent k-points
         # TODO: add support for variable shaped integrands
         if integrand is None:
             dos = np.zeros_like(energies)
         else:
-            dos = np.zeros((len(energies), 3, 3))
+            integrand_shape = integrand.shape[2:]
+            dos = np.zeros((len(energies), ) + integrand_shape)
 
         if use_cached_weights:
             if self._weights_cache is None:
@@ -518,11 +521,13 @@ class TetrahedralBandStructure(object):
                 )
 
             else:
+                # expand weights to match the dimensions of the integrand
+                expand_axis = [1 + i for i in range(len(integrand.shape[2:]))]
+                expand_weights = np.expand_dims(weights[weights_mask], axis=expand_axis)
+
                 # don't need to include the k-point multiplicity as this is included by
                 # pre-summing the integrand at symmetry equivalent points
-                dos[i] = np.sum(
-                    weights[weights_mask, None, None] * integrand[weights_mask], axis=0
-                )
+                dos[i] = np.sum(expand_weights * integrand[weights_mask], axis=0)
 
         if not use_cached_weights:
             self._weights_cache[spin] = np.array(all_weights)
