@@ -51,7 +51,7 @@ if __name__ == "__main__":
         packages=find_packages(),
         package_data={
             "amset": [
-                "defaults.yaml", "plot/asmet_base.mplstyle", "plot/revtex.mplstyle"
+                "defaults.yaml", "plot/amset_base.mplstyle", "plot/revtex.mplstyle"
             ]
         },
         data_files=["LICENSE", "requirements.txt"],
