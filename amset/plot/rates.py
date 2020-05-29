@@ -11,7 +11,6 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
-
 _legend_kwargs = {"loc": "upper left", "bbox_to_anchor": (1, 1), "frameon": False}
 
 
@@ -25,21 +24,21 @@ class RatesPlotter(BaseAmsetPlotter):
 
     @styled_plot(amset_base_style)
     def get_plot(
-        self,
-        plot_fd_tols: bool = False,
-        plot_total_rate: bool = False,
-        ymin: float = None,
-        ymax: float = None,
-        xmin: float = None,
-        xmax: float = None,
-        normalize_energy: bool = True,
-        separate_rates: bool = True,
-        doping_idx=0,
-        temperature_idx=0,
-        legend=True,
-        style=None,
-        no_base_style=False,
-        fonts=None,
+            self,
+            plot_fd_tols: bool = False,
+            plot_total_rate: bool = False,
+            ymin: float = None,
+            ymax: float = None,
+            xmin: float = None,
+            xmax: float = None,
+            normalize_energy: bool = True,
+            separate_rates: bool = True,
+            doping_idx=0,
+            temperature_idx=0,
+            legend=True,
+            style=None,
+            no_base_style=False,
+            fonts=None,
     ):
         if normalize_energy and self.is_metal:
             norm_e = self.fermi_levels[0][0]
@@ -77,7 +76,7 @@ class RatesPlotter(BaseAmsetPlotter):
         def get_size(nplots):
             width = base_size * nplots
             width += (
-                base_size * 0.25 * (nplots - 1)
+                    base_size * 0.25 * (nplots - 1)
             )  # account for spacing between plots
             return width
 
@@ -128,24 +127,26 @@ class RatesPlotter(BaseAmsetPlotter):
         return plt
 
     def plot_rates_to_axis(
-        self,
-        ax,
-        doping_idx,
-        temperature_idx,
-        separate_rates=True,
-        plot_total_rate: bool = False,
-        plot_fd_tols: bool = True,
-        show_legend: bool = True,
-        legend_kwargs=None,
-        ymin=None,
-        ymax=None,
-        xmin=None,
-        xmax=None,
-        normalize_energy=0,
+            self,
+            ax,
+            doping_idx,
+            temperature_idx,
+            separate_rates=True,
+            plot_total_rate: bool = False,
+            plot_fd_tols: bool = True,
+            show_legend: bool = True,
+            legend_kwargs=None,
+            ymin=None,
+            ymax=None,
+            xmin=None,
+            xmax=None,
+            normalize_energy=0,
+            plot_lifetimes=False,
+            scaling_factor=1
     ):
         rates = self.plot_rates[:, doping_idx, temperature_idx]
         if separate_rates:
-            labels = self.scattering_labels
+            labels = self.scattering_labels.tolist()
         else:
             rates = np.sum(rates, axis=0)[None, ...]
             labels = ["overall"]
@@ -156,15 +157,20 @@ class RatesPlotter(BaseAmsetPlotter):
         labels = deepcopy(labels)
         if plot_total_rate:
             # add total rates column
-            rates = np.concatenate((rates, rates.sum(axis=0)[None, ...]))
+            rates = np.concatenate((rates, np.sum(rates, axis=0)[None, ...]))
             labels += ["total"]
 
         min_fd = self.fd_cutoffs[0]
         max_fd = self.fd_cutoffs[1]
         if not xmin:
             min_e = min_fd
+        else:
+            min_e = xmin
+
         if not xmax:
             max_e = max_fd
+        else:
+            max_e = xmax
 
         energies = self.plot_energies.ravel()
         energy_mask = (energies > min_e) & (energies < max_e)
@@ -173,9 +179,13 @@ class RatesPlotter(BaseAmsetPlotter):
         plt_rates = {}
         for label, rate in zip(labels, rates):
             rate = rate.ravel()
+            if plot_lifetimes:
+                rate = 1 / rate
+            rate *= scaling_factor
             plt_rates[label] = rate[energy_mask]
 
         rates_in_cutoffs = np.array(list(plt_rates.values()))
+
         ymin, ymax = _get_rate_ylims(rates_in_cutoffs, ymin=ymin, ymax=ymax)
 
         # convert energies to eV and normalise
@@ -204,14 +214,21 @@ class RatesPlotter(BaseAmsetPlotter):
         ax.semilogy()
         ax.set_ylim(ymin, ymax)
         ax.set_xlim((norm_min_e, norm_max_e))
-        ax.set(xlabel="Energy (eV)", ylabel="Scattering rate (s$^{-1}$)")
+        scaling_string = "{:g} ".format(scaling_factor) if scaling_factor != 1 else ""
+        if plot_lifetimes:
+            ylabel = "Scattering lifetime ({}s)".format(scaling_string)
+        else:
+            ylabel = "Scattering rate ({}s$^{{-1}}$)".format(scaling_string)
+
+        ax.set(xlabel="Energy (eV)", ylabel=ylabel)
 
         if show_legend:
             ax.legend(**legend_kwargs)
 
 
 def _get_rate_ylims(
-    rates, ymin: Optional[float] = None, ymax: Optional[float] = None, pad: float = 0.1
+        rates, ymin: Optional[float] = None, ymax: Optional[float] = None,
+        pad: float = 0.1
 ):
     rates = rates[np.isfinite(rates)]
 
