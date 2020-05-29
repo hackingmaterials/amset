@@ -40,6 +40,9 @@ class ElectronicStructurePlotter(object):
     def from_vasprun(cls, vasprun, **kwargs):
         from pymatgen.io.vasp import Vasprun
 
+        if isinstance(vasprun, Path):
+            vasprun = vasprun.as_posix()
+
         if isinstance(vasprun, str):
             vasprun_gz = vasprun + ".gz"
 
@@ -78,6 +81,9 @@ class ElectronicStructurePlotter(object):
     ):
         if width is None and plot_band_structure:
             width = 6
+
+        if self.energy_cutoff is None:
+            self.energy_cutoff = max([abs(emin or 6), abs(emax or 6)])
 
         if plot_band_structure:
             logger.info("Generating band structure...")
