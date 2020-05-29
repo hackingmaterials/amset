@@ -458,7 +458,7 @@ def _interpolate_zero_rates(
                     points=kpoints[non_zero_rate_idx] + 0.5,
                     values=rates[spin][s, d, t, b, non_zero_rate_idx],
                     xi=kpoints[zero_rate_idx] + 0.5,
-                    method="linear",
+                    method="nearest",
                 )
                 # rates[spin][s, d, t, b, zero_rate_idx] = 1e15
 
