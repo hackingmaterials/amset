@@ -60,7 +60,7 @@ class AmsetData(MSONable):
         self.num_electrons = num_electrons
         self.is_metal = is_metal
         self.vb_idx = vb_idx
-        self.spins = self.energies.keys()
+        self.spins = list(self.energies.keys())
 
         self.dos = None
         self.scattering_rates = None
@@ -226,9 +226,13 @@ class AmsetData(MSONable):
         log_list(fermi_level_info)
 
     def calculate_fd_cutoffs(
-        self, fd_tolerance: Optional[float] = 0.01, cutoff_pad: float = 0.0
+        self,
+        fd_tolerance: Optional[float] = 0.01,
+        cutoff_pad: float = 0.0,
+        max_moment: int = 2
     ):
         energies = self.dos.energies
+        dos = np.array(self.dos.get_densities())
 
         # three fermi integrals govern transport properties:
         #   1. df/de controls conductivity and mobility
@@ -237,42 +241,30 @@ class AmsetData(MSONable):
         # take the absolute sum of the integrals across all doping and
         # temperatures. this gives us the energies that are important for
         # transport
-
-        weights = np.zeros(energies.shape)
-        for n, t in np.ndindex(self.fermi_levels.shape):
-            ef = self.fermi_levels[n, t]
-            temp = self.temperatures[t]
-
-            dfde = -dFDde(energies, ef, temp * units.BOLTZMANN)
-            sigma_int = np.abs(dfde)
-            seeb_int = np.abs((energies - ef) * dfde)
-            ke_int = np.abs((energies - ef) ** 2 * dfde)
-
-            # normalize the transport integrals and sum
-            nt_weights = sigma_int / sigma_int.max()
-            nt_weights += seeb_int / seeb_int.max()
-            nt_weights += ke_int / ke_int.max()
-            weights = np.maximum(weights, nt_weights)
-
-        if not self.is_metal:
-            # weights should be zero in the band gap as there will be no density
-            vb_bands = [
-                np.max(self.energies[s][: self.vb_idx[s] + 1]) for s in self.spins
-            ]
-            cb_bands = [
-                np.min(self.energies[s][self.vb_idx[s] + 1 :]) for s in self.spins
-            ]
-            vbm_e = np.max(vb_bands)
-            cbm_e = np.min(cb_bands)
-            weights[(energies > vbm_e) & (energies < cbm_e)] = 0
-
-        weights /= np.max(weights)
-        cumsum = np.cumsum(weights)
-        cumsum /= np.max(cumsum)
-
         if fd_tolerance:
-            min_cutoff = energies[cumsum < fd_tolerance / 2].max()
-            max_cutoff = energies[cumsum > 1 - fd_tolerance / 2].min()
+
+            def get_min_max_cutoff(cumsum):
+                min_idx = np.where(cumsum < fd_tolerance / 2)[0].max()
+                max_idx = np.where(cumsum > (1 - fd_tolerance / 2))[0].min()
+                return energies[min_idx], energies[max_idx]
+
+            min_cutoff = np.inf
+            max_cutoff = -np.inf
+            for n, t in np.ndindex(self.fermi_levels.shape):
+                ef = self.fermi_levels[n, t]
+                temp = self.temperatures[t]
+                dfde = -dFDde(energies, ef, temp * units.BOLTZMANN)
+
+                for moment in range(max_moment + 1):
+                    weight = np.abs((energies - ef) ** moment * dfde)
+                    weight_dos = weight * dos
+                    weight_cumsum = np.cumsum(weight_dos)
+                    weight_cumsum /= np.max(weight_cumsum)
+
+                    cmin, cmax = get_min_max_cutoff(weight_cumsum)
+                    min_cutoff = min(cmin, min_cutoff)
+                    max_cutoff = max(cmax, max_cutoff)
+
         else:
             min_cutoff = energies.min()
             max_cutoff = energies.max()
@@ -308,6 +300,15 @@ class AmsetData(MSONable):
 
         self.scattering_rates = scattering_rates
         self.scattering_labels = scattering_labels
+
+    def fill_rates_outside_cutoffs(self, fill_value=1e14):
+        if self.scattering_rates is None:
+            raise ValueError("Scattering rates must be set before being filled")
+
+        min_fd, max_fd = self.fd_cutoffs
+        for spin, spin_energies in self.energies.items():
+            mask = (spin_energies < min_fd) | (spin_energies > max_fd)
+            self.scattering_rates[spin][:, :, :, mask] = fill_value
 
     def set_transport_properties(
         self,
