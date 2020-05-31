@@ -14,7 +14,7 @@ from monty.json import MSONable
 from tabulate import tabulate
 
 from amset import __version__
-from amset.constants import bohr_to_cm, hbar
+from amset.constants import bohr_to_cm, hbar, numeric_types
 from amset.core.transport import solve_boltzman_transport_equation
 from amset.electronic_structure.interpolate import Interpolater
 from amset.electronic_structure.overlap import (
@@ -120,13 +120,45 @@ class AmsetRunner(MSONable):
         amset_data, scattering_time = self._do_scattering(amset_data)
         timing["scattering"] = scattering_time
 
+        if isinstance(self.settings["fd_tol"], numeric_types):
+            amset_data, timing = self._do_fd_tol(amset_data, directory, prefix, timing)
+        else:
+            amset_data, timing = self._do_many_fd_tol(
+                amset_data, self.settings["fd_tol"], directory, prefix, timing
+            )
+
+        timing["total"] = time.perf_counter() - tt
+        return amset_data, timing
+
+    def _do_fd_tol(self, amset_data, directory, prefix, timing):
         amset_data, transport_time = self._do_transport(amset_data)
         timing["transport"] = transport_time
 
         filepath, writing_time = self._do_writing(amset_data, directory, prefix)
         timing["writing"] = writing_time
 
-        timing["total"] = time.perf_counter() - tt
+        return amset_data, timing
+
+    def _do_many_fd_tol(self, amset_data, fd_tols, directory, prefix, timing):
+        prefix = "" if prefix is None else prefix + "_"
+        cutoff_pad = _get_cutoff_pad(
+            self.settings["pop_frequency"], self.settings["scattering_type"]
+        )
+        orig_rates = copy.deepcopy(amset_data.scattering_rates)
+
+        for fd_tol in sorted(fd_tols)[::-1]:
+            # do smallest cutoff last, so the final amset_data is the best result
+            for spin in amset_data.spins:
+                amset_data.scattering_rates[spin][:] = orig_rates[spin][:]
+
+            amset_data.calculate_fd_cutoffs(fd_tol, cutoff_pad=cutoff_pad)
+            amset_data.fill_rates_outside_cutoffs(fill_value=1e14)
+
+            fd_prefix = prefix + "fd-{}".format(fd_tol)
+            _, timing = self._do_fd_tol(amset_data, directory, fd_prefix, timing)
+            timing["transport ({})".format(fd_tol)] = timing.pop("transport")
+            timing["writing ({})".format(fd_tol)] = timing.pop("writing")
+
         return amset_data, timing
 
     def _do_interpolation(self):
@@ -176,7 +208,12 @@ class AmsetRunner(MSONable):
         cutoff_pad = _get_cutoff_pad(
             self.settings["pop_frequency"], self.settings["scattering_type"]
         )
-        amset_data.calculate_fd_cutoffs(self.settings["fd_tol"], cutoff_pad=cutoff_pad)
+
+        if isinstance(self.settings["fd_tol"], numeric_types):
+            fd_tol = self.settings["fd_tol"]
+        else:
+            fd_tol = min(self.settings["fd_tol"])
+        amset_data.calculate_fd_cutoffs(fd_tol, cutoff_pad=cutoff_pad)
         return amset_data, time.perf_counter() - t0
 
     def _do_scattering(self, amset_data):
