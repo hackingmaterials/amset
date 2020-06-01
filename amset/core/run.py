@@ -131,6 +131,7 @@ class AmsetRunner(MSONable):
         return amset_data, timing
 
     def _do_fd_tol(self, amset_data, directory, prefix, timing):
+        amset_data.fill_rates_outside_cutoffs()
         amset_data, transport_time = self._do_transport(amset_data)
         timing["transport"] = transport_time
 
@@ -152,8 +153,6 @@ class AmsetRunner(MSONable):
                 amset_data.scattering_rates[spin][:] = orig_rates[spin][:]
 
             amset_data.calculate_fd_cutoffs(fd_tol, cutoff_pad=cutoff_pad)
-            amset_data.fill_rates_outside_cutoffs(fill_value=1e14)
-
             fd_prefix = prefix + "fd-{}".format(fd_tol)
             _, timing = self._do_fd_tol(amset_data, directory, fd_prefix, timing)
             timing["transport ({})".format(fd_tol)] = timing.pop("transport")

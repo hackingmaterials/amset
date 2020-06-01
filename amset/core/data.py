@@ -14,7 +14,7 @@ from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.mrta import MRTACalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
-from amset.util import cast_dict_list, groupby
+from amset.util import cast_dict_list, groupby, tensor_average
 from BoltzTraP2 import units
 from BoltzTraP2.fd import dFDde
 from pymatgen import Spin, Structure
@@ -232,7 +232,12 @@ class AmsetData(MSONable):
         max_moment: int = 2
     ):
         energies = self.dos.energies
-        dos = np.array(self.dos.get_densities())
+        vv = {s: v.transpose((0, 3, 1, 2)) for s, v in self.velocities_product.items()}
+        _, vvdos = self.tetrahedral_band_structure.get_density_of_states(
+            energies, integrand=vv, sum_spins=True, use_cached_weights=True,
+        )
+        vvdos = tensor_average(vvdos)
+        # vvdos = np.array(self.dos.get_densities())
 
         # three fermi integrals govern transport properties:
         #   1. df/de controls conductivity and mobility
@@ -257,7 +262,7 @@ class AmsetData(MSONable):
 
                 for moment in range(max_moment + 1):
                     weight = np.abs((energies - ef) ** moment * dfde)
-                    weight_dos = weight * dos
+                    weight_dos = weight * vvdos
                     weight_cumsum = np.cumsum(weight_dos)
                     weight_cumsum /= np.max(weight_cumsum)
 
@@ -301,14 +306,20 @@ class AmsetData(MSONable):
         self.scattering_rates = scattering_rates
         self.scattering_labels = scattering_labels
 
-    def fill_rates_outside_cutoffs(self, fill_value=1e14):
+    def fill_rates_outside_cutoffs(self, fill_value=None):
         if self.scattering_rates is None:
             raise ValueError("Scattering rates must be set before being filled")
 
         min_fd, max_fd = self.fd_cutoffs
+        snt_fill = fill_value
         for spin, spin_energies in self.energies.items():
             mask = (spin_energies < min_fd) | (spin_energies > max_fd)
-            self.scattering_rates[spin][:, :, :, mask] = fill_value
+            for s, n, t in np.ndindex(self.scattering_rates[spin].shape[:3]):
+                if fill_value is None:
+                    # get average log rate inside cutoffs
+                    snt_fill = np.log(self.scattering_rates[spin][s, n, t, ~mask])
+                    snt_fill = np.exp(snt_fill.mean())
+                self.scattering_rates[spin][s, n, t, mask] = snt_fill
 
     def set_transport_properties(
         self,
