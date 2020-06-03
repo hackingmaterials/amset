@@ -1,1 +1,1 @@
-pawpyseed==0.6.2
+pawpyseed==0.6.3
