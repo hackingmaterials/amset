@@ -133,7 +133,7 @@ def fft_worker(
         oqueue.put((index, eband, vvband, effective_mass, vb))
 
 
-def fermiintegrals(epsilon, dos, sigma, mur, Tr, dosweight=2., cdos=None):
+def fermiintegrals(epsilon, dos, sigma, mur, Tr, dosweight=2.0, cdos=None):
     """Compute the moments of the FD distribution over the band structure.
 
     Args:

@@ -24,21 +24,21 @@ class RatesPlotter(BaseAmsetPlotter):
 
     @styled_plot(amset_base_style)
     def get_plot(
-            self,
-            plot_fd_tols: bool = False,
-            plot_total_rate: bool = False,
-            ymin: float = None,
-            ymax: float = None,
-            xmin: float = None,
-            xmax: float = None,
-            normalize_energy: bool = True,
-            separate_rates: bool = True,
-            doping_idx=0,
-            temperature_idx=0,
-            legend=True,
-            style=None,
-            no_base_style=False,
-            fonts=None,
+        self,
+        plot_fd_tols: bool = False,
+        plot_total_rate: bool = False,
+        ymin: float = None,
+        ymax: float = None,
+        xmin: float = None,
+        xmax: float = None,
+        normalize_energy: bool = True,
+        separate_rates: bool = True,
+        doping_idx=0,
+        temperature_idx=0,
+        legend=True,
+        style=None,
+        no_base_style=False,
+        fonts=None,
     ):
         if normalize_energy and self.is_metal:
             norm_e = self.fermi_levels[0][0]
@@ -76,7 +76,7 @@ class RatesPlotter(BaseAmsetPlotter):
         def get_size(nplots):
             width = base_size * nplots
             width += (
-                    base_size * 0.25 * (nplots - 1)
+                base_size * 0.25 * (nplots - 1)
             )  # account for spacing between plots
             return width
 
@@ -127,22 +127,22 @@ class RatesPlotter(BaseAmsetPlotter):
         return plt
 
     def plot_rates_to_axis(
-            self,
-            ax,
-            doping_idx,
-            temperature_idx,
-            separate_rates=True,
-            plot_total_rate: bool = False,
-            plot_fd_tols: bool = True,
-            show_legend: bool = True,
-            legend_kwargs=None,
-            ymin=None,
-            ymax=None,
-            xmin=None,
-            xmax=None,
-            normalize_energy=0,
-            plot_lifetimes=False,
-            scaling_factor=1
+        self,
+        ax,
+        doping_idx,
+        temperature_idx,
+        separate_rates=True,
+        plot_total_rate: bool = False,
+        plot_fd_tols: bool = True,
+        show_legend: bool = True,
+        legend_kwargs=None,
+        ymin=None,
+        ymax=None,
+        xmin=None,
+        xmax=None,
+        normalize_energy=0,
+        plot_lifetimes=False,
+        scaling_factor=1,
     ):
         rates = self.plot_rates[:, doping_idx, temperature_idx]
         if separate_rates:
@@ -227,8 +227,7 @@ class RatesPlotter(BaseAmsetPlotter):
 
 
 def _get_rate_ylims(
-        rates, ymin: Optional[float] = None, ymax: Optional[float] = None,
-        pad: float = 0.1
+    rates, ymin: Optional[float] = None, ymax: Optional[float] = None, pad: float = 0.1
 ):
     rates = rates[np.isfinite(rates)]
 

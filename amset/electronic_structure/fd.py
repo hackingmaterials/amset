@@ -13,13 +13,13 @@ def fd(e, mu, kb_t):
         An array with the same shape as the "e" argument containing the average
         Fermi-Dirac occupancies for each energy level.
     """
-    if kb_t == 0.:
+    if kb_t == 0.0:
         delta = e - mu
-        nruter = np.where(delta < 0., 1., 0.)
-        nruter[np.isclose(delta, 0.)] = .5
+        nruter = np.where(delta < 0.0, 1.0, 0.0)
+        nruter[np.isclose(delta, 0.0)] = 0.5
     else:
         x = np.asarray((e - mu) / kb_t)
-        nruter = 1. / (np.exp(x) + 1.)
+        nruter = 1.0 / (np.exp(x) + 1.0)
     return nruter
 
 
@@ -33,8 +33,8 @@ def dfddx(x):
     Returns:
         An array with the same shape as x containing the derivatives.
     """
-    c = np.cosh(.5 * np.asarray(x))
-    nruter = -.25 / c / c
+    c = np.cosh(0.5 * np.asarray(x))
+    nruter = -0.25 / c / c
     return nruter
 
 

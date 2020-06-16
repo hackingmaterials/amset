@@ -109,9 +109,11 @@ def _get_spin_wavefunction_coefficients(mm, bs, spin, iband=None, pbar=True):
 
 
 @requires(pawpy, pawpy_msg)
-def get_converged_encut(wavefunction, bs, iband=None, max_encut=600, n_samples=1000,
-                        std_tol=0.02):
+def get_converged_encut(
+    wavefunction, bs, iband=None, max_encut=500, n_samples=1000, std_tol=0.02
+):
     from pawpyseed.core.momentum import MomentumMatrix
+
     mm = MomentumMatrix(wavefunction, encut=max_encut)
 
     sample_points = sample_random_kpoints(wavefunction, bs, n_samples, iband=iband)
@@ -184,7 +186,10 @@ def dump_coefficients(coeffs, kpoints, structure, filename="coeffs.h5"):
     with h5py.File(filename, "w") as f:
         for spin, spin_coeffs in coeffs.items():
             name = "coefficients_{}".format(spin.name)
-            f[name] = spin_coeffs
+            dset = f.create_dataset(
+                name, spin_coeffs.shape, compression="gzip", dtype=np.complex
+            )
+            dset[...] = spin_coeffs
 
         f["structure"] = np.string_(structure.to_json())
         f["kpoints"] = kpoints

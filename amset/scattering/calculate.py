@@ -383,7 +383,7 @@ class ScatteringCalculator(object):
             *tet_contributions[0:3],
             high_tol=k_spacing * 0.5,
             med_tol=k_spacing * 2,
-            cross_section_weights=cs_weights
+            cross_section_weights=cs_weights,
         )
         qpoint_norm_sq = np.sum(qpoints ** 2, axis=-1)
 
@@ -423,10 +423,7 @@ class ScatteringCalculator(object):
 
 
 def _interpolate_zero_rates(
-    rates,
-    kpoints,
-    masks: Optional = None,
-    progress_bar: bool = defaults["print_log"],
+    rates, kpoints, masks: Optional = None, progress_bar: bool = defaults["print_log"],
 ):
     # loop over all scattering types, doping, temps, and bands and interpolate
     # zero scattering rates based on the nearest k-point

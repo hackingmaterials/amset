@@ -434,7 +434,7 @@ class TetrahedralBandStructure(object):
 
                 flat_k = np.tile(self.ir_kpoint_mapping, nbands)
                 flat_b = np.repeat(np.arange(nbands), len(self.ir_kpoint_mapping))
-                flat_integrand = spin_integrand.reshape((-1, ) + integrand_shape)
+                flat_integrand = spin_integrand.reshape((-1,) + integrand_shape)
                 # flat_integrand = spin_integrand.reshape(-1, 3, 3)
 
                 # sum integrand at all symmetry equivalent points, new_integrand
@@ -475,7 +475,7 @@ class TetrahedralBandStructure(object):
             dos = np.zeros_like(energies)
         else:
             integrand_shape = integrand.shape[2:]
-            dos = np.zeros((len(energies), ) + integrand_shape)
+            dos = np.zeros((len(energies),) + integrand_shape)
 
         if use_cached_weights:
             if self._weights_cache is None:

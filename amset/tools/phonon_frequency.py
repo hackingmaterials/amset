@@ -9,6 +9,8 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
+from pymatgen.io.vasp import Vasprun, Outcar
+
 
 @click.command()
 @click.option("-v", "--vasprun", default="vasprun.xml", help="vasprun.xml file")
@@ -73,9 +75,9 @@ def calculate_effective_phonon_frequency(
 
 
 def get_file(
-    filename: Union[str, "Vasprun", "Outcar"],
-    class_type: Union[Type["Vasprun"], Type["Outcar"]],
-) -> Union["Vasprun", "Outcar"]:
+    filename: Union[str, Vasprun, Outcar],
+    class_type: Union[Type[Vasprun], Type[Outcar]],
+) -> Union[Vasprun, Outcar]:
     if isinstance(filename, str):
         filename_gz = filename + ".gz"
 

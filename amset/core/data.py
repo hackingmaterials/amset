@@ -116,7 +116,7 @@ class AmsetData(MSONable):
     def calculate_dos(
         self,
         estep: float = defaults["dos_estep"],
-        progress_bar: bool = defaults["print_log"]
+        progress_bar: bool = defaults["print_log"],
     ):
         """
         Args:
@@ -229,7 +229,7 @@ class AmsetData(MSONable):
         self,
         fd_tolerance: Optional[float] = 0.01,
         cutoff_pad: float = 0.0,
-        max_moment: int = 2
+        max_moment: int = 2,
     ):
         energies = self.dos.energies
         vv = {s: v.transpose((0, 3, 1, 2)) for s, v in self.velocities_product.items()}

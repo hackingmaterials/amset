@@ -140,9 +140,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
                 )
             )
 
-        logger.info(
-            "Inverse screening length (β) and impurity concentration " "(Nᵢᵢ):"
-        )
+        logger.info("Inverse screening length (β) and impurity concentration " "(Nᵢᵢ):")
         log_list(imp_info)
 
         self._prefactor = (

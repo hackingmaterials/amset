@@ -42,22 +42,22 @@ def initialize_amset_logger(directory=".", filename=None, level=None):
     log.addHandler(screen_handler)
     log.addHandler(handler)
 
-    # def handle_exception(exc_type, exc_value, exc_traceback):
-    #     if issubclass(exc_type, KeyboardInterrupt):
-    #         sys.__excepthook__(exc_type, exc_value, exc_traceback)
-    #         return
-    #
-    #     now = datetime.datetime.now()
-    #     exit_msg = "amset exiting on {} at {}".format(
-    #         now.strftime("%d %b %Y"), now.strftime("%H:%M")
-    #     )
-    #
-    #     log.error(
-    #         "\n  ERROR: {}".format(exit_msg),
-    #         exc_info=(exc_type, exc_value, exc_traceback),
-    #     )
-    #
-    # sys.excepthook = handle_exception
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+
+        now = datetime.datetime.now()
+        exit_msg = "amset exiting on {} at {}".format(
+            now.strftime("%d %b %Y"), now.strftime("%H:%M")
+        )
+
+        log.error(
+            "\n  ERROR: {}".format(exit_msg),
+            exc_info=(exc_type, exc_value, exc_traceback),
+        )
+
+    sys.excepthook = handle_exception
 
     return log
 

@@ -102,7 +102,10 @@ class WavefunctionOverlapCalculator(object):
                 interp_range = (np.arange(nbands), x, y, z)
 
                 self.interpolators[spin] = RegularGridInterpolator(
-                    interp_range, grid_coefficients, bounds_error=False, fill_value=None #, method="nearest"
+                    interp_range,
+                    grid_coefficients,
+                    bounds_error=False,
+                    fill_value=None,  # , method="nearest"
                 )
 
     @classmethod
