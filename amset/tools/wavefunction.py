@@ -6,6 +6,8 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
+from amset.electronic_structure.wavefunction import get_converged_encut
+
 
 @click.command()
 @click.option("-p", "--potcar", default="POTCAR", help="POTCAR file")
@@ -17,7 +19,7 @@ __email__ = "aganose@lbl.gov"
     "-s", "--symprec", type=float, help="symprec for desymmetrizing the wavefunction"
 )
 @click.option(
-    "-c", "--planewave-cutoff", default=400.0, help="planewave cutoff for coefficients"
+    "-c", "--planewave-cutoff", default=None, help="planewave cutoff for coefficients"
 )
 @click.option("-o", "--output", default="coeffs.h5", help="output file path")
 def dump_wavefunction(**kwargs):
@@ -47,6 +49,13 @@ def dump_wavefunction(**kwargs):
     bs = vr.get_band_structure()
     ibands = get_ibands(energy_cutoff, bs)
 
+    if not planewave_cutoff:
+        click.echo("******* Automatically choosing plane wave cutoff *******")
+        planewave_cutoff = get_converged_encut(
+            wf, bs, iband=ibands, max_encut=600, n_samples=2000, std_tol=0.02
+        )
+        click.echo("\nUsing cutoff: {} eV".format(planewave_cutoff))
+
     click.echo("******* Getting wavefunction coefficients *******")
 
     click.echo("\nIncluding:")
@@ -56,7 +65,9 @@ def dump_wavefunction(**kwargs):
         click.echo("  Spin-{} bands {}—{}".format(spin.name, min_b, max_b))
     click.echo("")
 
-    coeffs = get_wavefunction_coefficients(wf, bs, iband=ibands, encut=planewave_cutoff)
+    coeffs, grid = get_wavefunction_coefficients(
+        wf, bs, iband=ibands, encut=planewave_cutoff
+    )
 
     click.echo("Writing coefficients to {}".format(output))
     dump_coefficients(coeffs, wf.kpts, wf.structure, filename=output)
