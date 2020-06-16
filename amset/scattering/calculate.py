@@ -15,6 +15,7 @@ from scipy.interpolate import griddata
 
 from amset.constants import hbar, small_val, spin_name
 from amset.core.data import AmsetData
+from amset.electronic_structure.fd import fd
 from amset.electronic_structure.kpoints import kpoints_to_first_bz
 from amset.electronic_structure.tetrahedron import (
     get_cross_section_values,
@@ -28,7 +29,6 @@ from amset.scattering.inelastic import AbstractInelasticScattering
 from amset.constants import defaults
 from amset.util import get_progress_bar
 from BoltzTraP2 import units
-from BoltzTraP2.fd import FD
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 
@@ -84,40 +84,40 @@ class ScatteringCalculator(object):
         # could do this on the fly but caching will really speed things up.
         # we need to interpolate as the wavefunction coefficients were calculated on a
         # coarse mesh but we calculate the orbital overlap on a fine mesh.
-        self._coeffs = {}
-        self._coeffs_mapping = {}
-        tbs = self.amset_data.tetrahedral_band_structure
-        for spin in amset_data.spins:
-            spin_b_idxs = []
-            spin_k_idxs = []
-            for b_idx, b_energies in enumerate(self.amset_data.energies[spin]):
-                # find all k-points that fall inside Fermi cutoffs
-                k_idxs = np.where(
-                    (b_energies > self.scattering_energy_cutoffs[0] - cutoff_pad)
-                    & (b_energies < self.scattering_energy_cutoffs[1] + cutoff_pad)
-                )[0]
-
-                # find k-points connected to the k-points inside Fermi cutoffs
-                k_idxs = tbs.get_connected_kpoints(k_idxs)
-
-                spin_k_idxs.extend(k_idxs.tolist())
-                spin_b_idxs.extend([b_idx] * len(k_idxs))
-
-            # calculate the coefficients for all bands and k-point simultaneously
-            self._coeffs[spin] = self.amset_data.overlap_calculator.get_coefficients(
-                spin, spin_b_idxs, self.amset_data.kpoints[spin_k_idxs],
-            )
-
-            # because we are only storing the coefficients for the band/k-points we
-            # want, we need a way of mapping from the original band/k-point indices to
-            # the reduced indices. I.e., it allows us to get the coefficients for
-            # band b_idx, and k-point k_idx using:
-            # self._coeffs[spin][self._coeffs_mapping[b_idx, k_idx]]
-            # use a default value of 100000 as this was it will throw an error
-            # if we don't precache the correct values
-            mapping = np.full_like(self.amset_data.energies[spin], 100000, dtype=int)
-            mapping[spin_b_idxs, spin_k_idxs] = np.arange(len(spin_b_idxs)).astype(int)
-            self._coeffs_mapping[spin] = mapping
+        # self._coeffs = {}
+        # self._coeffs_mapping = {}
+        # tbs = self.amset_data.tetrahedral_band_structure
+        # for spin in amset_data.spins:
+        #     spin_b_idxs = []
+        #     spin_k_idxs = []
+        #     for b_idx, b_energies in enumerate(self.amset_data.energies[spin]):
+        #         # find all k-points that fall inside Fermi cutoffs
+        #         k_idxs = np.where(
+        #             (b_energies > self.scattering_energy_cutoffs[0] - cutoff_pad)
+        #             & (b_energies < self.scattering_energy_cutoffs[1] + cutoff_pad)
+        #         )[0]
+        #
+        #         # find k-points connected to the k-points inside Fermi cutoffs
+        #         k_idxs = tbs.get_connected_kpoints(k_idxs)
+        #
+        #         spin_k_idxs.extend(k_idxs.tolist())
+        #         spin_b_idxs.extend([b_idx] * len(k_idxs))
+        #
+        #     # calculate the coefficients for all bands and k-point simultaneously
+        #     self._coeffs[spin] = self.amset_data.overlap_calculator.get_coefficients(
+        #         spin, spin_b_idxs, self.amset_data.kpoints[spin_k_idxs],
+        #     )
+        #
+        #     # because we are only storing the coefficients for the band/k-points we
+        #     # want, we need a way of mapping from the original band/k-point indices to
+        #     # the reduced indices. I.e., it allows us to get the coefficients for
+        #     # band b_idx, and k-point k_idx using:
+        #     # self._coeffs[spin][self._coeffs_mapping[b_idx, k_idx]]
+        #     # use a default value of 100000 as this was it will throw an error
+        #     # if we don't precache the correct values
+        #     mapping = np.full_like(self.amset_data.energies[spin], 100000, dtype=int)
+        #     mapping[spin_b_idxs, spin_k_idxs] = np.arange(len(spin_b_idxs)).astype(int)
+        #     self._coeffs_mapping[spin] = mapping
 
     @property
     def basic_scatterers(self):
@@ -335,13 +335,20 @@ class ScatteringCalculator(object):
             spin, tet_mask
         )
         k = self.amset_data.kpoints[k_idx]
+        k_primes = self.amset_data.kpoints[kpoint_mask]
 
         # use cached coefficients to calculate the overlap on the fine mesh
         # tetrahedron vertices
-        p1 = self._coeffs[spin][self._coeffs_mapping[spin][b_idx, k_idx]]
-        p2 = self._coeffs[spin][self._coeffs_mapping[spin][band_mask, kpoint_mask]]
-        braket = np.abs(np.dot(np.conj(p1), np.asarray(p2).T))
-        overlap = braket ** 2
+        # p1 = self._coeffs[spin][self._coeffs_mapping[spin][b_idx, k_idx]]
+        # p2 = self._coeffs[spin][self._coeffs_mapping[spin][band_mask, kpoint_mask]]
+        # braket = np.abs(np.dot(np.conj(p1), np.asarray(p2).T))
+        # overlap = braket ** 2
+
+        print(f"making overlaps: {len(k_primes)}")
+        overlap = self.amset_data.overlap_calculator.get_overlap(
+            spin, b_idx, k, band_mask, k_primes
+        )
+        print("made overlaps")
 
         # put overlap back in array with shape (nbands, nkpoints)
         all_overlap = np.zeros(self.amset_data.energies[spin].shape)
@@ -564,7 +571,7 @@ def _get_fd(energy, amset_data):
     f = np.zeros(amset_data.fermi_levels.shape)
 
     for n, t in np.ndindex(amset_data.fermi_levels.shape):
-        f[n, t] = FD(
+        f[n, t] = fd(
             energy,
             amset_data.fermi_levels[n, t],
             amset_data.temperatures[t] * units.BOLTZMANN,
