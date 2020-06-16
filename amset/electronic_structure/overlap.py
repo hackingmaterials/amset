@@ -21,6 +21,7 @@ try:
 except ImportError:
     eval_linear = None
 
+# eval_linear = None
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
@@ -101,7 +102,7 @@ class WavefunctionOverlapCalculator(object):
                 interp_range = (np.arange(nbands), x, y, z)
 
                 self.interpolators[spin] = RegularGridInterpolator(
-                    interp_range, grid_coefficients, bounds_error=False, fill_value=None
+                    interp_range, grid_coefficients, bounds_error=False, fill_value=None #, method="nearest"
                 )
 
     @classmethod
@@ -116,15 +117,14 @@ class WavefunctionOverlapCalculator(object):
             grid, coeffs = self.interpolators[spin]
 
             # only allows interpolating floats, so have to separate real and imag parts
-            real_part = eval_linear(grid, coeffs.real, v, xto.LINEAR)
-            imag_part = eval_linear(grid, coeffs.imag, v, xto.LINEAR)
-
-            interp_coeffs = real_part + 1j * imag_part
+            interp_coeffs = np.empty((len(v), coeffs.shape[-1]), dtype=np.complex)
+            interp_coeffs.real = eval_linear(grid, coeffs.real, v, xto.LINEAR)
+            interp_coeffs.imag = eval_linear(grid, coeffs.imag, v, xto.LINEAR)
         else:
             interp_coeffs = self.interpolators[spin](v)
 
-        # need to renormalize coefficients
-        return interp_coeffs / np.linalg.norm(interp_coeffs, axis=-1)[:, None]
+        interp_coeffs /= np.linalg.norm(interp_coeffs, axis=-1)[:, None]
+        return interp_coeffs
 
     def get_overlap(self, spin, band_a, kpoint_a, band_b, kpoint_b):
         # k-points should be in fractional
@@ -135,7 +135,6 @@ class WavefunctionOverlapCalculator(object):
         single_overlap = False
         if isinstance(band_b, numeric_types):
             # only one band index given
-
             if len(kpoint_b.shape) > 1:
                 # multiple k-point indices given
                 band_b = np.array([band_b] * len(kpoint_b))
@@ -154,24 +153,20 @@ class WavefunctionOverlapCalculator(object):
         # get a big array of all the k-points to interpolate
         all_v = np.vstack([v1, v2])
 
-        # get the interpolate projections for the k-points; p1 is the projections for
-        # kpoint_a, p2 is a list of projections for the kpoint_b
+        # get the interpolated coefficients for the k-points
         if eval_linear:
             grid, coeffs = self.interpolators[spin]
 
             # only allows interpolating floats, so have to separate real and imag parts
-            p1_real, *p2_real = eval_linear(grid, coeffs.real, all_v, xto.LINEAR)
-            p1_imag, *p2_imag = eval_linear(grid, coeffs.imag, all_v, xto.LINEAR)
-            p1 = p1_real + 1j * np.asarray(p1_imag)
-            p2 = p2_real + 1j * np.asarray(p2_imag)
+            p = np.empty((len(all_v), coeffs.shape[-1]), dtype=np.complex)
+            p.real = eval_linear(grid, coeffs.real, all_v, xto.LINEAR)
+            p.imag = eval_linear(grid, coeffs.imag, all_v, xto.LINEAR)
         else:
-            p1, *p2 = self.interpolators[spin](all_v)
+            p = self.interpolators[spin](all_v)
 
-        p1 = np.asarray(p1) / np.linalg.norm(p1)
-        p2 = np.asarray(p2) / np.linalg.norm(p2, axis=-1)[:, None]
+        p /= np.linalg.norm(p, axis=-1)[:, None]
 
-        braket = np.abs(np.dot(np.conj(p1), p2.T))
-        overlap = braket ** 2
+        overlap = np.abs(np.dot(np.conj(p[0]), p[1:].T)) ** 2
 
         if single_overlap:
             return overlap[0]
