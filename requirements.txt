@@ -1,11 +1,11 @@
 quadpy==0.14.11
-numpy==1.18.4
-pymatgen==2020.4.29
+numpy==1.18.5
+pymatgen==2020.6.8
 scipy==1.4.1
 monty==3.0.2
 matplotlib==3.2.1
 BoltzTraP2==20.2.1
-tqdm==4.46.0
+tqdm==4.46.1
 tabulate==0.8.7
 memory_profiler==0.57.0
 spglib==1.15.1
