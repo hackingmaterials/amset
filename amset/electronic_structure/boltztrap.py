@@ -3,7 +3,8 @@ import multiprocessing as mp
 import numpy as np
 
 from amset.constants import defaults
-from BoltzTraP2.fite import FFTc, FFTev
+from BoltzTraP2.fite import FFTc, FFTev, BOLTZMANN
+from amset.electronic_structure.fd import fd, dfdde
 
 
 def get_bands_fft(
@@ -130,3 +131,58 @@ def fft_worker(
         else:
             effective_mass = None
         oqueue.put((index, eband, vvband, effective_mass, vb))
+
+
+def fermiintegrals(epsilon, dos, sigma, mur, Tr, dosweight=2., cdos=None):
+    """Compute the moments of the FD distribution over the band structure.
+
+    Args:
+        epsilon: array of energies at which the DOS is available
+        dos: density of states
+        sigma: transport DOS
+        mur: array of chemical potential values
+        Tr: array of temperature values
+        dosweight: maximum occupancy of an electron mode
+        cdos: "curvature DOS" if available
+
+    Returns:
+        Five numpy arrays, namely:
+        1. An (nT, nmu) array with the electron counts for each temperature and
+           each chemical potential.
+        2. An (nT, nmu, 3, 3) with the integrals of the 3 x 3 transport DOS
+           over the band structure taking the occupancies into account.
+        3. An (nT, nmu, 3, 3) with the first moment of the 3 x 3 transport DOS
+           over the band structure taking the occupancies into account.
+        4. An (nT, nmu, 3, 3) with the second moment of the 3 x 3 transport DOS
+           over the band structure taking the occupancies into account.
+        5. If the cdos argument is provided, an (nT, nmu, 3, 3, 3) with the
+           integrals of the 3 x 3 x 3 "curvature DOS" over the band structure
+           taking the occupancies into account.
+        where nT and nmu are the sizes of Tr and mur, respectively.
+    """
+    kBTr = np.array(Tr) * BOLTZMANN
+    nT = len(Tr)
+    nmu = len(mur)
+    N = np.empty((nT, nmu))
+    L0 = np.empty((nT, nmu, 3, 3))
+    L1 = np.empty((nT, nmu, 3, 3))
+    L2 = np.empty((nT, nmu, 3, 3))
+    if cdos is not None:
+        L11 = np.empty((nT, nmu, 3, 3, 3))
+    else:
+        L11 = None
+    de = epsilon[1] - epsilon[0]
+    for iT, kBT in enumerate(kBTr):
+        for imu, mu in enumerate(mur):
+            N[iT, imu] = -(dosweight * dos * fd(epsilon, mu, kBT)).sum() * de
+            int0 = -dosweight * dfdde(epsilon, mu, kBT)
+            intn = int0 * sigma
+            L0[iT, imu] = intn.sum(axis=2) * de
+            intn *= epsilon - mu
+            L1[iT, imu] = -intn.sum(axis=2) * de
+            intn *= epsilon - mu
+            L2[iT, imu] = intn.sum(axis=2) * de
+            if cdos is not None:
+                cint = int0 * cdos
+                L11[iT, imu] = -cint.sum(axis=3) * de
+    return N, L0, L1, L2, L11

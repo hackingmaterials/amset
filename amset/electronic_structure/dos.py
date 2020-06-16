@@ -9,7 +9,7 @@ from monty.json import MSONable
 
 from amset.constants import ev_to_hartree, hartree_to_ev
 from BoltzTraP2 import units
-from BoltzTraP2.fd import FD
+from amset.electronic_structure.fd import fd
 from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.dos import Dos
 
@@ -243,9 +243,9 @@ def _get_weighted_dos(energies, dos, fermi_level, temperature, atomic_units=True
     else:
         kbt = temperature * units.BOLTZMANN
         if atomic_units:
-            occ = FD(energies, fermi_level, kbt)
+            occ = fd(energies, fermi_level, kbt)
         else:
-            occ = FD(energies * ev_to_hartree, fermi_level * ev_to_hartree, kbt)
+            occ = fd(energies * ev_to_hartree, fermi_level * ev_to_hartree, kbt)
 
     wdos = dos * occ
     return wdos

@@ -8,8 +8,8 @@ from scipy.constants import epsilon_0
 from amset.constants import e, gpa_to_au, hbar, k_B
 from amset.core.data import AmsetData
 from BoltzTraP2 import units
-from BoltzTraP2.fd import FD
 from BoltzTraP2.units import BOLTZMANN
+from amset.electronic_structure.fd import fd
 from pymatgen import Spin
 
 __author__ = "Alex Ganose"
@@ -210,7 +210,7 @@ def calculate_inverse_screening_length_sq(amset_data, static_dielectric):
     for n, t in np.ndindex(inverse_screening_length_sq.shape):
         ef = fermi_levels[n, t]
         temp = amset_data.temperatures[t]
-        f = FD(energies, ef, temp * units.BOLTZMANN)
+        f = fd(energies, ef, temp * units.BOLTZMANN)
         integral = np.trapz(tdos * f * (1 - f), x=energies)
         inverse_screening_length_sq[n, t] = (
             integral * 4 * np.pi / (static_dielectric * BOLTZMANN * temp * vol)

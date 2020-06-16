@@ -11,12 +11,12 @@ from amset.constants import cm_to_bohr, hartree_to_ev
 from amset.constants import defaults as defaults
 from amset.electronic_structure.common import get_angstrom_structure
 from amset.electronic_structure.dos import FermiDos
+from amset.electronic_structure.fd import dfdde
 from amset.electronic_structure.mrta import MRTACalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
 from amset.util import cast_dict_list, groupby, tensor_average
 from BoltzTraP2 import units
-from BoltzTraP2.fd import dFDde
 from pymatgen import Spin, Structure
 
 __author__ = "Alex Ganose"
@@ -258,7 +258,7 @@ class AmsetData(MSONable):
             for n, t in np.ndindex(self.fermi_levels.shape):
                 ef = self.fermi_levels[n, t]
                 temp = self.temperatures[t]
-                dfde = -dFDde(energies, ef, temp * units.BOLTZMANN)
+                dfde = -dfdde(energies, ef, temp * units.BOLTZMANN)
 
                 for moment in range(max_moment + 1):
                     weight = np.abs((energies - ef) ** moment * dfde)
@@ -269,6 +269,15 @@ class AmsetData(MSONable):
                     cmin, cmax = get_min_max_cutoff(weight_cumsum)
                     min_cutoff = min(cmin, min_cutoff)
                     max_cutoff = max(cmax, max_cutoff)
+                    #
+                    # import matplotlib.pyplot as plt
+                    # ax = plt.gca()
+                    # plt.plot(energies / units.eV, weight / weight.max())
+                    # plt.plot(energies / units.eV, vvdos / vvdos.max())
+                    # plt.plot(energies / units.eV, weight_dos / weight_dos.max())
+                    # plt.plot(energies / units.eV, weight_cumsum / weight_cumsum.max())
+                    # ax.set(xlim=(4, 7.5))
+                    # plt.show()
 
         else:
             min_cutoff = energies.min()
@@ -310,6 +319,7 @@ class AmsetData(MSONable):
         if self.scattering_rates is None:
             raise ValueError("Scattering rates must be set before being filled")
 
+        # TODO: Print fill values for seach s, n and t
         min_fd, max_fd = self.fd_cutoffs
         snt_fill = fill_value
         for spin, spin_energies in self.energies.items():
@@ -319,6 +329,7 @@ class AmsetData(MSONable):
                     # get average log rate inside cutoffs
                     snt_fill = np.log(self.scattering_rates[spin][s, n, t, ~mask])
                     snt_fill = np.exp(snt_fill.mean())
+                    # print(snt_fill)
                 self.scattering_rates[spin][s, n, t, mask] = snt_fill
 
     def set_transport_properties(

@@ -1,9 +1,9 @@
 import numpy as np
 from BoltzTraP2 import units
-from BoltzTraP2.fd import dFDde
 
 from amset.constants import bohr_to_m, bohr_to_nm
 from amset.electronic_structure.common import get_velocities_from_outer_product
+from amset.electronic_structure.fd import dfdde
 from amset.plot import BaseAmsetPlotter, amset_base_style
 from sumo.plotting import styled_plot, pretty_plot
 
@@ -101,7 +101,7 @@ class CumulativePlotter(BaseAmsetPlotter):
         ef = self.fermi_levels[n_idx, t_idx]
         temp = self.temperatures[t_idx]
 
-        dfde = -dFDde(energies, ef, temp * units.BOLTZMANN)
+        dfde = -dfdde(energies, ef, temp * units.BOLTZMANN)
         nkpoints = len(self.kpoints)
 
         integrand = velocities ** 2 * lifetimes * dfde * weights[None, :] / nkpoints

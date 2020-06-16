@@ -6,9 +6,10 @@ import numpy as np
 
 from amset.constants import bohr_to_cm, defaults, e
 from amset.core.data import AmsetData
+from amset.electronic_structure.boltztrap import fermiintegrals
 from amset.log import log_time_taken
 from amset.util import get_progress_bar
-from BoltzTraP2.bandlib import calc_Onsager_coefficients, fermiintegrals
+from BoltzTraP2.bandlib import calc_Onsager_coefficients
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
