@@ -1,10 +1,11 @@
 import datetime
 import logging
 import math
-import os
 import sys
 import textwrap
 import time
+from pathlib import Path
+from typing import Union
 
 from amset.constants import output_width
 
@@ -15,32 +16,38 @@ __email__ = "aganose@lbl.gov"
 logger = logging.getLogger(__name__)
 
 
-def initialize_amset_logger(directory=".", filename=None, level=None):
+def initialize_amset_logger(
+    directory: Union[str, Path] = ".",
+    filename: Union[str, Path] = "amset.log",
+    level: int = logging.INFO,
+    print_log: bool = True,
+) -> logging.Logger:
     """Initialize the default logger with stdout and file handlers.
 
     Args:
-        directory (str): Path to the folder where the log file will be written.
-        filename (str): The log filename.
+        directory: Path to the folder where the log file will be written.
+        filename: The log filename. If False, no log will be written.
+        level: The log level.
+        print_log: Whether to print the log to the screen.
 
     Returns:
-        (Logger): A logging instance with customized formatter and handlers.
+        A logging instance with customized formatter and handlers.
     """
-
-    level = level or logging.INFO
-    filename = filename or "amset.log"
-
     log = logging.getLogger("amset")
     log.setLevel(level)
     log.handlers = []  # reset logging handlers if they already exist
 
     formatter = WrappingFormatter(fmt="%(message)s")
 
-    handler = logging.FileHandler(os.path.join(directory, filename), mode="w")
-    handler.setFormatter(formatter)
-    screen_handler = logging.StreamHandler(stream=sys.stdout)
-    screen_handler.setFormatter(formatter)
-    log.addHandler(screen_handler)
-    log.addHandler(handler)
+    if filename is not False:
+        handler = logging.FileHandler(Path(directory) / filename, mode="w")
+        handler.setFormatter(formatter)
+        log.addHandler(handler)
+
+    if print_log:
+        screen_handler = logging.StreamHandler(stream=sys.stdout)
+        screen_handler.setFormatter(formatter)
+        log.addHandler(screen_handler)
 
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):

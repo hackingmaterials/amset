@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
+from BoltzTraP2 import units
 from memory_profiler import memory_usage
 from monty.json import MSONable
 from tabulate import tabulate
@@ -29,7 +30,6 @@ from amset.util import (
     validate_settings,
     write_settings_to_file,
 )
-from BoltzTraP2 import units
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.core import Spin
@@ -99,9 +99,17 @@ class AmsetRunner(MSONable):
     def _run_wrapper(
         self, directory: Union[str, Path] = ".", prefix: Optional[str] = None
     ):
-        if self.settings["print_log"]:
-            log_file = "{}_amset.log".format(prefix) if prefix else "amset.log"
-            initialize_amset_logger(directory=directory, filename=log_file)
+        if self.settings["print_log"] or self.settings["write_log"]:
+            if self.settings["write_log"]:
+                log_file = "{}_amset.log".format(prefix) if prefix else "amset.log"
+            else:
+                log_file = False
+
+            initialize_amset_logger(
+                directory=directory,
+                filename=log_file,
+                print_log=self.settings["print_log"],
+            )
 
         tt = time.perf_counter()
         _log_amset_intro()
