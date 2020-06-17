@@ -1,5 +1,6 @@
 import click
 from click import argument, option
+
 from amset.util import parse_doping, parse_temperatures
 
 __author__ = "Alex Ganose"
@@ -40,18 +41,18 @@ def eff_mass(filename, **kwargs):
     """
     Calculate conductivity effective mass.
     """
-    from amset.core.run import AmsetRunner
     import numpy as np
     from scipy import constants
-    from amset.constants import bohr_to_cm, defaults
     from tabulate import tabulate
+    from amset.constants import bohr_to_cm, defaults
+    from amset.core.run import AmsetRunner
 
     settings = {
         "scattering_type": ["CRT"],
         "constant_relaxation_time": 1e-14,
         "calculate_mobility": False,
         "separate_mobility": False,
-        "write_log": False
+        "write_log": False,
     }
     for setting in defaults:
         if setting in kwargs and kwargs[setting] is not None:
@@ -94,7 +95,7 @@ def eff_mass(filename, **kwargs):
         headers=headers,
         numalign="right",
         stralign="center",
-        floatfmt=floatfmt
+        floatfmt=floatfmt,
     )
 
     print("\nEffective masses:\n")
