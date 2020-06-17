@@ -3,8 +3,8 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 from sumo.plotting import styled_plot
+
 from amset.plot.base import BaseAmsetPlotter, amset_base_style
 
 __author__ = "Alex Ganose"
