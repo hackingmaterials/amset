@@ -1,7 +1,6 @@
-from collections import defaultdict
-
 import logging
-from typing import Dict, Optional, Union, List
+from collections import defaultdict
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 from quadpy import quadrilateral, triangle

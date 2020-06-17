@@ -7,7 +7,10 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from BoltzTraP2 import fite, sphere
+from BoltzTraP2.fite import Second
 from monty.json import MSONable
+from sumo.symmetry import Kpath, PymatgenKpath
 
 from amset.constants import angstrom_to_bohr, bohr_to_cm
 from amset.constants import defaults as defaults
@@ -15,9 +18,9 @@ from amset.constants import ev_to_hartree, hartree_to_ev, numeric_types, spin_na
 from amset.core.data import AmsetData
 from amset.electronic_structure.boltztrap import get_bands_fft
 from amset.electronic_structure.common import (
+    get_atomic_structure,
     get_ibands,
     get_vb_idx,
-    get_atomic_structure,
 )
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.kpoints import (
@@ -28,8 +31,6 @@ from amset.electronic_structure.kpoints import (
 )
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
-from BoltzTraP2 import fite, sphere
-from BoltzTraP2.fite import Second
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure,
     BandStructureSymmLine,
@@ -37,7 +38,6 @@ from pymatgen.electronic_structure.bandstructure import (
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.dos import Dos
 from pymatgen.io.ase import AseAtomsAdaptor
-from sumo.symmetry import Kpath, PymatgenKpath
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

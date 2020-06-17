@@ -1,10 +1,10 @@
 import multiprocessing as mp
 
 import numpy as np
+from BoltzTraP2.fite import BOLTZMANN, FFTc, FFTev
 
 from amset.constants import defaults
-from BoltzTraP2.fite import FFTc, FFTev, BOLTZMANN
-from amset.electronic_structure.fd import fd, dfdde
+from amset.electronic_structure.fd import dfdde, fd
 
 
 def get_bands_fft(
