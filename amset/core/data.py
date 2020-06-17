@@ -1,14 +1,18 @@
 import logging
 import time
+from collections import defaultdict
 from os.path import join as joinpath
 from typing import Dict, List, Optional
 
 import numpy as np
+from BoltzTraP2 import units
 from monty.json import MSONable
 from monty.serialization import dumpfn
+from tabulate import tabulate
 
-from amset.constants import cm_to_bohr, hartree_to_ev
+from amset.constants import bohr_to_cm, cm_to_bohr
 from amset.constants import defaults as defaults
+from amset.constants import hartree_to_ev, spin_name
 from amset.electronic_structure.common import get_angstrom_structure
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.fd import dfdde
@@ -16,7 +20,6 @@ from amset.electronic_structure.mrta import MRTACalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
 from amset.util import cast_dict_list, groupby, tensor_average
-from BoltzTraP2 import units
 from pymatgen import Spin, Structure
 
 __author__ = "Alex Ganose"
@@ -217,13 +220,18 @@ class AmsetData(MSONable):
                         pass
 
             fermi_level_info.append(
-                "{:.2g} cm⁻³ & {} K: {:.4f} eV".format(
-                    doping[n], temperatures[t], self.fermi_levels[n, t] / units.eV
-                )
+                (doping[n], temperatures[t], self.fermi_levels[n, t] / units.eV)
             )
 
+        table = tabulate(
+            fermi_level_info,
+            headers=("conc [cm⁻³]", "temp [K]", "E_fermi [eV]"),
+            numalign="right",
+            stralign="center",
+            floatfmt=(".2e", ".1f", ".4f"),
+        )
         logger.info("Calculated Fermi levels:")
-        log_list(fermi_level_info)
+        logger.info(table)
 
     def calculate_fd_cutoffs(
         self,
@@ -319,18 +327,44 @@ class AmsetData(MSONable):
         if self.scattering_rates is None:
             raise ValueError("Scattering rates must be set before being filled")
 
-        # TODO: Print fill values for seach s, n and t
         min_fd, max_fd = self.fd_cutoffs
         snt_fill = fill_value
         for spin, spin_energies in self.energies.items():
             mask = (spin_energies < min_fd) | (spin_energies > max_fd)
+            rate_info = defaultdict(list)
             for s, n, t in np.ndindex(self.scattering_rates[spin].shape[:3]):
                 if fill_value is None:
                     # get average log rate inside cutoffs
                     snt_fill = np.log(self.scattering_rates[spin][s, n, t, ~mask])
                     snt_fill = np.exp(snt_fill.mean())
-                    # print(snt_fill)
+
+                rate_info[self.scattering_labels[s]].append(snt_fill)
                 self.scattering_rates[spin][s, n, t, mask] = snt_fill
+
+            if len(self.spins) == 1:
+                logger.info("Filling scattering rates outside FD cutoffs with:")
+            else:
+                logger.info(
+                    "Filling {} scattering rates outside FD cutoffs "
+                    "with:".format(spin_name[spin])
+                )
+
+            headers = ["conc [cm⁻³]", "temp [K]"]
+            headers += ["{} [s⁻¹]".format(s) for s in self.scattering_labels]
+            rate_table = []
+            for i, (n, t) in enumerate(np.ndindex(self.fermi_levels.shape)):
+                col = [self.doping[n] * (1 / bohr_to_cm) ** 3, self.temperatures[t]]
+                col += [rate_info[s][i] for s in self.scattering_labels]
+                rate_table.append(col)
+
+            table = tabulate(
+                rate_table,
+                headers=headers,
+                numalign="right",
+                stralign="center",
+                floatfmt=[".2e", ".1f"] + [".2e"] * len(self.scattering_labels),
+            )
+            logger.info(table)
 
     def set_transport_properties(
         self,
