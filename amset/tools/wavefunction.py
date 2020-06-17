@@ -2,11 +2,11 @@ from pathlib import Path
 
 import click
 
+from amset.electronic_structure.wavefunction import get_converged_encut
+
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
-
-from amset.electronic_structure.wavefunction import get_converged_encut
 
 
 @click.command()

@@ -6,6 +6,7 @@ import warnings
 import click
 from ruamel.yaml.error import MantissaNoDotYAML1_1Warning
 
+from amset.tools.effmass import eff_mass
 from amset.tools.phonon_frequency import phonon_frequency
 from amset.tools.plot import plot
 from amset.tools.run import run
@@ -35,3 +36,4 @@ cli.add_command(plot)
 cli.add_command(run)
 cli.add_command(phonon_frequency)
 cli.add_command(dump_wavefunction)
+cli.add_command(eff_mass)

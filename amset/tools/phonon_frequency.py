@@ -5,11 +5,11 @@ from typing import Type, Union
 import click
 import numpy as np
 
+from pymatgen.io.vasp import Outcar, Vasprun
+
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
-
-from pymatgen.io.vasp import Vasprun, Outcar
 
 
 @click.command()
