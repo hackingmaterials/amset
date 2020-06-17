@@ -3,11 +3,11 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import numpy as np
+from BoltzTraP2.units import BOLTZMANN, Second
 
 from amset.constants import hbar
 from amset.core.data import AmsetData
 from amset.log import log_list
-from BoltzTraP2.units import BOLTZMANN, Second
 from pymatgen import Spin
 
 __author__ = "Alex Ganose"
@@ -101,7 +101,6 @@ class PolarOpticalScattering(AbstractInelasticScattering):
             )
         )
 
-        # don't need Second conversion as we pop_frequency is not in atomic units anyway
         self._prefactor = (
             Second * self.pop_frequency * dielectric_term / (8 * np.pi ** 2)
         )

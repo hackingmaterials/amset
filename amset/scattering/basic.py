@@ -3,10 +3,10 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import numpy as np
+from BoltzTraP2.units import Second
 
 from amset.constants import nm_to_bohr
 from amset.core.data import AmsetData
-from BoltzTraP2.units import Second
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

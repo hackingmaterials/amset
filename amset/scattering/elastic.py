@@ -3,12 +3,12 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import numpy as np
-from scipy.constants import epsilon_0
-
-from amset.constants import e, gpa_to_au, hbar, k_B
-from amset.core.data import AmsetData
 from BoltzTraP2 import units
 from BoltzTraP2.units import BOLTZMANN
+from tabulate import tabulate
+
+from amset.constants import gpa_to_au
+from amset.core.data import AmsetData
 from amset.electronic_structure.fd import fd
 from pymatgen import Spin
 
@@ -50,10 +50,8 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
         self.vb_idx = amset_data.vb_idx
         self.is_metal = amset_data.is_metal
         self.fermi_levels = amset_data.fermi_levels
-        self._prefactor = (
-            BOLTZMANN
-            * units.Second
-            / (4.0 * np.pi ** 2 * self.properties["elastic_constant"] * gpa_to_au)
+        self._prefactor = (BOLTZMANN * units.Second) / (
+            4.0 * np.pi ** 2 * self.properties["elastic_constant"] * gpa_to_au
         )
 
         self.deformation_potential = self.properties["deformation_potential"]
@@ -110,12 +108,9 @@ class IonizedImpurityScattering(AbstractElasticScattering):
 
     def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
         super().__init__(materials_properties, amset_data)
-        from amset.log import log_list
         from amset.constants import bohr_to_cm
 
         self._rlat = amset_data.structure.lattice.reciprocal_lattice.matrix
-
-        logger.info("Initializing IMP scattering")
 
         self.inverse_screening_length_sq = calculate_inverse_screening_length_sq(
             amset_data, self.properties["static_dielectric"]
@@ -132,24 +127,26 @@ class IonizedImpurityScattering(AbstractElasticScattering):
                 + p_conc * self.properties["acceptor_charge"] ** 2
             )
             imp_info.append(
-                "{:3.2e} cm⁻³ & {} K: β² = {:4.3e} a₀⁻², Nᵢᵢ = {:4.3e} cm⁻³".format(
+                (
                     amset_data.doping[n] * (1 / bohr_to_cm) ** 3,
                     amset_data.temperatures[t],
                     self.inverse_screening_length_sq[n, t],
                     impurity_concentration[n, t] * (1 / bohr_to_cm) ** 3,
                 )
             )
-
-        logger.info("Inverse screening length (β) and impurity concentration " "(Nᵢᵢ):")
-        log_list(imp_info)
+        logger.info("Inverse screening length (β) and impurity concentration (Nᵢᵢ):")
+        table = tabulate(
+            imp_info,
+            headers=("conc [cm⁻³]", "temp [K]", "β² [a₀⁻²]", "Nᵢᵢ [cm⁻³]"),
+            numalign="right",
+            stralign="center",
+            floatfmt=(".2e", ".1f", ".2e", ".2e"),
+        )
+        logger.info(table)
 
         self._prefactor = (
-            impurity_concentration
-            * 4
-            * np.pi
-            * units.Second
-            / self.properties["static_dielectric"] ** 2
-        )
+            impurity_concentration * 4 * np.pi * units.Second
+        ) / self.properties["static_dielectric"] ** 2
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
@@ -169,32 +166,24 @@ class PiezoelectricScattering(AbstractElasticScattering):
 
     def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
         super().__init__(materials_properties, amset_data)
-        unit_conversion = 1e9 / e
+        # convert dielectric to atomic units
+        dielectric = self.properties["static_dielectric"] / (4 * np.pi)
+
         self._prefactor = (
-            unit_conversion
-            * e ** 2
-            * k_B
+            (self.temperatures[None, :] * BOLTZMANN * units.Second)
             * self.properties["piezoelectric_coefficient"] ** 2
-            / (
-                4.0
-                * np.pi ** 2
-                * hbar
-                * epsilon_0
-                * self.properties["static_dielectric"]
-            )
+            / (4.0 * np.pi ** 2 * dielectric)
         )
+        self._shape = np.ones((len(self.doping), len(self.temperatures)))
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (ndops, ntemps)
-        return (
-            self._prefactor
-            * self.temperatures[None, :]
-            * np.ones((len(self.doping), len(self.temperatures)))
-        )
+        return self._prefactor * self._shape
 
-    def factor(self, k_diff_sq: np.ndarray):
-        # factor should have shape (ndops, ntemps, nkpts)
-        return 1 / np.tile(k_diff_sq, (len(self.doping), len(self.temperatures), 1))
+    def factor(self, norm_q_sq: np.ndarray):
+        # need to return factor with shape (ndops, ntemps, nqpoints)
+        # add small number for numerical convergence
+        return self._shape[:, :, None] / (norm_q_sq[None, None, :] + 1e-8)
 
 
 def calculate_inverse_screening_length_sq(amset_data, static_dielectric):
