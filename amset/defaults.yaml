@@ -28,7 +28,7 @@ high_frequency_dielectric: null
 static_dielectric: null
 elastic_constant: null  # in GPa
 deformation_potential: null  # in eV, given for the VBM and CBM
-piezeoelectric_coefficient: null  # unitless
+piezoelectric_coefficient: null  # unitless
 acceptor_charge: 1
 donor_charge: 1
 pop_frequency: null  # in THz
@@ -49,3 +49,4 @@ file_format: json
 write_input: false
 write_mesh: false
 print_log: true
+write_log: true
