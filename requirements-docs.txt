@@ -3,4 +3,4 @@ mkdocs-material==5.3.0
 mkdocs-minify-plugin==0.3.0
 mkdocs-macros-plugin==0.4.9
 markdown-include==0.5.1
-markdown-katex==202006.1019
+markdown-katex==202006.1021
