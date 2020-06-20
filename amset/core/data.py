@@ -238,11 +238,12 @@ class AmsetData(MSONable):
         fd_tolerance: Optional[float] = 0.01,
         cutoff_pad: float = 0.0,
         max_moment: int = 2,
+        mobility_rates_only: bool = False,
     ):
         energies = self.dos.energies
         vv = {s: v.transpose((0, 3, 1, 2)) for s, v in self.velocities_product.items()}
         _, vvdos = self.tetrahedral_band_structure.get_density_of_states(
-            energies, integrand=vv, sum_spins=True, use_cached_weights=True,
+            energies, integrand=vv, sum_spins=True, use_cached_weights=True
         )
         vvdos = tensor_average(vvdos)
         # vvdos = np.array(self.dos.get_densities())
@@ -290,6 +291,17 @@ class AmsetData(MSONable):
         else:
             min_cutoff = energies.min()
             max_cutoff = energies.max()
+
+        if mobility_rates_only:
+            vbm = max([self.energies[s][self.vb_idx[s]].max() for s in self.spins])
+            cbm = min([self.energies[s][self.vb_idx[s] + 1].min() for s in self.spins])
+            mid_gap = (cbm + vbm) / 2
+            if np.all(self.doping < 0):
+                # only electron mobility so don't calculate valence band rates
+                min_cutoff = max(min_cutoff, mid_gap)
+            elif np.all(self.doping < 0):
+                # only hole mobility so don't calculate conudction band rates
+                max_cutoff = min(max_cutoff, mid_gap)
 
         min_cutoff -= cutoff_pad
         max_cutoff += cutoff_pad
@@ -345,12 +357,12 @@ class AmsetData(MSONable):
                 logger.info("Filling scattering rates outside FD cutoffs with:")
             else:
                 logger.info(
-                    "Filling {} scattering rates outside FD cutoffs "
+                    "Filling {} scattering rates [s⁻¹] outside FD cutoffs "
                     "with:".format(spin_name[spin])
                 )
 
             headers = ["conc [cm⁻³]", "temp [K]"]
-            headers += ["{} [s⁻¹]".format(s) for s in self.scattering_labels]
+            headers += ["{}".format(s) for s in self.scattering_labels]
             rate_table = []
             for i, (n, t) in enumerate(np.ndindex(self.fermi_levels.shape)):
                 col = [self.doping[n] * (1 / bohr_to_cm) ** 3, self.temperatures[t]]

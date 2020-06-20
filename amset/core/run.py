@@ -154,13 +154,16 @@ class AmsetRunner(MSONable):
             self.settings["pop_frequency"], self.settings["scattering_type"]
         )
         orig_rates = copy.deepcopy(amset_data.scattering_rates)
+        mobility_rates_only = self.settings["mobility_rates_only"]
 
         for fd_tol in sorted(fd_tols)[::-1]:
             # do smallest cutoff last, so the final amset_data is the best result
             for spin in amset_data.spins:
                 amset_data.scattering_rates[spin][:] = orig_rates[spin][:]
 
-            amset_data.calculate_fd_cutoffs(fd_tol, cutoff_pad=cutoff_pad)
+            amset_data.calculate_fd_cutoffs(
+                fd_tol, cutoff_pad=cutoff_pad, mobility_rates_only=mobility_rates_only
+            )
             fd_prefix = prefix + "fd-{}".format(fd_tol)
             _, timing = self._do_fd_tol(amset_data, directory, fd_prefix, timing)
             timing["transport ({})".format(fd_tol)] = timing.pop("transport")
@@ -220,7 +223,11 @@ class AmsetRunner(MSONable):
             fd_tol = self.settings["fd_tol"]
         else:
             fd_tol = min(self.settings["fd_tol"])
-        amset_data.calculate_fd_cutoffs(fd_tol, cutoff_pad=cutoff_pad)
+
+        mob_only = self.settings["mobility_rates_only"]
+        amset_data.calculate_fd_cutoffs(
+            fd_tol, cutoff_pad=cutoff_pad, mobility_rates_only=mob_only
+        )
         return amset_data, time.perf_counter() - t0
 
     def _do_scattering(self, amset_data):
