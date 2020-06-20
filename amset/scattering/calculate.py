@@ -108,7 +108,7 @@ class ScatteringCalculator(object):
                 self._coeffs[
                     spin
                 ] = self.amset_data.overlap_calculator.get_coefficients(
-                    spin, spin_b_idxs, self.amset_data.kpoints[spin_k_idxs],
+                    spin, spin_b_idxs, self.amset_data.kpoints[spin_k_idxs]
                 )
 
                 # because we are only storing the coefficients for the band/k-points we
@@ -275,7 +275,7 @@ class ScatteringCalculator(object):
                     pbar = get_progress_bar(iterable, desc="elastic")
                 else:
                     pbar = iterable
-                for k_idx, ir_idx, in pbar:
+                for k_idx, ir_idx in pbar:
                     elastic_rates[..., ir_idx] = self.calculate_rate(spin, b_idx, k_idx)
 
             elastic_rates *= elastic_prefactors[..., None]
@@ -424,7 +424,7 @@ class ScatteringCalculator(object):
 
 
 def _interpolate_zero_rates(
-    rates, kpoints, masks: Optional = None, progress_bar: bool = defaults["print_log"],
+    rates, kpoints, masks: Optional = None, progress_bar: bool = defaults["print_log"]
 ):
     # loop over all scattering types, doping, temps, and bands and interpolate
     # zero scattering rates based on the nearest k-point
