@@ -1,4 +1,5 @@
 import logging
+import time
 from collections import defaultdict
 from typing import Dict, List, Optional, Union
 
@@ -6,6 +7,7 @@ import numpy as np
 from quadpy import quadrilateral, triangle
 
 from amset.constants import numeric_types
+from amset.log import log_time_taken
 from amset.util import get_progress_bar, groupby
 from pymatgen import Spin, Structure
 from pymatgen.util.coord import pbc_diff
@@ -154,6 +156,7 @@ class TetrahedralBandStructure(object):
         ir_tetrahedra_weights: Optional[np.ndarray] = None,
     ):
         logger.info("Generating tetrahedron mesh")
+        t0 = time.perf_counter()
 
         tparams = (ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, ir_tetrahedra_weights)
 
@@ -230,6 +233,8 @@ class TetrahedralBandStructure(object):
             self._tetrahedra_connections[tet[1]].update(tet)
             self._tetrahedra_connections[tet[2]].update(tet)
             self._tetrahedra_connections[tet[3]].update(tet)
+
+        log_time_taken(t0)
 
     def get_connected_kpoints(self, kpoint_idx: Union[int, List[int], np.ndarray]):
         """Given one or more k-point indices, get a list of all k-points that are in
