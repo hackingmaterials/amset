@@ -41,6 +41,14 @@ def validate_settings(user_settings):
     elif isinstance(settings["deformation_potential"], list):
         settings["deformation_potential"] = tuple(settings["deformation_potential"])
 
+    if settings["static_dielectric"] is not None:
+        settings["static_dielectric"] = cast_tensor(settings["static_dielectric"])
+
+    if settings["high_frequency_dielectric"] is not None:
+        settings["high_frequency_dielectric"] = cast_tensor(
+            settings["high_frequency_dielectric"]
+        )
+
     settings["doping"] = np.asarray(settings["doping"], dtype=np.float)
     settings["temperatures"] = np.asarray(settings["temperatures"])
 
@@ -49,6 +57,22 @@ def validate_settings(user_settings):
             raise ValueError("Unrecognised setting: {}".format(setting))
 
     return settings
+
+
+def cast_tensor(tensor):
+    from amset.constants import numeric_types
+
+    if isinstance(tensor, numeric_types):
+        return np.eye(3) * tensor
+
+    tensor = np.asarray(tensor)
+    if len(tensor.shape) == 1:
+        return np.diag(tensor)
+
+    if tensor.shape != (3, 3):
+        raise ValueError("Unsupported tensor shape.")
+
+    return tensor
 
 
 def tensor_average(tensor):
