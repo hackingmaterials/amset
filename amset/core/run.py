@@ -364,8 +364,8 @@ def _log_amset_intro():
 
                                                   v{}
 
-    A. Ganose, A. Faghaninia, J. Park, F. Ricci, R. Woods-Robinson,
-    J. Frost,  K. Persson, G. Hautier, A. Jain, in prep.
+    A. Ganose, J. Park, A. Faghaninia, R. Woods-Robinson,
+    K. Persson, A. Jain, in prep.
 
 
 amset starting on {} at {}""".format(
@@ -403,10 +403,24 @@ def _log_structure_information(structure: Structure, symprec):
     log_list(lattice_info)
 
 
+_tensor_str = """
+    │   [[{:6.2f} {:6.2f} {:6.2f}]
+    │    [{:6.2f} {:6.2f} {:6.2f}]
+    │    [{:6.2f} {:6.2f} {:6.2f}]]"""
+
+
 def _log_settings(runner: AmsetRunner):
+    def ff(prop):
+        # format tensor properties
+        if isinstance(prop, np.ndarray):
+            if prop.shape == (3, 3):
+                return _tensor_str.format(*prop.ravel())
+
+        return prop
+
     log_banner("SETTINGS")
     logger.info("Run parameters:")
-    p = ["{}: {}".format(k, v) for k, v in runner.settings.items() if v is not None]
+    p = ["{}: {}".format(k, ff(v)) for k, v in runner.settings.items() if v is not None]
     log_list(p)
 
 

@@ -153,13 +153,14 @@ class ScatteringCalculator(object):
         if scattering_type == "auto":
             # dynamically determine the available scattering mechanism subclasses
             logger.info(
-                "Examining material properties to determine possible "
-                "scattering mechanisms"
+                "Examining material properties to determine possible scattering "
+                "mechanisms"
             )
 
             scattering_type = []
             for name, mechanism in _scattering_mechanisms.items():
-                if all([settings.get(x, False) for x in mechanism.required_properties]):
+                req_prop = mechanism.required_properties
+                if all([settings.get(x, None) is not None for x in req_prop]):
                     scattering_type.append(name)
 
             if not scattering_type:
@@ -390,11 +391,13 @@ class ScatteringCalculator(object):
 
         k_primes = np.dot(qpoints, np.linalg.inv(rlat)) + k
         k_primes = kpoints_to_first_bz(k_primes)
+
+        unit_q = qpoints / np.sqrt(qpoint_norm_sq)[:, None]
         if energy_diff:
             fd = _get_fd(energy, self.amset_data)
             emission = energy_diff <= 0
             rates = [
-                s.factor(qpoint_norm_sq, emission, fd)
+                s.factor(unit_q, qpoint_norm_sq, emission, fd)
                 for s in self.inelastic_scatterers
             ]
             mrta_factor = 1
@@ -402,7 +405,7 @@ class ScatteringCalculator(object):
             mrta_factor = self.amset_data.mrta_calculator.get_mrta_factor(
                 spin, b_idx, k, tet_mask[0][mapping], k_primes
             )
-            rates = [s.factor(qpoint_norm_sq) for s in self.elastic_scatterers]
+            rates = [s.factor(unit_q, qpoint_norm_sq) for s in self.elastic_scatterers]
 
         rates = np.array(rates)
         rates /= self.amset_data.structure.lattice.reciprocal_lattice.volume

@@ -354,7 +354,7 @@ class AmsetData(MSONable):
                 self.scattering_rates[spin][s, n, t, mask] = snt_fill
 
             if len(self.spins) == 1:
-                logger.info("Filling scattering rates outside FD cutoffs with:")
+                logger.info("Filling scattering rates [s⁻¹] outside FD cutoffs with:")
             else:
                 logger.info(
                     "Filling {} scattering rates [s⁻¹] outside FD cutoffs "
