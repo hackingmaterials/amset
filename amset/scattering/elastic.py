@@ -170,9 +170,8 @@ class PiezoelectricScattering(AbstractElasticScattering):
         super().__init__(materials_properties, amset_data)
         # convert dielectric to atomic units
         self._prefactor = (
-            (self.temperatures[None, :] * BOLTZMANN * units.Second)
-            * self.properties["piezoelectric_coefficient"] ** 2
-        )
+            self.temperatures[None, :] * BOLTZMANN * units.Second
+        ) * self.properties["piezoelectric_coefficient"] ** 2
         self._shape = np.ones((len(self.doping), len(self.temperatures)))
 
     def prefactor(self, spin: Spin, b_idx: int):
