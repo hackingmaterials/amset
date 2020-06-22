@@ -50,9 +50,8 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
         self.vb_idx = amset_data.vb_idx
         self.is_metal = amset_data.is_metal
         self.fermi_levels = amset_data.fermi_levels
-        self._prefactor = (BOLTZMANN * units.Second) / (
-            4.0 * np.pi ** 2 * self.properties["elastic_constant"] * gpa_to_au
-        )
+        elastic_constant = self.properties["elastic_constant"] * gpa_to_au
+        self._prefactor = (BOLTZMANN * units.Second) / elastic_constant
 
         self.deformation_potential = self.properties["deformation_potential"]
         if self.is_metal and isinstance(self.deformation_potential, tuple):
@@ -145,7 +144,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         )
         logger.info(table)
 
-        self._prefactor = impurity_concentration * units.Second / (4 * np.pi)
+        self._prefactor = impurity_concentration * units.Second * np.pi
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
@@ -173,7 +172,6 @@ class PiezoelectricScattering(AbstractElasticScattering):
         self._prefactor = (
             (self.temperatures[None, :] * BOLTZMANN * units.Second)
             * self.properties["piezoelectric_coefficient"] ** 2
-            / (4.0 * np.pi ** 2)
         )
         self._shape = np.ones((len(self.doping), len(self.temperatures)))
 

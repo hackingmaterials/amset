@@ -247,7 +247,8 @@ class ScatteringCalculator(object):
         return rates
 
     def calculate_band_rates(self, spin: Spin, b_idx: int):
-        conversion = self.amset_data.structure.lattice.reciprocal_lattice.volume
+        vol = self.amset_data.structure.lattice.reciprocal_lattice.volume
+        conversion = vol / (4 * np.pi ** 2)
         kpoints_idx = self.amset_data.ir_kpoints_idx
         nkpoints = len(kpoints_idx)
 

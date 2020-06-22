@@ -92,7 +92,7 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         # self.absorption_f_in = {
         #     s: n_po + 1 - amset_data.f[s]
         #     for s in amset_data.spins}
-        self._prefactor = Second * self.pop_frequency / (8 * np.pi ** 2)
+        self._prefactor = Second * self.pop_frequency / 2
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
