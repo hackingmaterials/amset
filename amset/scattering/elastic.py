@@ -145,16 +145,16 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         )
         logger.info(table)
 
-        self._prefactor = impurity_concentration * units.Second
+        self._prefactor = impurity_concentration * units.Second / (4 * np.pi)
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
         return self._prefactor
 
     def factor(self, unit_q, norm_q_sq: np.ndarray):
-        static_t = self.properties["static_dielectric"]
-        static_diel = np.einsum("ij,ij->i", unit_q, np.dot(static_t, unit_q.T).T)
-        diel_factor = (4 * np.pi / static_diel) ** 2
+        static_tensor = self.properties["static_dielectric"] / (4 * np.pi)
+        static_diel = np.einsum("ij,ij->i", unit_q, np.dot(static_tensor, unit_q.T).T)
+        diel_factor = (1 / static_diel) ** 2
 
         return (
             diel_factor[None, None]
