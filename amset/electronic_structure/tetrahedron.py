@@ -4,7 +4,6 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Union
 
 import numpy as np
-from quadpy import quadrilateral, triangle
 
 from amset.constants import numeric_types
 from amset.log import log_time_taken
@@ -56,18 +55,6 @@ _tetrahedron_vectors = np.array(
         [1, 1, 1],
     ]
 )
-
-numerical_integration_defaults = {
-    "high": {
-        "triangle": triangle.xiao_gimbutas_50(),
-        "quad": quadrilateral.sommariva_50(),
-    },
-    "medium": {
-        "triangle": triangle.xiao_gimbutas_06(),
-        "quad": quadrilateral.sommariva_06(),
-    },
-    "low": {"triangle": triangle.centroid(), "quad": quadrilateral.dunavant_00()},
-}
 
 logger = logging.getLogger(__name__)
 
@@ -878,51 +865,6 @@ def get_projected_intersections(intersections):
     # np.dot(transform[0], intersections[0][0]) for all intersections in all triangles/
     # quadrilaterals.
     return np.einsum("ikj,ilj->ilk", transform, intersections), basis
-
-
-def integrate_function_over_cross_section(
-    function_generator,
-    intersections,
-    cond_a_mask,
-    cond_b_mask,
-    cond_c_mask,
-    precision="high",
-    return_shape=None,
-    cross_section_weights=None,
-):
-    triangle_scheme = numerical_integration_defaults[precision]["triangle"]
-    quadrilateral_scheme = numerical_integration_defaults[precision]["quadrilateral"]
-
-    if cross_section_weights is None:
-        cross_section_weights = np.ones(len(intersections))
-
-    if return_shape:
-        function_values = np.zeros(return_shape + (len(intersections),))
-    else:
-        function_values = np.zeros(len(intersections))
-
-    ninter = len(intersections)
-    z_coords_sq = intersections[:, 0, 2] ** 2
-
-    # intersections now has shape nvert, ntet, 2 (i.e., x, y coords)
-    intersections = intersections[:, :, :2].transpose(1, 0, 2)
-    triangle_mask = cond_a_mask | cond_c_mask
-
-    if np.any(triangle_mask):
-        function = function_generator(z_coords_sq[triangle_mask])
-        function_values[..., triangle_mask] = triangle_scheme.integrate(
-            function, intersections[:3, triangle_mask]
-        )
-
-    if np.any(cond_b_mask):
-        function = function_generator(z_coords_sq[cond_b_mask])
-        function_values[..., cond_b_mask] = quadrilateral_scheme.integrate(
-            function, intersections.reshape((2, 2, ninter, 2))[:, :, cond_b_mask]
-        )
-
-    function_values *= cross_section_weights
-
-    return function_values
 
 
 def process_tetrahedra(tetrahedra, energies):

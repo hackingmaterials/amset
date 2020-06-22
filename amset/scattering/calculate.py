@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 from BoltzTraP2 import units
-from quadpy import ncube, nsimplex
+from quadpy import ncube, nsimplex, quadrilateral, triangle
 from scipy.interpolate import griddata
 
 from amset.constants import defaults, hbar, small_val, spin_name
@@ -21,7 +21,6 @@ from amset.electronic_structure.tetrahedron import (
     get_cross_section_values,
     get_projected_intersections,
 )
-from amset.electronic_structure.tetrahedron import numerical_integration_defaults as ni
 from amset.log import log_list, log_time_taken
 from amset.scattering.basic import AbstractBasicScattering
 from amset.scattering.elastic import AbstractElasticScattering
@@ -42,6 +41,18 @@ _all_scatterers = (
     + AbstractBasicScattering.__subclasses__()
 )
 _scattering_mechanisms = {m.name: m for m in _all_scatterers}
+
+ni = {
+    "high": {
+        "triangle": triangle.xiao_gimbutas_50(),
+        "quad": quadrilateral.sommariva_50(),
+    },
+    "medium": {
+        "triangle": triangle.xiao_gimbutas_06(),
+        "quad": quadrilateral.sommariva_06(),
+    },
+    "low": {"triangle": triangle.centroid(), "quad": quadrilateral.dunavant_00()},
+}
 
 
 class ScatteringCalculator(object):
@@ -194,23 +205,17 @@ class ScatteringCalculator(object):
     def calculate_scattering_rates(self):
         spins = self.amset_data.spins
         kpoints = self.amset_data.kpoints
-        f_shape = self.amset_data.fermi_levels.shape
-        scattering_shape = (len(self.scatterer_labels),) + f_shape
+        energies = self.amset_data.energies
+        fermi_shape = self.amset_data.fermi_levels.shape
+        scattering_shape = (len(self.scatterer_labels),) + fermi_shape
+        rate_shape = {s: scattering_shape + energies[s].shape for s in spins}
 
         # rates has shape (spin, nscatterers, ndoping, ntemp, nbands, nkpoints)
-        rates = {
-            s: np.zeros(scattering_shape + self.amset_data.energies[s].shape)
-            for s in spins
-        }
-        masks = {
-            s: np.full(scattering_shape + self.amset_data.energies[s].shape, True)
-            for s in spins
-        }
-
-        nkpoints = len(self.amset_data.ir_kpoints_idx)
+        rates = {s: np.zeros(rate_shape[s]) for s in spins}
+        masks = {s: np.full(rate_shape[s], True) for s in spins}
 
         logger.info("Scattering information:")
-        log_list(["# ir k-points: {}".format(nkpoints)])
+        log_list(["# ir k-points: {}".format(len(self.amset_data.ir_kpoints_idx))])
 
         for spin in spins:
             for b_idx in range(len(self.amset_data.energies[spin])):
