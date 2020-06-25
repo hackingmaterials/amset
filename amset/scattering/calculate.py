@@ -82,8 +82,8 @@ class ScatteringCalculator(object):
         buf = 0.001 * units.eV
         if self.amset_data.fd_cutoffs:
             self.scattering_energy_cutoffs = (
-                self.amset_data.fd_cutoffs[0],  # - 100 * buf,
-                self.amset_data.fd_cutoffs[1],  # + 100 * buf
+                self.amset_data.fd_cutoffs[0],# - 100 * buf,
+                self.amset_data.fd_cutoffs[1] # + 100 * buf
             )
         else:
             self.scattering_energy_cutoffs = (
@@ -575,7 +575,7 @@ class ScatteringCalculator(object):
         in_response[np.isnan(in_response)] = 0
         in_response /= units.Second
         response_factor = self.amset_data.response_calculator.get_coefficients(
-            spin, tet_mask[0][mapping], k_primes
+            spin, tet_mask[0][mapping], k_primes, energy, self.amset_data
         )[None]
         in_value = np.sum(in_response[..., None] * response_factor, axis=-2)
         # if self.amset_data.linear_response_coefficients:
@@ -704,7 +704,7 @@ def _interpolate_response(
                 )
                 # print("zero", kpoints[zero_rate_idx])
                 # print("interp", rates[spin][s, d, t, b, zero_rate_idx])
-                # rates[spin][s, d, t, b, zero_rate_idx] = 0
+                rates[spin][s, d, t, b, zero_rate_idx] = 0
 
             if pbar is not None:
                 pbar.update()

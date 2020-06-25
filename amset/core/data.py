@@ -253,7 +253,11 @@ class AmsetData(MSONable):
             s: np.zeros(self.energies[s].shape + self.fermi_levels.shape + (3,))
             for s in self.spins
         }
-        self.response_calculator = ResponseCalculator(self.kpoints, self.kpoint_mesh, c)
+        r = {
+            s: np.zeros(self.energies[s].shape + self.fermi_levels.shape)
+            for s in self.spins
+        }
+        self.response_calculator = ResponseCalculator(self.kpoints, self.kpoint_mesh, c, self.velocities, r)
 
     def calculate_fd_cutoffs(
         self,
@@ -379,6 +383,7 @@ class AmsetData(MSONable):
         else:
             energy_cutoffs = (min(self.dos.energies), max(self.dos.energies))
 
+        sall_in = {}
         for spin in self.spins:
             energies = self.energies[spin]
             velocities = self.velocities[spin]
@@ -389,6 +394,7 @@ class AmsetData(MSONable):
             lifetimes = 1 / rates
             all_lifetimes = 1 / rates.sum(axis=0)
             all_in = in_response[spin].sum(axis=0)
+            sall_in[spin] = all_in
 
             if self.linear_response_coefficients:
                 old = self.linear_response_coefficients[spin]
@@ -454,13 +460,18 @@ class AmsetData(MSONable):
             idxs = np.array(idxs)
             import matplotlib.pyplot as plt
 
+            # plt.plot(
+            #     np.linspace(0, 1, len(ks)),
+            #     np.linalg.norm(new[-1][-1, -1, 3, idxs], axis=1),
+            #     label="x",
+            # )
             plt.plot(
                 np.linspace(0, 1, len(ks)),
                 np.linalg.norm(all_in[-1, -1, 3, idxs], axis=1),
                 label="x",
             )
             plt.legend()
-            plt.semilogy()
+            # plt.semilogy()
             plt.show()
             print(all_in[-1, -1, 3].sum())
             # print("all_in", all_in[0, 0, :3].max())
@@ -493,6 +504,7 @@ class AmsetData(MSONable):
             oo = np.linalg.eigvalsh(oo)
             nn = np.linalg.eigvalsh(nn)
             diff = nn / oo
+            print(diff)
 
             # nn = new[-1].sum(axis=(2, 3))
             # print(oo)
@@ -520,11 +532,19 @@ class AmsetData(MSONable):
 
         log_list(info)
 
+        # c = {
+        #     s: self.linear_response_coefficients[s][-1].transpose(2, 3, 0, 1, 4)
+        #     for s in self.spins
+        # }
         c = {
-            s: self.linear_response_coefficients[s][-1].transpose(2, 3, 0, 1, 4)
+            s: sall_in[s].transpose(2, 3, 0, 1, 4)
             for s in self.spins
         }
-        self.response_calculator = ResponseCalculator(self.kpoints, self.kpoint_mesh, c)
+        r = {
+            s: self.scattering_rates[s].sum(axis=0).transpose(2, 3, 0, 1) / units.Second
+            for s in self.spins
+        }
+        self.response_calculator = ResponseCalculator(self.kpoints, self.kpoint_mesh, c, self.velocities, r)
 
         return converged
 
