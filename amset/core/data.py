@@ -16,8 +16,10 @@ from amset.constants import hartree_to_ev, spin_name
 from amset.electronic_structure.common import get_angstrom_structure
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.fd import dfdde
-from amset.electronic_structure.kpoints import get_symmetry_equivalent_kpoints, \
-    similarity_transformation
+from amset.electronic_structure.kpoints import (
+    get_symmetry_equivalent_kpoints,
+    similarity_transformation,
+)
 from amset.electronic_structure.response import ResponseCalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
@@ -248,7 +250,7 @@ class AmsetData(MSONable):
         logger.info(table)
 
         c = {
-            s: np.zeros(self.energies[s].shape + self.fermi_levels.shape + (3, ))
+            s: np.zeros(self.energies[s].shape + self.fermi_levels.shape + (3,))
             for s in self.spins
         }
         self.response_calculator = ResponseCalculator(self.kpoints, self.kpoint_mesh, c)
@@ -339,7 +341,7 @@ class AmsetData(MSONable):
         self,
         scattering_rates: Dict[Spin, np.ndarray],
         in_response: Dict[Spin, np.ndarray],
-        scattering_labels: List[str]
+        scattering_labels: List[str],
     ):
         for spin in self.spins:
             s = (len(self.doping), len(self.temperatures)) + self.energies[spin].shape
@@ -363,7 +365,7 @@ class AmsetData(MSONable):
     def update_linear_response_coefficients(
         self,
         in_response: Dict[Spin, np.ndarray],
-        broyden_beta: float = defaults["broyden_beta"]
+        broyden_beta: float = defaults["broyden_beta"],
     ):
         logger.info("Calculating linear response coefficients:")
         fermi_shape = self.fermi_levels.shape
@@ -381,7 +383,7 @@ class AmsetData(MSONable):
             energies = self.energies[spin]
             velocities = self.velocities[spin]
             nscatterings = len(self.scattering_labels) + 1
-            response_shape = (nscatterings, ) + fermi_shape + velocities.shape
+            response_shape = (nscatterings,) + fermi_shape + velocities.shape
             new = np.zeros(response_shape)
             rates = self.scattering_rates[spin][..., None] / units.Second
             lifetimes = 1 / rates
@@ -413,15 +415,50 @@ class AmsetData(MSONable):
             if first_run:
                 self.linear_response_coefficients[spin] = new
             else:
-                self.linear_response_coefficients[spin] = (1.0 - broyden_beta) * old + broyden_beta * new
+                self.linear_response_coefficients[spin] = (
+                    1.0 - broyden_beta
+                ) * old + broyden_beta * new
 
-            ks = [[-0.481481,  0.,        0.,      ], [-0.444444,  0.,        0.,      ], [-0.407407,  0.,        0.,      ], [-0.37037 ,  0.,        0.,      ], [-0.333333,  0.,        0.,      ], [-0.296296,  0.,        0.,      ], [-0.259259,  0.,        0.,      ], [-0.222222,  0.,        0.,      ], [-0.185185,  0.,        0.,      ], [-0.148148,  0.,        0.,      ], [-0.111111,  0.,        0.,      ], [-0.074074,  0.,        0.,      ], [-0.037037,  0.,        0.,      ], [ 0.      ,  0.,        0.,      ], [ 0.037037,  0.,        0.,      ], [ 0.074074,  0.,        0.,      ], [ 0.111111,  0.,        0.,      ], [ 0.148148,  0.,        0.,      ], [ 0.185185,  0.,        0.,      ], [ 0.222222,  0.,        0.,      ], [ 0.259259,  0.,        0.,      ], [ 0.296296,  0.,        0.,      ], [ 0.333333,  0.,        0.,      ], [ 0.37037 ,  0.,        0.,      ], [ 0.407407,  0.,        0.,      ], [ 0.444444,  0.,        0.,      ], [ 0.481481,  0.,        0.,      ]]
+            ks = [
+                [-0.481481, 0.0, 0.0],
+                [-0.444444, 0.0, 0.0],
+                [-0.407407, 0.0, 0.0],
+                [-0.37037, 0.0, 0.0],
+                [-0.333333, 0.0, 0.0],
+                [-0.296296, 0.0, 0.0],
+                [-0.259259, 0.0, 0.0],
+                [-0.222222, 0.0, 0.0],
+                [-0.185185, 0.0, 0.0],
+                [-0.148148, 0.0, 0.0],
+                [-0.111111, 0.0, 0.0],
+                [-0.074074, 0.0, 0.0],
+                [-0.037037, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.037037, 0.0, 0.0],
+                [0.074074, 0.0, 0.0],
+                [0.111111, 0.0, 0.0],
+                [0.148148, 0.0, 0.0],
+                [0.185185, 0.0, 0.0],
+                [0.222222, 0.0, 0.0],
+                [0.259259, 0.0, 0.0],
+                [0.296296, 0.0, 0.0],
+                [0.333333, 0.0, 0.0],
+                [0.37037, 0.0, 0.0],
+                [0.407407, 0.0, 0.0],
+                [0.444444, 0.0, 0.0],
+                [0.481481, 0.0, 0.0],
+            ]
             idxs = []
             for k in ks:
                 idxs.append(np.linalg.norm(self.kpoints - k, axis=-1).argmin())
             idxs = np.array(idxs)
             import matplotlib.pyplot as plt
-            plt.plot(np.linspace(0, 1, len(ks)), np.linalg.norm(all_in[-1, -1, 3, idxs], axis=1), label="x")
+
+            plt.plot(
+                np.linspace(0, 1, len(ks)),
+                np.linalg.norm(all_in[-1, -1, 3, idxs], axis=1),
+                label="x",
+            )
             plt.legend()
             plt.semilogy()
             plt.show()
@@ -483,8 +520,10 @@ class AmsetData(MSONable):
 
         log_list(info)
 
-        c = {s: self.linear_response_coefficients[s][-1].transpose(2, 3, 0, 1, 4)
-             for s in self.spins}
+        c = {
+            s: self.linear_response_coefficients[s][-1].transpose(2, 3, 0, 1, 4)
+            for s in self.spins
+        }
         self.response_calculator = ResponseCalculator(self.kpoints, self.kpoint_mesh, c)
 
         return converged
@@ -684,11 +723,10 @@ def _multicross(response, velocities):
     iu0 = np.triu_indices(3)
     il1 = np.tril_indices(3, -1)
     iu1 = np.triu_indices(3, 1)
-    cross = np.zeros(response.shape + (3, ))
+    cross = np.zeros(response.shape + (3,))
     for b_idx in range(cross.shape[2]):
         cross[:, :, b_idx, :, iu0[0], iu0[1]] = (
-                velocities[None, None, b_idx, :, iu0[0]] *
-                response[:, :, b_idx, :, iu0[1]]
+            velocities[None, None, b_idx, :, iu0[0]] * response[:, :, b_idx, :, iu0[1]]
         )
         cross[:, :, b_idx, :, il1[0], il1[1]] = cross[:, :, b_idx, :, iu1[0], iu1[1]]
 

@@ -67,7 +67,9 @@ class ResponseCalculator(object):
 
             # wrap the velocities to account for PBC
             grid_coefficients = np.pad(
-                grid_coefficients, ((0, 0), (1, 1), (1, 1), (1, 1), (0, 0), (0, 0), (0, 0)), mode="wrap"
+                grid_coefficients,
+                ((0, 0), (1, 1), (1, 1), (1, 1), (0, 0), (0, 0), (0, 0)),
+                mode="wrap",
             )
 
             if nbands == 1:
@@ -115,7 +117,11 @@ class ResponseCalculator(object):
                 )
                 interp_range = (np.arange(nbands), x, y, z)
                 self.interpolators[spin] = RegularGridInterpolator(
-                    interp_range, grid_coefficients, bounds_error=False, fill_value=None, method="nearest"
+                    interp_range,
+                    grid_coefficients,
+                    bounds_error=False,
+                    fill_value=None,
+                    method="nearest",
                 )
 
     def get_coefficients(self, spin, bands, kpoints):
@@ -123,10 +129,9 @@ class ResponseCalculator(object):
 
         if eval_linear:
             grid, coeffs = self.interpolators[spin]
-            interp_coeffs = np.zeros((len(v), ) + self._shape)
+            interp_coeffs = np.zeros((len(v),) + self._shape)
             eval_linear(grid, coeffs, v, interp_coeffs)
         else:
             interp_coeffs = self.interpolators[spin](v)
 
         return interp_coeffs.transpose((1, 2, 0, 3))
-

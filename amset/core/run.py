@@ -165,7 +165,7 @@ class AmsetRunner(MSONable):
             amset_data.calculate_fd_cutoffs(
                 fd_tol,
                 cutoff_pad=self._cutoff_pad,
-                mobility_rates_only=mobility_rates_only
+                mobility_rates_only=mobility_rates_only,
             )
             fd_prefix = prefix + "fd-{}".format(fd_tol)
             _, timing = self._do_fd_tol(amset_data, directory, fd_prefix, timing)

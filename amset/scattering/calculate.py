@@ -82,8 +82,8 @@ class ScatteringCalculator(object):
         buf = 0.001 * units.eV
         if self.amset_data.fd_cutoffs:
             self.scattering_energy_cutoffs = (
-                self.amset_data.fd_cutoffs[0], #- 100 * buf,
-                self.amset_data.fd_cutoffs[1] #+ 100 * buf
+                self.amset_data.fd_cutoffs[0],  # - 100 * buf,
+                self.amset_data.fd_cutoffs[1],  # + 100 * buf
             )
         else:
             self.scattering_energy_cutoffs = (
@@ -212,7 +212,7 @@ class ScatteringCalculator(object):
 
         # rates has shape (spin, nscatterers, ndoping, ntemp, nbands, nkpoints)
         rates = {s: np.zeros(rate_shape[s]) for s in spins}
-        in_response = {s: np.zeros(rate_shape[s] + (3, )) for s in spins}
+        in_response = {s: np.zeros(rate_shape[s] + (3,)) for s in spins}
         masks = {s: np.full(rate_shape[s], True) for s in spins}
 
         logger.info("Scattering information:")
@@ -267,7 +267,9 @@ class ScatteringCalculator(object):
 
         # re-enforce symmetry
         for spin in in_response.keys():
-            in_response[spin][:] = in_response[spin][..., self.amset_data.ir_kpoints_idx, :][..., self.amset_data.ir_to_full_kpoint_mapping, :]
+            in_response[spin][:] = in_response[spin][
+                ..., self.amset_data.ir_kpoints_idx, :
+            ][..., self.amset_data.ir_to_full_kpoint_mapping, :]
             for i in range(in_response[spin].shape[3]):
                 in_response[spin][:, :, :, i] = rotate_in_response(
                     in_response[spin][:, :, :, i], self.amset_data.similarity_matrices
@@ -312,7 +314,9 @@ class ScatteringCalculator(object):
             )
             # enforce symmetry of interpolated points
             rates = {
-                s: sr[..., self.amset_data.ir_kpoints_idx][..., self.amset_data.ir_to_full_kpoint_mapping]
+                s: sr[..., self.amset_data.ir_kpoints_idx][
+                    ..., self.amset_data.ir_to_full_kpoint_mapping
+                ]
                 for s, sr in rates.items()
             }
             return rates, in_response
@@ -353,8 +357,14 @@ class ScatteringCalculator(object):
 
         if len(self.inelastic_scatterers) > 0:
             inelastic_rates, inelastic_in = self._get_inelastic_rates(
-                spin, b_idx, iterable, conversion, nkpoints, k_idx_in_cutoff,
-                ir_idx_in_cutoff, in_only
+                spin,
+                b_idx,
+                iterable,
+                conversion,
+                nkpoints,
+                k_idx_in_cutoff,
+                ir_idx_in_cutoff,
+                in_only,
             )
             rates_to_stack.append(inelastic_rates)
             in_to_stack.append(inelastic_in)
@@ -364,7 +374,9 @@ class ScatteringCalculator(object):
 
         all_band_rates = all_band_rates[..., self.amset_data.ir_to_full_kpoint_mapping]
         all_band_in = all_band_in[..., self.amset_data.ir_to_full_kpoint_mapping, :]
-        all_band_in = rotate_in_response(all_band_in, self.amset_data.similarity_matrices)
+        all_band_in = rotate_in_response(
+            all_band_in, self.amset_data.similarity_matrices
+        )
 
         return all_band_rates, all_band_in, fill_mask
 
@@ -392,15 +404,25 @@ class ScatteringCalculator(object):
                         spin, b_idx, k_idx, in_only=True
                     )
                 else:
-                    elastic_rates[..., ir_idx], elastic_in[:, :, :, ir_idx] = self.calculate_rate(spin, b_idx, k_idx)
+                    (
+                        elastic_rates[..., ir_idx],
+                        elastic_in[:, :, :, ir_idx],
+                    ) = self.calculate_rate(spin, b_idx, k_idx)
 
         elastic_rates *= elastic_prefactors[..., None]
         elastic_in *= elastic_prefactors[..., None, None]
         return elastic_rates, elastic_in
 
     def _get_inelastic_rates(
-        self, spin, b_idx, iterable, conversion, nkpoints, k_idx_in_cutoff,
-        ir_idx_in_cutoff, in_only
+        self,
+        spin,
+        b_idx,
+        iterable,
+        conversion,
+        nkpoints,
+        k_idx_in_cutoff,
+        ir_idx_in_cutoff,
+        in_only,
     ):
         inelastic_prefactors = conversion * np.array(
             [m.prefactor(spin, b_idx) for m in self.inelastic_scatterers]
@@ -639,7 +661,7 @@ def _interpolate_zero_rates(
 
 
 def _interpolate_response(
-        rates, kpoints, masks: Optional = None, progress_bar: bool = defaults["print_log"]
+    rates, kpoints, masks: Optional = None, progress_bar: bool = defaults["print_log"]
 ):
     # loop over all scattering types, doping, temps, and bands and interpolate
     # zero scattering rates based on the nearest k-point
@@ -784,7 +806,9 @@ def get_q(x, z_coords):
 
 def rotate_in_response(in_response, similarity_matrices):
     for s, n, t in np.ndindex(in_response.shape[:3]):
-        in_response[s, n, t] = np.einsum("ijk,ik->ij", similarity_matrices, in_response[s, n, t])
+        in_response[s, n, t] = np.einsum(
+            "ijk,ik->ij", similarity_matrices, in_response[s, n, t]
+        )
     return in_response
 
 
