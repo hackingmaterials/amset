@@ -34,7 +34,7 @@ class AbstractInelasticScattering(ABC):
         pass
 
     @abstractmethod
-    def factor(self, unit_q, norm_q_sq, emission, f):
+    def factor(self, unit_q, norm_q_sq):
         pass
 
 
@@ -93,26 +93,21 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         #     s: n_po + 1 - amset_data.f[s]
         #     for s in amset_data.spins}
         self._prefactor = Second * self.pop_frequency / 2
+        self._shape = np.ones(amset_data.fermi_levels.shape)[..., None]
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
         return self._prefactor * np.ones((len(self.doping), len(self.temperatures)))
 
-    def factor(self, unit_q: np.ndarray, norm_q_sq: np.ndarray, emission, f):
+    def factor(self, unit_q: np.ndarray, norm_q_sq: np.ndarray):
         # presuming that this is out scattering
-        if emission:
-            factor = self.n_po + 1 - f
-        else:
-            factor = self.n_po + f
-
         high_t = self.properties["high_frequency_dielectric"]
         static_t = self.properties["static_dielectric"]
         high_freq_diel = np.einsum("ij,ij->i", unit_q, np.dot(high_t, unit_q.T).T)
         static_diel = np.einsum("ij,ij->i", unit_q, np.dot(static_t, unit_q.T).T)
-
         dielectric_term = 4 * np.pi * (1 / high_freq_diel - 1 / static_diel)
 
-        return factor[..., None] * dielectric_term[None, None] / norm_q_sq[None, None]
+        return self._shape * dielectric_term[None, None] / norm_q_sq[None, None]
 
         # # factor should have shape (ndops, ntemps, nkpts)
         # factor = 1 / np.tile(k_diff_sq, (len(self.doping),

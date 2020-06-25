@@ -58,6 +58,7 @@ class AmsetRunner(MSONable):
         # set materials and performance parameters
         # if the user doesn't specify a value then use the default
         self.settings = validate_settings(settings)
+        self._cutoff_pad = None
 
     def run(
         self,
@@ -112,6 +113,9 @@ class AmsetRunner(MSONable):
             )
 
         tt = time.perf_counter()
+        self._cutoff_pad = _get_cutoff_pad(
+            self.settings["pop_frequency"], self.settings["scattering_type"]
+        )
         _log_amset_intro()
         _log_settings(self)
         _log_structure_information(
@@ -150,9 +154,6 @@ class AmsetRunner(MSONable):
 
     def _do_many_fd_tol(self, amset_data, fd_tols, directory, prefix, timing):
         prefix = "" if prefix is None else prefix + "_"
-        cutoff_pad = _get_cutoff_pad(
-            self.settings["pop_frequency"], self.settings["scattering_type"]
-        )
         orig_rates = copy.deepcopy(amset_data.scattering_rates)
         mobility_rates_only = self.settings["mobility_rates_only"]
 
@@ -162,7 +163,9 @@ class AmsetRunner(MSONable):
                 amset_data.scattering_rates[spin][:] = orig_rates[spin][:]
 
             amset_data.calculate_fd_cutoffs(
-                fd_tol, cutoff_pad=cutoff_pad, mobility_rates_only=mobility_rates_only
+                fd_tol,
+                cutoff_pad=self._cutoff_pad,
+                mobility_rates_only=mobility_rates_only
             )
             fd_prefix = prefix + "fd-{}".format(fd_tol)
             _, timing = self._do_fd_tol(amset_data, directory, fd_prefix, timing)
@@ -215,10 +218,6 @@ class AmsetRunner(MSONable):
             self.settings["doping"], self.settings["temperatures"]
         )
 
-        cutoff_pad = _get_cutoff_pad(
-            self.settings["pop_frequency"], self.settings["scattering_type"]
-        )
-
         if isinstance(self.settings["fd_tol"], numeric_types):
             fd_tol = self.settings["fd_tol"]
         else:
@@ -226,7 +225,7 @@ class AmsetRunner(MSONable):
 
         mob_only = self.settings["mobility_rates_only"]
         amset_data.calculate_fd_cutoffs(
-            fd_tol, cutoff_pad=cutoff_pad, mobility_rates_only=mob_only
+            fd_tol, cutoff_pad=self._cutoff_pad, mobility_rates_only=mob_only
         )
         return amset_data, time.perf_counter() - t0
 
@@ -234,21 +233,32 @@ class AmsetRunner(MSONable):
         log_banner("SCATTERING")
         t0 = time.perf_counter()
 
-        cutoff_pad = _get_cutoff_pad(
-            self.settings["pop_frequency"], self.settings["scattering_type"]
-        )
-
         scatter = ScatteringCalculator(
             self.settings,
             amset_data,
-            cutoff_pad,
+            self._cutoff_pad,
             scattering_type=self.settings["scattering_type"],
             progress_bar=self.settings["print_log"],
         )
 
         amset_data.set_scattering_rates(
-            scatter.calculate_scattering_rates(), scatter.scatterer_labels
+            *scatter.calculate_scattering_rates(), scatter.scatterer_labels
         )
+
+        n_iter = self.settings["ibte_iter"]
+        if n_iter != 1:
+            for i in range(n_iter - 1):
+                logger.info(
+                    "Solving iterative Boltzmann Transport Equation - "
+                    "iteration {}".format(i + 1)
+                )
+                converged = amset_data.update_linear_response_coefficients(
+                    scatter.calculate_scattering_rates(in_only=True)
+                )
+                if converged:
+                    break
+
+            logger.info("Reached max number of iterations without converging...")
         return amset_data, time.perf_counter() - t0
 
     def _do_transport(self, amset_data):

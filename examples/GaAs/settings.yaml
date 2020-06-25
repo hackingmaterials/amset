@@ -2,7 +2,7 @@
 doping: [-3e13]
 temperatures: [201, 290, 401, 506, 605, 789, 994]
 bandgap: 1.33
-scattering_type: auto
+scattering_type: [IMP]
 
 # electronic_structure settings
 interpolation_factor: 50

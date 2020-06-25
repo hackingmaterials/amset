@@ -11,12 +11,14 @@ from monty.serialization import dumpfn
 from tabulate import tabulate
 
 from amset.constants import bohr_to_cm, cm_to_bohr
-from amset.constants import defaults as defaults
+from amset.constants import defaults
 from amset.constants import hartree_to_ev, spin_name
 from amset.electronic_structure.common import get_angstrom_structure
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.fd import dfdde
-from amset.electronic_structure.mrta import MRTACalculator
+from amset.electronic_structure.kpoints import get_symmetry_equivalent_kpoints, \
+    similarity_transformation
+from amset.electronic_structure.response import ResponseCalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
 from amset.util import cast_dict_list, groupby, tensor_average
@@ -68,6 +70,7 @@ class AmsetData(MSONable):
         self.dos = None
         self.scattering_rates = None
         self.scattering_labels = None
+        self.linear_response_coefficients = None
         self.doping = None
         self.temperatures = None
         self.fermi_levels = None
@@ -78,7 +81,7 @@ class AmsetData(MSONable):
         self.electronic_thermal_conductivity = None
         self.mobility = None
         self.overlap_calculator = None
-        self.mrta_calculator = None
+        self.response_calculator = None
         self.fd_cutoffs = None
 
         self.velocities = {s: v.transpose((0, 2, 1)) for s, v in velocities.items()}
@@ -97,9 +100,20 @@ class AmsetData(MSONable):
             *ir_tetrahedra_info
         )
 
-        self.mrta_calculator = MRTACalculator(
-            self.kpoints, self.kpoint_mesh, self.velocities
+        _, _, _, _, _, self.rot_mapping = get_symmetry_equivalent_kpoints(
+            self.structure,
+            kpoints,
+            symprec=defaults["symprec"],
+            return_inverse=True,
+            time_reversal_symmetry=not self._soc,
         )
+        rlat = self.structure.lattice.reciprocal_lattice.matrix
+        self.similarity_matrices = np.array(
+            [similarity_transformation(rlat, r) for r in self.rot_mapping]
+        )
+        # self.mrta_calculator = MRTACalculator(
+        #     self.kpoints, self.kpoint_mesh, self.velocities
+        # )
 
     def set_overlap_calculator(self, overlap_calculator):
         nbands_equal = [
@@ -233,6 +247,12 @@ class AmsetData(MSONable):
         logger.info("Calculated Fermi levels:")
         logger.info(table)
 
+        c = {
+            s: np.zeros(self.energies[s].shape + self.fermi_levels.shape + (3, ))
+            for s in self.spins
+        }
+        self.response_calculator = ResponseCalculator(self.kpoints, self.kpoint_mesh, c)
+
     def calculate_fd_cutoffs(
         self,
         fd_tolerance: Optional[float] = 0.01,
@@ -316,7 +336,10 @@ class AmsetData(MSONable):
         self.fd_cutoffs = (min_cutoff, max_cutoff)
 
     def set_scattering_rates(
-        self, scattering_rates: Dict[Spin, np.ndarray], scattering_labels: List[str]
+        self,
+        scattering_rates: Dict[Spin, np.ndarray],
+        in_response: Dict[Spin, np.ndarray],
+        scattering_labels: List[str]
     ):
         for spin in self.spins:
             s = (len(self.doping), len(self.temperatures)) + self.energies[spin].shape
@@ -334,6 +357,137 @@ class AmsetData(MSONable):
 
         self.scattering_rates = scattering_rates
         self.scattering_labels = scattering_labels
+        self.fill_rates_outside_cutoffs()
+        self.update_linear_response_coefficients(in_response)
+
+    def update_linear_response_coefficients(
+        self,
+        in_response: Dict[Spin, np.ndarray],
+        broyden_beta: float = defaults["broyden_beta"]
+    ):
+        logger.info("Calculating linear response coefficients:")
+        fermi_shape = self.fermi_levels.shape
+        converged = True
+        info = []
+        str_converged = {True: "(converged)", False: "(not converged)"}
+        # self._fill_in_response_outside_cutoffs(in_response)
+
+        if self.fd_cutoffs:
+            energy_cutoffs = self.fd_cutoffs
+        else:
+            energy_cutoffs = (min(self.dos.energies), max(self.dos.energies))
+
+        for spin in self.spins:
+            energies = self.energies[spin]
+            velocities = self.velocities[spin]
+            nscatterings = len(self.scattering_labels) + 1
+            response_shape = (nscatterings, ) + fermi_shape + velocities.shape
+            new = np.zeros(response_shape)
+            rates = self.scattering_rates[spin][..., None] / units.Second
+            lifetimes = 1 / rates
+            all_lifetimes = 1 / rates.sum(axis=0)
+            all_in = in_response[spin].sum(axis=0)
+
+            if self.linear_response_coefficients:
+                old = self.linear_response_coefficients[spin]
+                first_run = False
+            else:
+                self.linear_response_coefficients = {}
+                old = np.zeros(response_shape)
+                first_run = True
+
+            for n, t in np.ndindex(fermi_shape):
+                ef = self.fermi_levels[n, t]
+                temp = self.temperatures[t]
+                dfde = dfdde(energies, ef, temp * units.BOLTZMANN)[..., None]
+                for s in range(nscatterings):
+                    if s == nscatterings - 1:
+                        new[-1, n, t] = (
+                            velocities * all_lifetimes[n, t] * dfde
+                        ) + all_lifetimes[n, t] * all_in[n, t]
+                    else:
+                        new[s, n, t] = (
+                            velocities * lifetimes[s, n, t] * dfde
+                        ) + lifetimes[s, n, t] * all_in[n, t]
+
+            if first_run:
+                self.linear_response_coefficients[spin] = new
+            else:
+                self.linear_response_coefficients[spin] = (1.0 - broyden_beta) * old + broyden_beta * new
+
+            ks = [[-0.481481,  0.,        0.,      ], [-0.444444,  0.,        0.,      ], [-0.407407,  0.,        0.,      ], [-0.37037 ,  0.,        0.,      ], [-0.333333,  0.,        0.,      ], [-0.296296,  0.,        0.,      ], [-0.259259,  0.,        0.,      ], [-0.222222,  0.,        0.,      ], [-0.185185,  0.,        0.,      ], [-0.148148,  0.,        0.,      ], [-0.111111,  0.,        0.,      ], [-0.074074,  0.,        0.,      ], [-0.037037,  0.,        0.,      ], [ 0.      ,  0.,        0.,      ], [ 0.037037,  0.,        0.,      ], [ 0.074074,  0.,        0.,      ], [ 0.111111,  0.,        0.,      ], [ 0.148148,  0.,        0.,      ], [ 0.185185,  0.,        0.,      ], [ 0.222222,  0.,        0.,      ], [ 0.259259,  0.,        0.,      ], [ 0.296296,  0.,        0.,      ], [ 0.333333,  0.,        0.,      ], [ 0.37037 ,  0.,        0.,      ], [ 0.407407,  0.,        0.,      ], [ 0.444444,  0.,        0.,      ], [ 0.481481,  0.,        0.,      ]]
+            idxs = []
+            for k in ks:
+                idxs.append(np.linalg.norm(self.kpoints - k, axis=-1).argmin())
+            idxs = np.array(idxs)
+            import matplotlib.pyplot as plt
+            plt.plot(np.linspace(0, 1, len(ks)), np.linalg.norm(all_in[-1, -1, 3, idxs], axis=1), label="x")
+            plt.legend()
+            plt.semilogy()
+            plt.show()
+            print(all_in[-1, -1, 3].sum())
+            # print("all_in", all_in[0, 0, :3].max())
+            # print("alL_life", all_lifetimes[0, 0, :3].sum())
+            # print("vel", velocities[0, 0, :3].sum())
+            # print("all_in * all_life", (all_in[0, 0] * all_lifetimes[0, 0])[:3].sum())
+            # print("vel * all_life", (velocities[0, 0] * all_lifetimes[0, 0])[:3].sum())
+            # print("new", new[-1, 0, 0, :3].sum())
+            # print("old", old[-1, 0, 0, :3].sum())
+
+            # only look at convergence within FD cutoffs
+            # mask = (energies >= energy_cutoffs[0]) & (energies <= energy_cutoffs[1])
+            # print(self.kpoints[idxs])
+            # print(np.sum(mask))
+            # print(energy_cutoffs)
+            # print("old", new[-1, 0, 0, ~mask])
+            # print("new", all_in[0, 0, ~mask].max())
+            # mask = (energies >= energy_cutoffs[0]) & (energies <= energy_cutoffs[1])
+            # diff = np.abs(old[-1][0, 0, mask] - self.linear_response_coefficients[spin][-1][0, 0, mask])
+            # print(diff)
+            # print(lifetimes[-1, 0, 0, mask][:10])
+            # print(all_in[0, 0, mask])
+            # print(all_in[0, 0, mask] * all_lifetimes[0, 0, mask])
+            # print("", new[-1, 0, 0, ~mask].max())
+            # diff = np.abs(old[-1][:, :, mask] - self.linear_response_coefficients[spin][-1][:, :, mask])
+            # diff = np.abs(old[-1] / new[-1])
+
+            oo = _multicross(old[-1], self.velocities[spin]).sum(axis=(2, 3))
+            nn = _multicross(new[-1], self.velocities[spin]).sum(axis=(2, 3))
+            oo = np.linalg.eigvalsh(oo)
+            nn = np.linalg.eigvalsh(nn)
+            diff = nn / oo
+
+            # nn = new[-1].sum(axis=(2, 3))
+            # print(oo)
+            # print(nn)
+
+            # diff = old[-1].sum(axis=(2, 3)) / new[-1].sum(axis=(2, 3))
+
+            # print(diff.shape)
+            # print(np.any(np.isnan(diff)))
+            # print(np.any(np.isnan(new[-1].sum(axis=-2))))
+            diff = np.abs(1 - diff)
+            # print(diff)
+            # print("diff", diff[0, 0, 3, idxs])
+            # print("diff", diff[:, :, mask])
+            # diff = np.abs(1 - np.abs(diff[:, :, mask]).mean())
+            diff = diff.max()
+            spin_converged = diff < 0.001
+            converged = spin_converged and converged
+
+            spin_str = spin_name[spin] if len(self.spins) == 2 else ""
+            info_str = "Mean absolute diff in {}coefficients: {:.4f} {}".format(
+                spin_str, diff, str_converged[spin_converged]
+            )
+            info.append(info_str)
+
+        log_list(info)
+
+        c = {s: self.linear_response_coefficients[s][-1].transpose(2, 3, 0, 1, 4)
+             for s in self.spins}
+        self.response_calculator = ResponseCalculator(self.kpoints, self.kpoint_mesh, c)
+
+        return converged
 
     def fill_rates_outside_cutoffs(self, fill_value=None):
         if self.scattering_rates is None:
@@ -377,6 +531,19 @@ class AmsetData(MSONable):
                 floatfmt=[".2e", ".1f"] + [".2e"] * len(self.scattering_labels),
             )
             logger.info(table)
+
+    def _fill_in_response_outside_cutoffs(self, in_response, fill_value=None):
+        min_fd, max_fd = self.fd_cutoffs
+        in_fill = fill_value
+        for spin, spin_energies in self.energies.items():
+            mask = (spin_energies < min_fd) | (spin_energies > max_fd)
+            for s, n, t in np.ndindex(self.scattering_rates[spin].shape[:3]):
+                if fill_value is None:
+                    # get average log rate inside cutoffs
+                    in_fill = in_response[spin][s, n, t, ~mask].mean()
+
+                in_response[spin][s, n, t, mask] = 0
+        return in_response
 
     def set_transport_properties(
         self,
@@ -511,3 +678,18 @@ class AmsetData(MSONable):
             raise ValueError("Unrecognised output format: {}".format(file_format))
 
         return filename
+
+
+def _multicross(response, velocities):
+    iu0 = np.triu_indices(3)
+    il1 = np.tril_indices(3, -1)
+    iu1 = np.triu_indices(3, 1)
+    cross = np.zeros(response.shape + (3, ))
+    for b_idx in range(cross.shape[2]):
+        cross[:, :, b_idx, :, iu0[0], iu0[1]] = (
+                velocities[None, None, b_idx, :, iu0[0]] *
+                response[:, :, b_idx, :, iu0[1]]
+        )
+        cross[:, :, b_idx, :, il1[0], il1[1]] = cross[:, :, b_idx, :, iu1[0], iu1[1]]
+
+    return cross

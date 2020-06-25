@@ -41,6 +41,8 @@ fd_tol: 0.05  # in %
 dos_estep: 0.01  # in eV
 symprec: 0.01  # in Angstrom
 nworkers: -1  # default is -1 (use all processors)
+broyden_beta: 1 # mixing factor for broyden mixing
+ibte_iter: 50
 
 # The output section controls AMSET output files and logging
 calculate_mobility: true
