@@ -467,7 +467,7 @@ class AmsetData(MSONable):
             # )
             plt.plot(
                 np.linspace(0, 1, len(ks)),
-                np.linalg.norm(all_in[-1, -1, 3, idxs], axis=1),
+                np.linalg.norm(all_in[0, 0, 3, idxs], axis=1),
                 label="x",
             )
             plt.legend()

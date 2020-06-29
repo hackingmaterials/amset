@@ -574,16 +574,16 @@ class ScatteringCalculator(object):
         in_response *= tet_overlap[mapping] * weights
         in_response[np.isnan(in_response)] = 0
         in_response /= units.Second
-        response_factor = self.amset_data.response_calculator.get_coefficients(
-            spin, tet_mask[0][mapping], k_primes, energy, self.amset_data
-        )[None]
-        in_value = np.sum(in_response[..., None] * response_factor, axis=-2)
-        # if self.amset_data.linear_response_coefficients:
-        #     vert_factor = self.amset_data.linear_response_coefficients[spin][-1].transpose(2, 3, 0, 1, 4)[property_mask]
-        #     tet_factor = get_cross_section_values(vert_factor, *tet_contributions).transpose(1, 2, 0, 3)[None]
-        #     in_value = np.sum(in_response[..., None] * tet_factor[:, :, :, mapping], axis=-2)
-        # else:
-        #     in_value = np.sum(in_response[..., None] * np.array([0, 0, 0])[None, None], axis=-2)
+        # response_factor = self.amset_data.response_calculator.get_coefficients(
+        #     spin, tet_mask[0][mapping], k_primes, energy, self.amset_data
+        # )[None]
+        # in_value = np.sum(in_response[..., None] * response_factor, axis=-2)
+        if self.amset_data.linear_response_coefficients:
+            vert_factor = self.amset_data.linear_response_coefficients[spin][-1].transpose(2, 3, 0, 1, 4)[property_mask]
+            tet_factor = get_cross_section_values(vert_factor, *tet_contributions).transpose(1, 2, 0, 3)[None]
+            in_value = np.sum(in_response[..., None] * tet_factor[:, :, :, mapping], axis=-2)
+        else:
+            in_value = np.sum(in_response[..., None] * np.array([0, 0, 0])[None, None], axis=-2)
 
         if in_only:
             return in_value
