@@ -184,7 +184,7 @@ class ScatteringCalculator(object):
                 missing_properties = [
                     p
                     for p in _scattering_mechanisms[name].required_properties
-                    if not settings.get(p, False)
+                    if settings.get(p, None) is None
                 ]
 
                 if missing_properties:
