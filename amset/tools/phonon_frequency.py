@@ -5,6 +5,8 @@ from typing import Type, Union
 import click
 import numpy as np
 
+from pymatgen import Structure
+from pymatgen.core.tensors import DEFAULT_QUAD
 from pymatgen.io.vasp import Outcar, Vasprun
 
 __author__ = "Alex Ganose"
@@ -42,7 +44,7 @@ def effective_phonon_frequency_from_vasp_files(vasprun, outcar):
     born_effective_charges = outcar.born
 
     effective_frequency, weights, frequencies = calculate_effective_phonon_frequency(
-        eigenvalues, eigenvectors, born_effective_charges
+        eigenvalues, eigenvectors, born_effective_charges, vasprun.final_structure
     )
 
     return effective_frequency, weights, frequencies
@@ -52,26 +54,45 @@ def calculate_effective_phonon_frequency(
     eigenvalues: np.ndarray,
     eigenvectors: np.ndarray,
     born_effecitve_charges: np.ndarray,
+    structure: Structure,
 ):
-    # get every 3rd mode after the first 3 modes, which are acoustic
-    lo_eigenvals = eigenvalues[5::3]
-    lo_eigenvecs = eigenvectors[5::3]
-
     # get frequencies from eigenvals and convert to THz
-    frequencies = 15.633302 * np.sqrt(np.abs(lo_eigenvals)) * np.sign(lo_eigenvals)
+    frequencies = 15.633302 * np.sqrt(np.abs(eigenvalues)) * np.sign(eigenvalues)
 
-    # calculate the weight as the dipole caused by the mode
     weights = []
-    for eigenvec in lo_eigenvecs:
-        d = [np.dot(bx, vx) for bx, vx in zip(born_effecitve_charges, eigenvec)]
-        weights.append(np.sum(np.linalg.norm(d, axis=1)))
+    for eigenvector, eigenvalue in zip(eigenvectors, eigenvalues):
+        weight = get_phonon_weight(
+            eigenvector, eigenvalue, born_effecitve_charges, structure
+        )
+        weights.append(weight)
 
-    # normalize the weights
     weights = np.array(weights) / sum(weights)
-
     effective_frequency = np.sum(weights * frequencies)
-
     return effective_frequency, weights, frequencies
+
+
+def get_phonon_weight(eigenvector, eigenvalue, born_effective_charges, structure):
+    # take spherical average of weight on scaled unit sphere
+    directions = DEFAULT_QUAD["points"] * 0.01
+    quad_weights = DEFAULT_QUAD["weights"]
+
+    all_weights = []
+    for direction in directions:
+        direction_weight = []
+        for atom_born, atom_vec, site in zip(
+            born_effective_charges, eigenvector, structure
+        ):
+            v1 = np.dot(atom_born, atom_vec)
+            v2 = np.dot(direction, v1)
+            direction_weight.append(v2 / np.sqrt(site.specie.atomic_mass * eigenvalue))
+        all_weights.append(np.abs(np.sum(direction_weight)))
+
+    weight = np.average(all_weights * quad_weights)
+
+    if np.isnan(weight):
+        return 0
+    else:
+        return weight
 
 
 def get_file(
