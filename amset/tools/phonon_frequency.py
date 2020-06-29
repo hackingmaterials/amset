@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from typing import Type, Union
+from tabulate import tabulate
 
 import click
 import numpy as np
@@ -28,12 +29,15 @@ def phonon_frequency(vasprun, outcar):
         vasprun, outcar
     )
 
-    click.echo("Freq & weights: ")
-    for w, f in zip(weights, freqs):
-        print("   {:.2f} THz   {:.2f}".format(f, w))
-
-    click.echo("max frequency: {:.2f} THz".format(freqs.max()))
-    click.echo("effective frequency: {:.2f} THz".format(effective_frequency))
+    table = tabulate(
+        list(zip(freqs, weights)),
+        headers=("Frequency", "Weight"),
+        numalign="right",
+        stralign="center",
+        floatfmt=(".2f", ".2f"),
+    )
+    click.echo(table)
+    click.echo("\neffective frequency: {:.2f} THz".format(effective_frequency))
 
     return effective_frequency
 
@@ -41,6 +45,8 @@ def phonon_frequency(vasprun, outcar):
 def effective_phonon_frequency_from_vasp_files(vasprun, outcar):
     eigenvalues = -vasprun.normalmode_eigenvals[::-1]
     eigenvectors = vasprun.normalmode_eigenvecs[::-1]
+
+    outcar.read_lepsilon()
     born_effective_charges = outcar.born
 
     effective_frequency, weights, frequencies = calculate_effective_phonon_frequency(
