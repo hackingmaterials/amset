@@ -20,14 +20,14 @@ path_type = click.Path(exists=True)
     help="band structure interpolation factor",
 )
 @option(
-    "--d",
+    "-d",
     "--doping",
     metavar="D",
     type=parse_doping,
     help='doping concentrations (e.g. "1E13,1E14" or "1E13:1E20:8")',
 )
 @option(
-    "--t",
+    "-t",
     "--temperatures",
     metavar="T",
     type=parse_temperatures,
@@ -98,7 +98,7 @@ def eff_mass(filename, **kwargs):
         floatfmt=floatfmt,
     )
 
-    print("\nEffective masses:\n")
-    print(table)
+    click.echo("\nEffective masses:\n")
+    click.echo(table)
 
     return mass_info
