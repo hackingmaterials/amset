@@ -1,6 +1,6 @@
 quadpy==0.14.11
 numpy==1.19.0
-pymatgen==2020.6.8
+pymatgen==2020.7.10
 scipy==1.5.0
 monty==3.0.2
 matplotlib==3.2.2
