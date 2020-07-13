@@ -1,5 +1,6 @@
 import os
 import unittest
+import numpy as np
 from os.path import join as path_join
 
 from amset.constants import defaults
@@ -16,7 +17,9 @@ class IOTest(unittest.TestCase):
 
         # test settings loaded correctly
         self.assertEqual(settings["scissor"], 3.0)
-        self.assertEqual(settings["high_frequency_dielectric"], 10)
+        np.testing.assert_array_almost_equal(
+            settings["high_frequency_dielectric"], np.eye(3) * 10
+        )
 
         # test defaults inferred correctly
         self.assertEqual(settings["pop_frequency"], defaults["pop_frequency"])
