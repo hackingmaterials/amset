@@ -3,7 +3,7 @@ numpy==1.19.0
 pymatgen==2020.7.14
 scipy==1.5.1
 monty==3.0.4
-matplotlib==3.2.2
+matplotlib==3.3.0
 BoltzTraP2==20.6.2
 tqdm==4.48.0
 tabulate==0.8.7
