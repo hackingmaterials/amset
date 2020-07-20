@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## v0.1.1
+
+Add release and packaging support.
+
 ## v0.1.0
 
 Initial release containing:
