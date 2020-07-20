@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## v0.1.2
+
+Fix pypi description.
+
 ## v0.1.1
 
 Add release and packaging support.

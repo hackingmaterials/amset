@@ -1,8 +1,3 @@
-import os
-import platform
-import sys
-from distutils.sysconfig import get_config_vars
-from distutils.version import LooseVersion
 from pathlib import Path
 
 from setuptools import find_packages, setup
@@ -11,27 +6,6 @@ from amset import __version__
 
 reqs_raw = Path("requirements.txt").read_text()
 reqs_list = [r.replace("==", ">=") for r in reqs_raw.split("\n")]
-
-module_dir = os.path.dirname(os.path.abspath(__file__))
-
-
-# The below snippet was taken from the Pandas setup.py script.
-# It should make it easy to install BolzTraP2 without additional
-# configuration.
-
-# For mac, ensure extensions are built for macos 10.9 when compiling on a
-# 10.9 system or above, overriding distuitls behaviour which is to target
-# the version that python was built for. This may be overridden by setting
-# MACOSX_DEPLOYMENT_TARGET before calling setup.py
-if sys.platform == "darwin":
-    if "MACOSX_DEPLOYMENT_TARGET" not in os.environ:
-        current_system = platform.mac_ver()[0]
-        python_target = get_config_vars().get(
-            "MACOSX_DEPLOYMENT_TARGET", current_system
-        )
-        if LooseVersion(current_system) >= "10.9" > LooseVersion(python_target):
-            os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.9"
-
 
 with open("README.md", "r") as file:
     long_description = file.read()
@@ -43,11 +17,12 @@ if __name__ == "__main__":
         description="AMSET is a tool to calculate carrier transport properties "
         "from ab initio calculation data",
         long_description=long_description,
+        long_description_content_type='text/markdown',
         url="https://github.com/hackingmaterials/amset",
         author="Alex Ganose",
         author_email="aganose@lbl.gov",
         license="modified BSD",
-        keywords="conductivity scattering seebeck dft vasp",
+        keywords="mobility conductivity seebeck scattering lifetime rates dft vasp",
         packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
         package_data={
             "amset": [
