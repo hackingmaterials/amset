@@ -4,4 +4,13 @@
 
 ## v0.1.0
 
-Description of version 0.1.0 features.
+Initial release containing:
+- `amset` command line tool
+- Ionized impurity, acoustic deformation potential, piezeoelectric, and polar
+  optical phonon scattering.
+- Quantum mechanical wave function overlaps.
+- Modified tetrahedron integration.
+
+## v0.0.0
+
+Project created.
