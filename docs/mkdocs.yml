@@ -24,7 +24,7 @@ nav:
   - License: license.md
 
 repo_url: https://github.com/hackingmaterials/amset/
-docs_dir: docs
+docs_dir: src
 markdown_extensions:
   - admonition
   - codehilite
@@ -46,4 +46,4 @@ plugins:
   - minify
   - macros:
       include_yaml:
-          - amset/defaults.yaml
+          - ../amset/defaults.yaml

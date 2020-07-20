@@ -48,7 +48,7 @@ if __name__ == "__main__":
         author_email="aganose@lbl.gov",
         license="modified BSD",
         keywords="conductivity scattering seebeck dft vasp",
-        packages=find_packages(),
+        packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
         package_data={
             "amset": [
                 "defaults.yaml", "plot/amset_base.mplstyle", "plot/revtex.mplstyle"
@@ -57,6 +57,26 @@ if __name__ == "__main__":
         data_files=["LICENSE", "requirements.txt"],
         zip_safe=False,
         install_requires=reqs_list,
+        extras_require={
+            'docs': [
+                'mkdocs==1.1.2',
+                'mkdocs-material==5.4.0',
+                'mkdocs-minify-plugin==0.3.0',
+                'mkdocs-macros-plugin==0.4.9',
+                'markdown-include==0.5.1',
+                'markdown-katex==202006.1021',
+            ],
+            'all-electron': ['pawpyseed==0.6.3'],
+            'dev': [
+                'coverage==5.1',
+                'codacy-coverage==1.3.11',
+                'pycodestyle==2.6.0',
+                'mypy==0.782',
+                'pydocstyle==5.0.2',
+                'flake8==3.8.3',
+                'pylint==2.5.3',
+            ]
+        },
         classifiers=[
             "Programming Language :: Python :: 3.6",
             "Development Status :: 4 - Beta",
@@ -69,10 +89,5 @@ if __name__ == "__main__":
         ],
         test_suite="nose.collector",
         tests_require=["nose"],
-        entry_points={
-            "console_scripts": [
-                "amset = amset.tools.cli:cli",
-                "eff-phonon-freq = amset.tools.phonon_frequency:main",
-            ]
-        },
+        entry_points={"console_scripts": ["amset = amset.tools.cli:cli"]},
     )

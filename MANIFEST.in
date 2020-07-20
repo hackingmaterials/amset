@@ -1,6 +1,0 @@
-include LICENSE
-include amset/plot/*.mplstyle
-recursive-include amset *
-recursive-exclude amset *.pyc
-recursive-include docs *
-recursive-exclude docs *.pyc

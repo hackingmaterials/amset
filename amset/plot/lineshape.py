@@ -3,7 +3,9 @@ from collections import defaultdict
 
 import numpy as np
 from matplotlib import rcParams
-from matplotlib.colors import LogNorm
+from matplotlib.axes import SubplotBase
+from matplotlib.axis import Axis
+from matplotlib.colors import LogNorm, Normalize
 from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
@@ -24,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class LineshapePlotter(BaseAmsetPlotter):
-    def __init__(self, data, interpolation_factor=1, print_log=defaults["print_log"]):
+    def __init__(self, data, interpolation_factor=5, print_log=defaults["print_log"]):
         super().__init__(data)
         self.interpolation_factor = interpolation_factor
 
@@ -45,9 +47,12 @@ class LineshapePlotter(BaseAmsetPlotter):
         props = defaultdict(dict)
         for spin in self.spins:
             # easier to interpolate the log
-            props[spin]["rates"] = np.log10(
+            log_rates = np.log10(
                 np.sum(self.scattering_rates[spin][:, n_idx, t_idx], axis=0)
             )
+            log_rates[log_rates > 18] = 15
+            log_rates[np.isnan(log_rates)] = 15
+            props[spin]["rates"] = log_rates
 
         return Interpolater(
             bs,
@@ -81,7 +86,7 @@ class LineshapePlotter(BaseAmsetPlotter):
         interpolater = self._get_interpolater(n_idx, t_idx)
 
         bs, prop = interpolater.get_line_mode_band_structure(
-            line_density=line_density, return_other_properties=True, kpath=kpath
+            line_density=line_density, return_other_properties=True, kpath=kpath, symprec=None
         )
 
         fd_emin, fd_emax = self.fd_cutoffs
@@ -96,8 +101,11 @@ class LineshapePlotter(BaseAmsetPlotter):
                 emax -= bs.efermi
 
         logger.info("Plotting band structure")
-        plt = pretty_plot(width=width, height=height, plt=plt)
-        ax = plt.gca()
+        if isinstance(plt, (Axis, SubplotBase)):
+            ax = plt
+        else:
+            plt = pretty_plot(width=width, height=height, plt=plt)
+            ax = plt.gca()
 
         if zero_to_efermi:
             bs.bands = {s: b - bs.efermi for s, b in bs.bands.items()}
@@ -122,29 +130,36 @@ class LineshapePlotter(BaseAmsetPlotter):
 
         window = np.min([len(distances) - 2, 71])
         window += window % 2 + 1
-        mesh_data = np.full((len(interp_distances), len(energies)), 1e-2)
+        mesh_data = np.full((len(distances), len(energies)), 1e-2)
 
         for spin in self.spins:
             for spin_energies, spin_rates in zip(bs.bands[spin], rates[spin]):
-                interp_energies = interp1d(distances, spin_energies)(interp_distances)
-                spin_rates = savgol_filter(spin_rates, window, 3)
-                interp_rates = interp1d(distances, spin_rates)(interp_distances)
-                linewidths = 10 ** interp_rates * hbar / 2
+                # interp_energies = interp1d(distances, spin_energies)(interp_distances)
+                # spin_rates = savgol_filter(spin_rates, window, 3)
+                # interp_rates = interp1d(distances, spin_rates)(interp_distances)
+                # linewidths = 10 ** interp_rates * hbar / 2
 
-                for d_idx in range(len(interp_distances)):
-                    energy = interp_energies[d_idx]
-                    linewidth = linewidths[d_idx]
+                # for d_idx in range(len(interp_distances)):
+                for d_idx in range(len(distances)):
+                    # energy = interp_energies[d_idx]
+                    energy = spin_energies[d_idx]
+                    linewidth = 10 ** spin_rates[d_idx] * hbar / 2
+                    # linewidth = linewidths[d_idx]
 
                     broadening = lorentzian(energies, energy, linewidth)
                     mesh_data[d_idx] = np.maximum(broadening, mesh_data[d_idx])
                     mesh_data[d_idx] = np.maximum(broadening, mesh_data[d_idx])
 
         ax.pcolormesh(
-            interp_distances,
+            distances,
             energies,
             mesh_data.T,
             rasterized=True,
+            # cmap="terrain_r",
+            # cmap="viridis",
+            cmap="viridis",
             norm=LogNorm(vmin=mesh_data.min(), vmax=mesh_data.max()),
+            # norm=Normalize(vmin=mesh_data.min(), vmax=mesh_data.max())),
         )
 
         _maketicks(ax, bs_plotter, ylabel=ylabel)
@@ -188,17 +203,18 @@ def _makeplot(
         ax.set_ylim(ymin, ymax)
 
     # keep correct aspect ratio for axes based on canvas size
-    x0, x1 = ax.get_xlim()
-    y0, y1 = ax.get_ylim()
-    if width is None:
-        width = rcParams["figure.figsize"][0]
-    if height is None:
-        height = rcParams["figure.figsize"][1]
+    if aspect is not False:
+        x0, x1 = ax.get_xlim()
+        y0, y1 = ax.get_ylim()
+        if width is None:
+            width = rcParams["figure.figsize"][0]
+        if height is None:
+            height = rcParams["figure.figsize"][1]
 
-    if not aspect:
-        aspect = height / width
+        if not aspect:
+            aspect = height / width
 
-    ax.set_aspect(aspect * ((x1 - x0) / (y1 - y0)))
+        ax.set_aspect(aspect * ((x1 - x0) / (y1 - y0)))
 
 
 def _maketicks(ax, bs_plotter, ylabel="Energy (eV)"):
@@ -227,7 +243,7 @@ def _maketicks(ax, bs_plotter, ylabel="Energy (eV)"):
 
     ax.set_xticks(unique_d)
     ax.set_xticklabels(unique_l)
-    ax.xaxis.grid(False)
+    ax.xaxis.grid(True)
     ax.set_ylabel(ylabel)
 
 
