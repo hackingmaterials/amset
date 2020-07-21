@@ -13,12 +13,12 @@ documentation. An example settings file is given
 
 ## From the command-line
 
-AMSET can be run from the command-line using the `amset` command. The help
+AMSET can be run from the command-line using the `amset run` command. The help
 menu listing a summary of the command-line options can be printed using:
 
 
 ```bash
-amset -h
+amset run -h
 ```
 
 By default, AMSET will look for a `vasprun.xml` file and `settings.yaml`
@@ -26,14 +26,14 @@ file in the current directory. A different directory can be specified using
 the `directory` option, e.g.:
 
 ```bash
-amset --directory path/to/files
+amset run --directory path/to/files
 ```
 
 Any settings specified via the command line will override those in the settings
 file. For example, the interpolation factor can be easily controlled using:
 
 ```bash
-amset --interpolation-factor 20
+amset run --interpolation-factor 20
 ```
 
 ## From the Python API
