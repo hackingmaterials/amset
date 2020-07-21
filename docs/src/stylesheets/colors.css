@@ -10,16 +10,16 @@
   --md-default-bg-color--lighter:      hsla(0, 0%, 100%, 0.3);
   --md-default-bg-color--lightest:     hsla(0, 0%, 100%, 0.12);
 
-  --md-primary-fg-color:               hsla(219, 75%, 35%, 1);
-  --md-primary-fg-color--light:        hsla(219, 75%, 35%, 1);
-  --md-primary-fg-color--dark:         hsla(219, 75%, 35%, 1);
+  --md-primary-fg-color:               hsla(216, 70%, 23%, 1);
+  --md-primary-fg-color--light:        hsla(216, 70%, 23%, 1);
+  --md-primary-fg-color--dark:         hsla(216, 70%, 23%, 1);
   --md-primary-bg-color:               hsla(0, 0%, 100%, 1);
   --md-primary-bg-color--light:        hsla(0, 0%, 100%, 0.7);
 
   // Accent color shades
-  --md-accent-fg-color:                hsla(219, 75%, 35%, 1);
-  --md-accent-fg-color:                hsla(219, 75%, 35%, 1);
-  --md-accent-fg-color--transparent:   hsla(219, 75%, 35%, 0.1);
+  --md-accent-fg-color:                hsla(216, 70%, 23%, 1);
+  --md-accent-fg-color:                hsla(216, 70%, 23%, 1);
+  --md-accent-fg-color--transparent:   hsla(216, 70%, 23%, 0.1);
   --md-accent-bg-color:                hsla(0, 0%, 100%, 1);
   --md-accent-bg-color--light:         hsla(0, 0%, 100%, 0.7);
 
