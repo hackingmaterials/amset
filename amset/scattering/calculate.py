@@ -5,12 +5,12 @@ AmsetData object.
 
 import logging
 import time
+import quadpy
 from multiprocessing import cpu_count
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 from BoltzTraP2 import units
-from quadpy import ncube, nsimplex, quadrilateral, triangle
 from scipy.interpolate import griddata
 
 from amset.constants import defaults, hbar, small_val, spin_name
@@ -44,14 +44,14 @@ _scattering_mechanisms = {m.name: m for m in _all_scatterers}
 
 ni = {
     "high": {
-        "triangle": triangle.xiao_gimbutas_50(),
-        "quad": quadrilateral.sommariva_50(),
+        "triangle": quadpy.t2.xiao_gimbutas_50(),
+        "quad": quadpy.c2.sommariva_50(),
     },
     "medium": {
-        "triangle": triangle.xiao_gimbutas_06(),
-        "quad": quadrilateral.sommariva_06(),
+        "triangle": quadpy.t2.xiao_gimbutas_06(),
+        "quad": quadpy.c2.sommariva_06(),
     },
-    "low": {"triangle": triangle.centroid(), "quad": quadrilateral.dunavant_00()},
+    "low": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
 }
 
 
@@ -525,8 +525,8 @@ def get_fine_mesh_qpoints(
             return
 
         simplex = intersections[:3, mask]
-        vol = nsimplex.get_vol(simplex)
-        xy_coords = nsimplex.transform(scheme.points.T, simplex.T)
+        vol = quadpy.tn.get_vol(simplex)
+        xy_coords = quadpy.tn.transform(scheme.points.T, simplex.T)
         weights = (
             scheme.weights[None] * vol[:, None] * cross_section_weights[mask][:, None]
         )
@@ -542,8 +542,8 @@ def get_fine_mesh_qpoints(
             return
 
         cube = intersections.reshape((2, 2, -1, 2))[:, :, mask]
-        vol = np.abs(ncube._helpers.get_detJ(scheme.points.T, cube))
-        xy_coords = ncube.transform(scheme.points.T, cube).T
+        vol = np.abs(quadpy.cn._helpers.get_detJ(scheme.points.T, cube))
+        xy_coords = quadpy.cn.transform(scheme.points.T, cube).T
         weights = scheme.weights[None] * vol * cross_section_weights[mask][:, None]
 
         qpoints.append(get_q(xy_coords, z_coords[mask]))
