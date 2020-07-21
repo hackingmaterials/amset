@@ -1,0 +1,101 @@
+:root {
+
+  // Default color shades
+  --md-default-fg-color:               hsla(0, 0%, 0%, 0.87);
+  --md-default-fg-color--light:        hsla(0, 0%, 0%, 0.54);
+  --md-default-fg-color--lighter:      hsla(0, 0%, 0%, 0.32);
+  --md-default-fg-color--lightest:     hsla(0, 0%, 0%, 0.07);
+  --md-default-bg-color:               hsla(0, 0%, 100%, 1);
+  --md-default-bg-color--light:        hsla(0, 0%, 100%, 0.7);
+  --md-default-bg-color--lighter:      hsla(0, 0%, 100%, 0.3);
+  --md-default-bg-color--lightest:     hsla(0, 0%, 100%, 0.12);
+
+  --md-primary-fg-color:               hsla(219, 75%, 35%, 1);
+  --md-primary-fg-color--light:        hsla(219, 75%, 35%, 1);
+  --md-primary-fg-color--dark:         hsla(219, 75%, 35%, 1);
+  --md-primary-bg-color:               hsla(0, 0%, 100%, 1);
+  --md-primary-bg-color--light:        hsla(0, 0%, 100%, 0.7);
+
+  // Accent color shades
+  --md-accent-fg-color:                hsla(219, 75%, 35%, 1);
+  --md-accent-fg-color:                hsla(219, 75%, 35%, 1);
+  --md-accent-fg-color--transparent:   hsla(219, 75%, 35%, 0.1);
+  --md-accent-bg-color:                hsla(0, 0%, 100%, 1);
+  --md-accent-bg-color--light:         hsla(0, 0%, 100%, 0.7);
+
+  // Light theme (default)
+  > * {
+
+    // Code color shades
+    --md-code-bg-color:                  hsla(0, 0%, 96%, 1);
+    --md-code-fg-color:                  hsla(200, 18%, 26%, 1);
+
+    // Text color shades
+    --md-text-color:                     var(--md-default-fg-color);
+    --md-text-link-color:                var(--md-primary-fg-color);
+
+    // Admonition color shades
+    --md-admonition-bg-color:            var(--md-default-bg-color);
+    --md-admonition-fg-color:            var(--md-default-fg-color);
+
+    // Footer color shades
+    --md-footer-bg-color:                hsla(0, 0%, 0%, 0.87);
+    --md-footer-bg-color--dark:          hsla(0, 0%, 0%, 0.32);
+    --md-footer-fg-color:                hsla(0, 0%, 100%, 1);
+    --md-footer-fg-color--light:         hsla(0, 0%, 100%, 0.7);
+    --md-footer-fg-color--lighter:       hsla(0, 0%, 100%, 0.3);
+  }
+
+}
+
+.md-typeset  h1 {
+    margin-bottom: 30px;
+    font-weight: 100;
+    font-size: 1.3rem;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: rgba(0, 0, 0, 0.87);
+}
+
+.md-typeset  h2 {
+    font-weight: 300;
+    font-size: 1.05rem;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+
+.md-typeset  h3 {
+    font-weight: 500;
+    font-size: 0.9rem;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+
+.md-typset  h4 {
+    font-weight: 700;
+    font-size: 0.9;
+    letter-spacing: -0.01em;
+  }
+
+.md-typeset  h5{
+    color: var(--md-default-fg-color--light);
+    font-weight: 700;
+    font-size: 0.75;
+    letter-spacing: -0.01em;
+  }
+
+.md-typset h6 {
+    color: var(--md-default-fg-color--light);
+    font-weight: 700;
+    font-size: 0.75;
+    letter-spacing: -0.01em;
+  }
+
+.md-typeset {
+  font-size: 0.74rem;
+  line-height: 1.6;
+}
+
+.md-header-nav__title {
+    font-weight: 300;
+}

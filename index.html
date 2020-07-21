@@ -23,12 +23,6 @@
     
       <link rel="stylesheet" href="assets/stylesheets/main.fe0cca5b.min.css">
       
-        <link rel="stylesheet" href="assets/stylesheets/palette.a46bcfb3.min.css">
-      
-      
-        
-        
-        <meta name="theme-color" content="#546e7a">
       
     
     
@@ -41,6 +35,8 @@
     
     
     
+      <link rel="stylesheet" href="stylesheets/colors.css">
+    
     
       
     
@@ -48,10 +44,7 @@
   </head>
   
   
-    
-    
-    
-    <body dir="ltr" data-md-color-scheme="" data-md-color-primary="blue-grey" data-md-color-accent="blue-grey">
+    <body dir="ltr">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -262,16 +255,41 @@
       
 
 
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
+    
+    <label class="md-nav__link" for="nav-2">
+      User Guide
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="User Guide" data-md-level="1">
+      <label class="md-nav__title" for="nav-2">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        User Guide
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
   <li class="md-nav__item">
     <a href="installation/" title="Installation" class="md-nav__link">
       Installation
     </a>
   </li>
 
-    
-      
-      
-      
+        
+          
+          
+          
 
 
   <li class="md-nav__item">
@@ -280,10 +298,22 @@
     </a>
   </li>
 
-    
-      
-      
-      
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="properties/" title="Materials Properties" class="md-nav__link">
+      Materials Properties
+    </a>
+  </li>
+
+        
+          
+          
+          
 
 
   <li class="md-nav__item">
@@ -292,10 +322,10 @@
     </a>
   </li>
 
-    
-      
-      
-      
+        
+          
+          
+          
 
 
   <li class="md-nav__item">
@@ -304,16 +334,21 @@
     </a>
   </li>
 
-    
-      
-      
-      
+        
+          
+          
+          
 
 
   <li class="md-nav__item">
     <a href="transport-properties/" title="Transport Properties" class="md-nav__link">
       Transport Properties
     </a>
+  </li>
+
+        
+      </ul>
+    </nav>
   </li>
 
     
@@ -440,6 +475,7 @@
                 
                 <h1 id="amset-ab-initio-scattering-and-transport">AMSET: <em>ab initio</em> scattering and transport<a class="headerlink" href="#amset-ab-initio-scattering-and-transport" title="Permanent link">&para;</a></h1>
 <h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h2>
+<p><img alt="amset properties" src="properties.jpg"></p>
 <p>AMSET is an efficient package for calculating electron lifetimes and
 transport properties in solid-state materials from first principles.
 A primary aim of AMSET is to be amenable to high-throughput computational
@@ -450,8 +486,7 @@ Features of AMSET include:</p>
   primary input for AMSET is an uniform band structure calculation.</li>
 <li>Scattering rates calculated in the Born approximation using common materials
   properties such as phonon frequencies and dielectric constants.</li>
-<li>Transport properties calculated through the iterative Boltzmann transport
-  equation.</li>
+<li>Transport properties calculated through the Boltzmann transport equation.</li>
 <li>Efficient implementation that can run on a personal laptop.</li>
 </ul>
 <div class="admonition info">
@@ -496,47 +531,28 @@ Read more about contributing code to AMSET <a href="contributing">here</a>.</p>
         </div>
       </main>
       
-        
-<footer class="md-footer">
-  
-    <div class="md-footer-nav">
-      <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
-        
-        
-          <a href="installation/" title="Installation" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
-            <div class="md-footer-nav__title">
-              <div class="md-ellipsis">
-                <span class="md-footer-nav__direction">
-                  Next
-                </span>
-                Installation
-              </div>
-            </div>
-            <div class="md-footer-nav__button md-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg>
-            </div>
-          </a>
-        
-      </nav>
-    </div>
-  
-  <div class="md-footer-meta md-typeset">
-    <div class="md-footer-meta__inner md-grid">
-      <div class="md-footer-copyright">
-        
-          <div class="md-footer-copyright__highlight">
-            Built by the HackingMaterials group
-          </div>
-        
-        Made with
-        <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
-          Material for MkDocs
-        </a>
-      </div>
-      
-    </div>
-  </div>
-</footer>
+        <!--
+  Copyright (c) 2016-2020 Martin Donath <martin.donath@squidfunk.com>
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to
+  deal in the Software without restriction, including without limitation the
+  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+  sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+  IN THE SOFTWARE.
+-->
+
+
+
+<!-- Application footer -->
       
     </div>
     
