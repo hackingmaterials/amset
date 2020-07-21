@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## v0.1.3
+
+Bug fix for latest quadpy version.
+
 ## v0.1.2
 
 Fix pypi description.
