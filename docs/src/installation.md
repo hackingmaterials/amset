@@ -1,29 +1,30 @@
 # Installation
 
-## From source
+AMSET is a Python 3 package and requires a
+[typical scientific Python stack](https://www.scipy.org/about.html).
+AMSET can be installed using the Python package manager "Pip",
+which will automatically setup other Python packages as required:
 
-To install AMSET from source, first clone the repository from GitHub, then
-install using pip:
-
-```bash
-git clone https://github.com/hackingmaterials/amset.git
-cd amset
-pip install .
 ```
-
+pip install amset
+```
+    
 If not installing from inside a virtual environment or conda environment, you
 may need to specify to install as a *user* via:
 
 ```bash
-pip install . --user
+pip install amset --user
 ```
 
-## Installing AMSET on Mac
+## Developer Installation
 
-Due to the way BolzTraP2 must be compiled, the following snippet is required to install AMSET on Mac:
+To install an editable version of AMSET, first clone the repository from 
+GitHub, then install using pip:
 
 ```bash
-MACOSX_DEPLOYMENT_TARGET=10.9 pip install amset
+git clone https://github.com/hackingmaterials/amset.git
+cd amset
+pip install -e .
 ```
 
 ## Installing AMSET on NERSC

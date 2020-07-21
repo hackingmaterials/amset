@@ -4,20 +4,20 @@ copyright: Built by the HackingMaterials group
 
 theme:
   name: 'material'
-  palette:
-    primary: 'blue grey'
-    accent: 'blue grey'
   icon:
     logo: material/call-missed
     repo: fontawesome/brands/git-alt
+  custom_dir: overrides
 
 nav:
   - Home: index.md
-  - Installation: installation.md
-  - Getting Started: using.md
-  - Settings: settings.md
-  - Scattering Rates: scattering.md
-  - Transport Properties: transport-properties.md
+  - User Guide:
+    - Installation: installation.md
+    - Getting Started: using.md
+    - Materials Properties: properties.md
+    - Settings: settings.md
+    - Scattering Rates: scattering.md
+    - Transport Properties: transport-properties.md
   - Changelog: changelog.md
   - Contributors: contributors.md
   - Contributing: contributing.md
@@ -47,3 +47,7 @@ plugins:
   - macros:
       include_yaml:
           - ../amset/defaults.yaml
+
+extra_css:
+  - stylesheets/colors.css
+

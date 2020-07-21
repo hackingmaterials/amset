@@ -142,6 +142,7 @@ scattering rates.
     *Command-line option:* `--high-frequency-dielectric`
 
     The high-frequency dielectric constant, in units of $`\epsilon_0`$.
+    Can be given as a 3x3 tensor or a single isotropic value.
 
     Required for: POP
 
@@ -151,6 +152,7 @@ scattering rates.
     *Command-line option:* `--static-dielectric`
 
     The static dielectric constant, in units of $`\epsilon_0`$.
+    Can be given as a 3x3 tensor or a single isotropic value.
 
     Required for: IMP, PIE, POP
 
