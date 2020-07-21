@@ -13,6 +13,7 @@ Add release and packaging support.
 ## v0.1.0
 
 Initial release containing:
+
 - `amset` command line tool
 - Ionized impurity, acoustic deformation potential, piezeoelectric, and polar
   optical phonon scattering.
