@@ -458,20 +458,20 @@ available settings are provided in the <a href="../settings/">settings section</
 documentation. An example settings file is given 
 <a href="https://github.com/hackingmaterials/amset/blob/master/examples/GaAs/settings.yaml">here</a>.</p>
 <h2 id="from-the-command-line">From the command-line<a class="headerlink" href="#from-the-command-line" title="Permanent link">&para;</a></h2>
-<p>AMSET can be run from the command-line using the <code>amset</code> command. The help
+<p>AMSET can be run from the command-line using the <code>amset run</code> command. The help
 menu listing a summary of the command-line options can be printed using:</p>
-<div class="highlight"><pre><span></span><code>amset -h
+<div class="highlight"><pre><span></span><code>amset run -h
 </code></pre></div>
 
 <p>By default, AMSET will look for a <code>vasprun.xml</code> file and <code>settings.yaml</code>
 file in the current directory. A different directory can be specified using
 the <code>directory</code> option, e.g.:</p>
-<div class="highlight"><pre><span></span><code>amset --directory path/to/files
+<div class="highlight"><pre><span></span><code>amset run --directory path/to/files
 </code></pre></div>
 
 <p>Any settings specified via the command line will override those in the settings
 file. For example, the interpolation factor can be easily controlled using:</p>
-<div class="highlight"><pre><span></span><code>amset --interpolation-factor <span class="m">20</span>
+<div class="highlight"><pre><span></span><code>amset run --interpolation-factor <span class="m">20</span>
 </code></pre></div>
 
 <h2 id="from-the-python-api">From the Python API<a class="headerlink" href="#from-the-python-api" title="Permanent link">&para;</a></h2>
