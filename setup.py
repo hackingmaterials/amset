@@ -43,7 +43,7 @@ if __name__ == "__main__":
             ],
             'all-electron': ['pawpyseed==0.6.3'],
             'dev': [
-                'coverage==5.1',
+                'coverage==5.2',
                 'codacy-coverage==1.3.11',
                 'pycodestyle==2.6.0',
                 'mypy==0.782',
