@@ -43,15 +43,31 @@ Mechanism                                                                       
 ### Acoustic deformation potential scattering
 
 The acoustic deformation potential matrix element is given by
-
 ```math
-g_{nm}(\mathbf{k}, \mathbf{q}) =
-    \left [ \frac{k_\mathrm{B} T \varepsilon_\mathrm{d}^2}{C_\mathrm{el}} \right ] ^\frac{1}{2}
+g_{nm}^\mathrm{ad}(\mathbf{k}, \mathbf{q}) =
+    \sqrt{k_\mathrm{B} T}
+    \left[ 
+        \frac{(\mathbf{D}_{n\mathbf{k}} : \mathbf{\hat{q}} \otimes \mathbf{\hat{q}})^2}
+             {\mathbf{Q}_\mathbf{q}\mathbf{\hat{q}}\cdot\mathbf{\hat{q}}} + 
+        \frac{(\mathbf{D}_{n\mathbf{k}} : \mathbf{\hat{q}} \otimes \mathbf{\hat{q}}_{t_1})^2}
+             {\mathbf{Q}_\mathbf{q}\mathbf{\hat{q}}_{t_1}\cdot\mathbf{\hat{q}}_{t_1}} +
+        \frac{(\mathbf{D}_{n\mathbf{k}} : \mathbf{\hat{q}} \otimes \mathbf{\hat{q}}_{t_2})^2}
+             {\mathbf{Q}_\mathbf{q}\mathbf{\hat{q}}_{t_2}\cdot\mathbf{\hat{q}}_{t_2}}
+    \right]^\frac{1}{2}
     \mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle},
 ```
-
-where $`\varepsilon_\mathrm{d}`$ is the acoustic-phonon deformation-potential,
-and $`C_\mathrm{el}`$ is the elastic constant.
+where $`\mathbf{D}_{n\mathbf{k}}`$ is the rank 2 volume deformation potential 
+tensor for state $`\mathinner{|n\mathbf{k}\rangle}`$, 
+$`\mathbf{Q}_\mathbf{q} = \mathbf{\hat{q}} \cdot \mathbf{C} \cdot \mathbf{\hat{q}}`$ 
+is the acoustic tensor in the direction of $`\mathbf{q}`$, $`\mathbf{C}`$ is the 
+rank 4 elastic constant tensor, and 
+$`\mathbf{\hat{q}} = \mathbf{q} / |\mathbf{q}|`$ is the unit scattering direction.
+The vectors $`\mathbf{\hat{q}}_{t_1}`$ and $`\mathbf{\hat{q}}_{t_2}`$ are unit 
+vectors perpendicular to $`\mathbf{\hat{q}}`$ and to each other, such that the 
+three form an orthogonal basis.
+The first term given in square brackets accounts for scattering due to 
+longitudinal phonons, whereas the second two terms describe scattering from 
+transverse modes.
 
 !!! quote ""
     - *Abbreviation:* APD
@@ -62,15 +78,13 @@ and $`C_\mathrm{el}`$ is the elastic constant.
 ### Ionized impurity scattering
 
 The ionized impurity matrix element is given by
-
 ```math
-g_{nm}(\mathbf{k}, \mathbf{q}) =
-    \left [ \frac{e^2 n_\mathrm{ii}}{\epsilon_\mathrm{s}^2} \right ] ^\frac{1}{2}
+g_{nm}^\mathrm{ii}(\mathbf{k}, \mathbf{q}) =
+     \frac{n_\mathrm{ii}^{1/2} Z e }{\mathbf{\hat{q}} \cdot \boldsymbol{\epsilon}_\mathrm{s} \cdot \mathbf{\hat{q}}}
     \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
          {\left | \mathbf{q} \right | ^2 + \beta^2},
 ```
-
-where $`\epsilon_\mathrm{s}`$ is the static dielectric constant,
+where $`\boldsymbol{\epsilon}_\mathrm{s}`$ is the static dielectric constant,
 $`n_\mathrm{ii}`$ is the concentration of ionized impurities
 (i.e., $`n_\mathrm{holes} + n_\mathrm{electrons}`$),
 and $`\beta`$ is the inverse screening length, defined as
@@ -95,13 +109,13 @@ $`f`$ is the Fermi–Dirac distribution given in the
 The piezoelectric differential scattering rate is given by
 
 ```math
-g_{nm}(\mathbf{k}, \mathbf{q}) =
-    \left [ \frac{k_\mathrm{B} T P_\mathrm{pie}^2}{\epsilon_\mathrm{s}} \right ] ^\frac{1}{2}
+g_{nm}^\mathrm{pi}(\mathbf{k}, \mathbf{q}) =
+    \left [ \frac{k_\mathrm{B} T d^2}{\mathbf{\hat{q}}\cdot\boldsymbol{\epsilon}_\mathrm{s}\cdot\mathbf{\hat{q}}} \right ] ^\frac{1}{2}
     \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
          {\left | \mathbf{q} \right |},
 ```
 
-where $`P_\mathrm{pie}`$ is the dimensionless piezoelectric coefficient.
+where $`d`$ is the dimensionless piezoelectric coefficient.
 
 !!! quote ""
     - *Abbreviation:* PIE
@@ -114,17 +128,17 @@ where $`P_\mathrm{pie}`$ is the dimensionless piezoelectric coefficient.
 The polar optical phonon differential scattering rate is given by
 
 ```math
-g_{nm}(\mathbf{k}, \mathbf{q}) =
+g_{nm}^\mathrm{po}(\mathbf{k}, \mathbf{q}) = 
     \left [ 
         \frac{\hbar \omega_\mathrm{po}}{2} 
-        \left (\frac{1}{\epsilon_\infty} - \frac{1}{\epsilon_\mathrm{s}}\right)
+        \left (\frac{1}{\mathbf{\hat{q}}\cdot\boldsymbol{\epsilon}_\infty\cdot\mathbf{\hat{q}}} - \frac{1}{\mathbf{\hat{q}}\cdot\boldsymbol{\epsilon}_\mathrm{s}\cdot\mathbf{\hat{q}}}\right)
     \right ] ^\frac{1}{2}
     \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
          {\left | \mathbf{q} \right |},
 ```
 
 where $`\omega_\mathrm{po}`$ is the polar optical phonon frequency,
-$`\epsilon_\infty`$ is the high-frequency dielectric constant.
+and $`\boldsymbol{\epsilon}_\infty`$ is the high-frequency dielectric constant tensor.
 
 !!! quote ""
     - *Abbreviation:* POP
