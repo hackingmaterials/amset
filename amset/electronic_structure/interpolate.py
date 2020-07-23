@@ -573,7 +573,7 @@ class Interpolater(MSONable):
         energy_cutoff: Optional[float] = None,
         scissor: Optional[float] = None,
         bandgap: Optional[float] = None,
-        symprec: float = defaults["symprec"],
+        symprec: Optional[float] = defaults["symprec"],
         return_other_properties: bool = False,
     ) -> Union[
         BandStructureSymmLine,

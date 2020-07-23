@@ -5,10 +5,8 @@ import numpy as np
 from matplotlib import rcParams
 from matplotlib.axes import SubplotBase
 from matplotlib.axis import Axis
-from matplotlib.colors import LogNorm, Normalize
+from matplotlib.colors import LogNorm
 from matplotlib.ticker import AutoMinorLocator, MaxNLocator
-from scipy.interpolate import interp1d
-from scipy.signal import savgol_filter
 from sumo.plotting import pretty_plot, styled_plot
 
 from amset.constants import defaults, hbar
@@ -77,7 +75,7 @@ class LineshapePlotter(BaseAmsetPlotter):
         ylabel="Energy (eV)",
         plt=None,
         aspect=None,
-        distance_factor=10,
+        # distance_factor=10,
         kpath=None,
         style=None,
         no_base_style=False,
@@ -86,7 +84,10 @@ class LineshapePlotter(BaseAmsetPlotter):
         interpolater = self._get_interpolater(n_idx, t_idx)
 
         bs, prop = interpolater.get_line_mode_band_structure(
-            line_density=line_density, return_other_properties=True, kpath=kpath, symprec=None
+            line_density=line_density,
+            return_other_properties=True,
+            kpath=kpath,
+            symprec=None,
         )
 
         fd_emin, fd_emax = self.fd_cutoffs
@@ -124,9 +125,9 @@ class LineshapePlotter(BaseAmsetPlotter):
             rates[spin][rates[spin] <= 0] = np.min(rates[spin][rates[spin] > 0])
             rates[spin][rates[spin] >= 15] = 15
 
-        interp_distances = np.linspace(
-            distances.min(), distances.max(), int(len(distances) * distance_factor)
-        )
+        # interp_distances = np.linspace(
+        #     distances.min(), distances.max(), int(len(distances) * distance_factor)
+        # )
 
         window = np.min([len(distances) - 2, 71])
         window += window % 2 + 1
@@ -155,11 +156,8 @@ class LineshapePlotter(BaseAmsetPlotter):
             energies,
             mesh_data.T,
             rasterized=True,
-            # cmap="terrain_r",
-            # cmap="viridis",
             cmap="viridis",
             norm=LogNorm(vmin=mesh_data.min(), vmax=mesh_data.max()),
-            # norm=Normalize(vmin=mesh_data.min(), vmax=mesh_data.max())),
         )
 
         _maketicks(ax, bs_plotter, ylabel=ylabel)
