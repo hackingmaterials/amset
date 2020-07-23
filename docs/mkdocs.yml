@@ -10,18 +10,18 @@ theme:
   custom_dir: overrides
 
 nav:
-  - Home: index.md
-  - User Guide:
-    - Installation: installation.md
-    - Getting Started: using.md
-    - Materials Properties: properties.md
-    - Settings: settings.md
-    - Scattering Rates: scattering.md
-    - Transport Properties: transport-properties.md
-  - Changelog: changelog.md
-  - Contributors: contributors.md
-  - Contributing: contributing.md
-  - License: license.md
+  - Introduction: index.md
+  - Installation: installation.md
+  - Getting Started: using.md
+  - Materials Properties: properties.md
+  - Settings: settings.md
+  - Scattering Rates: scattering.md
+  - Transport Properties: transport-properties.md
+  - About:
+    - Changelog: changelog.md
+    - Contributors: contributors.md
+    - Contributing: contributing.md
+    - License: license.md
 
 repo_url: https://github.com/hackingmaterials/amset/
 docs_dir: src
