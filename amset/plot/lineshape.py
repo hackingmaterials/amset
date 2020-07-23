@@ -75,7 +75,7 @@ class LineshapePlotter(BaseAmsetPlotter):
         ylabel="Energy (eV)",
         plt=None,
         aspect=None,
-        # distance_factor=10,
+        distance_factor=10,
         kpath=None,
         style=None,
         no_base_style=False,
