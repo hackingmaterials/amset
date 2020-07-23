@@ -1,11 +1,6 @@
-from pathlib import Path
-
 from setuptools import find_packages, setup
 
 from amset import __version__
-
-reqs_raw = Path("requirements.txt").read_text()
-reqs_list = [r.replace("==", ">=") for r in reqs_raw.split("\n")]
 
 with open("README.md", "r") as file:
     long_description = file.read()
@@ -31,7 +26,24 @@ if __name__ == "__main__":
         },
         data_files=["LICENSE", "requirements.txt"],
         zip_safe=False,
-        install_requires=reqs_list,
+        install_requires=[
+            'quadpy==0.15.0',
+            'numpy==1.19.1',
+            'pymatgen==2020.7.18',
+            'scipy==1.5.1',
+            'monty==3.0.4',
+            'matplotlib==3.3.0',
+            'BoltzTraP2==20.6.2',
+            'tqdm==4.48.0',
+            'tabulate==0.8.7',
+            'memory_profiler==0.57.0',
+            'spglib==1.15.1',
+            'click==7.1.2',
+            'sumo==1.4.0',
+            'h5py==2.10.0',
+            'pyFFTW==0.12.0',
+            'interpolation==2.1.6',
+        ],
         extras_require={
             'docs': [
                 'mkdocs==1.1.2',
