@@ -23,6 +23,13 @@
   --md-accent-bg-color:                hsla(0, 0%, 100%, 1);
   --md-accent-bg-color--light:         hsla(0, 0%, 100%, 0.7);
 
+  --md-text-color: var(--md-default-fg-color);
+  background-color: var(--md-default-bg-color);
+
+  // Footer color shades
+  --md-footer-bg-color:                transparent;
+  --md-footer-bg-color--dark:          var(--md-default-bg-color--darkest);
+
   // Light theme (default)
   > * {
 
@@ -98,4 +105,18 @@
 
 .md-header-nav__title {
     font-weight: 300;
+}
+
+.md-footer {
+  background-color: var(--md-default-bg-color);;
+  color: var(--md-default-fg-color);
+}
+
+.md-footer-nav__title {
+    font-size: 0.8rem;
+}
+
+
+.md-footer-nav_-meta {
+  border-top: px2rem(1px) solid var(--md-primary-fg-color);
 }

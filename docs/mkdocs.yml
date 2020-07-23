@@ -7,7 +7,7 @@ theme:
   icon:
     logo: material/call-missed
     repo: fontawesome/brands/git-alt
-  custom_dir: overrides
+  custom_dir: theme/overrides
 
 nav:
   - Introduction: index.md
