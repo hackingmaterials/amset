@@ -33,7 +33,7 @@ if __name__ == "__main__":
             'scipy==1.5.2',
             'monty==3.0.4',
             'matplotlib==3.3.0',
-            'BoltzTraP2==20.6.2',
+            'BoltzTraP2==20.7.1',
             'tqdm==4.48.0',
             'tabulate==0.8.7',
             'memory_profiler==0.57.0',
