@@ -37,7 +37,7 @@ if __name__ == "__main__":
             'tqdm==4.48.0',
             'tabulate==0.8.7',
             'memory_profiler==0.57.0',
-            'spglib==1.15.1',
+            'spglib==1.16.0',
             'click==7.1.2',
             'sumo==1.4.0',
             'h5py==2.10.0',
