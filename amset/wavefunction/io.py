@@ -34,6 +34,9 @@ def load_coefficients(filename):
         structure_str = np.string_(np.array(f["structure"])).decode()
         structure = Structure.from_str(structure_str, fmt="json")
         kpoints = np.array(f["kpoints"])
-        gpoints = np.array(f["gpoints"])
+        if "gpoints" in f:
+            gpoints = np.array(f["gpoints"])
+        else:
+            gpoints = None
 
     return coeffs, gpoints, kpoints, structure
