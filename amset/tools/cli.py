@@ -10,7 +10,7 @@ from amset.tools.effmass import eff_mass
 from amset.tools.phonon_frequency import phonon_frequency
 from amset.tools.plot import plot
 from amset.tools.run import run
-from amset.tools.wavefunction import wavefunction
+from amset.tools.wavefunction import wave
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -35,5 +35,5 @@ def cli():
 cli.add_command(plot)
 cli.add_command(run)
 cli.add_command(phonon_frequency)
-cli.add_command(wavefunction)
+cli.add_command(wave)
 cli.add_command(eff_mass)
