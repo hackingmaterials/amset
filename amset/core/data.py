@@ -20,7 +20,7 @@ from amset.electronic_structure.fd import dfdde
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.interpolation.momentum import MRTACalculator
 from amset.log import log_list, log_time_taken
-from amset.util import cast_dict_list, groupby, tensor_average
+from amset.util import groupby, tensor_average, write_mesh_data
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -64,6 +64,7 @@ class AmsetData(MSONable):
         self.is_metal = is_metal
         self.vb_idx = vb_idx
         self.spins = list(self.energies.keys())
+        self.velocities = {s: v.transpose((0, 2, 1)) for s, v in velocities.items()}
 
         self.dos = None
         self.scattering_rates = None
@@ -80,8 +81,6 @@ class AmsetData(MSONable):
         self.overlap_calculator = None
         self.mrta_calculator = None
         self.fd_cutoffs = None
-
-        self.velocities = {s: v.transpose((0, 2, 1)) for s, v in velocities.items()}
 
         self.grouped_ir_to_full = groupby(
             np.arange(len(kpoints)), ir_to_full_kpoint_mapping
@@ -277,7 +276,7 @@ class AmsetData(MSONable):
                     cmin, cmax = get_min_max_cutoff(weight_cumsum)
                     min_cutoff = min(cmin, min_cutoff)
                     max_cutoff = max(cmax, max_cutoff)
-                    #
+
                     # import matplotlib.pyplot as plt
                     # ax = plt.gca()
                     # plt.plot(energies / units.eV, weight / weight.max())
@@ -403,25 +402,25 @@ class AmsetData(MSONable):
         if include_mesh:
             rates = self.scattering_rates
             energies = self.energies
-            vv = self.velocities_product
+            vel = self.velocities
 
             ir_rates = {s: r[..., self.ir_kpoints_idx] for s, r in rates.items()}
             ir_energies = {
                 s: e[:, self.ir_kpoints_idx] * hartree_to_ev
                 for s, e in energies.items()
             }
-            ir_vv = {s: v[..., self.ir_kpoints_idx] for s, v in vv.items()}
+            ir_vel = {s: v[..., self.ir_kpoints_idx] for s, v in vel.items()}
 
             mesh_data = {
-                "energies": cast_dict_list(ir_energies),
+                "energies": ir_energies,
                 "kpoints": self.kpoints,
                 "ir_kpoints": self.ir_kpoints,
                 "ir_to_full_kpoint_mapping": self.ir_to_full_kpoint_mapping,
                 "efermi": self.intrinsic_fermi_level * hartree_to_ev,
-                "vb_idx": cast_dict_list(self.vb_idx),
-                "dos": self.dos,  # TODO: Convert dos to eV
-                "velocities_product": cast_dict_list(ir_vv),  # TODO: convert units
-                "scattering_rates": cast_dict_list(ir_rates),
+                "vb_idx": self.vb_idx,
+                # "dos": self.dos,  # TODO: Convert dos to eV
+                "velocities": ir_vel,  # TODO: convert units
+                "scattering_rates": ir_rates,
                 "scattering_labels": self.scattering_labels,
                 "is_metal": self.is_metal,
                 "fd_cutoffs": (
@@ -431,7 +430,7 @@ class AmsetData(MSONable):
                 "structure": get_angstrom_structure(self.structure),
                 "soc": self._soc,
             }
-            data.update(mesh_data)
+            data["mesh"] = mesh_data
         return data
 
     def to_data(self):
@@ -488,10 +487,10 @@ class AmsetData(MSONable):
             suffix = ""
 
         if file_format in ["json", "yaml"]:
-            data = self.to_dict(include_mesh=write_mesh)
+            data = self.to_dict()
 
             filename = joinpath(
-                directory, "{}amset_data{}.{}".format(prefix, suffix, file_format)
+                directory, "{}transport{}.{}".format(prefix, suffix, file_format)
             )
             dumpfn(data, filename)
 
@@ -499,14 +498,18 @@ class AmsetData(MSONable):
             # don't write the data as JSON, instead write raw text files
             data, headers = self.to_data()
             filename = joinpath(
-                directory, "{}amset_transport{}.{}".format(prefix, suffix, file_format)
+                directory, "{}transport{}.{}".format(prefix, suffix, file_format)
             )
             np.savetxt(filename, data, header=" ".join(headers))
 
-            if write_mesh:
-                logger.warning("Writing mesh data as txt or csv not supported")
-
         else:
             raise ValueError("Unrecognised output format: {}".format(file_format))
+
+        if write_mesh:
+            mesh_data = self.to_dict(include_mesh=True)["mesh"]
+            filename = joinpath(
+                directory, "{}mesh{}.{}".format(prefix, suffix, file_format)
+            )
+            write_mesh_data(mesh_data, filename=filename)
 
         return filename
