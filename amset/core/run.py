@@ -24,10 +24,7 @@ from amset import __version__
 from amset.constants import bohr_to_cm, hbar, numeric_types
 from amset.core.transport import solve_boltzman_transport_equation
 from amset.interpolation.bandstructure import Interpolator
-from amset.interpolation.wavefunction import (
-    ProjectionOverlapCalculator,
-    WavefunctionOverlapCalculator,
-)
+from amset.interpolation.wavefunction import WavefunctionOverlapCalculator
 from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator
 from amset.util import (
@@ -73,7 +70,6 @@ class AmsetRunner(MSONable):
             include_children=False,
             multiprocess=True,
         )
-
         log_banner("END")
 
         logger.info("Timing and memory usage:")
@@ -190,16 +186,9 @@ class AmsetRunner(MSONable):
             nworkers=self.settings["nworkers"],
         )
 
-        if self.settings["wavefunction_coefficients"]:
-            overlap_calculator = WavefunctionOverlapCalculator.from_file(
-                self.settings["wavefunction_coefficients"]
-            )
-        else:
-            overlap_calculator = ProjectionOverlapCalculator.from_band_structure(
-                self._band_structure,
-                energy_cutoff=self.settings["energy_cutoff"],
-                symprec=self.settings["symprec"],
-            )
+        overlap_calculator = WavefunctionOverlapCalculator.from_file(
+            self.settings["wavefunction_coefficients"]
+        )
         amset_data.set_overlap_calculator(overlap_calculator)
 
         return amset_data, time.perf_counter() - t0
