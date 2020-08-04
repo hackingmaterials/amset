@@ -4,15 +4,11 @@ import numpy as np
 from pymatgen import Spin
 from tqdm.auto import tqdm
 
-from amset.constants import numeric_types, output_width
+from amset.constants import numeric_types, output_width, int_to_spin
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
-
-str_to_spin = {"up": Spin.up, "down": Spin.down}
-spin_to_int = {Spin.up: 0, Spin.down: 1}
-int_to_spin = {0: Spin.up, 1: Spin.down}
 
 
 def sample_random_kpoints(

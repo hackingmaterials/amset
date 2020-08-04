@@ -2,7 +2,7 @@ import h5py
 import numpy as np
 from pymatgen import Structure
 
-from amset.wavefunction.common import str_to_spin
+from amset.constants import str_to_spin
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

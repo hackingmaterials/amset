@@ -4,14 +4,12 @@ from pathlib import Path
 import numpy as np
 from tqdm.auto import tqdm
 
-from amset.constants import numeric_types
+from amset.constants import numeric_types, spin_to_int, int_to_spin
 from amset.wavefunction.common import (
     get_gpoint_indices,
     get_gpoints,
     get_min_gpoints,
-    int_to_spin,
     sample_random_kpoints,
-    spin_to_int,
 )
 
 __author__ = "Alex Ganose"

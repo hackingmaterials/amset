@@ -5,8 +5,8 @@ from monty.dev import requires
 from pymatgen.io.vasp import Potcar, Vasprun
 from tqdm.auto import tqdm
 
-from amset.constants import numeric_types
-from amset.wavefunction.common import int_to_spin, sample_random_kpoints, spin_to_int
+from amset.constants import numeric_types, spin_to_int, int_to_spin
+from amset.wavefunction.common import sample_random_kpoints
 
 try:
     import pawpyseed as pawpy
