@@ -8,6 +8,7 @@ import numpy as np
 from BoltzTraP2 import units
 from monty.json import MSONable
 from monty.serialization import dumpfn
+from pymatgen import Spin, Structure
 from tabulate import tabulate
 
 from amset.constants import bohr_to_cm, cm_to_bohr
@@ -20,7 +21,6 @@ from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.interpolation.momentum import MRTACalculator
 from amset.log import log_list, log_time_taken
 from amset.util import cast_dict_list, groupby, tensor_average
-from pymatgen import Spin, Structure
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

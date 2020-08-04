@@ -4,11 +4,10 @@ from typing import Type, Union
 
 import click
 import numpy as np
-from tabulate import tabulate
-
 from pymatgen import Structure
 from pymatgen.core.tensors import DEFAULT_QUAD
 from pymatgen.io.vasp import Outcar, Vasprun
+from tabulate import tabulate
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

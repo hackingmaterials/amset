@@ -44,6 +44,7 @@ def eff_mass(filename, **kwargs):
     import numpy as np
     from scipy import constants
     from tabulate import tabulate
+
     from amset.constants import bohr_to_cm, defaults
     from amset.core.run import AmsetRunner
 

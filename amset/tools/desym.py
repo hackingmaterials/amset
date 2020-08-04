@@ -18,11 +18,12 @@ warnings.filterwarnings("ignore", category=UserWarning, module="pymatgen")
 @click.option("--basic", is_flag=True, default=False, help="use basic mode")
 def desym(sym_folder, no_sym_folder, symprec, basic):
     """Test desymmetrization routines"""
+    from pymatgen.io.vasp import Vasprun, Wavecar
+
     from amset.electronic_structure.kpoints import expand_kpoints
-    from amset.wavefunction.vasp import get_wavefunction_coefficients
-    from amset.wavefunction.common import desymmetrize_coefficients
-    from pymatgen.io.vasp import Wavecar, Vasprun
     from amset.log import initialize_amset_logger
+    from amset.wavefunction.common import desymmetrize_coefficients
+    from amset.wavefunction.vasp import get_wavefunction_coefficients
 
     initialize_amset_logger(filename=False, print_log=True)
 

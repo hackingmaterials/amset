@@ -7,11 +7,11 @@ from typing import Dict, Optional, Tuple, Union
 import numpy as np
 from BoltzTraP2 import units
 from monty.json import MSONable
+from pymatgen import Spin, Structure
+from pymatgen.electronic_structure.dos import Dos
 
 from amset.constants import ev_to_hartree, hartree_to_ev
 from amset.electronic_structure.fd import fd
-from pymatgen import Spin, Structure
-from pymatgen.electronic_structure.dos import Dos
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

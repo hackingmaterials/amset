@@ -7,7 +7,7 @@ from amset.constants import numeric_types
 from amset.electronic_structure.kpoints import kpoints_to_first_bz
 
 try:
-    from interpolation.splines import eval_linear, UCGrid
+    from interpolation.splines import UCGrid, eval_linear
     from interpolation.splines import extrap_options as xto
 
 except ImportError:

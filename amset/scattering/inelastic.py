@@ -4,11 +4,11 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 from BoltzTraP2.units import BOLTZMANN, Second
+from pymatgen import Spin
 
 from amset.constants import hbar
 from amset.core.data import AmsetData
 from amset.log import log_list
-from pymatgen import Spin
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

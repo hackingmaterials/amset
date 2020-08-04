@@ -5,12 +5,12 @@ from typing import Any, Dict, Tuple
 import numpy as np
 from BoltzTraP2 import units
 from BoltzTraP2.units import BOLTZMANN
+from pymatgen import Spin
 from tabulate import tabulate
 
 from amset.constants import gpa_to_au
 from amset.core.data import AmsetData
 from amset.electronic_structure.fd import fd
-from pymatgen import Spin
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

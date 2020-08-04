@@ -101,8 +101,8 @@ def run(**kwargs):
     """
 
     from amset.constants import defaults
-    from amset.log import initialize_amset_logger
     from amset.core.run import AmsetRunner
+    from amset.log import initialize_amset_logger
 
     if kwargs["print_log"] is not False:
         initialize_amset_logger()

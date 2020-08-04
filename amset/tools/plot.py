@@ -306,7 +306,7 @@ def get_kpath(structure, mode="pymatgen", symprec=_symprec, kpt_list=None, label
     Returns:
         A Kpath object.
     """
-    from sumo.symmetry import SeekpathKpath, PymatgenKpath, CustomKpath
+    from sumo.symmetry import CustomKpath, PymatgenKpath, SeekpathKpath
 
     if kpt_list:
         kpath = CustomKpath(structure, kpt_list, labels, symprec=symprec)

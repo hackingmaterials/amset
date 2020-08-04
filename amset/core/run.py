@@ -12,6 +12,12 @@ import numpy as np
 from BoltzTraP2 import units
 from memory_profiler import memory_usage
 from monty.json import MSONable
+from pymatgen import Structure
+from pymatgen.electronic_structure.bandstructure import BandStructure
+from pymatgen.electronic_structure.core import Spin
+from pymatgen.io.vasp import Vasprun
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+from pymatgen.util.string import unicodeify, unicodeify_spacegroup
 from tabulate import tabulate
 
 from amset import __version__
@@ -30,12 +36,6 @@ from amset.util import (
     validate_settings,
     write_settings_to_file,
 )
-from pymatgen import Structure
-from pymatgen.electronic_structure.bandstructure import BandStructure
-from pymatgen.electronic_structure.core import Spin
-from pymatgen.io.vasp import Vasprun
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from pymatgen.util.string import unicodeify, unicodeify_spacegroup
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

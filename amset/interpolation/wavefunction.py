@@ -1,6 +1,9 @@
 import logging
 
 import numpy as np
+from pymatgen import Spin
+from pymatgen.electronic_structure.bandstructure import BandStructure
+from pymatgen.util.coord import pbc_diff
 from scipy.interpolate import RegularGridInterpolator
 
 from amset.constants import defaults, numeric_types
@@ -11,12 +14,9 @@ from amset.electronic_structure.kpoints import (
     kpoints_to_first_bz,
 )
 from amset.wavefunction.io import load_coefficients
-from pymatgen import Spin
-from pymatgen.electronic_structure.bandstructure import BandStructure
-from pymatgen.util.coord import pbc_diff
 
 try:
-    from interpolation.splines import eval_linear, UCGrid
+    from interpolation.splines import UCGrid, eval_linear
     from interpolation.splines import extrap_options as xto
 except ImportError:
     eval_linear = None

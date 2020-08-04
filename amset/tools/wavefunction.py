@@ -31,10 +31,11 @@ __email__ = "aganose@lbl.gov"
 @click.option("-o", "--output", default="wavefunction.h5", help="output file path")
 def wavefunction(**kwargs):
     """Extract wavefunction coefficients from a WAVECAR"""
-    from amset.wavefunction.io import dump_coefficients
-    from amset.electronic_structure.common import get_ibands
-    from amset.constants import defaults
     from pymatgen.io.vasp import BSVasprun
+
+    from amset.constants import defaults
+    from amset.electronic_structure.common import get_ibands
+    from amset.wavefunction.io import dump_coefficients
 
     output = kwargs.pop("output")
     planewave_cutoff = kwargs.pop("planewave_cutoff")
@@ -80,9 +81,9 @@ def wavefunction(**kwargs):
 
 def _wavefunction_vasp(ibands, planewave_cutoff, **kwargs):
     from amset.wavefunction.vasp import (
+        get_converged_encut,
         get_wavefunction,
         get_wavefunction_coefficients,
-        get_converged_encut,
     )
 
     directory = kwargs.pop("directory")
@@ -101,9 +102,9 @@ def _wavefunction_vasp(ibands, planewave_cutoff, **kwargs):
 
 def _wavefunction_pawpy(bs, ibands, planewave_cutoff, **pawpy_kwargs):
     from amset.wavefunction.pawpyseed import (
+        get_converged_encut,
         get_wavefunction,
         get_wavefunction_coefficients,
-        get_converged_encut,
     )
 
     wf = get_wavefunction(**pawpy_kwargs)

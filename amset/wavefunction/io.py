@@ -1,8 +1,8 @@
 import h5py
 import numpy as np
+from pymatgen import Structure
 
 from amset.wavefunction.common import str_to_spin
-from pymatgen import Structure
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

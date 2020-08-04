@@ -1,10 +1,10 @@
 from typing import Dict, List, Union
 
 import numpy as np
+from pymatgen import Spin
 from tqdm.auto import tqdm
 
 from amset.constants import numeric_types, output_width
-from pymatgen import Spin
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

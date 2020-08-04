@@ -3,11 +3,11 @@ import unittest
 
 import numpy as np
 from numpy.testing import assert_array_equal
+from pymatgen import Spin
+from pymatgen.io.vasp import Vasprun
 
 from amset.interpolation.bandstructure import Interpolater
 from amset.log import initialize_amset_logger
-from pymatgen import Spin
-from pymatgen.io.vasp import Vasprun
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
 gaas_files = os.path.join(test_dir, "..", "..", "..", "examples", "GaAs")

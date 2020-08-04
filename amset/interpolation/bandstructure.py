@@ -10,6 +10,13 @@ import numpy as np
 from BoltzTraP2 import fite, sphere
 from BoltzTraP2.fite import Second
 from monty.json import MSONable
+from pymatgen.electronic_structure.bandstructure import (
+    BandStructure,
+    BandStructureSymmLine,
+)
+from pymatgen.electronic_structure.core import Spin
+from pymatgen.electronic_structure.dos import Dos
+from pymatgen.io.ase import AseAtomsAdaptor
 from sumo.symmetry import Kpath, PymatgenKpath
 
 from amset.constants import angstrom_to_bohr, bohr_to_cm
@@ -31,13 +38,6 @@ from amset.electronic_structure.kpoints import (
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.interpolation.boltztrap import get_bands_fft
 from amset.log import log_list, log_time_taken
-from pymatgen.electronic_structure.bandstructure import (
-    BandStructure,
-    BandStructureSymmLine,
-)
-from pymatgen.electronic_structure.core import Spin
-from pymatgen.electronic_structure.dos import Dos
-from pymatgen.io.ase import AseAtomsAdaptor
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

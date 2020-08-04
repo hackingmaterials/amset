@@ -1,10 +1,10 @@
 from typing import Tuple
 
 import numpy as np
-
-from amset.constants import angstrom_to_bohr, bohr_to_angstrom
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
+
+from amset.constants import angstrom_to_bohr, bohr_to_angstrom
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

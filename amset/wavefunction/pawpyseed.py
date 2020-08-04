@@ -2,11 +2,11 @@ import itertools
 
 import numpy as np
 from monty.dev import requires
+from pymatgen.io.vasp import Potcar, Vasprun
 from tqdm.auto import tqdm
 
 from amset.constants import numeric_types
 from amset.wavefunction.common import int_to_spin, sample_random_kpoints, spin_to_int
-from pymatgen.io.vasp import Potcar, Vasprun
 
 try:
     import pawpyseed as pawpy
@@ -27,8 +27,8 @@ pawpy_msg = (
 def get_wavefunction(
     potcar="POTCAR", wavecar="WAVECAR", vasprun="vasprun.xml", directory=None
 ):
-    from pawpyseed.core.wavefunction import Wavefunction, CoreRegion
     from pawpyseed.core import pawpyc
+    from pawpyseed.core.wavefunction import CoreRegion, Wavefunction
 
     if directory:
         wf = Wavefunction.from_directory(path=directory)

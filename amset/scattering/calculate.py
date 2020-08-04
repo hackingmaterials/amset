@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import quadpy
 from BoltzTraP2 import units
+from pymatgen import Spin
+from pymatgen.util.coord import pbc_diff
 from scipy.interpolate import griddata
 
 from amset.constants import defaults, hbar, small_val, spin_name
@@ -26,8 +28,6 @@ from amset.scattering.basic import AbstractBasicScattering
 from amset.scattering.elastic import AbstractElasticScattering
 from amset.scattering.inelastic import AbstractInelasticScattering
 from amset.util import get_progress_bar
-from pymatgen import Spin
-from pymatgen.util.coord import pbc_diff
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

@@ -7,14 +7,14 @@ from matplotlib.axes import SubplotBase
 from matplotlib.axis import Axis
 from matplotlib.colors import LogNorm
 from matplotlib.ticker import AutoMinorLocator, MaxNLocator
+from pymatgen.electronic_structure.bandstructure import BandStructure
+from pymatgen.electronic_structure.plotter import BSPlotter
 from sumo.plotting import pretty_plot, styled_plot
 
 from amset.constants import defaults, hbar
 from amset.interpolation.bandstructure import Interpolater
 from amset.log import initialize_amset_logger
 from amset.plot import BaseAmsetPlotter, amset_base_style
-from pymatgen.electronic_structure.bandstructure import BandStructure
-from pymatgen.electronic_structure.plotter import BSPlotter
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

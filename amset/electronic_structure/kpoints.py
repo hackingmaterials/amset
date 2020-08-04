@@ -2,12 +2,12 @@ import logging
 from typing import List, Tuple, Union
 
 import numpy as np
+from pymatgen import Structure
+from pymatgen.io.ase import AseAtomsAdaptor
 from spglib import spglib
 
 from amset.constants import defaults
 from amset.log import log_list
-from pymatgen import Structure
-from pymatgen.io.ase import AseAtomsAdaptor
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -347,8 +347,8 @@ def get_symmetry_operations(structure, symprec=1e-2, time_reversal=True):
 
 
 def get_symmetry_operations2(structure, symprec=1e-2, time_reversal=True):
-    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
     from pymatgen import SymmOp
+    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
     sga = SpacegroupAnalyzer(structure, symprec=symprec)
     symmops = sga.get_symmetry_operations(cartesian=True)
