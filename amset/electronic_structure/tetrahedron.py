@@ -142,7 +142,7 @@ class TetrahedralBandStructure(object):
         ir_tetrahedra_to_full_idx: Optional[np.ndarray] = None,
         ir_tetrahedra_weights: Optional[np.ndarray] = None,
     ):
-        logger.info("Generating tetrahedron mesh")
+        logger.info("Initializing tetrahedron band structure")
         t0 = time.perf_counter()
 
         tparams = (ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, ir_tetrahedra_weights)
