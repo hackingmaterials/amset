@@ -10,7 +10,7 @@ from amset.electronic_structure.kpoints import (
     get_mesh_dim_from_kpoints,
     kpoints_to_first_bz,
 )
-from amset.electronic_structure.wavefunction import load_coefficients
+from amset.wavefunction.io import load_coefficients
 from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.util.coord import pbc_diff
