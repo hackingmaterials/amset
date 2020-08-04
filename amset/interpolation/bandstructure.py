@@ -14,20 +14,27 @@ from sumo.symmetry import Kpath, PymatgenKpath
 
 from amset.constants import angstrom_to_bohr, bohr_to_cm
 from amset.constants import defaults as defaults
-from amset.constants import (ev_to_hartree, hartree_to_ev, numeric_types,
-                             spin_name)
+from amset.constants import ev_to_hartree, hartree_to_ev, numeric_types, spin_name
 from amset.core.data import AmsetData
-from amset.electronic_structure.common import (get_atomic_structure,
-                                               get_ibands, get_vb_idx)
+from amset.electronic_structure.common import (
+    get_atomic_structure,
+    get_ibands,
+    get_vb_idx,
+)
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.kpoints import (
-    get_kpoints_tetrahedral, get_symmetry_equivalent_kpoints,
-    similarity_transformation, sort_boltztrap_to_spglib)
+    get_kpoints_tetrahedral,
+    get_symmetry_equivalent_kpoints,
+    similarity_transformation,
+    sort_boltztrap_to_spglib,
+)
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.interpolation.boltztrap import get_bands_fft
 from amset.log import log_list, log_time_taken
-from pymatgen.electronic_structure.bandstructure import (BandStructure,
-                                                         BandStructureSymmLine)
+from pymatgen.electronic_structure.bandstructure import (
+    BandStructure,
+    BandStructureSymmLine,
+)
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.dos import Dos
 from pymatgen.io.ase import AseAtomsAdaptor

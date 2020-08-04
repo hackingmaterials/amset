@@ -8,8 +8,7 @@ from typing import Any, Dict
 import click
 from click import option
 
-from amset.util import (parse_deformation_potential, parse_doping,
-                        parse_temperatures)
+from amset.util import parse_deformation_potential, parse_doping, parse_temperatures
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
