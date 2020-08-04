@@ -17,7 +17,7 @@ __email__ = "aganose@lbl.gov"
 
 logger = logging.getLogger(__name__)
 
-_e_str = "Electronic structure must contain dopings temperatures and scattering rates"
+_e_str = "Electronic structure must contain dopings, temperatures, and scattering rates"
 
 
 def solve_boltzman_transport_equation(
