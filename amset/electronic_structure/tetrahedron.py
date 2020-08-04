@@ -146,11 +146,10 @@ class TetrahedralBandStructure(object):
         t0 = time.perf_counter()
 
         tparams = (ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, ir_tetrahedra_weights)
-
         if len(set([x is None for x in tparams])) != 1:
             raise ValueError(
-                "Either all or none of ir_tetrahedra_idx, "
-                "ir_tetrahedra_to_full_idx and ir_tetrahedra_weights should be set."
+                "Either all or none of ir_tetrahedra_idx, ir_tetrahedra_to_full_idx and"
+                " ir_tetrahedra_weights should be set."
             )
 
         if ir_tetrahedra_idx is None:

@@ -23,7 +23,7 @@ def kpoints_to_first_bz(kpoints: np.ndarray, tol=_KTOL) -> np.ndarray:
     """Translate fractional k-points to the first Brillouin zone.
 
     I.e. all k-points will have fractional coordinates:
-        -0.5 < fractional coordinates <= 0.5
+        -0.5 <= fractional coordinates < 0.5
 
     Args:
         kpoints: The k-points in fractional coordinates.
@@ -37,7 +37,7 @@ def kpoints_to_first_bz(kpoints: np.ndarray, tol=_KTOL) -> np.ndarray:
     round_dp = int(np.log10(1 / tol))
     krounded = np.round(kp, round_dp)
 
-    kp[krounded == -0.5] = 0.5
+    kp[krounded == 0.5] = -0.5
     return kp
 
 
@@ -59,7 +59,7 @@ def get_symmetry_equivalent_kpoints(
     kpoints = np.asarray(kpoints)
     round_kpoints = shift_and_round(kpoints)
 
-    rotation_matrices, _ = get_reciprocal_point_group_operations(
+    rotation_matrices, _, _ = get_reciprocal_point_group_operations(
         structure, symprec=symprec, time_reversal=time_reversal_symmetry
     )
 
@@ -271,6 +271,8 @@ def expand_kpoints(
     # map to first BZ
     all_rotated_kpoints -= np.rint(all_rotated_kpoints)
     all_rotated_kpoints = all_rotated_kpoints.round(8)
+
+    # zone boundary consistent with VASP not with spglib
     all_rotated_kpoints[all_rotated_kpoints == -0.5] = 0.5
 
     # Find unique points
