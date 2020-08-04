@@ -96,6 +96,8 @@ def desymmetrize_coefficients(
             rot_gpoints += kdiff.astype(int)
             rot_indices = get_gpoint_indices(rot_gpoints, min_gpoint, num_gpoint)
 
+            # some g-points may now be outside encut limit so only keep the g-points
+            # that are in the original g-point mesh
             rot_map = np.full(np.max(rot_indices) + 1, -1, dtype=int)
             rot_map[rot_indices] = np.arange(len(rot_indices))
             to_keep = np.array(list(set(valid_indices).intersection(set(rot_indices))))

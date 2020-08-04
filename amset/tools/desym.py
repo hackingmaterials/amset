@@ -9,7 +9,6 @@ __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pymatgen")
-BASIC = False
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
@@ -17,7 +16,7 @@ BASIC = False
 @click.argument("no-sym-folder")
 @click.option("--symprec", type=float, default=1e-2, help="symmetry precision")
 @click.option("--basic", is_flag=True, default=False, help="use basic mode")
-def desym(sym_folder, no_sym_folder, symprec):
+def desym(sym_folder, no_sym_folder, symprec, basic):
     """Test desymmetrization routines"""
     from amset.electronic_structure.kpoints import expand_kpoints
     from amset.wavefunction.vasp import get_wavefunction_coefficients
@@ -37,7 +36,7 @@ def desym(sym_folder, no_sym_folder, symprec):
     structure = vr.final_structure
     kpoints = np.array(wave_sym.kpoints)
 
-    if BASIC:
+    if basic:
         click.echo("Loading unsymmetrized wavefunction")
         wave_no_sym = Wavecar(no_sym_folder / "WAVECAR")
         desym_basic(structure, wave_sym, wave_no_sym)
@@ -182,7 +181,7 @@ def desym_basic(structure, wave_sym, wave_no_sym):
     nbmax = wave_sym._nbmax
     encut = wave_sym.encut
     wave_const = 0.262465831
-    band_idx = 5
+    band_idx = 0
 
     ops = rotations[op_mapping]
     taus = translations[op_mapping]
@@ -245,8 +244,6 @@ def desym_basic(structure, wave_sym, wave_no_sym):
 
         f = np.dot(rot_kpoint, tau) + np.dot(rot_gpoints, tau)
         exp_factor = np.exp(-1j * 2 * np.pi * f)
-        # exp_factor = np.exp(-1j * 2 * np.pi *
-        #                     np.dot(np.dot(op, (kpoint + gpoints).T).T, tau))
         new_coeffs = exp_factor[None, :] * coeffs
         if tris[k_idx]:
             new_coeffs = np.conjugate(new_coeffs)
