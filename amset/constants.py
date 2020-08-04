@@ -24,7 +24,11 @@ e = physical_constants["elementary charge"][0]
 k_B = physical_constants["Boltzmann constant in eV/K"][0]
 small_val = 1e-32  # e.g. used for an initial non-zero val
 output_width = 69
-spin_name = {Spin.up: "spin-up", Spin.down: "spin-down"}
 numeric_types = (float, int, np.integer, np.floating)
+
+spin_name = {Spin.up: "spin-up", Spin.down: "spin-down"}
+str_to_spin = {"up": Spin.up, "down": Spin.down}
+spin_to_int = {Spin.up: 0, Spin.down: 1}
+int_to_spin = {0: Spin.up, 1: Spin.down}
 
 defaults = loadfn(resource_filename("amset", "defaults.yaml"))
