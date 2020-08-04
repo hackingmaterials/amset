@@ -226,6 +226,8 @@ class Interpolator(MSONable):
             # if material is semiconducting, set Fermi level to middle of gap
             efermi = _get_efermi(energies, new_vb_idx)
 
+        logger.info("Generating tetrahedron mesh vertices")
+        t0 = time.perf_counter()
         # get the actual k-points used in the BoltzTraP2 interpolation
         # unfortunately, BoltzTraP2 doesn't expose this information so we
         # have to get it ourselves
@@ -243,6 +245,7 @@ class Interpolator(MSONable):
             symprec=symprec,
             time_reversal_symmetry=not self._soc,
         )
+        log_time_taken(t0)
 
         energies, vvelocities, velocities = sort_amset_results(
             full_kpts, energies, vvelocities, velocities
