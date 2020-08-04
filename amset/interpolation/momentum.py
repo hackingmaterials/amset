@@ -4,7 +4,7 @@ import numpy as np
 
 from amset.interpolation.periodic import (
     PeriodicLinearInterpolator,
-    get_bands_and_kpoints,
+    group_bands_and_kpoints,
 )
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ __email__ = "aganose@lbl.gov"
 
 class MRTACalculator(PeriodicLinearInterpolator):
     def get_mrta_factor(self, spin, band_a, kpoint_a, band_b, kpoint_b):
-        bands, kpoints, single_factor = get_bands_and_kpoints(
+        bands, kpoints, single_factor = group_bands_and_kpoints(
             band_a, kpoint_a, band_b, kpoint_b
         )
         p = self.interpolate(spin, bands, kpoints)

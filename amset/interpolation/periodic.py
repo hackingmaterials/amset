@@ -115,7 +115,7 @@ class PeriodicLinearInterpolator(object):
         return interp_data
 
 
-def get_bands_and_kpoints(band_a, kpoint_a, band_b, kpoint_b):
+def group_bands_and_kpoints(band_a, kpoint_a, band_b, kpoint_b):
     kpoint_a = np.asarray(kpoint_a)
     kpoint_b = np.asarray(kpoint_b)
 

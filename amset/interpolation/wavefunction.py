@@ -6,7 +6,7 @@ from amset.constants import defaults
 from amset.electronic_structure.kpoints import expand_kpoints, get_mesh_dim_from_kpoints
 from amset.interpolation.periodic import (
     PeriodicLinearInterpolator,
-    get_bands_and_kpoints,
+    group_bands_and_kpoints,
 )
 from amset.wavefunction.common import desymmetrize_coefficients
 from amset.wavefunction.io import load_coefficients
@@ -48,7 +48,7 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         return interp_coeffs
 
     def get_overlap(self, spin, band_a, kpoint_a, band_b, kpoint_b):
-        bands, kpoints, single_overlap = get_bands_and_kpoints(
+        bands, kpoints, single_overlap = group_bands_and_kpoints(
             band_a, kpoint_a, band_b, kpoint_b
         )
         # k-points should be in fractional

@@ -54,7 +54,7 @@ def desymmetrize_coefficients(
     kp_mapping,
     pbar=True,
 ):
-    ops = rotations[op_mapping]
+    rots = rotations[op_mapping]
     taus = translations[op_mapping]
     trs = is_tr[op_mapping]
 
@@ -67,22 +67,22 @@ def desymmetrize_coefficients(
     all_rot_coeffs = {}
     for spin, spin_coeffs in coeffs.items():
         all_rot_coeffs[spin] = np.zeros(
-            (len(spin_coeffs), len(ops), len(gpoints)), dtype=np.complex
+            (len(spin_coeffs), len(rots), len(gpoints)), dtype=np.complex
         )
 
-        state_idxs = list(range(len(ops)))
+        state_idxs = list(range(len(rots)))
         if pbar:
             state_idxs = tqdm(state_idxs, ncols=output_width)
 
         for k_idx in state_idxs:
             map_idx = kp_mapping[k_idx]
 
-            op = ops[k_idx]
+            rot = rots[k_idx]
             tau = taus[k_idx]
             tr = trs[k_idx]
             kpoint = kpoints[map_idx]
 
-            rot_kpoint = np.dot(op, kpoint)
+            rot_kpoint = np.dot(rot, kpoint)
             kdiff = np.around(rot_kpoint)
             rot_kpoint -= kdiff
 
@@ -90,7 +90,7 @@ def desymmetrize_coefficients(
             rot_kpoint += edges
             kdiff -= edges
 
-            rot_gpoints = np.dot(op, gpoints.T).T
+            rot_gpoints = np.dot(rot, gpoints.T).T
             rot_gpoints = np.around(rot_gpoints).astype(int)
             rot_gpoints += kdiff.astype(int)
             rot_indices = get_gpoint_indices(rot_gpoints, min_gpoint, num_gpoint)
