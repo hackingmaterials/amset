@@ -4,7 +4,7 @@ from sumo.plotting import pretty_plot, styled_plot
 
 from amset.constants import bohr_to_m, bohr_to_nm
 from amset.electronic_structure.fd import dfdde
-from amset.plot import BaseAmsetPlotter, amset_base_style
+from amset.plot import amset_base_style, BaseMeshPlotter
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -25,7 +25,7 @@ _conversions = {
 }
 
 
-class CumulativePlotter(BaseAmsetPlotter):
+class CumulativePlotter(BaseMeshPlotter):
     @styled_plot(amset_base_style)
     def get_plot(
         self,

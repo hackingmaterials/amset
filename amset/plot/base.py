@@ -15,15 +15,32 @@ __email__ = "aganose@lbl.gov"
 amset_base_style = resource_filename("amset.plot", "amset_base.mplstyle")
 
 
-class BaseAmsetPlotter(abc.ABC):
+class BaseMeshPlotter(abc.ABC):
+    def __init__(self, mesh_data: Union[str, Path, AmsetData, dict]):
+        if isinstance(mesh_data, (str, Path)):
+            if "h5" not in mesh_data:
+                raise ValueError("mesh.h5 file needed for plot. "
+                                 "Run AMSET with write_mesh=True")
+            print("loading")
+            mesh_data = load_mesh_data(mesh_data)
+            print("done")
+        elif isinstance(mesh_data, AmsetData):
+            mesh_data = mesh_data.to_dict(include_mesh=True)["mesh"]
+        elif not isinstance(mesh_data, dict):
+            raise ValueError("Unrecognised data format")
+
+        self._data = cast_dict_ndarray(mesh_data)
+        self.spins = list(self.energies.keys())
+
+    def __getattr__(self, item):
+        return self._data[item]
+
+
+class BaseTransportPlotter(abc.ABC):
     def __init__(self, data: Union[str, Path, AmsetData, dict]):
         if isinstance(data, (str, Path)):
-            mesh_data = Path(str(data).replace("_transport_", "_mesh_"))
+            # guess the mesh filename
             data = loadfn(data)
-            if mesh_data.exists():
-                # try and load mesh properties also
-                mesh_data = load_mesh_data(mesh_data)
-                data.update(mesh_data)
         elif isinstance(data, AmsetData):
             data = data.to_dict(include_mesh=True)
         elif isinstance(data, dict):
@@ -31,18 +48,8 @@ class BaseAmsetPlotter(abc.ABC):
         else:
             raise ValueError("Unrecognised data format")
 
-        if "mesh" in data:
-            mesh_data = data.pop("mesh")
-            data.update(mesh_data)
-
         self._data = cast_dict_ndarray(data)
         self.spins = list(self.energies.keys())
 
-        self.has_mesh = "energies" in data
-
     def __getattr__(self, item):
-        if item not in self._data:
-            raise RuntimeError(
-                "No mesh data available, AMSET must be run with write_mesh=True"
-            )
         return self._data[item]

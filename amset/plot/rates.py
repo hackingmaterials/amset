@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sumo.plotting import styled_plot
 
-from amset.plot.base import BaseAmsetPlotter, amset_base_style
+from amset.plot.base import BaseMeshPlotter, amset_base_style
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -14,7 +14,7 @@ __email__ = "aganose@lbl.gov"
 _legend_kwargs = {"loc": "upper left", "bbox_to_anchor": (1, 1), "frameon": False}
 
 
-class RatesPlotter(BaseAmsetPlotter):
+class RatesPlotter(BaseMeshPlotter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.plot_energies = np.vstack([self.energies[s] for s in self.spins])

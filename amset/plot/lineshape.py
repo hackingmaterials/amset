@@ -14,7 +14,7 @@ from sumo.plotting import pretty_plot, styled_plot
 from amset.constants import defaults, hbar
 from amset.interpolation.bandstructure import Interpolator
 from amset.log import initialize_amset_logger
-from amset.plot import BaseAmsetPlotter, amset_base_style
+from amset.plot import BaseMeshPlotter, amset_base_style
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -23,7 +23,7 @@ __email__ = "aganose@lbl.gov"
 logger = logging.getLogger(__name__)
 
 
-class LineshapePlotter(BaseAmsetPlotter):
+class LineshapePlotter(BaseMeshPlotter):
     def __init__(self, data, interpolation_factor=5, print_log=defaults["print_log"]):
         super().__init__(data)
         self.interpolation_factor = interpolation_factor
