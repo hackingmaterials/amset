@@ -1,13 +1,12 @@
 import itertools
 
-import h5py
 import numpy as np
 from monty.dev import requires
 from tqdm.auto import tqdm
 
 from amset.constants import numeric_types
-from pymatgen import Spin, Structure
-from pymatgen.io.vasp import Potcar, Vasprun
+from amset.wavefunction.common import spin_to_int, int_to_spin, sample_random_kpoints
+from pymatgen.io.vasp import Vasprun, Potcar
 
 try:
     import pawpyseed as pawpy
@@ -18,10 +17,6 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
-str_to_spin = {"up": Spin.up, "down": Spin.down}
-spin_to_int = {Spin.up: 0, Spin.down: 1}
-int_to_spin = {0: Spin.up, 1: Spin.down}
-
 pawpy_msg = (
     "Pawpyseed is required for extracting wavefunction coefficients\nFollow the"
     "installation instructions at https://github.com/kylebystrom/pawpyseed"
@@ -30,11 +25,7 @@ pawpy_msg = (
 
 @requires(pawpy, pawpy_msg)
 def get_wavefunction(
-    potcar="POTCAR",
-    wavecar="WAVECAR",
-    vasprun="vasprun.xml",
-    directory=None,
-    symprec=None,
+    potcar="POTCAR", wavecar="WAVECAR", vasprun="vasprun.xml", directory=None
 ):
     from pawpyseed.core.wavefunction import Wavefunction, CoreRegion
     from pawpyseed.core import pawpyc
@@ -60,8 +51,7 @@ def get_wavefunction(
 
         wf = Wavefunction(structure, pwf, core_region, dim, symprec, False)
 
-    dwf = wf.desymmetrized_copy(time_reversal_symmetry=False, symprec=symprec)
-    return dwf
+    return wf
 
 
 @requires(pawpy, pawpy_msg)
@@ -114,12 +104,16 @@ def get_converged_encut(
 ):
     from pawpyseed.core.momentum import MomentumMatrix
 
-    mm = MomentumMatrix(wavefunction, encut=max_encut)
+    nspins = wavefunction.nspin
+    nkpoints = wavefunction.kpts.shape[0]
+    if iband is None:
+        iband = {s: len(bs.bands[s]) for s in bs.spins}
 
-    sample_points = sample_random_kpoints(wavefunction, bs, n_samples, iband=iband)
+    sample_points = sample_random_kpoints(nspins, nkpoints, iband, n_samples)
     origin = sample_points[0]
     sample_points = sample_points[1:]
 
+    mm = MomentumMatrix(wavefunction, encut=max_encut)
     true_overlaps = get_overlaps(mm, origin, sample_points)
 
     # filter points to only include these with reasonable overlaps
@@ -149,62 +143,3 @@ def get_overlaps(mm, origin, points):
 
     overlaps = np.abs((np.conj(origin[:, None]) * coeffs.T).sum(axis=0)) ** 2
     return overlaps
-
-
-def sample_random_kpoints(wavefunction, bs, n_samples, iband=None):
-    if not iband:
-        iband = {}
-
-    spin_idxs = []
-    band_idxs = []
-    kpoint_idxs = []
-
-    for spin_idx in range(wavefunction.nspin):
-        spin = int_to_spin[spin_idx]
-        spin_iband = iband.get(spin, None)
-
-        if spin_iband is None:
-            spin_iband = np.arange(bs.bands[spin].shape[0], dtype=int)
-        elif isinstance(spin_iband, numeric_types):
-            spin_iband = [spin_iband]
-
-        s_idxs = [spin_idx] * n_samples
-        b_idxs = np.random.randint(min(spin_iband), max(spin_iband) + 1, n_samples)
-        k_idxs = np.random.randint(0, wavefunction.kpts.shape[0], n_samples)
-
-        spin_idxs.append(s_idxs)
-        band_idxs.append(b_idxs)
-        kpoint_idxs.append(k_idxs)
-
-    spin_idxs = np.concatenate(spin_idxs)
-    band_idxs = np.concatenate(band_idxs)
-    kpoint_idxs = np.concatenate(kpoint_idxs)
-    return np.stack([spin_idxs, band_idxs, kpoint_idxs], axis=1)
-
-
-def dump_coefficients(coeffs, kpoints, structure, filename="coeffs.h5"):
-    with h5py.File(filename, "w") as f:
-        for spin, spin_coeffs in coeffs.items():
-            name = "coefficients_{}".format(spin.name)
-            dset = f.create_dataset(
-                name, spin_coeffs.shape, compression="gzip", dtype=np.complex
-            )
-            dset[...] = spin_coeffs
-
-        f["structure"] = np.string_(structure.to_json())
-        f["kpoints"] = kpoints
-
-
-def load_coefficients(filename):
-    coeffs = {}
-    with h5py.File(filename, "r") as f:
-        coeff_keys = [k for k in list(f.keys()) if "coefficients" in k]
-        for key in coeff_keys:
-            spin = str_to_spin[key.split("_")[1]]
-            coeffs[spin] = np.array(f[key])
-
-        structure_str = np.string_(np.array(f["structure"])).decode()
-        structure = Structure.from_str(structure_str, fmt="json")
-        kpoints = np.array(f["kpoints"])
-
-    return coeffs, kpoints, structure

@@ -76,5 +76,8 @@ if __name__ == "__main__":
         ],
         test_suite="nose.collector",
         tests_require=["nose"],
-        entry_points={"console_scripts": ["amset = amset.tools.cli:cli"]},
+        entry_points={"console_scripts": [
+            "amset = amset.tools.cli:cli",
+            "desym = amset.tools.desym:desym"
+        ]},
     )

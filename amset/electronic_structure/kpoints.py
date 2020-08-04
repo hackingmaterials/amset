@@ -1,9 +1,11 @@
+import logging
 from typing import List, Tuple, Union
 
 import numpy as np
 from spglib import spglib
 
 from amset.constants import defaults
+from amset.log import log_list
 from pymatgen import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 
@@ -13,6 +15,8 @@ __email__ = "aganose@lbl.gov"
 
 _SYMPREC = defaults["symprec"]
 _KTOL = 1e-5
+
+logger = logging.getLogger(__name__)
 
 
 def kpoints_to_first_bz(kpoints: np.ndarray, tol=_KTOL) -> np.ndarray:
@@ -33,7 +37,7 @@ def kpoints_to_first_bz(kpoints: np.ndarray, tol=_KTOL) -> np.ndarray:
     round_dp = int(np.log10(1 / tol))
     krounded = np.round(kp, round_dp)
 
-    kp[krounded == 0.5] = -0.5
+    kp[krounded == -0.5] = 0.5
     return kp
 
 
@@ -55,8 +59,8 @@ def get_symmetry_equivalent_kpoints(
     kpoints = np.asarray(kpoints)
     round_kpoints = shift_and_round(kpoints)
 
-    rotation_matrices = get_reciprocal_point_group_operations(
-        structure, symprec=symprec, time_reversal_symmetry=time_reversal_symmetry
+    rotation_matrices, _ = get_reciprocal_point_group_operations(
+        structure, symprec=symprec, time_reversal=time_reversal_symmetry
     )
 
     equiv_points_mapping = {}
@@ -223,44 +227,84 @@ def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool 
     return mesh
 
 
+def get_mesh_from_kpoints(kpoints):
+    kpoints = np.array(kpoints)
+    nx = 1 / np.min(np.diff(np.unique(kpoints[:, 0])))
+    ny = 1 / np.min(np.diff(np.unique(kpoints[:, 1])))
+    nz = 1 / np.min(np.diff(np.unique(kpoints[:, 2])))
+
+    # due to limited precission of the input k-points, the mesh is returned as a float
+    return np.array([nx, ny, nz])
+
+
 def expand_kpoints(
-    structure, kpoints, symprec=_SYMPREC, tol=_KTOL, time_reversal_symmetry=True
+    structure, kpoints, symprec=_SYMPREC, return_mapping=False, time_reversal=True
 ):
-    round_dp = int(np.log10(1 / tol))
+    logger.info("Desymmetrizing k-point mesh")
+    kpoints = np.array(kpoints).round(8)
 
-    def shift_and_round(k):
-        k = kpoints_to_first_bz(k)
-        k = np.round(k, round_dp)
-        return list(map(tuple, k))
+    # due to limited input precision of the k-points, the mesh is returned as a float
+    mesh = get_mesh_from_kpoints(kpoints)
+    status_info = ["Found initial mesh: {:.3f} x {:.3f} x {:.3f}".format(*mesh)]
 
-    rotation_matrices = get_reciprocal_point_group_operations(
-        structure, symprec=symprec, time_reversal_symmetry=time_reversal_symmetry
+    # to avoid issues to limited input precision, recalculate the input k-points
+    # so that the mesh is integer and the k-points are not truncated
+    # to a small precision
+    addresses = np.rint(kpoints * mesh)
+    mesh = np.rint(mesh)
+    kpoints = addresses / mesh
+    status_info.append("Integer mesh: {} x {} x {}".format(*map(int, mesh)))
+
+    # rotations, translations = get_reciprocal_point_group_operations(
+    #     structure, symprec=symprec, time_reversal=time_reversal
+    # )
+    rotations, translations, is_tr = get_symmetry_operations(
+        structure, symprec=symprec, time_reversal=time_reversal
+    )
+    # rotations = np.array([np.eye(3)] + rotations.tolist())
+    # translations = np.array([[0, 0, 0]] + translations.tolist())
+    print(translations.round(3))
+    print(rotations.astype(int))
+    n_ops = len(rotations)
+    status_info.append("Using {} symmetry operations".format(n_ops))
+    log_list(status_info)
+
+    # rotate all-kpoints
+    all_rotated_kpoints = []
+    for r in rotations:
+        all_rotated_kpoints.append(np.dot(r, kpoints.T).T)
+    all_rotated_kpoints = np.concatenate(all_rotated_kpoints)
+
+    # map to first BZ
+    all_rotated_kpoints -= np.rint(all_rotated_kpoints)
+    all_rotated_kpoints = all_rotated_kpoints.round(8)
+    all_rotated_kpoints[all_rotated_kpoints == -0.5] = 0.5
+
+    # Find unique points
+    unique_rotated_kpoints, unique_idxs = np.unique(
+        all_rotated_kpoints, return_index=True, axis=0
     )
 
-    kpoints = kpoints_to_first_bz(kpoints)
-    full_kpoints = []
-    reduced_to_full_idx = []
-    rot_mapping = []
-    equiv_points_mapping = {}
+    # find integer addresses
+    unique_addresses = unique_rotated_kpoints * mesh
+    unique_addresses -= np.rint(unique_addresses)
+    in_uniform_mesh = (np.abs(unique_addresses) < 1e-5).all(axis=1)
 
-    for i, kpoint in enumerate(kpoints):
+    n_mapped = int(np.sum(in_uniform_mesh))
+    n_expected = int(np.product(mesh))
+    if n_mapped != n_expected:
+        raise ValueError("Expected {} points but found {}".format(n_expected, n_mapped))
 
-        symmetrized_kpoints = kpoints_to_first_bz(np.dot(rotation_matrices, kpoint))
-        symmetrized_round_kpoints = shift_and_round(symmetrized_kpoints)
-        _, unique_idxs = np.unique(symmetrized_round_kpoints, axis=0, return_index=True)
+    full_kpoints = unique_rotated_kpoints[in_uniform_mesh]
+    full_idxs = unique_idxs[in_uniform_mesh]
 
-        for ui in unique_idxs:
-            spoint = symmetrized_kpoints[ui]
-            spoint_round = symmetrized_round_kpoints[ui]
-            rotation_matrix = rotation_matrices[ui]
+    if not return_mapping:
+        return full_kpoints
 
-            if spoint_round not in equiv_points_mapping:
-                full_kpoints.append(spoint)
-                equiv_points_mapping[spoint_round] = i
-                reduced_to_full_idx.append(i)
-                rot_mapping.append(rotation_matrix)
+    op_mapping = np.floor(full_idxs / len(kpoints)).astype(int)
+    kp_mapping = (full_idxs % len(kpoints)).astype(int)
 
-    return np.array(full_kpoints), np.array(reduced_to_full_idx), np.array(rot_mapping)
+    return full_kpoints, rotations, translations, is_tr, op_mapping, kp_mapping
 
 
 def get_mesh_dim_from_kpoints(kpoints, tol=_KTOL):
@@ -279,8 +323,68 @@ def get_mesh_dim_from_kpoints(kpoints, tol=_KTOL):
     return nx, ny, nz
 
 
+def get_symmetry_operations(structure, symprec=1e-2, time_reversal=True):
+    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+
+    sga = SpacegroupAnalyzer(structure, symprec=symprec)
+    rotations = sga.get_symmetry_dataset()["rotations"].transpose((0, 2, 1))
+    translations = sga.get_symmetry_dataset()["translations"]
+    is_tr = np.full(len(rotations), False, dtype=bool)
+
+    if time_reversal:
+        rotations = np.concatenate([rotations, -rotations])
+        translations = np.concatenate([translations, -translations])
+        is_tr = np.concatenate([is_tr, ~is_tr])
+
+        rotations, unique_ops = np.unique(rotations, axis=0, return_index=True)
+        translations = translations[unique_ops]
+        is_tr = is_tr[unique_ops]
+
+    # put identify first and time-reversal last
+    sort_idx = np.argsort(np.abs(rotations - np.eye(3)).sum(axis=(1, 2)) + is_tr * 10)
+
+    return rotations[sort_idx], translations[sort_idx], is_tr[sort_idx]
+
+
+def get_symmetry_operations2(structure, symprec=1e-2, time_reversal=True):
+    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+    from pymatgen import SymmOp
+
+    sga = SpacegroupAnalyzer(structure, symprec=symprec)
+    symmops = sga.get_symmetry_operations(cartesian=True)
+    lattice = structure.lattice.matrix
+    invlattice = structure.lattice.inv_matrix
+
+    rotations = []
+    translations = []
+    is_tri = []
+    for op in symmops:
+        frac_op = SymmOp.from_rotation_and_translation(
+            np.dot(np.dot(lattice, op.rotation_matrix), invlattice),
+            np.dot(op.translation_vector, invlattice),
+        )
+        rotations.append(frac_op.rotation_matrix)
+        translations.append(frac_op.translation_vector)
+        is_tri.append(False)
+
+    rotations = np.array(rotations)
+    translations = np.array(translations)
+    is_tri = np.array(is_tri)
+
+    if time_reversal:
+        rotations = np.concatenate([rotations, -rotations])
+        translations = np.concatenate([translations, -translations])
+        is_tri = np.concatenate([is_tri, ~is_tri])
+
+        rotations, unique_ops = np.unique(rotations, axis=0, return_index=True)
+        translations = translations[unique_ops]
+        is_tri = is_tri[unique_ops]
+
+    return rotations, translations
+
+
 def get_reciprocal_point_group_operations(
-    structure: Structure, symprec: float = _SYMPREC, time_reversal_symmetry: bool = True
+    structure: Structure, symprec: float = _SYMPREC, time_reversal: bool = True
 ):
     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
@@ -291,25 +395,35 @@ def get_reciprocal_point_group_operations(
     frac_recip_to_frac_real = np.linalg.inv(frac_real_to_frac_recip)
 
     sga = SpacegroupAnalyzer(structure, symprec=symprec)
-    isomorphic_ops = [op.rotation_matrix for op in sga.get_symmetry_operations()]
+    symops = sga.get_symmetry_operations()
+    isomorphic_rots = [op.rotation_matrix for op in symops]
+    isomorphic_taus = [op.translation_vector for op in symops]
 
     parity = -np.eye(3)
 
-    if time_reversal_symmetry:
-        reciprocal_ops = [-np.eye(3)]
+    if time_reversal:
+        reciprocal_rots = [-np.eye(3)]
+        reciprocal_taus = [[0, 0, 0]]
     else:
-        reciprocal_ops = [np.eye(3)]
+        reciprocal_rots = [np.eye(3)]
+        reciprocal_taus = [[0, 0, 0]]
 
-    for op in isomorphic_ops:
+    for rot, tau in zip(isomorphic_rots, isomorphic_taus):
 
         # convert to reciprocal primitive basis
-        op = np.around(
-            np.dot(frac_real_to_frac_recip, np.dot(op, frac_recip_to_frac_real)),
+        rot = np.around(
+            np.dot(frac_real_to_frac_recip, np.dot(rot, frac_recip_to_frac_real)),
             decimals=2,
         )
+        # tau = np.dot(tau, frac_recip_to_frac_real)  # TODO: double check
+        tau = np.dot(tau, structure.lattice.reciprocal_lattice.matrix)
 
-        reciprocal_ops.append(op)
-        if time_reversal_symmetry:
-            reciprocal_ops.append(np.dot(parity, op))
+        reciprocal_rots.append(rot)
+        reciprocal_taus.append(tau)
 
-    return np.unique(reciprocal_ops, axis=0)
+        if time_reversal:
+            reciprocal_rots.append(np.dot(parity, rot))
+            reciprocal_taus.append(-tau)
+
+    reciprocal_rots, unique_idxs = np.unique(reciprocal_rots, axis=0, return_index=True)
+    return reciprocal_rots, np.array(reciprocal_taus)[unique_idxs]

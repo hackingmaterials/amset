@@ -16,7 +16,7 @@ from amset.constants import angstrom_to_bohr, bohr_to_cm
 from amset.constants import defaults as defaults
 from amset.constants import ev_to_hartree, hartree_to_ev, numeric_types, spin_name
 from amset.core.data import AmsetData
-from amset.electronic_structure.boltztrap import get_bands_fft
+from amset.interpolation.boltztrap import get_bands_fft
 from amset.electronic_structure.common import (
     get_atomic_structure,
     get_ibands,

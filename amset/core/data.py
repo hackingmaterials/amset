@@ -16,7 +16,7 @@ from amset.constants import hartree_to_ev, spin_name
 from amset.electronic_structure.common import get_angstrom_structure
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.fd import dfdde
-from amset.electronic_structure.mrta import MRTACalculator
+from amset.interpolation.momentum import MRTACalculator
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.log import log_list, log_time_taken
 from amset.util import cast_dict_list, groupby, tensor_average

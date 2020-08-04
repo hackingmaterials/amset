@@ -194,9 +194,9 @@ class ProjectionOverlapCalculator(object):
         # to the full BZ. Also need to expand the projections to the full BZ using
         # the rotation mapping
         if kpoint_symmetry_mapping:
-            full_kpoints, ir_to_full_idx, rot_mapping = kpoint_symmetry_mapping
+            full_kpoints, ir_to_full_idx = kpoint_symmetry_mapping
         else:
-            full_kpoints, ir_to_full_idx, rot_mapping = expand_kpoints(
+            full_kpoints, _, _, _, _, ir_to_full_idx = expand_kpoints(
                 structure, kpoints, symprec=symprec
             )
 
@@ -272,16 +272,13 @@ class ProjectionOverlapCalculator(object):
         efermi = band_structure.efermi
         structure = band_structure.structure
 
-        full_kpoints, ir_to_full_idx, rot_mapping = expand_kpoints(
+        full_kpoints, _, _, _, _, ir_to_full_idx = expand_kpoints(
             structure, kpoints, symprec=symprec
         )
 
         ibands = get_ibands(energy_cutoff, band_structure)
         vb_idx = get_vb_idx(energy_cutoff, band_structure)
 
-        # energies = {
-        #     s: e[ibands[s], ir_to_full_idx] for s, e in band_structure.bands.items()
-        # }
         energies = {s: e[ibands[s]] for s, e in band_structure.bands.items()}
         energies = {s: e[:, ir_to_full_idx] for s, e in energies.items()}
         projections = {s: p[ibands[s]] for s, p in band_structure.projections.items()}
@@ -293,7 +290,7 @@ class ProjectionOverlapCalculator(object):
             kpoints,
             projections,
             band_centers,
-            kpoint_symmetry_mapping=(full_kpoints, ir_to_full_idx, rot_mapping),
+            kpoint_symmetry_mapping=(full_kpoints, ir_to_full_idx),
         )
 
     def get_coefficients(self, spin, bands, kpoints):

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def initialize_amset_logger(
     directory: Union[str, Path] = ".",
-    filename: Union[str, Path] = "amset.log",
+    filename: Union[str, Path, bool] = "amset.log",
     level: int = logging.INFO,
     print_log: bool = True,
 ) -> logging.Logger:

@@ -17,8 +17,8 @@ from tabulate import tabulate
 from amset import __version__
 from amset.constants import bohr_to_cm, hbar, numeric_types
 from amset.core.transport import solve_boltzman_transport_equation
-from amset.electronic_structure.interpolate import Interpolater
-from amset.electronic_structure.overlap import (
+from amset.interpolation.bandstructure import Interpolater
+from amset.interpolation.wavefunction import (
     ProjectionOverlapCalculator,
     WavefunctionOverlapCalculator,
 )

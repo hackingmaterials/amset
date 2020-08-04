@@ -10,7 +10,7 @@ from matplotlib.ticker import AutoMinorLocator, MaxNLocator
 from sumo.plotting import pretty_plot, styled_plot
 
 from amset.constants import defaults, hbar
-from amset.electronic_structure.interpolate import Interpolater
+from amset.interpolation.bandstructure import Interpolater
 from amset.log import initialize_amset_logger
 from amset.plot import BaseAmsetPlotter, amset_base_style
 from pymatgen.electronic_structure.bandstructure import BandStructure

@@ -5,7 +5,7 @@ from sumo.plotting.bs_plotter import SBSPlotter
 from sumo.plotting.dos_plotter import SDOSPlotter
 
 from amset.constants import defaults
-from amset.electronic_structure.interpolate import Interpolater
+from amset.interpolation.bandstructure import Interpolater
 from amset.log import initialize_amset_logger
 from pymatgen.electronic_structure.bandstructure import BandStructure
 

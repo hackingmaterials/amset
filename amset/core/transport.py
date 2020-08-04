@@ -7,7 +7,7 @@ from BoltzTraP2.bandlib import calc_Onsager_coefficients
 
 from amset.constants import bohr_to_cm, defaults, e
 from amset.core.data import AmsetData
-from amset.electronic_structure.boltztrap import fermiintegrals
+from amset.interpolation.boltztrap import fermiintegrals
 from amset.log import log_time_taken
 from amset.util import get_progress_bar
 
