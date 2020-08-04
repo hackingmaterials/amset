@@ -1,14 +1,20 @@
+import logging
+import time
 from typing import Dict, List, Union
 
 import numpy as np
-from pymatgen import Spin
-from tqdm.auto import tqdm
 
-from amset.constants import numeric_types, output_width, int_to_spin
+from amset.log import log_time_taken
+from amset.util import get_progress_bar
+from pymatgen import Spin
+
+from amset.constants import numeric_types, int_to_spin
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
+
+logger = logging.getLogger(__name__)
 
 
 def sample_random_kpoints(
@@ -50,6 +56,9 @@ def desymmetrize_coefficients(
     kp_mapping,
     pbar=True,
 ):
+    logger.info("Desymmetrizing wavefunction coefficients")
+    t0 = time.perf_counter()
+
     rots = rotations[op_mapping]
     taus = translations[op_mapping]
     trs = is_tr[op_mapping]
@@ -68,7 +77,7 @@ def desymmetrize_coefficients(
 
         state_idxs = list(range(len(rots)))
         if pbar:
-            state_idxs = tqdm(state_idxs, ncols=output_width)
+            state_idxs = get_progress_bar(state_idxs, desc="progress")
 
         for k_idx in state_idxs:
             map_idx = kp_mapping[k_idx]
@@ -108,6 +117,7 @@ def desymmetrize_coefficients(
             order = indices_map[to_keep]
             all_rot_coeffs[spin][:, k_idx, order] = rot_coeffs[:, keep_indices]
 
+    log_time_taken(t0)
     return all_rot_coeffs
 
 
