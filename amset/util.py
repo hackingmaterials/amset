@@ -269,3 +269,61 @@ def get_progress_bar(
 def load_amset_data(filename):
     data = loadfn(filename)
     return cast_dict_ndarray(data)
+
+
+def write_mesh_data(mesh_data, filename="mesh.h5"):
+    import h5py
+    from pymatgen import Structure
+
+    with h5py.File(filename, "w") as f:
+
+        def add_data(name, data):
+            if isinstance(data, np.ndarray):
+                f.create_dataset(name, data=data, compression="gzip")
+            elif isinstance(data, Structure):
+                f["structure"] = np.string_(data.to_json())
+            elif isinstance(data, (tuple, list)):
+                data = np.array(data)
+                if isinstance(data[0], str):
+                    data = data.astype("S")
+                f.create_dataset(name, data=data)
+            else:
+                f.create_dataset(name, data=data)
+
+        for key, value in mesh_data.items():
+            if isinstance(value, dict):
+                # dict entries are given for different spins
+                for spin, spin_value in value.items():
+                    key = "{}_{}".format(key, spin.name)
+                    add_data(key, value)
+            else:
+                add_data(key, value)
+
+
+def load_mesh_data(filename):
+    import h5py
+    from pymatgen import Structure
+    from amset.constants import str_to_spin
+
+    def read_data(name, data):
+        if name == "structure":
+            data_str = np.string_(data[()]).decode()
+            return Structure.from_str(data_str, fmt="json")
+        if name == "scattering_labels":
+            return data[()].astype("U13")  # decode string
+        else:
+            return data[()]
+
+    mesh_data = {}
+    with h5py.File(filename, "r") as f:
+        for key, value in f.items():
+            if "_up" in key or "_down" in key:
+                spin = str_to_spin[key.split("_")[-1]]
+                key = key.replace("_{}".format(spin.name), "")
+                if key not in mesh_data:
+                    mesh_data[key] = {}
+                mesh_data[key][spin] = read_data(key, value)
+            else:
+                mesh_data[key] = read_data(key, value)
+
+    return mesh_data
