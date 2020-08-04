@@ -1,10 +1,10 @@
 import sys
 from pathlib import Path
 from typing import Type, Union
-from tabulate import tabulate
 
 import click
 import numpy as np
+from tabulate import tabulate
 
 from pymatgen import Structure
 from pymatgen.core.tensors import DEFAULT_QUAD

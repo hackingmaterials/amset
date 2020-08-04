@@ -1,8 +1,7 @@
 from typing import Dict, List, Union
 
-from tqdm.auto import tqdm
-
 import numpy as np
+from tqdm.auto import tqdm
 
 from amset.constants import numeric_types, output_width
 from pymatgen import Spin

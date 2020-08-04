@@ -5,14 +5,9 @@ import numpy as np
 from tqdm.auto import tqdm
 
 from amset.constants import numeric_types
-from amset.wavefunction.common import (
-    int_to_spin,
-    spin_to_int,
-    sample_random_kpoints,
-    get_gpoints,
-    get_min_gpoints,
-    get_gpoint_indices,
-)
+from amset.wavefunction.common import (get_gpoint_indices, get_gpoints,
+                                       get_min_gpoints, int_to_spin,
+                                       sample_random_kpoints, spin_to_int)
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

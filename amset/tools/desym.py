@@ -1,8 +1,8 @@
 import warnings
 from pathlib import Path
 
-import numpy as np
 import click
+import numpy as np
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

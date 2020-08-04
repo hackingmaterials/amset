@@ -18,18 +18,12 @@ from amset import __version__
 from amset.constants import bohr_to_cm, hbar, numeric_types
 from amset.core.transport import solve_boltzman_transport_equation
 from amset.interpolation.bandstructure import Interpolater
-from amset.interpolation.wavefunction import (
-    ProjectionOverlapCalculator,
-    WavefunctionOverlapCalculator,
-)
+from amset.interpolation.wavefunction import (ProjectionOverlapCalculator,
+                                              WavefunctionOverlapCalculator)
 from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator
-from amset.util import (
-    load_settings_from_file,
-    tensor_average,
-    validate_settings,
-    write_settings_to_file,
-)
+from amset.util import (load_settings_from_file, tensor_average,
+                        validate_settings, write_settings_to_file)
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.core import Spin

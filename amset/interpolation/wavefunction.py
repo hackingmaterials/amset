@@ -5,11 +5,9 @@ from scipy.interpolate import RegularGridInterpolator
 
 from amset.constants import defaults, numeric_types
 from amset.electronic_structure.common import get_ibands, get_vb_idx
-from amset.electronic_structure.kpoints import (
-    expand_kpoints,
-    get_mesh_dim_from_kpoints,
-    kpoints_to_first_bz,
-)
+from amset.electronic_structure.kpoints import (expand_kpoints,
+                                                get_mesh_dim_from_kpoints,
+                                                kpoints_to_first_bz)
 from amset.wavefunction.io import load_coefficients
 from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure

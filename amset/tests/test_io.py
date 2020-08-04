@@ -1,7 +1,8 @@
 import os
 import unittest
-import numpy as np
 from os.path import join as path_join
+
+import numpy as np
 
 from amset.constants import defaults
 from amset.util import load_settings_from_file, write_settings_to_file

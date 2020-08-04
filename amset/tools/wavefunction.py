@@ -3,7 +3,6 @@ from pathlib import Path
 import click
 import numpy as np
 
-
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
