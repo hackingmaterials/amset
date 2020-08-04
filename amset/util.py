@@ -295,7 +295,7 @@ def write_mesh_data(mesh_data, filename="mesh.h5"):
                 # dict entries are given for different spins
                 for spin, spin_value in value.items():
                     key = "{}_{}".format(key, spin.name)
-                    add_data(key, value)
+                    add_data(key, spin_value)
             else:
                 add_data(key, value)
 
