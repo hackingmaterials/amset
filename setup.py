@@ -29,7 +29,7 @@ if __name__ == "__main__":
         install_requires=[
             'quadpy==0.15.0',
             'numpy==1.19.1',
-            'pymatgen==2020.7.18',
+            'pymatgen==2020.8.3',
             'scipy==1.5.2',
             'monty==3.0.4',
             'matplotlib==3.3.0',
