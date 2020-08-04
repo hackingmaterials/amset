@@ -20,7 +20,7 @@ from amset.electronic_structure.fd import dfdde
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.interpolation.momentum import MRTACalculator
 from amset.log import log_list, log_time_taken
-from amset.util import groupby, tensor_average, write_mesh_data
+from amset.util import groupby, tensor_average, write_mesh_data, cast_dict_list
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -390,7 +390,7 @@ class AmsetData(MSONable):
 
     def to_dict(self, include_mesh=defaults["write_mesh"]):
         data = {
-            "doping": self.doping * cm_to_bohr ** 3,
+            "doping": (self.doping * cm_to_bohr ** 3).round(),
             "temperatures": self.temperatures,
             "fermi_levels": self.fermi_levels * hartree_to_ev,
             "conductivity": self.conductivity,
@@ -409,7 +409,7 @@ class AmsetData(MSONable):
                 s: e[:, self.ir_kpoints_idx] * hartree_to_ev
                 for s, e in energies.items()
             }
-            ir_vel = {s: v[..., self.ir_kpoints_idx] for s, v in vel.items()}
+            ir_vel = {s: v[:, self.ir_kpoints_idx] for s, v in vel.items()}
 
             mesh_data = {
                 "energies": ir_energies,
@@ -429,6 +429,9 @@ class AmsetData(MSONable):
                 ),
                 "structure": get_angstrom_structure(self.structure),
                 "soc": self._soc,
+                "doping": data["doping"],
+                "temperatures": data["temperatures"],
+                "fermi_levels": data["fermi_levels"],
             }
             data["mesh"] = mesh_data
         return data
@@ -488,11 +491,12 @@ class AmsetData(MSONable):
 
         if file_format in ["json", "yaml"]:
             data = self.to_dict()
+            data = cast_dict_list(data)
 
             filename = joinpath(
                 directory, "{}transport{}.{}".format(prefix, suffix, file_format)
             )
-            dumpfn(data, filename)
+            dumpfn(data, filename, indent=4)
 
         elif file_format in ["csv", "txt"]:
             # don't write the data as JSON, instead write raw text files
@@ -507,9 +511,7 @@ class AmsetData(MSONable):
 
         if write_mesh:
             mesh_data = self.to_dict(include_mesh=True)["mesh"]
-            filename = joinpath(
-                directory, "{}mesh{}.{}".format(prefix, suffix, file_format)
-            )
+            filename = joinpath(directory, "{}mesh{}.h5".format(prefix, suffix))
             write_mesh_data(mesh_data, filename=filename)
 
         return filename
