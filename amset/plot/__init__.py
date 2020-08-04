@@ -1,1 +1,5 @@
-from amset.plot.base import BaseMeshPlotter, BaseTransportPlotter, amset_base_style  # noqa
+from amset.plot.base import (  # noqa
+    BaseMeshPlotter,
+    BaseTransportPlotter,
+    amset_base_style,
+)

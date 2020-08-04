@@ -19,8 +19,9 @@ class BaseMeshPlotter(abc.ABC):
     def __init__(self, mesh_data: Union[str, Path, AmsetData, dict]):
         if isinstance(mesh_data, (str, Path)):
             if "h5" not in mesh_data:
-                raise ValueError("mesh.h5 file needed for plot. "
-                                 "Run AMSET with write_mesh=True")
+                raise ValueError(
+                    "mesh.h5 file needed for plot. Run AMSET with write_mesh=True"
+                )
             print("loading")
             mesh_data = load_mesh_data(mesh_data)
             print("done")
