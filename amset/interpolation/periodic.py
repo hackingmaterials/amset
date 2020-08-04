@@ -53,7 +53,7 @@ class PeriodicLinearInterpolator(object):
         self.nbands = {s: c.shape[0] for s, c in data.items()}
         self.interpolators = {}
         for spin, spin_data in data.items():
-            data_shape = spin_data.shape[1:]
+            data_shape = spin_data.shape[2:]
             nbands = self.nbands[spin]
 
             # sort the data then reshape them into the grid. The data
@@ -90,7 +90,7 @@ class PeriodicLinearInterpolator(object):
                 interp_range = (np.arange(nbands), x, y, z)
 
                 self.interpolators[spin] = RegularGridInterpolator(
-                    interp_range, grid_data, bounds_error=False, fill_value=None,
+                    interp_range, grid_data, bounds_error=False, fill_value=None
                 )
 
     def interpolate(self, spin, bands, kpoints):
@@ -104,7 +104,7 @@ class PeriodicLinearInterpolator(object):
 
             if np.iscomplexobj(data):
                 # only allows interpolating floats, so have to separate real and imag
-                interp_data = np.empty((len(v), data.shape[2:]), dtype=np.complex)
+                interp_data = np.empty((len(v),) + data.shape[4:], dtype=np.complex)
                 interp_data.real = eval_linear(grid, data.real, v, xto.LINEAR)
                 interp_data.imag = eval_linear(grid, data.imag, v, xto.LINEAR)
             else:
