@@ -12,7 +12,7 @@ from pymatgen.electronic_structure.plotter import BSPlotter
 from sumo.plotting import pretty_plot, styled_plot
 
 from amset.constants import defaults, hbar
-from amset.interpolation.bandstructure import Interpolater
+from amset.interpolation.bandstructure import Interpolator
 from amset.log import initialize_amset_logger
 from amset.plot import BaseAmsetPlotter, amset_base_style
 
@@ -52,7 +52,7 @@ class LineshapePlotter(BaseAmsetPlotter):
             log_rates[np.isnan(log_rates)] = 15
             props[spin]["rates"] = log_rates
 
-        return Interpolater(
+        return Interpolator(
             bs,
             nelect,
             interpolation_factor=self.interpolation_factor,

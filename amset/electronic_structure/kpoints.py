@@ -23,7 +23,7 @@ def kpoints_to_first_bz(kpoints: np.ndarray, tol=_KTOL) -> np.ndarray:
     """Translate fractional k-points to the first Brillouin zone.
 
     I.e. all k-points will have fractional coordinates:
-        -0.5 <= fractional coordinates < 0.5
+        -0.5 < fractional coordinates <= 0.5
 
     Args:
         kpoints: The k-points in fractional coordinates.
@@ -255,16 +255,9 @@ def expand_kpoints(
     kpoints = addresses / mesh
     status_info.append("Integer mesh: {} x {} x {}".format(*map(int, mesh)))
 
-    # rotations, translations = get_reciprocal_point_group_operations(
-    #     structure, symprec=symprec, time_reversal=time_reversal
-    # )
-    rotations, translations, is_tr = get_symmetry_operations(
+    rotations, translations, is_tr = get_reciprocal_point_group_operations(
         structure, symprec=symprec, time_reversal=time_reversal
     )
-    # rotations = np.array([np.eye(3)] + rotations.tolist())
-    # translations = np.array([[0, 0, 0]] + translations.tolist())
-    print(translations.round(3))
-    print(rotations.astype(int))
     n_ops = len(rotations)
     status_info.append("Using {} symmetry operations".format(n_ops))
     log_list(status_info)
@@ -317,13 +310,12 @@ def get_mesh_dim_from_kpoints(kpoints, tol=_KTOL):
     ny = len(np.unique(round_kpoints[:, 1]))
     nz = len(np.unique(round_kpoints[:, 2]))
 
-    if nx * ny * nz != len(kpoints):
-        raise ValueError("Something went wrong getting k-point mesh dimensions")
-
     return nx, ny, nz
 
 
-def get_symmetry_operations(structure, symprec=1e-2, time_reversal=True):
+def get_reciprocal_point_group_operations(
+    structure: Structure, symprec: float = _SYMPREC, time_reversal: bool = True
+):
     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
     sga = SpacegroupAnalyzer(structure, symprec=symprec)
@@ -346,84 +338,47 @@ def get_symmetry_operations(structure, symprec=1e-2, time_reversal=True):
     return rotations[sort_idx], translations[sort_idx], is_tr[sort_idx]
 
 
-def get_symmetry_operations2(structure, symprec=1e-2, time_reversal=True):
-    from pymatgen import SymmOp
-    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-
-    sga = SpacegroupAnalyzer(structure, symprec=symprec)
-    symmops = sga.get_symmetry_operations(cartesian=True)
-    lattice = structure.lattice.matrix
-    invlattice = structure.lattice.inv_matrix
-
-    rotations = []
-    translations = []
-    is_tri = []
-    for op in symmops:
-        frac_op = SymmOp.from_rotation_and_translation(
-            np.dot(np.dot(lattice, op.rotation_matrix), invlattice),
-            np.dot(op.translation_vector, invlattice),
-        )
-        rotations.append(frac_op.rotation_matrix)
-        translations.append(frac_op.translation_vector)
-        is_tri.append(False)
-
-    rotations = np.array(rotations)
-    translations = np.array(translations)
-    is_tri = np.array(is_tri)
-
-    if time_reversal:
-        rotations = np.concatenate([rotations, -rotations])
-        translations = np.concatenate([translations, -translations])
-        is_tri = np.concatenate([is_tri, ~is_tri])
-
-        rotations, unique_ops = np.unique(rotations, axis=0, return_index=True)
-        translations = translations[unique_ops]
-        is_tri = is_tri[unique_ops]
-
-    return rotations, translations
-
-
-def get_reciprocal_point_group_operations(
-    structure: Structure, symprec: float = _SYMPREC, time_reversal: bool = True
-):
-    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-
-    frac_real_to_frac_recip = np.dot(
-        np.linalg.inv(structure.lattice.reciprocal_lattice.matrix.T),
-        structure.lattice.matrix.T,
-    )
-    frac_recip_to_frac_real = np.linalg.inv(frac_real_to_frac_recip)
-
-    sga = SpacegroupAnalyzer(structure, symprec=symprec)
-    symops = sga.get_symmetry_operations()
-    isomorphic_rots = [op.rotation_matrix for op in symops]
-    isomorphic_taus = [op.translation_vector for op in symops]
-
-    parity = -np.eye(3)
-
-    if time_reversal:
-        reciprocal_rots = [-np.eye(3)]
-        reciprocal_taus = [[0, 0, 0]]
-    else:
-        reciprocal_rots = [np.eye(3)]
-        reciprocal_taus = [[0, 0, 0]]
-
-    for rot, tau in zip(isomorphic_rots, isomorphic_taus):
-
-        # convert to reciprocal primitive basis
-        rot = np.around(
-            np.dot(frac_real_to_frac_recip, np.dot(rot, frac_recip_to_frac_real)),
-            decimals=2,
-        )
-        # tau = np.dot(tau, frac_recip_to_frac_real)  # TODO: double check
-        tau = np.dot(tau, structure.lattice.reciprocal_lattice.matrix)
-
-        reciprocal_rots.append(rot)
-        reciprocal_taus.append(tau)
-
-        if time_reversal:
-            reciprocal_rots.append(np.dot(parity, rot))
-            reciprocal_taus.append(-tau)
-
-    reciprocal_rots, unique_idxs = np.unique(reciprocal_rots, axis=0, return_index=True)
-    return reciprocal_rots, np.array(reciprocal_taus)[unique_idxs]
+# def get_reciprocal_point_group_operations(
+#     structure: Structure, symprec: float = _SYMPREC, time_reversal: bool = True
+# ):
+#     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+#
+#     frac_real_to_frac_recip = np.dot(
+#         np.linalg.inv(structure.lattice.reciprocal_lattice.matrix.T),
+#         structure.lattice.matrix.T,
+#     )
+#     frac_recip_to_frac_real = np.linalg.inv(frac_real_to_frac_recip)
+#
+#     sga = SpacegroupAnalyzer(structure, symprec=symprec)
+#     symops = sga.get_symmetry_operations()
+#     isomorphic_rots = [op.rotation_matrix for op in symops]
+#     isomorphic_taus = [op.translation_vector for op in symops]
+#
+#     parity = -np.eye(3)
+#
+#     if time_reversal:
+#         reciprocal_rots = [-np.eye(3)]
+#         reciprocal_taus = [[0, 0, 0]]
+#     else:
+#         reciprocal_rots = [np.eye(3)]
+#         reciprocal_taus = [[0, 0, 0]]
+#
+#     for rot, tau in zip(isomorphic_rots, isomorphic_taus):
+#
+#         # convert to reciprocal primitive basis
+#         rot = np.around(
+#             np.dot(frac_real_to_frac_recip, np.dot(rot, frac_recip_to_frac_real)),
+#             decimals=2,
+#         )
+#         # tau = np.dot(tau, frac_recip_to_frac_real)  # TODO: double check
+#         tau = np.dot(tau, structure.lattice.reciprocal_lattice.matrix)
+#
+#         reciprocal_rots.append(rot)
+#         reciprocal_taus.append(tau)
+#
+#         if time_reversal:
+#             reciprocal_rots.append(np.dot(parity, rot))
+#             reciprocal_taus.append(-tau)
+#
+#     reciprocal_rots, unique_idxs = np.unique(reciprocal_rots, axis=0, return_index=True)
+#     return reciprocal_rots, np.array(reciprocal_taus)[unique_idxs]

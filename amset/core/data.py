@@ -97,9 +97,8 @@ class AmsetData(MSONable):
             *ir_tetrahedra_info
         )
 
-        self.mrta_calculator = MRTACalculator(
-            self.kpoints, self.kpoint_mesh, self.velocities
-        )
+        logger.info("Initializing momentum relaxation time factor calculator")
+        self.mrta_calculator = MRTACalculator(self.kpoints, self.velocities)
 
     def set_overlap_calculator(self, overlap_calculator):
         nbands_equal = [

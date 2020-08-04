@@ -6,7 +6,7 @@ from numpy.testing import assert_array_equal
 from pymatgen import Spin
 from pymatgen.io.vasp import Vasprun
 
-from amset.interpolation.bandstructure import Interpolater
+from amset.interpolation.bandstructure import Interpolator
 from amset.log import initialize_amset_logger
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
@@ -28,7 +28,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         num_electrons = vr.parameters["NELECT"]
 
         self.kpoints = np.array(vr.actual_kpoints)
-        self.interpolater = Interpolater(
+        self.interpolater = Interpolator(
             bs, num_electrons, interpolate_projections=True, interpolation_factor=1
         )
 
@@ -172,7 +172,7 @@ class TestBoltzTraP2Interpolater(unittest.TestCase):
         )
         bs = vr.get_band_structure()
         num_electrons = vr.parameters["NELECT"]
-        interpolater = Interpolater(
+        interpolater = Interpolator(
             bs, num_electrons, interpolate_projections=True, interpolation_factor=1
         )
 

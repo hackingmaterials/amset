@@ -46,7 +46,7 @@ __email__ = "aganose@lbl.gov"
 logger = logging.getLogger(__name__)
 
 
-class Interpolater(MSONable):
+class Interpolator(MSONable):
     """Class to interpolate band structures based on BoltzTraP2.
 
     Details of the interpolation method are available in:

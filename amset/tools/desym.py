@@ -269,11 +269,7 @@ def desym_basic(structure, wave_sym, wave_no_sym):
         o2 = abs(np.vdot(v2, v2))
         diffs.append(o1 / o2)
         if abs(o1 / o2 - 1) > 0.05:
-            # print(taus[k_idx])
             print(kdiff, edges, np.dot(op, kpoint), taus[k_idx])
-            # print(np.abs(rot_indices - nosym_indices).max())
-            # print(np.abs(exp_factor).min(), np.abs(exp_factor).max(), exp_factor[:10])
-            # print(full_kpoints[k_idx], o1 / o2, taus[k_idx])
             print(ops[k_idx])
 
     diffs = np.array(diffs)
@@ -281,16 +277,6 @@ def desym_basic(structure, wave_sym, wave_no_sym):
     n_bad = np.sum(bad_overlap)
     total = n_bad
     click.echo("{:.1f} k-points are bad".format(total))
-
-
-def get_mesh_from_kpoints(kpoints):
-    kpoints = np.array(kpoints)
-    nx = 1 / np.min(np.diff(np.unique(kpoints[:, 0])))
-    ny = 1 / np.min(np.diff(np.unique(kpoints[:, 1])))
-    nz = 1 / np.min(np.diff(np.unique(kpoints[:, 2])))
-
-    # due to limited precission of the input k-points, the mesh is returned as a float
-    return np.array([nx, ny, nz])
 
 
 def test_original_overlap(wave_sym, wave_nosym, kpoint, band_idx):

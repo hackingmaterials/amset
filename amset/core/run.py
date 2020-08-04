@@ -23,7 +23,7 @@ from tabulate import tabulate
 from amset import __version__
 from amset.constants import bohr_to_cm, hbar, numeric_types
 from amset.core.transport import solve_boltzman_transport_equation
-from amset.interpolation.bandstructure import Interpolater
+from amset.interpolation.bandstructure import Interpolator
 from amset.interpolation.wavefunction import (
     ProjectionOverlapCalculator,
     WavefunctionOverlapCalculator,
@@ -175,7 +175,7 @@ class AmsetRunner(MSONable):
         log_banner("INTERPOLATION")
         t0 = time.perf_counter()
 
-        interpolater = Interpolater(
+        interpolater = Interpolator(
             self._band_structure,
             num_electrons=self._num_electrons,
             interpolation_factor=self.settings["interpolation_factor"],
