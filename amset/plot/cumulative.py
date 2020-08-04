@@ -3,7 +3,6 @@ from BoltzTraP2 import units
 from sumo.plotting import pretty_plot, styled_plot
 
 from amset.constants import bohr_to_m, bohr_to_nm
-from amset.electronic_structure.common import get_velocities_from_outer_product
 from amset.electronic_structure.fd import dfdde
 from amset.plot import BaseAmsetPlotter, amset_base_style
 
@@ -117,9 +116,7 @@ class CumulativePlotter(BaseAmsetPlotter):
 
     def _get_group_velocity(self):
         # mean free path in bohr / s
-        velocities = get_velocities_from_outer_product(
-            self.velocities_product, return_norm=True
-        )
+        velocities = {s: np.linalg.norm(v, axis=2) for s, v in self.velocities.items()}
         all_velocities = np.concatenate([v for v in velocities.values()])
         all_velocities[all_velocities < 0.005] = 0.005  # handle very small velocities
         return all_velocities * units.Second
