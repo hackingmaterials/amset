@@ -511,7 +511,8 @@ class AmsetData(MSONable):
 
         if write_mesh:
             mesh_data = self.to_dict(include_mesh=True)["mesh"]
-            filename = joinpath(directory, "{}mesh{}.h5".format(prefix, suffix))
-            write_mesh_data(mesh_data, filename=filename)
-
-        return filename
+            mesh_filename = joinpath(directory, "{}mesh{}.h5".format(prefix, suffix))
+            write_mesh_data(mesh_data, filename=mesh_filename)
+            return filename, mesh_filename
+        else:
+            return filename
