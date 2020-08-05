@@ -4,7 +4,7 @@ from sumo.plotting import pretty_plot, styled_plot
 
 from amset.constants import bohr_to_m, bohr_to_nm
 from amset.electronic_structure.fd import dfdde
-from amset.plot import amset_base_style, BaseMeshPlotter
+from amset.plot import BaseMeshPlotter, amset_base_style
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 from tqdm.auto import tqdm
 
-from amset.constants import numeric_types, spin_to_int, int_to_spin
+from amset.constants import int_to_spin, numeric_types, spin_to_int
 from amset.wavefunction.common import (
     get_gpoint_indices,
     get_gpoints,

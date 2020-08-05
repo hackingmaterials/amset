@@ -5,7 +5,7 @@ from monty.dev import requires
 from pymatgen.io.vasp import Potcar, Vasprun
 from tqdm.auto import tqdm
 
-from amset.constants import numeric_types, spin_to_int, int_to_spin
+from amset.constants import int_to_spin, numeric_types, spin_to_int
 from amset.wavefunction.common import sample_random_kpoints
 
 try:

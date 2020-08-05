@@ -3,12 +3,11 @@ import time
 from typing import Dict, List, Union
 
 import numpy as np
-
-from amset.log import log_time_taken
-from amset.util import get_progress_bar
 from pymatgen import Spin
 
-from amset.constants import numeric_types, int_to_spin
+from amset.constants import int_to_spin, numeric_types
+from amset.log import log_time_taken
+from amset.util import get_progress_bar
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

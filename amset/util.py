@@ -305,6 +305,7 @@ def write_mesh_data(mesh_data, filename="mesh.h5"):
 def load_mesh_data(filename):
     import h5py
     from pymatgen import Structure
+
     from amset.constants import str_to_spin
 
     def read_data(name, data):

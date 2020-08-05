@@ -12,8 +12,6 @@ import numpy as np
 from BoltzTraP2 import units
 from memory_profiler import memory_usage
 from monty.json import MSONable
-
-from amset.interpolation.projections import ProjectionOverlapCalculator
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.core import Spin
@@ -26,6 +24,7 @@ from amset import __version__
 from amset.constants import bohr_to_cm, hbar, numeric_types
 from amset.core.transport import solve_boltzman_transport_equation
 from amset.interpolation.bandstructure import Interpolator
+from amset.interpolation.projections import ProjectionOverlapCalculator
 from amset.interpolation.wavefunction import WavefunctionOverlapCalculator
 from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator

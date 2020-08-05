@@ -1,6 +1,9 @@
 import logging
 
 import numpy as np
+from pymatgen import Spin
+from pymatgen.electronic_structure.bandstructure import BandStructure
+from pymatgen.util.coord import pbc_diff
 
 from amset.constants import defaults
 from amset.electronic_structure.common import get_ibands, get_vb_idx
@@ -9,9 +12,6 @@ from amset.interpolation.periodic import (
     PeriodicLinearInterpolator,
     group_bands_and_kpoints,
 )
-from pymatgen import Spin
-from pymatgen.electronic_structure.bandstructure import BandStructure
-from pymatgen.util.coord import pbc_diff
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
