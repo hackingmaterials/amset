@@ -23,6 +23,13 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.simplefilter("ignore", MantissaNoDotYAML1_1Warning)
 
 
+def safe_cli():
+    try:
+        cli()
+    except Exception as e:
+        click.echo(str(e))
+
+
 @click.group(context_settings=dict(help_option_names=["-h", "--help"]))
 def cli():
     """
