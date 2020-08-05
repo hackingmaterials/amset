@@ -244,6 +244,10 @@ class ScatteringCalculator(object):
             rates, kpoints, masks, progress_bar=self.progress_bar
         )
 
+        # enforce symmetry of interpolated points
+        ir_idx = self.amset_data.ir_kpoints_idx
+        ir_to_full = self.amset_data.ir_to_full_kpoint_mapping
+        rates = {s: sr[..., ir_idx][..., ir_to_full] for s, sr in rates.items()}
         return rates
 
     def calculate_band_rates(self, spin: Spin, b_idx: int):
@@ -468,11 +472,14 @@ def _interpolate_zero_rates(
             elif np.sum(non_zero_rates) != np.sum(mask):
                 # seems to work best when all the kpoints are +ve therefore add 0.5
                 # Todo: Use cartesian coordinates?
-                rates[spin][s, d, t, b, zero_rate_idx] = griddata(
-                    points=kpoints[non_zero_rate_idx] + 0.5,
-                    values=rates[spin][s, d, t, b, non_zero_rate_idx],
-                    xi=kpoints[zero_rate_idx] + 0.5,
-                    method="nearest",
+                # interpolate log rates to avoid the bias towards large rates
+                rates[spin][s, d, t, b, zero_rate_idx] = np.exp(
+                    griddata(
+                        points=kpoints[non_zero_rate_idx] + 0.5,
+                        values=np.log(rates[spin][s, d, t, b, non_zero_rate_idx]),
+                        xi=kpoints[zero_rate_idx] + 0.5,
+                        method="nearest",
+                    )
                 )
                 # rates[spin][s, d, t, b, zero_rate_idx] = 1e15
 
