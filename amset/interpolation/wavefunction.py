@@ -21,11 +21,6 @@ logger = logging.getLogger(__name__)
 class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
     @classmethod
     def from_file(cls, filename):
-        from pathlib import Path
-
-        if not Path(filename).exists():
-            raise FileNotFoundError("Could not find wavefunction coefficients file.")
-
         coeff, gpoints, kpoints, structure = load_coefficients(filename)
         return cls.from_coefficients(coeff, gpoints, kpoints, structure)
 
@@ -56,7 +51,6 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         bands, kpoints, single_overlap = group_bands_and_kpoints(
             band_a, kpoint_a, band_b, kpoint_b
         )
-        # k-points should be in fractional
         p = self.get_coefficients(spin, bands, kpoints)
         overlap = np.abs(np.dot(np.conj(p[0]), p[1:].T)) ** 2
 
