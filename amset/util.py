@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 import numpy as np
 from monty.serialization import dumpfn, loadfn
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -89,7 +89,9 @@ def groupby(a, b):
     cut_idx = np.flatnonzero(np.r_[True, b_sorted[1:] != b_sorted[:-1], True])
 
     # Split input array with those start, stop ones
-    out = np.array([a_sorted[i:j] for i, j in zip(cut_idx[:-1], cut_idx[1:])])
+    out = np.array(
+        [a_sorted[i:j] for i, j in zip(cut_idx[:-1], cut_idx[1:])], dtype=object
+    )
     return out
 
 
