@@ -5,8 +5,10 @@ import numpy as np
 from amset.constants import defaults
 from amset.electronic_structure.common import get_ibands, get_vb_idx
 from amset.electronic_structure.kpoints import expand_kpoints
-from amset.interpolation.periodic import PeriodicLinearInterpolator, \
-    group_bands_and_kpoints
+from amset.interpolation.periodic import (
+    PeriodicLinearInterpolator,
+    group_bands_and_kpoints,
+)
 from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.util.coord import pbc_diff
@@ -20,11 +22,7 @@ logger = logging.getLogger(__name__)
 
 class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
     def __init__(
-        self,
-        kpoints,
-        projections,
-        band_centers,
-        rotation_mask,
+        self, kpoints, projections, band_centers, rotation_mask,
     ):
         logger.info("Initializing orbital overlap calculator")
         super().__init__(kpoints, projections)
@@ -103,11 +101,14 @@ class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
         scaling_factor = self.rotation_mask[None] * angle_weights[..., None]
 
         p_product = p[0] * p[1:]
-        overlap = np.sum(
-            p_product * (1 - scaling_factor)
-            + p_product * scaling_factor * angles[:, None],
-            axis=1,
-        ) ** 2
+        overlap = (
+            np.sum(
+                p_product * (1 - scaling_factor)
+                + p_product * scaling_factor * angles[:, None],
+                axis=1,
+            )
+            ** 2
+        )
 
         if single_overlap:
             return overlap[0]

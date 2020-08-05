@@ -172,8 +172,10 @@ class Runner(MSONable):
         return amset_data, timing
 
     def _check_wavefunction(self):
-        if (not Path(self.settings["wavefunction_coefficients"]).exists()
-                and not self.settings["use_projections"]):
+        if (
+            not Path(self.settings["wavefunction_coefficients"]).exists()
+            and not self.settings["use_projections"]
+        ):
             raise ValueError(
                 "Could not find wavefunction coefficients. To run AMSET, the \n"
                 "wavefunction coefficients should first be extracted from a WAVECAR \n"
