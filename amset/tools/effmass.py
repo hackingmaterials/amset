@@ -46,7 +46,7 @@ def eff_mass(filename, **kwargs):
     from tabulate import tabulate
 
     from amset.constants import bohr_to_cm, defaults
-    from amset.core.run import AmsetRunner
+    from amset.core.run import Runner
 
     settings = {
         "scattering_type": ["CRT"],
@@ -61,7 +61,7 @@ def eff_mass(filename, **kwargs):
         elif setting == "doping" or setting == "temperatures":
             settings[setting] = temp_doping_defaults[setting]
 
-    runner = AmsetRunner.from_vasprun(filename, settings)
+    runner = Runner.from_vasprun(filename, settings)
     amset_data = runner.run()
     inv_cond = np.linalg.inv(amset_data.conductivity)
     doping_scale = 1 / bohr_to_cm ** 3

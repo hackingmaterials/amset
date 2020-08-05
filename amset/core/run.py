@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 _kpt_str = "[{k[0]:.2f}, {k[1]:.2f}, {k[2]:.2f}]"
 
 
-class AmsetRunner(MSONable):
+class Runner(MSONable):
     def __init__(
         self,
         band_structure: BandStructure,
@@ -107,6 +107,8 @@ class AmsetRunner(MSONable):
                 print_log=self.settings["print_log"],
             )
 
+        self._check_wavefunction()
+
         tt = time.perf_counter()
         _log_amset_intro()
         _log_settings(self)
@@ -166,6 +168,15 @@ class AmsetRunner(MSONable):
             timing["writing ({})".format(fd_tol)] = timing.pop("writing")
 
         return amset_data, timing
+
+    def _check_wavefunction(self):
+        if not Path(self.settings["wavefunction_coefficients"]).exists():
+            raise ValueError(
+                "Could not find wavefunction coefficients. To run AMSET, the \n"
+                "wavefunction coefficients must first be extracted from a WAVECAR file"
+                "\nusing the 'amset wave' command. See the documentation for more \n"
+                "detail: https://hackingmaterials.lbl.gov/amset/"
+            )
 
     def _do_interpolation(self):
         log_banner("INTERPOLATION")
@@ -272,14 +283,18 @@ class AmsetRunner(MSONable):
             file_format=self.settings["file_format"],
         )
 
-        full_filename = Path(abs_dir) / filename
+        if isinstance(filename, tuple):
+            full_filename = "\nand\n".join([str(Path(abs_dir) / f) for f in filename])
+        else:
+            full_filename = Path(abs_dir) / filename
+
         logger.info("Results written to:\n{}".format(full_filename))
         return full_filename, time.perf_counter() - t0
 
     @staticmethod
     def from_vasprun(
         vasprun: Union[str, Path, Vasprun], settings: Dict[str, Any]
-    ) -> "AmsetRunner":
+    ) -> "Runner":
         """Initialise an AmsetRunner from a Vasprun.
 
         The nelect and soc options will be determined from the Vasprun
@@ -299,7 +314,7 @@ class AmsetRunner(MSONable):
         nelect = vasprun.parameters["NELECT"]
         settings["soc"] = vasprun.parameters["LSORBIT"]
 
-        return AmsetRunner(band_structure, nelect, settings)
+        return Runner(band_structure, nelect, settings)
 
     @staticmethod
     def from_directory(
@@ -328,7 +343,7 @@ class AmsetRunner(MSONable):
         if settings_override:
             settings.update(settings_override)
 
-        return AmsetRunner.from_vasprun(vasprun, settings)
+        return Runner.from_vasprun(vasprun, settings)
 
     def write_settings(self, directory: str = ".", prefix: Optional[str] = None):
         if prefix is None:
@@ -398,7 +413,7 @@ _tensor_str = """
     │    [{:6.2f} {:6.2f} {:6.2f}]]"""
 
 
-def _log_settings(runner: AmsetRunner):
+def _log_settings(runner: Runner):
     def ff(prop):
         # format tensor properties
         if isinstance(prop, np.ndarray):
