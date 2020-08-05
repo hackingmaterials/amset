@@ -18,8 +18,8 @@ settings = {
     # materials properties
     "deformation_potential": (6.5, 8.1),
     "elastic_constant": 144,
-    "static_dielectric": 11.7,
-    "high_frequency_dielectric": 11.7,
+    "static_dielectric": [[11.7, 0, 0], [0, 11.7, 0], [0, 0, 11.7]],
+    "high_frequency_dielectric": [[11.7, 0, 0], [0, 11.7, 0], [0, 0, 11.7]],
 
     # performance settings
     "write_mesh": True,
