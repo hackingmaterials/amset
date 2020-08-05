@@ -1,6 +1,6 @@
 import warnings
 
-from amset.core.run import AmsetRunner
+from amset.core.run import Runner
 from amset.plot.rates import RatesPlotter
 
 warnings.simplefilter("ignore")
@@ -16,15 +16,16 @@ settings = {
     "interpolation_factor": 50,
 
     # materials properties
-    "deformation_potential": (5.39, 5.39),
-    "elastic_constant": 80,
-    "donor_charge": 1,
-    "acceptor_charge": 1,
+    "deformation_potential": (6.5, 8.1),
+    "elastic_constant": 144,
     "static_dielectric": 13.1,
     "high_frequency_dielectric": 13.1,
+
+    # performance settings
+    "write_mesh": True,
 }
 
-runner = AmsetRunner.from_vasprun("vasprun.xml.gz", settings)
+runner = Runner.from_vasprun("vasprun.xml.gz", settings)
 amset_data = runner.run()
 
 plotter = RatesPlotter(amset_data)

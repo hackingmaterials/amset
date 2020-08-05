@@ -2,7 +2,8 @@
 
 This folder contains the files needed to calculated the transport properties of
 GaAs. The vasprun and wavefunction coefficients were calculated on a Γ-centered 17x17x17
-k-point mesh.
+k-point mesh. The `wavefunction.h5` file was extracted from the VASP WAVECAR file using
+the `amset wave` command.
 
 ## Running AMSET
 
