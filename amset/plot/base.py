@@ -22,9 +22,7 @@ class BaseMeshPlotter(abc.ABC):
                 raise ValueError(
                     "mesh.h5 file needed for plot. Run AMSET with write_mesh=True"
                 )
-            print("loading")
             mesh_data = load_mesh_data(mesh_data)
-            print("done")
         elif isinstance(mesh_data, AmsetData):
             mesh_data = mesh_data.to_dict(include_mesh=True)["mesh"]
         elif not isinstance(mesh_data, dict):
