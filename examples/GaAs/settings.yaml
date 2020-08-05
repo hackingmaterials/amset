@@ -16,4 +16,6 @@ high_frequency_dielectric: 10.32
 pop_frequency: 8.16
 static_dielectric: 12.18
 
+# performance settings
 mobility_rates_only: true
+write_mesh: true
