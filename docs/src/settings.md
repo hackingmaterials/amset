@@ -101,16 +101,18 @@ temperature/doping ranges.
 ### `wavefunction_coefficients`
 
 !!! quote ""
-    *Command-line option:* `-s, --wavefunction-coefficients`
+    *Command-line option:* `-w, --wavefunction-coefficients`
 
     Path to wavefunction coefficients file. The coefficients can be extracted
     from a VASP WAVECAR using the command:
    
     ```bash
-    amset dump-wavefunction
+    amset wave
     ``` 
 
-    This requires the vasprun.xml and POTCAR to be in the same folder.
+    This command also requires the vasprun.xml to be in the same folder.
+
+    Default: `{{ wavefunction_coefficients }}`
     
 ### `scissor`
 
