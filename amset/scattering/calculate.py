@@ -549,7 +549,9 @@ def get_fine_mesh_qpoints(
             return
 
         cube = intersections.reshape((2, 2, -1, 2))[:, :, mask]
-        vol = np.abs(quadpy.cn._helpers.get_detJ(scheme.points.T, cube))
+        # 4 is taken from quadpy CnScheme.integrate
+        # ref_vol = 2 ** numpy.prod(len(ncube.shape) - 1) which for quadrilaterals = 4
+        vol = 4 * np.abs(quadpy.cn._helpers.get_detJ(scheme.points.T, cube))
         xy_coords = quadpy.cn.transform(scheme.points.T, cube).T
         weights = scheme.weights[None] * vol * cross_section_weights[mask][:, None]
 
