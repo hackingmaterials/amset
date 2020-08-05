@@ -114,6 +114,19 @@ temperature/doping ranges.
 
     Default: `{{ wavefunction_coefficients }}`
     
+### `use_projections`
+
+!!! quote ""
+    *Command-line option:* `--use-projections`
+    
+    Use projections to calculate wavefunction overlap. This can often result in very
+    poor performance, and so is **not recommended**. 
+    
+    In order to use projections, the VASP calculation must be performed with
+    `LORBIT = 11`. 
+
+    Default: `{{ use_projections }}`
+    
 ### `scissor`
 
 !!! quote ""

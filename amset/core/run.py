@@ -12,6 +12,8 @@ import numpy as np
 from BoltzTraP2 import units
 from memory_profiler import memory_usage
 from monty.json import MSONable
+
+from amset.interpolation.projections import ProjectionOverlapCalculator
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.core import Spin
@@ -170,12 +172,29 @@ class Runner(MSONable):
         return amset_data, timing
 
     def _check_wavefunction(self):
-        if not Path(self.settings["wavefunction_coefficients"]).exists():
+        if (not Path(self.settings["wavefunction_coefficients"]).exists()
+                and not self.settings["use_projections"]):
             raise ValueError(
                 "Could not find wavefunction coefficients. To run AMSET, the \n"
-                "wavefunction coefficients must first be extracted from a WAVECAR file"
-                "\nusing the 'amset wave' command. See the documentation for more \n"
-                "detail: https://hackingmaterials.lbl.gov/amset/"
+                "wavefunction coefficients should first be extracted from a WAVECAR \n"
+                "file using the 'amset wave' command. See the documentation for more \n"
+                "details: https://hackingmaterials.lbl.gov/amset/\n\n"
+                "Alternatively, to use the band structure orbital projections to \n"
+                "approximate overlap, set 'use_projections' option to true."
+            )
+        elif self.settings["use_projections"] and not self._band_structure.projections:
+            raise ValueError(
+                "use_projections is set to true but calculation does not contain\n"
+                "orbital projections. Ensure VASP was run with 'LORBIT = 11' \n"
+                "Alternatively, use wavefunction coefficients to calculate overlap.\n"
+                "Wavefunction coefficients can be extracted from a VASP WAVECAR \n"
+                "file using the 'amset wave' command. See the documentation for more \n"
+                "details: https://hackingmaterials.lbl.gov/amset/\n\n"
+            )
+        elif self.settings["use_projections"]:
+            logger.info(
+                "Using orbital projections to approximate wavefunction overlap. This "
+                "can result in inaccurate results. I hope you know what you are doing."
             )
 
     def _do_interpolation(self):
@@ -197,9 +216,16 @@ class Runner(MSONable):
             nworkers=self.settings["nworkers"],
         )
 
-        overlap_calculator = WavefunctionOverlapCalculator.from_file(
-            self.settings["wavefunction_coefficients"]
-        )
+        if self.settings["use_projections"]:
+            overlap_calculator = ProjectionOverlapCalculator.from_band_structure(
+                self._band_structure,
+                energy_cutoff=self.settings["energy_cutoff"],
+                symprec=self.settings["symprec"],
+            )
+        else:
+            overlap_calculator = WavefunctionOverlapCalculator.from_file(
+                self.settings["wavefunction_coefficients"]
+            )
         amset_data.set_overlap_calculator(overlap_calculator)
 
         return amset_data, time.perf_counter() - t0
@@ -369,7 +395,7 @@ def _log_amset_intro():
                                                   v{}
 
     A. Ganose, J. Park, A. Faghaninia, R. Woods-Robinson,
-    K. Persson, A. Jain, in prep.
+    A. Jain, in prep.
 
 
 amset starting on {} at {}""".format(

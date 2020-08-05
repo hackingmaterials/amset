@@ -19,8 +19,9 @@ soc: false
 # The band structure electronic_structure factor that determines the k-mesh density
 interpolation_factor: 10
 
-# Path to a Wavefunction coefficients file.
-wavefunction_coefficients: wavefunction.h5
+# Overlap settings
+wavefunction_coefficients: wavefunction.h5  # Path to a wavefunction coefficients file
+use_projections: false  # use orbital projections for overlap (not recommended)
 
 # The following settings are required to calculate scattering rates
 high_frequency_dielectric: null
