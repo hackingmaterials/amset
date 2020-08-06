@@ -186,10 +186,10 @@ class Runner(MSONable):
         elif self.settings["use_projections"] and not self._band_structure.projections:
             raise ValueError(
                 "use_projections is set to true but calculation does not contain\n"
-                "orbital projections. Ensure VASP was run with 'LORBIT = 11' \n"
+                "orbital projections. Ensure VASP was run with 'LORBIT = 11'\n"
                 "Alternatively, use wavefunction coefficients to calculate overlap.\n"
-                "Wavefunction coefficients can be extracted from a VASP WAVECAR \n"
-                "file using the 'amset wave' command. See the documentation for more \n"
+                "Wavefunction coefficients can be extracted from a VASP WAVECAR\n"
+                "file using the 'amset wave' command. See the documentation for more\n"
                 "details: https://hackingmaterials.lbl.gov/amset/\n\n"
             )
         elif self.settings["use_projections"]:
