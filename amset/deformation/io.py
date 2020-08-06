@@ -1,8 +1,10 @@
-import numpy as np
-import h5py
-from pymatgen.core.structure import Structure
+from pathlib import Path
 
+import h5py
+import numpy as np
 from amset.constants import str_to_spin
+from pymatgen.core.structure import Structure
+from pymatgen.io.vasp.outputs import Poscar
 
 
 def write_deformation_potentials(
@@ -29,3 +31,14 @@ def load_deformation_potentials(filename):
         kpoints = np.array(f["kpoints"])
 
     return deformation_potentials, kpoints, structure
+
+
+def write_deformed_poscars(deformed_structures, directory="."):
+    n_deformations = len(deformed_structures)
+    n_digits = int(np.floor(np.log10(n_deformations)) + 2)
+    directory = Path(directory)
+    for i, deformed_structure in enumerate(deformed_structures):
+        # pad with leading zeros so the files are sorted correctly
+        filename = "POSCAR-{0:0{1}}".format(i + 1, n_digits)
+        deform_poscar = Poscar(deformed_structure)
+        deform_poscar.write_file(directory / filename, significant_figures=16)
