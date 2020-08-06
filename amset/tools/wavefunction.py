@@ -35,7 +35,7 @@ def wave(**kwargs):
 
     from amset.constants import defaults
     from amset.electronic_structure.common import get_ibands
-    from amset.wavefunction.io import dump_coefficients
+    from amset.wavefunction.io import write_coefficients
 
     output = kwargs.pop("output")
     planewave_cutoff = kwargs.pop("planewave_cutoff")
@@ -76,7 +76,7 @@ def wave(**kwargs):
     kpoints = np.array([k.frac_coords for k in bs.kpoints])
 
     click.echo("Writing coefficients to {}".format(output))
-    dump_coefficients(coeffs, gpoints, kpoints, structure, filename=output)
+    write_coefficients(coeffs, gpoints, kpoints, structure, filename=output)
 
 
 def _wavefunction_vasp(ibands, planewave_cutoff, **kwargs):

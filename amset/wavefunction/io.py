@@ -9,7 +9,7 @@ __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
 
-def dump_coefficients(coeffs, gpoints, kpoints, structure, filename="coeffs.h5"):
+def write_coefficients(coeffs, gpoints, kpoints, structure, filename="coeffs.h5"):
     with h5py.File(filename, "w") as f:
         for spin, spin_coeffs in coeffs.items():
             name = "coefficients_{}".format(spin.name)
