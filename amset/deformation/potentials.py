@@ -1,8 +1,12 @@
+import logging
+
 import numpy as np
 
 from amset.electronic_structure.kpoints import get_mesh_from_kpoint_diff
 
 metal_str = {True: "metallic", False: "semiconducting"}
+
+logger = logging.getLogger(__name__)
 
 
 def get_mesh_from_band_structure(bandstructure):
@@ -30,7 +34,7 @@ def check_calculations(original_calc, deformed_calcs):
         is_metal = calc["bandstructure"].is_metal()
 
         if is_metal != original_is_metal:
-            print(
+            logger.warning(
                 "Bulk structure is {} whereas deformed structure is {}.\n"
                 "Skipping deformation.".format(
                     metal_str[original_is_metal], metal_str[is_metal]

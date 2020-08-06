@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from pymatgen import Structure
+from pymatgen import Structure, SymmOp
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
 from amset.constants import defaults
@@ -91,8 +91,11 @@ def expand_kpoints(
     symprec=defaults["symprec"],
     return_mapping=False,
     time_reversal=True,
+    verbose=True,
 ):
-    logger.info("Desymmetrizing k-point mesh")
+    if verbose:
+        logger.info("Desymmetrizing k-point mesh")
+
     kpoints = np.array(kpoints).round(8)
 
     # due to limited input precision of the k-points, the mesh is returned as a float
@@ -111,8 +114,9 @@ def expand_kpoints(
         structure, symprec=symprec, time_reversal=time_reversal
     )
     n_ops = len(rotations)
-    status_info.append("Using {} symmetry operations".format(n_ops))
-    log_list(status_info)
+    if verbose:
+        status_info.append("Using {} symmetry operations".format(n_ops))
+        log_list(status_info)
 
     # rotate all-kpoints
     all_rotated_kpoints = []
@@ -175,7 +179,7 @@ def get_reciprocal_point_group_operations(
         translations = translations[unique_ops]
         is_tr = is_tr[unique_ops]
 
-    # put identify first and time-reversal last
+    # put identity first and time-reversal last
     sort_idx = np.argsort(np.abs(rotations - np.eye(3)).sum(axis=(1, 2)) + is_tr * 10)
 
     return rotations[sort_idx], translations[sort_idx], is_tr[sort_idx]
@@ -198,4 +202,26 @@ def expand_bandstructure(
         bandstructure.structure.lattice.reciprocal_lattice,
         bandstructure.efermi,
         structure=bandstructure.structure,
+    )
+
+
+def rotate_bandstructure(bandstructure: BandStructure, frac_symop: SymmOp):
+    """Won't rotate projections..."""
+    kpoints = np.array([k.frac_coords for k in bandstructure.kpoints])
+    recip_rot = frac_symop.rotation_matrix.T
+    rot_kpoints = np.dot(recip_rot, kpoints.T).T
+
+    # map to first BZ, use VASP zone boundary convention
+    rot_kpoints = kpoints_to_first_bz(rot_kpoints, negative_zone_boundary=False)
+
+    # rotate structure
+    structure = bandstructure.structure.copy()
+    structure.apply_operation(frac_symop, fractional=True)
+
+    return BandStructure(
+        rot_kpoints,
+        bandstructure.bands,
+        structure.lattice.reciprocal_lattice,
+        bandstructure.efermi,
+        structure=structure
     )

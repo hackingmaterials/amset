@@ -15,7 +15,11 @@ __email__ = "aganose@lbl.gov"
 logger = logging.getLogger(__name__)
 
 
-def kpoints_to_first_bz(kpoints: np.ndarray, tol=ktol) -> np.ndarray:
+def kpoints_to_first_bz(
+    kpoints: np.ndarray,
+    tol=ktol,
+    negative_zone_boundary: bool = True
+) -> np.ndarray:
     """Translate fractional k-points to the first Brillouin zone.
 
     I.e. all k-points will have fractional coordinates:
@@ -24,6 +28,8 @@ def kpoints_to_first_bz(kpoints: np.ndarray, tol=ktol) -> np.ndarray:
     Args:
         kpoints: The k-points in fractional coordinates.
         tol: Fractional tolerance for evaluating zone boundary points.
+        negative_zone_boundary: Whether to use -0.5 (spglib convention) or
+            0.5 (VASP convention) for zone boundary points.
 
     Returns:
         The translated k-points.
@@ -34,7 +40,10 @@ def kpoints_to_first_bz(kpoints: np.ndarray, tol=ktol) -> np.ndarray:
     round_dp = int(np.log10(1 / tol))
     krounded = np.round(kp, round_dp)
 
-    kp[krounded == 0.5] = -0.5
+    if negative_zone_boundary:
+        kp[krounded == 0.5] = -0.5
+    else:
+        kp[krounded == -0.5] = 0.5
     return kp
 
 

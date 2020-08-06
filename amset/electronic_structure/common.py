@@ -99,7 +99,7 @@ def get_atomic_structure(structure):
         structure.lattice.matrix * angstrom_to_bohr,
         structure.species,
         structure.frac_coords,
-        site_properties=structure.site_properties
+        site_properties=structure.site_properties,
     )
 
 
@@ -108,5 +108,5 @@ def get_angstrom_structure(structure):
         structure.lattice.matrix * bohr_to_angstrom,
         structure.species,
         structure.frac_coords,
-        site_properties=structure.site_properties
+        site_properties=structure.site_properties,
     )
