@@ -20,7 +20,7 @@ def desym(sym_folder, no_sym_folder, symprec, basic):
     """Test desymmetrization routines"""
     from pymatgen.io.vasp import Vasprun, Wavecar
 
-    from amset.electronic_structure.kpoints import expand_kpoints
+    from amset.electronic_structure.symmetry import expand_kpoints
     from amset.log import initialize_amset_logger
     from amset.wavefunction.common import desymmetrize_coefficients
     from amset.wavefunction.vasp import get_wavefunction_coefficients
@@ -161,7 +161,7 @@ def get_sort_idx(kpoints):
 
 
 def desym_basic(structure, wave_sym, wave_no_sym):
-    from amset.electronic_structure.kpoints import expand_kpoints
+    from amset.electronic_structure.symmetry import expand_kpoints
 
     (
         full_kpoints,

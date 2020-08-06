@@ -7,7 +7,7 @@ from pymatgen.util.coord import pbc_diff
 
 from amset.constants import defaults
 from amset.electronic_structure.common import get_ibands, get_vb_idx
-from amset.electronic_structure.kpoints import expand_kpoints
+from amset.electronic_structure.symmetry import expand_kpoints
 from amset.interpolation.periodic import (
     PeriodicLinearInterpolator,
     group_bands_and_kpoints,

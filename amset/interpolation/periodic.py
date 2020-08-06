@@ -5,7 +5,7 @@ from scipy.interpolate import RegularGridInterpolator
 
 from amset.constants import numeric_types
 from amset.electronic_structure.kpoints import (
-    get_mesh_dim_from_kpoints,
+    get_mesh_from_kpoint_numbers,
     kpoints_to_first_bz,
 )
 
@@ -22,7 +22,7 @@ class PeriodicLinearInterpolator(object):
 
         # k-points has to cover the full BZ
         kpoints = kpoints_to_first_bz(kpoints)
-        mesh_dim = get_mesh_dim_from_kpoints(kpoints)
+        mesh_dim = get_mesh_from_kpoint_numbers(kpoints)
         if np.product(mesh_dim) != len(kpoints):
             raise ValueError("K-points do not cover full Brillouin zone.")
 

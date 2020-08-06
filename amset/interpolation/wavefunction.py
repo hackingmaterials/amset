@@ -3,7 +3,8 @@ import logging
 import numpy as np
 
 from amset.constants import defaults
-from amset.electronic_structure.kpoints import expand_kpoints, get_mesh_dim_from_kpoints
+from amset.electronic_structure.kpoints import get_mesh_from_kpoint_numbers
+from amset.electronic_structure.symmetry import expand_kpoints
 from amset.interpolation.periodic import (
     PeriodicLinearInterpolator,
     group_bands_and_kpoints,
@@ -30,7 +31,7 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
     ):
         logger.info("Initializing wavefunction overlap calculator")
 
-        mesh_dim = get_mesh_dim_from_kpoints(kpoints)
+        mesh_dim = get_mesh_from_kpoint_numbers(kpoints)
         if np.product(mesh_dim) == len(kpoints):
             return cls(kpoints, coefficients)
 

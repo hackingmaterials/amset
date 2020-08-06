@@ -32,3 +32,4 @@ spin_to_int = {Spin.up: 0, Spin.down: 1}
 int_to_spin = {0: Spin.up, 1: Spin.down}
 
 defaults = loadfn(resource_filename("amset", "defaults.yaml"))
+ktol = 1e-5

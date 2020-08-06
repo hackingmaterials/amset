@@ -31,9 +31,11 @@ from amset.electronic_structure.common import (
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.kpoints import (
     get_kpoints_tetrahedral,
+    sort_boltztrap_to_spglib,
+)
+from amset.electronic_structure.symmetry import (
     get_symmetry_equivalent_kpoints,
     similarity_transformation,
-    sort_boltztrap_to_spglib,
 )
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.interpolation.boltztrap import get_bands_fft
