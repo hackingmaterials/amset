@@ -83,4 +83,6 @@ def get_reference_energy(bandstructure, outcar):
         if len(ref) > 0:
             return np.mean(ref)
         else:
-            raise ValueError("OUTCAR does not contain avg electrostatic potential or eigenvalues")
+            raise ValueError(
+                "OUTCAR does not contain avg electrostatic potential or eigenvalues"
+            )
