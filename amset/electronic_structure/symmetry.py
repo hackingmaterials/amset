@@ -1,16 +1,16 @@
 import logging
 
 import numpy as np
+from pymatgen import Structure
+from pymatgen.electronic_structure.bandstructure import BandStructure
 
 from amset.constants import defaults
 from amset.electronic_structure.kpoints import (
-    ktol,
-    kpoints_to_first_bz,
     get_mesh_from_kpoint_diff,
+    kpoints_to_first_bz,
+    ktol,
 )
 from amset.log import log_list
-from pymatgen import Structure
-from pymatgen.electronic_structure.bandstructure import BandStructure
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

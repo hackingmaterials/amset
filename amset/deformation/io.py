@@ -2,10 +2,11 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-from amset.constants import str_to_spin
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp.inputs import Poscar
 from pymatgen.io.vasp.outputs import Outcar, Vasprun
+
+from amset.constants import str_to_spin
 
 
 def write_deformation_potentials(

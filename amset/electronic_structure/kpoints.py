@@ -2,11 +2,11 @@ import logging
 from typing import List, Tuple, Union
 
 import numpy as np
-
-from amset.constants import defaults, ktol
 from pymatgen import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 from spglib import spglib
+
+from amset.constants import defaults, ktol
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

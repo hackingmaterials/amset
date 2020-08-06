@@ -1,5 +1,6 @@
-from amset.electronic_structure.kpoints import get_mesh_from_kpoint_diff
 import numpy as np
+
+from amset.electronic_structure.kpoints import get_mesh_from_kpoint_diff
 
 metal_str = {True: "metallic", False: "semiconducting"}
 

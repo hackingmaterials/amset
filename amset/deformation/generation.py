@@ -1,10 +1,11 @@
 import numpy as np
-from amset.constants import defaults
 from pymatgen.analysis.elasticity.strain import Strain
 from pymatgen.core.tensors import symmetry_reduce
 from pymatgen.transformations.standard_transformations import (
     DeformStructureTransformation,
 )
+
+from amset.constants import defaults
 
 
 def get_strain_fields():
