@@ -8,6 +8,10 @@ from pymatgen.io.vasp.outputs import Outcar, Vasprun
 
 from amset.constants import str_to_spin
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 
 def write_deformation_potentials(
     deformation_potentials, kpoints, structure, filename="deformation.h5"
@@ -35,10 +39,12 @@ def load_deformation_potentials(filename):
     return deformation_potentials, kpoints, structure
 
 
-def write_deformed_poscars(deformed_structures, directory="."):
+def write_deformed_poscars(deformed_structures, directory=None):
+    if not directory:
+        directory = "."
+    directory = Path(directory)
     n_deformations = len(deformed_structures)
     n_digits = int(np.floor(np.log10(n_deformations)) + 2)
-    directory = Path(directory)
     for i, deformed_structure in enumerate(deformed_structures):
         # pad with leading zeros so the files are sorted correctly
         filename = "POSCAR-{0:0{1}}".format(i + 1, n_digits)
