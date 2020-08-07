@@ -9,13 +9,18 @@ from amset.constants import defaults
 from amset.electronic_structure.kpoints import (
     get_kpoint_indices,
     get_mesh_from_kpoint_diff,
+    get_kpoints_from_bandstructure,
 )
 from amset.electronic_structure.symmetry import (
     expand_bandstructure,
     rotate_bandstructure,
 )
 
-metal_str = {True: "metallic", False: "semiconducting"}
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
+
 _mapping_tol = 0.002
 
 logger = logging.getLogger(__name__)
@@ -24,37 +29,6 @@ logger = logging.getLogger(__name__)
 def get_mesh_from_band_structure(bandstructure):
     kpoints = np.array([k.frac_coords for k in bandstructure.kpoints])
     return tuple(get_mesh_from_kpoint_diff(kpoints).round().astype(int))
-
-
-def check_calculations(original_calc, deformed_calcs):
-    original_mesh = get_mesh_from_band_structure(original_calc["bandstructure"])
-    original_species = tuple(original_calc["bandstructure"].structure.species)
-    original_is_metal = original_calc["bandstructure"].is_metal()
-
-    keep_calcs = []
-    for calc in deformed_calcs:
-        mesh = get_mesh_from_band_structure(calc["bandstructure"])
-        if mesh != original_mesh:
-            raise RuntimeError(
-                "Calculations were not performed using the same k-point "
-                "mesh\n{} != {}".format(mesh, original_mesh)
-            )
-
-        species = tuple(calc["bandstructure"].structure.species)
-        if species != original_species:
-            raise RuntimeError("Calculations were performed using different structures")
-        is_metal = calc["bandstructure"].is_metal()
-
-        if is_metal != original_is_metal:
-            logger.warning(
-                "Bulk structure is {} whereas deformed structure is {}.\n"
-                "Skipping deformation.".format(
-                    metal_str[original_is_metal], metal_str[is_metal]
-                )
-            )
-        else:
-            keep_calcs.append(calc)
-    return keep_calcs
 
 
 def calculate_deformation(bulk_structure, deformed_structure):
@@ -71,9 +45,9 @@ def calculate_deformation(bulk_structure, deformed_structure):
     return np.transpose(np.dot(np.linalg.inv(ulatt), dlatt)).round(10)
 
 
-def get_strain_mapping(bulk_structure, deformed_calculations):
+def get_strain_mapping(bulk_structure, deformation_calculations):
     strain_mapping = TensorMapping(tol=_mapping_tol)
-    for i, calc in enumerate(deformed_calculations):
+    for i, calc in enumerate(deformation_calculations):
         deformed_structure = calc["bandstructure"].structure
         matrix = calculate_deformation(bulk_structure, deformed_structure)
         strain = Deformation(matrix).green_lagrange_strain
@@ -88,7 +62,7 @@ def get_symmetrized_strain_mapping(
     cart_ops = sga.get_symmetry_operations(cartesian=True)
     frac_ops = sga.get_symmetry_operations(cartesian=False)
 
-    for strain, calc in strain_mapping:
+    for strain, calc in strain_mapping.items():
         # expand band structure to cover full brillouin zone, otherwise rotation won't
         # include all necessary points
         calc["bandstructure"] = expand_bandstructure(
@@ -110,24 +84,24 @@ def get_symmetrized_strain_mapping(
 def get_strain_deformation_potential(
     strain,
     bulk_bandstructure,
-    deformed_bandstructure,
+    deformation_bandstructure,
     bulk_reference,
-    deformed_reference,
+    deformation_reference,
 ):
     strain = strain.round(5)
     strain_amount = strain[np.nonzero(strain)][0]
-    ref_diff = bulk_reference - deformed_reference
+    ref_diff = bulk_reference - deformation_reference
 
-    kpoints = np.array([k.frac_coords for k in bulk_bandstructure.kpoints])
+    kpoints = get_kpoints_from_bandstructure(bulk_bandstructure)
     mesh = get_mesh_from_band_structure(bulk_bandstructure)
     indices_to_keep = get_kpoint_indices(kpoints, mesh)
 
-    deform_kpoints = np.array([k.frac_coords for k in deformed_bandstructure.kpoints])
+    deform_kpoints = get_kpoints_from_bandstructure(deformation_bandstructure)
     deform_indices = get_kpoint_indices(deform_kpoints, mesh)
 
     if not set(indices_to_keep).issubset(set(deform_indices)):
         raise RuntimeError(
-            "Deformed band structure doesn't contain the same k-points"
+            "Deformation band structure doesn't contain the same k-points"
             "as the bulk band structure. Try changing symprec."
         )
 
@@ -137,7 +111,7 @@ def get_strain_deformation_potential(
 
     energy_diff = {}
     for spin, spin_origin in bulk_bandstructure.bands.items():
-        diff = spin_origin - deformed_bandstructure.bands[spin][:, select_indices]
+        diff = spin_origin - deformation_bandstructure.bands[spin][:, select_indices]
         diff -= ref_diff
         energy_diff[spin] = np.abs(diff / strain_amount)
 
@@ -150,13 +124,13 @@ def calculate_deformation_potentials(bulk_calculation, strain_mapping):
         for s, b in bulk_calculation["bandstructure"].bands.items()
     }
     norm = np.zeros((3, 3))
-    for strain, deformed_calculation in strain_mapping.items():
+    for strain, deformation_calculation in strain_mapping.items():
         deform = get_strain_deformation_potential(
             strain,
             bulk_calculation["bandstructure"],
-            deformed_calculation["bandstructure"],
+            deformation_calculation["bandstructure"],
             bulk_calculation["reference"],
-            deformed_calculation["reference"],
+            deformation_calculation["reference"],
         )
 
         strain_loc = np.array(strain.round(5))
