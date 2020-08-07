@@ -1,17 +1,19 @@
 import logging
 
 import numpy as np
+from pymatgen.analysis.elasticity.strain import Deformation
+from pymatgen.core.tensors import TensorMapping
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 from amset.constants import defaults
+from amset.electronic_structure.kpoints import (
+    get_kpoint_indices,
+    get_mesh_from_kpoint_diff,
+)
 from amset.electronic_structure.symmetry import (
     expand_bandstructure,
     rotate_bandstructure,
 )
-from pymatgen.core.tensors import TensorMapping
-from pymatgen.analysis.elasticity.strain import Deformation
-from amset.electronic_structure.kpoints import get_mesh_from_kpoint_diff
-from amset.electronic_structure.kpoints import get_kpoint_indices
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 metal_str = {True: "metallic", False: "semiconducting"}
 _mapping_tol = 0.002
