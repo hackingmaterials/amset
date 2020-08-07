@@ -1,11 +1,16 @@
+import logging
+
 import numpy as np
 from pymatgen.analysis.elasticity.strain import Strain
-from pymatgen.core.tensors import symmetry_reduce
 from pymatgen.transformations.standard_transformations import (
     DeformStructureTransformation,
 )
 
-from amset.constants import defaults
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
+logger = logging.getLogger(__name__)
 
 
 def get_strain_fields():
@@ -27,11 +32,9 @@ def get_strains(distance=0.005):
     return strains
 
 
-def get_deformations(structure, distance, symprec=defaults["symprec"]):
+def get_deformations(distance):
     strains = get_strains(distance=distance)
     deformations = [s.get_deformation_matrix() for s in strains]
-    if symprec:
-        deformations = list(symmetry_reduce(deformations, structure, symprec=symprec))
     return deformations
 
 
