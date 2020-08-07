@@ -197,3 +197,10 @@ def get_kpoint_indices(kpoints, mesh):
     nz = mesh[2]
     indices = shifted[:, 0] * nyz + shifted[:, 1] * nz + shifted[:, 2]
     return indices.astype(int)
+
+
+def get_kpoints_from_bandstructure(bandstructure, cartesian=False):
+    if cartesian:
+        return np.array([k.coords for k in bandstructure.kpoints])
+    else:
+        return np.array([k.frac_coords for k in bandstructure.kpoints])

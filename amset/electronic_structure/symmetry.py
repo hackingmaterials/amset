@@ -9,6 +9,7 @@ from amset.electronic_structure.kpoints import (
     get_mesh_from_kpoint_diff,
     kpoints_to_first_bz,
     ktol,
+    get_kpoints_from_bandstructure,
 )
 from amset.log import log_list
 
@@ -188,7 +189,7 @@ def get_reciprocal_point_group_operations(
 def expand_bandstructure(
     bandstructure, symprec=defaults["symprec"], time_reversal=True
 ):
-    kpoints = np.array([k.frac_coords for k in bandstructure.kpoints])
+    kpoints = get_kpoints_from_bandstructure(bandstructure)
     full_kpoints, _, _, _, _, kp_mapping = expand_kpoints(
         bandstructure.structure,
         kpoints,
@@ -207,7 +208,7 @@ def expand_bandstructure(
 
 def rotate_bandstructure(bandstructure: BandStructure, frac_symop: SymmOp):
     """Won't rotate projections..."""
-    kpoints = np.array([k.frac_coords for k in bandstructure.kpoints])
+    kpoints = get_kpoints_from_bandstructure(bandstructure)
     recip_rot = frac_symop.rotation_matrix.T
     rot_kpoints = np.dot(recip_rot, kpoints.T).T
 
