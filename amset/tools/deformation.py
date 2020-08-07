@@ -1,3 +1,5 @@
+import sys
+
 import click
 from click import option, argument
 
@@ -88,6 +90,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
     from amset.deformation.potentials import get_strain_mapping
     from amset.deformation.potentials import get_symmetrized_strain_mapping
     from amset.deformation.common import get_formatted_tensors
+    from amset.deformation.potentials import strain_coverage_ok
     from amset.deformation.io import write_deformation_potentials
     from amset.electronic_structure.kpoints import get_kpoints_from_bandstructure
     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
@@ -122,6 +125,10 @@ def read(bulk_folder, deformation_folders, **kwargs):
     click.echo("\nAfter symmetrization found {} strains:".format(len(strain_mapping)))
     fmt_strain = get_formatted_tensors(strain_mapping.keys())
     click.echo("  - " + "\n  - ".join(fmt_strain))
+
+    if not strain_coverage_ok(list(strain_mapping.keys())):
+        click.echo("\nERROR: Strains do not cover full tensor, check calculations")
+        sys.exit()
 
     click.echo("\nCalculating deformation potentials")
     deformation_potentials = calculate_deformation_potentials(

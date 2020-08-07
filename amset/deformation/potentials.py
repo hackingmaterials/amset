@@ -144,3 +144,9 @@ def calculate_deformation_potentials(bulk_calculation, strain_mapping):
         deformation_potentials[spin] /= norm[None, None]
 
     return deformation_potentials
+
+
+def strain_coverage_ok(strains):
+    sum_strains = np.abs(strains).sum(axis=0)
+    sum_strains = sum_strains.round(5)
+    return not np.any(sum_strains == 0)
