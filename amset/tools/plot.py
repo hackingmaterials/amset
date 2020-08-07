@@ -7,9 +7,9 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
-image_type = click.Choice(["pdf", "png", "svg"], case_sensitive=False)
+from amset.tools import image_type, path_type
+
 kpaths = click.Choice(["pymatgen", "seekpath"], case_sensitive=False)
-path_type = click.Path(exists=True)
 
 _symprec = 0.01  # redefine symprec to avoid loading constants from file
 _dos_estep = 0.01  # redefine symprec to avoid loading constants from file
