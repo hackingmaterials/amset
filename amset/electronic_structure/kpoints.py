@@ -16,9 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def kpoints_to_first_bz(
-    kpoints: np.ndarray,
-    tol=ktol,
-    negative_zone_boundary: bool = True
+    kpoints: np.ndarray, tol=ktol, negative_zone_boundary: bool = True
 ) -> np.ndarray:
     """Translate fractional k-points to the first Brillouin zone.
 
@@ -188,3 +186,14 @@ def get_mesh_from_kpoint_numbers(kpoints, tol=ktol):
     nz = len(np.unique(round_kpoints[:, 2]))
 
     return nx, ny, nz
+
+
+def get_kpoint_indices(kpoints, mesh):
+    mesh = np.array(mesh)
+    min_kpoint = -np.floor(mesh / 2).astype(int)
+    addresses = (kpoints * mesh).astype(int)
+    shifted = addresses - min_kpoint
+    nyz = mesh[1] * mesh[2]
+    nz = mesh[2]
+    indices = shifted[:, 0] * nyz + shifted[:, 1] * nz + shifted[:, 2]
+    return indices.astype(int)

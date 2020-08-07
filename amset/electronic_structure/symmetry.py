@@ -223,5 +223,5 @@ def rotate_bandstructure(bandstructure: BandStructure, frac_symop: SymmOp):
         bandstructure.bands,
         structure.lattice.reciprocal_lattice,
         bandstructure.efermi,
-        structure=structure
+        structure=structure,
     )
