@@ -1,7 +1,7 @@
 import sys
 
 import click
-from click import option, argument
+from click import argument, option
 
 from amset.tools import path_type
 
@@ -39,13 +39,13 @@ def create(**kwargs):
     Generate deformed structures for calculating deformation potentials.
     """
     from pymatgen import Structure
-
-    from amset.deformation.generation import get_deformations, get_deformed_structures
-    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-    from amset.deformation.io import write_deformed_poscars
-    from pymatgen.util.string import unicodeify_spacegroup
     from pymatgen.core.tensors import symmetry_reduce
+    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+    from pymatgen.util.string import unicodeify_spacegroup
+
     from amset.deformation.common import get_formatted_tensors
+    from amset.deformation.generation import get_deformations, get_deformed_structures
+    from amset.deformation.io import write_deformed_poscars
 
     symprec = kwargs["symprec"]
 
@@ -77,25 +77,25 @@ def create(**kwargs):
 @deform.command()
 @argument("bulk-folder", type=path_type)
 @argument("deformation-folders", nargs=-1, type=path_type)
-@option(
-    "-s", "--symprec", type=float, default=_symprec, help="symmetry precision",
-)
+@option("-s", "--symprec", type=float, default=_symprec, help="symmetry precision")
 @option("--directory", type=path_type, help="file output directory")
 @option("-o", "--output", default="deformation.h5", help="output file path")
 def read(bulk_folder, deformation_folders, **kwargs):
     """
     Read deformation calculations and extract deformation potentials.
     """
-    from amset.deformation.io import parse_calculation
-    from amset.deformation.potentials import get_strain_mapping
-    from amset.deformation.potentials import get_symmetrized_strain_mapping
-    from amset.deformation.common import get_formatted_tensors
-    from amset.deformation.potentials import strain_coverage_ok
-    from amset.deformation.io import write_deformation_potentials
-    from amset.electronic_structure.kpoints import get_kpoints_from_bandstructure
     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
     from pymatgen.util.string import unicodeify_spacegroup
-    from amset.deformation.potentials import calculate_deformation_potentials
+
+    from amset.deformation.common import get_formatted_tensors
+    from amset.deformation.io import parse_calculation, write_deformation_potentials
+    from amset.deformation.potentials import (
+        calculate_deformation_potentials,
+        get_strain_mapping,
+        get_symmetrized_strain_mapping,
+        strain_coverage_ok,
+    )
+    from amset.electronic_structure.kpoints import get_kpoints_from_bandstructure
 
     symprec = kwargs["symprec"]
     click.echo("Reading bulk (undeformed) calculation")

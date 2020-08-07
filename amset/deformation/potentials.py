@@ -8,8 +8,8 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from amset.constants import defaults
 from amset.electronic_structure.kpoints import (
     get_kpoint_indices,
-    get_mesh_from_kpoint_diff,
     get_kpoints_from_bandstructure,
+    get_mesh_from_kpoint_diff,
 )
 from amset.electronic_structure.symmetry import (
     expand_bandstructure,

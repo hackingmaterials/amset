@@ -21,9 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
-    def __init__(
-        self, kpoints, projections, band_centers, rotation_mask,
-    ):
+    def __init__(self, kpoints, projections, band_centers, rotation_mask):
         logger.info("Initializing orbital overlap calculator")
         super().__init__(kpoints, projections)
         self.rotation_mask = rotation_mask

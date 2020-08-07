@@ -6,12 +6,12 @@ import warnings
 import click
 from ruamel.yaml.error import MantissaNoDotYAML1_1Warning
 
+from amset.tools.deformation import deform
 from amset.tools.effmass import eff_mass
 from amset.tools.phonon_frequency import phonon_frequency
 from amset.tools.plot import plot
 from amset.tools.run import run
 from amset.tools.wavefunction import wave
-from amset.tools.deformation import deform
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

@@ -6,10 +6,10 @@ from pymatgen.electronic_structure.bandstructure import BandStructure
 
 from amset.constants import defaults
 from amset.electronic_structure.kpoints import (
+    get_kpoints_from_bandstructure,
     get_mesh_from_kpoint_diff,
     kpoints_to_first_bz,
     ktol,
-    get_kpoints_from_bandstructure,
 )
 from amset.log import log_list
 
