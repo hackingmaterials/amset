@@ -2,9 +2,19 @@ import logging
 
 import numpy as np
 
+from amset.constants import defaults
+from amset.electronic_structure.symmetry import (
+    expand_bandstructure,
+    rotate_bandstructure,
+)
+from pymatgen.core.tensors import TensorMapping
+from pymatgen.analysis.elasticity.strain import Deformation
 from amset.electronic_structure.kpoints import get_mesh_from_kpoint_diff
+from amset.electronic_structure.kpoints import get_kpoint_indices
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 metal_str = {True: "metallic", False: "semiconducting"}
+_mapping_tol = 0.002
 
 logger = logging.getLogger(__name__)
 
@@ -43,3 +53,118 @@ def check_calculations(original_calc, deformed_calcs):
         else:
             keep_calcs.append(calc)
     return keep_calcs
+
+
+def calculate_deformation(bulk_structure, deformed_structure):
+    """
+    Args:
+        bulk_structure: undeformed structure
+        deformed_structure: deformed structure
+
+    Returns:
+        deformation matrix
+    """
+    ulatt = bulk_structure.lattice.matrix
+    dlatt = deformed_structure.lattice.matrix
+    return np.transpose(np.dot(np.linalg.inv(ulatt), dlatt)).round(10)
+
+
+def get_strain_mapping(bulk_structure, deformed_calculations):
+    strain_mapping = TensorMapping(tol=_mapping_tol)
+    for i, calc in enumerate(deformed_calculations):
+        deformed_structure = calc["bandstructure"].structure
+        matrix = calculate_deformation(bulk_structure, deformed_structure)
+        strain = Deformation(matrix).green_lagrange_strain
+        strain_mapping[strain] = calc
+    return strain_mapping
+
+
+def get_symmetrized_strain_mapping(
+    bulk_structure, strain_mapping, symprec=defaults["symprec"]
+):
+    sga = SpacegroupAnalyzer(bulk_structure, symprec=symprec)
+    cart_ops = sga.get_symmetry_operations(cartesian=True)
+    frac_ops = sga.get_symmetry_operations(cartesian=False)
+
+    for strain, calc in strain_mapping:
+        # expand band structure to cover full brillouin zone, otherwise rotation won't
+        # include all necessary points
+        calc["bandstructure"] = expand_bandstructure(
+            calc["bandstructure"], symprec=symprec
+        )
+
+    for strain, calc in strain_mapping.items():
+        for cart_op, frac_op in zip(cart_ops, frac_ops):
+            tstrain = strain.transform(cart_op)
+            independent = tstrain.get_deformation_matrix().is_independent(_mapping_tol)
+            if independent and tstrain not in strain_mapping:
+                rband = rotate_bandstructure(calc["bandstructure"], frac_op)
+                tcalc = {"reference": calc["reference"], "bandstructure": rband}
+                strain_mapping[tstrain] = tcalc
+
+    return strain_mapping
+
+
+def get_strain_deformation_potential(
+    strain,
+    bulk_bandstructure,
+    deformed_bandstructure,
+    bulk_reference,
+    deformed_reference,
+):
+    strain = strain.round(5)
+    strain_amount = strain[np.nonzero(strain)][0]
+    ref_diff = bulk_reference - deformed_reference
+
+    kpoints = np.array([k.frac_coords for k in bulk_bandstructure.kpoints])
+    mesh = get_mesh_from_band_structure(bulk_bandstructure)
+    indices_to_keep = get_kpoint_indices(kpoints, mesh)
+
+    deform_kpoints = np.array([k.frac_coords for k in deformed_bandstructure.kpoints])
+    deform_indices = get_kpoint_indices(deform_kpoints, mesh)
+
+    if not set(indices_to_keep).issubset(set(deform_indices)):
+        raise RuntimeError(
+            "Deformed band structure doesn't contain the same k-points"
+            "as the bulk band structure. Try changing symprec."
+        )
+
+    deform_map = np.full(np.max(deform_indices) + 1, -1)
+    deform_map[deform_indices] = np.arange(len(deform_indices))
+    select_indices = deform_map[indices_to_keep]
+
+    energy_diff = {}
+    for spin, spin_origin in bulk_bandstructure.bands.items():
+        diff = spin_origin - deformed_bandstructure.bands[spin][:, select_indices]
+        diff -= ref_diff
+        energy_diff[spin] = np.abs(diff / strain_amount)
+
+    return energy_diff
+
+
+def calculate_deformation_potentials(bulk_calculation, strain_mapping):
+    deformation_potentials = {
+        s: np.zeros(b.shape + (3, 3))
+        for s, b in bulk_calculation["bandstructure"].bands.items()
+    }
+    norm = np.zeros((3, 3))
+    for strain, deformed_calculation in strain_mapping.items():
+        deform = get_strain_deformation_potential(
+            strain,
+            bulk_calculation["bandstructure"],
+            deformed_calculation["bandstructure"],
+            bulk_calculation["reference"],
+            deformed_calculation["reference"],
+        )
+
+        strain_loc = np.array(strain.round(5))
+        strain_loc[np.nonzero(strain_loc)] = 1
+        loc_x, loc_y = np.where(strain_loc)
+        for spin, spin_deform in deform.items():
+            deformation_potentials[spin][:, :, loc_x, loc_y] += spin_deform[..., None]
+            norm += strain_loc
+
+    for spin in deformation_potentials:
+        deformation_potentials[spin] /= norm[None, None]
+
+    return deformation_potentials

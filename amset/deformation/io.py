@@ -2,6 +2,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp.inputs import Poscar
 from pymatgen.io.vasp.outputs import Outcar, Vasprun
