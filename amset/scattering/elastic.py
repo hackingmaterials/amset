@@ -11,6 +11,8 @@ from tabulate import tabulate
 from amset.constants import gpa_to_au
 from amset.core.data import AmsetData
 from amset.electronic_structure.fd import fd
+from amset.interpolation.deformation import DeformationPotentialInterpolator
+from amset.util import check_nbands_equal
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -36,7 +38,15 @@ class AbstractElasticScattering(ABC):
         pass
 
     @abstractmethod
-    def factor(self, unit_q: np.array, norm_q_sq: np.ndarray):
+    def factor(
+        self,
+        unit_q: np.array,
+        norm_q_sq: np.ndarray,
+        spin: Spin,
+        band_idx: int,
+        kpoint: np.ndarray,
+        velocity: np.ndarray,
+    ):
         pass
 
 
@@ -50,11 +60,23 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
         self.vb_idx = amset_data.vb_idx
         self.is_metal = amset_data.is_metal
         self.fermi_levels = amset_data.fermi_levels
-        elastic_constant = self.properties["elastic_constant"] * gpa_to_au
-        self._prefactor = (BOLTZMANN * units.Second) / elastic_constant
+        self.elastic_constant = self.properties["elastic_constant"] * gpa_to_au
+        self._prefactor = BOLTZMANN * units.Second
 
         self.deformation_potential = self.properties["deformation_potential"]
-        if self.is_metal and isinstance(self.deformation_potential, tuple):
+        if isinstance(self.deformation_potential, str):
+            self.deformation_potential = DeformationPotentialInterpolator.from_file(
+                self.deformation_potential, scale=units.eV
+            )
+            equal = check_nbands_equal(self.deformation_potential, amset_data)
+            if not equal:
+                raise RuntimeError(
+                    "Deformation potential file does not contain the correct number of"
+                    " bands\nEnsure it was generated using the same energy_cutoff as "
+                    "this AMSET run."
+                )
+
+        elif self.is_metal and isinstance(self.deformation_potential, tuple):
             logger.warning(
                 "System is metallic but deformation potentials for both "
                 "the valence and conduction bands have been set... using the "
@@ -87,18 +109,61 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
             * self.temperatures[None, :]
             * np.ones((len(self.doping), len(self.temperatures)))
         )
-
-        if self.is_metal:
-            prefactor *= self.deformation_potential ** 2
-
-        else:
-            def_idx = 1 if b_idx > self.vb_idx[spin] else 0
-            prefactor *= self.deformation_potential[def_idx] ** 2
-
         return prefactor
 
-    def factor(self, unit_q: np.ndarray, norm_q_sq: np.ndarray):
-        return np.ones(self.fermi_levels.shape + norm_q_sq.shape)
+    def factor(
+        self,
+        unit_q: np.array,
+        norm_q_sq: np.ndarray,
+        spin: Spin,
+        band_idx: int,
+        kpoint: np.ndarray,
+        velocity: np.ndarray,
+    ):
+        christoffel_tensors = get_christoffel_tensors(self.elastic_constant, unit_q)
+        (
+            c_trans_a,
+            c_trans_b,
+            c_long,
+            v_trans_a,
+            v_trans_b,
+            v_long,
+        ) = solve_christoffel_equation(christoffel_tensors)
+        if isinstance(self.deformation_potential, DeformationPotentialInterpolator):
+            deform = self.deformation_potential.interpolate(spin, band_idx, kpoint) ** 2
+            deform += np.outer(velocity, velocity)  # velocity correction
+
+            # orient v_long and unit_q to face the same direction
+            unit_q = unit_q * np.sign(np.dot(unit_q, v_long))
+
+            strain_long = get_unit_strain_tensors(unit_q, v_long)
+            strain_trans_a = get_unit_strain_tensors(unit_q, v_trans_a)
+            strain_trans_b = get_unit_strain_tensors(unit_q, v_trans_b)
+            factor = (
+                np.tensordot(strain_long, deform) / c_long
+                + np.tensordot(strain_trans_a, deform) / c_trans_a
+                + np.tensordot(strain_trans_b, deform) / c_trans_b
+            )
+        elif self.is_metal:
+            factor = self.deformation_potential ** 2 / c_long
+        else:
+            def_idx = 1 if band_idx > self.vb_idx[spin] else 0
+            factor = self.deformation_potential[def_idx] ** 2 / c_long
+
+        return factor[None, None] * np.ones(self.fermi_levels.shape + norm_q_sq.shape)
+
+
+def get_christoffel_tensors(elastic_constant, unit_q):
+    return np.einsum("ijkl,ni,nl->njk", elastic_constant, unit_q, unit_q)
+
+
+def solve_christoffel_equation(christoffel_tensors):
+    eigenvalues, eigenvectors = np.linalg.eigh(christoffel_tensors)
+    return eigenvalues.tolist() + eigenvectors.tranpose(0, 2, 1).tolist()
+
+
+def get_unit_strain_tensors(propagation_vectors, polarization_vectors):
+    return propagation_vectors[:, :, None] * polarization_vectors[:, 2][:, None, :]
 
 
 class IonizedImpurityScattering(AbstractElasticScattering):
@@ -150,11 +215,18 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)
         return self._prefactor
 
-    def factor(self, unit_q, norm_q_sq: np.ndarray):
+    def factor(
+        self,
+        unit_q: np.array,
+        norm_q_sq: np.ndarray,
+        spin: Spin,
+        band_idx: int,
+        kpoint: np.ndarray,
+        velocity: np.ndarray,
+    ):
         static_tensor = self.properties["static_dielectric"] / (4 * np.pi)
         static_diel = np.einsum("ij,ij->i", unit_q, np.dot(static_tensor, unit_q.T).T)
         diel_factor = (1 / static_diel) ** 2
-
         return (
             diel_factor[None, None]
             / (norm_q_sq[None, None] + self.inverse_screening_length_sq[..., None]) ** 2
@@ -178,7 +250,15 @@ class PiezoelectricScattering(AbstractElasticScattering):
         # need to return prefactor with shape (ndops, ntemps)
         return self._prefactor * self._shape
 
-    def factor(self, unit_q, norm_q_sq: np.ndarray):
+    def factor(
+        self,
+        unit_q: np.array,
+        norm_q_sq: np.ndarray,
+        spin: Spin,
+        band_idx: int,
+        kpoint: np.ndarray,
+        velocity: np.ndarray,
+    ):
         # need to return factor with shape (ndops, ntemps, nqpoints)
         # add small number for numerical convergence
         static_t = self.properties["static_dielectric"]

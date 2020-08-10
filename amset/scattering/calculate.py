@@ -35,7 +35,7 @@ __email__ = "aganose@lbl.gov"
 
 logger = logging.getLogger(__name__)
 
-_all_scatterers = (
+_all_scatterers: Union = (
     AbstractElasticScattering.__subclasses__()
     + AbstractInelasticScattering.__subclasses__()
     + AbstractBasicScattering.__subclasses__()
@@ -322,6 +322,7 @@ class ScatteringCalculator(object):
     def calculate_rate(self, spin, b_idx, k_idx, energy_diff=None):
         rlat = self.amset_data.structure.lattice.reciprocal_lattice.matrix
         energy = self.amset_data.energies[spin][b_idx, k_idx]
+        velocity = self.amset_data.velocities[spin][b_idx, k_idx]
 
         if energy_diff:
             energy += energy_diff
@@ -404,10 +405,10 @@ class ScatteringCalculator(object):
 
         unit_q = qpoints / np.sqrt(qpoint_norm_sq)[:, None]
         if energy_diff:
-            fd = _get_fd(energy, self.amset_data)
+            e_fd = _get_fd(energy, self.amset_data)
             emission = energy_diff <= 0
             rates = [
-                s.factor(unit_q, qpoint_norm_sq, emission, fd)
+                s.factor(unit_q, qpoint_norm_sq, emission, e_fd)
                 for s in self.inelastic_scatterers
             ]
             mrta_factor = 1
@@ -415,12 +416,14 @@ class ScatteringCalculator(object):
             mrta_factor = self.amset_data.mrta_calculator.get_mrta_factor(
                 spin, b_idx, k, tet_mask[0][mapping], k_primes
             )
-            rates = [s.factor(unit_q, qpoint_norm_sq) for s in self.elastic_scatterers]
+            rates = [
+                s.factor(unit_q, qpoint_norm_sq, spin, b_idx, k, velocity)
+                for s in self.elastic_scatterers
+            ]
 
         rates = np.array(rates)
         rates /= self.amset_data.structure.lattice.reciprocal_lattice.volume
         rates *= tet_overlap[mapping] * weights * mrta_factor
-        # rates *= weights * mrta_factor
 
         # this is too expensive vs tetrahedron integration and doesn't add much more
         # accuracy; could offer this as an option
