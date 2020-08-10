@@ -20,7 +20,13 @@ from amset.electronic_structure.fd import dfdde
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.interpolation.momentum import MRTACalculator
 from amset.log import log_list, log_time_taken
-from amset.util import cast_dict_list, groupby, tensor_average, write_mesh_data
+from amset.util import (
+    cast_dict_list,
+    check_nbands_equal,
+    groupby,
+    tensor_average,
+    write_mesh_data,
+)
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -100,12 +106,8 @@ class AmsetData(MSONable):
         self.mrta_calculator = MRTACalculator(self.kpoints, self.velocities)
 
     def set_overlap_calculator(self, overlap_calculator):
-        nbands_equal = [
-            self.energies[s].shape[0] == overlap_calculator.nbands[s]
-            for s in self.spins
-        ]
-
-        if not all(nbands_equal):
+        equal = check_nbands_equal(overlap_calculator, self)
+        if not equal:
             raise RuntimeError(
                 "Overlap calculator does not have the correct number of bands\n"
                 "If using wavefunction coefficients, ensure they were generated using"
