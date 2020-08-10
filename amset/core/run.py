@@ -439,13 +439,22 @@ _tensor_str = """
     │    [{:6.2f} {:6.2f} {:6.2f}]
     │    [{:6.2f} {:6.2f} {:6.2f}]]"""
 
+_elastic_tensor_str = """
+    │   [[{:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f}]
+    │    [{:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f}]
+    │    [{:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f}]]"""
+
 
 def _log_settings(runner: Runner):
+    from pymatgen.core.tensors import Tensor
+
     def ff(prop):
         # format tensor properties
         if isinstance(prop, np.ndarray):
             if prop.shape == (3, 3):
                 return _tensor_str.format(*prop.ravel())
+            elif prop.shape == (3, 3, 3, 3):
+                return _elastic_tensor_str.format(*Tensor(prop).voigt.ravel())
 
         return prop
 

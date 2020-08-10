@@ -49,6 +49,9 @@ def validate_settings(user_settings):
             settings["high_frequency_dielectric"]
         )
 
+    if settings["elastic_constant"] is not None:
+        settings["elastic_constant"] = cast_elastic_tensor(settings["elastic_constant"])
+
     settings["doping"] = np.asarray(settings["doping"], dtype=np.float)
     settings["temperatures"] = np.asarray(settings["temperatures"])
 
@@ -73,6 +76,27 @@ def cast_tensor(tensor):
         raise ValueError("Unsupported tensor shape.")
 
     return tensor
+
+
+def cast_elastic_tensor(elastic_tensor):
+    from pymatgen.core.tensors import Tensor
+
+    from amset.constants import numeric_types
+
+    if isinstance(elastic_tensor, numeric_types):
+        elastic_tensor = np.eye(6) * elastic_tensor
+        elastic_tensor[([3, 4, 5], [3, 4, 5])] /= 2
+
+    elastic_tensor = np.array(elastic_tensor)
+    if elastic_tensor.shape == (6, 6):
+        elastic_tensor = Tensor.from_voigt(elastic_tensor)
+
+    if elastic_tensor.shape != (3, 3, 3, 3):
+        raise ValueError(
+            "Unsupported elastic tensor shape. Should be (6, 6) or (3, 3, 3, 3)."
+        )
+
+    return np.array(elastic_tensor)
 
 
 def tensor_average(tensor):
@@ -215,6 +239,9 @@ def parse_temperatures(temperatures_str: str):
 
 
 def parse_deformation_potential(deformation_pot_str: str):
+    if "h5" in deformation_pot_str:
+        return deformation_pot_str
+
     deformation_pot_str = deformation_pot_str.strip().replace(" ", "")
 
     try:
@@ -330,3 +357,11 @@ def load_mesh_data(filename):
                 mesh_data[key] = read_data(key, value)
 
     return mesh_data
+
+
+def check_nbands_equal(interpolator, amset_data):
+    nbands_equal = [
+        amset_data.energies[s].shape[0] == interpolator.nbands[s]
+        for s in amset_data.spins
+    ]
+    return np.all(nbands_equal)
