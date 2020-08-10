@@ -61,14 +61,12 @@ def get_symmetrized_strain_mapping(
     sga = SpacegroupAnalyzer(bulk_structure, symprec=symprec)
     cart_ops = sga.get_symmetry_operations(cartesian=True)
     frac_ops = sga.get_symmetry_operations(cartesian=False)
-    nkpoints = int(np.product(get_mesh_from_band_structure(bulk_structure)))
     for strain, calc in strain_mapping.items():
         # expand band structure to cover full brillouin zone, otherwise rotation won't
         # include all necessary points
-        if nkpoints != len(calc["bandstructure"].kpoints):
-            calc["bandstructure"] = expand_bandstructure(
-                calc["bandstructure"], symprec=symprec
-            )
+        calc["bandstructure"] = expand_bandstructure(
+            calc["bandstructure"], symprec=symprec
+        )
 
     for strain, calc in strain_mapping.items():
         for cart_op, frac_op in zip(cart_ops, frac_ops):
