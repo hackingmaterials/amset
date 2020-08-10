@@ -7,7 +7,7 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
-from amset.tools import image_type, path_type
+from amset.tools.common import image_type, path_type
 
 kpaths = click.Choice(["pymatgen", "seekpath"], case_sensitive=False)
 

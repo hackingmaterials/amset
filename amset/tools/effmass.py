@@ -1,7 +1,7 @@
 import click
 from click import argument, option
 
-from amset.tools import path_type
+from amset.tools.common import path_type
 from amset.util import parse_doping, parse_temperatures
 
 __author__ = "Alex Ganose"

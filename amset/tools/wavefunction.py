@@ -35,6 +35,7 @@ def wave(**kwargs):
 
     from amset.constants import defaults
     from amset.electronic_structure.common import get_ibands
+    from amset.tools.common import echo_ibands
     from amset.wavefunction.io import write_coefficients
 
     output = kwargs.pop("output")
@@ -58,13 +59,8 @@ def wave(**kwargs):
     bs = vr.get_band_structure()
     ibands = get_ibands(energy_cutoff, bs)
 
-    click.echo("******* Getting wavefunction coefficients *******")
-
-    click.echo("\nIncluding:")
-    for spin, spin_bands in ibands.items():
-        min_b = spin_bands.min() + 1
-        max_b = spin_bands.max() + 1
-        click.echo("  Spin-{} bands {}—{}".format(spin.name, min_b, max_b))
+    click.echo("******* Getting wavefunction coefficients *******\n")
+    echo_ibands(ibands, bs.is_spin_polarized)
     click.echo("")
 
     if pawpyseed:
