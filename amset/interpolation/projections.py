@@ -98,15 +98,9 @@ class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
         # this allows us to make s orbitals immune to the cosine weight
         scaling_factor = self.rotation_mask[None] * angle_weights[..., None]
 
-        p_product = p[0] * p[1:]
-        overlap = (
-            np.sum(
-                p_product * (1 - scaling_factor)
-                + p_product * scaling_factor * angles[:, None],
-                axis=1,
-            )
-            ** 2
-        )
+        prod = p[0] * p[1:]
+        overlap = prod * (1 - scaling_factor) + prod * scaling_factor * angles[:, None]
+        overlap = overlap.sum(axis=1) ** 2
 
         if single_overlap:
             return overlap[0]

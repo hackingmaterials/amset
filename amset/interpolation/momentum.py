@@ -1,13 +1,9 @@
-import logging
-
 import numpy as np
 
 from amset.interpolation.periodic import (
     PeriodicLinearInterpolator,
     group_bands_and_kpoints,
 )
-
-logger = logging.getLogger(__name__)
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
