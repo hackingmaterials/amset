@@ -97,6 +97,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
     from pymatgen.util.string import unicodeify_spacegroup
 
+    from amset.constants import defaults
     from amset.deformation.common import get_formatted_tensors
     from amset.deformation.io import parse_calculation, write_deformation_potentials
     from amset.deformation.potentials import (
@@ -108,6 +109,10 @@ def read(bulk_folder, deformation_folders, **kwargs):
     )
     from amset.electronic_structure.common import get_ibands
     from amset.electronic_structure.kpoints import get_kpoints_from_bandstructure
+
+    energy_cutoff = kwargs.pop("energy_cutoff")
+    if not energy_cutoff:
+        energy_cutoff = defaults["energy_cutoff"]
 
     symprec = kwargs["symprec"]
     click.echo("Reading bulk (undeformed) calculation")
@@ -149,7 +154,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
 
     print_deformation_summary(bulk_calculation["bandstructure"], deformation_potentials)
 
-    ibands = get_ibands(kwargs["energy_cutoff"], bulk_calculation["bandstructure"])
+    ibands = get_ibands(energy_cutoff, bulk_calculation["bandstructure"])
     echo_ibands(ibands, bulk_calculation["bandstructure"].is_spin_polarized)
     click.echo("")
     deformation_potentials = extract_bands(deformation_potentials, ibands)
