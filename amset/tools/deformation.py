@@ -13,6 +13,16 @@ _tensor_str = """    [[{:6.2f} {:6.2f} {:6.2f}]
      [{:6.2f} {:6.2f} {:6.2f}]]"""
 
 
+def _parse_symprec(var):
+    if isinstance(var, float):
+        return var
+    elif var is None:
+        return _symprec
+    elif "N" in var:
+        return None
+    return float(var)
+
+
 @click.group()
 def deform():
     """
@@ -29,8 +39,7 @@ def deform():
 @option(
     "-s",
     "--symprec",
-    type=float,
-    default=_symprec,
+    type=_parse_symprec,
     help="symmetry precision for reducing deformations",
 )
 @option("--directory", type=path_type, help="file output directory")
@@ -52,21 +61,22 @@ def create(**kwargs):
     structure = Structure.from_file(kwargs["filename"])
 
     click.echo("Generating deformations:")
-    sga = SpacegroupAnalyzer(structure, symprec=symprec)
-    spg_symbol = unicodeify_spacegroup(sga.get_space_group_symbol())
-    spg_number = sga.get_space_group_number()
     click.echo("  - Strain distance: {:g}".format(kwargs["distance"]))
-    click.echo("  - Spacegroup: {} ({})".format(spg_symbol, spg_number))
 
     deformations = get_deformations(kwargs["distance"])
     click.echo("  - # Total deformations: {}".format(len(deformations)))
 
-    deformations = list(symmetry_reduce(deformations, structure, symprec=symprec))
+    if symprec is not None:
+        sga = SpacegroupAnalyzer(structure, symprec=symprec)
+        spg_symbol = unicodeify_spacegroup(sga.get_space_group_symbol())
+        spg_number = sga.get_space_group_number()
+        click.echo("  - Spacegroup: {} ({})".format(spg_symbol, spg_number))
 
-    fmt_deform = get_formatted_tensors(deformations)
-    click.echo("  - # Inequivalent deformations: {}".format(len(deformations)))
+        deformations = list(symmetry_reduce(deformations, structure, symprec=symprec))
+        click.echo("  - # Inequivalent deformations: {}".format(len(deformations)))
+
     click.echo("\nDeformations:")
-    click.echo("  - " + "\n  - ".join(fmt_deform))
+    click.echo("  - " + "\n  - ".join(get_formatted_tensors(deformations)))
 
     deformed_structures = get_deformed_structures(structure, deformations)
 
