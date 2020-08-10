@@ -122,12 +122,7 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
     ):
         christoffel_tensors = get_christoffel_tensors(self.elastic_constant, unit_q)
         (
-            c_trans_a,
-            c_trans_b,
-            c_long,
-            v_trans_a,
-            v_trans_b,
-            v_long,
+            (c_trans_a, c_trans_b, c_long), (v_trans_a, v_trans_b, v_long),
         ) = solve_christoffel_equation(christoffel_tensors)
         if isinstance(self.deformation_potential, DeformationPotentialInterpolator):
             deform = self.deformation_potential.interpolate(spin, band_idx, kpoint) ** 2
@@ -159,7 +154,7 @@ def get_christoffel_tensors(elastic_constant, unit_q):
 
 def solve_christoffel_equation(christoffel_tensors):
     eigenvalues, eigenvectors = np.linalg.eigh(christoffel_tensors)
-    return eigenvalues.tolist() + eigenvectors.tranpose(0, 2, 1).tolist()
+    return eigenvalues.T, eigenvectors.T
 
 
 def get_unit_strain_tensors(propagation_vectors, polarization_vectors):
