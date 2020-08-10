@@ -39,7 +39,7 @@ if __name__ == "__main__":
             'memory_profiler==0.57.0',
             'spglib==1.16.0',
             'click==7.1.2',
-            'sumo==1.4.0',
+            'sumo==2.0.0',
             'h5py==2.10.0',
             'pyFFTW==0.12.0',
             'interpolation==2.1.6',
