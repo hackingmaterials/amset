@@ -13,7 +13,7 @@
       
       
       <link rel="shortcut icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.5.2">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.4.0">
     
     
       
@@ -21,7 +21,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.25b81cc6.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.fe0cca5b.min.css">
       
       
     
@@ -302,6 +302,13 @@
           <li class="md-nav__item">
   <a href="#wavefunction_coefficients" class="md-nav__link">
     wavefunction_coefficients
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use_projections" class="md-nav__link">
+    use_projections
   </a>
   
 </li>
@@ -689,6 +696,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#use_projections" class="md-nav__link">
+    use_projections
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#scissor" class="md-nav__link">
     scissor
   </a>
@@ -1001,13 +1015,23 @@ if all the required material parameters for that mechanism are set. See the
 </div>
 <h3 id="wavefunction_coefficients"><code>wavefunction_coefficients</code><a class="headerlink" href="#wavefunction_coefficients" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code>-s, --wavefunction-coefficients</code></p>
+<p><em>Command-line option:</em> <code>-w, --wavefunction-coefficients</code></p>
 <p>Path to wavefunction coefficients file. The coefficients can be extracted
 from a VASP WAVECAR using the command:</p>
-<div class="highlight"><pre><span></span><code>amset dump-wavefunction
+<div class="highlight"><pre><span></span><code>amset wave
 </code></pre></div>
 
-<p>This requires the vasprun.xml and POTCAR to be in the same folder.</p>
+<p>This command also requires the vasprun.xml to be in the same folder.</p>
+<p>Default: <code>wavefunction.h5</code></p>
+</div>
+<h3 id="use_projections"><code>use_projections</code><a class="headerlink" href="#use_projections" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code>--use-projections</code></p>
+<p>Use projections to calculate wavefunction overlap. This can often result in very
+poor performance, and so is <strong>not recommended</strong>. </p>
+<p>In order to use projections, the VASP calculation must be performed with
+<code>LORBIT = 11</code>. </p>
+<p>Default: <code>False</code></p>
 </div>
 <h3 id="scissor"><code>scissor</code><a class="headerlink" href="#scissor" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
@@ -1242,15 +1266,15 @@ his option can use a large amount of disk space.</p>
       
     </div>
     
-      <script src="../assets/javascripts/vendor.592d4e23.min.js"></script>
-      <script src="../assets/javascripts/bundle.806ca5c4.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
+      <script src="../assets/javascripts/vendor.d710d30a.min.js"></script>
+      <script src="../assets/javascripts/bundle.b39636ac.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({
           base: "..",
           features: [],
           search: Object.assign({
-            worker: "../assets/javascripts/worker/search.01088dc6.min.js"
+            worker: "../assets/javascripts/worker/search.a68abb33.min.js"
           }, typeof search !== "undefined" && search)
         })
       </script>
