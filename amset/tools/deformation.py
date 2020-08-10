@@ -3,7 +3,7 @@ import sys
 import click
 from click import argument, option
 
-from amset.tools import path_type
+from amset.tools.common import echo_ibands, path_type
 
 _symprec = 0.01  # redefine symprec to avoid loading constants from file
 _metal_str = {True: "metallic", False: "semiconducting"}
@@ -78,7 +78,7 @@ def create(**kwargs):
 @argument("bulk-folder", type=path_type)
 @argument("deformation-folders", nargs=-1, type=path_type)
 @option("-s", "--symprec", type=float, default=_symprec, help="symmetry precision")
-@option("--directory", type=path_type, help="file output directory")
+@option("-e", "--energy-cutoff", type=float, help="energy cutoff for finding bands")
 @option("-o", "--output", default="deformation.h5", help="output file path")
 def read(bulk_folder, deformation_folders, **kwargs):
     """
@@ -91,10 +91,12 @@ def read(bulk_folder, deformation_folders, **kwargs):
     from amset.deformation.io import parse_calculation, write_deformation_potentials
     from amset.deformation.potentials import (
         calculate_deformation_potentials,
+        extract_bands,
         get_strain_mapping,
         get_symmetrized_strain_mapping,
         strain_coverage_ok,
     )
+    from amset.electronic_structure.common import get_ibands
     from amset.electronic_structure.kpoints import get_kpoints_from_bandstructure
 
     symprec = kwargs["symprec"]
@@ -137,10 +139,16 @@ def read(bulk_folder, deformation_folders, **kwargs):
 
     print_deformation_summary(bulk_calculation["bandstructure"], deformation_potentials)
 
+    ibands = get_ibands(kwargs["energy_cutoff"], bulk_calculation["bandstructure"])
+    echo_ibands(ibands, bulk_calculation["bandstructure"].is_spin_polarized)
+    click.echo("")
+    deformation_potentials = extract_bands(deformation_potentials, ibands)
+
     kpoints = get_kpoints_from_bandstructure(bulk_calculation["bandstructure"])
-    write_deformation_potentials(
+    filename = write_deformation_potentials(
         deformation_potentials, kpoints, bulk_structure, filename=kwargs["output"]
     )
+    click.echo("\nDeformation potentials written to {}".format(filename))
 
 
 def check_calculation(bulk_calculation, deformation_calculation):

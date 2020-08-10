@@ -40,9 +40,9 @@ def calculate_deformation(bulk_structure, deformed_structure):
     Returns:
         deformation matrix
     """
-    ulatt = bulk_structure.lattice.matrix
-    dlatt = deformed_structure.lattice.matrix
-    return np.transpose(np.dot(np.linalg.inv(ulatt), dlatt)).round(10)
+    bulk_lattice = bulk_structure.lattice.matrix
+    deformed_lattice = deformed_structure.lattice.matrix
+    return np.transpose(np.dot(np.linalg.inv(bulk_lattice), deformed_lattice)).round(10)
 
 
 def get_strain_mapping(bulk_structure, deformation_calculations):
@@ -150,3 +150,7 @@ def strain_coverage_ok(strains):
     sum_strains = np.abs(strains).sum(axis=0)
     sum_strains = sum_strains.round(5)
     return not np.any(sum_strains == 0)
+
+
+def extract_bands(deformation_potentials, ibands):
+    return {spin: deformation_potentials[spin][b_idx] for spin, b_idx in ibands.items()}

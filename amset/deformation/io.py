@@ -22,6 +22,7 @@ def write_deformation_potentials(
             f.create_dataset(name, data=spin_deform, compression="gzip")
         f["structure"] = np.string_(structure.to_json())
         f["kpoints"] = kpoints
+    return filename
 
 
 def load_deformation_potentials(filename):
