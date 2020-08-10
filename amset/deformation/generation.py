@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 def get_strain_fields():
     """Generates a list of strain fields for a rank 2 strain tensor in Voigt notation"""
     inds = [(i,) for i in range(6)]
-    strain_states = np.zeros((len(inds), 6))
+    strain_fields = np.zeros((len(inds), 6))
     for n, i in enumerate(inds):
-        np.put(strain_states[n], i, 1)
-    strain_states[:, 3:] *= 2
-    return strain_states
+        np.put(strain_fields[n], i, 1)
+    strain_fields[:, 3:] *= 2
+    return strain_fields
 
 
 def get_strains(distance=0.005):
