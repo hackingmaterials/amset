@@ -85,21 +85,3 @@ def desymmetrize_deformation_potentials(
 
     log_time_taken(t0)
     return all_deformation_potentials
-
-
-def clean_uniform_bandstructure(bandstructure):
-    from pymatgen.electronic_structure.bandstructure import BandStructure
-
-    kpoints = get_kpoints_from_bandstructure(bandstructure)
-    mesh = get_mesh_from_kpoint_diff(kpoints)
-    addresses = (mesh * kpoints).astype(int)
-    kpoints = addresses / mesh
-
-    return BandStructure(
-        kpoints,
-        bandstructure.bands,
-        bandstructure.lattice_rec,
-        bandstructure.efermi,
-        structure=bandstructure.structure,
-        projections=bandstructure.projections,
-    )

@@ -190,13 +190,13 @@ def get_mesh_from_kpoint_numbers(kpoints, tol=ktol):
 
 def get_kpoint_indices(kpoints, mesh):
     mesh = np.array(mesh)
-    min_kpoint = -np.floor(mesh / 2).astype(int)
-    addresses = (kpoints * mesh).astype(int)
+    min_kpoint = -np.floor(mesh / 2).round().astype(int)
+    addresses = (kpoints * mesh).round().astype(int)
     shifted = addresses - min_kpoint
     nyz = mesh[1] * mesh[2]
     nz = mesh[2]
     indices = shifted[:, 0] * nyz + shifted[:, 1] * nz + shifted[:, 2]
-    return indices.astype(int)
+    return indices.round().astype(int)
 
 
 def get_kpoints_from_bandstructure(bandstructure, cartesian=False):

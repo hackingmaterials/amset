@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 
-from amset.deformation.common import clean_uniform_bandstructure
 from pymatgen.analysis.elasticity.strain import Deformation
 from pymatgen.core.tensors import TensorMapping
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
@@ -69,7 +68,6 @@ def get_symmetrized_strain_mapping(
         calc["bandstructure"] = expand_bandstructure(
             calc["bandstructure"], symprec=symprec
         )
-        calc["bandstructure"] = clean_uniform_bandstructure(calc["bandstructure"])
 
     for strain, calc in strain_mapping.items():
         for cart_op, frac_op in zip(cart_ops, frac_ops):
@@ -77,7 +75,6 @@ def get_symmetrized_strain_mapping(
             independent = tstrain.get_deformation_matrix().is_independent(_mapping_tol)
             if independent and tstrain not in strain_mapping:
                 rband = rotate_bandstructure(calc["bandstructure"], frac_op)
-                rband = clean_uniform_bandstructure(rband["bandstructure"])
                 tcalc = {"reference": calc["reference"], "bandstructure": rband}
                 strain_mapping[tstrain] = tcalc
 
