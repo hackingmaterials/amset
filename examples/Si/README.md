@@ -1,9 +1,13 @@
 # Si Example
 
 This folder contains the files needed to calculated the transport properties of
-Si. The vasprun and wavefunction coefficients were calculated on a Γ-centered 18x18x18
-k-point mesh. The `wavefunction.h5` file was extracted from the VASP WAVECAR file using
-the `amset wave` command.
+Si using fully anisotropic materials parameters. The vasprun and wavefunction 
+coefficients were calculated on a Γ-centered 18x18x18 k-point mesh. The 
+`wavefunction.h5` file was extracted from the VASP WAVECAR file using the `amset wave` 
+command. Band and k-point dependent deformation potentials were computed using 
+`amset deform read` based on deformations created using `amset deform create` — 
+further information is [available in the documentation](https://hackingmaterials.lbl.gov/amset/).
+
 
 In this folder we specify to only calculate acoustic deformation potential and
 ionized impurity scattering. Si is non-polar, so polar optical phonon scattering does

@@ -1,4 +1,5 @@
 import sys
+from typing import Optional
 
 import click
 from click import argument, option
@@ -13,12 +14,12 @@ _tensor_str = """    [[{:6.2f} {:6.2f} {:6.2f}]
      [{:6.2f} {:6.2f} {:6.2f}]]"""
 
 
-def _parse_symprec(var):
+def _parse_symprec(var: Optional[str, float, int]):
+    if var is None:
+        return _symprec
     if isinstance(var, float):
         return var
-    elif var is None:
-        return _symprec
-    elif "N" in var:
+    if "N" in var:
         return None
     return float(var)
 
@@ -39,8 +40,7 @@ def deform():
 @option(
     "-s",
     "--symprec",
-    type=_parse_symprec,
-    help="symmetry precision for reducing deformations",
+    help="symmetry precision for reducing deformations (use 'N' for no symmetry)",
 )
 @option("--directory", type=path_type, help="file output directory")
 def create(**kwargs):
@@ -56,7 +56,7 @@ def create(**kwargs):
     from amset.deformation.generation import get_deformations, get_deformed_structures
     from amset.deformation.io import write_deformed_poscars
 
-    symprec = kwargs["symprec"]
+    symprec = _parse_symprec(kwargs["symprec"])
 
     structure = Structure.from_file(kwargs["filename"])
 
@@ -87,7 +87,11 @@ def create(**kwargs):
 @deform.command()
 @argument("bulk-folder", type=path_type)
 @argument("deformation-folders", nargs=-1, type=path_type)
-@option("-s", "--symprec", type=float, default=_symprec, help="symmetry precision")
+@option(
+    "-s",
+    "--symprec",
+    help="symmetry precision for reducing deformations (use 'N' for no symmetry)",
+)
 @option("-e", "--energy-cutoff", type=float, help="energy cutoff for finding bands")
 @option("-o", "--output", default="deformation.h5", help="output file path")
 def read(bulk_folder, deformation_folders, **kwargs):
@@ -115,7 +119,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
     if not energy_cutoff:
         energy_cutoff = defaults["energy_cutoff"]
 
-    symprec = kwargs["symprec"]
+    symprec = _parse_symprec(kwargs["symprec"])
     click.echo("Reading bulk (undeformed) calculation")
     bulk_calculation = parse_calculation(bulk_folder)
     bulk_structure = bulk_calculation["bandstructure"].structure
