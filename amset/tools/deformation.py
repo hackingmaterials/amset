@@ -4,6 +4,7 @@ from typing import Optional
 import click
 from click import argument, option
 
+from amset.deformation.common import clean_uniform_bandstructure
 from amset.tools.common import echo_ibands, path_type
 
 _symprec = 0.01  # redefine symprec to avoid loading constants from file
@@ -155,6 +156,9 @@ def read(bulk_folder, deformation_folders, **kwargs):
     click.echo("\nCalculating deformation potentials")
     bulk_calculation["bandstructure"] = expand_bandstructure(
         bulk_calculation["bandstructure"], symprec=symprec
+    )
+    bulk_calculation["bandstructure"] = clean_uniform_bandstructure(
+        bulk_calculation["bandstructure"]
     )
     deformation_potentials = calculate_deformation_potentials(
         bulk_calculation, strain_mapping
