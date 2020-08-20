@@ -13,7 +13,7 @@
       
       
       <link rel="shortcut icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.5.7">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.4.0">
     
     
       
@@ -21,7 +21,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.b8ac9624.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.fe0cca5b.min.css">
       
       
     
@@ -476,15 +476,15 @@ file. For example, the interpolation factor can be easily controlled using:</p>
 <p>Greater configurability is available when running AMSET from the Python API.
 For example, the following snippet will look for a <code>vasprun.xml</code> and
 <code>settings.yaml</code> file in the current directory, then run AMSET.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">Runner</span>
 
-<span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">Runner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
 <span class="n">amset_data</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </code></pre></div>
 
 <p>The API allows for easy convergence of parameters. For example,
 the following snippet will run AMSET using multiple interpolation factors.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">Runner</span>
 
 <span class="n">settings</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;interpolation_factor&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
 
@@ -492,13 +492,13 @@ the following snippet will run AMSET using multiple interpolation factors.</p>
 <span class="k">for</span> <span class="n">i_factor</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">10</span><span class="p">):</span>
     <span class="n">settings</span><span class="p">[</span><span class="s2">&quot;interpolation_factor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i_factor</span>
 
-    <span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">settings_override</span><span class="o">=</span><span class="n">settings</span><span class="p">)</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">Runner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">settings_override</span><span class="o">=</span><span class="n">settings</span><span class="p">)</span>
     <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">())</span>
 </code></pre></div>
 
 <p>When running AMSET from the API, it is not necessary to use a settings file
 at all. Instead the settings can be passed as a dictionary. For example:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">AmsetRunner</span>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">Runner</span>
 
 <span class="n">settings</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;interpolation_factor&quot;</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>
@@ -510,7 +510,7 @@ at all. Instead the settings can be passed as a dictionary. For example:</p>
     <span class="s2">&quot;static_dielectric&quot;</span><span class="p">:</span> <span class="mf">13.1</span><span class="p">,</span>
 <span class="p">}</span>
 
-<span class="n">runner</span> <span class="o">=</span> <span class="n">AmsetRunner</span><span class="o">.</span><span class="n">from_vasprun</span><span class="p">(</span><span class="s2">&quot;vasprun.xml.gz&quot;</span><span class="p">,</span> <span class="n">settings</span><span class="p">)</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">Runner</span><span class="o">.</span><span class="n">from_vasprun</span><span class="p">(</span><span class="s2">&quot;vasprun.xml.gz&quot;</span><span class="p">,</span> <span class="n">settings</span><span class="p">)</span>
 <span class="n">amset_data</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </code></pre></div>
                 
@@ -567,15 +567,15 @@ at all. Instead the settings can be passed as a dictionary. For example:</p>
       
     </div>
     
-      <script src="../assets/javascripts/vendor.d1f5a259.min.js"></script>
-      <script src="../assets/javascripts/bundle.d5fec882.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
+      <script src="../assets/javascripts/vendor.d710d30a.min.js"></script>
+      <script src="../assets/javascripts/bundle.b39636ac.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({
           base: "..",
           features: [],
           search: Object.assign({
-            worker: "../assets/javascripts/worker/search.fae956e7.min.js"
+            worker: "../assets/javascripts/worker/search.a68abb33.min.js"
           }, typeof search !== "undefined" && search)
         })
       </script>
