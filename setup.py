@@ -61,7 +61,7 @@ if __name__ == "__main__":
                 'mypy==0.782',
                 'pydocstyle==5.0.2',
                 'flake8==3.8.3',
-                'pylint==2.5.3',
+                'pylint==2.6.0',
             ]
         },
         classifiers=[
