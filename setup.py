@@ -59,7 +59,7 @@ if __name__ == "__main__":
                 'codacy-coverage==1.3.11',
                 'pycodestyle==2.6.0',
                 'mypy==0.782',
-                'pydocstyle==5.0.2',
+                'pydocstyle==5.1.0',
                 'flake8==3.8.3',
                 'pylint==2.6.0',
             ]
