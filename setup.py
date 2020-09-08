@@ -50,7 +50,7 @@ if __name__ == "__main__":
                 'mkdocs-material==5.5.12',
                 'mkdocs-minify-plugin==0.3.0',
                 'mkdocs-macros-plugin==0.4.9',
-                'markdown-include==0.5.1',
+                'markdown-include==0.6.0',
                 'markdown-katex==202008.1025',
             ],
             'all-electron': ['pawpyseed==0.6.3'],
