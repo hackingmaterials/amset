@@ -28,7 +28,7 @@ if __name__ == "__main__":
         zip_safe=False,
         install_requires=[
             'quadpy==0.15.0',
-            'numpy==1.19.1',
+            'numpy==1.19.2',
             'pymatgen==2020.8.13',
             'scipy==1.5.2',
             'monty==4.0.0',
