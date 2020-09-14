@@ -40,7 +40,6 @@ class LineshapePlotter(BaseMeshPlotter):
             self.efermi,
             structure=self.structure,
         )
-        nelect = sum([idx for idx in self.vb_idx.values()])
 
         props = defaultdict(dict)
         for spin in self.spins:
@@ -54,7 +53,7 @@ class LineshapePlotter(BaseMeshPlotter):
 
         return Interpolator(
             bs,
-            nelect,
+            self.num_electrons,
             interpolation_factor=self.interpolation_factor,
             soc=self.soc,
             other_properties=props,
