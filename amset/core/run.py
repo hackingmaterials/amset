@@ -74,22 +74,16 @@ class Runner(MSONable):
         log_banner("END")
 
         logger.info("Timing and memory usage:")
-        timing_info = [
-            "{} time: {:.4f} s".format(name, t) for name, t in usage_stats.items()
-        ]
+        timing_info = ["{} time: {:.4f} s".format(n, t) for n, t in usage_stats.items()]
         log_list(timing_info + ["max memory: {:.1f} MB".format(mem_usage)])
 
-        now = datetime.datetime.now()
-        logger.info(
-            "amset exiting on {} at {}".format(
-                now.strftime("%d %b %Y"), now.strftime("%H:%M")
-            )
-        )
+        this_date = datetime.datetime.now().strftime("%d %b %Y")
+        this_time = datetime.datetime.now().strftime("%H:%M")
+        logger.info("amset exiting on {} at {}".format(this_date, this_time))
 
         if return_usage_stats:
             usage_stats["max memory"] = mem_usage
             return amset_data, usage_stats
-
         else:
             return amset_data
 
