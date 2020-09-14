@@ -51,6 +51,7 @@ def get_wavefunction(
 
         wf = Wavefunction(structure, pwf, core_region, dim, symprec, False)
 
+    wf = wf.desymmetrized_copy(time_reversal_symmetry=False, symprec=1e-4)
     return wf
 
 
@@ -70,7 +71,7 @@ def get_wavefunction_coefficients(wavefunction, bs, iband=None, encut=600, pbar=
         coeffs[spin] = _get_spin_wavefunction_coefficients(
             mm, bs, spin, iband=spin_iband, pbar=pbar
         )
-    return coeffs, mm.momentum_grid
+    return coeffs, mm.momentum_grid, wavefunction.kpts
 
 
 def _get_spin_wavefunction_coefficients(mm, bs, spin, iband=None, pbar=True):
