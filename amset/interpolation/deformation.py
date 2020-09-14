@@ -36,6 +36,7 @@ class DeformationPotentialInterpolator(PeriodicLinearInterpolator):
         full_kpoints, rotations, _, _, op_mapping, kp_mapping = expand_kpoints(
             structure, kpoints, time_reversal=True, return_mapping=True, symprec=symprec
         )
+        logger.warning("Desymmetrizing deformation potentials, this could go wrong.")
         deformation_potentials = desymmetrize_deformation_potentials(
             deformation_potentials, structure, rotations, op_mapping, kp_mapping
         )
