@@ -38,8 +38,8 @@ class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
         efermi = band_structure.efermi
         structure = band_structure.structure
 
-        full_kpoints, ir_to_full_idx, rot_mapping = expand_kpoints(
-            structure, kpoints, symprec=symprec
+        full_kpoints, _, _, _, _, ir_to_full_idx = expand_kpoints(
+            structure, kpoints, symprec=symprec, return_mapping=True, time_reversal=True
         )
 
         ibands = get_ibands(energy_cutoff, band_structure)
@@ -51,10 +51,6 @@ class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
 
         band_centers = get_band_centers(full_kpoints, energies, vb_idx, efermi)
         rotation_mask = get_rotation_mask(projections)
-
-        full_kpoints, _, _, _, _, kp_mapping = expand_kpoints(
-            structure, kpoints, symprec=symprec, time_reversal=True
-        )
 
         full_projections = {}
         for spin, spin_projections in projections.items():
