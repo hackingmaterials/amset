@@ -126,11 +126,14 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
             (v_trans_a, v_trans_b, v_long),
         ) = solve_christoffel_equation(christoffel_tensors)
         if isinstance(self.deformation_potential, DeformationPotentialInterpolator):
-            deform = self.deformation_potential.interpolate(spin, band_idx, kpoint) ** 2
+            deform = self.deformation_potential.interpolate(spin, [band_idx], [kpoint])
+            deform = deform[0] ** 2
+            # deform = np.eye(3)
             deform += np.outer(velocity, velocity)  # velocity correction
 
             # orient v_long and unit_q to face the same direction
-            unit_q = unit_q * np.sign(np.dot(unit_q, v_long))
+            # the einsum is just pairwise dot product along the first axis
+            unit_q = unit_q * np.sign(np.einsum("ij,ij->i", unit_q, v_long))[:, None]
 
             strain_long = get_unit_strain_tensors(unit_q, v_long)
             strain_trans_a = get_unit_strain_tensors(unit_q, v_trans_a)
@@ -155,11 +158,11 @@ def get_christoffel_tensors(elastic_constant, unit_q):
 
 def solve_christoffel_equation(christoffel_tensors):
     eigenvalues, eigenvectors = np.linalg.eigh(christoffel_tensors)
-    return eigenvalues.T, eigenvectors.T
+    return eigenvalues.T, eigenvectors.transpose(2, 0, 1)
 
 
 def get_unit_strain_tensors(propagation_vectors, polarization_vectors):
-    return propagation_vectors[:, :, None] * polarization_vectors[:, 2][:, None, :]
+    return propagation_vectors[:, :, None] * polarization_vectors[:, None, :]
 
 
 class IonizedImpurityScattering(AbstractElasticScattering):
