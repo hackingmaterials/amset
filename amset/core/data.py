@@ -420,6 +420,7 @@ class AmsetData(MSONable):
                 "ir_to_full_kpoint_mapping": self.ir_to_full_kpoint_mapping,
                 "efermi": self.intrinsic_fermi_level * hartree_to_ev,
                 "vb_idx": self.vb_idx,
+                "num_electrons": self.num_electrons,
                 # "dos": self.dos,  # TODO: Convert dos to eV
                 "velocities": ir_vel,  # TODO: convert units
                 "scattering_rates": ir_rates,
