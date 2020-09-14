@@ -14,6 +14,7 @@ try:
 except ImportError:
     interpolation = None
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,6 +56,7 @@ class PeriodicLinearInterpolator(object):
         for spin, spin_data in data.items():
             data_shape = spin_data.shape[2:]
             nbands = self.nbands[spin]
+            self.data_shape = data_shape
 
             # sort the data then reshape them into the grid. The data
             # can now be indexed as data[iband][ikx][iky][ikz]
@@ -81,7 +83,10 @@ class PeriodicLinearInterpolator(object):
                     (y[0], y[-1], len(y)),
                     (z[0], z[-1], len(z)),
                 )
-                self.interpolators[spin] = (grid, grid_data)
+                # flatten remaining axes
+                grid_shape = grid_data.shape[:4] + (-1,)
+                self.interpolators[spin] = (grid, grid_data.reshape(grid_shape))
+                # self.interpolators[spin] = (grid, grid_data)
             else:
                 logger.warning(
                     "Install the 'interpolation' package for improved performance: "
@@ -90,7 +95,7 @@ class PeriodicLinearInterpolator(object):
                 interp_range = (np.arange(nbands), x, y, z)
 
                 self.interpolators[spin] = RegularGridInterpolator(
-                    interp_range, grid_data, bounds_error=False, fill_value=None
+                    interp_range, grid_data, bounds_error=False, fill_value=None #, method="nearest"
                 )
 
     def interpolate(self, spin, bands, kpoints):
@@ -101,14 +106,19 @@ class PeriodicLinearInterpolator(object):
             from interpolation.splines import extrap_options as xto
 
             grid, data = self.interpolators[spin]
-
             if np.iscomplexobj(data):
                 # only allows interpolating floats, so have to separate real and imag
-                interp_data = np.empty((len(v),) + data.shape[4:], dtype=np.complex)
-                interp_data.real = eval_linear(grid, data.real, v, xto.LINEAR)
-                interp_data.imag = eval_linear(grid, data.imag, v, xto.LINEAR)
+                interp_data = np.empty((len(v),) + self.data_shape, dtype=np.complex)
+                interp_data.real = eval_linear(grid, data.real, v, xto.LINEAR).reshape(
+                    -1, *self.data_shape
+                )
+                interp_data.imag = eval_linear(grid, data.imag, v, xto.LINEAR).reshape(
+                    -1, *self.data_shape
+                )
             else:
-                interp_data = eval_linear(grid, data, v, xto.LINEAR)
+                interp_data = eval_linear(grid, data, v, xto.LINEAR).reshape(
+                    -1, *self.data_shape
+                )
         else:
             interp_data = self.interpolators[spin](v)
 
