@@ -20,33 +20,10 @@ logger = logging.getLogger(__name__)
 
 class PeriodicLinearInterpolator(object):
     def __init__(self, kpoints, data):
+        grid_kpoints, mesh_dim, sort_idx = self._grid_kpoints(kpoints)
+        self._setup_interpolators(data, grid_kpoints, mesh_dim, sort_idx)
 
-        # k-points has to cover the full BZ
-        kpoints = kpoints_to_first_bz(kpoints)
-        mesh_dim = get_mesh_from_kpoint_numbers(kpoints)
-        if np.product(mesh_dim) != len(kpoints):
-            raise ValueError("K-points do not cover full Brillouin zone.")
-
-        kpoints = np.around(kpoints, 5)
-
-        # get the indices to sort the k-points on the Z, then Y, then X columns
-        sort_idx = np.lexsort((kpoints[:, 2], kpoints[:, 1], kpoints[:, 0]))
-
-        # put the kpoints into a 3D grid so that they can be indexed as
-        # kpoints[ikx][iky][ikz] = [kx, ky, kz]
-        grid_kpoints = kpoints[sort_idx].reshape(mesh_dim + (3,))
-
-        # Expand the k-point mesh to account for periodic boundary conditions
-        grid_kpoints = np.pad(
-            grid_kpoints, ((1, 1), (1, 1), (1, 1), (0, 0)), mode="wrap"
-        )
-        grid_kpoints[0, :, :] -= [1, 0, 0]
-        grid_kpoints[:, 0, :] -= [0, 1, 0]
-        grid_kpoints[:, :, 0] -= [0, 0, 1]
-        grid_kpoints[-1, :, :] += [1, 0, 0]
-        grid_kpoints[:, -1, :] += [0, 1, 0]
-        grid_kpoints[:, :, -1] += [0, 0, 1]
-
+    def _setup_interpolators(self, data, grid_kpoints, mesh_dim, sort_idx):
         x = grid_kpoints[:, 0, 0, 0]
         y = grid_kpoints[0, :, 0, 1]
         z = grid_kpoints[0, 0, :, 2]
@@ -86,7 +63,6 @@ class PeriodicLinearInterpolator(object):
                 # flatten remaining axes
                 grid_shape = grid_data.shape[:4] + (-1,)
                 self.interpolators[spin] = (grid, grid_data.reshape(grid_shape))
-                # self.interpolators[spin] = (grid, grid_data)
             else:
                 logger.warning(
                     "Install the 'interpolation' package for improved performance: "
@@ -97,6 +73,35 @@ class PeriodicLinearInterpolator(object):
                 self.interpolators[spin] = RegularGridInterpolator(
                     interp_range, grid_data, bounds_error=False, fill_value=None #, method="nearest"
                 )
+
+    @staticmethod
+    def _grid_kpoints(kpoints):
+        # k-points has to cover the full BZ
+        kpoints = kpoints_to_first_bz(kpoints)
+        mesh_dim = get_mesh_from_kpoint_numbers(kpoints)
+        if np.product(mesh_dim) != len(kpoints):
+            raise ValueError("K-points do not cover full Brillouin zone.")
+
+        kpoints = np.around(kpoints, 5)
+
+        # get the indices to sort the k-points on the Z, then Y, then X columns
+        sort_idx = np.lexsort((kpoints[:, 2], kpoints[:, 1], kpoints[:, 0]))
+
+        # put the kpoints into a 3D grid so that they can be indexed as
+        # kpoints[ikx][iky][ikz] = [kx, ky, kz]
+        grid_kpoints = kpoints[sort_idx].reshape(mesh_dim + (3,))
+
+        # Expand the k-point mesh to account for periodic boundary conditions
+        grid_kpoints = np.pad(
+            grid_kpoints, ((1, 1), (1, 1), (1, 1), (0, 0)), mode="wrap"
+        )
+        grid_kpoints[0, :, :] -= [1, 0, 0]
+        grid_kpoints[:, 0, :] -= [0, 1, 0]
+        grid_kpoints[:, :, 0] -= [0, 0, 1]
+        grid_kpoints[-1, :, :] += [1, 0, 0]
+        grid_kpoints[:, -1, :] += [0, 1, 0]
+        grid_kpoints[:, :, -1] += [0, 0, 1]
+        return grid_kpoints, mesh_dim, sort_idx
 
     def interpolate(self, spin, bands, kpoints):
         v = np.concatenate([np.asarray(bands)[:, None], np.asarray(kpoints)], axis=1)
