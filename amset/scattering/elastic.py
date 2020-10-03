@@ -127,21 +127,15 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
         ) = solve_christoffel_equation(christoffel_tensors)
         if isinstance(self.deformation_potential, DeformationPotentialInterpolator):
             deform = self.deformation_potential.interpolate(spin, [band_idx], [kpoint])
-            deform = deform[0] ** 2
-            # deform = np.eye(3)
+            deform = np.abs(deform[0])
             deform += np.outer(velocity, velocity)  # velocity correction
-
-            # orient v_long and unit_q to face the same direction
-            # the einsum is just pairwise dot product along the first axis
-            unit_q = unit_q * np.sign(np.einsum("ij,ij->i", unit_q, v_long))[:, None]
-
-            strain_long = get_unit_strain_tensors(unit_q, v_long)
-            strain_trans_a = get_unit_strain_tensors(unit_q, v_trans_a)
-            strain_trans_b = get_unit_strain_tensors(unit_q, v_trans_b)
+            strain_long, strain_trans_a, strain_trans_b = prepare_acoustic_strains(
+                unit_q, v_long, v_trans_a, v_trans_b
+            )
             factor = (
-                np.tensordot(strain_long, deform) / c_long
-                + np.tensordot(strain_trans_a, deform) / c_trans_a
-                + np.tensordot(strain_trans_b, deform) / c_trans_b
+                np.tensordot(strain_long, deform) ** 2 / c_long
+                + np.tensordot(strain_trans_a, deform) ** 2 / c_trans_a
+                + np.tensordot(strain_trans_b, deform) ** 2 / c_trans_b
             )
         elif self.is_metal:
             factor = self.deformation_potential ** 2 / c_long
@@ -150,6 +144,20 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
             factor = self.deformation_potential[def_idx] ** 2 / c_long
 
         return factor[None, None] * np.ones(self.fermi_levels.shape + norm_q_sq.shape)
+
+
+def prepare_acoustic_strains(unit_q, v_long, v_trans_a, v_trans_b):
+    # orient v_long and unit_q to face the same direction
+    # the einsum is just pairwise dot product along the first axis
+    sign = np.sign(np.einsum("ij,ij->i", unit_q, v_long))[:, None]
+    v_long *= sign
+    v_trans_a *= sign
+    v_trans_b *= sign
+
+    strain_long = get_unit_strain_tensors(unit_q, v_long)
+    strain_trans_a = get_unit_strain_tensors(unit_q, v_trans_a)
+    strain_trans_b = get_unit_strain_tensors(unit_q, v_trans_b)
+    return strain_long, strain_trans_a, strain_trans_b
 
 
 def get_christoffel_tensors(elastic_constant, unit_q):
