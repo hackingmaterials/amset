@@ -64,12 +64,14 @@ def wave(**kwargs):
     click.echo("")
 
     if pawpyseed:
-        coeffs, gpoints = _wavefunction_pawpy(bs, ibands, planewave_cutoff, **kwargs)
+        coeffs, gpoints, kpoints = _wavefunction_pawpy(
+            bs, ibands, planewave_cutoff, **kwargs
+        )
     else:
         coeffs, gpoints = _wavefunction_vasp(ibands, planewave_cutoff, **kwargs)
+        kpoints = np.array([k.frac_coords for k in bs.kpoints])
 
     structure = vr.final_structure
-    kpoints = np.array([k.frac_coords for k in bs.kpoints])
 
     click.echo("Writing coefficients to {}".format(output))
     write_coefficients(coeffs, gpoints, kpoints, structure, filename=output)
