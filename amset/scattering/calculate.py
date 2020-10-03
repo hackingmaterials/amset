@@ -54,6 +54,12 @@ ni = {
     "low": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
 }
 
+# ni = {
+#     "high": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
+#     "medium": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
+#     "low": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
+# }
+
 
 class ScatteringCalculator(object):
     def __init__(
@@ -403,6 +409,7 @@ class ScatteringCalculator(object):
         k_primes = np.dot(qpoints, np.linalg.inv(rlat)) + k
         k_primes = kpoints_to_first_bz(k_primes)
 
+        # unit q in reciprocal cartesian coordinates
         unit_q = qpoints / np.sqrt(qpoint_norm_sq)[:, None]
         if energy_diff:
             e_fd = _get_fd(energy, self.amset_data)
