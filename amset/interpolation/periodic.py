@@ -71,7 +71,10 @@ class PeriodicLinearInterpolator(object):
                 interp_range = (np.arange(nbands), x, y, z)
 
                 self.interpolators[spin] = RegularGridInterpolator(
-                    interp_range, grid_data, bounds_error=False, fill_value=None #, method="nearest"
+                    interp_range,
+                    grid_data,
+                    bounds_error=False,
+                    fill_value=None,  # , method="nearest"
                 )
 
     @staticmethod

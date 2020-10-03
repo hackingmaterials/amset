@@ -3,10 +3,6 @@ import time
 
 import numpy as np
 
-from amset.electronic_structure.kpoints import (
-    get_kpoints_from_bandstructure,
-    get_mesh_from_kpoint_diff,
-)
 from amset.electronic_structure.symmetry import similarity_transformation
 from amset.log import log_time_taken
 from amset.util import get_progress_bar
