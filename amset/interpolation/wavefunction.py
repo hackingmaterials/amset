@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
+    def __init__(self, kpoints, data, gpoints):
+        self.gpoints = gpoints
+        super().__init__(kpoints, data)
+
     @classmethod
     def from_file(cls, filename):
         coeff, gpoints, kpoints, structure = load_coefficients(filename)
@@ -33,7 +37,7 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
 
         mesh_dim = get_mesh_from_kpoint_numbers(kpoints)
         if np.product(mesh_dim) == len(kpoints):
-            return cls(kpoints, coefficients)
+            return cls(kpoints, coefficients, gpoints)
 
         full_kpoints, *symmetry_mapping = expand_kpoints(
             structure, kpoints, time_reversal=True, return_mapping=True, symprec=symprec
@@ -41,7 +45,7 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         coefficients = desymmetrize_coefficients(
             coefficients, gpoints, kpoints, *symmetry_mapping
         )
-        return cls(full_kpoints, coefficients)
+        return cls(full_kpoints, coefficients, gpoints)
 
     def get_coefficients(self, spin, bands, kpoints):
         interp_coeffs = self.interpolate(spin, bands, kpoints)
