@@ -29,9 +29,10 @@ settings = {
 }
 
 
-runner = Runner.from_vasprun("vasprun.xml.gz", settings)
-amset_data = runner.run()
+if __name__ == "__main__":
+    runner = Runner.from_vasprun("vasprun.xml.gz", settings)
+    amset_data = runner.run()
 
-plotter = RatesPlotter(amset_data)
-plt = plotter.get_plot()
-plt.savefig("GaAs_rates.png", bbox_inches="tight", dpi=400)
+    plotter = RatesPlotter(amset_data)
+    plt = plotter.get_plot()
+    plt.savefig("GaAs_rates.png", bbox_inches="tight", dpi=400)
