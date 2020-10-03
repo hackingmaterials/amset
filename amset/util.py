@@ -1,3 +1,7 @@
+"""
+Module defining utility functions for io and validation.
+"""
+
 import collections
 import copy
 import logging
