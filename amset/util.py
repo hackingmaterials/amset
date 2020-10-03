@@ -316,6 +316,8 @@ def write_mesh_data(mesh_data, filename="mesh.h5"):
                 if isinstance(data[0], str):
                     data = data.astype("S")
                 f.create_dataset(name, data=data)
+            elif data is None:
+                f.create_dataset(name, data=False)
             else:
                 f.create_dataset(name, data=data)
 
@@ -341,8 +343,10 @@ def load_mesh_data(filename):
             return Structure.from_str(data_str, fmt="json")
         if name == "scattering_labels":
             return data[()].astype("U13")  # decode string
-        else:
-            return data[()]
+        if name == "vb_idx":
+            d = data[()]
+            return d if d is not False else None
+        return data[()]
 
     mesh_data = {}
     with h5py.File(filename, "r") as f:
