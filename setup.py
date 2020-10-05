@@ -75,7 +75,7 @@ if __name__ == "__main__":
             "Topic :: Scientific/Engineering",
         ],
         test_suite="nose.collector",
-        tests_require=["nose"],
+        tests_require=["pytest"],
         entry_points={"console_scripts": [
             "amset = amset.tools.cli:cli",
             "desym = amset.tools.desym:desym"
