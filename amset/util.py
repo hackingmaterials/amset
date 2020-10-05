@@ -1,15 +1,14 @@
 """
-Module defining utility functions for io and validation.
+Module defining utility functions.
 """
 
 import collections
 import copy
 import logging
 import sys
-from typing import Any, Dict
+from typing import Any, Union, List, Dict, Tuple, Iterable, Optional
 
 import numpy as np
-from monty.serialization import dumpfn, loadfn
 from tqdm.auto import tqdm
 
 __author__ = "Alex Ganose"
@@ -21,7 +20,17 @@ logger = logging.getLogger(__name__)
 _bar_format = "{desc} {percentage:3.0f}%|{bar}| {elapsed}<{remaining}{postfix}"
 
 
-def validate_settings(user_settings):
+def validate_settings(user_settings: Dict[str, Any]) -> Dict[str, Any]:
+    """Parse, validate and fill amset settings.
+
+    Missing settings will be inferred from the amset defaults.
+
+    Args:
+        user_settings: A dictionary of settings.
+
+    Returns:
+        The validated settings.
+    """
     from amset.constants import defaults
 
     settings = copy.deepcopy(defaults)
@@ -66,7 +75,17 @@ def validate_settings(user_settings):
     return settings
 
 
-def cast_tensor(tensor):
+def cast_tensor(
+    tensor: Union[float, List[float], List[List[float]], np.ndarray]
+) -> np.ndarray:
+    """Cast a number/list into a 3x3 tensor.
+
+    Args:
+        tensor: A number, 3x1 list of numbers, or 3x3 list of numbers.
+
+    Returns:
+        A 3x3 tensor.
+    """
     from amset.constants import numeric_types
 
     if isinstance(tensor, numeric_types):
@@ -82,7 +101,17 @@ def cast_tensor(tensor):
     return tensor
 
 
-def cast_elastic_tensor(elastic_tensor):
+def cast_elastic_tensor(
+    elastic_tensor: Union[int, float, List[List[float]], np.ndarray]
+) -> np.ndarray:
+    """Cast elastic tensor from single value or Voigt to full 3x3x3x3 tensor.
+
+    Args:
+        elastic_tensor: A single number, 6x6 Voigt tensor, or 3x3x3x3 tensor.
+
+    Returns:
+        The elastic constant as a 3x3x3x3 tensor.
+    """
     from pymatgen.core.tensors import Tensor
 
     from amset.constants import numeric_types
@@ -103,15 +132,40 @@ def cast_elastic_tensor(elastic_tensor):
     return np.array(elastic_tensor)
 
 
-def tensor_average(tensor):
+def tensor_average(tensor: Union[List, np.ndarray]) -> float:
+    """Calculate the average of the tensor eigenvalues.
+
+    Args:
+        tensor: A tensor
+
+    Returns:
+        The average of the eigenvalues.
+    """
     return np.average(np.linalg.eigvalsh(tensor), axis=-1)
 
 
-def groupby(a, b):
+def groupby(
+    elements: Union[List[Any], np.ndarray], groups: Union[List[int], np.ndarray]
+) -> np.ndarray:
+    """Groups elements based on the group indices.
+
+    I.e., if elements is `["a", "b", "1", "2", "c", "d"]` and groups is
+    `[2, 0, 1, 2, 0, 0]` the output will be `[["b", "c", "d"], ["1"], ["a", "2"]]`.
+
+    Args:
+        elements: A list of objects.
+        groups: The groups that the objects belong to.
+
+    Returns:
+        A nested list of elements that have been grouped.
+    """
+    groups = np.array(groups)
+    elements = np.array(elements)
+
     # Get argsort indices, to be used to sort a and b in the next steps
-    sidx = b.argsort(kind="mergesort")
-    a_sorted = a[sidx]
-    b_sorted = b[sidx]
+    sidx = groups.argsort(kind="mergesort")
+    a_sorted = elements[sidx]
+    b_sorted = groups[sidx]
 
     # Get the group limit indices (start, stop of groups)
     cut_idx = np.flatnonzero(np.r_[True, b_sorted[1:] != b_sorted[:-1], True])
@@ -123,38 +177,17 @@ def groupby(a, b):
     return out
 
 
-def write_settings_to_file(settings: Dict[str, Any], filename: str):
-    """Write amset configuration settings to a formatted yaml file.
+def cast_dict_list(d):
+    """Recursively cast numpy arrays in a dictionary to lists.
+
+    Also casts pymatgen Spin objects to str.
 
     Args:
-        settings: The configuration settings.
-        filename: A filename.
-    """
-    settings = cast_dict_list(settings)
-    dumpfn(settings, filename, indent=4, default_flow_style=False)
-
-
-def load_settings_from_file(filename: str) -> Dict[str, Any]:
-    """Load amset configuration settings from a yaml file.
-
-    If the settings file does not contain a required parameter, the default
-    value will be added to the configuration.
-
-    An example file is given in *amset/examples/example_settings.yaml*.
-
-    Args:
-        filename: Path to settings file.
+        d: A dictionary.
 
     Returns:
-        The settings, with any missing values set according to the amset defaults.
+        The casted dictionary.
     """
-    logger.info("Loading settings from: {}".format(filename))
-    settings = loadfn(filename)
-
-    return validate_settings(settings)
-
-
-def cast_dict_list(d):
     from pymatgen.electronic_structure.core import Spin
 
     if d is None:
@@ -166,7 +199,7 @@ def cast_dict_list(d):
         if isinstance(k, Spin):
             k = k.name
 
-        if isinstance(v, collections.Mapping):
+        if isinstance(v, collections.abc.Mapping):
             new_d[k] = cast_dict_list(v)
         else:
             # cast values
@@ -180,6 +213,16 @@ def cast_dict_list(d):
 
 
 def cast_dict_ndarray(d):
+    """Recursively cast lists in dictionaries to numpy arrays.
+
+    Also casts the keys "up" and "down" to pymatgen Spin objects.
+
+    Args:
+        d: A dictionary.
+
+    Returns:
+        The casted dictionary.
+    """
     from pymatgen.electronic_structure.core import Spin
 
     if d is None:
@@ -202,7 +245,17 @@ def cast_dict_ndarray(d):
     return new_d
 
 
-def parse_doping(doping_str: str):
+def parse_doping(doping_str: str) -> np.ndarray:
+    """Parse doping string.
+
+    Args:
+        doping_str: String specifying doping. Can be a list of comma separated numbers,
+            or a range specification in log space with start:stop:step
+            (i.e., "1e16:1e19:4" would give `[1e16, 1e17, 1e18, 1e19]`).
+
+    Returns:
+        The doping as a numpy array.
+    """
     doping_str = doping_str.strip().replace(" ", "")
 
     try:
@@ -221,7 +274,17 @@ def parse_doping(doping_str: str):
         raise ValueError("ERROR: Unrecognised doping format: {}".format(doping_str))
 
 
-def parse_temperatures(temperatures_str: str):
+def parse_temperatures(temperatures_str: str) -> np.ndarray:
+    """Parse temperature string.
+
+    Args:
+        temperatures_str: String specifying temperatures. Can be a list of comma
+            separated numbers, or a range specification in with start:stop:step
+            (i.e., "100:400:4" would give `[100, 200, 300, 400]`).
+
+    Returns:
+        The temperatures as a numpy array.
+    """
     temperatures_str = temperatures_str.strip().replace(" ", "")
 
     try:
@@ -242,7 +305,21 @@ def parse_temperatures(temperatures_str: str):
         )
 
 
-def parse_deformation_potential(deformation_pot_str: str):
+def parse_deformation_potential(
+    deformation_pot_str: str,
+) -> Union[str, float, Tuple[float, ...]]:
+    """Parse deformation potential string.
+
+    Args:
+        deformation_pot_str: The deformation potential string. Can be a path to a
+            deformation.h5 file, a single deformation potential to use for all bands
+            or two deformation potentials separated by a comma for valence and
+            conduction bands.
+
+    Returns:
+        The deformation potential(s) or path to deformation potential file.
+    """
+
     if "h5" in deformation_pot_str:
         return deformation_pot_str
 
@@ -266,8 +343,26 @@ def parse_deformation_potential(deformation_pot_str: str):
 
 
 def get_progress_bar(
-    iterable=None, total=None, desc="", min_desc_width=18, prepend_pipe=True
-):
+    iterable: Optional[Iterable] = None,
+    total: Optional[int] = None,
+    desc: str = "",
+    min_desc_width: int = 18,
+    prepend_pipe: bool = True,
+) -> tqdm:
+    """Get a formatted progress bar.
+
+    One of `iterable` or `total` must be specific.
+
+    Args:
+        iterable: An iterable (list, tuple, etc).
+        total: The total number of items in the progress bar.
+        desc: The descriptive label.
+        min_desc_width: Minimum description width.
+        prepend_pipe: Add indent and fancy pipe symbol before description.
+
+    Returns:
+        The progress bar.
+    """
     from amset.constants import output_width
 
     if prepend_pipe:
@@ -297,79 +392,3 @@ def get_progress_bar(
         )
     else:
         raise ValueError("Error creating progress bar, need total or iterable")
-
-
-def load_amset_data(filename):
-    data = loadfn(filename)
-    return cast_dict_ndarray(data)
-
-
-def write_mesh_data(mesh_data, filename="mesh.h5"):
-    import h5py
-    from pymatgen import Structure
-
-    with h5py.File(filename, "w") as f:
-
-        def add_data(name, data):
-            if isinstance(data, np.ndarray):
-                f.create_dataset(name, data=data, compression="gzip")
-            elif isinstance(data, Structure):
-                f["structure"] = np.string_(data.to_json())
-            elif isinstance(data, (tuple, list)):
-                data = np.array(data)
-                if isinstance(data[0], str):
-                    data = data.astype("S")
-                f.create_dataset(name, data=data)
-            elif data is None:
-                f.create_dataset(name, data=False)
-            else:
-                f.create_dataset(name, data=data)
-
-        for key, value in mesh_data.items():
-            if isinstance(value, dict):
-                # dict entries are given for different spins
-                for spin, spin_value in value.items():
-                    key = "{}_{}".format(key, spin.name)
-                    add_data(key, spin_value)
-            else:
-                add_data(key, value)
-
-
-def load_mesh_data(filename):
-    import h5py
-    from pymatgen import Structure
-
-    from amset.constants import str_to_spin
-
-    def read_data(name, data):
-        if name == "structure":
-            data_str = np.string_(data[()]).decode()
-            return Structure.from_str(data_str, fmt="json")
-        if name == "scattering_labels":
-            return data[()].astype("U13")  # decode string
-        if name == "vb_idx":
-            d = data[()]
-            return d if d is not False else None
-        return data[()]
-
-    mesh_data = {}
-    with h5py.File(filename, "r") as f:
-        for key, value in f.items():
-            if "_up" in key or "_down" in key:
-                spin = str_to_spin[key.split("_")[-1]]
-                key = key.replace("_{}".format(spin.name), "")
-                if key not in mesh_data:
-                    mesh_data[key] = {}
-                mesh_data[key][spin] = read_data(key, value)
-            else:
-                mesh_data[key] = read_data(key, value)
-
-    return mesh_data
-
-
-def check_nbands_equal(interpolator, amset_data):
-    nbands_equal = [
-        amset_data.energies[s].shape[0] == interpolator.nbands[s]
-        for s in amset_data.spins
-    ]
-    return np.all(nbands_equal)

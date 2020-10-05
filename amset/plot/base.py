@@ -6,7 +6,8 @@ from monty.serialization import loadfn
 from pkg_resources import resource_filename
 
 from amset.core.data import AmsetData
-from amset.util import cast_dict_ndarray, load_mesh_data
+from amset.util import cast_dict_ndarray
+from amset.io import load_mesh
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -22,7 +23,7 @@ class BaseMeshPlotter(abc.ABC):
                 raise ValueError(
                     "mesh.h5 file needed for plot. Run AMSET with write_mesh=True"
                 )
-            mesh_data = load_mesh_data(mesh_data)
+            mesh_data = load_mesh(mesh_data)
         elif isinstance(mesh_data, AmsetData):
             mesh_data = mesh_data.to_dict(include_mesh=True)["mesh"]
         elif not isinstance(mesh_data, dict):

@@ -8,6 +8,8 @@ import numpy as np
 from BoltzTraP2 import units
 from monty.json import MSONable
 from monty.serialization import dumpfn
+
+from amset.io import write_mesh
 from pymatgen import Spin, Structure
 from tabulate import tabulate
 
@@ -22,10 +24,8 @@ from amset.interpolation.momentum import MRTACalculator
 from amset.log import log_list, log_time_taken
 from amset.util import (
     cast_dict_list,
-    check_nbands_equal,
     groupby,
     tensor_average,
-    write_mesh_data,
 )
 
 __author__ = "Alex Ganose"
@@ -475,7 +475,7 @@ class AmsetData(MSONable):
         self,
         directory: str = ".",
         prefix: Optional[str] = None,
-        write_mesh: bool = defaults["write_mesh"],
+        write_mesh_file: bool = defaults["write_mesh"],
         file_format: str = defaults["file_format"],
         suffix_mesh: bool = True,
     ):
@@ -512,10 +512,18 @@ class AmsetData(MSONable):
         else:
             raise ValueError("Unrecognised output format: {}".format(file_format))
 
-        if write_mesh:
+        if write_mesh_file:
             mesh_data = self.to_dict(include_mesh=True)["mesh"]
             mesh_filename = joinpath(directory, "{}mesh{}.h5".format(prefix, suffix))
-            write_mesh_data(mesh_data, filename=mesh_filename)
+            write_mesh(mesh_data, filename=mesh_filename)
             return filename, mesh_filename
         else:
             return filename
+
+
+def check_nbands_equal(interpolator, amset_data):
+    nbands_equal = [
+        amset_data.energies[s].shape[0] == interpolator.nbands[s]
+        for s in amset_data.spins
+    ]
+    return np.all(nbands_equal)

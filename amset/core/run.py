@@ -29,11 +29,10 @@ from amset.interpolation.wavefunction import WavefunctionOverlapCalculator
 from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator
 from amset.util import (
-    load_settings_from_file,
     tensor_average,
     validate_settings,
-    write_settings_to_file,
 )
+from amset.io import write_settings, load_settings
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -299,7 +298,7 @@ class Runner(MSONable):
 
         filename = amset_data.to_file(
             directory=abs_dir,
-            write_mesh=self.settings["write_mesh"],
+            write_mesh_file=self.settings["write_mesh"],
             prefix=prefix,
             file_format=self.settings["file_format"],
         )
@@ -359,7 +358,7 @@ class Runner(MSONable):
 
         if not settings_file:
             settings_file = joinpath(directory, "settings.yaml")
-        settings = load_settings_from_file(settings_file)
+        settings = load_settings(settings_file)
 
         if settings_override:
             settings.update(settings_override)
@@ -373,7 +372,7 @@ class Runner(MSONable):
             prefix += "_"
 
         filename = joinpath(directory, "{}amset_settings.yaml".format(prefix))
-        write_settings_to_file(self.settings, filename)
+        write_settings(self.settings, filename)
 
 
 def _log_amset_intro():

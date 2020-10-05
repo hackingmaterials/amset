@@ -9,10 +9,9 @@ from pymatgen import Spin
 from tabulate import tabulate
 
 from amset.constants import gpa_to_au
-from amset.core.data import AmsetData
+from amset.core.data import AmsetData, check_nbands_equal
 from amset.electronic_structure.fd import fd
 from amset.interpolation.deformation import DeformationPotentialInterpolator
-from amset.util import check_nbands_equal
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
