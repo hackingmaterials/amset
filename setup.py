@@ -55,6 +55,7 @@ if __name__ == "__main__":
                 "markdown-include==0.5.1",
                 "markdown-katex==202006.1021",
             ],
+            "tests": ["pytest==6.1.1"],
             "all-electron": ["pawpyseed==0.6.3"],
             "dev": [
                 "coverage==5.2",
@@ -64,9 +65,8 @@ if __name__ == "__main__":
                 "pydocstyle==5.0.2",
                 "flake8==3.8.3",
                 "pylint==2.5.3",
-                "pytest==6.1.1",
             ],
-        },
+    },
         classifiers=[
             "Programming Language :: Python :: 3.6",
             "Development Status :: 4 - Beta",
