@@ -46,7 +46,8 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
             coefficients, gpoints, kpoints, *symmetry_mapping
         )
         from pymatgen import Spin
-        print(np.sum(coefficients[Spin.up]))
+
+        logger.info(np.sum(coefficients[Spin.up]))
         return cls(full_kpoints, coefficients, gpoints)
 
     def get_coefficients(self, spin, bands, kpoints):

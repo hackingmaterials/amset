@@ -18,7 +18,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install numpy
 
-        CXX=gcc-9 CC=gcc-9 pip install -e .
+        CXX=gcc-8 CC=gcc-8 pip install -e .
         pip install -e .[tests]
 
     - name: Test
