@@ -27,8 +27,8 @@ use_projections: false  # use orbital projections for overlap (not recommended)
 high_frequency_dielectric: null
 static_dielectric: null
 elastic_constant: null  # in GPa
-deformation_potential: null  # in eV, given for the VBM and CBM
-piezoelectric_coefficient: null  # unitless
+deformation_potential: null  # in eV, given for the VBM and CBM, or path to deformation.h5 file
+piezoelectric_constant: null  # in C/m^2
 acceptor_charge: 1
 donor_charge: 1
 pop_frequency: null  # in THz

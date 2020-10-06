@@ -65,6 +65,9 @@ def validate_settings(user_settings: Dict[str, Any]) -> Dict[str, Any]:
     if settings["elastic_constant"] is not None:
         settings["elastic_constant"] = cast_elastic_tensor(settings["elastic_constant"])
 
+    if settings["piezoelectric_constant"] is not None:
+        settings["piezoelectric_constant"] = cast_piezoelectric_tensor(settings["piezoelectric_constant"])
+
     settings["doping"] = np.asarray(settings["doping"], dtype=np.float)
     settings["temperatures"] = np.asarray(settings["temperatures"])
 
@@ -130,6 +133,31 @@ def cast_elastic_tensor(
         )
 
     return np.array(elastic_tensor)
+
+
+def cast_piezoelectric_tensor(
+    piezoelectric_tensor: Union[np.ndarray, List[List[float]], np.ndarray]
+) -> np.ndarray:
+    """Cast piezoelectric tensor from Voigt form to full 3x3x3 tensor.
+
+    Args:
+        piezoelectric_tensor: A 3x6 Voigt tensor, or 3x3x3 tensor.
+
+    Returns:
+        The piezoelectric constant as a 3x3x3 tensor.
+    """
+    from pymatgen.core.tensors import Tensor
+
+    piezoelectric_tensor = np.array(piezoelectric_tensor)
+    if piezoelectric_tensor.shape == (3, 6):
+        piezoelectric_tensor = Tensor.from_voigt(piezoelectric_tensor)
+
+    if piezoelectric_tensor.shape != (3, 3, 3):
+        raise ValueError(
+            "Unsupported piezoelectric tensor shape. Should be (3, 6) or (3, 3, 3)."
+        )
+
+    return np.array(piezoelectric_tensor)
 
 
 def tensor_average(tensor: Union[List, np.ndarray]) -> float:

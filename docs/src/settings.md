@@ -178,7 +178,9 @@ scattering rates.
 !!! quote ""
     *Command-line option:* `--elastic-constant`
 
-    The direction averaged elastic constant, in GPa.
+    The elastic constants as the full 3x3x3x3 tensor or 6x6 Voigt form, in GPa.
+    
+    Alteratively, a single averaged value can be given (not recommended).
 
     Required for: ACD
 
@@ -186,9 +188,12 @@ scattering rates.
 
 !!! quote ""
     *Command-line option:* `--deformation-potential`
-
-    The volume deformation potential, in eV. Can be given as a comma separated
-    list of two values for the VBM and CBM, respectively, e.g.:
+    
+    Path to file containing deformation potentials for all bands, generated
+    using `amset deform read`.
+    
+    Alternatively, Can be given as a comma separated list of two deformation potentials
+    for the VBM and CBM, respectively in eV, e.g.:
 
     ```python
     8.6, 7.4
@@ -198,12 +203,13 @@ scattering rates.
 
     Required for: ACD
 
-### `piezoelectric_coefficient`
+### `piezoelectric_constant`
 
 !!! quote ""
-    *command-line option:* `--piezoelectric-coefficient`
+    *command-line option:* `--piezoelectric-constant`
 
-    The direction averaged piezoelectric coefficient (unitless).
+    The piezoelectric constants in C/m<sup>2</sup> given as either the full 3x3x3
+    tensor or the 3x6 Voigt form.
 
     Required for: PIE
 

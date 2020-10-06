@@ -5,7 +5,8 @@ import numpy as np
 
 from amset.util import tensor_average, groupby, validate_settings, cast_tensor, \
     cast_elastic_tensor, cast_dict_list, cast_dict_ndarray, parse_doping, \
-    parse_temperatures, parse_deformation_potential, get_progress_bar
+    parse_temperatures, parse_deformation_potential, get_progress_bar, \
+    cast_piezoelectric_tensor
 from pymatgen import Spin
 
 
@@ -62,7 +63,6 @@ _expected_elastic = [
      [[0.0, 0.0, 0.0], [0.0, 0.0, 1.5], [0.0, 1.5, 0.0]],
      [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 3.0]]]
 ]
-
 _elastic_voigt = [
     [3, 0, 0, 0, 0, 0],
     [0, 3, 0, 0, 0, 0],
@@ -71,6 +71,12 @@ _elastic_voigt = [
     [0, 0, 0, 0, 1.5, 0],
     [0, 0, 0, 0, 0, 1.5]
 ]
+_expected_piezo = [
+    [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0084], [0.0, 0.0084, 0.0]],
+    [[0.0, 0.0, 0.0084], [0.0, 0.0, 0.0], [0.0084, 0.0, 0.0]],
+    [[0.0, 0.0084, 0.0], [0.0084, 0.0, 0.0], [0.0, 0.0, 0.0]]
+]
+_piezo_voigt = [[0, 0, 0, 0.0084, 0, 0], [0, 0, 0, 0, 0.0084, 0], [0, 0, 0, 0, 0, 0.0084]]
 
 
 @pytest.mark.parametrize(
@@ -141,11 +147,13 @@ _elastic_voigt = [
                 "static_dielectric": [[0, 1, 2], [3, 4, 5], [6, 7, 8]],
                 "high_frequency_dielectric": [[0, 1, 2], [3, 4, 5], [6, 7, 8]],
                 "elastic_constant": _expected_elastic,
+                "piezoelectric_constant": _piezo_voigt,
             },
             {
                 "static_dielectric": np.arange(9).reshape(3, 3),
                 "high_frequency_dielectric": np.arange(9).reshape(3, 3),
                 "elastic_constant": np.array(_expected_elastic),
+                "piezoelectric_constant": np.array(_expected_piezo),
             },
             id="tensor cast (array)"
         ),
@@ -196,6 +204,17 @@ def test_cast_tensor(value, expected):
 )
 def test_cast_elastic_tensor(value, expected):
     np.testing.assert_array_equal(cast_elastic_tensor(value), expected)
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        pytest.param(_piezo_voigt, _expected_piezo, id="Voigt"),
+        pytest.param(_expected_piezo, _expected_piezo, id="3x3x3"),
+    ]
+)
+def test_cast_piezoelectric_tensor(value, expected):
+    np.testing.assert_array_equal(cast_piezoelectric_tensor(value), expected)
 
 
 @pytest.mark.parametrize(
