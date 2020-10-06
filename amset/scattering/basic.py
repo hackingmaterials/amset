@@ -3,9 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import numpy as np
-from BoltzTraP2.units import Second
 
-from amset.constants import nm_to_bohr
+from amset.constants import nm_to_bohr, s_to_au
 from amset.core.data import AmsetData
 
 __author__ = "Alex Ganose"
@@ -73,7 +72,7 @@ class MeanFreePathScattering(AbstractBasicScattering):
             v[v < 0.005] = 0.005  # handle very small velocities
             velocities = np.tile(v, (len(self.doping), len(self.temperatures), 1, 1))
 
-            rates = velocities * Second / mfp
+            rates = velocities * s_to_au / mfp
             self._rates[spin] = rates[..., amset_data.ir_to_full_kpoint_mapping]
 
     @property

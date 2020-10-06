@@ -9,12 +9,18 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import quadpy
-from BoltzTraP2 import units
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 from scipy.interpolate import griddata
 
-from amset.constants import defaults, hbar, small_val, spin_name
+from amset.constants import (
+    defaults,
+    hbar,
+    small_val,
+    spin_name,
+    ev_to_hartree,
+    boltzmann_au,
+)
 from amset.core.data import AmsetData
 from amset.electronic_structure.fd import fd
 from amset.electronic_structure.kpoints import kpoints_to_first_bz
@@ -84,7 +90,7 @@ class ScatteringCalculator(object):
         self.progress_bar = progress_bar
         self.cache_overlaps = cache_overlaps
 
-        buf = 0.05 * units.eV
+        buf = 0.05 * ev_to_hartree
         if self.amset_data.fd_cutoffs:
             self.scattering_energy_cutoffs = (
                 self.amset_data.fd_cutoffs[0] - buf,
@@ -303,7 +309,7 @@ class ScatteringCalculator(object):
             )
             inelastic_rates = np.zeros(inelastic_prefactors.shape + (nkpoints,))
             f_pop = self.settings["pop_frequency"]
-            energy_diff = f_pop * 1e12 * 2 * np.pi * hbar * units.eV
+            energy_diff = f_pop * 1e12 * 2 * np.pi * hbar * ev_to_hartree
 
             if len(k_idx_in_cutoff) > 0:
                 if self.progress_bar:
@@ -599,6 +605,6 @@ def _get_fd(energy, amset_data):
         f[n, t] = fd(
             energy,
             amset_data.fermi_levels[n, t],
-            amset_data.temperatures[t] * units.BOLTZMANN,
+            amset_data.temperatures[t] * boltzmann_au,
         )
     return f

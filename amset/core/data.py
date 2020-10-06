@@ -5,7 +5,6 @@ from os.path import join as joinpath
 from typing import Dict, List, Optional
 
 import numpy as np
-from BoltzTraP2 import units
 from monty.json import MSONable
 from monty.serialization import dumpfn
 
@@ -13,7 +12,7 @@ from amset.io import write_mesh
 from pymatgen import Spin, Structure
 from tabulate import tabulate
 
-from amset.constants import bohr_to_cm, cm_to_bohr
+from amset.constants import bohr_to_cm, cm_to_bohr, ev_to_hartree, boltzmann_au
 from amset.constants import defaults as defaults
 from amset.constants import hartree_to_ev, spin_name
 from amset.electronic_structure.common import get_angstrom_structure
@@ -129,15 +128,15 @@ class AmsetData(MSONable):
         """
         emin = np.min([np.min(spin_eners) for spin_eners in self.energies.values()])
         emax = np.max([np.max(spin_eners) for spin_eners in self.energies.values()])
-        epoints = int(round((emax - emin) / (estep * units.eV)))
+        epoints = int(round((emax - emin) / (estep * ev_to_hartree)))
         energies = np.linspace(emin, emax, epoints)
         dos_weight = 1 if self._soc or len(self.spins) == 2 else 2
 
         logger.info("DOS parameters:")
         log_list(
             [
-                "emin: {:.2f} eV".format(emin / units.eV),
-                "emax: {:.2f} eV".format(emax / units.eV),
+                "emin: {:.2f} eV".format(emin * hartree_to_ev),
+                "emax: {:.2f} eV".format(emax * hartree_to_ev),
                 "dos weight: {}".format(dos_weight),
                 "n points: {}".format(epoints),
             ]
@@ -220,7 +219,7 @@ class AmsetData(MSONable):
                         pass
 
             fermi_level_info.append(
-                (doping[n], temperatures[t], self.fermi_levels[n, t] / units.eV)
+                (doping[n], temperatures[t], self.fermi_levels[n, t] * hartree_to_ev)
             )
 
         table = tabulate(
@@ -267,7 +266,7 @@ class AmsetData(MSONable):
             for n, t in np.ndindex(self.fermi_levels.shape):
                 ef = self.fermi_levels[n, t]
                 temp = self.temperatures[t]
-                dfde = -dfdde(energies, ef, temp * units.BOLTZMANN)
+                dfde = -dfdde(energies, ef, temp * boltzmann_au)
 
                 for moment in range(max_moment + 1):
                     weight = np.abs((energies - ef) ** moment * dfde)
@@ -309,8 +308,8 @@ class AmsetData(MSONable):
         logger.info("Calculated Fermi–Dirac cut-offs:")
         log_list(
             [
-                "min: {:.3f} eV".format(min_cutoff / units.eV),
-                "max: {:.3f} eV".format(max_cutoff / units.eV),
+                "min: {:.3f} eV".format(min_cutoff * hartree_to_ev),
+                "max: {:.3f} eV".format(max_cutoff * hartree_to_ev),
             ]
         )
         self.fd_cutoffs = (min_cutoff, max_cutoff)

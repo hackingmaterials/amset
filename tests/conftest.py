@@ -22,16 +22,6 @@ def example_dir():
 
 
 @pytest.fixture
-def silicon_dir(example_dir):
-    return example_dir / "Si"
-
-
-@pytest.fixture
-def gallium_arsenide_dir(example_dir):
-    return example_dir / "GaAs"
-
-
-@pytest.fixture
 def log_to_stdout():
     # Set Logging
     root = logging.getLogger()

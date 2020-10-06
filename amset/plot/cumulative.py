@@ -1,8 +1,7 @@
 import numpy as np
-from BoltzTraP2 import units
 from sumo.plotting import pretty_plot, styled_plot
 
-from amset.constants import bohr_to_m, bohr_to_nm
+from amset.constants import bohr_to_m, bohr_to_nm, boltzmann_au, s_to_au
 from amset.electronic_structure.fd import dfdde
 from amset.plot import BaseMeshPlotter, amset_base_style
 
@@ -100,7 +99,7 @@ class CumulativePlotter(BaseMeshPlotter):
         ef = self.fermi_levels[n_idx, t_idx]
         temp = self.temperatures[t_idx]
 
-        dfde = -dfdde(energies, ef, temp * units.BOLTZMANN)
+        dfde = -dfdde(energies, ef, temp * boltzmann_au)
         nkpoints = len(self.kpoints)
 
         integrand = velocities ** 2 * lifetimes * dfde * weights[None, :] / nkpoints
@@ -119,7 +118,7 @@ class CumulativePlotter(BaseMeshPlotter):
         velocities = {s: np.linalg.norm(v, axis=2) for s, v in self.velocities.items()}
         all_velocities = np.concatenate([v for v in velocities.values()])
         all_velocities[all_velocities < 0.005] = 0.005  # handle very small velocities
-        return all_velocities * units.Second
+        return all_velocities * s_to_au
 
     def _get_scattering_rates(self, n_idx, t_idx):
         rates = self.scattering_rates.values()

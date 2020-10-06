@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
-from BoltzTraP2 import units
 from memory_profiler import memory_usage
 from monty.json import MSONable
 from pymatgen import Structure
@@ -21,7 +20,7 @@ from pymatgen.util.string import unicodeify, unicodeify_spacegroup
 from tabulate import tabulate
 
 from amset import __version__
-from amset.constants import bohr_to_cm, hbar, numeric_types
+from amset.constants import bohr_to_cm, hbar, numeric_types, ev_to_hartree
 from amset.core.transport import solve_boltzman_transport_equation
 from amset.interpolation.bandstructure import Interpolator
 from amset.interpolation.projections import ProjectionOverlapCalculator
@@ -609,5 +608,5 @@ def _get_cutoff_pad(pop_frequency, scattering_type):
         # pop scattering from a kpoints, k, to kpoints with energies above and below
         # k. We therefore need k-points above and below to be within the cut-offs
         # otherwise scattering cannot occur
-        cutoff_pad = pop_frequency * hbar * units.eV
+        cutoff_pad = pop_frequency * hbar * ev_to_hartree
     return cutoff_pad

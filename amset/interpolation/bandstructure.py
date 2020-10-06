@@ -8,7 +8,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from BoltzTraP2 import fite, sphere
-from BoltzTraP2.fite import Second
 from monty.json import MSONable
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure,
@@ -19,7 +18,7 @@ from pymatgen.electronic_structure.dos import Dos
 from pymatgen.io.ase import AseAtomsAdaptor
 from sumo.symmetry import Kpath, PymatgenKpath
 
-from amset.constants import angstrom_to_bohr, bohr_to_cm
+from amset.constants import angstrom_to_bohr, bohr_to_cm, au_to_s
 from amset.constants import defaults as defaults
 from amset.constants import ev_to_hartree, hartree_to_ev, numeric_types, spin_name
 from amset.core.data import AmsetData
@@ -738,7 +737,7 @@ def _convert_velocities(
     Returns:
         The velocities in cm/s.
     """
-    velocities *= bohr_to_cm * Second
+    velocities *= bohr_to_cm / au_to_s
     return velocities
 
 
