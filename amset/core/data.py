@@ -21,11 +21,7 @@ from amset.electronic_structure.fd import dfdde
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.interpolation.momentum import MRTACalculator
 from amset.log import log_list, log_time_taken
-from amset.util import (
-    cast_dict_list,
-    groupby,
-    tensor_average,
-)
+from amset.util import cast_dict_list, groupby, tensor_average
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

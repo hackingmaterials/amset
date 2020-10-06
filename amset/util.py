@@ -66,7 +66,9 @@ def validate_settings(user_settings: Dict[str, Any]) -> Dict[str, Any]:
         settings["elastic_constant"] = cast_elastic_tensor(settings["elastic_constant"])
 
     if settings["piezoelectric_constant"] is not None:
-        settings["piezoelectric_constant"] = cast_piezoelectric_tensor(settings["piezoelectric_constant"])
+        settings["piezoelectric_constant"] = cast_piezoelectric_tensor(
+            settings["piezoelectric_constant"]
+        )
 
     settings["doping"] = np.asarray(settings["doping"], dtype=np.float)
     settings["temperatures"] = np.asarray(settings["temperatures"])

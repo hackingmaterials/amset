@@ -27,10 +27,7 @@ from amset.interpolation.projections import ProjectionOverlapCalculator
 from amset.interpolation.wavefunction import WavefunctionOverlapCalculator
 from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator
-from amset.util import (
-    tensor_average,
-    validate_settings,
-)
+from amset.util import tensor_average, validate_settings
 from amset.io import write_settings, load_settings
 
 __author__ = "Alex Ganose"

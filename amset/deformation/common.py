@@ -41,7 +41,7 @@ def get_formatted_tensors(tensors):
 
 
 def desymmetrize_deformation_potentials(
-    deformation_potentials, structure, rotations, op_mapping, kp_mapping, pbar=True,
+    deformation_potentials, structure, rotations, op_mapping, kp_mapping, pbar=True
 ):
     logger.info("Desymmetrizing deformation potentials")
     t0 = time.perf_counter()
@@ -56,7 +56,7 @@ def desymmetrize_deformation_potentials(
     all_deformation_potentials = {}
     for spin, spin_deformation_potentials in deformation_potentials.items():
         all_deformation_potentials[spin] = np.zeros(
-            (len(spin_deformation_potentials), len(sims), 3, 3),
+            (len(spin_deformation_potentials), len(sims), 3, 3)
         )
 
         state_idxs = list(np.ndindex((len(spin_deformation_potentials), len(sims))))
