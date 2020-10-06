@@ -404,6 +404,7 @@ class ScatteringCalculator(object):
             cross_section_weights=cs_weights,
         )
         qpoint_norm_sq = np.sum(qpoints ** 2, axis=-1)
+        print("qpoints", qpoints[:10])
 
         k_primes = np.dot(qpoints, np.linalg.inv(rlat)) + k
         k_primes = kpoints_to_first_bz(k_primes)
@@ -426,6 +427,9 @@ class ScatteringCalculator(object):
                 s.factor(unit_q, qpoint_norm_sq, spin, b_idx, k, velocity)
                 for s in self.elastic_scatterers
             ]
+
+        print("mrta_factor", mrta_factor[:10])
+        print("overlap", tet_overlap[mapping][:10])
 
         rates = np.array(rates)
         rates /= self.amset_data.structure.lattice.reciprocal_lattice.volume
