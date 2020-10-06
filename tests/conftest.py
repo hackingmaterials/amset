@@ -15,6 +15,23 @@ def test_dir():
 
 
 @pytest.fixture
+def example_dir():
+    root_dir = Path(__file__).resolve().parent.parent
+    example_dir = root_dir / "examples"
+    return example_dir.resolve()
+
+
+@pytest.fixture
+def silicon_dir(example_dir):
+    return example_dir / "Si"
+
+
+@pytest.fixture
+def gallium_arsenide_dir(example_dir):
+    return example_dir / "GaAs"
+
+
+@pytest.fixture
 def log_to_stdout():
     # Set Logging
     root = logging.getLogger()
