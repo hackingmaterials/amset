@@ -234,7 +234,7 @@ def cast_dict_ndarray(d):
         if isinstance(k, str) and k in ["up", "down"]:
             k = Spin.up if "k" == "up" else Spin.up
 
-        if isinstance(v, collections.Mapping):
+        if isinstance(v, collections.abc.Mapping):
             new_d[k] = cast_dict_ndarray(v)
         else:
             # cast values

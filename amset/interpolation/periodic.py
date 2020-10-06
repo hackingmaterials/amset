@@ -13,6 +13,7 @@ try:
     import interpolation
 except ImportError:
     interpolation = None
+interpolation = None
 
 
 logger = logging.getLogger(__name__)
