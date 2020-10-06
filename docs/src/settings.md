@@ -91,6 +91,8 @@ temperature/doping ranges.
     - `IMP` (ionized impurity scattering)
     - `PIE` (piezoelectric scattering)
     - `POP` (polar optical phonon scattering)
+    - `CRT` (constant relaxation time)
+    - `MFP` (mean free path scattering)
 
     For example, `ACD,IMP,POP`. The scattering mechanism will only be calculated
     if all the required material parameters for that mechanism are set. See the
