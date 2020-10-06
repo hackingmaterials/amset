@@ -98,15 +98,15 @@ gaas_transport = {
 }
 
 test_data = [
-    # pytest.param(
-    #     "Si",
-    #     si_settings_no_mesh,
-    #     si_transport_projections,
-    #     0.001,
-    #     ["transport", "!mesh"],
-    #     ["ADP", "IMP"],
-    #     id="Si (no mesh, projections, simple scats)",
-    # ),
+    pytest.param(
+        "Si",
+        si_settings_no_mesh,
+        si_transport_projections,
+        0.001,
+        ["transport", "!mesh"],
+        ["ADP", "IMP"],
+        id="Si (no mesh, projections, simple scats)",
+    ),
     pytest.param(
         "Si",
         si_settings_mesh,
@@ -125,15 +125,15 @@ test_data = [
         ["ADP", "IMP"],
         id="Si (wavefunction, best scats)",
     ),
-    # pytest.param(
-    #     "GaAs",
-    #     gaas_settings_wavefunction,
-    #     gaas_transport,
-    #     0.001,
-    #     ["transport", "!mesh"],
-    #     ["ADP", "IMP", "POP"],
-    #     id="GaAs (wavefunction, best scats)",
-    # ),
+    pytest.param(
+        "GaAs",
+        gaas_settings_wavefunction,
+        gaas_transport,
+        0.001,
+        ["transport", "!mesh"],
+        ["ADP", "IMP", "POP"],
+        id="GaAs (wavefunction, best scats)",
+    ),
 ]
 
 
