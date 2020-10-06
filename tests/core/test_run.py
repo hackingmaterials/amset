@@ -32,6 +32,7 @@ si_settings_no_mesh: Dict[str, Any] = {
     "elastic_constant": 190,
     "static_dielectric": 13.1,
     "use_projections": True,
+    "nworkers": 1,
 }
 si_settings_mesh = deepcopy(si_settings_no_mesh)
 si_settings_mesh.update({"write_mesh": True})
@@ -84,6 +85,7 @@ gaas_settings_wavefunction = {
     "static_dielectric": 12.18,
     "high_frequency_dielectric": 10.32,
     "pop_frequency": 8.16,
+    "nworkers": 1,
 }
 gaas_transport = {
     ("mobility", ("overall", (0, 0))): 21146.50712288404,
