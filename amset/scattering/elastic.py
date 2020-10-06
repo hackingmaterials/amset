@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
@@ -63,7 +65,7 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
         self._prefactor = BOLTZMANN * units.Second
 
         self.deformation_potential = self.properties["deformation_potential"]
-        if isinstance(self.deformation_potential, str):
+        if isinstance(self.deformation_potential, (str, Path)):
             self.deformation_potential = DeformationPotentialInterpolator.from_file(
                 self.deformation_potential, scale=units.eV
             )

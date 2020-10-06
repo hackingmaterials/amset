@@ -1,6 +1,5 @@
 """
-This module implements methods to calculate electron scattering based on an
-AmsetData object.
+This module implements methods to calculate electron scattering.
 """
 
 import logging
