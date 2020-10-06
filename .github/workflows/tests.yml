@@ -20,4 +20,9 @@ jobs:
         pip install -e .
 
     - name: Test
-      run: python setup.py test
+      run: pytest --cov=amset --cov-report=xml
+
+    - uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage.xml
