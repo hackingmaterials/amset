@@ -4,6 +4,10 @@
 
 ## v0.2.1
 
+Fix PyPi installation.
+
+## v0.2.1
+
 Fix GitHub releases.
 
 ## v0.2.0
