@@ -13,7 +13,7 @@ nav:
   - Introduction: index.md
   - Installation: installation.md
   - Getting Started: using.md
-  - Materials Properties: properties.md
+  - Calculation Inputs: inputs.md
   - Settings: settings.md
   - Scattering Rates: scattering.md
   - Transport Properties: transport-properties.md
