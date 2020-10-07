@@ -22,6 +22,7 @@ jobs:
           pip install setuptools setuptools_scm wheel
           pip install numpy
           pip install -e .
+          pip install -e .[tests]
 
       - name: Test
         run: pytest
