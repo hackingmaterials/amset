@@ -4,16 +4,7 @@
 
 ## v0.2.1
 
-Major update with many new features:
-- Elastic, dielectric, and piezoelectric tensors are now supported.
-- Wave function coefficients are now desymmetrised on the fly, meaning 
-  `wavefunction.h5` files are much smaller.
-- New tool to extract wave function coefficients that removes the `pawpyseed`  and is 
-  much faster. This is a python only implementation and doesn't require compiling any 
-  additional codes.
-- Mesh properties (scattering rates etc, energies, velocities) stored in a separate 
-  mesh.h5 file which is much smaller and faster to read.
-- Revamped unit tests.
+Fix GitHub releases.
 
 ## v0.2.0
 
