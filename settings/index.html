@@ -370,8 +370,8 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#piezoelectric_coefficient" class="md-nav__link">
-    piezoelectric_coefficient
+  <a href="#piezoelectric_constant" class="md-nav__link">
+    piezoelectric_constant
   </a>
   
 </li>
@@ -753,8 +753,8 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#piezoelectric_coefficient" class="md-nav__link">
-    piezoelectric_coefficient
+  <a href="#piezoelectric_constant" class="md-nav__link">
+    piezoelectric_constant
   </a>
   
 </li>
@@ -952,12 +952,10 @@ Concentrations given with the unit cm<sup>–3</sup>. Can be specified directly 
 separated list, e.g.:</p>
 <div class="highlight"><pre><span></span><code><span class="mf">1E13</span><span class="p">,</span><span class="mf">1E14</span><span class="p">,</span><span class="mf">1E15</span><span class="p">,</span><span class="mf">1E16</span><span class="p">,</span><span class="mf">1E17</span><span class="p">,</span><span class="mf">1E18</span><span class="p">,</span><span class="mf">1E19</span><span class="p">,</span><span class="mf">1E20</span>
 </code></pre></div>
-
 <p>Alternatively, ranges can be specified using the syntax <code>start:stop:num_steps</code>.
 For example, the same doping concentrations as above can be written::</p>
 <div class="highlight"><pre><span></span><code><span class="mf">1E13</span><span class="p">:</span><span class="mf">1E20</span><span class="p">:</span><span class="mi">8</span>
 </code></pre></div>
-
 <p>Negative concentrations indicate electrons (<em>n</em>-type doping), positive concentrations
 indicate holes (<em>p</em>-type doping).</p>
 <p>Default: <code>['1.e15', '1.e16', '1.e17', '1.e18', '1.e19', '1.e20', '-1.e15', '-1.e16', '-1.e17', '-1.e18', '-1.e19', '-1.e20']</code></p>
@@ -969,12 +967,10 @@ indicate holes (<em>p</em>-type doping).</p>
 specified directly as a comma separated list, e.g.::</p>
 <div class="highlight"><pre><span></span><code><span class="mi">300</span><span class="p">,</span><span class="mi">400</span><span class="p">,</span><span class="mi">500</span><span class="p">,</span><span class="mi">600</span><span class="p">,</span><span class="mi">700</span><span class="p">,</span><span class="mi">800</span><span class="p">,</span><span class="mi">900</span><span class="p">,</span><span class="mi">1000</span>
 </code></pre></div>
-
 <p>Alternatively, ranges can be specified using the syntax <code>start:stop:num_steps</code>,
 For example, the same temperature range as above can be written::</p>
 <div class="highlight"><pre><span></span><code><span class="mi">300</span><span class="p">:</span><span class="mi">1000</span><span class="p">:</span><span class="mi">8</span>
 </code></pre></div>
-
 <p>Default: <code>[300]</code></p>
 </div>
 <h3 id="interpolation_factor"><code>interpolation_factor</code><a class="headerlink" href="#interpolation_factor" title="Permanent link">&para;</a></h3>
@@ -1000,6 +996,8 @@ can be specified. Options include:</p>
 <li><code>IMP</code> (ionized impurity scattering)</li>
 <li><code>PIE</code> (piezoelectric scattering)</li>
 <li><code>POP</code> (polar optical phonon scattering)</li>
+<li><code>CRT</code> (constant relaxation time)</li>
+<li><code>MFP</code> (mean free path scattering)</li>
 </ul>
 <p>For example, <code>ACD,IMP,POP</code>. The scattering mechanism will only be calculated
 if all the required material parameters for that mechanism are set. See the
@@ -1013,7 +1011,6 @@ if all the required material parameters for that mechanism are set. See the
 from a VASP WAVECAR using the command:</p>
 <div class="highlight"><pre><span></span><code>amset wave
 </code></pre></div>
-
 <p>This command also requires the vasprun.xml to be in the same folder.</p>
 <p>Default: <code>wavefunction.h5</code></p>
 </div>
@@ -1048,36 +1045,39 @@ scattering rates.</p>
 <p><em>Command-line option:</em> <code>--high-frequency-dielectric</code></p>
 <p>The high-frequency dielectric constant, in units of <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϵ</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\epsilon_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>.
 Can be given as a 3x3 tensor or a single isotropic value.</p>
-<p>Required for: POP</p>
+<p>Required for: POP, PIE</p>
 </div>
 <h3 id="static_dielectric"><code>static_dielectric</code><a class="headerlink" href="#static_dielectric" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code>--static-dielectric</code></p>
 <p>The static dielectric constant, in units of <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϵ</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\epsilon_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">ϵ</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>.
 Can be given as a 3x3 tensor or a single isotropic value.</p>
-<p>Required for: IMP, PIE, POP</p>
+<p>Required for: IMP, POP</p>
 </div>
 <h3 id="elastic_constant"><code>elastic_constant</code><a class="headerlink" href="#elastic_constant" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code>--elastic-constant</code></p>
-<p>The direction averaged elastic constant, in GPa.</p>
-<p>Required for: ACD</p>
+<p>The elastic constants as the full 3x3x3x3 tensor or 6x6 Voigt form, in GPa.</p>
+<p>Alteratively, a single averaged value can be given (not recommended).</p>
+<p>Required for: ACD, PIE</p>
 </div>
 <h3 id="deformation_potential"><code>deformation_potential</code><a class="headerlink" href="#deformation_potential" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code>--deformation-potential</code></p>
-<p>The volume deformation potential, in eV. Can be given as a comma separated
-list of two values for the VBM and CBM, respectively, e.g.:</p>
+<p>Path to file containing deformation potentials for all bands, generated
+using <code>amset deform read</code>.</p>
+<p>Alternatively, Can be given as a comma separated list of two deformation potentials
+for the VBM and CBM, respectively in eV, e.g.:</p>
 <div class="highlight"><pre><span></span><code><span class="mf">8.6</span><span class="p">,</span> <span class="mf">7.4</span>
 </code></pre></div>
-
 <p>Or a single value to use for all bands in metals.</p>
 <p>Required for: ACD</p>
 </div>
-<h3 id="piezoelectric_coefficient"><code>piezoelectric_coefficient</code><a class="headerlink" href="#piezoelectric_coefficient" title="Permanent link">&para;</a></h3>
+<h3 id="piezoelectric_constant"><code>piezoelectric_constant</code><a class="headerlink" href="#piezoelectric_constant" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>command-line option:</em> <code>--piezoelectric-coefficient</code></p>
-<p>The direction averaged piezoelectric coefficient (unitless).</p>
+<p><em>command-line option:</em> <code>--piezoelectric-constant</code></p>
+<p>The piezoelectric constants (<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="bold">e</mi></mrow><annotation encoding="application/x-tex">\mathbf{e}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.44444em;vertical-align:0em;"></span><span class="mord"><span class="mord mathbf">e</span></span></span></span></span>) in C/m<sup>2</sup> given as either the 
+full 3x3x3 tensor or the 3x6 Voigt form.</p>
 <p>Required for: PIE</p>
 </div>
 <h3 id="acceptor_charge"><code>acceptor_charge</code><a class="headerlink" href="#acceptor_charge" title="Permanent link">&para;</a></h3>

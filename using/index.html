@@ -452,18 +452,15 @@ documentation. An example settings file is given
 menu listing a summary of the command-line options can be printed using:</p>
 <div class="highlight"><pre><span></span><code>amset run -h
 </code></pre></div>
-
 <p>By default, AMSET will look for a <code>vasprun.xml</code> file and <code>settings.yaml</code>
 file in the current directory. A different directory can be specified using
 the <code>directory</code> option, e.g.:</p>
 <div class="highlight"><pre><span></span><code>amset run --directory path/to/files
 </code></pre></div>
-
 <p>Any settings specified via the command line will override those in the settings
 file. For example, the interpolation factor can be easily controlled using:</p>
 <div class="highlight"><pre><span></span><code>amset run --interpolation-factor <span class="m">20</span>
 </code></pre></div>
-
 <h2 id="from-the-python-api">From the Python API<a class="headerlink" href="#from-the-python-api" title="Permanent link">&para;</a></h2>
 <p>Greater configurability is available when running AMSET from the Python API.
 For example, the following snippet will look for a <code>vasprun.xml</code> and
@@ -474,7 +471,6 @@ For example, the following snippet will look for a <code>vasprun.xml</code> and
     <span class="n">runner</span> <span class="o">=</span> <span class="n">Runner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
     <span class="n">amset_data</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 </code></pre></div>
-
 <p>The API allows for easy convergence of parameters. For example,
 the following snippet will run AMSET using multiple interpolation factors.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">Runner</span>
@@ -489,7 +485,6 @@ the following snippet will run AMSET using multiple interpolation factors.</p>
         <span class="n">runner</span> <span class="o">=</span> <span class="n">Runner</span><span class="o">.</span><span class="n">from_directory</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">settings_override</span><span class="o">=</span><span class="n">settings</span><span class="p">)</span>
         <span class="n">outputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">())</span>
 </code></pre></div>
-
 <p>When running AMSET from the API, it is not necessary to use a settings file
 at all. Instead the settings can be passed as a dictionary. For example:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">amset.core.run</span> <span class="kn">import</span> <span class="n">Runner</span>
