@@ -9,6 +9,7 @@ Fix GitHub releases.
 ## v0.2.0
 
 Major update with many new features:
+
 - Elastic, dielectric, and piezoelectric tensors are now supported.
 - Wave function coefficients are now desymmetrised on the fly, meaning 
   `wavefunction.h5` files are much smaller.
