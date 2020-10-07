@@ -249,7 +249,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
 class PiezoelectricScattering(AbstractElasticScattering):
 
     name = "PIE"
-    required_properties = ("piezoelectric_constant", "elastic_constant")
+    required_properties = ("piezoelectric_constant", "elastic_constant", "high_frequency_dielectric")
 
     def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
         super().__init__(materials_properties, amset_data)
@@ -258,9 +258,12 @@ class PiezoelectricScattering(AbstractElasticScattering):
         self._shape = np.ones((len(self.doping), len(self.temperatures)))
         self.fermi_levels = amset_data.fermi_levels
         self.elastic_constant = self.properties["elastic_constant"] * gpa_to_au
-        self.piezoelectric_constant = (
-            self.properties["piezoelectric_constant"] * coulomb_to_au / m_to_bohr ** 2
-        )
+        e = self.properties["piezoelectric_constant"] * coulomb_to_au / m_to_bohr ** 2
+        dielectric = self.properties["high_frequency_dielectric"] / (4 * np.pi)
+        inv_dielectric = np.linalg.inv(dielectric)
+
+        # use h piezoelectric coefficient (Stress-Voltage)
+        self.piezoelectric_constant = np.einsum("mn,mkl->nkl", inv_dielectric, e)
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (ndops, ntemps)
@@ -297,7 +300,7 @@ class PiezoelectricScattering(AbstractElasticScattering):
         return (
             factor[None, None]
             * np.ones(self.fermi_levels.shape + norm_q_sq.shape)
-            / (norm_q_sq[None, None, :] + 1e-8)
+            / (norm_q_sq[None, None, :] + 1e-12)
         )
 
 
