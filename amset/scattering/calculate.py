@@ -56,7 +56,10 @@ ni = {
         "triangle": quadpy.t2.schemes["xiao_gimbutas_06"](),
         "quad": quadpy.c2.schemes["sommariva_06"](),
     },
-    "low": {"triangle": quadpy.t2.schemes["centroid"](), "quad": quadpy.c2.schemes["dunavant_00"]()},
+    "low": {
+        "triangle": quadpy.t2.schemes["centroid"](),
+        "quad": quadpy.c2.schemes["dunavant_00"](),
+    },
 }
 
 # ni = {
