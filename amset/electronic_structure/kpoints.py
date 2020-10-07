@@ -1,21 +1,23 @@
+import logging
 from typing import List, Tuple, Union
 
 import numpy as np
-from spglib import spglib
-
-from amset.constants import defaults
 from pymatgen import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
+from spglib import spglib
+
+from amset.constants import defaults, ktol
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
-_SYMPREC = defaults["symprec"]
-_KTOL = 1e-5
+logger = logging.getLogger(__name__)
 
 
-def kpoints_to_first_bz(kpoints: np.ndarray, tol=_KTOL) -> np.ndarray:
+def kpoints_to_first_bz(
+    kpoints: np.ndarray, tol=ktol, negative_zone_boundary: bool = True
+) -> np.ndarray:
     """Translate fractional k-points to the first Brillouin zone.
 
     I.e. all k-points will have fractional coordinates:
@@ -23,6 +25,9 @@ def kpoints_to_first_bz(kpoints: np.ndarray, tol=_KTOL) -> np.ndarray:
 
     Args:
         kpoints: The k-points in fractional coordinates.
+        tol: Fractional tolerance for evaluating zone boundary points.
+        negative_zone_boundary: Whether to use -0.5 (spglib convention) or
+            0.5 (VASP convention) for zone boundary points.
 
     Returns:
         The translated k-points.
@@ -33,74 +38,11 @@ def kpoints_to_first_bz(kpoints: np.ndarray, tol=_KTOL) -> np.ndarray:
     round_dp = int(np.log10(1 / tol))
     krounded = np.round(kp, round_dp)
 
-    kp[krounded == 0.5] = -0.5
-    return kp
-
-
-def get_symmetry_equivalent_kpoints(
-    structure,
-    kpoints,
-    symprec=_SYMPREC,
-    tol=_KTOL,
-    return_inverse=False,
-    time_reversal_symmetry=True,
-):
-    round_dp = int(np.log10(1 / tol))
-
-    def shift_and_round(k):
-        k = kpoints_to_first_bz(k)
-        k = np.round(k, round_dp)
-        return list(map(tuple, k))
-
-    kpoints = np.asarray(kpoints)
-    round_kpoints = shift_and_round(kpoints)
-
-    rotation_matrices = get_reciprocal_point_group_operations(
-        structure, symprec=symprec, time_reversal_symmetry=time_reversal_symmetry
-    )
-
-    equiv_points_mapping = {}
-    rotation_matrix_mapping = {}
-    mapping = []
-    rot_mapping = []
-
-    for i, point in enumerate(round_kpoints):
-
-        if point in equiv_points_mapping:
-            map_idx = equiv_points_mapping[point]
-            mapping.append(map_idx)
-            rot_mapping.append(rotation_matrix_mapping[map_idx][point])
-        else:
-            new_points = shift_and_round(np.dot(rotation_matrices, kpoints[i]))
-
-            equiv_points_mapping.update(zip(new_points, [i] * len(new_points)))
-            rotation_matrix_mapping[i] = dict(zip(new_points, rotation_matrices))
-
-            mapping.append(i)
-            rot_mapping.append(np.eye(3))
-
-    ir_kpoints_idx, ir_to_full_idx, weights = np.unique(
-        mapping, return_inverse=True, return_counts=True
-    )
-
-    ir_kpoints = kpoints[ir_kpoints_idx]
-
-    if return_inverse:
-        return (
-            ir_kpoints,
-            weights,
-            ir_kpoints_idx,
-            ir_to_full_idx,
-            np.array(mapping),
-            np.array(rot_mapping),
-        )
+    if negative_zone_boundary:
+        kp[krounded == 0.5] = -0.5
     else:
-        return ir_kpoints, weights
-
-
-def similarity_transformation(rot, mat):
-    """ R x M x R^-1 """
-    return np.dot(rot, np.dot(mat, np.linalg.inv(rot)))
+        kp[krounded == -0.5] = 0.5
+    return kp
 
 
 def sort_boltztrap_to_spglib(kpoints):
@@ -132,7 +74,7 @@ def sort_boltztrap_to_spglib(kpoints):
 def get_kpoints_tetrahedral(
     kpoint_mesh: Union[float, List[int]],
     structure: Structure,
-    symprec: float = _SYMPREC,
+    symprec: float = defaults["symprec"],
     time_reversal_symmetry: bool = True,
 ) -> Tuple[np.ndarray, ...]:
     """Gets the symmetry inequivalent k-points from a k-point mesh.
@@ -208,8 +150,7 @@ def get_kpoints_tetrahedral(
 
 
 def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool = True):
-    """Calculate reciprocal-space sampling with real-space cut-off.
-    """
+    """Calculate reciprocal-space sampling with real-space cut-off."""
     reciprocal_lattice = structure.lattice.reciprocal_lattice_crystallographic
 
     # Get reciprocal cell vector magnitudes
@@ -223,47 +164,17 @@ def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool 
     return mesh
 
 
-def expand_kpoints(
-    structure, kpoints, symprec=_SYMPREC, tol=_KTOL, time_reversal_symmetry=True
-):
-    round_dp = int(np.log10(1 / tol))
+def get_mesh_from_kpoint_diff(kpoints):
+    kpoints = np.array(kpoints)
+    nx = 1 / np.min(np.diff(np.unique(kpoints[:, 0])))
+    ny = 1 / np.min(np.diff(np.unique(kpoints[:, 1])))
+    nz = 1 / np.min(np.diff(np.unique(kpoints[:, 2])))
 
-    def shift_and_round(k):
-        k = kpoints_to_first_bz(k)
-        k = np.round(k, round_dp)
-        return list(map(tuple, k))
-
-    rotation_matrices = get_reciprocal_point_group_operations(
-        structure, symprec=symprec, time_reversal_symmetry=time_reversal_symmetry
-    )
-
-    kpoints = kpoints_to_first_bz(kpoints)
-    full_kpoints = []
-    reduced_to_full_idx = []
-    rot_mapping = []
-    equiv_points_mapping = {}
-
-    for i, kpoint in enumerate(kpoints):
-
-        symmetrized_kpoints = kpoints_to_first_bz(np.dot(rotation_matrices, kpoint))
-        symmetrized_round_kpoints = shift_and_round(symmetrized_kpoints)
-        _, unique_idxs = np.unique(symmetrized_round_kpoints, axis=0, return_index=True)
-
-        for ui in unique_idxs:
-            spoint = symmetrized_kpoints[ui]
-            spoint_round = symmetrized_round_kpoints[ui]
-            rotation_matrix = rotation_matrices[ui]
-
-            if spoint_round not in equiv_points_mapping:
-                full_kpoints.append(spoint)
-                equiv_points_mapping[spoint_round] = i
-                reduced_to_full_idx.append(i)
-                rot_mapping.append(rotation_matrix)
-
-    return np.array(full_kpoints), np.array(reduced_to_full_idx), np.array(rot_mapping)
+    # due to limited precission of the input k-points, the mesh is returned as a float
+    return np.array([nx, ny, nz])
 
 
-def get_mesh_dim_from_kpoints(kpoints, tol=_KTOL):
+def get_mesh_from_kpoint_numbers(kpoints, tol=ktol):
     round_dp = int(np.log10(1 / tol))
 
     kpoints = kpoints_to_first_bz(kpoints)
@@ -273,43 +184,22 @@ def get_mesh_dim_from_kpoints(kpoints, tol=_KTOL):
     ny = len(np.unique(round_kpoints[:, 1]))
     nz = len(np.unique(round_kpoints[:, 2]))
 
-    if nx * ny * nz != len(kpoints):
-        raise ValueError("Something went wrong getting k-point mesh dimensions")
-
     return nx, ny, nz
 
 
-def get_reciprocal_point_group_operations(
-    structure: Structure, symprec: float = _SYMPREC, time_reversal_symmetry: bool = True
-):
-    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+def get_kpoint_indices(kpoints, mesh):
+    mesh = np.array(mesh)
+    min_kpoint = -np.floor(mesh / 2).round().astype(int)
+    addresses = (kpoints * mesh).round().astype(int)
+    shifted = addresses - min_kpoint
+    nyz = mesh[1] * mesh[2]
+    nz = mesh[2]
+    indices = shifted[:, 0] * nyz + shifted[:, 1] * nz + shifted[:, 2]
+    return indices.round().astype(int)
 
-    frac_real_to_frac_recip = np.dot(
-        np.linalg.inv(structure.lattice.reciprocal_lattice.matrix.T),
-        structure.lattice.matrix.T,
-    )
-    frac_recip_to_frac_real = np.linalg.inv(frac_real_to_frac_recip)
 
-    sga = SpacegroupAnalyzer(structure, symprec=symprec)
-    isomorphic_ops = [op.rotation_matrix for op in sga.get_symmetry_operations()]
-
-    parity = -np.eye(3)
-
-    if time_reversal_symmetry:
-        reciprocal_ops = [-np.eye(3)]
+def get_kpoints_from_bandstructure(bandstructure, cartesian=False):
+    if cartesian:
+        return np.array([k.coords for k in bandstructure.kpoints])
     else:
-        reciprocal_ops = [np.eye(3)]
-
-    for op in isomorphic_ops:
-
-        # convert to reciprocal primitive basis
-        op = np.around(
-            np.dot(frac_real_to_frac_recip, np.dot(op, frac_recip_to_frac_real)),
-            decimals=2,
-        )
-
-        reciprocal_ops.append(op)
-        if time_reversal_symmetry:
-            reciprocal_ops.append(np.dot(parity, op))
-
-    return np.unique(reciprocal_ops, axis=0)
+        return np.array([k.frac_coords for k in bandstructure.kpoints])

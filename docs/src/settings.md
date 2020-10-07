@@ -91,6 +91,8 @@ temperature/doping ranges.
     - `IMP` (ionized impurity scattering)
     - `PIE` (piezoelectric scattering)
     - `POP` (polar optical phonon scattering)
+    - `CRT` (constant relaxation time)
+    - `MFP` (mean free path scattering)
 
     For example, `ACD,IMP,POP`. The scattering mechanism will only be calculated
     if all the required material parameters for that mechanism are set. See the
@@ -101,16 +103,31 @@ temperature/doping ranges.
 ### `wavefunction_coefficients`
 
 !!! quote ""
-    *Command-line option:* `-s, --wavefunction-coefficients`
+    *Command-line option:* `-w, --wavefunction-coefficients`
 
     Path to wavefunction coefficients file. The coefficients can be extracted
     from a VASP WAVECAR using the command:
    
     ```bash
-    amset dump-wavefunction
+    amset wave
     ``` 
 
-    This requires the vasprun.xml and POTCAR to be in the same folder.
+    This command also requires the vasprun.xml to be in the same folder.
+
+    Default: `{{ wavefunction_coefficients }}`
+    
+### `use_projections`
+
+!!! quote ""
+    *Command-line option:* `--use-projections`
+    
+    Use projections to calculate wavefunction overlap. This can often result in very
+    poor performance, and so is **not recommended**. 
+    
+    In order to use projections, the VASP calculation must be performed with
+    `LORBIT = 11`. 
+
+    Default: `{{ use_projections }}`
     
 ### `scissor`
 
@@ -144,7 +161,7 @@ scattering rates.
     The high-frequency dielectric constant, in units of $`\epsilon_0`$.
     Can be given as a 3x3 tensor or a single isotropic value.
 
-    Required for: POP
+    Required for: POP, PIE
 
 ### `static_dielectric`
 
@@ -154,24 +171,29 @@ scattering rates.
     The static dielectric constant, in units of $`\epsilon_0`$.
     Can be given as a 3x3 tensor or a single isotropic value.
 
-    Required for: IMP, PIE, POP
+    Required for: IMP, POP
 
 ### `elastic_constant`
 
 !!! quote ""
     *Command-line option:* `--elastic-constant`
 
-    The direction averaged elastic constant, in GPa.
+    The elastic constants as the full 3x3x3x3 tensor or 6x6 Voigt form, in GPa.
+    
+    Alteratively, a single averaged value can be given (not recommended).
 
-    Required for: ACD
+    Required for: ACD, PIE
 
 ### `deformation_potential`
 
 !!! quote ""
     *Command-line option:* `--deformation-potential`
-
-    The volume deformation potential, in eV. Can be given as a comma separated
-    list of two values for the VBM and CBM, respectively, e.g.:
+    
+    Path to file containing deformation potentials for all bands, generated
+    using `amset deform read`.
+    
+    Alternatively, Can be given as a comma separated list of two deformation potentials
+    for the VBM and CBM, respectively in eV, e.g.:
 
     ```python
     8.6, 7.4
@@ -181,12 +203,13 @@ scattering rates.
 
     Required for: ACD
 
-### `piezoelectric_coefficient`
+### `piezoelectric_constant`
 
 !!! quote ""
-    *command-line option:* `--piezoelectric-coefficient`
+    *command-line option:* `--piezoelectric-constant`
 
-    The direction averaged piezoelectric coefficient (unitless).
+    The piezoelectric constants ($`\mathbf{e}`$) in C/m<sup>2</sup> given as either the 
+    full 3x3x3 tensor or the 3x6 Voigt form.
 
     Required for: PIE
 

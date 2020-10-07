@@ -9,33 +9,26 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
-from BoltzTraP2 import units
 from memory_profiler import memory_usage
 from monty.json import MSONable
-from tabulate import tabulate
-
-from amset import __version__
-from amset.constants import bohr_to_cm, hbar, numeric_types
-from amset.core.transport import solve_boltzman_transport_equation
-from amset.electronic_structure.interpolate import Interpolater
-from amset.electronic_structure.overlap import (
-    ProjectionOverlapCalculator,
-    WavefunctionOverlapCalculator,
-)
-from amset.log import initialize_amset_logger, log_banner, log_list
-from amset.scattering.calculate import ScatteringCalculator
-from amset.util import (
-    load_settings_from_file,
-    tensor_average,
-    validate_settings,
-    write_settings_to_file,
-)
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.io.vasp import Vasprun
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.util.string import unicodeify, unicodeify_spacegroup
+from tabulate import tabulate
+
+from amset import __version__
+from amset.constants import bohr_to_cm, hbar, numeric_types, ev_to_hartree
+from amset.core.transport import solve_boltzman_transport_equation
+from amset.interpolation.bandstructure import Interpolator
+from amset.interpolation.projections import ProjectionOverlapCalculator
+from amset.interpolation.wavefunction import WavefunctionOverlapCalculator
+from amset.log import initialize_amset_logger, log_banner, log_list
+from amset.scattering.calculate import ScatteringCalculator
+from amset.util import tensor_average, validate_settings
+from amset.io import write_settings, load_settings
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -45,7 +38,7 @@ logger = logging.getLogger(__name__)
 _kpt_str = "[{k[0]:.2f}, {k[1]:.2f}, {k[2]:.2f}]"
 
 
-class AmsetRunner(MSONable):
+class Runner(MSONable):
     def __init__(
         self,
         band_structure: BandStructure,
@@ -73,26 +66,19 @@ class AmsetRunner(MSONable):
             include_children=False,
             multiprocess=True,
         )
-
         log_banner("END")
 
         logger.info("Timing and memory usage:")
-        timing_info = [
-            "{} time: {:.4f} s".format(name, t) for name, t in usage_stats.items()
-        ]
+        timing_info = ["{} time: {:.4f} s".format(n, t) for n, t in usage_stats.items()]
         log_list(timing_info + ["max memory: {:.1f} MB".format(mem_usage)])
 
-        now = datetime.datetime.now()
-        logger.info(
-            "amset exiting on {} at {}".format(
-                now.strftime("%d %b %Y"), now.strftime("%H:%M")
-            )
-        )
+        this_date = datetime.datetime.now().strftime("%d %b %Y")
+        this_time = datetime.datetime.now().strftime("%H:%M")
+        logger.info("amset exiting on {} at {}".format(this_date, this_time))
 
         if return_usage_stats:
             usage_stats["max memory"] = mem_usage
             return amset_data, usage_stats
-
         else:
             return amset_data
 
@@ -110,6 +96,8 @@ class AmsetRunner(MSONable):
                 filename=log_file,
                 print_log=self.settings["print_log"],
             )
+
+        self._check_wavefunction()
 
         tt = time.perf_counter()
         _log_amset_intro()
@@ -171,11 +159,39 @@ class AmsetRunner(MSONable):
 
         return amset_data, timing
 
+    def _check_wavefunction(self):
+        if (
+            not Path(self.settings["wavefunction_coefficients"]).exists()
+            and not self.settings["use_projections"]
+        ):
+            raise ValueError(
+                "Could not find wavefunction coefficients. To run AMSET, the \n"
+                "wavefunction coefficients should first be extracted from a WAVECAR \n"
+                "file using the 'amset wave' command. See the documentation for more \n"
+                "details: https://hackingmaterials.lbl.gov/amset/\n\n"
+                "Alternatively, to use the band structure orbital projections to \n"
+                "approximate overlap, set 'use_projections' option to true."
+            )
+        elif self.settings["use_projections"] and not self._band_structure.projections:
+            raise ValueError(
+                "use_projections is set to true but calculation does not contain\n"
+                "orbital projections. Ensure VASP was run with 'LORBIT = 11'\n"
+                "Alternatively, use wavefunction coefficients to calculate overlap.\n"
+                "Wavefunction coefficients can be extracted from a VASP WAVECAR\n"
+                "file using the 'amset wave' command. See the documentation for more\n"
+                "details: https://hackingmaterials.lbl.gov/amset/\n\n"
+            )
+        elif self.settings["use_projections"]:
+            logger.info(
+                "Using orbital projections to approximate wavefunction overlap. This "
+                "can result in inaccurate results. I hope you know what you are doing."
+            )
+
     def _do_interpolation(self):
         log_banner("INTERPOLATION")
         t0 = time.perf_counter()
 
-        interpolater = Interpolater(
+        interpolater = Interpolator(
             self._band_structure,
             num_electrons=self._num_electrons,
             interpolation_factor=self.settings["interpolation_factor"],
@@ -190,15 +206,15 @@ class AmsetRunner(MSONable):
             nworkers=self.settings["nworkers"],
         )
 
-        if self.settings["wavefunction_coefficients"]:
-            overlap_calculator = WavefunctionOverlapCalculator.from_file(
-                self.settings["wavefunction_coefficients"]
-            )
-        else:
+        if self.settings["use_projections"]:
             overlap_calculator = ProjectionOverlapCalculator.from_band_structure(
                 self._band_structure,
                 energy_cutoff=self.settings["energy_cutoff"],
                 symprec=self.settings["symprec"],
+            )
+        else:
+            overlap_calculator = WavefunctionOverlapCalculator.from_file(
+                self.settings["wavefunction_coefficients"]
             )
         amset_data.set_overlap_calculator(overlap_calculator)
 
@@ -278,19 +294,23 @@ class AmsetRunner(MSONable):
 
         filename = amset_data.to_file(
             directory=abs_dir,
-            write_mesh=self.settings["write_mesh"],
+            write_mesh_file=self.settings["write_mesh"],
             prefix=prefix,
             file_format=self.settings["file_format"],
         )
 
-        full_filename = Path(abs_dir) / filename
+        if isinstance(filename, tuple):
+            full_filename = "\nand\n".join([str(Path(abs_dir) / f) for f in filename])
+        else:
+            full_filename = Path(abs_dir) / filename
+
         logger.info("Results written to:\n{}".format(full_filename))
         return full_filename, time.perf_counter() - t0
 
     @staticmethod
     def from_vasprun(
         vasprun: Union[str, Path, Vasprun], settings: Dict[str, Any]
-    ) -> "AmsetRunner":
+    ) -> "Runner":
         """Initialise an AmsetRunner from a Vasprun.
 
         The nelect and soc options will be determined from the Vasprun
@@ -310,7 +330,7 @@ class AmsetRunner(MSONable):
         nelect = vasprun.parameters["NELECT"]
         settings["soc"] = vasprun.parameters["LSORBIT"]
 
-        return AmsetRunner(band_structure, nelect, settings)
+        return Runner(band_structure, nelect, settings)
 
     @staticmethod
     def from_directory(
@@ -334,12 +354,12 @@ class AmsetRunner(MSONable):
 
         if not settings_file:
             settings_file = joinpath(directory, "settings.yaml")
-        settings = load_settings_from_file(settings_file)
+        settings = load_settings(settings_file)
 
         if settings_override:
             settings.update(settings_override)
 
-        return AmsetRunner.from_vasprun(vasprun, settings)
+        return Runner.from_vasprun(vasprun, settings)
 
     def write_settings(self, directory: str = ".", prefix: Optional[str] = None):
         if prefix is None:
@@ -348,7 +368,7 @@ class AmsetRunner(MSONable):
             prefix += "_"
 
         filename = joinpath(directory, "{}amset_settings.yaml".format(prefix))
-        write_settings_to_file(self.settings, filename)
+        write_settings(self.settings, filename)
 
 
 def _log_amset_intro():
@@ -365,7 +385,7 @@ def _log_amset_intro():
                                                   v{}
 
     A. Ganose, J. Park, A. Faghaninia, R. Woods-Robinson,
-    K. Persson, A. Jain, in prep.
+    A. Jain, in prep.
 
 
 amset starting on {} at {}""".format(
@@ -408,13 +428,32 @@ _tensor_str = """
     │    [{:6.2f} {:6.2f} {:6.2f}]
     │    [{:6.2f} {:6.2f} {:6.2f}]]"""
 
+_elastic_tensor_str = """
+    │   [[{:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f}]
+    │    [{:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f}]
+    │    [{:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f}]
+    │    [{:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f}]
+    │    [{:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f}]
+    │    [{:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f} {:6.1f}]]"""
 
-def _log_settings(runner: AmsetRunner):
+_piezo_tensor_str = """
+    │   [[{:7.4f} {:7.4f} {:7.4f} {:7.4f} {:7.4f} {:7.4f}]
+    │    [{:7.4f} {:7.4f} {:7.4f} {:7.4f} {:7.4f} {:7.4f}]
+    │    [{:7.4f} {:7.4f} {:7.4f} {:7.4f} {:7.4f} {:7.4f}]]"""
+
+
+def _log_settings(runner: Runner):
+    from pymatgen.core.tensors import Tensor
+
     def ff(prop):
         # format tensor properties
         if isinstance(prop, np.ndarray):
             if prop.shape == (3, 3):
                 return _tensor_str.format(*prop.ravel())
+            elif prop.shape == (3, 3, 3):
+                return _piezo_tensor_str.format(*Tensor(prop).voigt.ravel())
+            elif prop.shape == (3, 3, 3, 3):
+                return _elastic_tensor_str.format(*Tensor(prop).voigt.ravel())
 
         return prop
 
@@ -573,5 +612,5 @@ def _get_cutoff_pad(pop_frequency, scattering_type):
         # pop scattering from a kpoints, k, to kpoints with energies above and below
         # k. We therefore need k-points above and below to be within the cut-offs
         # otherwise scattering cannot occur
-        cutoff_pad = pop_frequency * hbar * units.eV
+        cutoff_pad = pop_frequency * hbar * ev_to_hartree
     return cutoff_pad

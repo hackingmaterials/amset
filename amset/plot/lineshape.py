@@ -7,14 +7,14 @@ from matplotlib.axes import SubplotBase
 from matplotlib.axis import Axis
 from matplotlib.colors import LogNorm
 from matplotlib.ticker import AutoMinorLocator, MaxNLocator
+from pymatgen.electronic_structure.bandstructure import BandStructure
+from pymatgen.electronic_structure.plotter import BSPlotter
 from sumo.plotting import pretty_plot, styled_plot
 
 from amset.constants import defaults, hbar
-from amset.electronic_structure.interpolate import Interpolater
+from amset.interpolation.bandstructure import Interpolator
 from amset.log import initialize_amset_logger
-from amset.plot import BaseAmsetPlotter, amset_base_style
-from pymatgen.electronic_structure.bandstructure import BandStructure
-from pymatgen.electronic_structure.plotter import BSPlotter
+from amset.plot import BaseMeshPlotter, amset_base_style
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -23,7 +23,7 @@ __email__ = "aganose@lbl.gov"
 logger = logging.getLogger(__name__)
 
 
-class LineshapePlotter(BaseAmsetPlotter):
+class LineshapePlotter(BaseMeshPlotter):
     def __init__(self, data, interpolation_factor=5, print_log=defaults["print_log"]):
         super().__init__(data)
         self.interpolation_factor = interpolation_factor
@@ -40,7 +40,6 @@ class LineshapePlotter(BaseAmsetPlotter):
             self.efermi,
             structure=self.structure,
         )
-        nelect = sum([idx for idx in self.vb_idx.values()])
 
         props = defaultdict(dict)
         for spin in self.spins:
@@ -52,9 +51,9 @@ class LineshapePlotter(BaseAmsetPlotter):
             log_rates[np.isnan(log_rates)] = 15
             props[spin]["rates"] = log_rates
 
-        return Interpolater(
+        return Interpolator(
             bs,
-            nelect,
+            self.num_electrons,
             interpolation_factor=self.interpolation_factor,
             soc=self.soc,
             other_properties=props,

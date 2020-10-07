@@ -1,6 +1,0 @@
-# this is a test settings file
-scissor: 3.0
-bandgap: null
-
-high_frequency_dielectric: 10
-static_dielectric: 12

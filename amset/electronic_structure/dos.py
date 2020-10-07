@@ -5,13 +5,12 @@ import logging
 from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
-from BoltzTraP2 import units
 from monty.json import MSONable
-
-from amset.constants import ev_to_hartree, hartree_to_ev
-from amset.electronic_structure.fd import fd
 from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.dos import Dos
+
+from amset.constants import ev_to_hartree, hartree_to_ev, boltzmann_au
+from amset.electronic_structure.fd import fd
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -241,7 +240,7 @@ def _get_weighted_dos(energies, dos, fermi_level, temperature, atomic_units=True
         occ = np.where(energies < fermi_level, 1.0, 0.0)
         occ[energies == fermi_level] = 0.5
     else:
-        kbt = temperature * units.BOLTZMANN
+        kbt = temperature * boltzmann_au
         if atomic_units:
             occ = fd(energies, fermi_level, kbt)
         else:

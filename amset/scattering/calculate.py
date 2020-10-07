@@ -1,19 +1,26 @@
 """
-This module implements methods to calculate electron scattering based on an
-AmsetData object.
+This module implements methods to calculate electron scattering.
 """
 
 import logging
 import time
-import quadpy
 from multiprocessing import cpu_count
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
-from BoltzTraP2 import units
+import quadpy
+from pymatgen import Spin
+from pymatgen.util.coord import pbc_diff
 from scipy.interpolate import griddata
 
-from amset.constants import defaults, hbar, small_val, spin_name
+from amset.constants import (
+    defaults,
+    hbar,
+    small_val,
+    spin_name,
+    ev_to_hartree,
+    boltzmann_au,
+)
 from amset.core.data import AmsetData
 from amset.electronic_structure.fd import fd
 from amset.electronic_structure.kpoints import kpoints_to_first_bz
@@ -26,8 +33,6 @@ from amset.scattering.basic import AbstractBasicScattering
 from amset.scattering.elastic import AbstractElasticScattering
 from amset.scattering.inelastic import AbstractInelasticScattering
 from amset.util import get_progress_bar
-from pymatgen import Spin
-from pymatgen.util.coord import pbc_diff
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -35,7 +40,7 @@ __email__ = "aganose@lbl.gov"
 
 logger = logging.getLogger(__name__)
 
-_all_scatterers = (
+_all_scatterers: Union = (
     AbstractElasticScattering.__subclasses__()
     + AbstractInelasticScattering.__subclasses__()
     + AbstractBasicScattering.__subclasses__()
@@ -53,6 +58,12 @@ ni = {
     },
     "low": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
 }
+
+# ni = {
+#     "high": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
+#     "medium": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
+#     "low": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
+# }
 
 
 class ScatteringCalculator(object):
@@ -79,7 +90,7 @@ class ScatteringCalculator(object):
         self.progress_bar = progress_bar
         self.cache_overlaps = cache_overlaps
 
-        buf = 0.05 * units.eV
+        buf = 0.05 * ev_to_hartree
         if self.amset_data.fd_cutoffs:
             self.scattering_energy_cutoffs = (
                 self.amset_data.fd_cutoffs[0] - buf,
@@ -244,6 +255,10 @@ class ScatteringCalculator(object):
             rates, kpoints, masks, progress_bar=self.progress_bar
         )
 
+        # enforce symmetry of interpolated points
+        ir_idx = self.amset_data.ir_kpoints_idx
+        ir_to_full = self.amset_data.ir_to_full_kpoint_mapping
+        rates = {s: sr[..., ir_idx][..., ir_to_full] for s, sr in rates.items()}
         return rates
 
     def calculate_band_rates(self, spin: Spin, b_idx: int):
@@ -294,7 +309,7 @@ class ScatteringCalculator(object):
             )
             inelastic_rates = np.zeros(inelastic_prefactors.shape + (nkpoints,))
             f_pop = self.settings["pop_frequency"]
-            energy_diff = f_pop * 1e12 * 2 * np.pi * hbar * units.eV
+            energy_diff = f_pop * 1e12 * 2 * np.pi * hbar * ev_to_hartree
 
             if len(k_idx_in_cutoff) > 0:
                 if self.progress_bar:
@@ -318,6 +333,7 @@ class ScatteringCalculator(object):
     def calculate_rate(self, spin, b_idx, k_idx, energy_diff=None):
         rlat = self.amset_data.structure.lattice.reciprocal_lattice.matrix
         energy = self.amset_data.energies[spin][b_idx, k_idx]
+        velocity = self.amset_data.velocities[spin][b_idx, k_idx]
 
         if energy_diff:
             energy += energy_diff
@@ -398,12 +414,13 @@ class ScatteringCalculator(object):
         k_primes = np.dot(qpoints, np.linalg.inv(rlat)) + k
         k_primes = kpoints_to_first_bz(k_primes)
 
+        # unit q in reciprocal cartesian coordinates
         unit_q = qpoints / np.sqrt(qpoint_norm_sq)[:, None]
         if energy_diff:
-            fd = _get_fd(energy, self.amset_data)
+            e_fd = _get_fd(energy, self.amset_data)
             emission = energy_diff <= 0
             rates = [
-                s.factor(unit_q, qpoint_norm_sq, emission, fd)
+                s.factor(unit_q, qpoint_norm_sq, emission, e_fd)
                 for s in self.inelastic_scatterers
             ]
             mrta_factor = 1
@@ -411,12 +428,14 @@ class ScatteringCalculator(object):
             mrta_factor = self.amset_data.mrta_calculator.get_mrta_factor(
                 spin, b_idx, k, tet_mask[0][mapping], k_primes
             )
-            rates = [s.factor(unit_q, qpoint_norm_sq) for s in self.elastic_scatterers]
+            rates = [
+                s.factor(unit_q, qpoint_norm_sq, spin, b_idx, k, velocity)
+                for s in self.elastic_scatterers
+            ]
 
         rates = np.array(rates)
         rates /= self.amset_data.structure.lattice.reciprocal_lattice.volume
         rates *= tet_overlap[mapping] * weights * mrta_factor
-        # rates *= weights * mrta_factor
 
         # this is too expensive vs tetrahedron integration and doesn't add much more
         # accuracy; could offer this as an option
@@ -468,11 +487,14 @@ def _interpolate_zero_rates(
             elif np.sum(non_zero_rates) != np.sum(mask):
                 # seems to work best when all the kpoints are +ve therefore add 0.5
                 # Todo: Use cartesian coordinates?
-                rates[spin][s, d, t, b, zero_rate_idx] = griddata(
-                    points=kpoints[non_zero_rate_idx] + 0.5,
-                    values=rates[spin][s, d, t, b, non_zero_rate_idx],
-                    xi=kpoints[zero_rate_idx] + 0.5,
-                    method="nearest",
+                # interpolate log rates to avoid the bias towards large rates
+                rates[spin][s, d, t, b, zero_rate_idx] = np.exp(
+                    griddata(
+                        points=kpoints[non_zero_rate_idx] + 0.5,
+                        values=np.log(rates[spin][s, d, t, b, non_zero_rate_idx]),
+                        xi=kpoints[zero_rate_idx] + 0.5,
+                        method="nearest",
+                    )
                 )
                 # rates[spin][s, d, t, b, zero_rate_idx] = 1e15
 
@@ -542,7 +564,9 @@ def get_fine_mesh_qpoints(
             return
 
         cube = intersections.reshape((2, 2, -1, 2))[:, :, mask]
-        vol = np.abs(quadpy.cn._helpers.get_detJ(scheme.points.T, cube))
+        # 4 is taken from quadpy CnScheme.integrate
+        # ref_vol = 2 ** numpy.prod(len(ncube.shape) - 1) which for quadrilaterals = 4
+        vol = 4 * np.abs(quadpy.cn._helpers.get_detJ(scheme.points.T, cube))
         xy_coords = quadpy.cn.transform(scheme.points.T, cube).T
         weights = scheme.weights[None] * vol * cross_section_weights[mask][:, None]
 
@@ -581,6 +605,6 @@ def _get_fd(energy, amset_data):
         f[n, t] = fd(
             energy,
             amset_data.fermi_levels[n, t],
-            amset_data.temperatures[t] * units.BOLTZMANN,
+            amset_data.temperatures[t] * boltzmann_au,
         )
     return f

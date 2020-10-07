@@ -43,33 +43,35 @@ For example, the following snippet will look for a `vasprun.xml` and
 `settings.yaml` file in the current directory, then run AMSET.
 
 ```python
-from amset.core.run import AmsetRunner
+from amset.core.run import Runner
 
-runner = AmsetRunner.from_directory(directory='.')
-amset_data = runner.run()
+if __name__ == "__main__":
+    runner = Runner.from_directory(directory='.')
+    amset_data = runner.run()
 ```
 
 The API allows for easy convergence of parameters. For example,
 the following snippet will run AMSET using multiple interpolation factors.
 
 ```python
-from amset.core.run import AmsetRunner
+from amset.core.run import Runner
 
 settings = {'interpolation_factor': 5}
 
-outputs = []
-for i_factor in range(10, 100, 10):
-    settings["interpolation_factor"] = i_factor
+if __name__ == "__main__":
+    outputs = []
+    for i_factor in range(10, 100, 10):
+        settings["interpolation_factor"] = i_factor
 
-    runner = AmsetRunner.from_directory(directory='.', settings_override=settings)
-    outputs.append(runner.run())
+        runner = Runner.from_directory(directory='.', settings_override=settings)
+        outputs.append(runner.run())
 ```
 
 When running AMSET from the API, it is not necessary to use a settings file
 at all. Instead the settings can be passed as a dictionary. For example:
 
 ```python
-from amset.core.run import AmsetRunner
+from amset.core.run import Runner
 
 settings = {
     "interpolation_factor": 150,
@@ -81,6 +83,7 @@ settings = {
     "static_dielectric": 13.1,
 }
 
-runner = AmsetRunner.from_vasprun("vasprun.xml.gz", settings)
-amset_data = runner.run()
+if __name__ == "__main__":
+    runner = Runner.from_vasprun("vasprun.xml.gz", settings)
+    amset_data = runner.run()
 ```

@@ -4,12 +4,12 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Union
 
 import numpy as np
+from pymatgen import Spin, Structure
+from pymatgen.util.coord import pbc_diff
 
 from amset.constants import numeric_types
 from amset.log import log_time_taken
 from amset.util import get_progress_bar, groupby
-from pymatgen import Spin, Structure
-from pymatgen.util.coord import pbc_diff
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -142,15 +142,14 @@ class TetrahedralBandStructure(object):
         ir_tetrahedra_to_full_idx: Optional[np.ndarray] = None,
         ir_tetrahedra_weights: Optional[np.ndarray] = None,
     ):
-        logger.info("Generating tetrahedron mesh")
+        logger.info("Initializing tetrahedron band structure")
         t0 = time.perf_counter()
 
         tparams = (ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, ir_tetrahedra_weights)
-
         if len(set([x is None for x in tparams])) != 1:
             raise ValueError(
-                "Either all or none of ir_tetrahedra_idx, "
-                "ir_tetrahedra_to_full_idx and ir_tetrahedra_weights should be set."
+                "Either all or none of ir_tetrahedra_idx, ir_tetrahedra_to_full_idx and"
+                " ir_tetrahedra_weights should be set."
             )
 
         if ir_tetrahedra_idx is None:
@@ -391,8 +390,7 @@ class TetrahedralBandStructure(object):
         progress_bar=False,
     ):
         if energies is None:
-            from amset.constants import defaults
-            from amset.constants import ev_to_hartree
+            from amset.constants import defaults, ev_to_hartree
 
             min_e = np.min([np.min(e) for e in self.energies.values()])
             max_e = np.max([np.max(e) for e in self.energies.values()])

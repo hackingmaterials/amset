@@ -1,13 +1,13 @@
 import logging
 from pathlib import Path
 
+from pymatgen.electronic_structure.bandstructure import BandStructure
 from sumo.plotting.bs_plotter import SBSPlotter
 from sumo.plotting.dos_plotter import SDOSPlotter
 
 from amset.constants import defaults
-from amset.electronic_structure.interpolate import Interpolater
+from amset.interpolation.bandstructure import Interpolator
 from amset.log import initialize_amset_logger
-from pymatgen.electronic_structure.bandstructure import BandStructure
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -31,7 +31,7 @@ class ElectronicStructurePlotter(object):
             initialize_amset_logger(filename="amset_electronic_structure_plot.log")
 
         self.symprec = symprec
-        self.interpolater = Interpolater(
+        self.interpolater = Interpolator(
             bandstructure, nelect, interpolation_factor=interpolation_factor, soc=soc
         )
         self.structure = bandstructure.structure

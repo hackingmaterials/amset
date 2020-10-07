@@ -1,4 +1,4 @@
-# <img alt="amset" src="docs/src/amset_logo.png" width="250">
+# <img alt="amset" src="https://raw.githubusercontent.com/hackingmaterials/amset/master/docs/src/amset_logo.png" width="250">
 
 AMSET is a package for calculating electronic transport properties from
 first-principles calculations.

@@ -101,8 +101,8 @@ def run(**kwargs):
     """
 
     from amset.constants import defaults
+    from amset.core.run import Runner
     from amset.log import initialize_amset_logger
-    from amset.core.run import AmsetRunner
 
     if kwargs["print_log"] is not False:
         initialize_amset_logger()
@@ -112,7 +112,7 @@ def run(**kwargs):
         if setting in kwargs and kwargs[setting] is not None:
             settings_override[setting] = kwargs[setting]
 
-    runner = AmsetRunner.from_directory(
+    runner = Runner.from_directory(
         directory=kwargs["directory"],
         vasprun=kwargs["vasprun"],
         settings_file=kwargs["settings"],

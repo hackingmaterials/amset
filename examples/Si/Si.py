@@ -1,6 +1,6 @@
 import warnings
 
-from amset.core.run import AmsetRunner
+from amset.core.run import Runner
 from amset.plot.rates import RatesPlotter
 
 warnings.simplefilter("ignore")
@@ -16,17 +16,24 @@ settings = {
     "interpolation_factor": 50,
 
     # materials properties
-    "deformation_potential": (5.39, 5.39),
-    "elastic_constant": 80,
-    "donor_charge": 1,
-    "acceptor_charge": 1,
-    "static_dielectric": 13.1,
-    "high_frequency_dielectric": 13.1,
+    "deformation_potential": "deformation.h5",
+    "elastic_constant": [[144,  53,  53,  0,  0,  0],
+                         [53,  144,  53,  0,  0,  0],
+                         [53,   53, 144,  0,  0,  0],
+                         [0,     0,   0, 75,  0,  0],
+                         [0,     0,   0,  0, 75,  0],
+                         [0,     0,   0,  0,  0, 75]],
+    "static_dielectric": [[11.7, 0, 0], [0, 11.7, 0], [0, 0, 11.7]],
+    "high_frequency_dielectric": [[11.7, 0, 0], [0, 11.7, 0], [0, 0, 11.7]],
+
+    # performance settings
+    "write_mesh": True,
 }
 
-runner = AmsetRunner.from_vasprun("vasprun.xml.gz", settings)
-amset_data = runner.run()
+if __name__ == "__main__":
+    runner = Runner.from_vasprun("vasprun.xml.gz", settings)
+    amset_data = runner.run()
 
-plotter = RatesPlotter(amset_data)
-plt = plotter.get_plot()
-plt.savefig("Si_rates.png", bbox_inches="tight", dpi=400)
+    plotter = RatesPlotter(amset_data)
+    plt = plotter.get_plot()
+    plt.savefig("Si_rates.png", bbox_inches="tight", dpi=400)

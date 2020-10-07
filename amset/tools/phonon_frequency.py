@@ -1,14 +1,8 @@
 import sys
 from pathlib import Path
-from typing import Type, Union
-from tabulate import tabulate
 
 import click
 import numpy as np
-
-from pymatgen import Structure
-from pymatgen.core.tensors import DEFAULT_QUAD
-from pymatgen.io.vasp import Outcar, Vasprun
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -21,6 +15,7 @@ __email__ = "aganose@lbl.gov"
 def phonon_frequency(vasprun, outcar):
     """Extract the effective phonon frequency from a VASP calculation"""
     from pymatgen.io.vasp import Outcar, Vasprun
+    from tabulate import tabulate
 
     vasprun = get_file(vasprun, Vasprun)
     outcar = get_file(outcar, Outcar)
@@ -60,7 +55,7 @@ def calculate_effective_phonon_frequency(
     eigenvalues: np.ndarray,
     eigenvectors: np.ndarray,
     born_effecitve_charges: np.ndarray,
-    structure: Structure,
+    structure,
 ):
     # get frequencies from eigenvals and convert to THz
     frequencies = 15.633302 * np.sqrt(np.abs(eigenvalues)) * np.sign(eigenvalues)
@@ -78,6 +73,8 @@ def calculate_effective_phonon_frequency(
 
 
 def get_phonon_weight(eigenvector, eigenvalue, born_effective_charges, structure):
+    from pymatgen.core.tensors import DEFAULT_QUAD
+
     # take spherical average of weight on scaled unit sphere
     directions = DEFAULT_QUAD["points"] * 0.01
     quad_weights = DEFAULT_QUAD["weights"]
@@ -101,10 +98,7 @@ def get_phonon_weight(eigenvector, eigenvalue, born_effective_charges, structure
         return weight
 
 
-def get_file(
-    filename: Union[str, Vasprun, Outcar],
-    class_type: Union[Type[Vasprun], Type[Outcar]],
-) -> Union[Vasprun, Outcar]:
+def get_file(filename, class_type):
     if isinstance(filename, str):
         filename_gz = filename + ".gz"
 

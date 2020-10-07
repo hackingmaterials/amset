@@ -5,9 +5,9 @@ from typing import List, Union
 import numpy as np
 from BoltzTraP2.bandlib import calc_Onsager_coefficients
 
-from amset.constants import bohr_to_cm, defaults, e
+from amset.constants import bohr_to_cm, defaults, e_si
 from amset.core.data import AmsetData
-from amset.electronic_structure.boltztrap import fermiintegrals
+from amset.interpolation.boltztrap import fermiintegrals
 from amset.log import log_time_taken
 from amset.util import get_progress_bar
 
@@ -17,7 +17,7 @@ __email__ = "aganose@lbl.gov"
 
 logger = logging.getLogger(__name__)
 
-_e_str = "Electronic structure must contain dopings temperatures and scattering rates"
+_e_str = "Electronic structure must contain dopings, temperatures, and scattering rates"
 
 
 def solve_boltzman_transport_equation(
@@ -135,7 +135,7 @@ def _calculate_mobility(
         # c = -c[0, ...] / (volume / (Meter / 100.)**3)
 
         # convert mobility to cm^2/V.s
-        uc = 0.01 / (e * carrier_conc * (1 / bohr_to_cm) ** 3)
+        uc = 0.01 / (e_si * carrier_conc * (1 / bohr_to_cm) ** 3)
         mobility[n, t] = sigma[0, ...] * uc
 
     return mobility

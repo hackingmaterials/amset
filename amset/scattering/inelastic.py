@@ -3,12 +3,11 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import numpy as np
-from BoltzTraP2.units import BOLTZMANN, Second
+from pymatgen import Spin
 
-from amset.constants import hbar
+from amset.constants import hbar, s_to_au, boltzmann_au
 from amset.core.data import AmsetData
 from amset.log import log_list
-from pymatgen import Spin
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -53,12 +52,12 @@ class PolarOpticalScattering(AbstractInelasticScattering):
 
         # convert from THz to angular frequency in Hz
         self.pop_frequency = (
-            self.properties["pop_frequency"] * 1e12 * 2 * np.pi / Second
+            self.properties["pop_frequency"] * 1e12 * 2 * np.pi / s_to_au
         )
 
         # n_po (phonon concentration) has shape (ntemps, )
         n_po = 1 / (
-            np.exp(self.pop_frequency / (BOLTZMANN * amset_data.temperatures)) - 1
+            np.exp(self.pop_frequency / (boltzmann_au * amset_data.temperatures)) - 1
         )
 
         self.n_po = n_po[None, :]
@@ -69,7 +68,7 @@ class PolarOpticalScattering(AbstractInelasticScattering):
                 "ω_po: {:.4g} 2π THz".format(
                     self.properties["pop_frequency"] * 2 * np.pi
                 ),
-                "ħω: {:.4f} eV".format(self.pop_frequency * hbar * Second),
+                "ħω: {:.4f} eV".format(self.pop_frequency * hbar * s_to_au),
             ]
         )
 
@@ -92,7 +91,7 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         # self.absorption_f_in = {
         #     s: n_po + 1 - amset_data.f[s]
         #     for s in amset_data.spins}
-        self._prefactor = Second * self.pop_frequency / 2
+        self._prefactor = s_to_au * self.pop_frequency / 2
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)

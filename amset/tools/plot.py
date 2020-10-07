@@ -7,9 +7,9 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
-image_type = click.Choice(["pdf", "png", "svg"], case_sensitive=False)
+from amset.tools.common import image_type, path_type
+
 kpaths = click.Choice(["pymatgen", "seekpath"], case_sensitive=False)
-path_type = click.Path(exists=True)
 
 _symprec = 0.01  # redefine symprec to avoid loading constants from file
 _dos_estep = 0.01  # redefine symprec to avoid loading constants from file
@@ -306,7 +306,7 @@ def get_kpath(structure, mode="pymatgen", symprec=_symprec, kpt_list=None, label
     Returns:
         A Kpath object.
     """
-    from sumo.symmetry import SeekpathKpath, PymatgenKpath, CustomKpath
+    from sumo.symmetry import CustomKpath, PymatgenKpath, SeekpathKpath
 
     if kpt_list:
         kpath = CustomKpath(structure, kpt_list, labels, symprec=symprec)

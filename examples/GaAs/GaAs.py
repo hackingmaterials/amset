@@ -1,6 +1,6 @@
 import warnings
 
-from amset.core.run import AmsetRunner
+from amset.core.run import Runner
 from amset.plot.rates import RatesPlotter
 
 warnings.simplefilter("ignore")
@@ -22,12 +22,17 @@ settings = {
     "static_dielectric": 12.18,
     "high_frequency_dielectric": 10.32,
     "pop_frequency": 8.16,
+
+    # performance settings
+    "mobility_rates_only": True,
+    "write_mesh": True,
 }
 
 
-runner = AmsetRunner.from_vasprun("vasprun.xml.gz", settings)
-amset_data = runner.run()
+if __name__ == "__main__":
+    runner = Runner.from_vasprun("vasprun.xml.gz", settings)
+    amset_data = runner.run()
 
-plotter = RatesPlotter(amset_data)
-plt = plotter.get_plot()
-plt.savefig("GaAs_rates.png", bbox_inches="tight", dpi=400)
+    plotter = RatesPlotter(amset_data)
+    plt = plotter.get_plot()
+    plt.savefig("GaAs_rates.png", bbox_inches="tight", dpi=400)

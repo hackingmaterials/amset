@@ -1,6 +1,7 @@
 import click
 from click import argument, option
 
+from amset.tools.common import path_type
 from amset.util import parse_doping, parse_temperatures
 
 __author__ = "Alex Ganose"
@@ -8,7 +9,6 @@ __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
 temp_doping_defaults = {"temperatures": [300], "doping": [-1e15, 1e15]}
-path_type = click.Path(exists=True)
 
 
 @click.command()
@@ -44,12 +44,14 @@ def eff_mass(filename, **kwargs):
     import numpy as np
     from scipy import constants
     from tabulate import tabulate
+
     from amset.constants import bohr_to_cm, defaults
-    from amset.core.run import AmsetRunner
+    from amset.core.run import Runner
 
     settings = {
         "scattering_type": ["CRT"],
         "constant_relaxation_time": 1e-14,
+        "use_projections": True,
         "calculate_mobility": False,
         "separate_mobility": False,
         "write_log": False,
@@ -60,7 +62,7 @@ def eff_mass(filename, **kwargs):
         elif setting == "doping" or setting == "temperatures":
             settings[setting] = temp_doping_defaults[setting]
 
-    runner = AmsetRunner.from_vasprun(filename, settings)
+    runner = Runner.from_vasprun(filename, settings)
     amset_data = runner.run()
     inv_cond = np.linalg.inv(amset_data.conductivity)
     doping_scale = 1 / bohr_to_cm ** 3
