@@ -37,7 +37,7 @@ Mechanism                                                                       
 ---                                                                                     | ---   | ---                                                                            | ---
 [Acoustic deformation potential scattering](#acoustic-deformation-potential-scattering) | ADP   | *n*- and *p*-type deformation potential,  elastic constant                     | Elastic
 [Ionized impurity scattering](#ionized-impurity-scattering)                             | IMP   | static dielectric constant                                                     | Elastic
-[Piezoelectric scattering](#piezoelectric-scattering)                                   | PIE   | static dielectric constant, piezoelectric coefficient                          | Elastic
+[Piezoelectric scattering](#piezoelectric-scattering)                                   | PIE   | high-frequency dielectric constant, elastic constant, piezoelectric coefficient ($`\mathbf{e}`$) | Elastic
 [Polar optical phonon scattering](#polar-optical-phonon-scattering)                     | POP   | polar optical phonon frequency, static and high-frequency dielectric constants | Inelastic
 
 ### Acoustic deformation potential scattering

@@ -161,7 +161,7 @@ scattering rates.
     The high-frequency dielectric constant, in units of $`\epsilon_0`$.
     Can be given as a 3x3 tensor or a single isotropic value.
 
-    Required for: POP
+    Required for: POP, PIE
 
 ### `static_dielectric`
 
@@ -171,7 +171,7 @@ scattering rates.
     The static dielectric constant, in units of $`\epsilon_0`$.
     Can be given as a 3x3 tensor or a single isotropic value.
 
-    Required for: IMP, PIE, POP
+    Required for: IMP, POP
 
 ### `elastic_constant`
 
@@ -182,7 +182,7 @@ scattering rates.
     
     Alteratively, a single averaged value can be given (not recommended).
 
-    Required for: ACD
+    Required for: ACD, PIE
 
 ### `deformation_potential`
 
@@ -208,8 +208,8 @@ scattering rates.
 !!! quote ""
     *command-line option:* `--piezoelectric-constant`
 
-    The piezoelectric constants in C/m<sup>2</sup> given as either the full 3x3x3
-    tensor or the 3x6 Voigt form.
+    The piezoelectric constants ($`\mathbf{e}`$) in C/m<sup>2</sup> given as either the 
+    full 3x3x3 tensor or the 3x6 Voigt form.
 
     Required for: PIE
 
