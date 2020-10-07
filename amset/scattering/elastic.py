@@ -249,7 +249,11 @@ class IonizedImpurityScattering(AbstractElasticScattering):
 class PiezoelectricScattering(AbstractElasticScattering):
 
     name = "PIE"
-    required_properties = ("piezoelectric_constant", "elastic_constant", "high_frequency_dielectric")
+    required_properties = (
+        "piezoelectric_constant",
+        "elastic_constant",
+        "high_frequency_dielectric",
+    )
 
     def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
         super().__init__(materials_properties, amset_data)
