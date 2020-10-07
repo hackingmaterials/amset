@@ -15,7 +15,7 @@
     
     
       
-        <title>Materials Properties - AMSET Documentation</title>
+        <title>Calculation Inputs - AMSET Documentation</title>
       
     
     
@@ -60,7 +60,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#calculating-materials-properties" class="md-skip">
+        <a href="#calculation-inputs" class="md-skip">
           Skip to content
         </a>
       
@@ -88,7 +88,7 @@
           </span>
           <span class="md-header-nav__topic md-ellipsis">
             
-              Materials Properties
+              Calculation Inputs
             
           </span>
         </div>
@@ -231,12 +231,12 @@
     
     
       <label class="md-nav__link md-nav__link--active" for="__toc">
-        Materials Properties
+        Calculation Inputs
         <span class="md-nav__icon md-icon"></span>
       </label>
     
     <a href="./" class="md-nav__link md-nav__link--active">
-      Materials Properties
+      Calculation Inputs
     </a>
     
       
@@ -260,8 +260,8 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#dielectric-constants-and-polar-phonon-frequency" class="md-nav__link">
-    Dielectric constants and polar-phonon frequency
+  <a href="#dense-uniform-band-structure-and-wave-function-coefficients" class="md-nav__link">
+    Dense uniform band structure and wave function coefficients
   </a>
   
 </li>
@@ -269,6 +269,20 @@
         <li class="md-nav__item">
   <a href="#elastic-constants" class="md-nav__link">
     Elastic constants
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deformation-potentials" class="md-nav__link">
+    Deformation potentials
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dielectric-constants-piezoelectric-constants-and-polar-phonon-frequency" class="md-nav__link">
+    Dielectric constants, piezoelectric constants and polar-phonon frequency
   </a>
   
 </li>
@@ -421,8 +435,8 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#dielectric-constants-and-polar-phonon-frequency" class="md-nav__link">
-    Dielectric constants and polar-phonon frequency
+  <a href="#dense-uniform-band-structure-and-wave-function-coefficients" class="md-nav__link">
+    Dense uniform band structure and wave function coefficients
   </a>
   
 </li>
@@ -430,6 +444,20 @@
         <li class="md-nav__item">
   <a href="#elastic-constants" class="md-nav__link">
     Elastic constants
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deformation-potentials" class="md-nav__link">
+    Deformation potentials
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dielectric-constants-piezoelectric-constants-and-polar-phonon-frequency" class="md-nav__link">
+    Dielectric constants, piezoelectric constants and polar-phonon frequency
   </a>
   
 </li>
@@ -446,7 +474,7 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/hackingmaterials/amset/edit/master/docs/properties.md" title="Edit this page" class="md-content__button md-icon">
+                  <a href="https://github.com/hackingmaterials/amset/edit/master/docs/inputs.md" title="Edit this page" class="md-content__button md-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
                   </a>
                 
@@ -464,7 +492,7 @@
       height: inherit;
     }
 </style>
-<h1 id="calculating-materials-properties">Calculating Materials Properties<a class="headerlink" href="#calculating-materials-properties" title="Permanent link">&para;</a></h1>
+<h1 id="calculation-inputs">Calculation Inputs<a class="headerlink" href="#calculation-inputs" title="Permanent link">&para;</a></h1>
 <h2 id="structural-relaxation">Structural relaxation<a class="headerlink" href="#structural-relaxation" title="Permanent link">&para;</a></h2>
 <p>In order to obtain accurate results, the crystal structure should first be relaxed
 using "tight" calculation settings including high force and energy convergence
@@ -480,10 +508,79 @@ criteria. Note, that this can often be expensive for very large structures.</p>
 <span class="n">NELMIN</span> <span class="o">=</span> <span class="mi">5</span>
 </code></pre></div>
 </div>
-<h2 id="dielectric-constants-and-polar-phonon-frequency">Dielectric constants and polar-phonon frequency<a class="headerlink" href="#dielectric-constants-and-polar-phonon-frequency" title="Permanent link">&para;</a></h2>
-<p>Static and high-frequency dielectric constants and the "effective polar phonon
-frequency" can be obtained using density functional perturbation theory (DFPT). 
+<h2 id="dense-uniform-band-structure-and-wave-function-coefficients">Dense uniform band structure and wave function coefficients<a class="headerlink" href="#dense-uniform-band-structure-and-wave-function-coefficients" title="Permanent link">&para;</a></h2>
+<p>AMSET should be run on a <code>vasprun.xml</code> file from a "dense" uniform band structure 
+calculation. Typically a k-point mesh density at least twice that needed to converge 
+the total energy will be necessary to converge transport properties. Note this refers
+to the initial DFT mesh before Fourier interpolation. In order to obtain accurate band 
+gaps often a hybrid DFT functional such as HSE06 is required.</p>
+<p>Wave function coefficients are required to calculate wave function overlaps.
+This requires the <code>WAVECAR</code> file to be written by VASP (achieved by setting 
+<code>LWAVE = True</code>). Wave function coefficients can then be extracted using the 
+<code>amset wave</code> command. Coefficients are stored in the <code>wavefunction.h5</code> file.</p>
+<div class="admonition summary">
+<p class="admonition-title">VASP settings for uniform calculations </p>
+<div class="highlight"><pre><span></span><code><span class="n">ADDGRID</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">EDIFF</span> <span class="o">=</span> <span class="mf">1E-8</span>
+<span class="n">PREC</span> <span class="o">=</span> <span class="n">Accurate</span>
+<span class="n">NSW</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">LWAVE</span> <span class="o">=</span> <span class="kc">True</span>
+</code></pre></div>
+</div>
+<h2 id="elastic-constants">Elastic constants<a class="headerlink" href="#elastic-constants" title="Permanent link">&para;</a></h2>
+<p>Elastic constants can be calculated using finite differences in VASP.
 It is very important to first relax the structure using tight convergence 
+settings, as described in the <a href="#structural-relaxation">structural relaxation section</a>.
+Details on the finite difference approach in VASP can be found on the 
+<a href="https://www.vasp.at/wiki/index.php/IBRION">IBRION</a> documentation page.</p>
+<div class="admonition summary">
+<p class="admonition-title">VASP settings for dielectric constants and phonon frequency </p>
+<div class="highlight"><pre><span></span><code><span class="n">ADDGRID</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">EDIFF</span> <span class="o">=</span> <span class="mf">1E-8</span>
+<span class="n">PREC</span> <span class="o">=</span> <span class="n">Accurate</span>
+<span class="n">NSW</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">IBRION</span> <span class="o">=</span> <span class="mi">6</span>
+</code></pre></div>
+</div>
+<h2 id="deformation-potentials">Deformation potentials<a class="headerlink" href="#deformation-potentials" title="Permanent link">&para;</a></h2>
+<p>The absolute deformation potential describes the change in energy of the bands with change 
+in  volume and is calculated as <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="bold">D</mi><mrow><mi>n</mi><mi mathvariant="bold">k</mi></mrow></msub><mo>=</mo><mi>δ</mi><msub><mi>ε</mi><mrow><mi>n</mi><mi mathvariant="bold">k</mi></mrow></msub><mi mathvariant="normal">/</mi><mi>δ</mi><msub><mi>S</mi><mrow><mi>α</mi><mi>β</mi></mrow></msub></mrow><annotation encoding="application/x-tex">\mathbf{D}_{n\mathbf{k}} = \delta \varepsilon_{n\mathbf{k}} / \delta S_{\alpha\beta}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.83611em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">D</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">n</span><span class="mord mtight"><span class="mord mathbf mtight">k</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:1.036108em;vertical-align:-0.286108em;"></span><span class="mord mathnormal" style="margin-right:0.03785em;">δ</span><span class="mord"><span class="mord mathnormal">ε</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">n</span><span class="mord mtight"><span class="mord mathbf mtight">k</span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord">/</span><span class="mord mathnormal" style="margin-right:0.03785em;">δ</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.05764em;">S</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.05764em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.0037em;">α</span><span class="mord mathnormal mtight" style="margin-right:0.05278em;">β</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span> where <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="bold">S</mi></mrow><annotation encoding="application/x-tex">\mathbf{S}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68611em;vertical-align:0em;"></span><span class="mord"><span class="mord mathbf">S</span></span></span></span></span> is the uniform stress tensor.
+The deformation potential should be averaged over contraction (–0.5 %) and 
+expansion (+0.5 %) of the lattice and calculated separately for
+each component of the strain tensor. To account for shifts in the average electrostatic
+potential between deformed cells, the eigenvalues are aligned to the average energy 
+level of the core states.</p>
+<p>AMSET includes a tool to assist with the calculation of the deformation potentials.
+The initial input is a "tight" optimised structure as described in the 
+<a href="#structural-relaxation">structural relaxation section</a>. Deformed structures are 
+generated using the <code>amset deform create</code> command, which will generate a list of 
+POSCARs each corresponding to a component of the strain tensor. Note that symmetry is
+automatically used to reduce the number of calculations needed. A single point 
+calculation (no relaxation, i.e., <code>NSW = 0</code>) should be performed for each deformed
+POSCAR as well as the undeformed structure.</p>
+<div class="admonition summary">
+<p class="admonition-title">VASP settings for deformation calculations </p>
+<div class="highlight"><pre><span></span><code><span class="n">ADDGRID</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">EDIFF</span> <span class="o">=</span> <span class="mf">1E-8</span>
+<span class="n">PREC</span> <span class="o">=</span> <span class="n">Accurate</span>
+<span class="n">NSW</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">ICORELEVEL</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># needed to write the core levels to OUTCAR</span>
+</code></pre></div>
+</div>
+<p>The deformation potentials can be calculated using the <code>amset deform read</code> command.
+This requires the paths to the undeformed and deformation calculations as inputs.
+The undeformed folder should be specified first, followed by the deformation folders.
+For example,</p>
+<div class="highlight"><pre><span></span><code>amset deform <span class="nb">read</span> undeformed def-1 def-2 def-3
+</code></pre></div>
+<p>This will write the deformations potentials to a <code>deformation.h5</code> file in the current
+directory. You can specify to use this file when calculating scattering rates by
+setting the <code>deformation_potential</code> option to <code>"deformation.h5"</code>. 
+<a href="../settings/#deformation_potential">See the settings</a> page for more details.</p>
+<h2 id="dielectric-constants-piezoelectric-constants-and-polar-phonon-frequency">Dielectric constants, piezoelectric constants and polar-phonon frequency<a class="headerlink" href="#dielectric-constants-piezoelectric-constants-and-polar-phonon-frequency" title="Permanent link">&para;</a></h2>
+<p>Static and high-frequency dielectric constants, piezoelectric constants, and the 
+"effective polar phonon frequency" can be obtained using density functional perturbation 
+theory (DFPT). It is very important to first relax the structure using tight convergence 
 settings, as described in the <a href="#structural-relaxation">structural relaxation section</a>.
 Details on DFPT in VASP can be found on the <a href="https://www.vasp.at/wiki/index.php/IBRION">IBRION</a>
 and <a href="https://www.vasp.at/wiki/index.php/LEPSILON">LEPSILON</a> documentation pages.</p>
@@ -528,22 +625,6 @@ The effective phonon frequency is calculated as the weighted sum over all
 <p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>ω</mi><mrow><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi></mrow></msub><mo>=</mo><mfrac><mrow><msub><mi>ω</mi><mrow><mi mathvariant="normal">Γ</mi><mi>ν</mi></mrow></msub><msub><mi>w</mi><mi>ν</mi></msub></mrow><mrow><munder><mo>∑</mo><mi>ν</mi></munder><msub><mi>w</mi><mi>ν</mi></msub></mrow></mfrac><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
 \omega_\mathrm{po} = \frac{\omega_{\Gamma\nu} w_{\nu}}{\sum_{\nu} w_\nu}.
 </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.716668em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.03588em;">ω</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathrm mtight">p</span><span class="mord mathrm mtight">o</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:2.09327em;vertical-align:-0.9857100000000001em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.1075599999999999em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mop"><span class="mop op-symbol small-op" style="position:relative;top:-0.0000050000000000050004em;">∑</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.0016819999999999613em;"><span style="top:-2.40029em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.06366em;">ν</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.29971000000000003em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.02691em;">w</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:-0.02691em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.06366em;">ν</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right:0.03588em;">ω</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.32833099999999993em;"><span style="top:-2.5500000000000003em;margin-left:-0.03588em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">Γ</span><span class="mord mathnormal mtight" style="margin-right:0.06366em;">ν</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.02691em;">w</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:-0.02691em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.06366em;">ν</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.9857100000000001em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mord">.</span></span></span></span></span></p>
-
-<h2 id="elastic-constants">Elastic constants<a class="headerlink" href="#elastic-constants" title="Permanent link">&para;</a></h2>
-<p>Elastic constants can be calculated using finite differences in VASP.
-It is very important to first relax the structure using tight convergence 
-settings, as described in the <a href="#structural-relaxation">structural relaxation section</a>.
-Details on the finite difference approach in VASP can be found on the <a href="https://www.vasp.at/wiki/index.php/IBRION">IBRION</a>
-documentation page.</p>
-<div class="admonition summary">
-<p class="admonition-title">VASP settings for dielectric constants and phonon frequency </p>
-<div class="highlight"><pre><span></span><code><span class="n">ADDGRID</span> <span class="o">=</span> <span class="kc">True</span>
-<span class="n">EDIFF</span> <span class="o">=</span> <span class="mf">1E-8</span>
-<span class="n">PREC</span> <span class="o">=</span> <span class="n">Accurate</span>
-<span class="n">NSW</span> <span class="o">=</span> <span class="mi">1</span>
-<span class="n">IBRION</span> <span class="o">=</span> <span class="mi">6</span>
-</code></pre></div>
-</div>
                 
               
               
