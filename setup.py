@@ -26,10 +26,10 @@ if __name__ == "__main__":
                 "plot/revtex.mplstyle",
             ]
         },
-        data_files=["LICENSE", "requirements.txt"],
+        data_files=["LICENSE"],
         zip_safe=False,
         install_requires=[
-            "quadpy==0.15.1",
+            "quadpy==0.16.2",
             "numpy==1.19.2",
             "pymatgen==2020.9.14",
             "scipy==1.5.2",

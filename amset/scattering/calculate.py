@@ -49,14 +49,14 @@ _scattering_mechanisms = {m.name: m for m in _all_scatterers}
 
 ni = {
     "high": {
-        "triangle": quadpy.t2.xiao_gimbutas_50(),
-        "quad": quadpy.c2.sommariva_50(),
+        "triangle": quadpy.t2.schemes["xiao_gimbutas_50"](),
+        "quad": quadpy.c2.schemes["sommariva_50"](),
     },
     "medium": {
-        "triangle": quadpy.t2.xiao_gimbutas_06(),
-        "quad": quadpy.c2.sommariva_06(),
+        "triangle": quadpy.t2.schemes["xiao_gimbutas_06"](),
+        "quad": quadpy.c2.schemes["sommariva_06"](),
     },
-    "low": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
+    "low": {"triangle": quadpy.t2.schemes["centroid"](), "quad": quadpy.c2.schemes["dunavant_00"]()},
 }
 
 # ni = {
@@ -548,7 +548,7 @@ def get_fine_mesh_qpoints(
 
         simplex = intersections[:3, mask]
         vol = quadpy.tn.get_vol(simplex)
-        xy_coords = quadpy.tn.transform(scheme.points.T, simplex.T)
+        xy_coords = quadpy.tn.transform(scheme.points, simplex.T)
         weights = (
             scheme.weights[None] * vol[:, None] * cross_section_weights[mask][:, None]
         )
@@ -566,8 +566,8 @@ def get_fine_mesh_qpoints(
         cube = intersections.reshape((2, 2, -1, 2))[:, :, mask]
         # 4 is taken from quadpy CnScheme.integrate
         # ref_vol = 2 ** numpy.prod(len(ncube.shape) - 1) which for quadrilaterals = 4
-        vol = 4 * np.abs(quadpy.cn._helpers.get_detJ(scheme.points.T, cube))
-        xy_coords = quadpy.cn.transform(scheme.points.T, cube).T
+        vol = 4 * np.abs(quadpy.cn._helpers.get_detJ(scheme.points, cube))
+        xy_coords = quadpy.cn.transform(scheme.points, cube).T
         weights = scheme.weights[None] * vol * cross_section_weights[mask][:, None]
 
         qpoints.append(get_q(xy_coords, z_coords[mask]))
