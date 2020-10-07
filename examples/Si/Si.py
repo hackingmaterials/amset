@@ -16,7 +16,6 @@ settings = {
     "interpolation_factor": 50,
 
     # materials properties
-    # "deformation_potential": (6.5, 8.1),
     "deformation_potential": "deformation.h5",
     "elastic_constant": [[144,  53,  53,  0,  0,  0],
                          [53,  144,  53,  0,  0,  0],
