@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from scipy.ndimage import gaussian_filter
 
 from amset.constants import numeric_types
 from amset.electronic_structure.kpoints import (
@@ -19,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 class PeriodicLinearInterpolator(object):
-    def __init__(self, kpoints, data):
+    def __init__(self, kpoints, data, gaussian=None):
+        self._gaussian = gaussian
         grid_kpoints, mesh_dim, sort_idx = self._grid_kpoints(kpoints)
         self._setup_interpolators(data, grid_kpoints, mesh_dim, sort_idx)
 
@@ -44,6 +46,12 @@ class PeriodicLinearInterpolator(object):
             # wrap the data to account for PBC
             pad_size = ((0, 0), (1, 1), (1, 1), (1, 1)) + ((0, 0),) * len(data_shape)
             grid_data = np.pad(grid_data, pad_size, mode="wrap")
+
+            if self._gaussian:
+                for i in range(len(grid_data)):
+                    grid_data[i] = gaussian_filter(
+                        grid_data[i], sigma=self._gaussian, mode="wrap"
+                    )
 
             if nbands == 1:
                 # this can cause a bug in RegularGridInterpolator. Have to fake
