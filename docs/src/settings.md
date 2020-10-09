@@ -328,6 +328,21 @@ general the defaults should give converged values.
     processors.
     
     Default: `{{ nworkers }}`
+    
+### `cache_wavefunction`
+
+!!! quote ""
+    *Command-line option:* `--cache-wavefunction`
+
+    Cache interpolated wavefunction coefficients. This means that the coefficients
+    for each band and k-point on the Fourier interpolated k-point mesh are only 
+    calculated once. While this can yield a significant speed-up, it also massively
+    increases memory requirements, especially if using a low value of `fd_tol`, or if
+    the system contains very flat bands.
+    
+    If memory issues occur, it is recommended to set `cache_wavefunction` to `False`.
+    
+    Default: `{{ cache_wavefunction }}`
 
 
 ## Output settings

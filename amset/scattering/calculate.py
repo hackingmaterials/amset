@@ -78,7 +78,7 @@ class ScatteringCalculator(object):
         scattering_type: Union[str, List[str], float] = "auto",
         nworkers: int = defaults["nworkers"],
         progress_bar: bool = defaults["print_log"],
-        cache_overlaps: bool = True,
+        cache_wavefunction: bool = defaults["cache_wavefunction"],
     ):
         if amset_data.temperatures is None or amset_data.doping is None:
             raise RuntimeError(
@@ -91,7 +91,7 @@ class ScatteringCalculator(object):
         self.scatterers = self.get_scatterers(scattering_type, settings, amset_data)
         self.amset_data = amset_data
         self.progress_bar = progress_bar
-        self.cache_overlaps = cache_overlaps
+        self.cache_wavefunction = cache_wavefunction
 
         buf = 0.05 * ev_to_hartree
         if self.amset_data.fd_cutoffs:
@@ -107,7 +107,7 @@ class ScatteringCalculator(object):
 
         self._coeffs = {}
         self._coeffs_mapping = {}
-        if cache_overlaps:
+        if cache_wavefunction:
             # precompute the coefficients we will need to for calculating overlaps
             # could do this on the fly but caching will really speed things up.
             # we need to interpolate as the wavefunction coefficients were calculated on
@@ -366,7 +366,7 @@ class ScatteringCalculator(object):
         k = self.amset_data.kpoints[k_idx]
         k_primes = self.amset_data.kpoints[kpoint_mask]
 
-        if self.cache_overlaps:
+        if self.cache_wavefunction:
             # use cached coefficients to calculate the overlap on the fine mesh
             # tetrahedron vertices
             p1 = self._coeffs[spin][self._coeffs_mapping[spin][b_idx, k_idx]]

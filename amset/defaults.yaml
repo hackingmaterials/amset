@@ -41,6 +41,7 @@ fd_tol: 0.05  # in %
 dos_estep: 0.01  # in eV
 symprec: 0.01  # in Angstrom
 nworkers: -1  # default is -1 (use all processors)
+cache_wavefunction: true  # cache wavefunction coeffs (can result in large memory usage)
 
 # The output section controls AMSET output files and logging
 calculate_mobility: true
