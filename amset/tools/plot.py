@@ -50,8 +50,20 @@ def plot():
 @option("-d", "--doping", default=0, help="doping index [default: 0]")
 @option("-l", "--line-density", default=100.0, help="band structure line density")
 @option("-p", "--prefix", help="output filename prefix")
-@option("--emin", help="minimum energy limit")
-@option("--emax", help="maximum energy limit")
+@option("--emin", help="minimum energy limit", type=float)
+@option("--emax", help="maximum energy limit", type=float)
+@option(
+    "--amin",
+    default=5e-5,
+    help="minimum spectral weight for normalizing linewidth in 1/meV",
+)
+@option(
+    "--amax",
+    default=1e-1,
+    help="maximum spectral weight for normalizing linewidth in 1/meV",
+)
+@option("--cmap", default="viridis", help="matplotlib colormap to use")
+@option("--no-colorbar", default=True, is_flag=True, help="don't add a colorbar")
 @option("--symprec", type=float, default=_symprec, help="interpolation factor")
 @option("--kpath", type=kpaths, help="k-point path type")
 @option(
@@ -67,9 +79,8 @@ def plot():
     help=r"labels for manual kpoints [e.g. '\Gamma,X']",
 )
 @option("--interpolation-factor", default=1, help="BoltzTraP interpolation factor")
-@option("--distance-factor", default=10.0, help="additional interpolation of lineshape")
-@option("--width", default=6.0, help="figure width [default: 6]")
-@option("--height", default=6.0, help="figure height [default: 6]")
+@option("--width", default=3.2, help="figure width [default: 6]")
+@option("--height", default=3.2, help="figure height [default: 6]")
 @option("--directory", type=path_type, help="file output directory")
 @option("--image-format", default="pdf", type=image_type, help="image format")
 @option("--style", help="matplotlib style specification")
@@ -98,7 +109,10 @@ def lineshape(filename, **kwargs):
         line_density=kwargs["line_density"],
         emin=kwargs["emin"],
         emax=kwargs["emax"],
-        distance_factor=kwargs["distance_factor"],
+        amin=kwargs["amin"],
+        amax=kwargs["amax"],
+        cmap=kwargs["cmap"],
+        colorbar=kwargs["no_colorbar"],
         width=kwargs["width"],
         height=kwargs["height"],
         style=kwargs["style"],
@@ -107,7 +121,7 @@ def lineshape(filename, **kwargs):
     )
 
     save_plot(
-        plt, "band", kwargs["directory"], kwargs["prefix"], kwargs["image_format"]
+        plt, "lineshape", kwargs["directory"], kwargs["prefix"], kwargs["image_format"]
     )
     return plt
 
