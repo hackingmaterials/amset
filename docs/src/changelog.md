@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+Added new features:
+
+- Revamped lineshape plotter.
+- Added `cache_wavefunction` option to control memory demand (see docs for more details).
+
 ## v0.2.2
 
 Fix PyPi installation.
