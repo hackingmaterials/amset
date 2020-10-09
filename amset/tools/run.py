@@ -72,6 +72,9 @@ __email__ = "aganose@lbl.gov"
     help="Fermi-Dirac tolerance below which scattering rates are not "
     "calculated [%%]",
 )
+@option(
+    "--cache-wavefunction/--no-cache-wavefunction", default=None, help="cache wavefunction coefficients; beware increased memory usage [default: True]"
+)
 @option("--dos-estep", type=float, help="dos energy step [eV]")
 @option("--symprec", type=float, help="symmetry precision")
 @option("--nworkers", type=float, help="number of processors to use")
