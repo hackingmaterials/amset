@@ -260,7 +260,7 @@ class Runner(MSONable):
             cutoff_pad,
             scattering_type=self.settings["scattering_type"],
             progress_bar=self.settings["print_log"],
-            cache_wavefunction=self.settings["cache_wavefunction"]
+            cache_wavefunction=self.settings["cache_wavefunction"],
         )
 
         amset_data.set_scattering_rates(

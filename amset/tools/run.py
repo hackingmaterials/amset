@@ -73,7 +73,9 @@ __email__ = "aganose@lbl.gov"
     "calculated [%%]",
 )
 @option(
-    "--cache-wavefunction/--no-cache-wavefunction", default=None, help="cache wavefunction coefficients; beware increased memory usage [default: True]"
+    "--cache-wavefunction/--no-cache-wavefunction",
+    default=None,
+    help="cache wavefunction coefficients; beware increased memory usage [default: True]",
 )
 @option("--dos-estep", type=float, help="dos energy step [eV]")
 @option("--symprec", type=float, help="symmetry precision")
