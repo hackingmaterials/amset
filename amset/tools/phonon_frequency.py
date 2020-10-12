@@ -79,16 +79,22 @@ def get_phonon_weight(eigenvector, eigenvalue, born_effective_charges, structure
     directions = DEFAULT_QUAD["points"] * 0.01
     quad_weights = DEFAULT_QUAD["weights"]
 
+    # precalculate Z*.e(q) / sqrt(M*omega) for each atom; this only needs to be
+    # computed once and is the same for every q direction
+    zes = []
+    for atom_born, atom_vec, site in zip(
+        born_effective_charges, eigenvector, structure
+    ):
+        ze = np.dot(atom_born, atom_vec) / np.sqrt(site.specie.atomic_mass * eigenvalue)
+        zes.append(ze)
+
     all_weights = []
     for direction in directions:
-        direction_weight = []
-        for atom_born, atom_vec, site in zip(
-            born_effective_charges, eigenvector, structure
-        ):
-            v1 = np.dot(atom_born, atom_vec)
-            v2 = np.dot(direction, v1)
-            direction_weight.append(v2 / np.sqrt(site.specie.atomic_mass * eigenvalue))
-        all_weights.append(np.abs(np.sum(direction_weight)))
+        # Calculate q.Z*.e(q) / sqrt(M*omega) for each atom
+        qze = np.dot(zes, direction)
+
+        # sum across all atoms
+        all_weights.append(np.abs(np.sum(qze)))
 
     weight = np.average(all_weights * quad_weights)
 
