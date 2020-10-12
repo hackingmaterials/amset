@@ -14,6 +14,7 @@ __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
 amset_base_style = resource_filename("amset.plot", "amset_base.mplstyle")
+revtex_style = resource_filename("amset.plot", "revtex.mplstyle")
 
 
 class BaseMeshPlotter(abc.ABC):
