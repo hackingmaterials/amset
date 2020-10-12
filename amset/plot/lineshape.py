@@ -17,12 +17,12 @@ from pymatgen.electronic_structure.bandstructure import (
     BandStructureSymmLine,
 )
 from pymatgen.electronic_structure.plotter import BSPlotter
-from sumo.plotting import pretty_plot, styled_plot
+from sumo.plotting import pretty_plot
 
 from amset.constants import defaults, hbar
 from amset.interpolation.bandstructure import Interpolator
 from amset.log import initialize_amset_logger
-from amset.plot import BaseMeshPlotter, amset_base_style
+from amset.plot import BaseMeshPlotter, amset_base_style, styled_plot
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -177,16 +177,11 @@ class LineshapePlotter(BaseMeshPlotter):
             rasterized=True,
             cmap=cmap,
             norm=LogNorm(vmin=amin, vmax=amax),
+            shading="auto",
         )
         if colorbar:
-            cax = plt.gcf().add_axes(
-                [
-                    ax.get_position().x1 + 0.04,
-                    ax.get_position().y0,
-                    0.04,
-                    ax.get_position().height,
-                ]
-            )
+            pos = ax.get_position()
+            cax = plt.gcf().add_axes([pos.x1 + 0.035, pos.y0, 0.035, pos.height])
             cbar = plt.colorbar(im, cax=cax)
             cbar.ax.tick_params(axis="y", length=rcParams["ytick.major.size"] * 0.5)
             cbar.ax.set_ylabel(
