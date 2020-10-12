@@ -3,7 +3,8 @@ import matplotlib.pyplot
 from amset.plot.base import (  # noqa
     BaseMeshPlotter,
     BaseTransportPlotter,
-    amset_base_style, revtex_style,
+    amset_base_style,
+    revtex_style,
 )
 
 
@@ -23,9 +24,7 @@ def styled_plot(*style_sheets):
     """
 
     def decorator(get_plot):
-
-        def wrapper(*args, fonts=None, style=None, no_base_style=False,
-                    **kwargs):
+        def wrapper(*args, fonts=None, style=None, no_base_style=False, **kwargs):
 
             if no_base_style:
                 list_style = []
@@ -41,11 +40,11 @@ def styled_plot(*style_sheets):
                     list_style += [style]
 
             if fonts is not None:
-                list_style += [{'font.family': 'sans-serif',
-                                'font.sans-serif': fonts}]
+                list_style += [{"font.family": "sans-serif", "font.sans-serif": fonts}]
 
             matplotlib.pyplot.style.use(list_style)
             return get_plot(*args, **kwargs)
 
         return wrapper
+
     return decorator
