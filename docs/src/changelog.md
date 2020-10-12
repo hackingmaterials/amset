@@ -6,6 +6,9 @@ Added new features:
 
 - Revamped lineshape plotter.
 - Added `cache_wavefunction` option to control memory demand (see docs for more details).
+- Added revtex plot style support. Enabled by adding `--style revtex` to the end of 
+  plotting commands.
+- Massive (~100x) speedup for calculating polar optical phonon frequency.
 
 ## v0.2.2
 
