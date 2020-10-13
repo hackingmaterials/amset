@@ -147,3 +147,9 @@ def get_gpoint_indices(gpoints, min_gpoint, num_gpoint):
     nz = num_gpoint[2]
     indices = shifted_g[:, 0] * nyz + shifted_g[:, 1] * nz + shifted_g[:, 2]
     return indices.astype(int)
+
+
+def is_ncl(coefficients):
+    return len(list(coefficients.values())[0].shape) == 4
+
+
