@@ -9,8 +9,11 @@ def test_load_settings(test_dir):
 
     # test settings loaded correctly
     assert settings["scissor"] == 3.0
-    assert (settings["high_frequency_dielectric"].tolist() ==
-            [[10, 0, 0], [0, 10, 0], [0, 0, 10]])
+    assert settings["high_frequency_dielectric"].tolist() == [
+        [10, 0, 0],
+        [0, 10, 0],
+        [0, 0, 10],
+    ]
 
     # test defaults inferred correctly
     assert settings["pop_frequency"] == defaults["pop_frequency"]

@@ -53,24 +53,24 @@ si_settings_wavefunction.update(
     }
 )
 si_transport_projections = {
-    ('mobility', ('overall', (0, 0))): 732.5733907510813,
-    ('mobility', ('overall', (-1, 0))): 423.0283130302309,
-    ('seebeck', (0, 0)): -978.6283240612485,
-    ('seebeck', (-1, 0)): -703.8009935753043,
-    ('conductivity', (0, 0)): 12.477079146162891,
-    ('conductivity', (-1, 0)): 677.7697522836963,
-    ('electronic_thermal_conductivity', (0, 0)): 0.0008639972135299406,
-    ('electronic_thermal_conductivity', (-1, 0)): 0.003388173648477095,
+    ("mobility", ("overall", (0, 0))): 732.5733907510813,
+    ("mobility", ("overall", (-1, 0))): 423.0283130302309,
+    ("seebeck", (0, 0)): -978.6283240612485,
+    ("seebeck", (-1, 0)): -703.8009935753043,
+    ("conductivity", (0, 0)): 12.477079146162891,
+    ("conductivity", (-1, 0)): 677.7697522836963,
+    ("electronic_thermal_conductivity", (0, 0)): 0.0008639972135299406,
+    ("electronic_thermal_conductivity", (-1, 0)): 0.003388173648477095,
 }
 si_transport_wavefunction = {
-    ('mobility', ('overall', (0, 0))): 1138.346074448407,
-    ('mobility', ('overall', (-1, 0))): 538.9257004979358,
-    ('seebeck', (0, 0)): -977.8109947263332,
-    ('seebeck', (-1, 0)): -718.8554371827041,
-    ('conductivity', (0, 0)): 19.473244465428902,
-    ('conductivity', (-1, 0)): 863.4587743458269,
-    ('electronic_thermal_conductivity', (0, 0)): 0.0015021583389928138,
-    ('electronic_thermal_conductivity', (-1, 0)): 0.004664695625665922,
+    ("mobility", ("overall", (0, 0))): 1138.346074448407,
+    ("mobility", ("overall", (-1, 0))): 538.9257004979358,
+    ("seebeck", (0, 0)): -977.8109947263332,
+    ("seebeck", (-1, 0)): -718.8554371827041,
+    ("conductivity", (0, 0)): 19.473244465428902,
+    ("conductivity", (-1, 0)): 863.4587743458269,
+    ("electronic_thermal_conductivity", (0, 0)): 0.0015021583389928138,
+    ("electronic_thermal_conductivity", (-1, 0)): 0.004664695625665922,
 }
 
 gaas_settings_wavefunction = {
@@ -149,7 +149,9 @@ def test_run_amset_from_vasprun(
 
 
 @pytest.mark.usefixtures("clean_dir")
-@pytest.mark.parametrize("system,settings,transport,max_aniso,files,scats", [test_data[0]])
+@pytest.mark.parametrize(
+    "system,settings,transport,max_aniso,files,scats", [test_data[0]]
+)
 def test_run_amset_from_directory(
     example_dir, system, settings, transport, max_aniso, files, scats
 ):

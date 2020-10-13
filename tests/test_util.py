@@ -3,10 +3,20 @@ from contextlib import contextmanager
 import pytest
 import numpy as np
 
-from amset.util import tensor_average, groupby, validate_settings, cast_tensor, \
-    cast_elastic_tensor, cast_dict_list, cast_dict_ndarray, parse_doping, \
-    parse_temperatures, parse_deformation_potential, get_progress_bar, \
-    cast_piezoelectric_tensor
+from amset.util import (
+    tensor_average,
+    groupby,
+    validate_settings,
+    cast_tensor,
+    cast_elastic_tensor,
+    cast_dict_list,
+    cast_dict_ndarray,
+    parse_doping,
+    parse_temperatures,
+    parse_deformation_potential,
+    get_progress_bar,
+    cast_piezoelectric_tensor,
+)
 from pymatgen import Spin
 
 
@@ -19,8 +29,8 @@ def does_not_raise():
     "tensor,expected",
     [
         pytest.param([[3, 0, 0], [0, 4, 0], [0, 0, 5]], 4, id="diagonal"),
-        pytest.param([[0, 3, 3], [3, 3, 4], [3, 4, 3]], 2, id="off-diagonal")
-    ]
+        pytest.param([[0, 3, 3], [3, 3, 4], [3, 4, 3]], 2, id="off-diagonal"),
+    ],
 )
 def test_tensor_average(tensor, expected):
     assert tensor_average(tensor) == expected
@@ -33,15 +43,15 @@ def test_tensor_average(tensor, expected):
             ["a", "b", "1", "2", "c", "d"],
             [2, 0, 1, 2, 0, 0],
             [["b", "c", "d"], ["1"], ["a", "2"]],
-            id="mixed"
+            id="mixed",
         ),
         pytest.param(
             [[0, 0, 0], [1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4]],
             [2, 2, 1, 0, 0],
             [[[3, 3, 3], [4, 4, 4]], [[2, 2, 2]], [[0, 0, 0], [1, 1, 1]]],
-            id="coords"
-        )
-    ]
+            id="coords",
+        ),
+    ],
 )
 def test_groupby(elements, groups, expected):
     elements = ["a", "b", "1", "2", "c", "d"]
@@ -53,15 +63,21 @@ def test_groupby(elements, groups, expected):
 
 
 _expected_elastic = [
-    [[[3.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
-     [[0.0, 1.5, 0.0], [1.5, 0.0, 0.0], [0.0, 0.0, 0.0]],
-     [[0.0, 0.0, 1.5], [0.0, 0.0, 0.0], [1.5, 0.0, 0.0]]],
-    [[[0.0, 1.5, 0.0], [1.5, 0.0, 0.0], [0.0, 0.0, 0.0]],
-     [[0.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 0.0]],
-     [[0.0, 0.0, 0.0], [0.0, 0.0, 1.5], [0.0, 1.5, 0.0]]],
-    [[[0.0, 0.0, 1.5], [0.0, 0.0, 0.0], [1.5, 0.0, 0.0]],
-     [[0.0, 0.0, 0.0], [0.0, 0.0, 1.5], [0.0, 1.5, 0.0]],
-     [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 3.0]]]
+    [
+        [[3.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+        [[0.0, 1.5, 0.0], [1.5, 0.0, 0.0], [0.0, 0.0, 0.0]],
+        [[0.0, 0.0, 1.5], [0.0, 0.0, 0.0], [1.5, 0.0, 0.0]],
+    ],
+    [
+        [[0.0, 1.5, 0.0], [1.5, 0.0, 0.0], [0.0, 0.0, 0.0]],
+        [[0.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 0.0]],
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 1.5], [0.0, 1.5, 0.0]],
+    ],
+    [
+        [[0.0, 0.0, 1.5], [0.0, 0.0, 0.0], [1.5, 0.0, 0.0]],
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 1.5], [0.0, 1.5, 0.0]],
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 3.0]],
+    ],
 ]
 _elastic_voigt = [
     [3, 0, 0, 0, 0, 0],
@@ -69,14 +85,18 @@ _elastic_voigt = [
     [0, 0, 3, 0, 0, 0],
     [0, 0, 0, 1.5, 0, 0],
     [0, 0, 0, 0, 1.5, 0],
-    [0, 0, 0, 0, 0, 1.5]
+    [0, 0, 0, 0, 0, 1.5],
 ]
 _expected_piezo = [
     [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0084], [0.0, 0.0084, 0.0]],
     [[0.0, 0.0, 0.0084], [0.0, 0.0, 0.0], [0.0084, 0.0, 0.0]],
-    [[0.0, 0.0084, 0.0], [0.0084, 0.0, 0.0], [0.0, 0.0, 0.0]]
+    [[0.0, 0.0084, 0.0], [0.0084, 0.0, 0.0], [0.0, 0.0, 0.0]],
 ]
-_piezo_voigt = [[0, 0, 0, 0.0084, 0, 0], [0, 0, 0, 0, 0.0084, 0], [0, 0, 0, 0, 0, 0.0084]]
+_piezo_voigt = [
+    [0, 0, 0, 0.0084, 0, 0],
+    [0, 0, 0, 0, 0.0084, 0],
+    [0, 0, 0, 0, 0, 0.0084],
+]
 
 
 @pytest.mark.parametrize(
@@ -85,36 +105,36 @@ _piezo_voigt = [[0, 0, 0, 0.0084, 0, 0], [0, 0, 0, 0, 0.0084, 0], [0, 0, 0, 0, 0
         pytest.param(
             {},
             {
-                'scattering_type': 'auto',
-                'temperatures': np.array([300]),
-                'calculate_mobility': True,
-                'separate_mobility': True,
-                'mobility_rates_only': False
+                "scattering_type": "auto",
+                "temperatures": np.array([300]),
+                "calculate_mobility": True,
+                "separate_mobility": True,
+                "mobility_rates_only": False,
             },
-            id="empty"
+            id="empty",
         ),
         pytest.param(
             {"doping": "1E16:1E20:5", "temperatures": "100:500:5"},
             {
                 "doping": np.array([1e16, 1e17, 1e18, 1e19, 1e20]),
-                "temperatures": np.array([100, 200, 300, 400, 500])
+                "temperatures": np.array([100, 200, 300, 400, 500]),
             },
-            id="doping"
+            id="doping",
         ),
         pytest.param(
             {"deformation_potential": "1,2"},
             {"deformation_potential": (1, 2)},
-            id="deformation (str-1)"
+            id="deformation (str-1)",
         ),
         pytest.param(
             {"deformation_potential": "1."},
-            {"deformation_potential": 1.},
-            id="deformation (str-2)"
+            {"deformation_potential": 1.0},
+            id="deformation (str-2)",
         ),
         pytest.param(
             {"deformation_potential": "deformation.h5"},
             {"deformation_potential": "deformation.h5"},
-            id="deformation (str-3)"
+            id="deformation (str-3)",
         ),
         pytest.param(
             {
@@ -127,20 +147,17 @@ _piezo_voigt = [[0, 0, 0, 0.0084, 0, 0], [0, 0, 0, 0, 0.0084, 0], [0, 0, 0, 0, 0
                 "high_frequency_dielectric": np.eye(3) * 3,
                 "elastic_constant": np.array(_expected_elastic),
             },
-            id="tensor cast (int)"
+            id="tensor cast (int)",
         ),
         pytest.param(
-            {
-                "static_dielectric": [1, 2, 3],
-                "high_frequency_dielectric": [1, 2, 3],
-            },
+            {"static_dielectric": [1, 2, 3], "high_frequency_dielectric": [1, 2, 3],},
             {
                 "static_dielectric": np.array([[1, 0, 0], [0, 2, 0], [0, 0, 3]]),
                 "high_frequency_dielectric": np.array(
                     [[1, 0, 0], [0, 2, 0], [0, 0, 3]]
                 ),
             },
-            id="tensor cast (list)"
+            id="tensor cast (list)",
         ),
         pytest.param(
             {
@@ -155,14 +172,10 @@ _piezo_voigt = [[0, 0, 0, 0.0084, 0, 0], [0, 0, 0, 0, 0.0084, 0], [0, 0, 0, 0, 0
                 "elastic_constant": np.array(_expected_elastic),
                 "piezoelectric_constant": np.array(_expected_piezo),
             },
-            id="tensor cast (array)"
+            id="tensor cast (array)",
         ),
-        pytest.param(
-            {"mispelt_parameter": 1},
-            pytest.raises(ValueError),
-            id="raises"
-        ),
-    ]
+        pytest.param({"mispelt_parameter": 1}, pytest.raises(ValueError), id="raises"),
+    ],
 )
 def test_validate_settings(settings, expected):
     if not isinstance(expected, dict):
@@ -188,7 +201,7 @@ def test_validate_settings(settings, expected):
     [
         pytest.param(3, np.eye(3) * 3, id="int"),
         pytest.param([0, 1, 2], [[0, 0, 0], [0, 1, 0], [0, 0, 2]], id="list"),
-    ]
+    ],
 )
 def test_cast_tensor(value, expected):
     np.testing.assert_array_equal(cast_tensor(value), expected)
@@ -200,7 +213,7 @@ def test_cast_tensor(value, expected):
         pytest.param(3, _expected_elastic, id="int"),
         pytest.param(_elastic_voigt, _expected_elastic, id="Voigt"),
         pytest.param(_expected_elastic, _expected_elastic, id="3x3x3x3"),
-    ]
+    ],
 )
 def test_cast_elastic_tensor(value, expected):
     np.testing.assert_array_equal(cast_elastic_tensor(value), expected)
@@ -211,7 +224,7 @@ def test_cast_elastic_tensor(value, expected):
     [
         pytest.param(_piezo_voigt, _expected_piezo, id="Voigt"),
         pytest.param(_expected_piezo, _expected_piezo, id="3x3x3"),
-    ]
+    ],
 )
 def test_cast_piezoelectric_tensor(value, expected):
     np.testing.assert_array_equal(cast_piezoelectric_tensor(value), expected)
@@ -223,24 +236,24 @@ def test_cast_piezoelectric_tensor(value, expected):
         pytest.param(
             {"a": np.array([1, 2, 3]), "c": [1]},
             {"a": [1, 2, 3], "c": [1]},
-            id="single"
+            id="single",
         ),
         pytest.param(
             {"a": np.array([1, 2, 3]), "c": [1], 123: np.array([[0, 0], [0, 0]])},
             {"a": [1, 2, 3], "c": [1], 123: [[0, 0], [0, 0]]},
-            id="double"
+            id="double",
         ),
         pytest.param(
             {"a": {"b": np.array([1, 2, 3])}, "c": {"d": np.array([1, 2])}},
             {"a": {"b": [1, 2, 3]}, "c": {"d": [1, 2]}},
-            id="nested"
+            id="nested",
         ),
         pytest.param(
             {"a": {Spin.up: np.array([1, 2, 3])}, "c": {"d": np.array([1, 2])}},
             {"a": {"up": [1, 2, 3]}, "c": {"d": [1, 2]}},
-            id="spin"
+            id="spin",
         ),
-    ]
+    ],
 )
 def test_cast_dict_list(value, expected):
     assert cast_dict_list(value) == expected
@@ -250,26 +263,24 @@ def test_cast_dict_list(value, expected):
     "value,expected",
     [
         pytest.param(
-            {"a": [1, 2, 3], "c": 1},
-            {"a": np.array([1, 2, 3]), "c": 1},
-            id="single"
+            {"a": [1, 2, 3], "c": 1}, {"a": np.array([1, 2, 3]), "c": 1}, id="single"
         ),
         pytest.param(
             {"a": [1, 2, 3], "c": 1, 123: [[0, 0], [0, 0]]},
             {"a": np.array([1, 2, 3]), "c": 1, 123: np.array([[0, 0], [0, 0]])},
-            id="double"
+            id="double",
         ),
         pytest.param(
             {"a": {"b": [1, 2, 3]}, "c": {"d": [1, 2]}},
             {"a": {"b": np.array([1, 2, 3])}, "c": {"d": np.array([1, 2])}},
-            id="nested"
+            id="nested",
         ),
         pytest.param(
             {"a": {"up": [1, 2, 3]}, "c": {"d": [1, 2]}},
             {"a": {Spin.up: np.array([1, 2, 3])}, "c": {"d": np.array([1, 2])}},
-            id="spin"
+            id="spin",
         ),
-    ]
+    ],
 )
 def test_cast_dict_ndarray(value, expected):
     def compare(a, b):
@@ -295,11 +306,11 @@ def test_cast_dict_ndarray(value, expected):
 @pytest.mark.parametrize(
     "value,expected",
     [
-        pytest.param("1E16", [1E16], id="single"),
-        pytest.param("1E16,1E17", [1E16, 1E17], id="multiple"),
-        pytest.param("1E16:1E19:4", [1E16, 1E17, 1e18, 1e19], id="range"),
+        pytest.param("1E16", [1e16], id="single"),
+        pytest.param("1E16,1E17", [1e16, 1e17], id="multiple"),
+        pytest.param("1E16:1E19:4", [1e16, 1e17, 1e18, 1e19], id="range"),
         pytest.param("1E16:1E19:4:1", pytest.raises(ValueError), id="error"),
-    ]
+    ],
 )
 def test_parse_doping(value, expected):
     if not isinstance(expected, list):
@@ -318,7 +329,7 @@ def test_parse_doping(value, expected):
         pytest.param("100,200", [100, 200], id="multiple"),
         pytest.param("100:400:4", [100, 200, 300, 400], id="range"),
         pytest.param("100:400:4:1", pytest.raises(ValueError), id="error"),
-    ]
+    ],
 )
 def test_parse_temperatures(value, expected):
     if not isinstance(expected, list):
@@ -337,7 +348,7 @@ def test_parse_temperatures(value, expected):
         pytest.param("2", 2, id="single"),
         pytest.param("2,5", (2, 5), id="both"),
         pytest.param("100,2,1", pytest.raises(ValueError), id="error"),
-    ]
+    ],
 )
 def test_parse_deformation_potential(value, expected):
     if not isinstance(expected, (tuple, int, float, str)):
@@ -354,7 +365,7 @@ def test_parse_deformation_potential(value, expected):
         pytest.param([1, 2, 3], None, does_not_raise(), id="iterable"),
         pytest.param(None, 3, does_not_raise(), id="total"),
         pytest.param(None, None, pytest.raises(ValueError), id="error"),
-    ]
+    ],
 )
 def test_get_progress_bar(iterable, total, error):
     with error:
