@@ -99,7 +99,7 @@ class Interpolator(MSONable):
 
         t0 = time.perf_counter()
         self._equivalences = sphere.get_equivalences(
-            atoms=atoms, nkpt=kpoints.shape[0] * interpolation_factor, magmom=magmom
+            atoms, magmom, kpoints.shape[0] * interpolation_factor
         )
 
         # get the interpolation mesh used by BoltzTraP2
