@@ -151,5 +151,3 @@ def get_gpoint_indices(gpoints, min_gpoint, num_gpoint):
 
 def is_ncl(coefficients):
     return len(list(coefficients.values())[0].shape) == 4
-
-

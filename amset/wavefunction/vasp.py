@@ -10,6 +10,7 @@ from amset.wavefunction.common import (
     get_gpoints,
     get_min_gpoints,
     sample_random_kpoints,
+    is_ncl,
 )
 
 __author__ = "Alex Ganose"
@@ -17,13 +18,13 @@ __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
 
-def get_wavefunction(wavecar="WAVECAR", directory=None):
+def get_wavefunction(wavecar="WAVECAR", vasp_type=None, directory=None):
     from pymatgen.io.vasp import Wavecar
 
     if directory:
         wavecar = Path(directory) / wavecar
 
-    return Wavecar(wavecar)
+    return Wavecar(wavecar, vasp_type=vasp_type)
 
 
 def get_wavefunction_coefficients(wavefunction, iband=None, encut=500, pbar=True):
@@ -74,6 +75,8 @@ def _get_spin_wavefunction_coefficients(
     else:
         original_coeffs = wavefunction.coeffs[ispin]
 
+    ncl = "ncl" == wavefunction.vasp_type
+
     if iband is None:
         # take all bands
         iband = np.arange(len(original_coeffs[0]), dtype=int)
@@ -83,7 +86,10 @@ def _get_spin_wavefunction_coefficients(
 
     ncoeffs = len(valid_indices)
     nkpoints = len(wavefunction.kpoints)
-    coeffs = np.zeros((len(iband), nkpoints, ncoeffs), dtype=complex)
+    if ncl:
+        coeffs = np.zeros((len(iband), nkpoints, ncoeffs, 2), dtype=complex)
+    else:
+        coeffs = np.zeros((len(iband), nkpoints, ncoeffs), dtype=complex)
     state_idxs = list(range(nkpoints))
     if pbar:
         state_idxs = tqdm(state_idxs, ncols=output_width)
@@ -98,9 +104,12 @@ def _get_spin_wavefunction_coefficients(
             raise RuntimeError("Something went wrong mapping coefficients")
 
         for i, nb in enumerate(iband):
-            coeffs[i, nk, coeff_indices] = original_coeffs[nk][nb][gpoints_to_keep]
+            coeffs[i, nk, coeff_indices] = original_coeffs[nk][nb][:, gpoints_to_keep].T
 
-    coeffs /= np.linalg.norm(coeffs, axis=2)[..., None]
+    if ncl:
+        coeffs /= np.linalg.norm(coeffs, axis=(2, 3))[..., None, None]
+    else:
+        coeffs /= np.linalg.norm(coeffs, axis=2)[..., None]
 
     return coeffs
 
@@ -169,7 +178,11 @@ def get_converged_encut(
 
 def get_overlaps(coeffs, origin, points):
     ncoeffs = list(coeffs.values())[0].shape[2]
-    select_coeffs = np.zeros((len(points), ncoeffs), dtype=complex)
+    ncl = is_ncl(coeffs)
+    if ncl:
+        select_coeffs = np.zeros((len(points), ncoeffs, 2), dtype=complex)
+    else:
+        select_coeffs = np.zeros((len(points), ncoeffs), dtype=complex)
 
     origin_spin = int_to_spin[origin[0]]
     origin = coeffs[origin_spin][origin[1], origin[2]]
@@ -178,5 +191,10 @@ def get_overlaps(coeffs, origin, points):
         spin = int_to_spin[s_idx]
         select_coeffs[i] = coeffs[spin][b_idx, k_idx]
 
-    overlaps = np.abs((np.conj(origin[:, None]) * select_coeffs.T).sum(axis=0)) ** 2
+    if ncl:
+        tc = select_coeffs.transpose((1, 0, 2))
+        overlaps = np.abs((np.conj(origin[:, None]) * tc).sum(axis=0)) ** 2
+        overlaps = overlaps.sum(axis=1)  # sum spinor components
+    else:
+        overlaps = np.abs((np.conj(origin[:, None]) * select_coeffs.T).sum(axis=0)) ** 2
     return overlaps
