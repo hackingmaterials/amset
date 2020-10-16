@@ -108,20 +108,22 @@ def get_converged_encut(
     nkpoints = len(wavefunction.kpoints)
 
     if iband is None:
-        # this is a little different to usual iband
         iband = {}
         for ispin in range(wavefunction.spin):
             spin = int_to_spin[ispin]
             if wavefunction.spin == 1:
-                iband[spin] = len(wavefunction.coeffs[0])
+                iband[spin] = np.arange(len(wavefunction.coeffs[0]))
             else:
-                iband[spin] = len(wavefunction.coeffs[ispin][0])
+                iband[spin] = np.arange(len(wavefunction.coeffs[ispin][0]))
 
-    sample_points = sample_random_kpoints(nspins, nkpoints, iband, n_samples)
+    # this is a little different to usual iband
+    sample_iband = {s: len(b) for s, b in iband.items()}
+    coeffs, _ = get_wavefunction_coefficients(wavefunction, encut=max_encut, pbar=False, iband=iband)
+
+    sample_points = sample_random_kpoints(nspins, nkpoints, sample_iband, n_samples)
     origin = sample_points[0]
     sample_points = sample_points[1:]
 
-    coeffs, _ = get_wavefunction_coefficients(wavefunction, encut=max_encut, pbar=False)
     true_overlaps = get_overlaps(coeffs, origin, sample_points)
 
     # filter points to only include these with reasonable overlaps
@@ -130,7 +132,7 @@ def get_converged_encut(
     sample_points = sample_points[mask]
 
     for encut in np.arange(200, max_encut, 50):
-        coeffs, _ = get_wavefunction_coefficients(wavefunction, encut=encut, pbar=False)
+        coeffs, _ = get_wavefunction_coefficients(wavefunction, encut=encut, pbar=False, iband=iband)
         fake_overlaps = get_overlaps(coeffs, origin, sample_points)
 
         diff = (true_overlaps / fake_overlaps) - 1
