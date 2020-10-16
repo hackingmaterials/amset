@@ -11,7 +11,7 @@ from BoltzTraP2 import fite, sphere
 from monty.json import MSONable
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure,
-    BandStructureSymmLine
+    BandStructureSymmLine,
 )
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.dos import Dos

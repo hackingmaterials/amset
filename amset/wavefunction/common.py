@@ -133,7 +133,6 @@ def desymmetrize_coefficients(
                     su2[1, 0] * spin_coeffs[:, map_idx, :, 0]
                     + su2[1, 1] * spin_coeffs[:, map_idx, :, 1]
                 )
-                # rc = spin_coeffs[:, map_idx]
                 rot_coeffs[:, k_idx, rg1, rg2, rg3] = factor[None, :, None] * rc
             else:
                 rot_coeffs[:, k_idx, rg1, rg2, rg3] = spin_coeffs[:, map_idx] * factor
