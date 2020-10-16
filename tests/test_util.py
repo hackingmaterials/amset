@@ -150,7 +150,7 @@ _piezo_voigt = [
             id="tensor cast (int)",
         ),
         pytest.param(
-            {"static_dielectric": [1, 2, 3], "high_frequency_dielectric": [1, 2, 3],},
+            {"static_dielectric": [1, 2, 3], "high_frequency_dielectric": [1, 2, 3]},
             {
                 "static_dielectric": np.array([[1, 0, 0], [0, 2, 0], [0, 0, 3]]),
                 "high_frequency_dielectric": np.array(
