@@ -230,8 +230,8 @@ def rotate_bandstructure(bandstructure: BandStructure, frac_symop: SymmOp):
 
 def rotation_matrix_to_cartesian(rotation_matrix, lattice):
     """Transform rotation matrix from fractional basis to cartesian basis."""
-    sb = lattice.reciprocal_lattice.matrix @ rotation_matrix
-    return lattice.matrix @ sb.T
+    sb = np.matmul(lattice.reciprocal_lattice_crystallographic.matrix, rotation_matrix)
+    return np.matmul(lattice.matrix, sb.T)
 
 
 def rotation_matrix_to_su2(rotation_matrix, eps=1e-8):
