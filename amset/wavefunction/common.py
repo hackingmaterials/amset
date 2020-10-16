@@ -3,6 +3,11 @@ import time
 from typing import Dict, List, Union
 
 import numpy as np
+
+from amset.electronic_structure.symmetry import (
+    rotation_matrix_to_su2,
+    rotation_matrix_to_cartesian,
+)
 from pymatgen import Spin
 
 from amset.constants import int_to_spin, numeric_types
@@ -48,6 +53,7 @@ def desymmetrize_coefficients(
     coeffs,
     gpoints,
     kpoints,
+    structure,
     rotations,
     translations,
     is_tr,
@@ -58,21 +64,32 @@ def desymmetrize_coefficients(
     logger.info("Desymmetrizing wavefunction coefficients")
     t0 = time.perf_counter()
 
+    ncl = is_ncl(coeffs)
     rots = rotations[op_mapping]
     taus = translations[op_mapping]
     trs = is_tr[op_mapping]
 
-    min_gpoint = gpoints.min(axis=0)
-    num_gpoint = gpoints.max(axis=0) - min_gpoint + 1
-    valid_indices = get_gpoint_indices(gpoints, min_gpoint, num_gpoint)
-    indices_map = np.full(np.max(valid_indices) + 1, -1, dtype=int)
-    indices_map[valid_indices] = np.arange(len(valid_indices))
+    su2s = None
+    if ncl:
+        # get cartesian rotation matrix
+        r_cart = [rotation_matrix_to_cartesian(r, structure.lattice) for r in rotations]
+
+        # calculate SU(2)
+        su2_no_dagger = np.array([rotation_matrix_to_su2(r) for r in r_cart])
+
+        # calculate SU(2)^{dagger}
+        su2 = np.conjugate(su2_no_dagger).transpose((0, 2, 1))
+        su2s = su2[op_mapping]
+
+    g_mesh = (np.abs(gpoints).max(axis=0) + 3) * 2
+    g1, g2, g3 = (gpoints + g_mesh / 2).astype(int).T  # indices of g-points to keep
 
     all_rot_coeffs = {}
     for spin, spin_coeffs in coeffs.items():
-        all_rot_coeffs[spin] = np.zeros(
-            (len(spin_coeffs), len(rots), len(gpoints)), dtype=np.complex
-        )
+        coeff_shape = (len(spin_coeffs), len(rots)) + tuple(g_mesh)
+        if ncl:
+            coeff_shape += (2,)
+        rot_coeffs = np.zeros(coeff_shape, dtype=complex)
 
         state_idxs = list(range(len(rots)))
         if pbar:
@@ -97,24 +114,34 @@ def desymmetrize_coefficients(
             rot_gpoints = np.dot(rot, gpoints.T).T
             rot_gpoints = np.around(rot_gpoints).astype(int)
             rot_gpoints += kdiff.astype(int)
-            rot_indices = get_gpoint_indices(rot_gpoints, min_gpoint, num_gpoint)
-
-            # some g-points may now be outside encut limit so only keep the g-points
-            # that are in the original g-point mesh
-            rot_map = np.full(np.max(rot_indices) + 1, -1, dtype=int)
-            rot_map[rot_indices] = np.arange(len(rot_indices))
-            to_keep = np.array(list(set(valid_indices).intersection(set(rot_indices))))
-            keep_indices = rot_map[to_keep]
-
-            kgt_factor = np.dot(rot_kpoint + rot_gpoints, -tau)
-            exp_factor = np.exp(1j * 2 * np.pi * kgt_factor)
-            rot_coeffs = exp_factor[None, :] * spin_coeffs[:, map_idx]
 
             if tr:
-                rot_coeffs = np.conjugate(rot_coeffs)
+                tau = -tau
 
-            order = indices_map[to_keep]
-            all_rot_coeffs[spin][:, k_idx, order] = rot_coeffs[:, keep_indices]
+            factor = np.exp(-1j * 2 * np.pi * np.dot(rot_gpoints + rot_kpoint, tau))
+            rg1, rg2, rg3 = (rot_gpoints + g_mesh / 2).astype(int).T
+
+            if ncl:
+                # perform rotation in spin space
+                su2 = su2s[k_idx]
+                rc = np.zeros_like(spin_coeffs[:, map_idx])
+                rc[:, :, 0] = (
+                    su2[0, 0] * spin_coeffs[:, map_idx, :, 0]
+                    + su2[0, 1] * spin_coeffs[:, map_idx, :, 1]
+                )
+                rc[:, :, 1] = (
+                    su2[1, 0] * spin_coeffs[:, map_idx, :, 0]
+                    + su2[1, 1] * spin_coeffs[:, map_idx, :, 1]
+                )
+                # rc = spin_coeffs[:, map_idx]
+                rot_coeffs[:, k_idx, rg1, rg2, rg3] = factor[None, :, None] * rc
+            else:
+                rot_coeffs[:, k_idx, rg1, rg2, rg3] = spin_coeffs[:, map_idx] * factor
+
+            if tr and not ncl:
+                rot_coeffs[:, k_idx] = np.conjugate(rot_coeffs[:, k_idx])
+
+        all_rot_coeffs[spin] = rot_coeffs[:, :, g1, g2, g3]
 
     log_time_taken(t0)
     return all_rot_coeffs
@@ -151,3 +178,12 @@ def get_gpoint_indices(gpoints, min_gpoint, num_gpoint):
 
 def is_ncl(coefficients):
     return len(list(coefficients.values())[0].shape) == 4
+
+
+def get_overlap(origin, final):
+    if len(origin.shape) == 2:
+        # ncl
+        final = final.transpose((1, 0, 2))
+        return np.abs((np.conj(origin[:, None]) * final).sum(axis=(0, 2))) ** 2
+    else:
+        return np.abs((np.conj(origin[:, None]) * final.T).sum(axis=0)) ** 2
