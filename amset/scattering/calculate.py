@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import quadpy
+
+from amset.wavefunction.common import get_overlap
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 from scipy.interpolate import griddata
@@ -371,7 +373,7 @@ class ScatteringCalculator(object):
             # tetrahedron vertices
             p1 = self._coeffs[spin][self._coeffs_mapping[spin][b_idx, k_idx]]
             p2 = self._coeffs[spin][self._coeffs_mapping[spin][band_mask, kpoint_mask]]
-            overlap = np.abs(np.dot(np.conj(p1), np.asarray(p2).T)) ** 2
+            overlap = get_overlap(p1, p2)
         else:
             overlap = self.amset_data.overlap_calculator.get_overlap(
                 spin, b_idx, k, band_mask, k_primes
