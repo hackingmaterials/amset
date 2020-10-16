@@ -9,7 +9,7 @@ from amset.interpolation.periodic import (
     PeriodicLinearInterpolator,
     group_bands_and_kpoints,
 )
-from amset.wavefunction.common import desymmetrize_coefficients
+from amset.wavefunction.common import desymmetrize_coefficients, is_ncl, get_overlap
 from amset.wavefunction.io import load_coefficients
 
 __author__ = "Alex Ganose"
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
     def __init__(self, kpoints, data, gpoints):
         self.gpoints = gpoints
+        self.ncl = is_ncl(data)
         super().__init__(kpoints, data)
 
     @classmethod
@@ -43,13 +44,18 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
             structure, kpoints, time_reversal=True, return_mapping=True, symprec=symprec
         )
         coefficients = desymmetrize_coefficients(
-            coefficients, gpoints, kpoints, *symmetry_mapping
+            coefficients, gpoints, kpoints, structure, *symmetry_mapping
         )
         return cls(full_kpoints, coefficients, gpoints)
 
     def get_coefficients(self, spin, bands, kpoints):
         interp_coeffs = self.interpolate(spin, bands, kpoints)
-        interp_coeffs /= np.linalg.norm(interp_coeffs, axis=-1)[:, None]
+        if self.ncl:
+            interp_coeffs /= np.linalg.norm(interp_coeffs, axis=(-2, -1))[
+                ..., None, None
+            ]
+        else:
+            interp_coeffs /= np.linalg.norm(interp_coeffs, axis=-1)[:, None]
         return interp_coeffs
 
     def get_overlap(self, spin, band_a, kpoint_a, band_b, kpoint_b):
@@ -57,8 +63,7 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
             band_a, kpoint_a, band_b, kpoint_b
         )
         p = self.get_coefficients(spin, bands, kpoints)
-        overlap = np.abs(np.dot(np.conj(p[0]), p[1:].T)) ** 2
-
+        overlap = get_overlap(p[0], p[1:])
         if single_overlap:
             return overlap[0]
         else:
