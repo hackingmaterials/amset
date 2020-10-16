@@ -11,7 +11,7 @@ from BoltzTraP2 import fite, sphere
 from monty.json import MSONable
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure,
-    BandStructureSymmLine,
+    BandStructureSymmLine
 )
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.dos import Dos
@@ -638,7 +638,6 @@ class Interpolator(MSONable):
             labels_dict,
             coords_are_cartesian=True,
         )
-
         if return_other_properties:
             return bs, other_properties
         else:
