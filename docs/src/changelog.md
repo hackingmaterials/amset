@@ -9,6 +9,7 @@ Added new features:
 - Added revtex plot style support. Enabled by adding `--style revtex` to the end of 
   plotting commands.
 - Massive (~100x) speedup for calculating polar optical phonon frequency.
+- Added support for spin–orbit coupling.
 
 ## v0.2.2
 
