@@ -406,8 +406,15 @@ def force_branches(bandstructure, other_property=None):
     high_sym_kpoints = tuple(map(tuple, labels_dict.values()))
     for i, k in enumerate(kpoints):
         dup_ids.append(i)
-        if (tuple(k) in high_sym_kpoints and i != 0 and i != len(kpoints) - 1 and (
-                not np.array_equal(kpoints[i + 1], k) or not np.array_equal(kpoints[i - 1], k))):
+        if (
+            tuple(k) in high_sym_kpoints
+            and i != 0
+            and i != len(kpoints) - 1
+            and (
+                not np.array_equal(kpoints[i + 1], k)
+                or not np.array_equal(kpoints[i - 1], k)
+            )
+        ):
             dup_ids.append(i)
 
     kpoints = kpoints[dup_ids]
@@ -431,6 +438,6 @@ def force_branches(bandstructure, other_property=None):
         bandstructure.efermi,
         labels_dict,
         structure=bandstructure.structure,
-        projections=projections
+        projections=projections,
     )
     return new_bandstructure, new_property
