@@ -38,7 +38,7 @@ if __name__ == "__main__":
             "BoltzTraP2==20.7.1",
             "tqdm==4.50.2",
             "tabulate==0.8.7",
-            "memory_profiler==0.57.0",
+            "memory_profiler==0.58.0",
             "spglib==1.16.0",
             "click==7.1.2",
             "sumo==2.0.0",
