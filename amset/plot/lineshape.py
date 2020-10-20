@@ -123,6 +123,7 @@ class LineshapePlotter(BaseMeshPlotter):
             kpath=kpath,
             symprec=self.symprec,
         )
+        bs, rates = force_branches(bs, {s: p["rates"] for s, p in prop.items()})
 
         fd_emin, fd_emax = self.fd_cutoffs
         if not emin:
@@ -153,14 +154,7 @@ class LineshapePlotter(BaseMeshPlotter):
         distances = np.array([d for x in plot_data["distances"] for d in x])
 
         # rates are currently log(rate)
-        rates = {}
-        for spin, spin_data in prop.items():
-            rates[spin] = spin_data["rates"]
-
-        window = np.min([len(distances) - 2, 71])
-        window += window % 2 + 1
         mesh_data = np.full((len(distances), len(energies)), 0.0)
-
         for spin in self.spins:
             for spin_energies, spin_rates in zip(bs.bands[spin], rates[spin]):
                 for d_idx in range(len(distances)):
@@ -381,3 +375,62 @@ def _transpose_dict(d):
         for k2, v2 in v1.items():
             td[k2][k1] = v2
     return td
+
+
+def force_branches(bandstructure, other_property=None):
+    """Force a linemode band structure to contain branches.
+
+    Branches give a specific portion of the path from one high-symmetry point
+    to another. Branches are required for the plotting methods to function correctly.
+    Unfortunately, due to the pymatgen BandStructure implementation they require
+    duplicate k-points in the band structure path. To avoid this unnecessary
+    computational expense, this function can reconstruct branches in band structures
+    without the duplicate k-points.
+
+    Args:
+        bandstructure: A band structure object.
+        other_property: Another property with the format {spin: (nbands, nkpts, ...)
+            to split into branches.
+
+    Returns:
+        A band structure with brnaches.
+    """
+    kpoints = np.array([k.frac_coords for k in bandstructure.kpoints])
+    labels_dict = {k: v.frac_coords for k, v in bandstructure.labels_dict.items()}
+
+    # pymatgen band structure objects support branches. These are formed when
+    # two kpoints with the same label are next to each other. This bit of code
+    # will ensure that the band structure will contain branches, if it doesn't
+    # already.
+    dup_ids = []
+    high_sym_kpoints = tuple(map(tuple, labels_dict.values()))
+    for i, k in enumerate(kpoints):
+        dup_ids.append(i)
+        if (tuple(k) in high_sym_kpoints and i != 0 and i != len(kpoints) - 1 and (
+                not np.array_equal(kpoints[i + 1], k) or not np.array_equal(kpoints[i - 1], k))):
+            dup_ids.append(i)
+
+    kpoints = kpoints[dup_ids]
+
+    eigenvals = {}
+    projections = {}
+    for spin, spin_energies in bandstructure.bands.items():
+        eigenvals[spin] = spin_energies[:, dup_ids]
+        if len(bandstructure.projections) != 0:
+            projections[spin] = bandstructure.projections[spin][:, dup_ids]
+
+    new_property = {}
+    if other_property is not None:
+        for spin, spin_prop in other_property.items():
+            new_property[spin] = spin_prop[:, dup_ids]
+
+    new_bandstructure = type(bandstructure)(
+        kpoints,
+        eigenvals,
+        bandstructure.lattice_rec,
+        bandstructure.efermi,
+        labels_dict,
+        structure=bandstructure.structure,
+        projections=projections
+    )
+    return new_bandstructure, new_property
