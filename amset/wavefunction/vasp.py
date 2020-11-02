@@ -105,7 +105,7 @@ def _get_spin_wavefunction_coefficients(
             raise RuntimeError("Something went wrong mapping coefficients")
 
         for i, nb in enumerate(iband):
-            coeffs[i, nk, coeff_indices] = original_coeffs[nk][nb][:, gpoints_to_keep].T
+            coeffs[i, nk, coeff_indices] = original_coeffs[nk][nb][gpoints_to_keep].T
 
     if ncl:
         coeffs /= np.linalg.norm(coeffs, axis=(2, 3))[..., None, None]
