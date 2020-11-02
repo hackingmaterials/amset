@@ -30,13 +30,13 @@ if __name__ == "__main__":
         zip_safe=False,
         install_requires=[
             "quadpy==0.16.2",
-            "numpy==1.19.2",
-            "pymatgen==2020.10.9.1",
+            "numpy==1.19.3",
+            "pymatgen==2020.10.20",
             "scipy==1.5.3",
             "monty==4.0.2",
             "matplotlib==3.3.2",
             "BoltzTraP2==20.7.1",
-            "tqdm==4.50.2",
+            "tqdm==4.51.0",
             "tabulate==0.8.7",
             "memory_profiler==0.58.0",
             "spglib==1.16.0",
@@ -49,13 +49,13 @@ if __name__ == "__main__":
         extras_require={
             "docs": [
                 "mkdocs==1.1.2",
-                "mkdocs-material==6.1.0",
+                "mkdocs-material==6.1.2",
                 "mkdocs-minify-plugin==0.3.0",
                 "mkdocs-macros-plugin==0.4.18",
                 "markdown-include==0.6.0",
                 "markdown-katex==202009.1026",
             ],
-            "tests": ["pytest==6.1.1", "pytest-cov==2.10.1"],
+            "tests": ["pytest==6.1.2", "pytest-cov==2.10.1"],
             "all-electron": ["pawpyseed==0.6.3"],
             "dev": [
                 "coverage==5.3",
