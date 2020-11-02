@@ -10,6 +10,7 @@ Added new features:
   plotting commands.
 - Massive (~100x) speedup for calculating polar optical phonon frequency.
 - Added support for spin–orbit coupling.
+- Better handling of Fermi levels from VASP band structures.
 
 ## v0.2.2
 
