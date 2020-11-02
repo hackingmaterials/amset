@@ -10,6 +10,8 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
+from pymatgen.io.vasp import Vasprun
+
 
 def get_energy_cutoffs(
     energy_cutoff: float, band_structure: BandStructure
@@ -110,3 +112,18 @@ def get_angstrom_structure(structure):
         structure.frac_coords,
         site_properties=structure.site_properties,
     )
+
+
+def get_band_structure(vasprun: Vasprun) -> BandStructure:
+    """Get a band structure with a the correct Fermi level position."""
+
+    # eigenvalue band properties is more reliable than BandStructure.is_metal
+    bandgap, cbm, vbm, _ = vasprun.eigenvalue_band_properties
+
+    if bandgap == 0:
+        efermi = None
+    else:
+        # Set Fermi level half way between valence and conduction bands
+        efermi = (cbm + vbm) / 2
+
+    return vasprun.get_band_structure(efermi=efermi)

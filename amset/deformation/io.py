@@ -2,6 +2,8 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+
+from amset.electronic_structure.common import get_band_structure
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp.inputs import Poscar
 from pymatgen.io.vasp.outputs import Outcar, Vasprun
@@ -56,7 +58,7 @@ def write_deformed_poscars(deformed_structures, directory=None):
 def parse_calculation(folder):
     vr = Vasprun(get_gzipped_file("vasprun.xml", folder))
     out = Outcar(get_gzipped_file("OUTCAR", folder))
-    bs = vr.get_band_structure()
+    bs = get_band_structure(vr)
     reference_level = get_reference_energy(bs, out)
     return {"reference": reference_level, "bandstructure": bs}
 
