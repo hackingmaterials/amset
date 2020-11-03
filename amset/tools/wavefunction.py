@@ -29,6 +29,7 @@ __email__ = "aganose@lbl.gov"
     "--pawpyseed", is_flag=True, help="use pawpyseed to generate coefficients"
 )
 @click.option("-o", "--output", default="wavefunction.h5", help="output file path")
+@click.option("-v", "--vasp-type", help="set the vasp wavefunction type (std, ncl, or gam)")
 def wave(**kwargs):
     """Extract wavefunction coefficients from a WAVECAR"""
     from pymatgen.io.vasp import BSVasprun
@@ -86,7 +87,8 @@ def _wavefunction_vasp(ibands, planewave_cutoff, **kwargs):
 
     directory = kwargs.pop("directory")
     wavecar = kwargs.pop("wavecar")
-    wf = get_wavefunction(wavecar=wavecar, directory=directory)
+    vasp_type = kwargs.pop("vasp_type")
+    wf = get_wavefunction(wavecar=wavecar, directory=directory, vasp_type=vasp_type)
 
     if not planewave_cutoff:
         click.echo("******* Automatically choosing plane wave cutoff *******")
