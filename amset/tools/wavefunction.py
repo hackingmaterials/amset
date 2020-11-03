@@ -29,7 +29,9 @@ __email__ = "aganose@lbl.gov"
     "--pawpyseed", is_flag=True, help="use pawpyseed to generate coefficients"
 )
 @click.option("-o", "--output", default="wavefunction.h5", help="output file path")
-@click.option("-v", "--vasp-type", help="set the vasp wavefunction type (std, ncl, or gam)")
+@click.option(
+    "-v", "--vasp-type", help="set the vasp wavefunction type (std, ncl, or gam)"
+)
 def wave(**kwargs):
     """Extract wavefunction coefficients from a WAVECAR"""
     from pymatgen.io.vasp import BSVasprun
