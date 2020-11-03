@@ -466,4 +466,4 @@ def parse_ibands(ibands: Union[str, Tuple[List[int], List[int]]]) -> Dict:
         else:
             new_ibands[Spin.up] = ibands[0]
             new_ibands[Spin.down] = ibands[1]
-    return {s: [x - 1 for x in i] for s, i in new_ibands.items()}
+    return {s: np.array(i, dtype=int) - 1 for s, i in new_ibands.items()}

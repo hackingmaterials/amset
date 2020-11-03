@@ -406,4 +406,5 @@ def test_parse_ibands(value, expected):
             parse_ibands(value)
     else:
         parsed = parse_ibands(value)
+        parsed = {s: i.tolist() for s, i in parsed.items()}
         assert parsed == expected
