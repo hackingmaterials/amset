@@ -15,7 +15,7 @@ from amset.util import (
     parse_temperatures,
     parse_deformation_potential,
     get_progress_bar,
-    cast_piezoelectric_tensor,
+    cast_piezoelectric_tensor, parse_ibands,
 )
 from pymatgen import Spin
 
@@ -371,3 +371,27 @@ def test_get_progress_bar(iterable, total, error):
     with error:
         pbar = get_progress_bar(iterable=iterable, total=total)
         pbar.close()
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        pytest.param("1", {Spin.up: [0]}, id="single up"),
+        pytest.param("1, 2", {Spin.up: [0, 1]}, id="multiple up"),
+        pytest.param("1:4", {Spin.up: [0, 1, 2, 3]}, id="range up"),
+        pytest.param("1.2", {Spin.up: [0], Spin.down: [1]}, id="single up-down"),
+        pytest.param("1, 3, 5.2, 4, 6", {Spin.up: [0, 2, 4], Spin.down: [1, 3, 5]}, id="multiple up-down"),
+        pytest.param("1:4.2:5", {Spin.up: [0, 1, 2, 3], Spin.down: [1, 2, 3, 4]}, id="range up-down"),
+        pytest.param([1, 2, 3, 4], {Spin.up: [0, 1, 2, 3]}, id="list up"),
+        pytest.param(([1, 2, 3, 4], [2, 3, 4, 5]), {Spin.up: [0, 1, 2, 3], Spin.down: [1, 2, 3, 4]}, id="list up-down"),
+        pytest.param("100:400:4:1", pytest.raises(ValueError), id="error"),
+    ],
+)
+def test_parse_ibands(value, expected):
+    if not isinstance(expected, dict):
+        with expected:
+            parse_ibands(value)
+    else:
+        parsed = parse_ibands(value)
+        parsed = {s: i.tolist() for s, i in parsed.items()}
+        assert parsed == expected

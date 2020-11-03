@@ -5,6 +5,7 @@ import click
 from click import argument, option
 
 from amset.tools.common import echo_ibands, path_type
+from amset.util import parse_ibands
 
 _symprec = 0.01  # redefine symprec to avoid loading constants from file
 _metal_str = {True: "metallic", False: "semiconducting"}
@@ -93,6 +94,7 @@ def create(**kwargs):
     help="symmetry precision for reducing deformations (use 'N' for no symmetry)",
 )
 @option("-e", "--energy-cutoff", type=float, help="energy cutoff for finding bands")
+@option("-b", "--bands", type=str, help="bands to calculate the deformation for (overrides energy-cutoff)")
 @option("-o", "--output", default="deformation.h5", help="output file path")
 def read(bulk_folder, deformation_folders, **kwargs):
     """
@@ -162,7 +164,10 @@ def read(bulk_folder, deformation_folders, **kwargs):
 
     print_deformation_summary(bulk_calculation["bandstructure"], deformation_potentials)
 
-    ibands = get_ibands(energy_cutoff, bulk_calculation["bandstructure"])
+    if "bands" in kwargs:
+        ibands = parse_ibands(kwargs["bands"])
+    else:
+        ibands = get_ibands(energy_cutoff, bulk_calculation["bandstructure"])
     echo_ibands(ibands, bulk_calculation["bandstructure"].is_spin_polarized)
     click.echo("")
     deformation_potentials = extract_bands(deformation_potentials, ibands)

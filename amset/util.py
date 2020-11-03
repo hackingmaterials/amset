@@ -15,6 +15,7 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
+
 logger = logging.getLogger(__name__)
 
 _bar_format = "{desc} {percentage:3.0f}%|{bar}| {elapsed}<{remaining}{postfix}"
@@ -422,3 +423,33 @@ def get_progress_bar(
         )
     else:
         raise ValueError("Error creating progress bar, need total or iterable")
+
+
+def parse_ibands(
+    ibands: Union[str, Tuple[List[int], List[int]]]
+) -> Dict:
+    from pymatgen import Spin
+
+    new_ibands = {}
+    if isinstance(ibands, str):
+        try:
+            for spin, spin_ibands in zip((Spin.up, Spin.down), ibands.split(".")):
+                if ":" in spin_ibands:
+                    parts = list(map(int, spin_ibands.split(":")))
+                    if len(parts) != 2:
+                        raise ValueError
+                    new_ibands[spin] = np.linspace(
+                        parts[0], parts[1], parts[1] - parts[0] + 1
+                    )
+                else:
+                    new_ibands[spin] = np.array(list(map(int, spin_ibands.split(","))))
+
+        except ValueError:
+            raise ValueError("ERROR: Unrecognised ibands format: {}".format(ibands))
+    elif isinstance(ibands, (list, tuple)):
+        if not isinstance(ibands[0], (list, tuple)):
+            new_ibands[Spin.up] = ibands
+        else:
+            new_ibands[Spin.up] = ibands[0]
+            new_ibands[Spin.down] = ibands[1]
+    return {s: np.array(i) - 1 for s, i in new_ibands.items()}
