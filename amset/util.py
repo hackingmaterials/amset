@@ -425,9 +425,25 @@ def get_progress_bar(
         raise ValueError("Error creating progress bar, need total or iterable")
 
 
-def parse_ibands(
-    ibands: Union[str, Tuple[List[int], List[int]]]
-) -> Dict:
+def parse_ibands(ibands: Union[str, Tuple[List[int], List[int]]]) -> Dict:
+    """
+    Parse ibands string or list to dictionary with Spin.up and Spin.down keys.
+
+    Args:
+        ibands: The ibands specification. Can be either a string or tuple. Allowed
+            str formats include (i) a series of comma separated numbers, i.e., "1, 2, 3"
+            that results in an ibands of `{Spin.up: [0, 1, 2]}` (bands in pymatgen are
+            zero indexed; (ii) a range can be specified, i.e., "1:3" results
+            in the same ibands as above (iii) Spin up and spin down ibands (only useful
+            for spin-polarized systems, can be specified by separating the spin channels
+            with a period. I.e., "1,2,3.4:6", results in an ibands of `{Spin.up:
+            [0, 1, 2], Spin.down: [3, 4, 5]}`. Alternatively, a tuple of lists can be
+            given. I.e., `([1, 2, 3], [4, 5, 6])` gives the same ibands as the last
+            example.
+
+    Returns:
+        The ibands specification.
+    """
     from pymatgen import Spin
 
     new_ibands = {}
@@ -438,11 +454,9 @@ def parse_ibands(
                     parts = list(map(int, spin_ibands.split(":")))
                     if len(parts) != 2:
                         raise ValueError
-                    new_ibands[spin] = np.linspace(
-                        parts[0], parts[1], parts[1] - parts[0] + 1
-                    )
+                    new_ibands[spin] = list(range(parts[0], parts[1] + 1))
                 else:
-                    new_ibands[spin] = np.array(list(map(int, spin_ibands.split(","))))
+                    new_ibands[spin] = list(map(int, spin_ibands.split(",")))
 
         except ValueError:
             raise ValueError("ERROR: Unrecognised ibands format: {}".format(ibands))
@@ -452,4 +466,4 @@ def parse_ibands(
         else:
             new_ibands[Spin.up] = ibands[0]
             new_ibands[Spin.down] = ibands[1]
-    return {s: np.array(i) - 1 for s, i in new_ibands.items()}
+    return {s: [x - 1 for x in i] for s, i in new_ibands.items()}

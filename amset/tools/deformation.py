@@ -94,7 +94,12 @@ def create(**kwargs):
     help="symmetry precision for reducing deformations (use 'N' for no symmetry)",
 )
 @option("-e", "--energy-cutoff", type=float, help="energy cutoff for finding bands")
-@option("-b", "--bands", type=str, help="bands to calculate the deformation for (overrides energy-cutoff)")
+@option(
+    "-b",
+    "--bands",
+    type=str,
+    help="bands to calculate the deformation for (overrides energy-cutoff)",
+)
 @option("-o", "--output", default="deformation.h5", help="output file path")
 def read(bulk_folder, deformation_folders, **kwargs):
     """
