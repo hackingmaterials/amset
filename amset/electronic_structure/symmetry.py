@@ -1,6 +1,8 @@
 import logging
 
 import numpy as np
+import spglib
+
 from pymatgen import Structure, SymmOp
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
@@ -16,6 +18,8 @@ from amset.log import log_list
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
+
+from pymatgen.io.ase import AseAtomsAdaptor
 
 logger = logging.getLogger(__name__)
 
@@ -87,12 +91,12 @@ def similarity_transformation(rot, mat):
 
 
 def expand_kpoints(
-    structure,
-    kpoints,
-    symprec=defaults["symprec"],
-    return_mapping=False,
-    time_reversal=True,
-    verbose=True,
+        structure,
+        kpoints,
+        symprec=defaults["symprec"],
+        return_mapping=False,
+        time_reversal=True,
+        verbose=True,
 ):
     if verbose:
         logger.info("Desymmetrizing k-point mesh")
@@ -100,15 +104,21 @@ def expand_kpoints(
     kpoints = np.array(kpoints).round(8)
 
     # due to limited input precision of the k-points, the mesh is returned as a float
-    mesh = get_mesh_from_kpoint_diff(kpoints)
+    mesh, is_shifted = get_mesh_from_kpoint_diff(kpoints)
     status_info = ["Found initial mesh: {:.3f} x {:.3f} x {:.3f}".format(*mesh)]
+
+    if is_shifted:
+        shift = np.array([1, 1, 1])
+    else:
+        shift = np.array([0, 0, 0])
 
     # to avoid issues to limited input precision, recalculate the input k-points
     # so that the mesh is integer and the k-points are not truncated
     # to a small precision
-    addresses = np.rint(kpoints * mesh)
+    addresses = np.rint((kpoints + shift / (mesh * 2)) * mesh)
     mesh = np.rint(mesh)
-    kpoints = addresses / mesh
+    kpoints = addresses / mesh - shift / (mesh * 2)
+
     status_info.append("Integer mesh: {} x {} x {}".format(*map(int, mesh)))
 
     rotations, translations, is_tr = get_reciprocal_point_group_operations(
@@ -138,7 +148,7 @@ def expand_kpoints(
     )
 
     # find integer addresses
-    unique_addresses = unique_rotated_kpoints * mesh
+    unique_addresses = (unique_rotated_kpoints + shift / (mesh * 2)) * mesh
     unique_addresses -= np.rint(unique_addresses)
     in_uniform_mesh = (np.abs(unique_addresses) < 1e-5).all(axis=1)
 
