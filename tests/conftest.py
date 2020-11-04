@@ -5,6 +5,7 @@ import os
 import tempfile
 import shutil
 import pytest
+from monty.serialization import dumpfn, loadfn
 
 
 @pytest.fixture
@@ -42,3 +43,70 @@ def clean_dir():
     yield
     os.chdir(old_cwd)
     shutil.rmtree(newpath)
+
+
+@pytest.fixture(
+    params=[
+        "Si_227",
+        "Fe_229",
+        "S_58",
+        "Rb2P3_69",
+        "K2Au3_71",
+        "LaI3_63",
+        "KCeF4_123",
+        "RbO2_129",
+        "BaN2_15",
+        "TiNi_11",
+        "CaC2_2",
+        "KNO3_160",
+        "ZnO_186",
+    ],
+    ids=[
+        "F cubic",
+        "I cubic",
+        "P orth",
+        "I orth",
+        "F orth",
+        "C orth",
+        "P tet",
+        "I tet",
+        "C mono",
+        "P mono",
+        "tri",
+        "rhom",
+        "hex",
+    ],
+)
+def symmetry_structure(test_dir, request):
+    return loadfn(test_dir / "structures" / f"{request.param}.json.gz")
+
+
+if __name__ == "__main__":
+    # download test data
+    materials = {
+        "Si_227": "mp-149",  # F cubic
+        "Fe_229": "mp-13",  # I cubic
+        "S_58": "mp-558014",  # P orthorhombic
+        "Rb2P3_69": "mp-2079",  # I orthorhombic
+        "K2Au3_71": "mp-8700",  # F orthorhombic
+        "LaI3_63": "mp-27979",  # C orthorhombic
+        "KCeF4_123": "mp-1223451",  # P tetragonal
+        "RbO2_129": "mp-12105",  # I tetragonal
+        "BaN2_15": "mp-1001",  # C monoclinic
+        "TiNi_11": "mp-1048",  # P monoclinic
+        "CaC2_2": "mp-642822",  # triclinic
+        "KNO3_160": "mp-6920",  # rhombohedral
+        "ZnO_186": "mp-2133",  # hexagonal
+    }
+    from pymatgen.ext.matproj import MPRester
+
+    _mpr = MPRester()
+    _module_dir = Path(__file__).resolve().parent
+    _structure_dir = _module_dir / "test_data" / "structures"
+
+    if not _structure_dir.exists():
+        _structure_dir.mkdir()
+
+    for name, mp_id in materials.items():
+        _s = _mpr.get_structure_by_material_id(mp_id)
+        dumpfn(_s, _structure_dir / f"{name}.json.gz")
