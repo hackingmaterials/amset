@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 def get_mesh_from_band_structure(bandstructure):
     kpoints = np.array([k.frac_coords for k in bandstructure.kpoints])
-    return tuple(get_mesh_from_kpoint_diff(kpoints).round().astype(int))
+    mesh, is_shifted = get_mesh_from_kpoint_diff(kpoints)
+    return tuple(mesh.round().astype(int)), is_shifted
 
 
 def calculate_deformation(bulk_structure, deformed_structure):
@@ -93,11 +94,11 @@ def get_strain_deformation_potential(
     ref_diff = bulk_reference - deformation_reference
 
     kpoints = get_kpoints_from_bandstructure(bulk_bandstructure)
-    mesh = get_mesh_from_band_structure(bulk_bandstructure)
-    indices_to_keep = get_kpoint_indices(kpoints, mesh)
+    mesh, is_shifted = get_mesh_from_band_structure(bulk_bandstructure)
+    indices_to_keep = get_kpoint_indices(kpoints, mesh, is_shifted=is_shifted)
 
     deform_kpoints = get_kpoints_from_bandstructure(deformation_bandstructure)
-    deform_indices = get_kpoint_indices(deform_kpoints, mesh)
+    deform_indices = get_kpoint_indices(deform_kpoints, mesh, is_shifted=is_shifted)
 
     if not set(indices_to_keep).issubset(set(deform_indices)):
         raise RuntimeError(

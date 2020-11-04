@@ -187,12 +187,16 @@ def read(bulk_folder, deformation_folders, **kwargs):
 def check_calculation(bulk_calculation, deformation_calculation):
     from amset.deformation.potentials import get_mesh_from_band_structure
 
-    bulk_mesh = get_mesh_from_band_structure(bulk_calculation["bandstructure"])
+    bulk_mesh, bulk_is_shifted = get_mesh_from_band_structure(
+        bulk_calculation["bandstructure"]
+    )
     bulk_species = tuple(bulk_calculation["bandstructure"].structure.species)
     bulk_is_metal = bulk_calculation["bandstructure"].is_metal()
 
-    mesh = get_mesh_from_band_structure(deformation_calculation["bandstructure"])
-    if mesh != bulk_mesh:
+    mesh, is_shifted = get_mesh_from_band_structure(
+        deformation_calculation["bandstructure"]
+    )
+    if mesh != bulk_mesh or is_shifted != bulk_is_shifted:
         raise RuntimeError(
             "Calculations were not performed using the same k-point "
             "mesh\n{} != {}".format(mesh, bulk_mesh)
