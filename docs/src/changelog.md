@@ -11,6 +11,8 @@ Added new features:
 - Massive (~100x) speedup for calculating polar optical phonon frequency.
 - Added support for spin–orbit coupling.
 - Better handling of Fermi levels from VASP band structures.
+- Added support for non-Gamma centered k-point meshes.
+- Added ability to extract deformation potential for specific bands.
 
 ## v0.2.2
 
