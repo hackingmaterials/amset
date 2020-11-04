@@ -166,12 +166,16 @@ def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool 
 
 def get_mesh_from_kpoint_diff(kpoints):
     kpoints = np.array(kpoints)
+
+    # whether the k-point mesh is shifted or Gamma centered mesh
+    is_shifted = np.min(np.linalg.norm(kpoints, axis=1)) > 1e-6
+
     nx = 1 / np.min(np.diff(np.unique(kpoints[:, 0])))
     ny = 1 / np.min(np.diff(np.unique(kpoints[:, 1])))
     nz = 1 / np.min(np.diff(np.unique(kpoints[:, 2])))
 
     # due to limited precission of the input k-points, the mesh is returned as a float
-    return np.array([nx, ny, nz])
+    return np.array([nx, ny, nz]), is_shifted
 
 
 def get_mesh_from_kpoint_numbers(kpoints, tol=ktol):
@@ -187,10 +191,11 @@ def get_mesh_from_kpoint_numbers(kpoints, tol=ktol):
     return nx, ny, nz
 
 
-def get_kpoint_indices(kpoints, mesh):
+def get_kpoint_indices(kpoints, mesh, is_shifted=False):
     mesh = np.array(mesh)
+    shift = np.array([1, 1, 1]) if is_shifted else np.array([0, 0, 0])
     min_kpoint = -np.floor(mesh / 2).round().astype(int)
-    addresses = (kpoints * mesh).round().astype(int)
+    addresses = ((kpoints + shift / (mesh * 2)) * mesh).round().astype(int)
     shifted = addresses - min_kpoint
     nyz = mesh[1] * mesh[2]
     nz = mesh[2]

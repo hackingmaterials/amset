@@ -1,7 +1,6 @@
 import logging
 
 import numpy as np
-import spglib
 
 from pymatgen import Structure, SymmOp
 from pymatgen.electronic_structure.bandstructure import BandStructure
@@ -19,7 +18,6 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
-from pymatgen.io.ase import AseAtomsAdaptor
 
 logger = logging.getLogger(__name__)
 
@@ -91,12 +89,12 @@ def similarity_transformation(rot, mat):
 
 
 def expand_kpoints(
-        structure,
-        kpoints,
-        symprec=defaults["symprec"],
-        return_mapping=False,
-        time_reversal=True,
-        verbose=True,
+    structure,
+    kpoints,
+    symprec=defaults["symprec"],
+    return_mapping=False,
+    time_reversal=True,
+    verbose=True,
 ):
     if verbose:
         logger.info("Desymmetrizing k-point mesh")
