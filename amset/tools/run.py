@@ -8,6 +8,7 @@ from typing import Any, Dict
 import click
 from click import option
 
+from amset.tools.common import zero_weighted_type
 from amset.util import parse_deformation_potential, parse_doping, parse_temperatures
 
 __author__ = "Alex Ganose"
@@ -43,6 +44,12 @@ __email__ = "aganose@lbl.gov"
 )
 @option("--scissor", type=float, help="amount to scissor the band gap")
 @option("--bandgap", type=float, help="manually set the band gap")
+@option(
+    "-z",
+    "--zero-weighted-kpoints",
+    help="how to process zero-weighted k-points",
+    type=zero_weighted_type,
+)
 @option("--scattering-type", type=float, help="scattering mechanisms to include")
 @option(
     "--high-frequency-dielectric", type=float, help="high-frequency dielectric constant"
