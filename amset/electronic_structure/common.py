@@ -114,7 +114,9 @@ def get_angstrom_structure(structure):
     )
 
 
-def get_band_structure(vasprun: Vasprun, zero_weighted: str = defaults["zero_weighted_kpoints"]) -> BandStructure:
+def get_band_structure(
+    vasprun: Vasprun, zero_weighted: str = defaults["zero_weighted_kpoints"]
+) -> BandStructure:
     """
     Get a band structure from a Vasprun object.
 
@@ -179,7 +181,7 @@ def get_band_structure(vasprun: Vasprun, zero_weighted: str = defaults["zero_wei
         vasprun.final_structure.lattice.reciprocal_lattice,
         efermi,
         structure=vasprun.final_structure,
-        projections=projections
+        projections=projections,
     )
 
 
