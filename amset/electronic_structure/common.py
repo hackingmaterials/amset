@@ -4,7 +4,7 @@ import numpy as np
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
-from amset.constants import angstrom_to_bohr, bohr_to_angstrom
+from amset.constants import angstrom_to_bohr, bohr_to_angstrom, defaults
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -114,16 +114,105 @@ def get_angstrom_structure(structure):
     )
 
 
-def get_band_structure(vasprun: Vasprun) -> BandStructure:
-    """Get a band structure with a the correct Fermi level position."""
+def get_band_structure(vasprun: Vasprun, zero_weighted: str = defaults["zero_weighted_kpoints"]) -> BandStructure:
+    """
+    Get a band structure from a Vasprun object.
 
-    # eigenvalue band properties is more reliable than BandStructure.is_metal
+    This can ensure that if the calculation contains zero-weighted k-points then the
+    weighted k-points will be discarded (helps with hybrid calculations).
+
+    Also ensures that the Fermi level is set correctly.
+
+    Args:
+        vasprun: A vasprun object.
+        zero_weighted: How to handle zero-weighted k-points if they are present in the
+            calculation. Options are:
+            - "keep": Keep zero-weighted k-points in the band structure.
+            - "drop": Drop zero-weighted k-points, keeping only the weighted k-points.
+            - "prefer": Drop weighted-kpoints if zero-weighted k-points are present
+              in the calculation (useful for cheap hybrid calculations).
+
+    Returns:
+        A band structure.
+    """
+    # first check if Fermi level crosses a band
+    k_idx = get_zero_weighted_kpoint_indices(vasprun, mode=zero_weighted)
+    kpoints = np.array(vasprun.actual_kpoints)[k_idx]
+
+    projections = {}
+    eigenvalues = {}
+    for spin, spin_eigenvalues in vasprun.eigenvalues.items():
+        # discard weight and set shape nbands, nkpoints
+        eigenvalues[spin] = spin_eigenvalues[k_idx, :, 0].transpose(1, 0)
+
+        if vasprun.projected_eigenvalues:
+            # is nkpoints, nbands, nion, norb; we need nbands, nkpoints, norb, nion
+            spin_projections = vasprun.projected_eigenvalues[spin]
+            projections[spin] = spin_projections[k_idx].transpose(1, 0, 3, 2)
+
+    # finding the Fermi level is quite painful, as VASP can sometimes put it slightly
+    # inside a band
+    fermi_crosses_band = False
+    for spin_eigenvalues in eigenvalues.values():
+        eigs_below = np.any(spin_eigenvalues < vasprun.efermi, axis=1)
+        eigs_above = np.any(spin_eigenvalues > vasprun.efermi, axis=1)
+        if np.any(eigs_above & eigs_below):
+            fermi_crosses_band = True
+
+    # if the Fermi level crosses a band, the eigenvalue band properties is a more
+    # reliable way to check whether this is a real effect
     bandgap, cbm, vbm, _ = vasprun.eigenvalue_band_properties
 
-    if bandgap == 0:
-        efermi = None
+    if not fermi_crosses_band:
+        # safe to use VASP fermi level
+        efermi = vasprun.efermi
+    elif fermi_crosses_band and bandgap == 0:
+        # it is actually a metal
+        efermi = vasprun.efermi
     else:
         # Set Fermi level half way between valence and conduction bands
         efermi = (cbm + vbm) / 2
 
-    return vasprun.get_band_structure(efermi=efermi)
+    return BandStructure(
+        kpoints,
+        eigenvalues,
+        vasprun.final_structure.lattice.reciprocal_lattice,
+        efermi,
+        structure=vasprun.final_structure,
+        projections=projections
+    )
+
+
+def get_zero_weighted_kpoint_indices(vasprun: Vasprun, mode: str) -> np.ndarray:
+    """
+    Get zero weighted k-point k-point indices from a vasprun.
+
+    If the calculation doesn't contain zero-weighted k-points, then the indices of
+    all the k-points will be returned. Alternatively, if the calculation contains
+    a mix of weighted and zero-weighted k-points, then only the indices of the
+    zero-weighted k-points will be returned.
+
+    Args:
+        vasprun:  A vasprun object.
+        mode: How to handle zero-weighted k-points if they are present in the
+            calculation. Options are:
+            - "keep": Keep zero-weighted k-points in the band structure.
+            - "drop": Drop zero-weighted k-points, keeping only the weighted k-points.
+            - "prefer": Drop weighted-kpoints if zero-weighted k-points are present
+              in the calculation (useful for cheap hybrid calculations).
+
+    Returns:
+        The indices of the valid k-points.
+    """
+    weights = np.array(vasprun.actual_kpoints_weights)
+    is_zero_weight = weights == 0
+
+    if mode not in ("prefer", "drop", "keep"):
+        raise ValueError(f"Unrecognised zero-weighted k-point mode: {mode}")
+
+    if mode == "prefer" and np.any(is_zero_weight):
+        return np.where(is_zero_weight)[0]
+    elif mode == "drop" and np.any(~is_zero_weight):
+        return np.where(~is_zero_weight)[0]
+    else:
+        return np.arange(len(weights))
