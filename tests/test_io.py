@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from amset.io import write_settings, load_settings
 from amset.constants import defaults
+from amset.io import load_settings, write_settings
 
 
 def test_load_settings(test_dir):

@@ -1,16 +1,16 @@
-import pytest
 import numpy as np
+import pytest
+from pymatgen.io.ase import AseAtomsAdaptor
 from pytest import mark
 from spglib import get_ir_reciprocal_mesh
 
 from amset.electronic_structure.symmetry import (
-    get_symmetry_type,
+    expand_kpoints,
     get_rotation_angle,
     get_rotation_axis,
+    get_symmetry_type,
     rotation_matrix_to_su2,
-    expand_kpoints,
 )
-from pymatgen.io.ase import AseAtomsAdaptor
 
 
 @mark.parametrize(

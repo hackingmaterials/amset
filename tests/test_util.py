@@ -1,24 +1,24 @@
 from contextlib import contextmanager
 
-import pytest
 import numpy as np
+import pytest
+from pymatgen import Spin
 
 from amset.util import (
-    tensor_average,
-    groupby,
-    validate_settings,
-    cast_tensor,
-    cast_elastic_tensor,
     cast_dict_list,
     cast_dict_ndarray,
-    parse_doping,
-    parse_temperatures,
-    parse_deformation_potential,
-    get_progress_bar,
+    cast_elastic_tensor,
     cast_piezoelectric_tensor,
+    cast_tensor,
+    get_progress_bar,
+    groupby,
+    parse_deformation_potential,
+    parse_doping,
     parse_ibands,
+    parse_temperatures,
+    tensor_average,
+    validate_settings,
 )
-from pymatgen import Spin
 
 
 @contextmanager

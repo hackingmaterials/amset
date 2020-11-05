@@ -16,13 +16,13 @@ The following tests are performed:
   constant/piezoelectric for Gallium Arsenide
 """
 from copy import deepcopy
-
-from monty.serialization import dumpfn
 from pathlib import Path
 from typing import Any, Dict
 
 import numpy as np
 import pytest
+from monty.serialization import dumpfn
+
 from amset.core.run import Runner
 
 si_settings_no_mesh: Dict[str, Any] = {
