@@ -8,7 +8,7 @@ from pymatgen.core.structure import Structure
 from pymatgen.io.vasp.inputs import Poscar
 from pymatgen.io.vasp.outputs import Outcar, Vasprun
 
-from amset.constants import str_to_spin
+from amset.constants import str_to_spin, defaults
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -55,10 +55,10 @@ def write_deformed_poscars(deformed_structures, directory=None):
         deform_poscar.write_file(directory / filename, significant_figures=16)
 
 
-def parse_calculation(folder):
+def parse_calculation(folder, zero_weighted_kpoints=defaults["zero_weighted_kpoints"]):
     vr = Vasprun(get_gzipped_file("vasprun.xml", folder))
     out = Outcar(get_gzipped_file("OUTCAR", folder))
-    bs = get_band_structure(vr)
+    bs = get_band_structure(vr, zero_weighted=zero_weighted_kpoints)
     reference_level = get_reference_energy(bs, out)
     return {"reference": reference_level, "bandstructure": bs}
 
