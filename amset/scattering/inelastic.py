@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import numpy as np
+
+from amset.scattering.common import calculate_inverse_screening_length_sq
 from pymatgen import Spin
 
 from amset.constants import hbar, s_to_au, boltzmann_au
@@ -44,6 +46,7 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         "pop_frequency",
         "static_dielectric",
         "high_frequency_dielectric",
+        "free_carrier_screening",
     )
 
     def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
@@ -54,6 +57,17 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         self.pop_frequency = (
             self.properties["pop_frequency"] * 1e12 * 2 * np.pi / s_to_au
         )
+
+        if self.properties["free_carrier_screening"]:
+            # use high-frequency diel for screening length
+            avg_diel = np.linalg.eigvalsh(
+                self.properties["high_frequency_dielectric"]
+            ).mean()
+            self.inverse_screening_length_sq = calculate_inverse_screening_length_sq(
+                amset_data, avg_diel
+            )
+        else:
+            self.inverse_screening_length_sq = np.zeros_like(amset_data.fermi_levels)
 
         # n_po (phonon concentration) has shape (ntemps, )
         n_po = 1 / (
@@ -111,7 +125,11 @@ class PolarOpticalScattering(AbstractInelasticScattering):
 
         dielectric_term = 4 * np.pi * (1 / high_freq_diel - 1 / static_diel)
 
-        return factor[..., None] * dielectric_term[None, None] / norm_q_sq[None, None]
+        return (
+            factor[..., None]
+            * dielectric_term[None, None]
+            / (norm_q_sq[None, None] + self.inverse_screening_length_sq[..., None])
+        )
 
         # # factor should have shape (ndops, ntemps, nkpts)
         # factor = 1 / np.tile(k_diff_sq, (len(self.doping),

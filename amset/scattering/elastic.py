@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import numpy as np
+
+from amset.scattering.common import calculate_inverse_screening_length_sq
 from pymatgen import Spin
 from tabulate import tabulate
 
@@ -17,7 +19,6 @@ from amset.constants import (
     m_to_bohr,
 )
 from amset.core.data import AmsetData, check_nbands_equal
-from amset.electronic_structure.fd import fd
 from amset.interpolation.deformation import DeformationPotentialInterpolator
 
 __author__ = "Alex Ganose"
@@ -253,6 +254,7 @@ class PiezoelectricScattering(AbstractElasticScattering):
         "piezoelectric_constant",
         "elastic_constant",
         "high_frequency_dielectric",
+        "free_carrier_screening",
     )
 
     def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
@@ -268,6 +270,17 @@ class PiezoelectricScattering(AbstractElasticScattering):
 
         # use h piezoelectric coefficient (Stress-Voltage)
         self.piezoelectric_constant = np.einsum("mn,mkl->nkl", inv_dielectric, e)
+
+        if self.properties["free_carrier_screening"]:
+            avg_diel = np.linalg.eigvalsh(
+                self.properties["high_frequency_dielectric"]
+            ).mean()
+            self.inverse_screening_length_sq = calculate_inverse_screening_length_sq(
+                amset_data, avg_diel
+            )
+        else:
+            # fill with small value for numerical convergence
+            self.inverse_screening_length_sq = np.full_like(self._shape, 1e-12)
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (ndops, ntemps)
@@ -300,29 +313,8 @@ class PiezoelectricScattering(AbstractElasticScattering):
             + np.einsum("nij,nij->n", strain_trans_b, qh) ** 2 / c_trans_b
         )
 
-        # add small number for numerical convergence
         return (
             factor[None, None]
             * np.ones(self.fermi_levels.shape + norm_q_sq.shape)
-            / (norm_q_sq[None, None, :] + 1e-12)
+            / (norm_q_sq[None, None, :] + self.inverse_screening_length_sq[..., None])
         )
-
-
-def calculate_inverse_screening_length_sq(amset_data, static_dielectric):
-    inverse_screening_length_sq = np.zeros(amset_data.fermi_levels.shape)
-
-    tdos = amset_data.dos.tdos
-    energies = amset_data.dos.energies
-    fermi_levels = amset_data.fermi_levels
-    vol = amset_data.structure.volume
-
-    for n, t in np.ndindex(inverse_screening_length_sq.shape):
-        ef = fermi_levels[n, t]
-        temp = amset_data.temperatures[t]
-        f = fd(energies, ef, temp * boltzmann_au)
-        integral = np.trapz(tdos * f * (1 - f), x=energies)
-        inverse_screening_length_sq[n, t] = (
-            integral * 4 * np.pi / (static_dielectric * boltzmann_au * temp * vol)
-        )
-
-    return inverse_screening_length_sq

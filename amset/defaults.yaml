@@ -26,6 +26,9 @@ interpolation_factor: 10
 wavefunction_coefficients: wavefunction.h5  # Path to a wavefunction coefficients file
 use_projections: false  # use orbital projections for overlap (not recommended)
 
+# whether free electrons screen the polar optical and piezoelectric scattering rates
+free_carrier_screening: false
+
 # The following settings are required to calculate scattering rates
 high_frequency_dielectric: null
 static_dielectric: null
