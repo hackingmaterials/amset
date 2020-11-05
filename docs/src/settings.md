@@ -160,6 +160,28 @@ temperature/doping ranges.
     - prefer: Drop weighted-kpoints if zero-weighted k-points are present
       in the calculation (useful for cheap hybrid calculations).
 
+### `free_carrier_screening`
+
+!!! quote ""
+    *Command-line option:* `--free-carrier-screening`
+    
+    Whether free carriers will screen polar optical phonon and piezoelectric
+    scattering rates. This modifies the matrix elements from a 
+    ```math
+    \frac{1}{\left | \mathbf{q} + \mathbf{G} \right |}
+    ```
+    dependence to a 
+    ```math
+    \frac{1}{\left | \mathbf{q} + \mathbf{G} \right | + \beta_\infty}
+    ```
+    dependence, where $`\beta_\infty`$ is the inverse screening length that depends
+    on the temperature, carrier concentration, and high-frequency dielectric constant.
+    
+    This can result in a large reduction in the scattering rates at high carrier
+    concentrations.
+    
+    Default: `{{ free_carrier_screening }}`
+    
 
 ## Material settings
 
