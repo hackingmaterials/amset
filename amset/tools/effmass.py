@@ -1,7 +1,7 @@
 import click
 from click import argument, option
 
-from amset.tools.common import path_type
+from amset.tools.common import path_type, zero_weighted_type
 from amset.util import parse_doping, parse_temperatures
 
 __author__ = "Alex Ganose"
@@ -37,6 +37,12 @@ temp_doping_defaults = {"temperatures": [300], "doping": [-1e15, 1e15]}
 @option("--bandgap", type=float, help="manually set the band gap")
 @option("--average/--no-average", default=False, help="report the harmonic average")
 @option("--print-log/--no-log", default=True, help="whether to print log messages")
+@option(
+    "-z",
+    "--zero-weighted-kpoints",
+    help="how to process zero-weighted k-points",
+    type=zero_weighted_type,
+)
 def eff_mass(filename, **kwargs):
     """
     Calculate conductivity effective mass.
