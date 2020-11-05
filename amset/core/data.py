@@ -101,13 +101,14 @@ class AmsetData(MSONable):
         self.mrta_calculator = MRTACalculator(self.kpoints, self.velocities)
 
     def set_overlap_calculator(self, overlap_calculator):
-        equal = check_nbands_equal(overlap_calculator, self)
-        if not equal:
-            raise RuntimeError(
-                "Overlap calculator does not have the correct number of bands\n"
-                "If using wavefunction coefficients, ensure they were generated using"
-                "the same energy_cutoff (not encut)"
-            )
+        if overlap_calculator is not None:
+            equal = check_nbands_equal(overlap_calculator, self)
+            if not equal:
+                raise RuntimeError(
+                    "Overlap calculator does not have the correct number of bands\n"
+                    "If using wavefunction coefficients, ensure they were generated "
+                    "using the same energy_cutoff (not encut)"
+                )
 
         self.overlap_calculator = overlap_calculator
 
