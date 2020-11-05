@@ -4,7 +4,7 @@ from typing import Optional, Union
 import click
 from click import argument, option
 
-from amset.tools.common import echo_ibands, path_type
+from amset.tools.common import echo_ibands, path_type, zero_weighted_type
 from amset.util import parse_ibands
 
 _symprec = 0.01  # redefine symprec to avoid loading constants from file
@@ -100,6 +100,12 @@ def create(**kwargs):
     type=str,
     help="bands to calculate the deformation for (overrides energy-cutoff)",
 )
+@option(
+    "-z",
+    "--zero-weighted-kpoints",
+    help="how to process zero-weighted k-points",
+    type=zero_weighted_type,
+)
 @option("-o", "--output", default="deformation.h5", help="output file path")
 def read(bulk_folder, deformation_folders, **kwargs):
     """
@@ -126,15 +132,21 @@ def read(bulk_folder, deformation_folders, **kwargs):
     if not energy_cutoff:
         energy_cutoff = defaults["energy_cutoff"]
 
+    zwk_mode = kwargs.pop("zero_weighted_kpoints")
+    if not zwk_mode:
+        zwk_mode = defaults["zero_weighted_kpoints"]
+
     symprec = _parse_symprec(kwargs["symprec"])
     click.echo("Reading bulk (undeformed) calculation")
-    bulk_calculation = parse_calculation(bulk_folder)
+    bulk_calculation = parse_calculation(bulk_folder, zero_weighted_kpoints=zwk_mode)
     bulk_structure = bulk_calculation["bandstructure"].structure
 
     deformation_calculations = []
     for deformation_folder in deformation_folders:
         click.echo("Reading deformation calculation in {}".format(deformation_folder))
-        deformation_calculation = parse_calculation(deformation_folder)
+        deformation_calculation = parse_calculation(
+            deformation_folder, zero_weighted_kpoints=zwk_mode
+        )
         if check_calculation(bulk_calculation, deformation_calculation):
             deformation_calculations.append(deformation_calculation)
 
