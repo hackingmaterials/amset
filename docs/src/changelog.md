@@ -2,19 +2,24 @@
 
 ## [Unreleased]
 
-Added new features:
+## v0.3.0
+
+New features:
+
+- `cache_wavefunction` option to control memory demand (see docs for more details).
+- Revtex plot style support. Enabled by adding `--style revtex` to the end of 
+  plotting commands.
+- Support for spin–orbit coupling.
+- Support for non-Gamma centered k-point meshes.
+- Ability to extract deformation potential for specific bands.
+- `zero_weighted_kpoints` option to control processing of zero-weighted k-points 
+  (see the docs for more details).
+  
+Enhancements:
 
 - Revamped lineshape plotter.
-- Added `cache_wavefunction` option to control memory demand (see docs for more details).
-- Added revtex plot style support. Enabled by adding `--style revtex` to the end of 
-  plotting commands.
 - Massive (~100x) speedup for calculating polar optical phonon frequency.
-- Added support for spin–orbit coupling.
 - Better handling of Fermi levels from VASP band structures.
-- Added support for non-Gamma centered k-point meshes.
-- Added ability to extract deformation potential for specific bands.
-- Added `zero_weighted_kpoints` option to control processing of zero-weighted k-points 
-  (see the docs for more details).
 - Speed up effective mass calculation, and cases where only basic scatterers are used.
 
 ## v0.2.2
