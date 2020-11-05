@@ -50,6 +50,11 @@ __email__ = "aganose@lbl.gov"
     help="how to process zero-weighted k-points",
     type=zero_weighted_type,
 )
+@option(
+    "--free-carrier-screening/--no-free-carrier-screening",
+    default=None,
+    help="whether free carriers will screen POP and PIE rates [default: False]",
+)
 @option("--scattering-type", type=float, help="scattering mechanisms to include")
 @option(
     "--high-frequency-dielectric", type=float, help="high-frequency dielectric constant"
