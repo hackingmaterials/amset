@@ -48,6 +48,7 @@ _all_scatterers: Union = (
     + AbstractBasicScattering.__subclasses__()
 )
 _scattering_mechanisms = {m.name: m for m in _all_scatterers}
+basic_scatterers = [i.name for i in AbstractBasicScattering.__subclasses__()]
 
 ni = {
     "high": {
@@ -109,7 +110,10 @@ class ScatteringCalculator(object):
 
         self._coeffs = {}
         self._coeffs_mapping = {}
-        if cache_wavefunction:
+
+        # if only basic scatterers then no need to cache overlaps
+        basic_only = len(self.elastic_scatterers) + len(self.inelastic_scatterers) == 0
+        if cache_wavefunction and not basic_only:
             # precompute the coefficients we will need to for calculating overlaps
             # could do this on the fly but caching will really speed things up.
             # we need to interpolate as the wavefunction coefficients were calculated on
