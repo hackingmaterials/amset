@@ -7,7 +7,7 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
-from amset.tools.common import image_type, path_type
+from amset.tools.common import image_type, path_type, zero_weighted_type
 
 kpaths = click.Choice(["pymatgen", "seekpath"], case_sensitive=False)
 
@@ -152,6 +152,12 @@ def lineshape(filename, **kwargs):
     help="BoltzTraP interpolation factor",
 )
 @option("--energy-cutoff", type=float, help="interpolation energy cutoff in eV")
+@option(
+    "-z",
+    "--zero-weighted-kpoints",
+    help="how to process zero-weighted k-points",
+    type=zero_weighted_type,
+)
 @option("--plot-dos", is_flag=True, help="whether to also plot the density of states")
 @option(
     "--dos-kpoints",
@@ -180,6 +186,11 @@ def band(filename, **kwargs):
     Plot interpolate band structure from vasprun file
     """
     from amset.plot.electronic_structure import ElectronicStructurePlotter
+    from amset.constants import defaults
+
+    zwk_mode = kwargs.pop("zero_weighted_kpoints")
+    if not zwk_mode:
+        zwk_mode = defaults["zero_weighted_kpoints"]
 
     plotter_kwargs = {
         "print_log": True,
@@ -187,11 +198,12 @@ def band(filename, **kwargs):
         "symprec": kwargs["symprec"],
         "energy_cutoff": kwargs["energy_cutoff"],
     }
-    if is_vasprun_file(filename):
-        plotter = ElectronicStructurePlotter.from_vasprun(filename, **plotter_kwargs)
-    else:
+    if not is_vasprun_file(filename):
         click.Abort("Unrecognised filetype, expecting a vasprun.xml file.")
 
+    plotter = ElectronicStructurePlotter.from_vasprun(
+        filename, zero_weighted_kpoints=zwk_mode, **plotter_kwargs
+    )
     kpath = get_kpath(
         plotter.structure,
         mode=kwargs["kpath"],
@@ -263,9 +275,8 @@ def rates(filename, **kwargs):
 
 
 def save_plot(plt, name, directory, prefix, image_format):
-
     if prefix:
-        prefix = prefix + "_"
+        prefix += "_"
     else:
         prefix = ""
     filename = Path("{}{}.{}".format(prefix, name, image_format))
