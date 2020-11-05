@@ -7,6 +7,9 @@ export PYTHONWARNINGS="ignore"
 black amset
 black tests
 
+isort --profile black amset
+black --profile black tests
+
 status=0
 files=$(git diff --diff-filter=d --cached --name-only | grep -E 'amset.*\.(py)$' | sed '/test/d')
 files=`echo $files | tr '\n' ' '`
