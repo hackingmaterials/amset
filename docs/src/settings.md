@@ -147,6 +147,19 @@ temperature/doping ranges.
     correct band gap scissor for the specified band gap. Cannot be used in
     combination with the [`scissor`](#scissor) option. Has no effect for metallic systems.
 
+### `zero_weighted_kpoints`
+
+!!! quote ""
+    *Command-line option:* `-z, --zero-weighted-kpoints`
+
+    How to handle "zero-weighted" k-points if they are present in the calculation. 
+    Options are:
+    
+    - keep: Keep zero-weighted k-points in the band structure.
+    - drop: Drop zero-weighted k-points, keeping only the weighted k-points.
+    - prefer: Drop weighted-kpoints if zero-weighted k-points are present
+      in the calculation (useful for cheap hybrid calculations).
+
 
 ## Material settings
 
