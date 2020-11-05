@@ -332,6 +332,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#zero_weighted_kpoints" class="md-nav__link">
+    zero_weighted_kpoints
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -722,6 +729,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#zero_weighted_kpoints" class="md-nav__link">
+    zero_weighted_kpoints
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1054,6 +1068,18 @@ systems.</p>
 <p>Set the band gap to this value, in eV. Will automatically determine and apply the
 correct band gap scissor for the specified band gap. Cannot be used in
 combination with the <a href="#scissor"><code>scissor</code></a> option. Has no effect for metallic systems.</p>
+</div>
+<h3 id="zero_weighted_kpoints"><code>zero_weighted_kpoints</code><a class="headerlink" href="#zero_weighted_kpoints" title="Permanent link">&para;</a></h3>
+<div class="admonition quote">
+<p><em>Command-line option:</em> <code>-z, --zero-weighted-kpoints</code></p>
+<p>How to handle "zero-weighted" k-points if they are present in the calculation. 
+Options are:</p>
+<ul>
+<li>keep: Keep zero-weighted k-points in the band structure.</li>
+<li>drop: Drop zero-weighted k-points, keeping only the weighted k-points.</li>
+<li>prefer: Drop weighted-kpoints if zero-weighted k-points are present
+  in the calculation (useful for cheap hybrid calculations).</li>
+</ul>
 </div>
 <h2 id="material-settings">Material settings<a class="headerlink" href="#material-settings" title="Permanent link">&para;</a></h2>
 <p>These settings control the materials properties required to calculate the 

@@ -554,6 +554,9 @@
 <li>Better handling of Fermi levels from VASP band structures.</li>
 <li>Added support for non-Gamma centered k-point meshes.</li>
 <li>Added ability to extract deformation potential for specific bands.</li>
+<li>Added <code>zero_weighted_kpoints</code> option to control processing of zero-weighted k-points 
+  (see the docs for more details).</li>
+<li>Speed up effective mass calculation, and cases where only basic scatterers are used.</li>
 </ul>
 <h2 id="v022">v0.2.2<a class="headerlink" href="#v022" title="Permanent link">&para;</a></h2>
 <p>Fix PyPi installation.</p>
@@ -565,9 +568,9 @@
 <li>Elastic, dielectric, and piezoelectric tensors are now supported.</li>
 <li>Wave function coefficients are now desymmetrised on the fly, meaning 
   <code>wavefunction.h5</code> files are much smaller.</li>
-<li>New tool to extract wave function coefficients that removes the <code>pawpyseed</code>  and is 
-  much faster. This is a python only implementation and doesn't require compiling any 
-  additional codes.</li>
+<li>New tool to extract wave function coefficients that removes the <code>pawpyseed</code> 
+  requirement and is much faster. This is a python only implementation and doesn't 
+  require compiling any additional codes.</li>
 <li>Mesh properties (scattering rates etc, energies, velocities) stored in a separate 
   mesh.h5 file which is much smaller and faster to read.</li>
 <li>Revamped unit tests.</li>
