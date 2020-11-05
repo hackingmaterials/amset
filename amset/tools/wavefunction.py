@@ -7,6 +7,8 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
+from amset.tools.common import zero_weighted_type
+
 
 @click.command()
 @click.option("-w", "--wavecar", default="WAVECAR", help="WAVECAR file")
@@ -17,6 +19,12 @@ __email__ = "aganose@lbl.gov"
 @click.option("-d", "--directory", help="directory to look for files")
 @click.option(
     "-e", "--energy-cutoff", type=float, help="energy cutoff for finding bands"
+)
+@click.option(
+    "-z",
+    "--zero-weighted-kpoints",
+    help="how to process zero-weighted k-points",
+    type=zero_weighted_type,
 )
 @click.option(
     "-c",
@@ -37,7 +45,8 @@ def wave(**kwargs):
     from pymatgen.io.vasp import BSVasprun
 
     from amset.constants import defaults
-    from amset.electronic_structure.common import get_ibands
+    from amset.electronic_structure.common import get_ibands, get_band_structure
+    from amset.electronic_structure.common import get_zero_weighted_kpoint_indices
     from amset.tools.common import echo_ibands
     from amset.wavefunction.io import write_coefficients
 
@@ -59,8 +68,13 @@ def wave(**kwargs):
     except FileNotFoundError:
         vr = BSVasprun(str(vasprun_file) + ".gz")
 
-    bs = vr.get_band_structure()
+    zwk_mode = kwargs.pop("zero_weighted_kpoints")
+    if not zwk_mode:
+        zwk_mode = defaults["zero_weighted_kpoints"]
+
+    bs = get_band_structure(vr, zero_weighted=zwk_mode)
     ibands = get_ibands(energy_cutoff, bs)
+    ikpoints = get_zero_weighted_kpoint_indices(vr, zwk_mode)
 
     click.echo("******* Getting wavefunction coefficients *******\n")
     echo_ibands(ibands, bs.is_spin_polarized)
@@ -68,10 +82,12 @@ def wave(**kwargs):
 
     if pawpyseed:
         coeffs, gpoints, kpoints = _wavefunction_pawpy(
-            bs, ibands, planewave_cutoff, **kwargs
+            bs, ibands, planewave_cutoff, ikpoints, **kwargs
         )
     else:
-        coeffs, gpoints = _wavefunction_vasp(ibands, planewave_cutoff, **kwargs)
+        coeffs, gpoints = _wavefunction_vasp(
+            ibands, planewave_cutoff, ikpoints, **kwargs
+        )
         kpoints = np.array([k.frac_coords for k in bs.kpoints])
 
     structure = vr.final_structure
@@ -80,7 +96,7 @@ def wave(**kwargs):
     write_coefficients(coeffs, gpoints, kpoints, structure, filename=output)
 
 
-def _wavefunction_vasp(ibands, planewave_cutoff, **kwargs):
+def _wavefunction_vasp(ibands, planewave_cutoff, ikpoints, **kwargs):
     from amset.wavefunction.vasp import (
         get_converged_encut,
         get_wavefunction,
@@ -95,14 +111,21 @@ def _wavefunction_vasp(ibands, planewave_cutoff, **kwargs):
     if not planewave_cutoff:
         click.echo("******* Automatically choosing plane wave cutoff *******")
         planewave_cutoff = get_converged_encut(
-            wf, iband=ibands, max_encut=600, n_samples=2000, std_tol=0.02
+            wf,
+            iband=ibands,
+            ikpoints=ikpoints,
+            max_encut=600,
+            n_samples=2000,
+            std_tol=0.02,
         )
         click.echo("\nUsing cutoff: {} eV".format(planewave_cutoff))
 
-    return get_wavefunction_coefficients(wf, iband=ibands, encut=planewave_cutoff)
+    return get_wavefunction_coefficients(
+        wf, iband=ibands, ikpoints=ikpoints, encut=planewave_cutoff
+    )
 
 
-def _wavefunction_pawpy(bs, ibands, planewave_cutoff, **pawpy_kwargs):
+def _wavefunction_pawpy(bs, ibands, planewave_cutoff, ikpoints, **pawpy_kwargs):
     from amset.wavefunction.pawpyseed import (
         get_converged_encut,
         get_wavefunction,
@@ -113,8 +136,16 @@ def _wavefunction_pawpy(bs, ibands, planewave_cutoff, **pawpy_kwargs):
     if not planewave_cutoff:
         click.echo("******* Automatically choosing plane wave cutoff *******")
         planewave_cutoff = get_converged_encut(
-            wf, bs, iband=ibands, max_encut=600, n_samples=2000, std_tol=0.02
+            wf,
+            bs,
+            iband=ibands,
+            ikpoints=ikpoints,
+            max_encut=600,
+            n_samples=2000,
+            std_tol=0.02,
         )
         click.echo("\nUsing cutoff: {} eV".format(planewave_cutoff))
 
-    return get_wavefunction_coefficients(wf, bs, iband=ibands, encut=planewave_cutoff)
+    return get_wavefunction_coefficients(
+        wf, bs, iband=ibands, ikpoints=ikpoints, encut=planewave_cutoff
+    )
