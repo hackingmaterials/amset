@@ -11,6 +11,8 @@ from typing import Any, Dict, Optional, Union
 import numpy as np
 from memory_profiler import memory_usage
 from monty.json import MSONable
+
+from amset.electronic_structure.common import get_band_structure
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.core import Spin
@@ -26,7 +28,7 @@ from amset.interpolation.bandstructure import Interpolator
 from amset.interpolation.projections import ProjectionOverlapCalculator
 from amset.interpolation.wavefunction import WavefunctionOverlapCalculator
 from amset.log import initialize_amset_logger, log_banner, log_list
-from amset.scattering.calculate import ScatteringCalculator
+from amset.scattering.calculate import ScatteringCalculator, basic_scatterers
 from amset.util import tensor_average, validate_settings
 from amset.io import write_settings, load_settings
 
@@ -206,7 +208,9 @@ class Runner(MSONable):
             nworkers=self.settings["nworkers"],
         )
 
-        if self.settings["use_projections"]:
+        if set(self.settings["scattering_type"]).issubset(set(basic_scatterers)):
+            overlap_calculator = None
+        elif self.settings["use_projections"]:
             overlap_calculator = ProjectionOverlapCalculator.from_band_structure(
                 self._band_structure,
                 energy_cutoff=self.settings["energy_cutoff"],
@@ -310,7 +314,7 @@ class Runner(MSONable):
 
     @staticmethod
     def from_vasprun(
-        vasprun: Union[str, Path, Vasprun], settings: Dict[str, Any]
+        vasprun: Union[str, Path, Vasprun], settings: Dict[str, Any],
     ) -> "Runner":
         """Initialise an AmsetRunner from a Vasprun.
 
@@ -322,12 +326,13 @@ class Runner(MSONable):
             settings: AMSET settings.
 
         Returns:
-            An :obj:`AmsetRunner` instance.
+            A Runner object that can be used to calculate transport properties.
         """
         if not isinstance(vasprun, Vasprun):
             vasprun = Vasprun(vasprun, parse_projected_eigen=True)
 
-        band_structure = vasprun.get_band_structure()
+        zwk_option = settings.get("zero_weighted_kpoints", "keep")
+        band_structure = get_band_structure(vasprun, zero_weighted=zwk_option)
         nelect = vasprun.parameters["NELECT"]
         settings["soc"] = vasprun.parameters["LSORBIT"]
 
