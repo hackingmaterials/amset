@@ -167,13 +167,17 @@ temperature/doping ranges.
     
     Whether free carriers will screen polar optical phonon and piezoelectric
     scattering rates. This modifies the matrix elements from a 
+    
     ```math
     \frac{1}{\left | \mathbf{q} + \mathbf{G} \right |}
     ```
+    
     dependence to a 
+    
     ```math
     \frac{1}{\left | \mathbf{q} + \mathbf{G} \right | + \beta_\infty}
     ```
+    
     dependence, where $`\beta_\infty`$ is the inverse screening length that depends
     on the temperature, carrier concentration, and high-frequency dielectric constant.
     
