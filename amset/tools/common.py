@@ -1,5 +1,9 @@
 import click
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 zero_weighted_type = click.Choice(["keep", "drop", "prefer"], case_sensitive=False)
 image_type = click.Choice(["pdf", "png", "svg"], case_sensitive=False)
 path_type = click.Path(exists=True)

@@ -7,6 +7,10 @@ from amset.plot.base import (  # noqa
     revtex_style,
 )
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 
 def styled_plot(*style_sheets):
     """Return a decorator that will apply matplotlib style sheets to a plot.

@@ -7,6 +7,10 @@ from click import argument, option
 from amset.tools.common import echo_ibands, path_type, zero_weighted_type
 from amset.util import parse_ibands
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
+
 _symprec = 0.01  # redefine symprec to avoid loading constants from file
 _metal_str = {True: "metallic", False: "semiconducting"}
 _kpt_str = "[{k[0]:6.2f} {k[1]:6.2f} {k[2]:6.2f}  ]"

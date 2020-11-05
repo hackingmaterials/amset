@@ -15,6 +15,9 @@ try:
 except ImportError:
     interpolation = None
 
+__author__ = "Alex Ganose"
+__maintainer__ = "Alex Ganose"
+__email__ = "aganose@lbl.gov"
 
 logger = logging.getLogger(__name__)
 
