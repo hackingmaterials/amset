@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from amset.electronic_structure.common import get_band_structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from sumo.plotting.bs_plotter import SBSPlotter
 from sumo.plotting.dos_plotter import SDOSPlotter
@@ -38,7 +39,9 @@ class ElectronicStructurePlotter(object):
         self.energy_cutoff = energy_cutoff
 
     @classmethod
-    def from_vasprun(cls, vasprun, **kwargs):
+    def from_vasprun(
+        cls, vasprun, zero_weighted_kpoints=defaults["zero_weighted_kpoints"], **kwargs
+    ):
         from pymatgen.io.vasp import Vasprun
 
         if isinstance(vasprun, Path):
@@ -53,7 +56,7 @@ class ElectronicStructurePlotter(object):
             elif Path(vasprun_gz).exists():
                 vasprun = Vasprun(vasprun_gz)
 
-        bandstructure = vasprun.get_band_structure()
+        bandstructure = get_band_structure(vasprun, zero_weighted=zero_weighted_kpoints)
         nelect = vasprun.parameters["NELECT"]
         soc = vasprun.parameters["LSORBIT"]
         return cls(bandstructure, nelect, soc=soc, **kwargs)
