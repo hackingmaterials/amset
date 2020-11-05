@@ -28,11 +28,13 @@ def get_wavefunction(wavecar="WAVECAR", vasp_type=None, directory=None):
     return Wavecar(wavecar, vasp_type=vasp_type)
 
 
-def get_wavefunction_coefficients(wavefunction, iband=None, encut=500, pbar=True):
+def get_wavefunction_coefficients(
+    wavefunction, iband=None, ikpoints=None, encut=500, pbar=True
+):
     if encut > wavefunction.encut:
         warnings.warn(
-            "Selected encut greater than encut of calculation. "
-            "Many coefficients will likely be zero."
+            "Selected encut greater than encut of calculation. Many coefficients will "
+            "likely be zero."
         )
 
     valid_gpoints = get_gpoints(wavefunction.b, wavefunction._nbmax, encut)
@@ -54,13 +56,21 @@ def get_wavefunction_coefficients(wavefunction, iband=None, encut=500, pbar=True
             min_gpoint,
             num_gpoint,
             iband=spin_iband,
+            ikpoints=ikpoints,
             pbar=pbar,
         )
     return coeffs, valid_gpoints
 
 
 def _get_spin_wavefunction_coefficients(
-    wavefunction, spin, valid_indices, min_gpoint, num_gpoint, iband=None, pbar=True
+    wavefunction,
+    spin,
+    valid_indices,
+    min_gpoint,
+    num_gpoint,
+    iband=None,
+    ikpoints=None,
+    pbar=True,
 ):
     from amset.constants import output_width
 
@@ -82,20 +92,23 @@ def _get_spin_wavefunction_coefficients(
         # take all bands
         iband = np.arange(len(original_coeffs[0]), dtype=int)
 
+    if ikpoints is None:
+        ikpoints = np.arange(len(wavefunction.kpoints))
+
     elif isinstance(iband, numeric_types):
         iband = [iband]
 
     ncoeffs = len(valid_indices)
-    nkpoints = len(wavefunction.kpoints)
+    nkpoints = len(ikpoints)
     if ncl:
         coeffs = np.zeros((len(iband), nkpoints, ncoeffs, 2), dtype=complex)
     else:
         coeffs = np.zeros((len(iband), nkpoints, ncoeffs), dtype=complex)
-    state_idxs = list(range(nkpoints))
-    if pbar:
-        state_idxs = tqdm(state_idxs, ncols=output_width)
 
-    for nk in state_idxs:
+    if pbar:
+        ikpoints = tqdm(ikpoints, ncols=output_width)
+
+    for j, nk in enumerate(ikpoints):
         gpoints_to_keep, indices_to_keep = _get_valid_state_coefficients(
             wavefunction, nk, min_gpoint, num_gpoint, set_valid_indices
         )
@@ -105,7 +118,7 @@ def _get_spin_wavefunction_coefficients(
             raise RuntimeError("Something went wrong mapping coefficients")
 
         for i, nb in enumerate(iband):
-            coeffs[i, nk, coeff_indices] = original_coeffs[nk][nb][gpoints_to_keep].T
+            coeffs[i, j, coeff_indices] = original_coeffs[nk][nb][gpoints_to_keep].T
 
     if ncl:
         coeffs /= np.linalg.norm(coeffs, axis=(2, 3))[..., None, None]
@@ -139,10 +152,17 @@ def _get_valid_state_coefficients(
 
 
 def get_converged_encut(
-    wavefunction, iband=None, max_encut=500, n_samples=1000, std_tol=0.002
+    wavefunction,
+    iband=None,
+    ikpoints=None,
+    max_encut=500,
+    n_samples=1000,
+    std_tol=0.002,
 ):
     nspins = wavefunction.spin
-    nkpoints = len(wavefunction.kpoints)
+
+    if ikpoints is None:
+        ikpoints = np.arange(len(wavefunction.kpoints))
 
     if iband is None:
         iband = {}
@@ -156,10 +176,10 @@ def get_converged_encut(
     # this is a little different to usual iband
     sample_iband = {s: len(b) for s, b in iband.items()}
     coeffs, _ = get_wavefunction_coefficients(
-        wavefunction, encut=max_encut, pbar=False, iband=iband
+        wavefunction, encut=max_encut, pbar=False, iband=iband, ikpoints=ikpoints
     )
 
-    sample_points = sample_random_kpoints(nspins, nkpoints, sample_iband, n_samples)
+    sample_points = sample_random_kpoints(nspins, ikpoints, sample_iband, n_samples)
     origin = sample_points[0]
     sample_points = sample_points[1:]
 
@@ -172,7 +192,7 @@ def get_converged_encut(
 
     for encut in np.arange(200, max_encut, 50):
         coeffs, _ = get_wavefunction_coefficients(
-            wavefunction, encut=encut, pbar=False, iband=iband
+            wavefunction, encut=encut, pbar=False, iband=iband, ikpoints=ikpoints,
         )
         fake_overlaps = get_overlaps(coeffs, origin, sample_points)
 

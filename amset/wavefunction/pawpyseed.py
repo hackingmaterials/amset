@@ -56,12 +56,17 @@ def get_wavefunction(
 
 
 @requires(pawpy, pawpy_msg)
-def get_wavefunction_coefficients(wavefunction, bs, iband=None, encut=600, pbar=True):
+def get_wavefunction_coefficients(
+    wavefunction, bs, iband=None, ikpoints=None, encut=600, pbar=True
+):
     from pawpyseed.core.momentum import MomentumMatrix
 
     mm = MomentumMatrix(wavefunction, encut=encut)
     if not iband:
         iband = {}
+
+    if not ikpoints:
+        ikpoints = np.arange(mm.wf.kpts.shape[0])
 
     coeffs = {}
     for spin_idx in range(wavefunction.nspin):
@@ -69,12 +74,15 @@ def get_wavefunction_coefficients(wavefunction, bs, iband=None, encut=600, pbar=
         spin_iband = iband.get(spin, None)
 
         coeffs[spin] = _get_spin_wavefunction_coefficients(
-            mm, bs, spin, iband=spin_iband, pbar=pbar
+            mm, bs, spin, iband=spin_iband, ikpoints=ikpoints, pbar=pbar
         )
-    return coeffs, mm.momentum_grid, wavefunction.kpts
+
+    return coeffs, mm.momentum_grid, wavefunction.kpts[ikpoints]
 
 
-def _get_spin_wavefunction_coefficients(mm, bs, spin, iband=None, pbar=True):
+def _get_spin_wavefunction_coefficients(
+    mm, bs, spin, iband=None, ikpoints=None, pbar=True
+):
     from amset.constants import output_width
 
     if iband is None:
@@ -83,34 +91,44 @@ def _get_spin_wavefunction_coefficients(mm, bs, spin, iband=None, pbar=True):
     elif isinstance(iband, numeric_types):
         iband = [iband]
 
-    ncoeffs = mm.momentum_grid.shape[0]
-    nkpoints = mm.wf.kpts.shape[0]
-    ns = spin_to_int[spin]
-    coeffs = np.zeros((len(iband), nkpoints, ncoeffs), dtype=complex)
+    if ikpoints is None:
+        ikpoints = np.arange(mm.wf.kpts.shape[0])
 
-    state_idxs = list(itertools.product(enumerate(iband), range(nkpoints)))
+    ncoeffs = mm.momentum_grid.shape[0]
+    ns = spin_to_int[spin]
+    coeffs = np.zeros((len(iband), len(ikpoints), ncoeffs), dtype=complex)
+
+    state_idxs = list(itertools.product(enumerate(iband), enumerate(ikpoints)))
     if pbar:
         state_idxs = tqdm(state_idxs, ncols=output_width)
 
-    for (i, nb), nk in state_idxs:
-        coeffs[i, nk] = mm.get_reciprocal_fullfw(nb, nk, ns)
-        coeffs[i, nk] /= np.linalg.norm(coeffs[i, nk])
+    for (i, nb), (j, nk) in state_idxs:
+        coeffs[i, j] = mm.get_reciprocal_fullfw(nb, nk, ns)
+        coeffs[i, j] /= np.linalg.norm(coeffs[i, j])
 
     return coeffs
 
 
 @requires(pawpy, pawpy_msg)
 def get_converged_encut(
-    wavefunction, bs, iband=None, max_encut=500, n_samples=1000, std_tol=0.02
+    wavefunction,
+    bs,
+    iband=None,
+    ikpoints=None,
+    max_encut=500,
+    n_samples=1000,
+    std_tol=0.02,
 ):
     from pawpyseed.core.momentum import MomentumMatrix
 
     nspins = wavefunction.nspin
-    nkpoints = wavefunction.kpts.shape[0]
+    if ikpoints is None:
+        ikpoints = np.arange(wavefunction.kpts.shape[0])
+
     if iband is None:
         iband = {s: len(bs.bands[s]) for s in bs.spins}
 
-    sample_points = sample_random_kpoints(nspins, nkpoints, iband, n_samples)
+    sample_points = sample_random_kpoints(nspins, ikpoints, iband, n_samples)
     origin = sample_points[0]
     sample_points = sample_points[1:]
 
