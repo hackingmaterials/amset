@@ -117,7 +117,6 @@ def read(bulk_folder, deformation_folders, **kwargs):
     from amset.constants import defaults
     from amset.deformation.common import get_formatted_tensors
     from amset.deformation.io import parse_calculation, write_deformation_potentials
-    from amset.electronic_structure.symmetry import expand_bandstructure
     from amset.deformation.potentials import (
         calculate_deformation_potentials,
         extract_bands,
@@ -127,6 +126,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
     )
     from amset.electronic_structure.common import get_ibands
     from amset.electronic_structure.kpoints import get_kpoints_from_bandstructure
+    from amset.electronic_structure.symmetry import expand_bandstructure
 
     energy_cutoff = kwargs.pop("energy_cutoff")
     if not energy_cutoff:

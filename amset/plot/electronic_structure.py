@@ -1,12 +1,12 @@
 import logging
 from pathlib import Path
 
-from amset.electronic_structure.common import get_band_structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from sumo.plotting.bs_plotter import SBSPlotter
 from sumo.plotting.dos_plotter import SDOSPlotter
 
 from amset.constants import defaults
+from amset.electronic_structure.common import get_band_structure
 from amset.interpolation.bandstructure import Interpolator
 from amset.log import initialize_amset_logger
 

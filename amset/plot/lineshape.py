@@ -1,7 +1,6 @@
-from typing import Dict, Union, Tuple, Optional
-
 import logging
 from collections import defaultdict
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 from matplotlib import rcParams
@@ -9,8 +8,6 @@ from matplotlib.axes import SubplotBase
 from matplotlib.axis import Axis
 from matplotlib.colors import LogNorm
 from matplotlib.ticker import AutoMinorLocator, MaxNLocator
-
-from amset.interpolation.periodic import PeriodicLinearInterpolator
 from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure,
@@ -21,6 +18,7 @@ from sumo.plotting import pretty_plot
 
 from amset.constants import defaults, hbar
 from amset.interpolation.bandstructure import Interpolator
+from amset.interpolation.periodic import PeriodicLinearInterpolator
 from amset.log import initialize_amset_logger
 from amset.plot import BaseMeshPlotter, amset_base_style, styled_plot
 

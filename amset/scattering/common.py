@@ -1,7 +1,7 @@
 import numpy as np
+
 from amset.constants import boltzmann_au
 from amset.electronic_structure.fd import fd
-
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

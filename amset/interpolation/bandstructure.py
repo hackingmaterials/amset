@@ -18,7 +18,7 @@ from pymatgen.electronic_structure.dos import Dos
 from pymatgen.io.ase import AseAtomsAdaptor
 from sumo.symmetry import Kpath, PymatgenKpath
 
-from amset.constants import angstrom_to_bohr, bohr_to_cm, au_to_s
+from amset.constants import angstrom_to_bohr, au_to_s, bohr_to_cm
 from amset.constants import defaults as defaults
 from amset.constants import ev_to_hartree, hartree_to_ev, numeric_types, spin_name
 from amset.core.data import AmsetData

@@ -1,7 +1,6 @@
 import logging
 
 import numpy as np
-
 from pymatgen import Structure, SymmOp
 from pymatgen.electronic_structure.bandstructure import BandStructure
 

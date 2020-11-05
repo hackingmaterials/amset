@@ -45,8 +45,11 @@ def wave(**kwargs):
     from pymatgen.io.vasp import BSVasprun
 
     from amset.constants import defaults
-    from amset.electronic_structure.common import get_ibands, get_band_structure
-    from amset.electronic_structure.common import get_zero_weighted_kpoint_indices
+    from amset.electronic_structure.common import (
+        get_band_structure,
+        get_ibands,
+        get_zero_weighted_kpoint_indices,
+    )
     from amset.tools.common import echo_ibands
     from amset.wavefunction.io import write_coefficients
 

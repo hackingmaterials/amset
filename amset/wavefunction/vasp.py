@@ -6,12 +6,12 @@ from tqdm.auto import tqdm
 
 from amset.constants import int_to_spin, numeric_types, spin_to_int
 from amset.wavefunction.common import (
-    get_gpoints,
-    sample_random_kpoints,
-    is_ncl,
-    get_overlap,
-    get_min_gpoints,
     get_gpoint_indices,
+    get_gpoints,
+    get_min_gpoints,
+    get_overlap,
+    is_ncl,
+    sample_random_kpoints,
 )
 
 __author__ = "Alex Ganose"

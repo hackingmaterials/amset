@@ -2,13 +2,12 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-
-from amset.electronic_structure.common import get_band_structure
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp.inputs import Poscar
 from pymatgen.io.vasp.outputs import Outcar, Vasprun
 
-from amset.constants import str_to_spin, defaults
+from amset.constants import defaults, str_to_spin
+from amset.electronic_structure.common import get_band_structure
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

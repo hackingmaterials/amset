@@ -9,7 +9,7 @@ from amset.interpolation.periodic import (
     PeriodicLinearInterpolator,
     group_bands_and_kpoints,
 )
-from amset.wavefunction.common import desymmetrize_coefficients, is_ncl, get_overlap
+from amset.wavefunction.common import desymmetrize_coefficients, get_overlap, is_ncl
 from amset.wavefunction.io import load_coefficients
 
 __author__ = "Alex Ganose"

@@ -2,9 +2,10 @@
 Module defining io functions.
 """
 
+from typing import Any, Dict
+
 import numpy as np
 from monty.serialization import dumpfn, loadfn
-from typing import Dict, Any
 
 from amset.util import cast_dict_list, logger, validate_settings
 

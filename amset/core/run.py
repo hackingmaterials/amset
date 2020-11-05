@@ -11,8 +11,6 @@ from typing import Any, Dict, Optional, Union
 import numpy as np
 from memory_profiler import memory_usage
 from monty.json import MSONable
-
-from amset.electronic_structure.common import get_band_structure
 from pymatgen import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.core import Spin
@@ -22,15 +20,16 @@ from pymatgen.util.string import unicodeify, unicodeify_spacegroup
 from tabulate import tabulate
 
 from amset import __version__
-from amset.constants import bohr_to_cm, hbar, numeric_types, ev_to_hartree
+from amset.constants import bohr_to_cm, ev_to_hartree, hbar, numeric_types
 from amset.core.transport import solve_boltzman_transport_equation
+from amset.electronic_structure.common import get_band_structure
 from amset.interpolation.bandstructure import Interpolator
 from amset.interpolation.projections import ProjectionOverlapCalculator
 from amset.interpolation.wavefunction import WavefunctionOverlapCalculator
+from amset.io import load_settings, write_settings
 from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator, basic_scatterers
 from amset.util import tensor_average, validate_settings
-from amset.io import write_settings, load_settings
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

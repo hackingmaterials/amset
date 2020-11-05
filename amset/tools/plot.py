@@ -185,8 +185,8 @@ def band(filename, **kwargs):
     """
     Plot interpolate band structure from vasprun file
     """
-    from amset.plot.electronic_structure import ElectronicStructurePlotter
     from amset.constants import defaults
+    from amset.plot.electronic_structure import ElectronicStructurePlotter
 
     zwk_mode = kwargs.pop("zero_weighted_kpoints")
     if not zwk_mode:

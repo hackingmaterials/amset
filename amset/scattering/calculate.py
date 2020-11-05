@@ -9,19 +9,17 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import quadpy
-
-from amset.wavefunction.common import get_overlap
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 from scipy.interpolate import griddata
 
 from amset.constants import (
+    boltzmann_au,
     defaults,
+    ev_to_hartree,
     hbar,
     small_val,
     spin_name,
-    ev_to_hartree,
-    boltzmann_au,
 )
 from amset.core.data import AmsetData
 from amset.electronic_structure.fd import fd
@@ -35,6 +33,7 @@ from amset.scattering.basic import AbstractBasicScattering
 from amset.scattering.elastic import AbstractElasticScattering
 from amset.scattering.inelastic import AbstractInelasticScattering
 from amset.util import get_progress_bar
+from amset.wavefunction.common import get_overlap
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

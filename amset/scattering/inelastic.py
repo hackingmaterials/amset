@@ -3,13 +3,12 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import numpy as np
-
-from amset.scattering.common import calculate_inverse_screening_length_sq
 from pymatgen import Spin
 
-from amset.constants import hbar, s_to_au, boltzmann_au
+from amset.constants import boltzmann_au, hbar, s_to_au
 from amset.core.data import AmsetData
 from amset.log import log_list
+from amset.scattering.common import calculate_inverse_screening_length_sq
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

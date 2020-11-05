@@ -9,7 +9,7 @@ from monty.json import MSONable
 from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.dos import Dos
 
-from amset.constants import ev_to_hartree, hartree_to_ev, boltzmann_au
+from amset.constants import boltzmann_au, ev_to_hartree, hartree_to_ev
 from amset.electronic_structure.fd import fd
 
 __author__ = "Alex Ganose"

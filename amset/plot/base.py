@@ -6,8 +6,8 @@ from monty.serialization import loadfn
 from pkg_resources import resource_filename
 
 from amset.core.data import AmsetData
-from amset.util import cast_dict_ndarray
 from amset.io import load_mesh
+from amset.util import cast_dict_ndarray
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"

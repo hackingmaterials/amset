@@ -6,7 +6,7 @@ import collections
 import copy
 import logging
 import sys
-from typing import Any, Union, List, Dict, Tuple, Iterable, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 from tqdm.auto import tqdm

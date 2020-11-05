@@ -3,14 +3,13 @@ import time
 from typing import Dict, List, Union
 
 import numpy as np
-
-from amset.electronic_structure.symmetry import (
-    rotation_matrix_to_su2,
-    rotation_matrix_to_cartesian,
-)
 from pymatgen import Spin
 
 from amset.constants import int_to_spin, numeric_types
+from amset.electronic_structure.symmetry import (
+    rotation_matrix_to_cartesian,
+    rotation_matrix_to_su2,
+)
 from amset.log import log_time_taken
 from amset.util import get_progress_bar
 

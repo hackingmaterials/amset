@@ -7,19 +7,18 @@ from typing import Dict, List, Optional
 import numpy as np
 from monty.json import MSONable
 from monty.serialization import dumpfn
-
-from amset.io import write_mesh
 from pymatgen import Spin, Structure
 from tabulate import tabulate
 
-from amset.constants import bohr_to_cm, cm_to_bohr, ev_to_hartree, boltzmann_au
+from amset.constants import bohr_to_cm, boltzmann_au, cm_to_bohr
 from amset.constants import defaults as defaults
-from amset.constants import hartree_to_ev, spin_name
+from amset.constants import ev_to_hartree, hartree_to_ev, spin_name
 from amset.electronic_structure.common import get_angstrom_structure
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.fd import dfdde
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.interpolation.momentum import MRTACalculator
+from amset.io import write_mesh
 from amset.log import log_list, log_time_taken
 from amset.util import cast_dict_list, groupby, tensor_average
 
