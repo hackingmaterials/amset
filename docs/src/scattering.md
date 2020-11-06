@@ -36,55 +36,93 @@ transport properties is given in the
 Mechanism                                                                               | Code  | Requires                                                                       | Type
 ---                                                                                     | ---   | ---                                                                            | ---
 [Acoustic deformation potential scattering](#acoustic-deformation-potential-scattering) | ADP   | *n*- and *p*-type deformation potential,  elastic constant                     | Elastic
-[Ionized impurity scattering](#ionized-impurity-scattering)                             | IMP   | static dielectric constant                                                     | Elastic
 [Piezoelectric scattering](#piezoelectric-scattering)                                   | PIE   | high-frequency dielectric constant, elastic constant, piezoelectric coefficient ($`\mathbf{e}`$) | Elastic
 [Polar optical phonon scattering](#polar-optical-phonon-scattering)                     | POP   | polar optical phonon frequency, static and high-frequency dielectric constants | Inelastic
+[Ionized impurity scattering](#ionized-impurity-scattering)                             | IMP   | static dielectric constant                                                     | Elastic
 
 ### Acoustic deformation potential scattering
 
 The acoustic deformation potential matrix element is given by
 ```math
-g_{nm}^\mathrm{ad}(\mathbf{k}, \mathbf{q}) =
-    \sqrt{k_\mathrm{B} T}
-    \left[ 
-        \frac{(\mathbf{D}_{n\mathbf{k}} : \mathbf{\hat{q}} \otimes \mathbf{\hat{q}})^2}
-             {\mathbf{Q}_\mathbf{q}\mathbf{\hat{q}}\cdot\mathbf{\hat{q}}} + 
-        \frac{(\mathbf{D}_{n\mathbf{k}} : \mathbf{\hat{q}} \otimes \mathbf{\hat{q}}_{t_1})^2}
-             {\mathbf{Q}_\mathbf{q}\mathbf{\hat{q}}_{t_1}\cdot\mathbf{\hat{q}}_{t_1}} +
-        \frac{(\mathbf{D}_{n\mathbf{k}} : \mathbf{\hat{q}} \otimes \mathbf{\hat{q}}_{t_2})^2}
-             {\mathbf{Q}_\mathbf{q}\mathbf{\hat{q}}_{t_2}\cdot\mathbf{\hat{q}}_{t_2}}
-    \right]^\frac{1}{2}
-    \mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle},
+g_{nm}^\mathrm{ad}(\mathbf{k}, \mathbf{q}) = 
+   \sqrt{k_\mathrm{B} T}  \sum_{\mathbf{G} \neq -\mathbf{q}} \left[ 
+        \frac{\mathbf{\tilde{D}}_{n\mathbf{k}} \mathbin{:} \mathbf{\hat{S}}_l}{c_l\sqrt{\rho}} + 
+        \frac{\mathbf{\tilde{D}}_{n\mathbf{k}} \mathbin{:} \mathbf{\hat{S}}_{t_1}}{c_{t_1}\sqrt{\rho}} + 
+        \frac{\mathbf{\tilde{D}}_{n\mathbf{k}} \mathbin{:} \mathbf{\hat{S}}_{t_2}}{c_{t_2}\sqrt{\rho}}
+    \right]
+    \mathinner{\langle m\mathbf{k}+\mathbf{q} \left | e^{i(\mathbf{q} + \mathbf{G})\cdot\mathbf{r}} \right | n\mathbf{k} \rangle},
 ```
-where $`\mathbf{D}_{n\mathbf{k}}`$ is the rank 2 volume deformation potential 
-tensor for state $`\mathinner{|n\mathbf{k}\rangle}`$, 
-$`\mathbf{Q}_\mathbf{q} = \mathbf{\hat{q}} \cdot \mathbf{C} \cdot \mathbf{\hat{q}}`$ 
-is the acoustic tensor in the direction of $`\mathbf{q}`$, $`\mathbf{C}`$ is the 
-rank 4 elastic constant tensor, and 
-$`\mathbf{\hat{q}} = \mathbf{q} / |\mathbf{q}|`$ is the unit scattering direction.
-The vectors $`\mathbf{\hat{q}}_{t_1}`$ and $`\mathbf{\hat{q}}_{t_2}`$ are unit 
-vectors perpendicular to $`\mathbf{\hat{q}}`$ and to each other, such that the 
-three form an orthogonal basis.
-The first term given in square brackets accounts for scattering due to 
-longitudinal phonons, whereas the second two terms describe scattering from 
-transverse modes.
+where $`\mathbf{\tilde{D}}_{n\mathbf{k}} = \mathbf{D}_{n\mathbf{k}} + \mathbf{v}_{n\mathbf{k}} \otimes \mathbf{v}_{n\mathbf{k}}`$ 
+in which $`\mathbf{D}_{n\mathbf{k}}`$ is the rank 2 deformation potential tensor,  $`\mathbf{\hat{S}} = \mathbf{\hat{q}}\otimes\mathbf{\hat{u}}`$ is the unit strain associated 
+with an acoustic mode, $`\mathbf{\hat{u}}`$ is the unit vector of phonon polarization,
+and the subscripts $`l`$, $`t_1`$, and $`t_2`$ indicate properties belonging to the 
+longitudinal and transverse modes.
 
 !!! quote ""
     - *Abbreviation:* APD
     - *Type:* Elastic
     - *References:* [^Bardeen], [^Shockley], [^Rode]
     - *Requires:* `deformation_potential`, `elastic_constant`
+    
+### Piezoelectric scattering
+
+The piezoelectric differential scattering rate is given by
+
+```math
+g_{nm}^\mathrm{pi}(\mathbf{k}, \mathbf{q}) =
+   \sqrt{k_\mathrm{B} T} \sum_{\mathbf{G} \neq -\mathbf{q}}  \left[ 
+        \frac{\mathbf{\hat{n}} \mathbf{h} \mathbin{:} \mathbf{\hat{S}}_l}{c_l\sqrt{\rho}} + 
+        \frac{\mathbf{\hat{n}} \mathbf{h} \mathbin{:} \mathbf{\hat{S}}_{t_1}}{c_{t_1}\sqrt{\rho}} + 
+        \frac{\mathbf{\hat{n}} \mathbf{h} \mathbin{:} \mathbf{\hat{S}}_{t_2}}{c_{t_2}\sqrt{\rho}}
+    \right ]
+    \frac{\mathinner{\langle m\mathbf{k}+\mathbf{q} \left | e^{i(\mathbf{q} + \mathbf{G})\cdot\mathbf{r}} \right | n\mathbf{k} \rangle}}
+         {\left | \mathbf{q} + \mathbf{G} \right |},
+```
+where $`\mathbf{h}`$ is the full piezoelectric stress tensor and $`\mathbf{\hat{n}} = (\mathbf{q} + \mathbf{G}) / \left | \mathbf{q} + \mathbf{G} \right |`$ is a unit vector in the direction of scattering. 
+
+!!! quote ""
+    - *Abbreviation:* PIE
+    - *Type:* Elastic
+    - *References:* [^Rode]
+    - *Requires:* `piezoelectric_coefficient`, `static_dielectric`
+
+### Polar optical phonon scattering
+
+The polar optical phonon differential scattering rate is given by
+
+```math
+g_{nm}^\mathrm{po}(\mathbf{k}, \mathbf{q}) =
+    \left [ \frac{\hbar \omega_\mathrm{po}}{2} \right ] ^ {1/2} 
+    \sum_{\mathbf{G} \neq -\mathbf{q}}
+        \left (\frac{1}{\mathbf{\hat{n}}\cdot\boldsymbol{\epsilon}_\infty\cdot\mathbf{\hat{n}}} - \frac{1}{\mathbf{\hat{n}}\cdot\boldsymbol{\epsilon}_\mathrm{s}\cdot\mathbf{\hat{n}}}\right)
+         ^\frac{1}{2}
+    \frac{\mathinner{\langle m\mathbf{k}+\mathbf{q} \left | e^{i(\mathbf{q} + \mathbf{G})\cdot\mathbf{r}} \right | n\mathbf{k} \rangle}}
+         {\left | \mathbf{q} + \mathbf{G} \right |},
+```
+
+where  $`\boldsymbol{\epsilon}_\mathrm{s}`$ and $`\boldsymbol{\epsilon}_\infty`$ are the 
+static and high-frequency dielectric tensors and $`\omega_\mathrm{po}`$ is the polar 
+optical phonon frequency. To capture scattering from the full phonon band structure in 
+a single phonon frequency, each phonon mode is weighted by the dipole moment it 
+produces.
+
+!!! quote ""
+    - *Abbreviation:* POP
+    - *Type:* Inelastic
+    - *References:* [^Frohlich], [^Conwell], [^Rode]
+    - *Requires:* `pop_frequency`, `static_dielectric`, `high_frequency_dielectric`
 
 ### Ionized impurity scattering
 
 The ionized impurity matrix element is given by
 ```math
 g_{nm}^\mathrm{ii}(\mathbf{k}, \mathbf{q}) =
-     \frac{n_\mathrm{ii}^{1/2} Z e }{\mathbf{\hat{q}} \cdot \boldsymbol{\epsilon}_\mathrm{s} \cdot \mathbf{\hat{q}}}
-    \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
-         {\left | \mathbf{q} \right | ^2 + \beta^2},
+    \sum_{\mathbf{G} \neq -\mathbf{q}} 
+     \frac{n_\mathrm{ii}^{1/2} Z e }{\mathbf{\hat{n}} \cdot \boldsymbol{\epsilon}_\mathrm{s} \cdot \mathbf{\hat{n}}}
+    \frac{\mathinner{\langle m\mathbf{k}+\mathbf{q} \left | e^{i(\mathbf{q} + \mathbf{G})\cdot\mathbf{r}} \right | n\mathbf{k} \rangle}}
+         {\left | \mathbf{q} + \mathbf{G} \right | ^2 + \beta^2},
 ```
-where $`\boldsymbol{\epsilon}_\mathrm{s}`$ is the static dielectric constant,
+where $`Z`$ is the charge state of the impurity center, 
 $`n_\mathrm{ii}`$ is the concentration of ionized impurities
 (i.e., $`n_\mathrm{holes} + n_\mathrm{electrons}`$),
 and $`\beta`$ is the inverse screening length, defined as
@@ -104,47 +142,6 @@ $`f`$ is the Fermi–Dirac distribution given in the
     - *References:* [^Dingle], [^Rode]
     - *Requires:* `static_dielectric`
 
-### Piezoelectric scattering
-
-The piezoelectric differential scattering rate is given by
-
-```math
-g_{nm}^\mathrm{pi}(\mathbf{k}, \mathbf{q}) =
-    \left [ \frac{k_\mathrm{B} T d^2}{\mathbf{\hat{q}}\cdot\boldsymbol{\epsilon}_\mathrm{s}\cdot\mathbf{\hat{q}}} \right ] ^\frac{1}{2}
-    \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
-         {\left | \mathbf{q} \right |},
-```
-
-where $`d`$ is the dimensionless piezoelectric coefficient.
-
-!!! quote ""
-    - *Abbreviation:* PIE
-    - *Type:* Elastic
-    - *References:* [^Rode]
-    - *Requires:* `piezoelectric_coefficient`, `static_dielectric`
-
-### Polar optical phonon scattering
-
-The polar optical phonon differential scattering rate is given by
-
-```math
-g_{nm}^\mathrm{po}(\mathbf{k}, \mathbf{q}) = 
-    \left [ 
-        \frac{\hbar \omega_\mathrm{po}}{2} 
-        \left (\frac{1}{\mathbf{\hat{q}}\cdot\boldsymbol{\epsilon}_\infty\cdot\mathbf{\hat{q}}} - \frac{1}{\mathbf{\hat{q}}\cdot\boldsymbol{\epsilon}_\mathrm{s}\cdot\mathbf{\hat{q}}}\right)
-    \right ] ^\frac{1}{2}
-    \frac{\mathinner{\langle{\psi_{m\mathbf{k}+\mathbf{q}}|\psi_{n\mathbf{k}}}\rangle}}
-         {\left | \mathbf{q} \right |},
-```
-
-where $`\omega_\mathrm{po}`$ is the polar optical phonon frequency,
-and $`\boldsymbol{\epsilon}_\infty`$ is the high-frequency dielectric constant tensor.
-
-!!! quote ""
-    - *Abbreviation:* POP
-    - *Type:* Inelastic
-    - *References:* [^Frohlich], [^Conwell], [^Rode]
-    - *Requires:* `pop_frequency`, `static_dielectric`, `high_frequency_dielectric`
 
 ## Elastic vs inelastic scattering
 
@@ -203,7 +200,7 @@ $`\mathinner{|n\mathbf{k}\rangle}`$.
 
 In the Born approximation, the scattering rate equations depend on the 
 wavefunction overlap 
-$`\mathinner{\langle{\psi_{m\mathbf{k}^\prime}|\psi_{n\mathbf{k}}}\rangle}`$.
+$`\mathinner{\langle m\mathbf{k}+\mathbf{q} \left | e^{i(\mathbf{q} + \mathbf{G})\cdot\mathbf{r}} \right | n\mathbf{k} \rangle}`$.
 AMSET uses [pawpyseed](https://pypi.org/project/pawpyseed/) to obtain
 wavefunction coefficients including PAW core regions from the pseudo wavefunction
 coefficients written by VASP.
