@@ -244,6 +244,7 @@ def shift(request):
         [5, 7, 9],
         [6, 8, 10],
         [21, 8, 13],
+        [4, 5, 1],
     ],
     ids=[
         "odd (iso)",
@@ -253,6 +254,7 @@ def shift(request):
         "odd (aniso)",
         "even (aniso)",
         "mixed (aniso)",
+        "2D material",
     ],
 )
 def mesh(request):
