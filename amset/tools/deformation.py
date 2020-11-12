@@ -185,7 +185,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
 
     print_deformation_summary(bulk_calculation["bandstructure"], deformation_potentials)
 
-    if "bands" in kwargs and kwargs["ibands"] is not None:
+    if "bands" in kwargs and kwargs["bands"] is not None:
         ibands = parse_ibands(kwargs["bands"])
     else:
         ibands = get_ibands(energy_cutoff, bulk_calculation["bandstructure"])
