@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## v0.3.2
+
+Bug fixes:
+
+- Fixed a bug in extracting deformation potentials introduced in version 0.3.1.
+
 ## v0.3.1
 
 New features:
