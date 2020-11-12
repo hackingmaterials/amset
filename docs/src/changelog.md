@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## v0.3.3
+
+New features:
+
+- Enable amset to handle systems containing a single k-point in a certain direction
+  (useful for 2D materials).
+
 ## v0.3.2
 
 Bug fixes:
