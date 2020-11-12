@@ -27,6 +27,8 @@ class BaseMeshPlotter(abc.ABC):
             mesh_data = load_mesh(mesh_data)
         elif isinstance(mesh_data, AmsetData):
             mesh_data = mesh_data.to_dict(include_mesh=True)["mesh"]
+        elif "mesh" in mesh_data:
+            mesh_data = mesh_data["mesh"]
         elif not isinstance(mesh_data, dict):
             raise ValueError("Unrecognised data format")
 
