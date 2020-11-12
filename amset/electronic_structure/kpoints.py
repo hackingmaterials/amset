@@ -170,12 +170,27 @@ def get_mesh_from_kpoint_diff(kpoints):
     # whether the k-point mesh is shifted or Gamma centered mesh
     is_shifted = np.min(np.linalg.norm(kpoints, axis=1)) > 1e-6
 
-    nx = 1 / np.min(np.diff(np.unique(kpoints[:, 0])))
-    ny = 1 / np.min(np.diff(np.unique(kpoints[:, 1])))
-    nz = 1 / np.min(np.diff(np.unique(kpoints[:, 2])))
+    unique_a = np.unique(kpoints[:, 0])
+    unique_b = np.unique(kpoints[:, 1])
+    unique_c = np.unique(kpoints[:, 2])
+
+    if len(unique_a) == 1:
+        na = 1
+    else:
+        na = 1 / np.min(np.diff(unique_a))
+
+    if len(unique_b) == 1:
+        nb = 1
+    else:
+        nb = 1 / np.min(np.diff(unique_b))
+
+    if len(unique_c) == 1:
+        nc = 1
+    else:
+        nc = 1 / np.min(np.diff(unique_c))
 
     # due to limited precission of the input k-points, the mesh is returned as a float
-    return np.array([nx, ny, nz]), is_shifted
+    return np.array([na, nb, nc]), is_shifted
 
 
 def get_mesh_from_kpoint_numbers(kpoints, tol=ktol):
