@@ -2,10 +2,16 @@
 
 ## [Unreleased]
 
+## v0.3.1
+
 New features:
 
 - `free_carrier_screening` option to allow free carriers to screen polar optical and 
   piezoelectric scattering rates (see docs for me details).
+ 
+Bug fixes:
+
+- Fixed a bug in extracting deformation potentials introduced in version 0.3.0.
 
 ## v0.3.0
 
