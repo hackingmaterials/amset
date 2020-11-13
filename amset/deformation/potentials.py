@@ -138,7 +138,7 @@ def calculate_deformation_potentials(bulk_calculation, strain_mapping):
         # of the strain that are noisy. In reality there should only be one or two
         # components of the strain and they should have the same magnitude
         max_strain = np.abs(strain).max()
-        strain_loc = (np.abs(strain) > 0.25 * max_strain)
+        strain_loc = np.abs(strain) > 0.25 * max_strain
         loc_x, loc_y = np.where(strain_loc)
         for spin, spin_deform in deform.items():
             deformation_potentials[spin][:, :, loc_x, loc_y] += spin_deform[..., None]

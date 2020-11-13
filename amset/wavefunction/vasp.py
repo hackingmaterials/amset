@@ -192,7 +192,7 @@ def get_converged_encut(
 
     for encut in np.arange(200, max_encut, 50):
         coeffs, _ = get_wavefunction_coefficients(
-            wavefunction, encut=encut, pbar=False, iband=iband, ikpoints=ikpoints,
+            wavefunction, encut=encut, pbar=False, iband=iband, ikpoints=ikpoints
         )
         fake_overlaps = get_overlaps(coeffs, origin, sample_points)
 

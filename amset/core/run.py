@@ -313,7 +313,7 @@ class Runner(MSONable):
 
     @staticmethod
     def from_vasprun(
-        vasprun: Union[str, Path, Vasprun], settings: Dict[str, Any],
+        vasprun: Union[str, Path, Vasprun], settings: Dict[str, Any]
     ) -> "Runner":
         """Initialise an AmsetRunner from a Vasprun.
 
