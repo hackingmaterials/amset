@@ -89,7 +89,8 @@ def get_strain_deformation_potential(
     deformation_reference,
 ):
     strain = strain.round(5)
-    strain_amount = strain[np.nonzero(strain)][0]
+    flat_strain = strain.ravel()
+    strain_amount = flat_strain[np.abs(flat_strain).argmax()]
     ref_diff = bulk_reference - deformation_reference
 
     kpoints = get_kpoints_from_bandstructure(bulk_bandstructure)
@@ -133,8 +134,11 @@ def calculate_deformation_potentials(bulk_calculation, strain_mapping):
             deformation_calculation["reference"],
         )
 
-        strain_loc = np.array(strain.round(5))
-        strain_loc[np.nonzero(strain_loc)] = 1
+        # sometimes the strain includes numerical noise, this will filter out components
+        # of the strain that are noisy. In reality there should only be one or two
+        # components of the strain and they should have the same magnitude
+        max_strain = np.abs(strain).max()
+        strain_loc = (np.abs(strain) > 0.25 * max_strain)
         loc_x, loc_y = np.where(strain_loc)
         for spin, spin_deform in deform.items():
             deformation_potentials[spin][:, :, loc_x, loc_y] += spin_deform[..., None]

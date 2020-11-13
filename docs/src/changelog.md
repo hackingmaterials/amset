@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+Bug fixes:
+
+- More robust extraction of deformation potentials.
+
 ## v0.3.3
 
 New features:
