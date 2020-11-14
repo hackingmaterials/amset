@@ -31,7 +31,7 @@ class DeformationPotentialInterpolator(PeriodicLinearInterpolator):
 
         mesh_dim = get_mesh_from_kpoint_numbers(kpoints)
         if np.product(mesh_dim) == len(kpoints):
-            return cls(kpoints, deformation_potentials)
+            return cls.from_data(kpoints, deformation_potentials)
 
         full_kpoints, rotations, _, _, op_mapping, kp_mapping = expand_kpoints(
             structure, kpoints, time_reversal=True, return_mapping=True, symprec=symprec
@@ -40,4 +40,4 @@ class DeformationPotentialInterpolator(PeriodicLinearInterpolator):
         deformation_potentials = desymmetrize_deformation_potentials(
             deformation_potentials, structure, rotations, op_mapping, kp_mapping
         )
-        return cls(full_kpoints, deformation_potentials)
+        return cls.from_data(full_kpoints, deformation_potentials)
