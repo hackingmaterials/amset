@@ -551,7 +551,7 @@ class Interpolator(MSONable):
             efermi = np.max([np.max(e[vb_idx[spin]]) for spin, e in energies.items()])
 
         full_energies = {s: e[:, ir_to_full_idx] for s, e in energies.items()}
-        tetrahedral_band_structure = TetrahedralBandStructure(
+        tetrahedral_band_structure = TetrahedralBandStructure.from_data(
             full_energies,
             full_kpts,
             tetrahedra,

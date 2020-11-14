@@ -1,10 +1,8 @@
 import logging
-from interpolation.splines import UCGrid
 
 import numpy as np
-from interpolation.splines import eval_linear
+from interpolation.splines import UCGrid, eval_linear
 from interpolation.splines import extrap_options as xto
-
 from scipy.ndimage import gaussian_filter
 
 from amset.constants import numeric_types

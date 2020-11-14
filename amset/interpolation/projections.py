@@ -21,11 +21,34 @@ logger = logging.getLogger(__name__)
 
 
 class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
-    def __init__(self, kpoints, projections, band_centers, rotation_mask):
-        logger.info("Initializing orbital overlap calculator")
-        super().__init__(kpoints, projections)
+    def __init__(self, nbands, data_shape, interpolators, rotation_mask, band_centers):
+        super().__init__(nbands, data_shape, interpolators)
         self.rotation_mask = rotation_mask
         self.band_centers = band_centers
+
+    def to_reference(self):
+        interpolator_references = self._interpolators_to_reference()
+        return (
+            self.nbands,
+            self.data_shape,
+            interpolator_references,
+            self.rotation_mask,
+            self.band_centers,
+        )
+
+    @classmethod
+    def from_data(
+        cls, kpoints, data, rotation_mask=None, band_centers=None, gaussian=False
+    ):
+        logger.info("Initializing orbital overlap calculator")
+        if rotation_mask is None or band_centers is None:
+            raise ValueError("rotation_mask and band_centers are both required.")
+
+        grid_kpoints, mesh_dim, sort_idx = cls._grid_kpoints(kpoints)
+        nbands, data_shape, interpolators = cls._setup_interpolators(
+            data, grid_kpoints, mesh_dim, sort_idx, gaussian
+        )
+        return cls(nbands, data_shape, interpolators, rotation_mask, band_centers)
 
     @classmethod
     def from_band_structure(
@@ -64,7 +87,9 @@ class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
             spin_projections[np.isnan(spin_projections)] = 0
             full_projections[spin] = spin_projections
 
-        return cls(full_kpoints, full_projections, band_centers, rotation_mask)
+        return cls.from_data(
+            full_kpoints, full_projections, band_centers, rotation_mask
+        )
 
     def get_coefficients(self, spin, bands, kpoints):
         return self.interpolate(spin, bands, kpoints)
