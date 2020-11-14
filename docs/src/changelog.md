@@ -5,6 +5,7 @@
 Bug fixes:
 
 - More robust extraction of deformation potentials.
+- Only use ascii characters in output log files.
 
 ## v0.3.3
 
