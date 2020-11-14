@@ -86,7 +86,7 @@ class AmsetData(MSONable):
             np.arange(len(kpoints)), ir_to_full_kpoint_mapping
         )
 
-        self.tetrahedral_band_structure = TetrahedralBandStructure(
+        self.tetrahedral_band_structure = TetrahedralBandStructure.from_data(
             energies,
             kpoints,
             tetrahedra,
@@ -97,7 +97,7 @@ class AmsetData(MSONable):
         )
 
         logger.info("Initializing momentum relaxation time factor calculator")
-        self.mrta_calculator = MRTACalculator(self.kpoints, self.velocities)
+        self.mrta_calculator = MRTACalculator.from_data(self.kpoints, self.velocities)
 
     def set_overlap_calculator(self, overlap_calculator):
         if overlap_calculator is not None:
