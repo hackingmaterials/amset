@@ -1,11 +1,11 @@
 """
 Module defining utility functions.
 """
-
 import collections
 import copy
 import logging
 import sys
+from multiprocessing.sharedctypes import RawArray
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
@@ -467,3 +467,15 @@ def parse_ibands(ibands: Union[str, Tuple[List[int], List[int]]]) -> Dict:
             new_ibands[Spin.up] = ibands[0]
             new_ibands[Spin.down] = ibands[1]
     return {s: np.array(i, dtype=int) - 1 for s, i in new_ibands.items()}
+
+
+def create_shared_array(data, return_shared_data=False):
+    data = np.asarray(data)
+    data_buffer = RawArray("d", int(np.prod(data.shape)))
+    shared_data = np.frombuffer(data_buffer).reshape(data.shape)
+    shared_data[:] = data[:]
+
+    if return_shared_data:
+        return data_buffer, shared_data
+    else:
+        return data_buffer
