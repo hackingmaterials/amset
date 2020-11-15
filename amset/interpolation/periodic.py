@@ -15,7 +15,7 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
-from amset.util import create_shared_array
+from amset.util import array_from_buffer, create_shared_array
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +48,7 @@ class PeriodicLinearInterpolator(object):
                 grid_data, return_shared_data=True
             )
             self.interpolators[spin] = (grid_shared, grid_data_shared)
-            interpolator_references[spin] = (
-                grid_buffer,
-                grid.shape,
-                grid_data_buffer,
-                grid_data.shape,
-            )
+            interpolator_references[spin] = (grid_buffer, grid_data_buffer)
         return interpolator_references
 
     @classmethod
@@ -64,12 +59,9 @@ class PeriodicLinearInterpolator(object):
     @staticmethod
     def _interpolators_from_reference(interpolator_references):
         interpolators = {}
-        for (
-            spin,
-            (grid_buffer, grid_shape, grid_data_buffer, grid_data_shape),
-        ) in interpolator_references.items():
-            grid = np.frombuffer(grid_buffer).reshape(grid_shape)
-            grid_data = np.frombuffer(grid_data_buffer).reshape(grid_data_shape)
+        for spin, (grid_buffer, grid_data_buffer) in interpolator_references.items():
+            grid = array_from_buffer(grid_buffer)
+            grid_data = array_from_buffer(grid_data_buffer)
             interpolators[spin] = (grid, grid_data)
         return interpolators
 
