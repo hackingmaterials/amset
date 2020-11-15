@@ -469,13 +469,41 @@ def parse_ibands(ibands: Union[str, Tuple[List[int], List[int]]]) -> Dict:
     return {s: np.array(i, dtype=int) - 1 for s, i in new_ibands.items()}
 
 
-def create_shared_array(data, return_shared_data=False):
+def create_shared_array(data: np.ndarray, return_shared_data=False):
     data = np.asarray(data)
     data_buffer = RawArray("d", int(np.prod(data.shape)))
-    shared_data = np.frombuffer(data_buffer).reshape(data.shape)
-    shared_data[:] = data[:]
+    data_shared = np.frombuffer(data_buffer).reshape(data.shape)
+    data_shared[:] = data[:]
+
+    buffer = (data_buffer, data.shape)
+    if return_shared_data:
+        return buffer, data_shared
+    else:
+        return buffer
+
+
+def create_shared_dict_array(data: Dict[Any, np.ndarray], return_shared_data=False):
+    # turns a dict of key: np.ndarray to a dict of key: buffer
+    data_buffer = {}
+    data_shared = {}
+    for key, value in data.items():
+        data_buffer[key], data_shared[key] = create_shared_array(
+            value, return_shared_data=True
+        )
 
     if return_shared_data:
-        return data_buffer, shared_data
+        return data_buffer, data_shared
     else:
         return data_buffer
+
+
+def array_from_buffer(buffer):
+    data_buffer, data_shape = buffer
+    return np.frombuffer(data_buffer).reshape(data_shape)
+
+
+def dict_array_from_buffer(buffer):
+    data = {}
+    for key, value_buffer in buffer.items():
+        data[key] = array_from_buffer(value_buffer)
+    return data
