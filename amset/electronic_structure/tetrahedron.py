@@ -9,7 +9,14 @@ from pymatgen.util.coord import pbc_diff
 
 from amset.constants import numeric_types
 from amset.log import log_time_taken
-from amset.util import get_progress_bar, groupby
+from amset.util import (
+    array_from_buffer,
+    create_shared_array,
+    create_shared_dict_array,
+    dict_array_from_buffer,
+    get_progress_bar,
+    groupby,
+)
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -134,12 +141,12 @@ class TetrahedralBandStructure(object):
         self,
         energies: Dict[Spin, np.ndarray],
         kpoints: np.ndarray,
-        tetrahedra: Dict[Spin, np.ndarray],
-        ir_tetrahedra: Dict[Spin, np.ndarray],
-        ir_tetrahedra_energies: Dict[Spin, np.ndarray],
         ir_kpoints_idx: np.ndarray,
         ir_kpoint_mapping: np.ndarray,
         ir_kpoint_weights: np.ndarray,
+        tetrahedra: Dict[Spin, np.ndarray],
+        ir_tetrahedra: Dict[Spin, np.ndarray],
+        ir_tetrahedra_energies: Dict[Spin, np.ndarray],
         ir_tetrahedra_idx: np.ndarray,
         ir_tetrahedra_to_full_idx: np.ndarray,
         ir_tetrahedra_weights: np.ndarray,
@@ -156,18 +163,21 @@ class TetrahedralBandStructure(object):
         grouped_ir_to_full: np.ndarray,
         ir_weights_shape: Dict[Spin, Tuple[int, int]],
         tetrahedra_connections: Dict[int, set],
+        weights_cache: Optional[Dict[Spin, np.ndarray]] = None,
+        weights_mask_cache: Optional[Dict[Spin, np.ndarray]] = None,
+        energies_cache: Optional[Dict[Spin, np.ndarray]] = None,
     ):
         self.energies = energies
         self.kpoints = kpoints
-        self.ir_tetrahedra_idx = ir_tetrahedra_idx
-        self.ir_tetrahedra_to_full_idx = ir_tetrahedra_to_full_idx
-        self.ir_tetrahedra_weights = ir_tetrahedra_weights
         self.ir_kpoints_idx = ir_kpoints_idx
         self.ir_kpoint_mapping = ir_kpoint_mapping
         self.ir_kpoint_weights = ir_kpoint_weights
         self.tetrahedra = tetrahedra
         self.ir_tetrahedra = ir_tetrahedra
         self.ir_tetrahedra_energies = ir_tetrahedra_energies
+        self.ir_tetrahedra_idx = ir_tetrahedra_idx
+        self.ir_tetrahedra_to_full_idx = ir_tetrahedra_to_full_idx
+        self.ir_tetrahedra_weights = ir_tetrahedra_weights
         self.e21 = e21
         self.e31 = e31
         self.e41 = e41
@@ -181,9 +191,186 @@ class TetrahedralBandStructure(object):
         self.grouped_ir_to_full = grouped_ir_to_full
         self._ir_weights_shape = ir_weights_shape
         self._tetrahedra_connections = tetrahedra_connections
-        self._weights_cache = {}
-        self._weights_mask_cache = {}
-        self._energies_cache = {}
+        self._weights_cache = {} if weights_cache is None else weights_cache
+        self._weights_mask_cache = (
+            {} if weights_mask_cache is None else weights_mask_cache
+        )
+        self._energies_cache = {} if energies_cache is None else energies_cache
+
+    def to_reference(self):
+        energies_buffer, self.energies = create_shared_dict_array(
+            self.energies, return_shared_data=True
+        )
+        kpoints_buffer, self.kpoints = create_shared_array(
+            self.kpoints, return_shared_data=True
+        )
+        ir_kpoints_idx_buffer, self.ir_kpoints_idx = create_shared_array(
+            self.ir_kpoints_idx, return_shared_data=True
+        )
+        ir_kpoint_mapping_buffer, self.ir_kpoint_mapping = create_shared_array(
+            self.ir_kpoint_mapping, return_shared_data=True
+        )
+        ir_kpoint_weights_buffer, self.ir_kpoint_weights = create_shared_array(
+            self.ir_kpoint_weights, return_shared_data=True
+        )
+        tetrahedra_buffer, self.tetrahedra = create_shared_dict_array(
+            self.tetrahedra, return_shared_data=True
+        )
+        ir_tetrahedra_buffer, self.ir_tetrahedra = create_shared_dict_array(
+            self.ir_tetrahedra, return_shared_data=True
+        )
+        (
+            ir_tetrahedra_energies_buffer,
+            self.ir_tetrahedra_energies,
+        ) = create_shared_dict_array(
+            self.ir_tetrahedra_energies, return_shared_data=True
+        )
+        ir_tetrahedra_idx_buffer, self.ir_tetrahedra_idx = create_shared_array(
+            self.ir_tetrahedra_idx, return_shared_data=True
+        )
+        (
+            ir_tetrahedra_to_full_idx_buffer,
+            self.ir_tetrahedra_to_full_idx,
+        ) = create_shared_array(self.ir_tetrahedra_to_full_idx, return_shared_data=True)
+        ir_tetrahedra_weights_buffer, self.ir_tetrahedra_weights = create_shared_array(
+            self.ir_tetrahedra_weights, return_shared_data=True
+        )
+        e21_buffer, self.e21 = create_shared_dict_array(
+            self.e21, return_shared_data=True
+        )
+        e31_buffer, self.e31 = create_shared_dict_array(
+            self.e31, return_shared_data=True
+        )
+        e41_buffer, self.e41 = create_shared_dict_array(
+            self.e41, return_shared_data=True
+        )
+        e32_buffer, self.e32 = create_shared_dict_array(
+            self.e32, return_shared_data=True
+        )
+        e42_buffer, self.e42 = create_shared_dict_array(
+            self.e42, return_shared_data=True
+        )
+        e43_buffer, self.e43 = create_shared_dict_array(
+            self.e43, return_shared_data=True
+        )
+        (
+            max_tetrahedra_energies_buffer,
+            self.max_tetrahedra_energies,
+        ) = create_shared_dict_array(
+            self.max_tetrahedra_energies, return_shared_data=True
+        )
+        (
+            min_tetrahedra_energies_buffer,
+            self.min_tetrahedra_energies,
+        ) = create_shared_dict_array(
+            self.min_tetrahedra_energies, return_shared_data=True
+        )
+        (
+            cross_section_weights_buffer,
+            self.cross_section_weights,
+        ) = create_shared_dict_array(
+            self.cross_section_weights, return_shared_data=True
+        )
+        weights_cache_buffer, self._weights_cache = create_shared_dict_array(
+            self._weights_cache, return_shared_data=True
+        )
+        weights_mask_cache_buffer, self._weights_mask_cache = create_shared_dict_array(
+            self._weights_mask_cache, return_shared_data=True
+        )
+        energies_cache_buffer, self._energies_cache = create_shared_dict_array(
+            self._energies_cache, return_shared_data=True
+        )
+
+        return (
+            energies_buffer,
+            kpoints_buffer,
+            ir_kpoints_idx_buffer,
+            ir_kpoint_mapping_buffer,
+            ir_kpoint_weights_buffer,
+            tetrahedra_buffer,
+            ir_tetrahedra_buffer,
+            ir_tetrahedra_energies_buffer,
+            ir_tetrahedra_idx_buffer,
+            ir_tetrahedra_to_full_idx_buffer,
+            ir_tetrahedra_weights_buffer,
+            e21_buffer,
+            e31_buffer,
+            e41_buffer,
+            e32_buffer,
+            e42_buffer,
+            e43_buffer,
+            max_tetrahedra_energies_buffer,
+            min_tetrahedra_energies_buffer,
+            cross_section_weights_buffer,
+            self._tetrahedron_volume,
+            self.grouped_ir_to_full,
+            self._ir_weights_shape,
+            self._tetrahedra_connections,
+            weights_cache_buffer,
+            weights_mask_cache_buffer,
+            energies_cache_buffer,
+        )
+
+    @classmethod
+    def from_reference(
+        cls,
+        energies_buffer,
+        kpoints_buffer,
+        ir_kpoints_idx_buffer,
+        ir_kpoint_mapping_buffer,
+        ir_kpoint_weights_buffer,
+        tetrahedra_buffer,
+        ir_tetrahedra_buffer,
+        ir_tetrahedra_energies_buffer,
+        ir_tetrahedra_idx_buffer,
+        ir_tetrahedra_to_full_idx_buffer,
+        ir_tetrahedra_weights_buffer,
+        e21_buffer,
+        e31_buffer,
+        e41_buffer,
+        e32_buffer,
+        e42_buffer,
+        e43_buffer,
+        max_tetrahedra_energies_buffer,
+        min_tetrahedra_energies_buffer,
+        cross_section_weights_buffer,
+        tetrahedron_volume,
+        grouped_ir_to_full,
+        ir_weights_shape,
+        tetrahedra_connections,
+        weights_cache_buffer,
+        weights_mask_cache_buffer,
+        energies_cache_buffer,
+    ):
+        return cls(
+            dict_array_from_buffer(energies_buffer),
+            array_from_buffer(kpoints_buffer),
+            array_from_buffer(ir_kpoints_idx_buffer),
+            array_from_buffer(ir_kpoint_mapping_buffer),
+            array_from_buffer(ir_kpoint_weights_buffer),
+            dict_array_from_buffer(tetrahedra_buffer),
+            dict_array_from_buffer(ir_tetrahedra_buffer),
+            dict_array_from_buffer(ir_tetrahedra_energies_buffer),
+            array_from_buffer(ir_tetrahedra_idx_buffer),
+            array_from_buffer(ir_tetrahedra_to_full_idx_buffer),
+            array_from_buffer(ir_tetrahedra_weights_buffer),
+            dict_array_from_buffer(e21_buffer),
+            dict_array_from_buffer(e31_buffer),
+            dict_array_from_buffer(e41_buffer),
+            dict_array_from_buffer(e32_buffer),
+            dict_array_from_buffer(e42_buffer),
+            dict_array_from_buffer(e43_buffer),
+            dict_array_from_buffer(max_tetrahedra_energies_buffer),
+            dict_array_from_buffer(min_tetrahedra_energies_buffer),
+            dict_array_from_buffer(cross_section_weights_buffer),
+            tetrahedron_volume,
+            grouped_ir_to_full,
+            ir_weights_shape,
+            tetrahedra_connections,
+            dict_array_from_buffer(weights_cache_buffer),
+            dict_array_from_buffer(weights_mask_cache_buffer),
+            dict_array_from_buffer(energies_cache_buffer),
+        )
 
     @classmethod
     def from_data(
@@ -268,12 +455,12 @@ class TetrahedralBandStructure(object):
         return cls(
             energies,
             kpoints,
-            full_tetrahedra,
-            ir_tetrahedra,
-            ir_tetrahedra_energies,
             ir_kpoints_idx,
             ir_kpoint_mapping,
             ir_kpoint_weights,
+            full_tetrahedra,
+            ir_tetrahedra,
+            ir_tetrahedra_energies,
             ir_tetrahedra_idx,
             ir_tetrahedra_to_full_idx,
             ir_tetrahedra_weights,
