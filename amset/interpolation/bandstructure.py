@@ -260,7 +260,6 @@ class Interpolator(MSONable):
             velocities,
             self.interpolation_mesh,
             full_kpts,
-            ir_kpts,
             ir_kpts_idx,
             ir_to_full_idx,
             tetrahedra,
