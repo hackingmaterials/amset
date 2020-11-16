@@ -104,7 +104,7 @@ class AmsetData(MSONable):
 
     @property
     def ir_kpoints(self):
-        return self.tetrahedral_band_structure.ir_kpoints
+        return self.kpoints[self.tetrahedral_band_structure.ir_kpoints_idx]
 
     @property
     def ir_kpoints_idx(self):
