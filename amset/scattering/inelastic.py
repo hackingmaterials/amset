@@ -22,12 +22,23 @@ class AbstractInelasticScattering(ABC):
     name: str
     required_properties: Tuple[str]
 
-    def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
-        self.properties = {p: materials_properties[p] for p in self.required_properties}
-        self.doping = amset_data.doping
-        self.temperatures = amset_data.temperatures
-        self.nbands = {s: len(amset_data.energies[s]) for s in amset_data.spins}
-        self.spins = amset_data.spins
+    def __init__(self, properties, doping, temperatures, nbands):
+        self.properties = properties
+        self.doping = doping
+        self.temperatures = temperatures
+        self.nbands = nbands
+        self.spins = list(nbands.keys())
+
+    @classmethod
+    def from_amset_data(
+        cls, materials_properties: Dict[str, Any], amset_data: AmsetData
+    ):
+        return cls(
+            cls.get_properties(materials_properties),
+            amset_data.doping,
+            amset_data.temperatures,
+            cls.get_nbands(amset_data),
+        )
 
     @abstractmethod
     def prefactor(self, spin: Spin, b_idx: int):
@@ -36,6 +47,14 @@ class AbstractInelasticScattering(ABC):
     @abstractmethod
     def factor(self, unit_q, norm_q_sq, emission, f):
         pass
+
+    @classmethod
+    def get_properties(cls, materials_properties):
+        return {p: materials_properties[p] for p in cls.required_properties}
+
+    @staticmethod
+    def get_nbands(amset_data):
+        return {s: len(amset_data.energies[s]) for s in amset_data.spins}
 
 
 class PolarOpticalScattering(AbstractInelasticScattering):
@@ -48,40 +67,58 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         "free_carrier_screening",
     )
 
-    def __init__(self, materials_properties: Dict[str, Any], amset_data: AmsetData):
-        super().__init__(materials_properties, amset_data)
+    def __init__(
+            self,
+            properties,
+            doping,
+            temperatures,
+            nbands,
+            pop_frequency,
+            n_po,
+            inverse_screening_length_sq,
+    ):
+        super().__init__(properties, doping, temperatures, nbands)
+        self.pop_frequency = pop_frequency
+        self.n_po = n_po
+        self.inverse_screening_length_sq = inverse_screening_length_sq
+        self._prefactor = s_to_au * pop_frequency / 2
+
+    @classmethod
+    def from_amset_data(
+            cls, materials_properties: Dict[str, Any], amset_data: AmsetData
+    ):
         logger.info("Initializing POP scattering")
 
         # convert from THz to angular frequency in Hz
-        self.pop_frequency = (
-            self.properties["pop_frequency"] * 1e12 * 2 * np.pi / s_to_au
+        pop_frequency = (
+            materials_properties["pop_frequency"] * 1e12 * 2 * np.pi / s_to_au
         )
 
-        if self.properties["free_carrier_screening"]:
+        if materials_properties["free_carrier_screening"]:
             # use high-frequency diel for screening length
             avg_diel = np.linalg.eigvalsh(
-                self.properties["high_frequency_dielectric"]
+                materials_properties["high_frequency_dielectric"]
             ).mean()
-            self.inverse_screening_length_sq = calculate_inverse_screening_length_sq(
+            inverse_screening_length_sq = calculate_inverse_screening_length_sq(
                 amset_data, avg_diel
             )
         else:
-            self.inverse_screening_length_sq = np.zeros_like(amset_data.fermi_levels)
+            inverse_screening_length_sq = np.zeros_like(amset_data.fermi_levels)
 
         # n_po (phonon concentration) has shape (ntemps, )
         n_po = 1 / (
-            np.exp(self.pop_frequency / (boltzmann_au * amset_data.temperatures)) - 1
+            np.exp(pop_frequency / (boltzmann_au * amset_data.temperatures)) - 1
         )
 
-        self.n_po = n_po[None, :]
+        n_po = n_po[None, :]
 
         log_list(
             [
                 "average N_po: {:.4f}".format(np.mean(n_po)),
                 "ω_po: {:.4g} 2π THz".format(
-                    self.properties["pop_frequency"] * 2 * np.pi
+                    materials_properties["pop_frequency"] * 2 * np.pi
                 ),
-                "ħω: {:.4f} eV".format(self.pop_frequency * hbar * s_to_au),
+                "ħω: {:.4f} eV".format(pop_frequency * hbar * s_to_au),
             ]
         )
 
@@ -104,7 +141,15 @@ class PolarOpticalScattering(AbstractInelasticScattering):
         # self.absorption_f_in = {
         #     s: n_po + 1 - amset_data.f[s]
         #     for s in amset_data.spins}
-        self._prefactor = s_to_au * self.pop_frequency / 2
+        return cls(
+            cls.get_properties(materials_properties),
+            amset_data.doping,
+            amset_data.temperatures,
+            cls.get_nbands(amset_data),
+            pop_frequency,
+            n_po,
+            inverse_screening_length_sq
+        )
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (nspins, ndops, ntemps, nbands)

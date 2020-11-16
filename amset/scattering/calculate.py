@@ -34,7 +34,10 @@ from amset.interpolation.projections import ProjectionOverlapCalculator
 from amset.interpolation.wavefunction import WavefunctionOverlapCalculator
 from amset.log import log_list, log_time_taken
 from amset.scattering.basic import AbstractBasicScattering
-from amset.scattering.elastic import AbstractElasticScattering
+from amset.scattering.elastic import (
+    AbstractElasticScattering,
+    AcousticDeformationPotentialScattering,
+)
 from amset.scattering.inelastic import AbstractInelasticScattering
 from amset.util import (
     create_shared_dict_array,
@@ -185,18 +188,23 @@ class ScatteringCalculator(object):
                 self._coeffs_mapping, return_shared_data=True
             )
 
-        tbs_reference = self.amset_data.tetrahedral_band_structure.to_reference()
-        overlap_calculator_reference = self.amset_data.overlap_calculator.to_reference()
-        mrta_calculator_reference = self.amset_data.mrta_calculator.to_reference()
         amset_data_min = _AmsetDataMin.from_amset_data(self.amset_data)
         amset_data_min_reference = amset_data_min.to_reference()
 
+        # deformation potential is a large tensor that should be put into shared memory
+        elastic_scatterers = [
+            s.to_reference()
+            if isinstance(s, AcousticDeformationPotentialScattering)
+            else s
+            for s in self.elastic_scatterers
+        ]
+
         args = (
-            tbs_reference,
+            self.amset_data.tetrahedral_band_structure.to_reference(),
             overlap_type,
-            overlap_calculator_reference,
-            mrta_calculator_reference,
-            self.elastic_scatterers,
+            self.amset_data.overlap_calculator.to_reference(),
+            self.amset_data.mrta_calculator.to_reference(),
+            elastic_scatterers,
             self.inelastic_scatterers,
             amset_data_min_reference,
             coeffs_buffer,
@@ -295,7 +303,7 @@ class ScatteringCalculator(object):
         logger.info("Scattering mechanisms to be calculated: {}".format(str_scats))
 
         return [
-            _scattering_mechanisms[name](settings, amset_data)
+            _scattering_mechanisms[name].from_amset_data(settings, amset_data)
             for name in scattering_type
         ]
 
@@ -477,6 +485,13 @@ def scattering_worker(
     else:
         raise ValueError("Unrecognised overlap type: {}".format(overlap_type))
 
+    elastic_scatterers = [
+        AcousticDeformationPotentialScattering.from_reference(*s)
+        if isinstance(s, tuple)
+        else s
+        for s in elastic_scatterers
+    ]
+
     with np.errstate(all="ignore"):
         while True:
             job = in_queue.get()
@@ -501,6 +516,7 @@ def scattering_worker(
                     energy_diff=energy_diff,
                 )
                 out_queue.put((ir_k_idx, rate))
+                # out_queue.put((ir_k_idx, rate))
             except Exception as e:
                 out_queue.put(e)
 
