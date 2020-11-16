@@ -460,6 +460,9 @@ class ScatteringCalculator(object):
         # handle exception gracefully to avoid hanging processes
         result = self.out_queue.get()
         if isinstance(result, Exception):
+            logger.error(
+                "Scattering process ended with error: {}.\nexiting".format(str(result))
+            )
             self.terminate_workers()
             raise result
         return result
@@ -478,39 +481,39 @@ def scattering_worker(
     in_queue,
     out_queue,
 ):
-    tbs = TetrahedralBandStructure.from_reference(*tbs_reference)
-    mrta_calculator = MRTACalculator.from_reference(*mrta_calculator_reference)
-    amset_data_min = _AmsetDataMin.from_reference(*amset_data_min_reference)
-    coeffs = dict_array_from_buffer(coeffs_buffer)
-    coeffs_mapping = dict_array_from_buffer(coeffs_mapping_buffer)
+    try:
+        tbs = TetrahedralBandStructure.from_reference(*tbs_reference)
+        mrta_calculator = MRTACalculator.from_reference(*mrta_calculator_reference)
+        amset_data_min = _AmsetDataMin.from_reference(*amset_data_min_reference)
+        coeffs = dict_array_from_buffer(coeffs_buffer)
+        coeffs_mapping = dict_array_from_buffer(coeffs_mapping_buffer)
 
-    if overlap_type == "wavefunction":
-        overlap_calculator = WavefunctionOverlapCalculator.from_reference(
-            *overlap_calculator_reference
-        )
-    elif overlap_type == "projection":
-        overlap_calculator = ProjectionOverlapCalculator.from_reference(
-            *overlap_calculator_reference
-        )
-    else:
-        raise ValueError("Unrecognised overlap type: {}".format(overlap_type))
+        if overlap_type == "wavefunction":
+            overlap_calculator = WavefunctionOverlapCalculator.from_reference(
+                *overlap_calculator_reference
+            )
+        elif overlap_type == "projection":
+            overlap_calculator = ProjectionOverlapCalculator.from_reference(
+                *overlap_calculator_reference
+            )
+        else:
+            raise ValueError("Unrecognised overlap type: {}".format(overlap_type))
 
-    elastic_scatterers = [
-        AcousticDeformationPotentialScattering.from_reference(*s)
-        if isinstance(s, tuple)
-        else s
-        for s in elastic_scatterers
-    ]
+        elastic_scatterers = [
+            AcousticDeformationPotentialScattering.from_reference(*s)
+            if isinstance(s, tuple)
+            else s
+            for s in elastic_scatterers
+        ]
 
-    with np.errstate(all="ignore"):
-        while True:
-            job = in_queue.get()
+        with np.errstate(all="ignore"):
+            while True:
+                job = in_queue.get()
 
-            if job is None:
-                break
+                if job is None:
+                    break
 
-            spin, b_idx, k_idx, energy_diff, ir_k_idx = job
-            try:
+                spin, b_idx, k_idx, energy_diff, ir_k_idx = job
                 rate = calculate_rate(
                     tbs,
                     overlap_calculator,
@@ -526,8 +529,9 @@ def scattering_worker(
                     energy_diff=energy_diff,
                 )
                 out_queue.put((ir_k_idx, rate))
-            except Exception as e:
-                out_queue.put(e)
+
+    except Exception as e:
+        out_queue.put(e)
 
 
 class _AmsetDataMin:
