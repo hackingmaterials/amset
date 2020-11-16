@@ -118,12 +118,13 @@ class ScatteringCalculator(object):
                 max(self.amset_data.dos.energies) + buf,
             )
 
-        self._coeffs = {}
-        self._coeffs_mapping = {}
-
+        self._coeffs = None
+        self._coeffs_mapping = None
         # if only basic scatterers then no need to cache overlaps
         basic_only = len(self.elastic_scatterers) + len(self.inelastic_scatterers) == 0
         if cache_wavefunction and not basic_only:
+            self._coeffs = {}
+            self._coeffs_mapping = {}
             # precompute the coefficients we will need to for calculating overlaps
             # could do this on the fly but caching will really speed things up.
             # we need to interpolate as the wavefunction coefficients were calculated on
@@ -146,22 +147,30 @@ class ScatteringCalculator(object):
                     spin_b_idxs.extend([b_idx] * len(k_idxs))
 
                 # calculate the coefficients for all bands and k-point simultaneously
-                self._coeffs[
-                    spin
-                ] = self.amset_data.overlap_calculator.get_coefficients(
-                    spin, spin_b_idxs, self.amset_data.kpoints[spin_k_idxs]
-                )
+                try:
+                    self._coeffs[
+                        spin
+                    ] = self.amset_data.overlap_calculator.get_coefficients(
+                        spin, spin_b_idxs, self.amset_data.kpoints[spin_k_idxs]
+                    )
+                    # because we are only storing the coefficients for the
+                    # band/k-points we want, we need a way of mapping from the original
+                    # band/k-point indices to the reduced indices. I.e., it allows us to
+                    # get the coefficients for band b_idx, and k-point k_idx using:
+                    # self._coeffs[spin][self._coeffs_mapping[b_idx, k_idx]]
+                    # use a default value of 100000 as this was it will throw an error
+                    # if we don't precache the correct values
+                    mapping = np.full_like(self.amset_data.energies[spin], 100000)
+                    mapping[spin_b_idxs, spin_k_idxs] = np.arange(len(spin_b_idxs))
+                    self._coeffs_mapping[spin] = mapping.astype(int)
 
-                # because we are only storing the coefficients for the band/k-points we
-                # want, we need a way of mapping from the original band/k-point indices
-                # to the reduced indices. I.e., it allows us to get the coefficients for
-                # band b_idx, and k-point k_idx using:
-                # self._coeffs[spin][self._coeffs_mapping[b_idx, k_idx]]
-                # use a default value of 100000 as this was it will throw an error
-                # if we don't precache the correct values
-                mapping = np.full_like(self.amset_data.energies[spin], 100000)
-                mapping[spin_b_idxs, spin_k_idxs] = np.arange(len(spin_b_idxs))
-                self._coeffs_mapping[spin] = mapping.astype(int)
+                except np.core._exceptions.MemoryError:
+                    logger.warning(
+                        "Memory requirements too large to cache wavefunction "
+                        "coefficients. Setting cache_wavefunction to False")
+                    self._coeffs = None
+                    self._coeffs_mapping = None
+                    break
 
         self.in_queue = Queue()
         self.out_queue = Queue()
