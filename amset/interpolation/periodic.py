@@ -41,14 +41,11 @@ class PeriodicLinearInterpolator(object):
     def _interpolators_to_reference(self):
         interpolator_references = {}
         for spin, (grid, grid_data) in self.interpolators.items():
-            grid_buffer, grid_shared = create_shared_array(
-                grid, return_shared_data=True
-            )
             grid_data_buffer, grid_data_shared = create_shared_array(
                 grid_data, return_shared_data=True
             )
-            self.interpolators[spin] = (grid_shared, grid_data_shared)
-            interpolator_references[spin] = (grid_buffer, grid_data_buffer)
+            self.interpolators[spin] = (grid, grid_data_shared)
+            interpolator_references[spin] = (grid, grid_data_buffer)
         return interpolator_references
 
     @classmethod
@@ -59,8 +56,7 @@ class PeriodicLinearInterpolator(object):
     @staticmethod
     def _interpolators_from_reference(interpolator_references):
         interpolators = {}
-        for spin, (grid_buffer, grid_data_buffer) in interpolator_references.items():
-            grid = array_from_buffer(grid_buffer)
+        for spin, (grid, grid_data_buffer) in interpolator_references.items():
             grid_data = array_from_buffer(grid_data_buffer)
             interpolators[spin] = (grid, grid_data)
         return interpolators
