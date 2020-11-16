@@ -72,12 +72,7 @@ def initialize_amset_logger(
 
 class WrappingFormatter(logging.Formatter):
     def __init__(
-        self,
-        fmt=None,
-        datefmt=None,
-        style="%",
-        width=output_width,
-        simple_ascii=False,
+        self, fmt=None, datefmt=None, style="%", width=output_width, simple_ascii=False
     ):
         super().__init__(fmt=fmt, datefmt=datefmt, style=style)
         self.simple_ascii = simple_ascii

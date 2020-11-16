@@ -91,7 +91,7 @@ __email__ = "aganose@lbl.gov"
 )
 @option("--dos-estep", type=float, help="dos energy step [eV]")
 @option("--symprec", type=float, help="symmetry precision")
-@option("--nworkers", type=float, help="number of processors to use")
+@option("--nworkers", type=int, help="number of processors to use")
 @option(
     "--calculate-mobility/--no-calculate-mobility",
     default=None,

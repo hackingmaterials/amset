@@ -39,7 +39,6 @@ class AmsetData(MSONable):
         velocities: Dict[Spin, np.ndarray],
         kpoint_mesh: np.ndarray,
         kpoints: np.ndarray,
-        ir_kpoints: np.ndarray,
         ir_kpoints_idx: np.ndarray,
         ir_to_full_kpoint_mapping: np.ndarray,
         tetrahedra: np.ndarray,
@@ -51,19 +50,15 @@ class AmsetData(MSONable):
         vb_idx: Optional[Dict[Spin, int]] = None,
     ):
         self.structure = structure
-        self.energies = energies
         self.velocities_product = vvelocities_product
         self.kpoint_mesh = kpoint_mesh
-        self.kpoints = kpoints
-        self.ir_kpoints = ir_kpoints
-        self.ir_kpoints_idx = ir_kpoints_idx
-        self.ir_to_full_kpoint_mapping = ir_to_full_kpoint_mapping
         self.intrinsic_fermi_level = efermi
+        self.ir_to_full_kpoint_mapping = ir_to_full_kpoint_mapping
         self._soc = soc
         self.num_electrons = num_electrons
         self.is_metal = is_metal
         self.vb_idx = vb_idx
-        self.spins = list(self.energies.keys())
+        self.spins = list(energies.keys())
         self.velocities = {s: v.transpose((0, 2, 1)) for s, v in velocities.items()}
 
         self.dos = None
@@ -86,7 +81,7 @@ class AmsetData(MSONable):
             np.arange(len(kpoints)), ir_to_full_kpoint_mapping
         )
 
-        self.tetrahedral_band_structure = TetrahedralBandStructure(
+        self.tetrahedral_band_structure = TetrahedralBandStructure.from_data(
             energies,
             kpoints,
             tetrahedra,
@@ -97,7 +92,23 @@ class AmsetData(MSONable):
         )
 
         logger.info("Initializing momentum relaxation time factor calculator")
-        self.mrta_calculator = MRTACalculator(self.kpoints, self.velocities)
+        self.mrta_calculator = MRTACalculator.from_data(kpoints, self.velocities)
+
+    @property
+    def energies(self):
+        return self.tetrahedral_band_structure.energies
+
+    @property
+    def kpoints(self):
+        return self.tetrahedral_band_structure.kpoints
+
+    @property
+    def ir_kpoints(self):
+        return self.kpoints[self.tetrahedral_band_structure.ir_kpoints_idx]
+
+    @property
+    def ir_kpoints_idx(self):
+        return self.tetrahedral_band_structure.ir_kpoints_idx
 
     def set_overlap_calculator(self, overlap_calculator):
         if overlap_calculator is not None:

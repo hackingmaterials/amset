@@ -20,10 +20,31 @@ logger = logging.getLogger(__name__)
 
 
 class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
-    def __init__(self, kpoints, data, gpoints):
+    def __init__(self, nbands, data_shape, interpolators, ncl, gpoints):
+        super().__init__(nbands, data_shape, interpolators)
+        self.ncl = ncl
         self.gpoints = gpoints
-        self.ncl = is_ncl(data)
-        super().__init__(kpoints, data)
+
+    def to_reference(self):
+        interpolator_references = self._interpolators_to_reference()
+        return (
+            self.nbands,
+            self.data_shape,
+            interpolator_references,
+            self.ncl,
+            self.gpoints,
+        )
+
+    @classmethod
+    def from_data(cls, kpoints, data, gpoints=None, gaussian=None):
+        if gpoints is None:
+            raise ValueError("gpoints required for initialization")
+        ncl = is_ncl(data)
+        grid_kpoints, mesh_dim, sort_idx = cls._grid_kpoints(kpoints)
+        nbands, data_shape, interpolators = cls._setup_interpolators(
+            data, grid_kpoints, mesh_dim, sort_idx, gaussian
+        )
+        return cls(nbands, data_shape, interpolators, ncl, gpoints)
 
     @classmethod
     def from_file(cls, filename):
@@ -38,7 +59,7 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
 
         mesh_dim = get_mesh_from_kpoint_numbers(kpoints)
         if np.product(mesh_dim) == len(kpoints):
-            return cls(kpoints, coefficients, gpoints)
+            return cls.from_data(kpoints, coefficients, gpoints)
 
         full_kpoints, *symmetry_mapping = expand_kpoints(
             structure, kpoints, time_reversal=True, return_mapping=True, symprec=symprec
@@ -46,7 +67,7 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         coefficients = desymmetrize_coefficients(
             coefficients, gpoints, kpoints, structure, *symmetry_mapping
         )
-        return cls(full_kpoints, coefficients, gpoints)
+        return cls.from_data(full_kpoints, coefficients, gpoints)
 
     def get_coefficients(self, spin, bands, kpoints):
         interp_coeffs = self.interpolate(spin, bands, kpoints)
