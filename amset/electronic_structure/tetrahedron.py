@@ -1,6 +1,5 @@
 import logging
 import time
-from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -162,7 +161,6 @@ class TetrahedralBandStructure(object):
         tetrahedron_volume: float,
         grouped_ir_to_full: np.ndarray,
         ir_weights_shape: Dict[Spin, Tuple[int, int]],
-        tetrahedra_connections: Dict[int, set],
         weights_cache: Optional[Dict[Spin, np.ndarray]] = None,
         weights_mask_cache: Optional[Dict[Spin, np.ndarray]] = None,
         energies_cache: Optional[Dict[Spin, np.ndarray]] = None,
@@ -190,7 +188,6 @@ class TetrahedralBandStructure(object):
         self._tetrahedron_volume = tetrahedron_volume
         self.grouped_ir_to_full = grouped_ir_to_full
         self._ir_weights_shape = ir_weights_shape
-        self._tetrahedra_connections = tetrahedra_connections
         self._weights_cache = {} if weights_cache is None else weights_cache
         self._weights_mask_cache = (
             {} if weights_mask_cache is None else weights_mask_cache
@@ -305,7 +302,6 @@ class TetrahedralBandStructure(object):
             self._tetrahedron_volume,
             self.grouped_ir_to_full,
             self._ir_weights_shape,
-            self._tetrahedra_connections,
             weights_cache_buffer,
             weights_mask_cache_buffer,
             energies_cache_buffer,
@@ -337,7 +333,6 @@ class TetrahedralBandStructure(object):
         tetrahedron_volume,
         grouped_ir_to_full,
         ir_weights_shape,
-        tetrahedra_connections,
         weights_cache_buffer,
         weights_mask_cache_buffer,
         energies_cache_buffer,
@@ -366,7 +361,6 @@ class TetrahedralBandStructure(object):
             tetrahedron_volume,
             grouped_ir_to_full,
             ir_weights_shape,
-            tetrahedra_connections,
             dict_array_from_buffer(weights_cache_buffer),
             dict_array_from_buffer(weights_mask_cache_buffer),
             dict_array_from_buffer(energies_cache_buffer),
@@ -444,13 +438,6 @@ class TetrahedralBandStructure(object):
             s: (len(energies[s]), len(ir_kpoints_idx)) for s in energies
         }
 
-        tetrahedra_connections = defaultdict(set)
-        for tet in tetrahedra:
-            tetrahedra_connections[tet[0]].update(tet)
-            tetrahedra_connections[tet[1]].update(tet)
-            tetrahedra_connections[tet[2]].update(tet)
-            tetrahedra_connections[tet[3]].update(tet)
-
         log_time_taken(t0)
         return cls(
             energies,
@@ -476,7 +463,6 @@ class TetrahedralBandStructure(object):
             tetrahedron_volume,
             grouped_ir_to_full,
             ir_weights_shape,
-            tetrahedra_connections,
         )
 
     def get_connected_kpoints(self, kpoint_idx: Union[int, List[int], np.ndarray]):
@@ -492,10 +478,8 @@ class TetrahedralBandStructure(object):
         if isinstance(kpoint_idx, numeric_types):
             kpoint_idx = [kpoint_idx]
 
-        all_kpoints = set()
-        for idx in kpoint_idx:
-            all_kpoints.update(self._tetrahedra_connections[idx])
-        return np.array(list(all_kpoints))
+        tetrahedra = self.tetrahedra[Spin.up][0]
+        return np.unique(tetrahedra[np.isin(tetrahedra, kpoint_idx).any(axis=1)])
 
     def get_intersecting_tetrahedra(self, spin, energy, band_idx=None):
 
