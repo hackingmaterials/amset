@@ -100,7 +100,38 @@ class WrappingFormatter(logging.Formatter):
 
     @staticmethod
     def make_simple_ascii(text):
-        replacements = {"├──": "-", "│": " ", "└──": "-", fancy_logo: simple_logo}
+        replacements = {
+            "├──": "-",
+            "│": " ",
+            "└──": "-",
+            fancy_logo: simple_logo,
+            "ᵢᵢ": "_ii",
+            "ħω": "hbar.omega",
+            "cm²/Vs": "cm^2/Vs",
+            "β²": "beta^2",
+            "a₀⁻²": "a_0^-2",
+            "cm⁻³": "cm^-3",
+            "–": "-",
+            "₀": "0",
+            "₁": "1",
+            "₂": "2",
+            "₃": "3",
+            "₄": "4",
+            "₅": "5",
+            "₆": "6",
+            "₇": "7",
+            "₈": "8",
+            "₉": "8",
+            "\u0305": "-",
+            "π": "pi",
+            "ħ": "hbar",
+            "ω": "omega",
+            "α": "alpha",
+            "β": "beta",
+            "γ": "gamma",
+            "°": "deg",
+        }
+
         for initial, final in replacements.items():
             text = text.replace(initial, final)
         return text
