@@ -68,14 +68,14 @@ class PolarOpticalScattering(AbstractInelasticScattering):
     )
 
     def __init__(
-            self,
-            properties,
-            doping,
-            temperatures,
-            nbands,
-            pop_frequency,
-            n_po,
-            inverse_screening_length_sq,
+        self,
+        properties,
+        doping,
+        temperatures,
+        nbands,
+        pop_frequency,
+        n_po,
+        inverse_screening_length_sq,
     ):
         super().__init__(properties, doping, temperatures, nbands)
         self.pop_frequency = pop_frequency
@@ -85,7 +85,7 @@ class PolarOpticalScattering(AbstractInelasticScattering):
 
     @classmethod
     def from_amset_data(
-            cls, materials_properties: Dict[str, Any], amset_data: AmsetData
+        cls, materials_properties: Dict[str, Any], amset_data: AmsetData
     ):
         logger.info("Initializing POP scattering")
 
@@ -148,7 +148,7 @@ class PolarOpticalScattering(AbstractInelasticScattering):
             cls.get_nbands(amset_data),
             pop_frequency,
             n_po,
-            inverse_screening_length_sq
+            inverse_screening_length_sq,
         )
 
     def prefactor(self, spin: Spin, b_idx: int):
