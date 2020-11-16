@@ -516,7 +516,6 @@ def scattering_worker(
                     energy_diff=energy_diff,
                 )
                 out_queue.put((ir_k_idx, rate))
-                # out_queue.put((ir_k_idx, rate))
             except Exception as e:
                 out_queue.put(e)
 

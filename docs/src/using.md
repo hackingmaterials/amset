@@ -36,6 +36,11 @@ file. For example, the interpolation factor can be easily controlled using:
 amset run --interpolation-factor 20
 ```
 
+
+!!! info "Obtaining best performance"
+    To obtain the best performance, it is recommended to run `export OMP_NUM_THREADS=1`
+    before running AMSET.
+
 ## From the Python API
 
 Greater configurability is available when running AMSET from the Python API.

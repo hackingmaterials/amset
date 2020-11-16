@@ -358,6 +358,9 @@ general the defaults should give converged values.
     Number of processors to use. `-1` indicates to use all available
     processors.
     
+    When using multiprocessing it is recommended to run `export OMP_NUM_THREADS=1` before
+    running amset.
+    
     Default: `{{ nworkers }}`
     
 ### `cache_wavefunction`
