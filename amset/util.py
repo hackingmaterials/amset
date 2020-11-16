@@ -471,11 +471,17 @@ def parse_ibands(ibands: Union[str, Tuple[List[int], List[int]]]) -> Dict:
 
 def create_shared_array(data: np.ndarray, return_shared_data=False):
     data = np.asarray(data)
-    data_buffer = RawArray("d", int(np.prod(data.shape)))
-    data_shared = np.frombuffer(data_buffer).reshape(data.shape)
+    if data.dtype == np.complex:
+        data_type = "complex"
+        data_buffer = RawArray("d", int(np.prod(data.shape)) * 2)
+    else:
+        data_type = np.ctypeslib.as_ctypes_type(data.dtype)
+        data_buffer = RawArray(data_type, int(np.prod(data.shape)))
+
+    buffer = (data_buffer, data.shape, data_type)
+    data_shared = array_from_buffer(buffer)
     data_shared[:] = data[:]
 
-    buffer = (data_buffer, data.shape)
     if return_shared_data:
         return buffer, data_shared
     else:
@@ -498,8 +504,11 @@ def create_shared_dict_array(data: Dict[Any, np.ndarray], return_shared_data=Fal
 
 
 def array_from_buffer(buffer):
-    data_buffer, data_shape = buffer
-    return np.frombuffer(data_buffer).reshape(data_shape)
+    data_buffer, data_shape, data_type = buffer
+    if data_type == "complex":
+        return np.frombuffer(data_buffer).view(np.complex).reshape(data_shape)
+    else:
+        return np.frombuffer(data_buffer, dtype=data_type).reshape(data_shape)
 
 
 def dict_array_from_buffer(buffer):
