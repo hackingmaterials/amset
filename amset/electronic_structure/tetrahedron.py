@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 from pymatgen import Spin, Structure
@@ -159,8 +159,6 @@ class TetrahedralBandStructure(object):
         min_tetrahedra_energies: Dict[Spin, np.ndarray],
         cross_section_weights: Dict[Spin, np.ndarray],
         tetrahedron_volume: float,
-        grouped_ir_to_full: np.ndarray,
-        ir_weights_shape: Dict[Spin, Tuple[int, int]],
         weights_cache: Optional[Dict[Spin, np.ndarray]] = None,
         weights_mask_cache: Optional[Dict[Spin, np.ndarray]] = None,
         energies_cache: Optional[Dict[Spin, np.ndarray]] = None,
@@ -186,13 +184,18 @@ class TetrahedralBandStructure(object):
         self.min_tetrahedra_energies = min_tetrahedra_energies
         self.cross_section_weights = cross_section_weights
         self._tetrahedron_volume = tetrahedron_volume
-        self.grouped_ir_to_full = grouped_ir_to_full
-        self._ir_weights_shape = ir_weights_shape
         self._weights_cache = {} if weights_cache is None else weights_cache
         self._weights_mask_cache = (
             {} if weights_mask_cache is None else weights_mask_cache
         )
         self._energies_cache = {} if energies_cache is None else energies_cache
+
+        self.grouped_ir_to_full = groupby(
+            np.arange(len(ir_tetrahedra_to_full_idx)), ir_tetrahedra_to_full_idx
+        )
+        self._ir_weights_shape = {
+            s: (len(energies[s]), len(ir_kpoints_idx)) for s in energies
+        }
 
     def to_reference(self):
         energies_buffer, self.energies = create_shared_dict_array(
@@ -300,8 +303,6 @@ class TetrahedralBandStructure(object):
             min_tetrahedra_energies_buffer,
             cross_section_weights_buffer,
             self._tetrahedron_volume,
-            self.grouped_ir_to_full,
-            self._ir_weights_shape,
             weights_cache_buffer,
             weights_mask_cache_buffer,
             energies_cache_buffer,
@@ -331,8 +332,6 @@ class TetrahedralBandStructure(object):
         min_tetrahedra_energies_buffer,
         cross_section_weights_buffer,
         tetrahedron_volume,
-        grouped_ir_to_full,
-        ir_weights_shape,
         weights_cache_buffer,
         weights_mask_cache_buffer,
         energies_cache_buffer,
@@ -359,8 +358,6 @@ class TetrahedralBandStructure(object):
             dict_array_from_buffer(min_tetrahedra_energies_buffer),
             dict_array_from_buffer(cross_section_weights_buffer),
             tetrahedron_volume,
-            grouped_ir_to_full,
-            ir_weights_shape,
             dict_array_from_buffer(weights_cache_buffer),
             dict_array_from_buffer(weights_mask_cache_buffer),
             dict_array_from_buffer(energies_cache_buffer),
@@ -430,14 +427,6 @@ class TetrahedralBandStructure(object):
 
         tetrahedron_volume = 1 / len(tetrahedra)
 
-        grouped_ir_to_full = groupby(
-            np.arange(len(ir_tetrahedra_to_full_idx)), ir_tetrahedra_to_full_idx
-        )
-
-        ir_weights_shape = {
-            s: (len(energies[s]), len(ir_kpoints_idx)) for s in energies
-        }
-
         log_time_taken(t0)
         return cls(
             energies,
@@ -461,8 +450,6 @@ class TetrahedralBandStructure(object):
             min_tetrahedra_energies,
             cross_section_weights,
             tetrahedron_volume,
-            grouped_ir_to_full,
-            ir_weights_shape,
         )
 
     def get_connected_kpoints(self, kpoint_idx: Union[int, List[int], np.ndarray]):
