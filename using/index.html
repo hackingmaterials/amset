@@ -466,6 +466,11 @@ the <code>directory</code> option, e.g.:</p>
 file. For example, the interpolation factor can be easily controlled using:</p>
 <div class="highlight"><pre><span></span><code>amset run --interpolation-factor <span class="m">20</span>
 </code></pre></div>
+<div class="admonition info">
+<p class="admonition-title">Obtaining best performance</p>
+<p>To obtain the best performance, it is recommended to run <code>export OMP_NUM_THREADS=1</code>
+before running AMSET.</p>
+</div>
 <h2 id="from-the-python-api">From the Python API<a class="headerlink" href="#from-the-python-api" title="Permanent link">&para;</a></h2>
 <p>Greater configurability is available when running AMSET from the Python API.
 For example, the following snippet will look for a <code>vasprun.xml</code> and
