@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+New features:
+
+- Automatically handle memory errors when caching wavefunction coefficients.
+
 ## v0.4.0
 
 New features:

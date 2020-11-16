@@ -167,7 +167,8 @@ class ScatteringCalculator(object):
                 except np.core._exceptions.MemoryError:
                     logger.warning(
                         "Memory requirements too large to cache wavefunction "
-                        "coefficients. Setting cache_wavefunction to False")
+                        "coefficients. Setting cache_wavefunction to False"
+                    )
                     self._coeffs = None
                     self._coeffs_mapping = None
                     break
