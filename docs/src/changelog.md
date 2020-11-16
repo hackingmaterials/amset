@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## v0.4.0
+
+New features:
+
+- Multiprocessing now used in the calculation of scattering rates. Number of processes
+  controlled using the `nworkers` option.
+
 Bug fixes:
 
 - More robust extraction of deformation potentials.
