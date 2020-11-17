@@ -11,6 +11,7 @@ from amset.interpolation.periodic import (
 )
 from amset.wavefunction.common import desymmetrize_coefficients, get_overlap, is_ncl
 from amset.wavefunction.io import load_coefficients
+from amset.util import create_shared_array, array_from_buffer
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -27,13 +28,22 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
 
     def to_reference(self):
         interpolator_references = self._interpolators_to_reference()
+        gpoints_buffer, self.goints = create_shared_array(
+            self.gpoints, return_shared_data=True
+        )
         return (
             self.nbands,
             self.data_shape,
             interpolator_references,
             self.ncl,
-            self.gpoints,
+            gpoints_buffer,
         )
+
+    @classmethod
+    def from_reference(cls, nbands, data_shape, interpolator_references, ncl, gpoints_buffer):
+        interpolators = cls._interpolators_from_reference(interpolator_references)
+        gpoints = array_from_buffer(gpoints_buffer)
+        return cls(nbands, data_shape, interpolators, ncl, gpoints_buffer)
 
     @classmethod
     def from_data(cls, kpoints, data, gpoints=None, gaussian=None):
