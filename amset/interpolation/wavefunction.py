@@ -1,6 +1,9 @@
 import logging
 
+import numba
 import numpy as np
+from interpolation.splines import eval_linear
+from interpolation.splines import extrap_options as xto
 
 from amset.constants import defaults
 from amset.electronic_structure.kpoints import get_mesh_from_kpoint_numbers
@@ -10,7 +13,7 @@ from amset.interpolation.periodic import (
     group_bands_and_kpoints,
 )
 from amset.util import array_from_buffer, create_shared_array
-from amset.wavefunction.common import desymmetrize_coefficients, get_overlap, is_ncl
+from amset.wavefunction.common import desymmetrize_coefficients, is_ncl
 from amset.wavefunction.io import load_coefficients
 
 __author__ = "Alex Ganose"
@@ -92,12 +95,107 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         return interp_coeffs
 
     def get_overlap(self, spin, band_a, kpoint_a, band_b, kpoint_b):
+        # generally, we don't want to do the interpolation for all band and
+        # k-points simultaneously as this can use a lot of memory. This becomes
+        # an issue when using multiprocessing. I.e., if you're parralellising over
+        # 24 cores on a single node, you only have access 1/24 the total memory
+        # for each core. Here we use numba jit to calculate the overlap of each
+        # band/kpoint sequentially. In testing this only gives ~2x slow down vs
+        # the simultaneous approach, while using an order of magnitude less memory.
         bands, kpoints, single_overlap = group_bands_and_kpoints(
             band_a, kpoint_a, band_b, kpoint_b
         )
-        p = self.get_coefficients(spin, bands, kpoints)
-        overlap = get_overlap(p[0], p[1:])
+        grid, data = self.interpolators[spin]
+        v = np.concatenate([np.asarray(bands)[:, None], np.asarray(kpoints)], axis=1)
+
+        if data.ndim == 5:
+            overlap = _get_overlap_ncl(grid, data, v, self.data_shape[0])
+        else:
+            overlap = _get_overlap(grid, data, v, self.data_shape[0])
+
         if single_overlap:
             return overlap[0]
         else:
             return overlap
+
+
+@numba.njit
+def _get_overlap(grid, data, points, n_coeffs):
+    initial = np.zeros(n_coeffs, dtype=np.complex64)
+    initial.real[:] = eval_linear(
+        grid,
+        data.real,
+        points[0],
+        xto.LINEAR,
+    )
+    initial.imag[:] = eval_linear(
+        grid,
+        data.imag,
+        points[0],
+        xto.LINEAR,
+    )
+    initial /= np.linalg.norm(initial)
+    initial[:] = np.conj(initial)
+
+    res = np.zeros(points.shape[0] - 1)
+    final = np.zeros(n_coeffs, dtype=np.complex64)
+    for i in range(1, points.shape[0]):
+        final.real[:] = eval_linear(
+            grid,
+            data.real,
+            points[i],
+            xto.LINEAR,
+        )
+        final.imag[:] = eval_linear(
+            grid,
+            data.imag,
+            points[i],
+            xto.LINEAR,
+        )
+        final /= np.linalg.norm(final)
+        res[i - 1] = np.abs(np.dot(final, initial)) ** 2
+    return res
+
+
+@numba.njit
+def _get_overlap_ncl(grid, data, points, n_coeffs):
+    initial = np.zeros((n_coeffs, 2), dtype=np.complex64)
+    initial.real[:] = eval_linear(
+        grid,
+        data.real,
+        points[0],
+        xto.LINEAR,
+    ).reshape((n_coeffs, 2))
+    initial.imag[:] = eval_linear(
+        grid,
+        data.imag,
+        points[0],
+        xto.LINEAR,
+    ).reshape((n_coeffs, 2))
+    initial /= np.linalg.norm(initial)
+    initial[:] = np.conj(initial)
+
+    res = np.zeros(points.shape[0] - 1)
+    final = np.zeros((n_coeffs, 2), dtype=np.complex64)
+    for i in range(1, points.shape[0]):
+        final.real[:] = eval_linear(
+            grid,
+            data.real,
+            points[i],
+            xto.LINEAR,
+        ).reshape((n_coeffs, 2))
+        final.imag[:] = eval_linear(
+            grid,
+            data.imag,
+            points[i],
+            xto.LINEAR,
+        ).reshape((n_coeffs, 2))
+        final /= np.linalg.norm(final)
+
+        sum_ = 0j
+        for j in range(final.shape[0]):
+            sum_ += initial[j, 0] * final[j, 0] + initial[j, 1] + final[j, 1]
+
+        res[i - 1] = abs(sum_) ** 2
+
+    return res
