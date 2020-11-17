@@ -145,7 +145,6 @@ class ScatteringCalculator(object):
 
                     # find k-points connected to the k-points inside Fermi cutoffs
                     k_idxs = tbs.get_connected_kpoints(k_idxs)
-
                     spin_k_idxs.extend(k_idxs.tolist())
                     spin_b_idxs.extend([b_idx] * len(k_idxs))
 
