@@ -166,7 +166,7 @@ class ScatteringCalculator(object):
                     mapping[spin_b_idxs, spin_k_idxs] = np.arange(len(spin_b_idxs))
                     self._coeffs_mapping[spin] = mapping.astype(int)
 
-                except np.core._exceptions.MemoryError:
+                except MemoryError:
                     logger.warning(
                         "Memory requirements too large to cache wavefunction "
                         "coefficients. Setting cache_wavefunction to False"
@@ -243,14 +243,17 @@ class ScatteringCalculator(object):
         return self.workers
 
     def terminate_workers(self):
-        # The "None"s at the end of the queue signal the workers that there are
+        # The "None"s at the end of the queue signals to the workers that there are
         # no more jobs left and they must therefore exit.
         for i in range(self.nworkers):
             self.in_queue.put(None)
 
         for w in self.workers:
-            w.join(0)
             w.terminate()
+            w.join(0)
+
+        self.in_queue.close()
+        self.out_queue.close()
 
         self.workers = None
 
