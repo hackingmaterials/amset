@@ -3,10 +3,11 @@ This module implements methods to calculate electron scattering.
 """
 
 import logging
+import multiprocessing
 import time
 import traceback
-import multiprocessing
-from multiprocessing import Process, Queue, cpu_count
+from multiprocessing import cpu_count
+from queue import Empty
 from typing import Any, Dict, List, Optional, Union
 
 import numba
@@ -15,7 +16,6 @@ import quadpy
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 from scipy.interpolate import griddata
-from queue import Empty
 
 from amset.constants import (
     boltzmann_au,
@@ -48,7 +48,6 @@ from amset.util import (
     dict_array_from_buffer,
     get_progress_bar,
 )
-from amset.wavefunction.common import get_overlap
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -482,7 +481,9 @@ class ScatteringCalculator(object):
 
         if isinstance(result[0], Exception):
             logger.error(
-                "Scattering process ended with error:\n{}\nexiting".format(str(result[1]))
+                "Scattering process ended with error:\n{}\nexiting".format(
+                    str(result[1])
+                )
             )
             self.terminate_workers()
             raise result[0]
@@ -745,7 +746,9 @@ def calculate_rate(
 
 
 @numba.njit
-def _get_overlap(spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask):
+def _get_overlap(
+    spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask
+):
     res = np.zeros(band_mask.shape[0])
     initial = np.conj(spin_coeffs[spin_coeffs_mapping[b_idx, k_idx]])
 
@@ -757,7 +760,9 @@ def _get_overlap(spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoi
 
 
 @numba.njit
-def _get_overlap_ncl(spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask):
+def _get_overlap_ncl(
+    spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask
+):
     res = np.zeros(band_mask.shape[0])
     initial = np.conj(spin_coeffs[spin_coeffs_mapping[b_idx, k_idx]])
 
@@ -769,6 +774,7 @@ def _get_overlap_ncl(spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, 
         res[i] = abs(sum_) ** 2
 
     return res
+
 
 def _interpolate_zero_rates(
     rates, kpoints, masks: Optional = None, progress_bar: bool = defaults["print_log"]

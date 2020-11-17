@@ -181,7 +181,12 @@ def is_ncl(coefficients):
 def get_overlap(origin, final):
     if len(origin.shape) == 2:
         # ncl
-        return np.abs(np.dot(np.conj(origin[:, 0]), final[:, :, 0].T) +
-                      np.dot(np.conj(origin[:, 1]), final[:, :, 1].T)) ** 2
+        return (
+            np.abs(
+                np.dot(np.conj(origin[:, 0]), final[:, :, 0].T)
+                + np.dot(np.conj(origin[:, 1]), final[:, :, 1].T)
+            )
+            ** 2
+        )
     else:
         return np.abs(np.dot(np.conj(origin), final.T)) ** 2
