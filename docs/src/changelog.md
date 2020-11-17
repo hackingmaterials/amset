@@ -2,9 +2,13 @@
 
 ## [Unreleased]
 
-New features:
+## v0.4.1
 
-- Automatically handle memory errors when caching wavefunction coefficients.
+Enhancements:
+
+- Faster wave function overlap calculation using numba jit.
+- Better management of memory and error reporting in subprocesses
+- Automatically handle memory errors when caching wave function coefficients.
 
 ## v0.4.0
 
