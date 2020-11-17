@@ -4,14 +4,18 @@ This module implements methods to calculate electron scattering.
 
 import logging
 import time
+import traceback
+import multiprocessing
 from multiprocessing import Process, Queue, cpu_count
 from typing import Any, Dict, List, Optional, Union
 
+import numba
 import numpy as np
 import quadpy
 from pymatgen import Spin
 from pymatgen.util.coord import pbc_diff
 from scipy.interpolate import griddata
+from queue import Empty
 
 from amset.constants import (
     boltzmann_au,
@@ -173,8 +177,8 @@ class ScatteringCalculator(object):
                     self._coeffs_mapping = None
                     break
 
-        self.in_queue = Queue()
-        self.out_queue = Queue()
+        self.in_queue = None
+        self.out_queue = None
         self.workers = None
         self.initialize_workers()
 
@@ -209,6 +213,9 @@ class ScatteringCalculator(object):
             for s in self.elastic_scatterers
         ]
 
+        ctx = multiprocessing.get_context("spawn")
+        self.in_queue = ctx.Queue()
+        self.out_queue = ctx.Queue()
         args = (
             self.amset_data.tetrahedral_band_structure.to_reference(),
             overlap_type,
@@ -222,9 +229,10 @@ class ScatteringCalculator(object):
             self.in_queue,
             self.out_queue,
         )
+
         self.workers = []
         for _ in range(self.nworkers):
-            self.workers.append(Process(target=scattering_worker, args=args))
+            self.workers.append(ctx.Process(target=scattering_worker, args=args))
 
         iterable = self.workers
         if self.progress_bar:
@@ -243,7 +251,7 @@ class ScatteringCalculator(object):
             self.in_queue.put(None)
 
         for w in self.workers:
-            w.join()
+            w.join(0)
             w.terminate()
 
         self.workers = None
@@ -458,14 +466,30 @@ class ScatteringCalculator(object):
 
     def _get_rate_from_queue(self):
         # handle exception gracefully to avoid hanging processes
-        result = self.out_queue.get()
-        if isinstance(result, Exception):
+        try:
+            result = self.out_queue.get(timeout=10)
+        except Empty:
+            # didn't receive anything for 10 seconds; this could be OK or it could
+            # the processes have been killed
+            if not self._workers_alive():
+                self.terminate_workers()
+                raise MemoryError(
+                    "Some subprocessess were killed unexpectedly. Could be OOM "
+                    "Killer?\nTry reducing nworkers."
+                )
+            else:
+                return self._get_rate_from_queue()
+
+        if isinstance(result[0], Exception):
             logger.error(
-                "Scattering process ended with error: {}.\nexiting".format(str(result))
+                "Scattering process ended with error:\n{}\nexiting".format(str(result[1]))
             )
             self.terminate_workers()
-            raise result
+            raise result[0]
         return result
+
+    def _workers_alive(self):
+        return all([worker.is_alive() for worker in self.workers])
 
 
 def scattering_worker(
@@ -485,9 +509,15 @@ def scattering_worker(
         tbs = TetrahedralBandStructure.from_reference(*tbs_reference)
         mrta_calculator = MRTACalculator.from_reference(*mrta_calculator_reference)
         amset_data_min = _AmsetDataMin.from_reference(*amset_data_min_reference)
-        coeffs = dict_array_from_buffer(coeffs_buffer)
-        coeffs_mapping = dict_array_from_buffer(coeffs_mapping_buffer)
 
+        if coeffs_buffer is None:
+            coeffs = None
+            coeffs_mapping = None
+        else:
+            coeffs = dict_array_from_buffer(coeffs_buffer)
+            coeffs_mapping = dict_array_from_buffer(coeffs_mapping_buffer)
+
+        overlap_calculator = None
         if overlap_type == "wavefunction":
             overlap_calculator = WavefunctionOverlapCalculator.from_reference(
                 *overlap_calculator_reference
@@ -530,8 +560,9 @@ def scattering_worker(
                 )
                 out_queue.put((ir_k_idx, rate))
 
-    except Exception as e:
-        out_queue.put(e)
+    except BaseException as e:
+        error_msg = traceback.format_exc()
+        out_queue.put((e, error_msg))
 
 
 class _AmsetDataMin:
@@ -624,9 +655,17 @@ def calculate_rate(
     if coeffs is not None:
         # use cached coefficients to calculate the overlap on the fine mesh
         # tetrahedron vertices
-        p1 = coeffs[spin][coeffs_mapping[spin][b_idx, k_idx]]
-        p2 = coeffs[spin][coeffs_mapping[spin][band_mask, kpoint_mask]]
-        overlap = get_overlap(p1, p2)
+        spin_coeffs = coeffs[spin]
+        spin_coeffs_mapping = coeffs_mapping[spin]
+        if len(spin_coeffs.shape) == 3:
+            # ncl
+            overlap = _get_overlap_ncl(
+                spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask
+            )
+        else:
+            overlap = _get_overlap(
+                spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask
+            )
     else:
         overlap = overlap_calculator.get_overlap(spin, b_idx, k, band_mask, k_primes)
 
@@ -704,6 +743,32 @@ def calculate_rate(
 
     return np.sum(rates, axis=-1)
 
+
+@numba.njit
+def _get_overlap(spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask):
+    res = np.zeros(band_mask.shape[0])
+    initial = np.conj(spin_coeffs[spin_coeffs_mapping[b_idx, k_idx]])
+
+    for i in range(band_mask.shape[0]):
+        final = spin_coeffs[spin_coeffs_mapping[band_mask[i], kpoint_mask[i]]]
+        res[i] = np.abs(np.dot(final, initial)) ** 2
+
+    return res
+
+
+@numba.njit
+def _get_overlap_ncl(spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask):
+    res = np.zeros(band_mask.shape[0])
+    initial = np.conj(spin_coeffs[spin_coeffs_mapping[b_idx, k_idx]])
+
+    for i in range(band_mask.shape[0]):
+        final = spin_coeffs[spin_coeffs_mapping[band_mask[i], kpoint_mask[i]]]
+        sum_ = 0j
+        for j in range(final.shape[0]):
+            sum_ += initial[j, 0] * final[j, 0] + initial[j, 1] + final[j, 1]
+        res[i] = abs(sum_) ** 2
+
+    return res
 
 def _interpolate_zero_rates(
     rates, kpoints, masks: Optional = None, progress_bar: bool = defaults["print_log"]
