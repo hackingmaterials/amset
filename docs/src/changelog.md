@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+Enhancements:
+
+- Reduce memory requirements when `cache_wavefunction = False`.
+
 ## v0.4.1
 
 Enhancements:

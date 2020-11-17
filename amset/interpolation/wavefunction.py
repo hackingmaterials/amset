@@ -122,36 +122,16 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
 @numba.njit
 def _get_overlap(grid, data, points, n_coeffs):
     initial = np.zeros(n_coeffs, dtype=np.complex64)
-    initial.real[:] = eval_linear(
-        grid,
-        data.real,
-        points[0],
-        xto.LINEAR,
-    )
-    initial.imag[:] = eval_linear(
-        grid,
-        data.imag,
-        points[0],
-        xto.LINEAR,
-    )
+    initial.real[:] = eval_linear(grid, data.real, points[0], xto.LINEAR,)
+    initial.imag[:] = eval_linear(grid, data.imag, points[0], xto.LINEAR,)
     initial /= np.linalg.norm(initial)
     initial[:] = np.conj(initial)
 
     res = np.zeros(points.shape[0] - 1)
     final = np.zeros(n_coeffs, dtype=np.complex64)
     for i in range(1, points.shape[0]):
-        final.real[:] = eval_linear(
-            grid,
-            data.real,
-            points[i],
-            xto.LINEAR,
-        )
-        final.imag[:] = eval_linear(
-            grid,
-            data.imag,
-            points[i],
-            xto.LINEAR,
-        )
+        final.real[:] = eval_linear(grid, data.real, points[i], xto.LINEAR,)
+        final.imag[:] = eval_linear(grid, data.imag, points[i], xto.LINEAR,)
         final /= np.linalg.norm(final)
         res[i - 1] = np.abs(np.dot(final, initial)) ** 2
     return res
@@ -160,36 +140,24 @@ def _get_overlap(grid, data, points, n_coeffs):
 @numba.njit
 def _get_overlap_ncl(grid, data, points, n_coeffs):
     initial = np.zeros((n_coeffs, 2), dtype=np.complex64)
-    initial.real[:] = eval_linear(
-        grid,
-        data.real,
-        points[0],
-        xto.LINEAR,
-    ).reshape((n_coeffs, 2))
-    initial.imag[:] = eval_linear(
-        grid,
-        data.imag,
-        points[0],
-        xto.LINEAR,
-    ).reshape((n_coeffs, 2))
+    initial.real[:] = eval_linear(grid, data.real, points[0], xto.LINEAR,).reshape(
+        (n_coeffs, 2)
+    )
+    initial.imag[:] = eval_linear(grid, data.imag, points[0], xto.LINEAR,).reshape(
+        (n_coeffs, 2)
+    )
     initial /= np.linalg.norm(initial)
     initial[:] = np.conj(initial)
 
     res = np.zeros(points.shape[0] - 1)
     final = np.zeros((n_coeffs, 2), dtype=np.complex64)
     for i in range(1, points.shape[0]):
-        final.real[:] = eval_linear(
-            grid,
-            data.real,
-            points[i],
-            xto.LINEAR,
-        ).reshape((n_coeffs, 2))
-        final.imag[:] = eval_linear(
-            grid,
-            data.imag,
-            points[i],
-            xto.LINEAR,
-        ).reshape((n_coeffs, 2))
+        final.real[:] = eval_linear(grid, data.real, points[i], xto.LINEAR,).reshape(
+            (n_coeffs, 2)
+        )
+        final.imag[:] = eval_linear(grid, data.imag, points[i], xto.LINEAR,).reshape(
+            (n_coeffs, 2)
+        )
         final /= np.linalg.norm(final)
 
         sum_ = 0j
