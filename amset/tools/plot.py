@@ -137,6 +137,7 @@ def lineshape(filename, **kwargs):
 @option("--emin", default=-6.0, help="minimum energy limit")
 @option("--emax", default=6.0, help="maximum energy limit")
 @option("--symprec", type=float, default=_symprec, help="interpolation factor")
+@option("--print-log/--no-print-log", default=True, help="whether to print interpolation log")
 @option("--kpath", type=kpaths, help="k-point path type")
 @option(
     "--kpoints",
@@ -198,7 +199,7 @@ def band(filename, **kwargs):
         zwk_mode = defaults["zero_weighted_kpoints"]
 
     plotter_kwargs = {
-        "print_log": True,
+        "print_log": kwargs["print_log"],
         "interpolation_factor": kwargs["interpolation_factor"],
         "symprec": kwargs["symprec"],
         "energy_cutoff": kwargs["energy_cutoff"],
