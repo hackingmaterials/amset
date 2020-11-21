@@ -297,19 +297,24 @@ class Runner(MSONable):
         if self.settings["write_input"]:
             self.write_settings(abs_dir)
 
-        filename = amset_data.to_file(
-            directory=abs_dir,
-            write_mesh_file=self.settings["write_mesh"],
-            prefix=prefix,
-            file_format=self.settings["file_format"],
-        )
-
-        if isinstance(filename, tuple):
-            full_filename = "\nand\n".join([str(Path(abs_dir) / f) for f in filename])
+        if self.settings["file_format"] is None:
+            full_filename = None
         else:
-            full_filename = Path(abs_dir) / filename
+            filename = amset_data.to_file(
+                directory=abs_dir,
+                write_mesh_file=self.settings["write_mesh"],
+                prefix=prefix,
+                file_format=self.settings["file_format"],
+            )
 
-        logger.info("Results written to:\n{}".format(full_filename))
+            if isinstance(filename, tuple):
+                full_filename = "\nand\n".join(
+                    [str(Path(abs_dir) / f) for f in filename]
+                )
+            else:
+                full_filename = Path(abs_dir) / filename
+
+            logger.info("Results written to:\n{}".format(full_filename))
         return full_filename, time.perf_counter() - t0
 
     @staticmethod
