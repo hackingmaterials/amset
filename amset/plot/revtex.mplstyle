@@ -1,6 +1,6 @@
 figure.figsize : 3.2, 3.3
 figure.dpi: 400
-axes.prop_cycle: cycler('color', ['17479E', 'faa316', '0DB14B', '993f00', '4c005c', '426600', 'ff0010', '9dcc00', 'c20088', '003380', 'ffa405', 'ffff00', 'ff5005', '5ef1f2', '740aff', '990000', '00998f', '005c31', '2bce48', 'ffcc99', '94ffb5', '8f7c00', '6fa8bb', '808080'])
+axes.prop_cycle: cycler('color', ['E9A66C', '5FABA2', 'D4447E', 'F8D54D', '426600', 'ff0010', '9dcc00', 'c20088', '003380', 'ffa405', 'ffff00', 'ff5005', '5ef1f2', '740aff', '990000', '00998f', '005c31', '2bce48', 'ffcc99', '94ffb5', '8f7c00', '6fa8bb', '808080'])
 font.family : serif
 font.serif : Computer Modern Roman, Times New Roman, Times, Computer Modern Roman, DejaVu Serif, Bitstream Vera Serif, New Century Schoolbook, Century Schoolbook L, Utopia, ITC Bookman, Bookman, Nimbus Roman No9 L, Palatino, Charter, serif
 font.size : 11
