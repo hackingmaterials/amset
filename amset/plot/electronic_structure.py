@@ -29,7 +29,7 @@ class ElectronicStructurePlotter(object):
         energy_cutoff=None,
     ):
         if print_log:
-            initialize_amset_logger(filename="amset_electronic_structure_plot.log")
+            initialize_amset_logger(filename=False)
 
         self.symprec = symprec
         self.interpolater = Interpolator(

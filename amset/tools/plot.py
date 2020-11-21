@@ -137,7 +137,11 @@ def lineshape(filename, **kwargs):
 @option("--emin", default=-6.0, help="minimum energy limit")
 @option("--emax", default=6.0, help="maximum energy limit")
 @option("--symprec", type=float, default=_symprec, help="interpolation factor")
-@option("--print-log/--no-print-log", default=True, help="whether to print interpolation log")
+@option(
+    "--print-log/--no-print-log",
+    default=True,
+    help="whether to print interpolation log",
+)
 @option("--kpath", type=kpaths, help="k-point path type")
 @option(
     "--kpoints",
