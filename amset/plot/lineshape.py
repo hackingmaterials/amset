@@ -15,6 +15,7 @@ from pymatgen.electronic_structure.bandstructure import (
 )
 from pymatgen.electronic_structure.plotter import BSPlotter
 from sumo.plotting import pretty_plot
+from sumo.symmetry import Kpath, PymatgenKpath
 
 from amset.constants import defaults, hbar
 from amset.interpolation.bandstructure import Interpolator
@@ -25,8 +26,6 @@ from amset.plot import BaseMeshPlotter, amset_base_style, styled_plot
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
-
-from sumo.symmetry import Kpath, PymatgenKpath
 
 logger = logging.getLogger(__name__)
 
