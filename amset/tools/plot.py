@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import click
@@ -10,6 +11,10 @@ __email__ = "aganose@lbl.gov"
 from amset.tools.common import image_type, path_type, zero_weighted_type
 
 kpaths = click.Choice(["pymatgen", "seekpath"], case_sensitive=False)
+x_properties = click.Choice(["doping", "temperature"], case_sensitive=False)
+rate_plot_type = click.Choice(
+    ["rate", "lifetime", "v2tau", "v2taudfde"], case_sensitive=False
+)
 
 _symprec = 0.01  # redefine symprec to avoid loading constants from file
 _dos_estep = 0.01  # redefine symprec to avoid loading constants from file
@@ -82,7 +87,7 @@ def plot():
 @option("--width", default=3.2, help="figure width [default: 6]")
 @option("--height", default=3.2, help="figure height [default: 6]")
 @option("--directory", type=path_type, help="file output directory")
-@option("--image-format", default="pdf", type=image_type, help="image format")
+@option("--format", "image_format", default="pdf", type=image_type, help="image format")
 @option("--style", help="matplotlib style specification")
 @option("--no-base-style", default=False, is_flag=True, help="don't apply base style")
 def lineshape(filename, **kwargs):
@@ -178,7 +183,7 @@ def lineshape(filename, **kwargs):
 @option("--height", default=6.0, help="figure height [default: 6]")
 @option("-p", "--prefix", help="output filename prefix")
 @option("--directory", type=path_type, help="file output directory")
-@option("--image-format", default="pdf", type=image_type, help="image format")
+@option("--format", "image_format", default="pdf", type=image_type, help="image format")
 @option("--style", help="path to matplotlib style specification")
 @option("--no-base-style", default=False, is_flag=True, help="don't apply base style")
 def band(filename, **kwargs):
@@ -240,8 +245,6 @@ def band(filename, **kwargs):
 
 @plot.command()
 @argument("filename", type=path_type)
-@option("--ymin", default=None, type=float, help="minimum y-axis limit")
-@option("--ymax", default=None, type=float, help="maximum y-axis limit")
 @option("-d", "--doping-idx", metavar="N", help="doping index to plot")
 @option("-t", "--temperature-idx", metavar="N", help="temperature index to plot")
 @option(
@@ -251,11 +254,46 @@ def band(filename, **kwargs):
     default=False,
     help="whether to separate scattering mechanisms",
 )
+@option(
+    "--plot-type",
+    type=rate_plot_type,
+    default="rate",
+    help="what to plot on the y-axis",
+)
+@option(
+    "--total/--no-total", "plot_total_rate", default=False, help="plot the total rate"
+)
+@option(
+    "--dfde/--no-dfde",
+    "show_dfde",
+    default=False,
+    help="indicate the Fermi-Dirac derivative weight through color saturation",
+)
+@option("--use-symbol/--no-use-symbol", default=False, help="use symbols for labels")
+@option(
+    "--fd-tols/--no-fd-tols",
+    "plot_fd_tols",
+    default=False,
+    help="plot the Fermi-Dirac tolerance limits",
+)
+@option(
+    "--normalize/--no-normalize",
+    "normalize_energy",
+    default=True,
+    help="normalize energies to the VBM/Fermi level",
+)
+@option("--pad", type=float, default=0.1, help="pad in % for y-axis limits")
+@option("--ymin", default=None, type=float, help="minimum y-axis limit")
+@option("--ymax", default=None, type=float, help="maximum y-axis limit")
+@option("--xmin", default=None, type=float, help="minimum x-axis limit")
+@option("--xmax", default=None, type=float, help="maximum x-axis limit")
+@option("--total-color", help="color for total scattering rate")
 @option("-p", "--prefix", help="output filename prefix")
 @option("--directory", type=path_type, help="file output directory")
-@option("--image-format", default="pdf", type=image_type, help="image format")
+@option("--format", "image_format", default="pdf", type=image_type, help="image format")
 @option("--style", help="path to matplotlib style specification")
 @option("--no-base-style", default=False, is_flag=True, help="don't apply base style")
+@option("--font", "fonts", help="font to use")
 def rates(filename, **kwargs):
     """
     Plot scattering rates
@@ -267,11 +305,286 @@ def rates(filename, **kwargs):
     kwargs["doping_idx"] = _all_or_int(kwargs["doping_idx"])
     kwargs["temperature_idx"] = _all_or_int(kwargs["temperature_idx"])
 
-    plotter = RatesPlotter(filename)
+    pad = kwargs.pop("pad")
+    use_symbol = kwargs.pop("use_symbol")
+    plotter = RatesPlotter(filename, pad=pad, use_symbol=use_symbol)
     plt = plotter.get_plot(**kwargs)
-    plt.subplots_adjust(hspace=0.3, wspace=0.3)
+    plt.subplots_adjust(hspace=0.3, wspace=0.4)
     save_plot(plt, "rates", *save_kwargs)
     return plt
+
+
+@plot.command()
+@argument("filename", type=path_type)
+@option(
+    "-d", "--doping-idx", metavar="N", help="doping indices to plot (space separated)"
+)
+@option(
+    "-t",
+    "--temperature-idx",
+    metavar="N",
+    help="temperature indices to plot (space separated)",
+)
+@option("-x", "--x-property", type=x_properties, help="property to plot on x-axis")
+@option("--grid", nargs=2, type=int, help="subplot grid (nrows, ncols)")
+@option(
+    "--average/--no-average",
+    default=True,
+    help="whether to average tensor transport properties",
+)
+@option("--pad", type=float, default=0.05, help="pad in % for axis limits")
+@option("--use-symbol/--no-use-symbol", default=False, help="use symbols for labels")
+@option("--xlabel", help="x-axis label")
+@option("--xmin", type=float, help="minimum x-axis limit")
+@option("--xmax", type=float, help="maximum x-axis limit")
+@option("--logx/--no-log-x", default=None, help="log x-axis")
+@option("--conductivity/--no-conductivity", default=True, help="plot conductivity")
+@option("--seebeck/--no-seebeck", default=True, help="plot Seebeck coefficient")
+@option(
+    "--thermal-conductivity/--no-thermal-conductivity",
+    default=True,
+    help="plot electronic thermal conductivity",
+)
+@option("--mobility/--no-mobility", default=False, help="plot electron mobility")
+@option("--conductivity-label", help="conductivity y-axis label")
+@option("--conductivity-min", type=float, help="minimum conductivity y-axis limit")
+@option("--conductivity-max", type=float, help="maximum conductivity y-axis limit")
+@option(
+    "--log-conductivity/--no-log-conductivity",
+    default=None,
+    help="plot log conductivity",
+)
+@option("--seebeck-label", help="Seebeck coefficient y-axis label")
+@option("--seebeck-min", type=float, help="minimum Seebeck y-axis limit")
+@option("--seebeck-max", type=float, help="maximum Seebeck y-axis limit")
+@option("--log-seebeck/--no-log-seebeck", default=None, help="plot log Seebeck")
+@option("--thermal-conductivity-label", help="thermal conductivity y-axis label")
+@option(
+    "--thermal-conductivity-min",
+    type=float,
+    help="minimum thermal conductivity y-axis limit",
+)
+@option(
+    "--thermal-conductivity-max",
+    type=float,
+    help="maximum thermal conductivity y-axis limit",
+)
+@option(
+    "--log-thermal-conductivity/--no-log-thermal-conductivity",
+    default=None,
+    help="plot log thermal conductivity",
+)
+@option("--mobility-label", help="mobility y-axis label")
+@option("--mobility-min", type=float, help="minimum mobility y-axis limit")
+@option("--mobility-max", type=float, help="maximum mobility y-axis limit")
+@option("--log-mobility/--no-log-mobility", default=None, help="plot log mobility")
+@option("-p", "--prefix", help="output filename prefix")
+@option("--width", type=float, help="figure width")
+@option("--height", type=float, help="figure height")
+@option("--directory", type=path_type, help="file output directory")
+@option("--format", "image_format", default="pdf", type=image_type, help="image format")
+@option("--style", help="path to matplotlib style specification")
+@option("--no-base-style", default=False, is_flag=True, help="don't apply base style")
+@option("--font", "fonts", help="font to use")
+def transport(filename, **kwargs):
+    """
+    Plot transport properties
+    """
+    from amset.plot.transport import TransportPlotter
+
+    save_kwargs = [kwargs.pop(d) for d in ("directory", "prefix", "image_format")]
+
+    properties = []
+    for prop in ("conductivity", "seebeck", "thermal_conductivity", "mobility"):
+        if kwargs.pop(prop):
+            properties.append(prop.replace("_", " "))
+
+    kwargs["temperature_idx"] = _to_int(kwargs["temperature_idx"])
+    kwargs["doping_idx"] = _to_int(kwargs["doping_idx"])
+
+    pad = kwargs.pop("pad")
+    use_symbol = kwargs.pop("use_symbol")
+    average = kwargs.pop("average")
+    plotter = TransportPlotter(
+        filename, pad=pad, use_symbol=use_symbol, average=average
+    )
+    plt = plotter.get_plot(properties=properties, **kwargs)
+    plt.subplots_adjust(hspace=0.3, wspace=0.4)
+    save_plot(plt, "transport", *save_kwargs)
+    return plt
+
+
+@plot.command()
+@argument("filename", type=path_type)
+@option(
+    "-d", "--doping-idx", metavar="N", help="doping indices to plot (space separated)"
+)
+@option(
+    "-t",
+    "--temperature-idx",
+    metavar="N",
+    help="temperature indices to plot (space separated)",
+)
+@option("-x", "--x-property", type=x_properties, help="property to plot on x-axis")
+@option(
+    "--separate-mobility/--no-separate-mobility",
+    default=True,
+    help="whether to separate mobility for each scattering mechanisms",
+)
+@option("--title/--no-title", default=True, help="put a title above each subplot")
+@option("--grid", nargs=2, type=int, help="subplot grid (nrows, ncols)")
+@option(
+    "--average/--no-average",
+    default=True,
+    help="whether to average tensor transport properties",
+)
+@option("--pad", type=float, default=0.05, help="pad in % for axis limits")
+@option("--use-symbol/--no-use-symbol", default=False, help="use symbols for labels")
+@option("--xlabel", help="x-axis label")
+@option("--xmin", type=float, help="minimum x-axis limit")
+@option("--xmax", type=float, help="maximum x-axis limit")
+@option("--logx/--no-log-x", default=None, help="log x-axis")
+@option("--ylabel", help="y-axis label")
+@option("--ymin", type=float, help="minimum y-axis limit")
+@option("--ymax", type=float, help="maximum y-axis limit")
+@option("--total-color", help="color for total mobility line")
+@option("--logy/--no-log-y", default=None, help="log y-axis")
+@option("-p", "--prefix", help="output filename prefix")
+@option("--width", type=float, help="figure width")
+@option("--height", type=float, help="figure height")
+@option("--directory", type=path_type, help="file output directory")
+@option("--format", "image_format", default="pdf", type=image_type, help="image format")
+@option("--style", help="path to matplotlib style specification")
+@option("--no-base-style", default=False, is_flag=True, help="don't apply base style")
+@option("--font", "fonts", help="font to use")
+def mobility(filename, **kwargs):
+    """
+    Plot mobility in more detail
+    """
+    from amset.plot.mobility import MobilityPlotter
+
+    save_kwargs = [kwargs.pop(d) for d in ("directory", "prefix", "image_format")]
+
+    kwargs["temperature_idx"] = _to_int(kwargs["temperature_idx"])
+    kwargs["doping_idx"] = _to_int(kwargs["doping_idx"])
+
+    init_kwargs = {
+        d: kwargs.pop(d) for d in ["use_symbol", "average", "separate_mobility", "pad"]
+    }
+    plotter = MobilityPlotter(filename, **init_kwargs)
+    plt = plotter.get_plot(**kwargs)
+    plt.subplots_adjust(hspace=0.3, wspace=0.4)
+    save_plot(plt, "mobility", *save_kwargs)
+    return plt
+
+
+@plot.command()
+@argument("filenames", nargs=-1, type=path_type)
+@option("-d", "--doping-idx", metavar="N", help="doping indices to plot")
+@option("-t", "--temperature-idx", metavar="N", help="temperature indices to plot")
+@option("-x", "--x-property", type=x_properties, help="property to plot on x-axis")
+@option("--grid", nargs=2, type=int, help="subplot grid (nrows, ncols)")
+@option("--pad", type=float, default=0.05, help="pad in % for axis limits")
+@option("--labels", help="labels to use (space separated)")
+@option("--use-symbol/--no-use-symbol", default=False, help="use symbols for labels")
+@option("--xlabel", help="x-axis label")
+@option("--xmin", type=float, help="minimum x-axis limit")
+@option("--xmax", type=float, help="maximum x-axis limit")
+@option("--logx/--no-log-x", default=None, help="log x-axis")
+@option("--conductivity/--no-conductivity", default=True, help="plot conductivity")
+@option("--seebeck/--no-seebeck", default=True, help="plot Seebeck coefficient")
+@option(
+    "--thermal-conductivity/--no-thermal-conductivity",
+    default=True,
+    help="plot electronic thermal conductivity",
+)
+@option("--mobility/--no-mobility", default=False, help="plot electron mobility")
+@option("--conductivity-label", help="conductivity y-axis label")
+@option("--conductivity-min", type=float, help="minimum conductivity y-axis limit")
+@option("--conductivity-max", type=float, help="maximum conductivity y-axis limit")
+@option(
+    "--log-conductivity/--no-log-conductivity",
+    default=None,
+    help="plot log conductivity",
+)
+@option("--seebeck-label", help="Seebeck coefficient y-axis label")
+@option("--seebeck-min", type=float, help="minimum Seebeck y-axis limit")
+@option("--seebeck-max", type=float, help="maximum Seebeck y-axis limit")
+@option("--log-seebeck/--no-log-seebeck", default=None, help="plot log Seebeck")
+@option("--thermal-conductivity-label", help="thermal conductivity y-axis label")
+@option(
+    "--thermal-conductivity-min",
+    type=float,
+    help="minimum thermal conductivity y-axis limit",
+)
+@option(
+    "--thermal-conductivity-max",
+    type=float,
+    help="maximum thermal conductivity y-axis limit",
+)
+@option(
+    "--log-thermal-conductivity/--no-log-thermal-conductivity",
+    default=None,
+    help="plot log thermal conductivity",
+)
+@option("--mobility-label", help="mobility y-axis label")
+@option("--mobility-min", type=float, help="minimum mobility y-axis limit")
+@option("--mobility-max", type=float, help="maximum mobility y-axis limit")
+@option("--log-mobility/--no-log-mobility", default=None, help="plot log mobility")
+@option("-p", "--prefix", help="output filename prefix")
+@option("--width", type=float, help="figure width")
+@option("--height", type=float, help="figure height")
+@option("--directory", type=path_type, help="file output directory")
+@option("--format", "image_format", default="pdf", type=image_type, help="image format")
+@option("--style", help="path to matplotlib style specification")
+@option("--no-base-style", default=False, is_flag=True, help="don't apply base style")
+@option("--font", "fonts", help="font to use")
+def convergence(filenames, **kwargs):
+    """
+    Plot transport properties
+    """
+    from amset.plot.convergence import ConvergencePlotter
+
+    save_kwargs = [kwargs.pop(d) for d in ("directory", "prefix", "image_format")]
+
+    properties = []
+    for prop in ("conductivity", "seebeck", "thermal_conductivity", "mobility"):
+        if kwargs.pop(prop):
+            properties.append(prop.replace("_", " "))
+
+    if kwargs["labels"] is None:
+        # try to determine labels from file names
+        try:
+            kwargs["labels"] = get_labels_from_filenames(filenames)
+        except ValueError:
+            click.echo("Could not determine labels from filenames. Use --labels option")
+
+    kwargs["temperature_idx"] = _to_int(kwargs["temperature_idx"])
+    kwargs["doping_idx"] = _to_int(kwargs["doping_idx"])
+
+    pad = kwargs.pop("pad")
+    use_symbol = kwargs.pop("use_symbol")
+    plotter = ConvergencePlotter(filenames, pad=pad, use_symbol=use_symbol)
+    plt = plotter.get_plot(properties=properties, **kwargs)
+    plt.subplots_adjust(hspace=0.3, wspace=0.4)
+    save_plot(plt, "convergence", *save_kwargs)
+    return plt
+
+
+def get_labels_from_filenames(filenames):
+    labels = []
+    for filename in filenames:
+        match = re.search(r"\d+x\d+x\d+", str(filename))
+        if not match:
+            raise ValueError("Problem extracting mesh")
+        labels.append(match[0])
+    return labels
+
+
+def _to_int(idxs):
+    if idxs is not None:
+        idxs = list(map(int, idxs.split()))
+    return idxs
 
 
 def save_plot(plt, name, directory, prefix, image_format):
