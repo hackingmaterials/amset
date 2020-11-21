@@ -335,6 +335,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#v042" class="md-nav__link">
+    v0.4.2
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v041" class="md-nav__link">
     v0.4.1
   </a>
@@ -511,6 +518,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#v042" class="md-nav__link">
+    v0.4.2
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v041" class="md-nav__link">
     v0.4.1
   </a>
@@ -627,9 +641,25 @@
                 
                 <h1 id="change-log">Change log<a class="headerlink" href="#change-log" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="v042">v0.4.2<a class="headerlink" href="#v042" title="Permanent link">&para;</a></h2>
+<p>New features:</p>
+<ul>
+<li>Added tool to plot transport properties (<code>amset plot transport</code>).</li>
+<li>Added tool to plot mobility in more detail (<code>amset plot mobility</code>).</li>
+<li>Added tool to plot convergence (<code>amset plot convergence</code>).</li>
+<li>Added option to highlight scattering rates by the derivative of the Fermi–Dirac
+  thought <code>amset plot rates &lt;filename&gt; --dfde</code>.</li>
+</ul>
 <p>Enhancements:</p>
 <ul>
 <li>Reduce memory requirements when <code>cache_wavefunction = False</code>.</li>
+<li>Don't write output files if <code>file_format = None</code>. </li>
+</ul>
+<p>Bug fixes:</p>
+<ul>
+<li>Re-enabled CRTA and MFP scattering.</li>
+<li>Don't use multiprocessing with basic scatterers.</li>
+<li>Fix direction dependent effective masses.</li>
 </ul>
 <h2 id="v041">v0.4.1<a class="headerlink" href="#v041" title="Permanent link">&para;</a></h2>
 <p>Enhancements:</p>
