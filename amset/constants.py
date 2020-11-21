@@ -36,6 +36,7 @@ coulomb_to_au = ampere_to_au * s_to_au
 
 # misc
 boltzmann_si = physical_constants["Boltzmann constant"][0]
+boltzmann_ev = physical_constants["Boltzmann constant in eV/K"][0]
 boltzmann_au = boltzmann_si * joule_to_hartree
 hbar = physical_constants["Planck constant over 2 pi in eV s"][0]
 gpa_to_au = joule_to_hartree * 1e9 / m_to_bohr ** 3
