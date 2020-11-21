@@ -2,9 +2,26 @@
 
 ## [Unreleased]
 
+## v0.4.2
+
+New features:
+
+- Added tool to plot transport properties (`amset plot transport`).
+- Added tool to plot mobility in more detail (`amset plot mobility`).
+- Added tool to plot convergence (`amset plot convergence`).
+- Added option to highlight scattering rates by the derivative of the Fermi–Dirac
+  thought `amset plot rates <filename> --dfde`.
+
 Enhancements:
 
 - Reduce memory requirements when `cache_wavefunction = False`.
+- Don't write output files if `file_format = None`. 
+
+Bug fixes:
+
+- Re-enabled CRTA and MFP scattering.
+- Don't use multiprocessing with basic scatterers.
+- Fix direction dependent effective masses.
 
 ## v0.4.1
 
