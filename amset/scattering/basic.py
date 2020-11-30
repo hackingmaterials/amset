@@ -108,8 +108,8 @@ class MeanFreePathScattering(AbstractBasicScattering):
                 v, (len(amset_data.doping), len(amset_data.temperatures), 1, 1)
             )
 
-            rates2 = velocities * s_to_au / mfp
-            rates[spin] = rates2[..., amset_data.ir_to_full_kpoint_mapping]
+            spin_rates = velocities * s_to_au / mfp
+            rates[spin] = spin_rates[..., amset_data.ir_to_full_kpoint_mapping]
         return cls(
             cls.get_properties(materials_properties),
             amset_data.doping,
