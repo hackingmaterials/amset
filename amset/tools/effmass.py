@@ -61,6 +61,7 @@ def eff_mass(filename, **kwargs):
         "calculate_mobility": False,
         "separate_mobility": False,
         "write_log": False,
+        "file_format": None,
     }
     for setting in defaults:
         if setting in kwargs and kwargs[setting] is not None:
@@ -75,17 +76,16 @@ def eff_mass(filename, **kwargs):
     doping = (np.abs(amset_data.doping) * doping_scale)[:, None, None, None]
     crt = settings["constant_relaxation_time"]
 
-    # use eigvals rather than eigvalsh to avoid sorting the eigenvalues
     masses = inv_cond * crt * doping * 10 ** 6 * constants.e ** 2 / constants.m_e
-    eigs = np.linalg.eigvals(masses).real
-
     mass_info = []
     for n, t in np.ndindex(amset_data.fermi_levels.shape):
         info = [amset_data.doping[n] * doping_scale, amset_data.temperatures[t]]
         if kwargs["average"]:
+            eigs = np.linalg.eigvals(masses).real
             info.append((3 / (1 / eigs[n, t]).sum()))
         else:
-            info.extend(eigs[n, t].tolist())
+            xyz = np.diagonal(masses, axis1=-2, axis2=-1)
+            info.extend(xyz[n, t].tolist())
         mass_info.append(info)
 
     headers = ["conc [cm⁻³]", "temp [K]"]
@@ -95,7 +95,7 @@ def eff_mass(filename, **kwargs):
         headers.append("m*")
         floatfmt.append(".3f")
     else:
-        headers.extend(["mₓ*", "mᵧ*", "m₂*"])
+        headers.extend(["mₓₓ*", "mᵧᵧ*", "m₂₂*"])
         floatfmt.extend([".3f"] * 3)
 
     table = tabulate(

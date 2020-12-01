@@ -1,13 +1,14 @@
 import numpy as np
-from sumo.plotting import pretty_plot, styled_plot
+from sumo.plotting import pretty_plot
 
 from amset.constants import bohr_to_m, bohr_to_nm, boltzmann_au, s_to_au
 from amset.electronic_structure.fd import dfdde
-from amset.plot import BaseMeshPlotter, amset_base_style
+from amset.plot import BaseMeshPlotter, amset_base_style, styled_plot
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
+
 
 _y_labels = {"conductivity": r"Cumulative conductivity (\%)"}
 

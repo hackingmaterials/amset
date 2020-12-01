@@ -25,6 +25,10 @@ warnings.simplefilter("ignore", MantissaNoDotYAML1_1Warning)
 
 
 def safe_cli():
+    def _warning(message, *args, **kwargs):
+        click.echo(message)
+
+    warnings.showwarning = _warning
     try:
         cli()
     except Exception as e:
@@ -37,7 +41,11 @@ def cli():
     AMSET is a tool to calculate carrier transport properties from ab initio
     calculation data
     """
-    pass
+
+    def _warning(message, *args, **kwargs):
+        click.echo(message)
+
+    warnings.showwarning = _warning
 
 
 cli.add_command(plot)

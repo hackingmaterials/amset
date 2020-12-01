@@ -514,7 +514,6 @@ class AmsetData(MSONable):
                 directory, "{}transport{}.{}".format(prefix, suffix, file_format)
             )
             np.savetxt(filename, data, header=" ".join(headers))
-
         else:
             raise ValueError("Unrecognised output format: {}".format(file_format))
 

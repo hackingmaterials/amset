@@ -124,8 +124,10 @@ class ScatteringCalculator(object):
         self._coeffs = None
         self._coeffs_mapping = None
         # if only basic scatterers then no need to cache overlaps
-        basic_only = len(self.elastic_scatterers) + len(self.inelastic_scatterers) == 0
-        if cache_wavefunction and not basic_only:
+        self._basic_only = (
+            len(self.elastic_scatterers) + len(self.inelastic_scatterers) == 0
+        )
+        if cache_wavefunction and not self._basic_only:
             self._coeffs = {}
             self._coeffs_mapping = {}
             # precompute the coefficients we will need to for calculating overlaps
@@ -181,6 +183,9 @@ class ScatteringCalculator(object):
         self.initialize_workers()
 
     def initialize_workers(self):
+        if self._basic_only:
+            return
+
         logger.info(f"Forking {self.nworkers} processes to calculate scattering")
         t0 = time.perf_counter()
 
@@ -245,17 +250,18 @@ class ScatteringCalculator(object):
     def terminate_workers(self):
         # The "None"s at the end of the queue signals to the workers that there are
         # no more jobs left and they must therefore exit.
-        for i in range(self.nworkers):
-            self.in_queue.put(None)
+        if self.workers is not None:
+            for i in range(self.nworkers):
+                self.in_queue.put(None)
 
-        for w in self.workers:
-            w.terminate()
-            w.join(0)
+            for w in self.workers:
+                w.terminate()
+                w.join(0)
 
-        self.in_queue.close()
-        self.out_queue.close()
+            self.in_queue.close()
+            self.out_queue.close()
 
-        self.workers = None
+            self.workers = None
 
     @property
     def basic_scatterers(self):
@@ -377,7 +383,7 @@ class ScatteringCalculator(object):
         return rates
 
     def calculate_band_rates(self, spin: Spin, b_idx: int):
-        if self.workers is None:
+        if self.workers is None and not self._basic_only:
             self.initialize_workers()
 
         vol = self.amset_data.structure.lattice.reciprocal_lattice.volume
