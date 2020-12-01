@@ -457,6 +457,6 @@ class PiezoelectricScattering(AbstractElasticScattering):
 
         return (
             factor[None, None]
-            * np.ones(self._shape + norm_q_sq.shape)
+            * np.ones(self._shape.shape + norm_q_sq.shape)
             / (norm_q_sq[None, None, :] + self.inverse_screening_length_sq[..., None])
         )
