@@ -426,7 +426,7 @@ class PiezoelectricScattering(AbstractElasticScattering):
 
     def prefactor(self, spin: Spin, b_idx: int):
         # need to return prefactor with shape (ndops, ntemps)
-        return self._prefactor * np.ones(self._shape)
+        return self._prefactor * self._shape
 
     def factor(
         self,
