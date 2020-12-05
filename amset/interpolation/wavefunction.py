@@ -108,7 +108,7 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         grid, data = self.interpolators[spin]
         v = np.concatenate([np.asarray(bands)[:, None], np.asarray(kpoints)], axis=1)
 
-        if data.ndim == 5:
+        if self.ncl:
             overlap = _get_overlap_ncl(grid, data, v, self.data_shape[0])
         else:
             overlap = _get_overlap(grid, data, v, self.data_shape[0])
