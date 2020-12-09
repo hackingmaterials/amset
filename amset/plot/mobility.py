@@ -1,3 +1,5 @@
+import warnings
+
 import matplotlib
 import numpy as np
 
@@ -51,6 +53,7 @@ class MobilityPlotter(BaseTransportPlotter):
         x_property=None,
         doping_idx=None,
         temperature_idx=None,
+        doping_type=None,
         grid=None,
         height=None,
         width=None,
@@ -70,6 +73,12 @@ class MobilityPlotter(BaseTransportPlotter):
         no_base_style=False,
         fonts=None,
     ):
+        if doping_type is not None and doping_idx is not None:
+            warnings.warn(
+                "Both doping type and doping indexes have been set. This can cause "
+                "unexpected behaviour."
+            )
+
         if temperature_idx is None:
             temperature_idx = np.arange(self.temperatures.shape[0])
         elif isinstance(temperature_idx, int):
@@ -79,6 +88,11 @@ class MobilityPlotter(BaseTransportPlotter):
             doping_idx = np.arange(self.doping.shape[0])
         elif isinstance(doping_idx, int):
             doping_idx = [doping_idx]
+
+        if doping_type == "n":
+            doping_idx = [i for i in doping_idx if self.doping[i] <= 0]
+        elif doping_type == "p":
+            doping_idx = [i for i in doping_idx if self.doping[i] >= 0]
 
         if x_property is None and len(temperature_idx) == 1:
             x_property = "doping"
