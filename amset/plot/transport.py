@@ -1,3 +1,5 @@
+import warnings
+
 import matplotlib.pyplot
 import numpy as np
 from matplotlib import cm
@@ -28,11 +30,16 @@ property_data = {
     "thermal conductivity": {
         "label": "Thermal conductivity (W/mK)",
         "label_symbol": r"$\kappa_e$ (W/mK)",
-        "log": False,
+        "log": True,
     },
     "mobility": {
         "label": "Mobility (cm$^2$/Vs)",
         "label_symbol": r"$\mu$ (cm$^2$/Vs)",
+        "log": False,
+    },
+    "power factor": {
+        "label": r"Power factor (mW$\,$m$^{-1}$$\,$K$^{-2}$)",
+        "label_symbol": r"PF (mW$\,$m$^{-1}$$\,$K$^{-2}$)",
         "log": False,
     },
     "temperature": {
@@ -67,6 +74,7 @@ class TransportPlotter(BaseTransportPlotter):
         grid=None,
         height=None,
         width=None,
+        doping_type=None,
         conductivity_label=None,
         conductivity_min=None,
         conductivity_max=None,
@@ -83,6 +91,10 @@ class TransportPlotter(BaseTransportPlotter):
         thermal_conductivity_min=None,
         thermal_conductivity_max=None,
         log_thermal_conductivity=None,
+        power_factor_label=None,
+        power_factor_min=None,
+        power_factor_max=None,
+        log_power_factor=None,
         xlabel=None,
         xmin=None,
         xmax=None,
@@ -118,6 +130,12 @@ class TransportPlotter(BaseTransportPlotter):
             if np.product(grid) < len(properties):
                 raise ValueError("Not enough axes to plot all properties")
 
+        if doping_type is not None and doping_idx is not None:
+            warnings.warn(
+                "Both doping type and doping indexes have been set. This can cause "
+                "unexpected behaviour."
+            )
+
         prop_dict = {
             "conductivity": {
                 "ylabel": conductivity_label,
@@ -142,6 +160,12 @@ class TransportPlotter(BaseTransportPlotter):
                 "ymin": thermal_conductivity_min,
                 "ymax": thermal_conductivity_max,
                 "logy": log_thermal_conductivity,
+            },
+            "power factor": {
+                "ylabel": power_factor_label,
+                "ymin": power_factor_min,
+                "ymax": power_factor_max,
+                "logy": log_power_factor,
             },
         }
 
@@ -169,6 +193,7 @@ class TransportPlotter(BaseTransportPlotter):
                     x_property=x_property,
                     temperature_idx=temperature_idx,
                     doping_idx=doping_idx,
+                    doping_type=doping_type,
                     xmin=xmin,
                     xmax=xmax,
                     xlabel=xlabel,
@@ -196,6 +221,7 @@ class TransportPlotter(BaseTransportPlotter):
         x_property=None,
         temperature_idx=None,
         doping_idx=None,
+        doping_type=None,
         ylabel=None,
         ymin=None,
         ymax=None,
@@ -215,6 +241,12 @@ class TransportPlotter(BaseTransportPlotter):
             doping_idx = np.arange(self.doping.shape[0])
         elif isinstance(doping_idx, int):
             doping_idx = [doping_idx]
+
+        if doping_type == "n":
+            doping_idx = [i for i in doping_idx if self.doping[i] <= 0]
+        elif doping_type == "p":
+            doping_idx = [i for i in doping_idx if self.doping[i] >= 0]
+
         doping = self.doping[doping_idx]
 
         data = self._get_data(prop)
@@ -285,6 +317,8 @@ class TransportPlotter(BaseTransportPlotter):
             data = self.electronic_thermal_conductivity
         elif prop == "mobility":
             data = self.mobility
+        elif prop == "power factor":
+            data = self.seebeck ** 2 * self.conductivity * 1e-9  # convert to mW/(m K^2)
         else:
             raise ValueError(f"Unrecognised property: {prop}")
 
@@ -326,7 +360,7 @@ def fancy_format_doping(doping):
         doping = abs(doping)
         prefix = "$n_e$"
     else:
-        prefix = "$n_h"
+        prefix = "$n_h$"
     return f"{prefix} = {format_doping(doping)}"
 
 
