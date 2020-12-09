@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## v0.4.3
+
+Enhancements:
+
+- `--n-type` and `--p-type` options added to transport, mobility, and convergence plotters.
+- Power factor added to transport and convergence plotters.
+
+Bug fixes:
+
+- Fix for mean free path scattering (@kbspooner).
+- Fix for piezoelectric scattering.
+- Fix for `cache_wavefunction = False` with non-SOC wavefunctions.
+- Specify numba version for interoperability with interpolation package.
+
 ## v0.4.2
 
 New features:
