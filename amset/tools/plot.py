@@ -332,6 +332,8 @@ def rates(filename, **kwargs):
 )
 @option("-x", "--x-property", type=x_properties, help="property to plot on x-axis")
 @option("--grid", nargs=2, type=int, help="subplot grid (nrows, ncols)")
+@option("--n-type", is_flag=True, default=False, help="plot n-type results only")
+@option("--p-type", is_flag=True, default=False, help="plot p-type results only")
 @option(
     "--average/--no-average",
     default=True,
@@ -351,6 +353,7 @@ def rates(filename, **kwargs):
     help="plot electronic thermal conductivity",
 )
 @option("--mobility/--no-mobility", default=False, help="plot electron mobility")
+@option("--power-factor/--no-power-factor", default=False, help="plot power factor")
 @option("--conductivity-label", help="conductivity y-axis label")
 @option("--conductivity-min", type=float, help="minimum conductivity y-axis limit")
 @option("--conductivity-max", type=float, help="maximum conductivity y-axis limit")
@@ -383,6 +386,14 @@ def rates(filename, **kwargs):
 @option("--mobility-min", type=float, help="minimum mobility y-axis limit")
 @option("--mobility-max", type=float, help="maximum mobility y-axis limit")
 @option("--log-mobility/--no-log-mobility", default=None, help="plot log mobility")
+@option("--power-factor-label", help="power factor y-axis label")
+@option("--power-factor-min", type=float, help="minimum power factor y-axis limit")
+@option("--power-factor-max", type=float, help="maximum power factor y-axis limit")
+@option(
+    "--log-power-factor/--no-log-power-factor",
+    default=None,
+    help="plot log power factor",
+)
 @option("-p", "--prefix", help="output filename prefix")
 @option("--width", type=float, help="figure width")
 @option("--height", type=float, help="figure height")
@@ -400,7 +411,13 @@ def transport(filename, **kwargs):
     save_kwargs = [kwargs.pop(d) for d in ("directory", "prefix", "image_format")]
 
     properties = []
-    for prop in ("conductivity", "seebeck", "thermal_conductivity", "mobility"):
+    for prop in (
+        "conductivity",
+        "seebeck",
+        "thermal_conductivity",
+        "mobility",
+        "power_factor",
+    ):
         if kwargs.pop(prop):
             properties.append(prop.replace("_", " "))
 
@@ -410,10 +427,12 @@ def transport(filename, **kwargs):
     pad = kwargs.pop("pad")
     use_symbol = kwargs.pop("use_symbol")
     average = kwargs.pop("average")
+    doping_type = _get_doping_type(kwargs.pop("n_type"), kwargs.pop("p_type"))
+
     plotter = TransportPlotter(
         filename, pad=pad, use_symbol=use_symbol, average=average
     )
-    plt = plotter.get_plot(properties=properties, **kwargs)
+    plt = plotter.get_plot(properties=properties, doping_type=doping_type, **kwargs)
     plt.subplots_adjust(hspace=0.3, wspace=0.4)
     save_plot(plt, "transport", *save_kwargs)
     return plt
@@ -430,6 +449,8 @@ def transport(filename, **kwargs):
     metavar="N",
     help="temperature indices to plot (space separated)",
 )
+@option("--n-type", is_flag=True, default=False, help="plot n-type results only")
+@option("--p-type", is_flag=True, default=False, help="plot p-type results only")
 @option("-x", "--x-property", type=x_properties, help="property to plot on x-axis")
 @option(
     "--separate-mobility/--no-separate-mobility",
@@ -473,11 +494,13 @@ def mobility(filename, **kwargs):
     kwargs["temperature_idx"] = _to_int(kwargs["temperature_idx"])
     kwargs["doping_idx"] = _to_int(kwargs["doping_idx"])
 
+    doping_type = _get_doping_type(kwargs.pop("n_type"), kwargs.pop("p_type"))
+
     init_kwargs = {
         d: kwargs.pop(d) for d in ["use_symbol", "average", "separate_mobility", "pad"]
     }
     plotter = MobilityPlotter(filename, **init_kwargs)
-    plt = plotter.get_plot(**kwargs)
+    plt = plotter.get_plot(doping_type=doping_type, **kwargs)
     plt.subplots_adjust(hspace=0.3, wspace=0.4)
     save_plot(plt, "mobility", *save_kwargs)
     return plt
@@ -504,6 +527,7 @@ def mobility(filename, **kwargs):
     help="plot electronic thermal conductivity",
 )
 @option("--mobility/--no-mobility", default=False, help="plot electron mobility")
+@option("--power-factor/--no-power-factor", default=False, help="plot power factor")
 @option("--conductivity-label", help="conductivity y-axis label")
 @option("--conductivity-min", type=float, help="minimum conductivity y-axis limit")
 @option("--conductivity-max", type=float, help="maximum conductivity y-axis limit")
@@ -536,6 +560,14 @@ def mobility(filename, **kwargs):
 @option("--mobility-min", type=float, help="minimum mobility y-axis limit")
 @option("--mobility-max", type=float, help="maximum mobility y-axis limit")
 @option("--log-mobility/--no-log-mobility", default=None, help="plot log mobility")
+@option("--power-factor-label", help="power factor y-axis label")
+@option("--power-factor-min", type=float, help="minimum power factor y-axis limit")
+@option("--power-factor-max", type=float, help="maximum power factor y-axis limit")
+@option(
+    "--log-power-factor/--no-log-power-factor",
+    default=None,
+    help="plot log power factor",
+)
 @option("-p", "--prefix", help="output filename prefix")
 @option("--width", type=float, help="figure width")
 @option("--height", type=float, help="figure height")
@@ -553,7 +585,13 @@ def convergence(filenames, **kwargs):
     save_kwargs = [kwargs.pop(d) for d in ("directory", "prefix", "image_format")]
 
     properties = []
-    for prop in ("conductivity", "seebeck", "thermal_conductivity", "mobility"):
+    for prop in (
+        "conductivity",
+        "seebeck",
+        "thermal_conductivity",
+        "mobility",
+        "power_factor",
+    ):
         if kwargs.pop(prop):
             properties.append(prop.replace("_", " "))
 
@@ -672,3 +710,13 @@ def _get_dos_kpoints(structure, kpoints):
         return get_kpoint_mesh(structure, float(splits[0]))
     else:
         return list(map(int, splits))
+
+
+def _get_doping_type(n_type, p_type):
+    if n_type and p_type:
+        return None
+    elif n_type:
+        return "n"
+    elif p_type:
+        return "p"
+    return None
