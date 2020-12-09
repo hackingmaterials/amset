@@ -35,6 +35,7 @@ class ConvergencePlotter(BaseMultiTransportPlotter):
         grid=None,
         height=None,
         width=None,
+        doping_type=None,
         conductivity_label=None,
         conductivity_min=None,
         conductivity_max=None,
@@ -51,6 +52,10 @@ class ConvergencePlotter(BaseMultiTransportPlotter):
         thermal_conductivity_min=None,
         thermal_conductivity_max=None,
         log_thermal_conductivity=None,
+        power_factor_label=None,
+        power_factor_min=None,
+        power_factor_max=None,
+        log_power_factor=None,
         xlabel=None,
         xmin=None,
         xmax=None,
@@ -85,13 +90,32 @@ class ConvergencePlotter(BaseMultiTransportPlotter):
             if np.product(grid) < len(properties):
                 raise ValueError("Not enough axes to plot all properties")
 
+        if doping_type is not None and doping_idx is not None:
+            warnings.warn(
+                "Both doping type and doping indexes have been set. This can cause "
+                "unexpected behaviour."
+            )
+
         if temperature_idx is None and doping_idx is None:
             if len(self.doping) == 1 or x_property == "temperature":
                 warnings.warn(
                     "Either one of temperature-idx or doping-idx should be "
-                    "set.Using doping-idx of 0"
+                    "set. Using doping-idx of 0"
                 )
-                doping_idx = [0]
+                if doping_type:
+                    if doping_type == "n":
+                        doping_idx = [i for i, d in enumerate(self.doping) if d <= 0]
+                    else:
+                        doping_idx = [i for i, d in enumerate(self.doping) if d >= 0]
+                    if len(doping_idx) == 0:
+                        raise ValueError(
+                            f"{doping_type}-type doping specified but no doping "
+                            f"concentrations of this type are in the calculations"
+                        )
+                    else:
+                        doping_idx = doping_idx[0]
+                else:
+                    doping_idx = [0]
             else:
                 warnings.warn(
                     "Either one of temperature-idx or doping-idx should be "
@@ -124,6 +148,12 @@ class ConvergencePlotter(BaseMultiTransportPlotter):
                 "ymax": thermal_conductivity_max,
                 "logy": log_thermal_conductivity,
             },
+            "power factor": {
+                "ylabel": power_factor_label,
+                "ymin": power_factor_min,
+                "ymax": power_factor_max,
+                "logy": log_power_factor,
+            },
         }
 
         title = None
@@ -141,6 +171,7 @@ class ConvergencePlotter(BaseMultiTransportPlotter):
                 ax,
                 prop,
                 x_property=x_property,
+                doping_type=doping_type,
                 temperature_idx=temperature_idx,
                 doping_idx=doping_idx,
                 xmin=xmin,
@@ -169,6 +200,7 @@ class ConvergencePlotter(BaseMultiTransportPlotter):
         ax,
         prop,
         x_property=None,
+        doping_type=None,
         temperature_idx=None,
         doping_idx=None,
         ylabel=None,
@@ -194,6 +226,11 @@ class ConvergencePlotter(BaseMultiTransportPlotter):
             doping_idx = np.arange(self.doping.shape[0])
         elif isinstance(doping_idx, int):
             doping_idx = [doping_idx]
+
+        if doping_type == "n":
+            doping_idx = [i for i in doping_idx if self.doping[i] <= 0]
+        elif doping_type == "p":
+            doping_idx = [i for i in doping_idx if self.doping[i] >= 0]
         doping = self.doping[doping_idx]
 
         if len(doping_idx) != 1 and len(temperature_idx) != 1:
@@ -259,6 +296,8 @@ class ConvergencePlotter(BaseMultiTransportPlotter):
             data = self.electronic_thermal_conductivity
         elif prop == "mobility":
             data = self.mobility
+        elif prop == "power factor":
+            data = self.seebeck ** 2 * self.conductivity * 1e-9  # convert to mW/(m K^2)
         else:
             raise ValueError(f"Unrecognised property: {prop}")
 
