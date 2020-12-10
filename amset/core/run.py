@@ -4,14 +4,13 @@ import logging
 import os
 import time
 from functools import partial
-from os.path import join as joinpath
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
 from memory_profiler import memory_usage
 from monty.json import MSONable
-from pymatgen import Structure
+from pymatgen import Structure, loadfn
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.io.vasp import Vasprun
@@ -346,39 +345,53 @@ class Runner(MSONable):
     @staticmethod
     def from_directory(
         directory: Union[str, Path] = ".",
-        vasprun: Optional[Union[str, Path]] = None,
+        input_file: Optional[Union[str, Path]] = None,
         settings_file: Optional[Union[str, Path]] = None,
         settings_override: Optional[Dict[str, Any]] = None,
     ):
-        if not vasprun:
-            vr_file = joinpath(directory, "vasprun.xml")
-            vr_file_gz = joinpath(directory, "vasprun.xml.gz")
+        """
+        Initialize amset Runner from a directory.
 
-            if os.path.exists(vr_file):
-                vasprun = Vasprun(vr_file, parse_projected_eigen=True)
-            elif os.path.exists(vr_file_gz):
-                vasprun = Vasprun(vr_file_gz, parse_projected_eigen=True)
-            else:
-                msg = "No vasprun.xml found in {}".format(directory)
-                logger.error(msg)
-                raise FileNotFoundError(msg)
+        If input_file or settings_file are not specified, the code will look in the
+        specified directory for these files.
+
+        Args:
+            directory: A directory.
+            input_file: An input file path, can either be vasprun.xml(.gz) or a
+                band_structure_data.json(.gz) file containing the keys:
+
+                - "nelect" (int): The number of electrons in the system.
+                - "band_structure (BandStructure)": A pymatgen band structure object.
+            settings_file: Path to settings file.
+            settings_override: Settings that will be used to override the settings
+                in the settings file.
+
+        Returns:
+            A Runner instance that can be used to run amset.
+        """
+        directory = Path(directory)
 
         if not settings_file:
-            settings_file = joinpath(directory, "settings.yaml")
+            settings_file = directory / "settings.yaml"
         settings = load_settings(settings_file)
 
         if settings_override:
             settings.update(settings_override)
 
-        return Runner.from_vasprun(vasprun, settings)
+        run_type, input_file = _get_run_type(directory, input_file)
+        if run_type == "vasprun":
+            return Runner.from_vasprun(input_file, settings)
+        elif run_type == "band_structure":
+            data = loadfn(input_file)
+            nelect = data["nelect"]
+            band_structure = data["band_structure"]
+            return Runner(band_structure, nelect, settings)
+        else:
+            raise ValueError(f"Unrecognised run type: {run_type}")
 
     def write_settings(self, directory: str = ".", prefix: Optional[str] = None):
-        if prefix is None:
-            prefix = ""
-        else:
-            prefix += "_"
-
-        filename = joinpath(directory, "{}amset_settings.yaml".format(prefix))
+        prefix = "" if prefix is None else f"{prefix}_"
+        filename = Path(directory) / f"{prefix}amset_settings.yaml"
         write_settings(self.settings, filename)
 
 
@@ -625,3 +638,28 @@ def _get_cutoff_pad(pop_frequency, scattering_type):
         # otherwise scattering cannot occur
         cutoff_pad = pop_frequency * hbar * ev_to_hartree
     return cutoff_pad
+
+
+def _get_run_type(directory: Path, input_file: Optional[str]):
+    if input_file is None:
+        vr_files = list(directory.glob("*vasprun*"))
+        bs_files = list(directory.glob("*band_structure_data*"))
+        if len(vr_files) > 0:
+            input_file = vr_files[0]
+        elif len(bs_files) > 0:
+            input_file = bs_files[0]
+        else:
+            raise ValueError(
+                "Could not find vasprun.xml, vasprun.xml.gz or band_structure_data.json"
+                f" in {directory}"
+            )
+
+    input_file = str(input_file)
+    if "xml" in input_file:
+        run_type = "vasprun"
+    elif "json" in input_file:
+        run_type = "band_structure"
+    else:
+        raise ValueError(f"Could not determine input file type: {input_file}")
+
+    return run_type, input_file
