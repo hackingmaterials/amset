@@ -157,7 +157,7 @@ def test_run_amset_from_directory(
 ):
     vasprun, settings = _prep_inputs(example_dir, system, settings)
     dumpfn(settings, "settings.yaml")
-    runner = Runner.from_directory(".", vasprun=vasprun, settings_override=settings)
+    runner = Runner.from_directory(".", input_file=vasprun, settings_override=settings)
     amset_data = runner.run()
     _validate_data(amset_data, transport, max_aniso, files, scats)
 
