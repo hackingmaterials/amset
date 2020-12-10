@@ -1,6 +1,8 @@
 """
 Module defining utility functions.
 """
+from pathlib import Path
+
 import collections
 import copy
 import logging
@@ -163,7 +165,7 @@ def cast_piezoelectric_tensor(
     return np.array(piezoelectric_tensor)
 
 
-def tensor_average(tensor: Union[List, np.ndarray]) -> float:
+def tensor_average(tensor: Union[List, np.ndarray]) -> Union[float, np.ndarray]:
     """Calculate the average of the tensor eigenvalues.
 
     Args:
