@@ -53,14 +53,14 @@ si_settings_wavefunction.update(
     }
 )
 si_transport_projections = {
-    ("mobility", ("overall", (0, 0))): 732.5733907510813,
-    ("mobility", ("overall", (-1, 0))): 423.0283130302309,
-    ("seebeck", (0, 0)): -978.6283240612485,
-    ("seebeck", (-1, 0)): -703.8009935753043,
-    ("conductivity", (0, 0)): 12.477079146162891,
-    ("conductivity", (-1, 0)): 677.7697522836963,
-    ("electronic_thermal_conductivity", (0, 0)): 0.0008639972135299406,
-    ("electronic_thermal_conductivity", (-1, 0)): 0.003388173648477095,
+    ("mobility", ("overall", (0, 0))): 1443.887767841073,
+    ("mobility", ("overall", (-1, 0))): 653.8846044592898,
+    ("seebeck", (0, 0)): -1.01e03,
+    ("seebeck", (-1, 0)): -7.18e02,
+    ("conductivity", (0, 0)): 2.43e01,
+    ("conductivity", (-1, 0)): 1.05e03,
+    ("electronic_thermal_conductivity", (0, 0)): 0.0012601364875891449,
+    ("electronic_thermal_conductivity", (-1, 0)): 0.005528446007774847,
 }
 si_transport_wavefunction = {
     ("mobility", ("overall", (0, 0))): 1138.346074448407,
