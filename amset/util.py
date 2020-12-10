@@ -1,8 +1,6 @@
 """
 Module defining utility functions.
 """
-from pathlib import Path
-
 import collections
 import copy
 import logging
