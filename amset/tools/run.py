@@ -131,7 +131,7 @@ def run(**kwargs):
 
     runner = Runner.from_directory(
         directory=kwargs["directory"],
-        vasprun=kwargs["vasprun"],
+        input_file=kwargs["vasprun"],
         settings_file=kwargs["settings"],
         settings_override=settings_override,
     )
