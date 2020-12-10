@@ -127,7 +127,15 @@ class ScatteringCalculator(object):
         self._basic_only = (
             len(self.elastic_scatterers) + len(self.inelastic_scatterers) == 0
         )
-        if cache_wavefunction and not self._basic_only:
+        if (
+            isinstance(self.amset_data.overlap_calculator, ProjectionOverlapCalculator)
+            and cache_wavefunction
+        ):
+            logger.info(
+                "Caching wavefunction not supported with orbital projection "
+                "overlaps. Setting cache_wavefunction to False."
+            )
+        elif cache_wavefunction and not self._basic_only:
             self._coeffs = {}
             self._coeffs_mapping = {}
             # precompute the coefficients we will need to for calculating overlaps
