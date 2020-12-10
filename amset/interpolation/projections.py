@@ -88,7 +88,10 @@ class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
             full_projections[spin] = spin_projections
 
         return cls.from_data(
-            full_kpoints, full_projections, band_centers, rotation_mask
+            full_kpoints,
+            full_projections,
+            rotation_mask=rotation_mask,
+            band_centers=band_centers,
         )
 
     def get_coefficients(self, spin, bands, kpoints):
@@ -118,6 +121,7 @@ class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
         # scaling factor is 0, the projection is scaled by 0 * the angle.
         # this allows us to make s orbitals immune to the cosine weight
         scaling_factor = self.rotation_mask[None] * angle_weights[..., None]
+        scaling_factor = np.max(scaling_factor, axis=1)
 
         prod = p[0] * p[1:]
         overlap = prod * (1 - scaling_factor) + prod * scaling_factor * angles[:, None]
@@ -133,7 +137,7 @@ def get_rotation_mask(projections):
     nprojections, natoms = projections[Spin.up].shape[2:]
     mask = np.ones(nprojections)
     mask[0] = 0
-    return mask
+    return np.tile(mask, natoms)
 
 
 def cosine(v1, v2):
