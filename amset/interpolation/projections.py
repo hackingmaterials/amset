@@ -111,7 +111,10 @@ class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
 
         angles = cosine(shift_a, shift_b)
         prod = p[0] * p[1:]
-        overlap = prod * (1 - self.rotation_mask) + prod * self.rotation_mask * angles[:, None]
+        overlap = (
+            prod * (1 - self.rotation_mask)
+            + prod * self.rotation_mask * angles[:, None]
+        )
         overlap = overlap.sum(axis=1) ** 2
 
         if single_overlap:
