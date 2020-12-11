@@ -4,7 +4,6 @@ import numba
 import numpy as np
 from interpolation.splines import eval_linear
 from interpolation.splines import extrap_options as xto
-
 from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.util.coord import pbc_diff
@@ -111,7 +110,9 @@ class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
         centers = self.band_centers[spin][band_a]
         center = centers[np.argmin(np.linalg.norm(pbc_diff(centers, kpoint_a), axis=1))]
 
-        overlap = _get_overlap(grid, data, v, self.data_shape[0], center, self.rotation_mask)
+        overlap = _get_overlap(
+            grid, data, v, self.data_shape[0], center, self.rotation_mask
+        )
 
         if single_overlap:
             return overlap[0]
@@ -132,7 +133,7 @@ def _get_overlap(grid, data, points, ncoeffs, center, rotation_mask):
 
     res = np.zeros(points.shape[0] - 1)
     inv_rotation_mask = 1 - rotation_mask
-    finals = eval_linear(grid, data.real, points[1:], xto.LINEAR, )
+    finals = eval_linear(grid, data.real, points[1:], xto.LINEAR,)
     for i in range(1, points.shape[0]):
 
         # this is pbc_diff(kpoint_b, center)
