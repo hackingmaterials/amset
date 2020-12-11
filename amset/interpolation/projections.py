@@ -1,6 +1,10 @@
 import logging
 
+import numba
 import numpy as np
+from interpolation.splines import eval_linear
+from interpolation.splines import extrap_options as xto
+
 from pymatgen import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.util.coord import pbc_diff
@@ -101,18 +105,47 @@ class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
         bands, kpoints, single_overlap = group_bands_and_kpoints(
             band_a, kpoint_a, band_b, kpoint_b
         )
-        p = self.get_coefficients(spin, bands, kpoints)
+        grid, data = self.interpolators[spin]
+        v = np.concatenate([np.asarray(bands)[:, None], np.asarray(kpoints)], axis=1)
 
         centers = self.band_centers[spin][band_a]
         center = centers[np.argmin(np.linalg.norm(pbc_diff(centers, kpoint_a), axis=1))]
 
-        shift_a = pbc_diff(kpoint_a, center)
-        shift_b = pbc_diff(kpoint_b, center)
+        overlap = _get_overlap(grid, data, v, self.data_shape[0], center, self.rotation_mask)
 
-        angles = cosine(shift_a, shift_b)
-        angle_weights = np.abs(pbc_diff(kpoint_a, kpoint_b))
-        angle_weights /= np.max(angle_weights, axis=1)[:, None]
-        angle_weights[np.isnan(angle_weights)] = 0
+        if single_overlap:
+            return overlap[0]
+        else:
+            return overlap
+
+
+@numba.njit
+def _get_overlap(grid, data, points, ncoeffs, center, rotation_mask):
+    initial = eval_linear(grid, data.real, points[0], xto.LINEAR,)
+
+    # this is pbc_diff(kpoint_a, center)
+    kpoint_a = points[0, 1:]
+    shift_a = kpoint_a - center
+    for i in range(3):
+        shift_a[i] -= np.round_(shift_a[i])
+    shift_a_norm = np.linalg.norm(shift_a)
+
+    res = np.zeros(points.shape[0] - 1)
+    inv_rotation_mask = 1 - rotation_mask
+    finals = eval_linear(grid, data.real, points[1:], xto.LINEAR, )
+    for i in range(1, points.shape[0]):
+
+        # this is pbc_diff(kpoint_b, center)
+        kpoint_b = points[i, 1:]
+        shift_b = kpoint_b - center
+        for j in range(3):
+            shift_b[j] -= np.round_(shift_b[j])
+        shift_b_norm = np.linalg.norm(shift_b)
+
+        if shift_a_norm == 0 or shift_b_norm == 0:
+            cosine = 1
+        else:
+            cosine = np.dot(shift_a, shift_b) / (shift_a_norm * shift_b_norm)
 
         # weight the angle masks by the contribution of the transition in that direction
         # use the mask to get the angle scaling factor which gives how much the angle
@@ -120,17 +153,12 @@ class ProjectionOverlapCalculator(PeriodicLinearInterpolator):
         # particular projection, then the projection is scaled by 1 * the angle. If the
         # scaling factor is 0, the projection is scaled by 0 * the angle.
         # this allows us to make s orbitals immune to the cosine weight
-        scaling_factor = self.rotation_mask[None] * angle_weights[..., None]
-        scaling_factor = np.max(scaling_factor, axis=1)
-
-        prod = p[0] * p[1:]
-        overlap = prod * (1 - scaling_factor) + prod * scaling_factor * angles[:, None]
-        overlap = overlap.sum(axis=1) ** 2
-
-        if single_overlap:
-            return overlap[0]
-        else:
-            return overlap
+        sum_ = 0
+        for j in range(10):
+            p = initial[j] * finals[i, j]
+            sum_ += (p * inv_rotation_mask[j]) + (p * rotation_mask[j] * cosine)
+        res[i - 1] = sum_ ** 2
+    return res
 
 
 def get_rotation_mask(projections):
@@ -140,25 +168,25 @@ def get_rotation_mask(projections):
     return np.tile(mask, natoms)
 
 
-def cosine(v1, v2):
-    # v2 can be list of vectors or single vector
-
-    return_single = False
-    if len(v2.shape) == 1:
-        v2 = v2[None, :]
-        return_single = True
-
-    v1_norm = np.linalg.norm(v1)
-    v2_norm = np.linalg.norm(v2, axis=1)
-
-    v_dot = np.dot(v1, v2.T)
-    v_angle = v_dot / (v1_norm * v2_norm)
-    v_angle[np.isnan(v_angle)] = 1
-
-    if return_single:
-        return v_angle[0]
-    else:
-        return v_angle
+# def cosine(v1, v2):
+#     # v2 can be list of vectors or single vector
+#
+#     return_single = False
+#     if len(v2.shape) == 1:
+#         v2 = v2[None, :]
+#         return_single = True
+#
+#     v1_norm = np.linalg.norm(v1)
+#     v2_norm = np.linalg.norm(v2, axis=1)
+#
+#     v_dot = np.dot(v1, v2.T)
+#     v_angle = v_dot / (v1_norm * v2_norm)
+#     v_angle[np.isnan(v_angle)] = 1
+#
+#     if return_single:
+#         return v_angle[0]
+#     else:
+#         return v_angle
 
 
 def get_band_centers(kpoints, energies, vb_idx, efermi, tol=0.0001):
