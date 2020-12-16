@@ -24,8 +24,11 @@ from amset.constants import ev_to_hartree, hartree_to_ev, numeric_types, spin_na
 from amset.core.data import AmsetData
 from amset.electronic_structure.common import (
     get_atomic_structure,
+    get_cbm_energy,
+    get_efermi,
     get_ibands,
     get_vb_idx,
+    get_vbm_energy,
 )
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.kpoints import (
@@ -225,7 +228,7 @@ class Interpolator(MSONable):
             )
 
             # if material is semiconducting, set Fermi level to middle of gap
-            efermi = _get_efermi(energies, new_vb_idx)
+            efermi = get_efermi(energies, new_vb_idx)
 
         logger.info("Generating tetrahedron mesh vertices")
         t0 = time.perf_counter()
@@ -464,7 +467,7 @@ class Interpolator(MSONable):
                     efermi *= ev_to_hartree
             else:
                 # if semiconducting, set Fermi level to middle of gap
-                efermi = _get_efermi(energies, new_vb_idx)
+                efermi = get_efermi(energies, new_vb_idx)
 
             to_return.append(efermi)
 
@@ -547,7 +550,7 @@ class Interpolator(MSONable):
 
         if not self._band_structure.is_metal():
             # if not a metal, set the Fermi level to the top of the valence band.
-            efermi = np.max([np.max(e[vb_idx[spin]]) for spin, e in energies.items()])
+            efermi = get_vbm_energy(energies, vb_idx)
 
         full_energies = {s: e[:, ir_to_full_idx] for s, e in energies.items()}
         tetrahedral_band_structure = TetrahedralBandStructure.from_data(
@@ -557,7 +560,7 @@ class Interpolator(MSONable):
             structure,
             ir_kpts_idx,
             ir_to_full_idx,
-            *ir_tetrahedra_info
+            *ir_tetrahedra_info,
         )
 
         emin = np.min([np.min(spin_eners) for spin_eners in energies.values()])
@@ -700,25 +703,27 @@ def _shift_energies(
     if scissor and bandgap:
         raise ValueError("scissor and bandgap cannot be set simultaneously")
 
-    cb_idx = {s: v + 1 for s, v in vb_idx.items()}
-
     if bandgap:
-        interp_bandgap = (
-            min([energies[s][cb_idx[s] :].min() for s in energies])
-            - max([energies[s][: cb_idx[s]].max() for s in energies])
-        ) * hartree_to_ev
+        e_vbm = get_vbm_energy(energies, vb_idx)
+        e_cbm = get_cbm_energy(energies, vb_idx)
+        interp_bandgap = (e_cbm - e_vbm) * hartree_to_ev
 
         scissor = bandgap - interp_bandgap
         logger.info(
-            "Bandgap set to {:.3f} eV, automatically scissoring by "
-            "{:.3f} eV".format(bandgap, scissor)
+            f"bandgap set to {bandgap:.3f} eV, applying scissor of {scissor:.3f} eV"
         )
 
     if scissor:
         scissor *= ev_to_hartree
-        for spin in energies:
-            energies[spin][: cb_idx[spin]] -= scissor / 2
-            energies[spin][cb_idx[spin] :] += scissor / 2
+        for spin, spin_vb_idx in vb_idx.items():
+            spin_cb_idx = spin_vb_idx + 1
+            if spin_cb_idx != 0:
+                # if spin_cb_idx == 0 there are no valence bands for this spin channel
+                energies[spin][:spin_cb_idx] -= scissor / 2
+
+            if spin_cb_idx != energies[spin].shape[0]:
+                # if spin_cb_idx == nbands there are no conduction bands for this spin
+                energies[spin][spin_cb_idx:] += scissor / 2
 
     return energies
 
@@ -737,16 +742,6 @@ def _convert_velocities(
     """
     velocities *= bohr_to_cm / au_to_s
     return velocities
-
-
-def _get_efermi(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> float:
-    e_vbm = max(
-        [np.max(energies[spin][: vb_idx[spin] + 1]) for spin in energies.keys()]
-    )
-    e_cbm = min(
-        [np.min(energies[spin][vb_idx[spin] + 1 :]) for spin in energies.keys()]
-    )
-    return (e_vbm + e_cbm) / 2
 
 
 def symmetrize_results(
