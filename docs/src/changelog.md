@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## v0.4.4
+
+Enhancements:
+
+- Amset can now be run from a band_structure_data.json file. This should contain the
+  keys "band_structure" and "nelect".
+
+Bug fixes:
+
+- Improved support for spin-polarized calculations.
+- Fixed projection overlaps.
+
 ## v0.4.3
 
 Enhancements:
