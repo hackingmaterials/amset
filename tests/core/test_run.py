@@ -13,7 +13,11 @@ The following tests are performed:
 - use wavefunction coefficients + using deformation potential file + full elastic
   constant/piezoelectric for Silicon
 - use wavefunction coefficients + using deformation potential file + full elastic
+  constant/piezoelectric + no cache for Silicon
+- use wavefunction coefficients + using deformation potential file + full elastic
   constant/piezoelectric for Gallium Arsenide
+- don't write mesh, using projections + deformation potential tuple + single elastic
+  constant/piezoelectric for K2ReF6 (tricky spin polarized system)
 """
 from copy import deepcopy
 from pathlib import Path
@@ -52,6 +56,8 @@ si_settings_wavefunction.update(
         "use_projections": False,
     }
 )
+si_settings_wavefunction_nocache = deepcopy(si_settings_wavefunction)
+si_settings_wavefunction_nocache.update({"cache_wavefunction": False})
 si_transport_projections = {
     ("mobility", ("overall", (0, 0))): 1443.887767841073,
     ("mobility", ("overall", (-1, 0))): 653.8846044592898,
@@ -126,6 +132,15 @@ test_data = [
         id="Si (wavefunction, best scats)",
     ),
     pytest.param(
+        "Si",
+        si_settings_wavefunction_nocache,
+        si_transport_wavefunction,
+        0.001,
+        ["transport", "!mesh"],
+        ["ADP", "IMP"],
+        id="Si (wavefunction, best scats, no cache)",
+    ),
+    pytest.param(
         "GaAs",
         gaas_settings_wavefunction,
         gaas_transport,
@@ -160,6 +175,32 @@ def test_run_amset_from_directory(
     runner = Runner.from_directory(".", input_file=vasprun, settings_override=settings)
     amset_data = runner.run()
     _validate_data(amset_data, transport, max_aniso, files, scats)
+
+
+@pytest.mark.usefixtures("clean_dir")
+def test_run_tricky_spin_polarized(band_structure_data):
+    settings = {
+        "interpolation_factor": 2,
+        "temperatures": [300],
+        "doping": [1e15],
+        "deformation_potential": (6.5, 6.5),
+        "elastic_constant": 190,
+        "use_projections": True,
+        "scattering_type": ["ADP"],
+        "nworkers": 1,
+    }
+    files = ["transport", "!mesh"]
+    scats = ["ADP"]
+    transport = {
+        ("mobility", ("overall", (0, 0))): 1.261213643946453,
+        ("seebeck", (0, 0)): 1356.1341462605026,
+    }
+
+    bs = band_structure_data["tricky_sp"]["band_structure"]
+    nelect = band_structure_data["tricky_sp"]["nelect"]
+    runner = Runner(bs, nelect, settings)
+    amset_data = runner.run()
+    _validate_data(amset_data, transport, 1, files, scats)
 
 
 def _prep_inputs(example_dir, system, settings):
@@ -202,8 +243,12 @@ def _validate_data(amset_data, transport, max_aniso, files, scats):
         assert value.shape == (3, 3)
 
         value = np.average(np.linalg.eigvalsh(value))
-        # print("('{}', {}): {},".format(prop, loc, value))
-        assert np.abs(1 - value / expected) < 0.01  # values agree to within 1 %
+        print("('{}', {}): {},".format(prop, loc, value))
+
+        # assert values agree to within 1 %
+        assert (
+            np.abs(1 - value / expected) < 0.01
+        ), f"property: {prop}, loc: {loc}, differs by more than 1%: calculated: {value}, expected: {expected}"
 
     # check scattering types
     assert set(amset_data.scattering_labels) == set(scats)
