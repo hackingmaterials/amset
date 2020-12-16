@@ -13,7 +13,8 @@ from tabulate import tabulate
 from amset.constants import bohr_to_cm, boltzmann_au, cm_to_bohr
 from amset.constants import defaults as defaults
 from amset.constants import ev_to_hartree, hartree_to_ev, spin_name
-from amset.electronic_structure.common import get_angstrom_structure
+from amset.electronic_structure.common import get_angstrom_structure, get_vbm_energy, \
+    get_cbm_energy
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.fd import dfdde
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
@@ -299,8 +300,8 @@ class AmsetData(MSONable):
             max_cutoff = energies.max()
 
         if mobility_rates_only:
-            vbm = max([self.energies[s][self.vb_idx[s]].max() for s in self.spins])
-            cbm = min([self.energies[s][self.vb_idx[s] + 1].min() for s in self.spins])
+            vbm = get_vbm_energy(self.energies, self.vb_idx)
+            cbm = get_cbm_energy(self.energies, self.vb_idx)
             mid_gap = (cbm + vbm) / 2
             if np.all(self.doping < 0):
                 # only electron mobility so don't calculate valence band rates
@@ -349,12 +350,17 @@ class AmsetData(MSONable):
         snt_fill = fill_value
         for spin, spin_energies in self.energies.items():
             mask = (spin_energies < min_fd) | (spin_energies > max_fd)
+            any_in_mask = np.any(~mask)  # sometimes no rates calculated for spin
             rate_info = defaultdict(list)
             for s, n, t in np.ndindex(self.scattering_rates[spin].shape[:3]):
-                if fill_value is None:
+                if fill_value is None and any_in_mask:
                     # get average log rate inside cutoffs
                     snt_fill = np.log(self.scattering_rates[spin][s, n, t, ~mask])
                     snt_fill = np.exp(snt_fill.mean())
+                elif fill_value is None:
+                    # no rates have been calculated for this spin channel so cannot
+                    # average them. In this rare case we use a rate of 10^14
+                    snt_fill = 1e14
 
                 rate_info[self.scattering_labels[s]].append(snt_fill)
                 self.scattering_rates[spin][s, n, t, mask] = snt_fill
