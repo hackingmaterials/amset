@@ -1,7 +1,7 @@
-from typing import Tuple
+from typing import Dict, Tuple
 
 import numpy as np
-from pymatgen import Structure
+from pymatgen import Spin, Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
 from amset.constants import angstrom_to_bohr, bohr_to_angstrom, defaults
@@ -67,6 +67,35 @@ def get_vb_idx(energy_cutoff: float, band_structure: BandStructure):
         new_vb_idx[spin] = sum(spin_ibands[: vb_idx + 1]) - 1
 
     return new_vb_idx
+
+
+def get_vbm_energy(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> float:
+    """Get the valence band maximum energy from energies and vb index dicts."""
+    e_vbm = -np.inf
+    for spin, spin_energies in energies.items():
+        spin_cbm_idx = vb_idx[spin] + 1
+        if spin_cbm_idx != 0:
+            # if spin_cbm_idx == 0 there are no valence bands for this spin channel
+            e_vbm = max(e_vbm, np.max(spin_energies[:spin_cbm_idx]))
+    return e_vbm
+
+
+def get_cbm_energy(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> float:
+    """Get the conduction band minimum energy from energies and vb index dicts."""
+    e_cbm = np.inf
+    for spin, spin_energies in energies.items():
+        spin_cbm_idx = vb_idx[spin] + 1
+        if spin_cbm_idx != spin_energies.shape[0]:
+            # if spin_cbm_idx == nbands there are no conduction bands for this spin
+            e_cbm = min(e_cbm, np.min(spin_energies[spin_cbm_idx:]))
+    return e_cbm
+
+
+def get_efermi(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> float:
+    """Get the fermi level energy from energies and vb index dicts."""
+    e_vbm = get_vbm_energy(energies, vb_idx)
+    e_cbm = get_cbm_energy(energies, vb_idx)
+    return (e_vbm + e_cbm) / 2
 
 
 def get_velocities_from_outer_product(
