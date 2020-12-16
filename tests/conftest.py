@@ -82,6 +82,24 @@ def symmetry_structure(test_dir, request):
     return loadfn(test_dir / "structures" / f"{request.param}.json.gz")
 
 
+@pytest.fixture
+def band_structure_data(test_dir):
+    data = {}
+    for band_structure_data_file in (test_dir / "band_structures").glob("*json*"):
+        key = str(band_structure_data_file.name)
+        for replace_str in [".json", ".gz", "band_structure_data"]:
+            key = key.replace(replace_str, "")
+        key = key.rstrip("_").lstrip("_")
+
+        data[key] = loadfn(band_structure_data_file)
+    return data
+
+
+@pytest.fixture
+def band_structures(band_structure_data):
+    return {k: v["band_structure"] for k, v in band_structure_data.items()}
+
+
 if __name__ == "__main__":
     # download test data
     materials = {
