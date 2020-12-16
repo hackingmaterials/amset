@@ -208,12 +208,20 @@ def band(filename, **kwargs):
         "symprec": kwargs["symprec"],
         "energy_cutoff": kwargs["energy_cutoff"],
     }
-    if not is_vasprun_file(filename):
-        click.Abort("Unrecognised filetype, expecting a vasprun.xml file.")
+    if is_vasprun_file(filename):
+        plotter = ElectronicStructurePlotter.from_vasprun(
+            filename, zero_weighted_kpoints=zwk_mode, **plotter_kwargs
+        )
+    elif is_band_structure_data_file(filename):
+        plotter = ElectronicStructurePlotter.from_band_structure_data(
+            filename, **plotter_kwargs
+        )
+    else:
+        click.Abort(
+            "Unrecognised filetype, expecting a vasprun.xml or "
+            "band_structure_data.json file."
+        )
 
-    plotter = ElectronicStructurePlotter.from_vasprun(
-        filename, zero_weighted_kpoints=zwk_mode, **plotter_kwargs
-    )
     kpath = get_kpath(
         plotter.structure,
         mode=kwargs["kpath"],
@@ -645,6 +653,10 @@ def save_plot(plt, name, directory, prefix, image_format):
 
 def is_vasprun_file(filename):
     return "xml" in filename
+
+
+def is_band_structure_data_file(filename):
+    return "band_structure_data" in filename
 
 
 def get_kpath(structure, mode="pymatgen", symprec=_symprec, kpt_list=None, labels=None):
