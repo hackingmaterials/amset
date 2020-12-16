@@ -93,13 +93,9 @@ def _calculate_mobility(
         pbar = list(np.ndindex(amset_data.fermi_levels.shape))
 
     for n, t in pbar:
-        br = {s: np.arange(len(amset_data.energies[s])) for s in amset_data.spins}
-        cb_idx = {s: amset_data.vb_idx[s] + 1 for s in amset_data.spins}
-
-        if amset_data.doping[n] < 0:
-            band_idx = {s: br[s][cb_idx[s] :] for s in amset_data.spins}
-        else:
-            band_idx = {s: br[s][: cb_idx[s]] for s in amset_data.spins}
+        band_idx = _get_band_idx(
+            amset_data.energies, amset_data.vb_idx, amset_data.doping[n]
+        )
 
         lifetimes = {
             s: 1 / np.sum(amset_data.scattering_rates[s][rate_idx, n, t], axis=0)
@@ -228,3 +224,20 @@ def get_transport_dos(
     vvdos = vvdos.transpose(1, 2, 0)
 
     return vvdos
+
+
+def _get_band_idx(energies, vb_idx, doping):
+    band_idx = {}
+    for spin, spin_energies in energies.items():
+        spin_cb_idx = vb_idx[spin] + 1
+        all_spin_band_idxs = np.arange(len(spin_energies))
+
+        if doping < 0:
+            # n-type doping, only include conduction bands in each spin channel
+            band_idx[spin] = all_spin_band_idxs[spin_cb_idx:]
+
+        else:
+            # p-type doping, only include valence bands in each spin channel
+            band_idx[spin] = all_spin_band_idxs[:spin_cb_idx:]
+
+    return band_idx
