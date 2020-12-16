@@ -13,8 +13,11 @@ from tabulate import tabulate
 from amset.constants import bohr_to_cm, boltzmann_au, cm_to_bohr
 from amset.constants import defaults as defaults
 from amset.constants import ev_to_hartree, hartree_to_ev, spin_name
-from amset.electronic_structure.common import get_angstrom_structure, get_vbm_energy, \
-    get_cbm_energy
+from amset.electronic_structure.common import (
+    get_angstrom_structure,
+    get_cbm_energy,
+    get_vbm_energy,
+)
 from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.fd import dfdde
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
