@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from monty.serialization import loadfn
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from sumo.plotting.bs_plotter import SBSPlotter
 from sumo.plotting.dos_plotter import SDOSPlotter
@@ -37,6 +38,12 @@ class ElectronicStructurePlotter(object):
         )
         self.structure = bandstructure.structure
         self.energy_cutoff = energy_cutoff
+
+    @classmethod
+    def from_band_structure_data(cls, filename, **kwargs):
+        data = loadfn(filename)
+        soc = data.get("soc", False)
+        return cls(data["band_structure"], data["nelect"], soc=soc, **kwargs)
 
     @classmethod
     def from_vasprun(
