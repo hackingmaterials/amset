@@ -70,7 +70,20 @@ def get_vb_idx(energy_cutoff: float, band_structure: BandStructure):
 
 
 def get_vbm_energy(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> float:
-    """Get the valence band maximum energy from energies and vb index dicts."""
+    """Get the valence band maximum energy from energies and valence band indices.
+
+    Args:
+        energies: The energies as a dict of `{spin: np.ndarray}`, where the array has
+            the shape `(nbands, nkpoints)`.
+        vb_idx: The valence band indices for each spin channel as a dictionary of
+            `{spin: valence band index}`. If there are no valence band indices for a
+            specific spin channel, the index will be `-1`. Note, a valence band index
+            equal to the number of bands implies there are no conduction bands for
+            that spin channel.
+
+    Returns:
+        The valence band maximum energy.
+    """
     e_vbm = -np.inf
     for spin, spin_energies in energies.items():
         spin_cbm_idx = vb_idx[spin] + 1
@@ -81,7 +94,20 @@ def get_vbm_energy(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) ->
 
 
 def get_cbm_energy(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> float:
-    """Get the conduction band minimum energy from energies and vb index dicts."""
+    """Get the conduction band minimum energy from energies and valence band indices.
+
+    Args:
+        energies: The energies as a dict of `{spin: np.ndarray}`, where the array has
+            the shape `(nbands, nkpoints)`.
+        vb_idx: The valence band indices for each spin channel as a dictionary of
+            `{spin: valence band index}`. If there are no valence band indices for a
+            specific spin channel, the index will be `-1`. Note, a valence band index
+            equal to the number of bands implies there are no conduction bands for
+            that spin channel.
+
+    Returns:
+        The conduction band minimum energy.
+    """
     e_cbm = np.inf
     for spin, spin_energies in energies.items():
         spin_cbm_idx = vb_idx[spin] + 1
@@ -92,7 +118,20 @@ def get_cbm_energy(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) ->
 
 
 def get_efermi(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) -> float:
-    """Get the fermi level energy from energies and vb index dicts."""
+    """Get the fermi level energy from energies and valence band index indices.
+
+    Args:
+        energies: The energies as a dict of `{spin: np.ndarray}`, where the array has
+            the shape `(nbands, nkpoints)`.
+        vb_idx: The valence band indices for each spin channel as a dictionary of
+            `{spin: valence band index}`. If there are no valence band indices for a
+            specific spin channel, the index will be `-1`. Note, a valence band index
+            equal to the number of bands implies there are no conduction bands for
+            that spin channel.
+
+    Returns:
+        The Fermi level, set to halfway between the VBM and CBM.
+    """
     e_vbm = get_vbm_energy(energies, vb_idx)
     e_cbm = get_cbm_energy(energies, vb_idx)
     return (e_vbm + e_cbm) / 2
