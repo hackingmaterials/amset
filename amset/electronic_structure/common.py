@@ -74,8 +74,8 @@ def get_vbm_energy(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) ->
     e_vbm = -np.inf
     for spin, spin_energies in energies.items():
         spin_cbm_idx = vb_idx[spin] + 1
-        if spin_cbm_idx != 0:
-            # if spin_cbm_idx == 0 there are no valence bands for this spin channel
+        if spin_cbm_idx > 0:
+            # if spin_cbm_idx <= 0 there are no valence bands for this spin channel
             e_vbm = max(e_vbm, np.max(spin_energies[:spin_cbm_idx]))
     return e_vbm
 
@@ -85,8 +85,8 @@ def get_cbm_energy(energies: Dict[Spin, np.ndarray], vb_idx: Dict[Spin, int]) ->
     e_cbm = np.inf
     for spin, spin_energies in energies.items():
         spin_cbm_idx = vb_idx[spin] + 1
-        if spin_cbm_idx != spin_energies.shape[0]:
-            # if spin_cbm_idx == nbands there are no conduction bands for this spin
+        if spin_cbm_idx < spin_energies.shape[0]:
+            # if spin_cbm_idx >= nbands there are no conduction bands for this spin
             e_cbm = min(e_cbm, np.min(spin_energies[spin_cbm_idx:]))
     return e_cbm
 
