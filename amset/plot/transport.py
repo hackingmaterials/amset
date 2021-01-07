@@ -16,6 +16,8 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
+from amset.plot.base import PlotData
+
 property_data = {
     "conductivity": {
         "label": "Conductivity (S/m)",
@@ -101,6 +103,7 @@ class TransportPlotter(BaseTransportPlotter):
         logx=None,
         legend=True,
         axes=None,
+        return_plot_data=False,
         plt=None,
         style=None,
         no_base_style=False,
@@ -173,6 +176,7 @@ class TransportPlotter(BaseTransportPlotter):
             n_missing = np.product(grid) - len(properties)
             properties = list(properties) + [None] * n_missing
 
+        plot_data = []
         for (x, y), prop in zip(np.ndindex(grid), properties):
             if grid[0] == 1 and grid[1] == 1:
                 ax = axes
@@ -187,7 +191,7 @@ class TransportPlotter(BaseTransportPlotter):
                 ax.axis("off")
 
             else:
-                self.plot_property(
+                prop_data = self.plot_property(
                     ax,
                     prop,
                     x_property=x_property,
@@ -200,6 +204,7 @@ class TransportPlotter(BaseTransportPlotter):
                     logx=logx,
                     **prop_dict[prop],
                 )
+                plot_data.append(prop_data)
 
         if legend:
             if grid[0] == 1 and grid[1] == 1:
@@ -211,6 +216,9 @@ class TransportPlotter(BaseTransportPlotter):
             else:
                 ax = axes[0, -1]
             ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), ncol=1)
+
+        if return_plot_data:
+            return matplotlib.pyplot, plot_data
 
         return matplotlib.pyplot
 
@@ -282,18 +290,21 @@ class TransportPlotter(BaseTransportPlotter):
         cmap = cm.get_cmap("viridis_r")
         colors = cmap(np.linspace(0.03, 1 - 0.03, len(y)))
 
+        line_data = []
         for yi, label, color in zip(y, labels, colors):
             if self.average:
-                ax.plot(x, yi, label=label, c=color)
+                lines = ax.plot(x, yi, label=label, c=color)
+                line_data.extend(lines)
             else:
                 for i in range(3):
-                    ax.plot(
+                    lines = ax.plot(
                         x,
                         yi[:, i],
                         label=f"{dir_mapping[i]} {label}",
                         c=color,
                         ls=ls_mapping[i],
                     )
+                    line_data.extend(lines)
 
         ylabel = ylabel if ylabel else property_data[prop][self.label_key]
         xlabel = xlabel if xlabel else property_data[x_property][self.label_key]
@@ -307,6 +318,16 @@ class TransportPlotter(BaseTransportPlotter):
         if logx:
             ax.semilogx()
         ax.set(ylabel=ylabel, xlabel=xlabel, ylim=ylim, xlim=xlim)
+
+        return PlotData(
+            x_property=x_property,
+            y_property=prop,
+            x_label=xlabel,
+            y_label=ylabel,
+            labels=[line.get_label() for line in line_data],
+            x=x,
+            y=np.array([line.get_ydata() for line in line_data]),
+        )
 
     def _get_data(self, prop):
         if prop == "conductivity":

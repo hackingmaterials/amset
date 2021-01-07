@@ -1,16 +1,16 @@
 import abc
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Union, Optional
+from typing import List, Optional, Union
 
 import numpy as np
 from monty.serialization import loadfn
 from pkg_resources import resource_filename
 
+from amset import __version__
 from amset.core.data import AmsetData
 from amset.io import load_mesh
 from amset.util import cast_dict_ndarray
-from amset import __version__
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -189,7 +189,7 @@ class PlotData:
 def write_plot_data(
     plot_data: List[PlotData],
     prefix: Optional[Union[str, Path]] = None,
-    directory: Optional[Union[str, Path]] = None
+    directory: Optional[Union[str, Path]] = None,
 ) -> List[Path]:
     """Write plot data to files.
 
