@@ -9,14 +9,14 @@ import pytest
 from monty.serialization import dumpfn, loadfn
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def test_dir():
     module_dir = Path(__file__).resolve().parent
     test_dir = module_dir / "test_data"
     return test_dir.resolve()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def example_dir():
     root_dir = Path(__file__).resolve().parent.parent
     example_dir = root_dir / "examples"
@@ -77,12 +77,13 @@ def clean_dir():
         "rhom",
         "hex",
     ],
+    scope="session",
 )
 def symmetry_structure(test_dir, request):
     return loadfn(test_dir / "structures" / f"{request.param}.json.gz")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def band_structure_data(test_dir):
     data = {}
     for band_structure_data_file in (test_dir / "band_structures").glob("*json*"):
@@ -95,7 +96,7 @@ def band_structure_data(test_dir):
     return data
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def band_structures(band_structure_data):
     return {k: v["band_structure"] for k, v in band_structure_data.items()}
 
