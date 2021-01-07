@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## v0.4.5
+
+Enhancements:
+
+- `--gnuplot` option added to transport plotter to allow writing the plot data to simple 
+  text files.
+
+
 ## v0.4.4
 
 Enhancements:
