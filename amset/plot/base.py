@@ -1,6 +1,7 @@
 import abc
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Optional
 
 import numpy as np
 from monty.serialization import loadfn
@@ -9,6 +10,7 @@ from pkg_resources import resource_filename
 from amset.core.data import AmsetData
 from amset.io import load_mesh
 from amset.util import cast_dict_ndarray
+from amset import __version__
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -132,3 +134,89 @@ class BaseMultiTransportPlotter(abc.ABC):
         if not self.has_mobility:
             raise IndexError("Mobility does not exist in all transport data")
         return np.array([d["mobility"][mechanism] for d in self._data])
+
+
+@dataclass
+class PlotData:
+    """A class to represent basic plot data.
+
+    Args:
+        x_property: The x-axis property.
+        y_property: The y-axis property.
+        x_label: The x-axis label containing the unit.
+        y_label: The y-axis label containing the unit.
+        labels: The labels for each line on the plot. A list of strings of length m.
+        x: The x-axis values as a numpy array with shape (n).
+        y: The y-axis values with the shape (m, n).
+    """
+
+    x_property: str
+    y_property: str
+    x_label: str
+    y_label: str
+    labels: List[str]
+    x: np.ndarray
+    y: np.ndarray
+
+    @property
+    def comment(self) -> str:
+        """Comment containing the labels, properties, and units."""
+        comment = f"File generated using amset {__version__}"
+        comment += f"\nx-axis: {self.x_label}"
+        comment += f"\ny-axis: {self.y_label}"
+        comment += f"\n{self.x_property.replace(' ', '_')}"
+
+        for label in self.labels:
+            comment += f"  {label.replace(' ', '')}"
+
+        return comment
+
+    @property
+    def data(self) -> np.ndarray:
+        """Data (containing x and y values) as a numpy array."""
+        return np.vstack([self.x, self.y])
+
+    def to_file(self, filename: [str, Path], fmt: str = "%.8e"):
+        """Write plot data to file.
+
+        Args:
+            filename: The file name.
+            fmt: Number format specifier.
+        """
+        np.savetxt(filename, self.data.T, fmt=fmt, header=self.comment)
+
+
+def write_plot_data(
+    plot_data: List[PlotData],
+    prefix: Optional[Union[str, Path]] = None,
+    directory: Optional[Union[str, Path]] = None
+) -> List[Path]:
+    """Write plot data to files.
+
+    Args:
+        plot_data: A list of PlotData objects. The y_property attribute is used as the
+            filename.
+        prefix: A prefix for the data files.
+        directory: The directory in which to store the data files.
+
+    Returns:
+        A list of path objects for each file.
+    """
+    if directory is None:
+        directory = ""
+    directory = Path(directory)
+
+    if prefix is None:
+        prefix = ""
+    prefix = str(prefix)
+    if len(prefix) > 0 and prefix[-1] != "_":
+        prefix += "_"
+
+    filenames = []
+    for data in plot_data:
+        propname = data.y_property.replace(" ", "_")
+        filename = directory / f"{prefix}{propname}.dat"
+        data.to_file(filename)
+        filenames.append(filename)
+
+    return filenames
