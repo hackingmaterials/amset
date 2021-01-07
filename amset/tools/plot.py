@@ -8,6 +8,7 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
+from amset.plot.base import write_plot_data
 from amset.tools.common import image_type, path_type, zero_weighted_type
 
 kpaths = click.Choice(["pymatgen", "seekpath"], case_sensitive=False)
@@ -406,6 +407,9 @@ def rates(filename, **kwargs):
 @option("--width", type=float, help="figure width")
 @option("--height", type=float, help="figure height")
 @option("--directory", type=path_type, help="file output directory")
+@option(
+    "--gnuplot", default=False, is_flag=True, help="write plot data in gnuplot format"
+)
 @option("--format", "image_format", default="pdf", type=image_type, help="image format")
 @option("--style", help="path to matplotlib style specification")
 @option("--no-base-style", default=False, is_flag=True, help="don't apply base style")
@@ -416,7 +420,7 @@ def transport(filename, **kwargs):
     """
     from amset.plot.transport import TransportPlotter
 
-    save_kwargs = [kwargs.pop(d) for d in ("directory", "prefix", "image_format")]
+    save_kwargs = {d: kwargs.pop(d) for d in ("directory", "prefix", "image_format")}
 
     properties = []
     for prop in (
@@ -432,6 +436,7 @@ def transport(filename, **kwargs):
     kwargs["temperature_idx"] = _to_int(kwargs["temperature_idx"])
     kwargs["doping_idx"] = _to_int(kwargs["doping_idx"])
 
+    gnuplot = kwargs.pop("gnuplot")
     pad = kwargs.pop("pad")
     use_symbol = kwargs.pop("use_symbol")
     average = kwargs.pop("average")
@@ -440,9 +445,18 @@ def transport(filename, **kwargs):
     plotter = TransportPlotter(
         filename, pad=pad, use_symbol=use_symbol, average=average
     )
-    plt = plotter.get_plot(properties=properties, doping_type=doping_type, **kwargs)
+    plt, plot_data = plotter.get_plot(
+        properties=properties, doping_type=doping_type, return_plot_data=True, **kwargs
+    )
     plt.subplots_adjust(hspace=0.3, wspace=0.4)
-    save_plot(plt, "transport", *save_kwargs)
+    save_plot(plt, "transport", **save_kwargs)
+
+    if gnuplot:
+        write_plot_data(
+            plot_data, prefix=save_kwargs["prefix"], directory=save_kwargs["directory"]
+        )
+        return plt, plot_data
+
     return plt
 
 
