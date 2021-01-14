@@ -36,7 +36,7 @@ if __name__ == "__main__":
             "monty==4.0.2",
             "matplotlib==3.3.3",
             "BoltzTraP2==20.7.1",
-            "tqdm==4.55.1",
+            "tqdm==4.56.0",
             "tabulate==0.8.7",
             "memory_profiler==0.58.0",
             "spglib==1.16.0",
@@ -50,7 +50,7 @@ if __name__ == "__main__":
         extras_require={
             "docs": [
                 "mkdocs==1.1.2",
-                "mkdocs-material==6.2.3",
+                "mkdocs-material==6.2.4",
                 "mkdocs-minify-plugin==0.3.0",
                 "mkdocs-macros-plugin==0.5.0",
                 "markdown-include==0.6.0",
