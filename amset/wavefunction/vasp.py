@@ -179,7 +179,9 @@ def get_converged_encut(
         wavefunction, encut=max_encut, pbar=False, iband=iband, ikpoints=ikpoints
     )
 
-    sample_points = sample_random_kpoints(nspins, np.arange(len(ikpoints)), sample_iband, n_samples)
+    sample_points = sample_random_kpoints(
+        nspins, np.arange(len(ikpoints)), sample_iband, n_samples
+    )
     origin = sample_points[0]
     sample_points = sample_points[1:]
 
