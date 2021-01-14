@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def sample_random_kpoints(
-    nspins: int, ikpoints: int, nband: Dict[Spin, Union[List[int], int]], n_samples: int
+    nspins: int, ikpoints: List[int], nband: Dict[Spin, Union[List[int], int]], n_samples: int
 ):
     spin_idxs = []
     band_idxs = []
