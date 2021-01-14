@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+Enhancements:
+
+- `--stats` option added to band plotter that prints the effective masses and band 
+  structure information.
+
+
 ## v0.4.5
 
 Enhancements:
