@@ -200,9 +200,6 @@ class MobilityPlotter(BaseTransportPlotter):
         else:
             raise ValueError(f"Unrecognised x_property: {x_property}")
 
-        if not title:
-            title_str = None
-
         for i, (yi, label) in enumerate(zip(y, labels)):
             label = label.replace("overall", "total")
             if label == "total":
@@ -233,6 +230,10 @@ class MobilityPlotter(BaseTransportPlotter):
             ax.semilogy()
         if logx:
             ax.semilogx()
+
+        if not title:
+            title_str = None
+
         ax.set(ylabel=ylabel, xlabel=xlabel, ylim=ylim, xlim=xlim, title=title_str)
 
     def _get_data(self, n_idx, t_idx):
