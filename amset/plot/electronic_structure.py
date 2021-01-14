@@ -85,6 +85,7 @@ class ElectronicStructurePlotter(object):
         elabel="Energy (eV)",
         plt=None,
         dos_aspect=3,
+        return_plotter=False,
         aspect=None,
         style=None,
         no_base_style=False,
@@ -135,7 +136,10 @@ class ElectronicStructurePlotter(object):
                 }
                 common_kwargs.update(bs_dos_kwargs)
 
-            return bs_plotter.get_plot(**common_kwargs)
+            if return_plotter:
+                return bs_plotter.get_plot(**common_kwargs), bs_plotter
+            else:
+                return bs_plotter.get_plot(**common_kwargs)
 
         else:
             dos_kwargs = {
@@ -147,7 +151,10 @@ class ElectronicStructurePlotter(object):
             }
             common_kwargs.update(dos_kwargs)
 
-            return dos_plotter.get_plot(common_kwargs)
+            if return_plotter:
+                return dos_plotter.get_plot(common_kwargs), dos_plotter
+            else:
+                return dos_plotter.get_plot(common_kwargs)
 
     def get_bs_plotter(self, line_density=100, kpath=None):
         lm_bs = self.interpolater.get_line_mode_band_structure(

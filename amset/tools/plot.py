@@ -8,6 +8,12 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
+from sumo.cli.bandstats import kpt_str
+from sumo.electronic_structure.effective_mass import (
+    fit_effective_mass,
+    get_fitting_data,
+)
+
 from amset.plot.base import write_plot_data
 from amset.tools.common import image_type, path_type, zero_weighted_type
 
@@ -185,6 +191,7 @@ def lineshape(filename, **kwargs):
     help="don't set the Fermi level to zero",
 )
 @option("--vbm-cbm-marker", is_flag=True, help="add a marker at the CBM and VBM")
+@option("--stats", is_flag=True, help="print effective mass and band gap")
 @option("--width", default=6.0, help="figure width [default: 6]")
 @option("--height", default=6.0, help="figure height [default: 6]")
 @option("-p", "--prefix", help="output filename prefix")
@@ -233,7 +240,7 @@ def band(filename, **kwargs):
 
     dos_kpoints = _get_dos_kpoints(plotter.structure, kwargs["dos_kpoints"])
 
-    plt = plotter.get_plot(
+    plt, bs_plotter = plotter.get_plot(
         plot_band_structure=True,
         plot_dos=kwargs["plot_dos"],
         line_density=kwargs["line_density"],
@@ -249,11 +256,16 @@ def band(filename, **kwargs):
         style=kwargs["style"],
         no_base_style=kwargs["no_base_style"],
         kpath=kpath,
+        return_plotter=True,
     )
 
     save_plot(
         plt, "band", kwargs["directory"], kwargs["prefix"], kwargs["image_format"]
     )
+
+    if kwargs["stats"]:
+        _log_band_stats(bs_plotter._bs[0])
+
     return plt
 
 
@@ -746,3 +758,180 @@ def _get_doping_type(n_type, p_type):
     elif p_type:
         return "p"
     return None
+
+
+def _log_band_stats(bs, parabolic=False, num_sample_points=3):
+    if bs.is_metal():
+        click.echo("\nSystem is metallic, cannot not print band stats")
+        return
+    else:
+        click.echo("\nBand structure information\n~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
+
+    _log_band_gap_information(bs)
+
+    vbm_data = bs.get_vbm()
+    cbm_data = bs.get_cbm()
+
+    click.echo("\nValence band maximum:")
+    _log_band_edge_information(bs, vbm_data)
+
+    click.echo("\nConduction band minimum:")
+    _log_band_edge_information(bs, cbm_data)
+
+    if parabolic:
+        click.echo("\nUsing parabolic fitting of the band edges")
+    else:
+        click.echo("\nUsing nonparabolic fitting of the band edges")
+
+    # Work out where the hole and electron band edges are.
+    # Fortunately, pymatgen does this for us. Points at which to calculate
+    # the effective mass are identified as a tuple of:
+    # (spin, band_index, kpoint_index)
+    hole_extrema = []
+    for spin, bands in vbm_data["band_index"].items():
+        hole_extrema.extend(
+            [
+                (spin, band_idx, kpoint)
+                for band_idx in bands
+                for kpoint in vbm_data["kpoint_index"]
+            ]
+        )
+
+    elec_extrema = []
+    for spin, bands in cbm_data["band_index"].items():
+        elec_extrema.extend(
+            [
+                (spin, band_idx, kpoint)
+                for band_idx in bands
+                for kpoint in cbm_data["kpoint_index"]
+            ]
+        )
+
+    # extract the data we need for fitting from the band structure
+    hole_data = []
+    for extrema in hole_extrema:
+        hole_data.extend(
+            get_fitting_data(bs, *extrema, num_sample_points=num_sample_points)
+        )
+
+    elec_data = []
+    for extrema in elec_extrema:
+        elec_data.extend(
+            get_fitting_data(bs, *extrema, num_sample_points=num_sample_points)
+        )
+
+    # calculate the effective masses and log the information
+    click.echo("\nHole effective masses:")
+    for data in hole_data:
+        eff_mass = fit_effective_mass(
+            data["distances"], data["energies"], parabolic=parabolic
+        )
+        data["effective_mass"] = eff_mass
+        _log_effective_mass_data(data, bs.is_spin_polarized, mass_type="m_h")
+
+    click.echo("\nElectron effective masses:")
+    for data in elec_data:
+        eff_mass = fit_effective_mass(
+            data["distances"], data["energies"], parabolic=parabolic
+        )
+        data["effective_mass"] = eff_mass
+        _log_effective_mass_data(data, bs.is_spin_polarized)
+
+    return {"hole_data": hole_data, "electron_data": elec_data}
+
+
+def _log_band_gap_information(bs):
+    from pymatgen import Spin
+
+    bg_data = bs.get_band_gap()
+    if not bg_data["direct"]:
+        click.echo("Indirect band gap: {:.3f} eV".format(bg_data["energy"]))
+
+    direct_data = bs.get_direct_band_gap_dict()
+    if bs.is_spin_polarized:
+        direct_bg = min((spin_data["value"] for spin_data in direct_data.values()))
+        click.echo("Direct band gap: {:.3f} eV".format(direct_bg))
+
+        for spin, spin_data in direct_data.items():
+            direct_kindex = spin_data["kpoint_index"]
+            direct_kpoint = bs.kpoints[direct_kindex].frac_coords
+            direct_kpoint = kpt_str.format(k=direct_kpoint)
+            eq_kpoints = bs.get_equivalent_kpoints(direct_kindex)
+            k_indices = ", ".join(map(str, eq_kpoints))
+
+            # add 1 to band indices to be consistent with VASP band numbers.
+            b_indices = ", ".join([str(i + 1) for i in spin_data["band_indices"]])
+
+            click.echo("  {}:".format(spin.name.capitalize()))
+            click.echo("    k-point: {}".format(direct_kpoint))
+            click.echo("    k-point indices: {}".format(k_indices))
+            click.echo("    Band indices: {}".format(b_indices))
+
+    else:
+        direct_bg = direct_data[Spin.up]["value"]
+        click.echo("Direct band gap: {:.3f} eV".format(direct_bg))
+
+        direct_kindex = direct_data[Spin.up]["kpoint_index"]
+        direct_kpoint = kpt_str.format(k=bs.kpoints[direct_kindex].frac_coords)
+        k_indices = ", ".join(map(str, bs.get_equivalent_kpoints(direct_kindex)))
+        b_indices = ", ".join(
+            [str(i + 1) for i in direct_data[Spin.up]["band_indices"]]
+        )
+
+        click.echo("  k-point: {}".format(direct_kpoint))
+        click.echo("  k-point indices: {}".format(k_indices))
+        click.echo("  Band indices: {}".format(b_indices))
+
+
+def _log_band_edge_information(bs, edge_data):
+    from pymatgen import Spin
+
+    if bs.is_spin_polarized:
+        spins = edge_data["band_index"].keys()
+        b_indices = [
+            ", ".join([str(i + 1) for i in edge_data["band_index"][spin]])
+            + "({})".format(spin.name.capitalize())
+            for spin in spins
+        ]
+        b_indices = ", ".join(b_indices)
+    else:
+        b_indices = ", ".join([str(i + 1) for i in edge_data["band_index"][Spin.up]])
+
+    kpoint = edge_data["kpoint"]
+    kpoint_str = kpt_str.format(k=kpoint.frac_coords)
+    k_indices = ", ".join(map(str, edge_data["kpoint_index"]))
+
+    if kpoint.label:
+        k_loc = kpoint.label
+    else:
+        branch = bs.get_branch(edge_data["kpoint_index"][0])[0]
+        k_loc = "between {}".format(branch["name"])
+
+    click.echo("  Energy: {:.3f} eV".format(edge_data["energy"]))
+    click.echo("  k-point: {}".format(kpoint_str))
+    click.echo("  k-point location: {}".format(k_loc))
+    click.echo("  k-point indices: {}".format(k_indices))
+    click.echo("  Band indices: {}".format(b_indices))
+
+
+def _log_effective_mass_data(data, is_spin_polarized, mass_type="m_e"):
+    s = " ({})".format(data["spin"].name) if is_spin_polarized else ""
+
+    # add 1 to band id to be consistent with VASP
+    band_str = "band {}{}".format(data["band_id"] + 1, s)
+
+    start_kpoint = data["start_kpoint"]
+    end_kpoint = data["end_kpoint"]
+    eff_mass = data["effective_mass"]
+
+    kpoint_str = kpt_str.format(k=start_kpoint.frac_coords)
+    if start_kpoint.label:
+        kpoint_str += " ({})".format(start_kpoint.label)
+    kpoint_str += " -> "
+    kpoint_str += kpt_str.format(k=end_kpoint.frac_coords)
+    if end_kpoint.label:
+        kpoint_str += " ({})".format(end_kpoint.label)
+
+    click.echo(
+        "  {}: {:.3f} | {} | {}".format(mass_type, eff_mass, band_str, kpoint_str)
+    )
