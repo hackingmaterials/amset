@@ -613,7 +613,9 @@ class Interpolator(MSONable):
         if not kpath:
             kpath = PymatgenKpath(self._band_structure.structure, symprec=symprec)
 
-        kpoints, labels = kpath.get_kpoints(line_density=line_density, cart_coords=False)
+        kpoints, labels = kpath.get_kpoints(
+            line_density=line_density, cart_coords=False
+        )
         labels_dict = {
             label: kpoint for kpoint, label in zip(kpoints, labels) if label != ""
         }
