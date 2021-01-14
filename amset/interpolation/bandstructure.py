@@ -613,32 +613,35 @@ class Interpolator(MSONable):
         if not kpath:
             kpath = PymatgenKpath(self._band_structure.structure, symprec=symprec)
 
-        kpoints, labels = kpath.get_kpoints(line_density=line_density, cart_coords=True)
+        kpoints, labels = kpath.get_kpoints(line_density=line_density, cart_coords=False)
         labels_dict = {
             label: kpoint for kpoint, label in zip(kpoints, labels) if label != ""
         }
 
-        energies = self.get_energies(
+        energies, *extra = self.get_energies(
             kpoints,
             scissor=scissor,
             bandgap=bandgap,
             atomic_units=False,
             energy_cutoff=energy_cutoff,
-            coords_are_cartesian=True,
+            coords_are_cartesian=False,
             return_other_properties=return_other_properties,
+            return_efermi=True,
             symprec=symprec,
         )
 
         if return_other_properties:
-            energies, other_properties = energies
+            efermi, other_properties = extra
+        else:
+            efermi = extra
 
         bs = BandStructureSymmLine(
             kpoints,
             energies,
-            self._band_structure.structure.lattice,
-            self._band_structure.efermi,
+            self._band_structure.structure.lattice.reciprocal_lattice,
+            efermi,
             labels_dict,
-            coords_are_cartesian=True,
+            coords_are_cartesian=False,
         )
         if return_other_properties:
             return bs, other_properties
