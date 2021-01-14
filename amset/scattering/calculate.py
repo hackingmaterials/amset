@@ -534,7 +534,6 @@ def scattering_worker(
             coeffs = dict_array_from_buffer(coeffs_buffer)
             coeffs_mapping = dict_array_from_buffer(coeffs_mapping_buffer)
 
-        overlap_calculator = None
         if overlap_type == "wavefunction":
             overlap_calculator = WavefunctionOverlapCalculator.from_reference(
                 *overlap_calculator_reference
