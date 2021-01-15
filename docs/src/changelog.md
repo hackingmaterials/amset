@@ -2,10 +2,16 @@
 
 ## [Unreleased]
 
+## v0.4.6
+
 Enhancements:
 
 - `--stats` option added to band plotter that prints the effective masses and band 
   structure information.
+  
+Bug fixes:
+
+- Fixed extracting wavefunction coefficients in systems with zero weighted k-points.
 
 
 ## v0.4.5
