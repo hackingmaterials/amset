@@ -47,7 +47,7 @@ settings, as described in the [structural relaxation section](#structural-relaxa
 Details on the finite difference approach in VASP can be found on the 
 [IBRION](https://www.vasp.at/wiki/index.php/IBRION) documentation page.
 
-!!! summary "VASP settings for dielectric constants and phonon frequency "
+!!! summary "VASP settings for elastic constants "
     ```python
     ADDGRID = True
     EDIFF = 1E-8
