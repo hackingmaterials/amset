@@ -87,14 +87,14 @@ temperature/doping ranges.
     parameters. Alternatively, a comma separated list of scattering mechanism
     can be specified. Options include:
 
-    - `ACD` (acoustic deformation potential scattering)
+    - `ADP` (acoustic deformation potential scattering)
     - `IMP` (ionized impurity scattering)
     - `PIE` (piezoelectric scattering)
     - `POP` (polar optical phonon scattering)
     - `CRT` (constant relaxation time)
     - `MFP` (mean free path scattering)
 
-    For example, `ACD,IMP,POP`. The scattering mechanism will only be calculated
+    For example, `ADP,IMP,POP`. The scattering mechanism will only be calculated
     if all the required material parameters for that mechanism are set. See the
     `scattering section <scattering>`_ of the documentation for more details.
 
@@ -213,7 +213,7 @@ scattering rates.
     
     Alteratively, a single averaged value can be given (not recommended).
 
-    Required for: ACD, PIE
+    Required for: ADP, PIE
 
 ### `deformation_potential`
 
@@ -232,7 +232,7 @@ scattering rates.
 
     Or a single value to use for all bands in metals.
 
-    Required for: ACD
+    Required for: ADP
 
 ### `piezoelectric_constant`
 
@@ -244,27 +244,34 @@ scattering rates.
 
     Required for: PIE
 
-### `acceptor_charge`
+### `defect_charge`
 
 !!! quote ""
-    *Command-line option:* `--acceptor-charge`
+    *Command-line option:* `--defect-charge`
 
-    The charge of acceptor defects, in units of electron charge.
+    The charge of defects, in units of electron charge.
+
+    Note: `donor_charge` and `acceptor_charge` were amalgamated into a single setting
+    in version 0.5.0.
 
     Required for: IMP
 
-    Default: `{{ acceptor_charge }}`
+    Default: `{{ defect_charge }}`
 
 ### `donor_charge`
 
 !!! quote ""
-    *Command-line option:* `--donor-charge`
+    *Command-line option:* `--compensation-factor`
 
-    The charge of donor defects, in units of electron charge.
+    The amount of defect compensation to include. 
+
+    The total impurity concentration is calculated as 
+    `compensation_factor` $`\times (n_0 - p_0) / q`$, where $`(n_0 - p_0)`$ is the 
+    concentration of excess donors or acceptors and $`q`$ is the defect charge.
 
     Required for: IMP
 
-    Default: `{{ donor_charge }}`
+    Default: `{{ compensation_factor }}`
 
 ### `pop_frequency`
 

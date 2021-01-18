@@ -124,8 +124,8 @@ g_{nm}^\mathrm{ii}(\mathbf{k}, \mathbf{q}) =
 ```
 where $`Z`$ is the charge state of the impurity center, 
 $`n_\mathrm{ii}`$ is the concentration of ionized impurities
-(i.e., $`n_\mathrm{holes} + n_\mathrm{electrons}`$),
-and $`\beta`$ is the inverse screening length, defined as
+(i.e., $`C \times (n_\mathrm{holes} - n_\mathrm{electrons}) / Z`$, where $`C`$ is the 
+amount of charge compensation), and $`\beta`$ is the inverse screening length, defined as
 
 ```math
     \beta^2 = \frac{e^2}{\epsilon_\mathrm{s}  k_\mathrm{B} T}
