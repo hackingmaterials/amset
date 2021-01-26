@@ -32,7 +32,7 @@ def phonon_frequency(vasprun, outcar):
         floatfmt=(".2f", ".2f"),
     )
     click.echo(table)
-    click.echo("\neffective frequency: {:.2f} THz".format(effective_frequency))
+    click.echo("\npop_frequency: {:.2f} THz".format(effective_frequency))
 
     return effective_frequency
 
