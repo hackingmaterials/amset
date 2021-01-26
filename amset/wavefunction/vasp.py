@@ -155,11 +155,14 @@ def get_converged_encut(
     wavefunction,
     iband=None,
     ikpoints=None,
-    max_encut=500,
+    max_encut=None,
     n_samples=1000,
     std_tol=0.002,
 ):
     nspins = wavefunction.spin
+
+    if max_encut is None:
+        max_encut = wavefunction.encut
 
     if ikpoints is None:
         ikpoints = np.arange(len(wavefunction.kpoints))
