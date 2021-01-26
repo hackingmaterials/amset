@@ -280,7 +280,7 @@ def get_unit_strain_tensors(propagation_vectors, polarization_vectors):
 
 class IonizedImpurityScattering(AbstractElasticScattering):
     name = "IMP"
-    required_properties = ("acceptor_charge", "donor_charge", "static_dielectric")
+    required_properties = ("defect_charge", "static_dielectric", "compensation_factor")
 
     def __init__(
         self,
@@ -288,11 +288,11 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         doping,
         temperatures,
         nbands,
-        impurity_concentration,
+        q_concentration,
         inverse_screening_length_sq,
     ):
         super().__init__(properties, doping, temperatures, nbands)
-        self._prefactor = impurity_concentration * s_to_au * np.pi
+        self._prefactor = q_concentration * s_to_au
         self.inverse_screening_length_sq = inverse_screening_length_sq
 
     @classmethod
@@ -305,25 +305,28 @@ class IonizedImpurityScattering(AbstractElasticScattering):
         inverse_screening_length_sq = calculate_inverse_screening_length_sq(
             amset_data, avg_diel
         )
+        defect_charge = materials_properties["defect_charge"]
+        comp_factor = materials_properties["compensation_factor"]
 
         imp_info = []
-        impurity_concentration = np.zeros(amset_data.fermi_levels.shape)
+        q_concentration = np.zeros(amset_data.fermi_levels.shape)
         for n, t in np.ndindex(inverse_screening_length_sq.shape):
             n_conc = np.abs(amset_data.electron_conc[n, t])
             p_conc = np.abs(amset_data.hole_conc[n, t])
 
-            impurity_concentration[n, t] = (
-                n_conc * materials_properties["donor_charge"] ** 2
-                + p_conc * materials_properties["acceptor_charge"] ** 2
-            )
+            excess_impurities = abs((n_conc - p_conc) / defect_charge)
+            impurity_concentration = excess_impurities * comp_factor
+            q_concentration[n, t] = defect_charge ** 2 * impurity_concentration
+
             imp_info.append(
                 (
                     amset_data.doping[n] * (1 / bohr_to_cm) ** 3,
                     amset_data.temperatures[t],
                     inverse_screening_length_sq[n, t],
-                    impurity_concentration[n, t] * (1 / bohr_to_cm) ** 3,
+                    impurity_concentration * (1 / bohr_to_cm) ** 3,
                 )
             )
+
         logger.info("Inverse screening length (β) and impurity concentration (Nᵢᵢ):")
         table = tabulate(
             imp_info,
@@ -338,7 +341,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
             amset_data.doping,
             amset_data.temperatures,
             cls.get_nbands(amset_data),
-            impurity_concentration,
+            q_concentration,
             inverse_screening_length_sq,
         )
 
