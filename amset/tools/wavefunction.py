@@ -8,6 +8,7 @@ __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
 from amset.tools.common import zero_weighted_type
+from amset.util import parse_ibands
 
 
 @click.command()
@@ -19,6 +20,13 @@ from amset.tools.common import zero_weighted_type
 @click.option("-d", "--directory", help="directory to look for files")
 @click.option(
     "-e", "--energy-cutoff", type=float, help="energy cutoff for finding bands"
+)
+@click.option(
+    "-b",
+    "--bands",
+    type=str,
+    help="bands at which to extract the wavefunction, e.g., '1:10' (overrides "
+         "energy-cutoff)",
 )
 @click.option(
     "-z",
@@ -76,7 +84,11 @@ def wave(**kwargs):
         zwk_mode = defaults["zero_weighted_kpoints"]
 
     bs = get_band_structure(vr, zero_weighted=zwk_mode)
-    ibands = get_ibands(energy_cutoff, bs)
+
+    if "bands" in kwargs and kwargs["bands"] is not None:
+        ibands = parse_ibands(kwargs["bands"])
+    else:
+        ibands = get_ibands(energy_cutoff, bs)
     ikpoints = get_zero_weighted_kpoint_indices(vr, zwk_mode)
 
     click.echo("******* Getting wavefunction coefficients *******\n")
