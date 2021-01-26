@@ -258,7 +258,7 @@ scattering rates.
 
     Default: `{{ defect_charge }}`
 
-### `donor_charge`
+### `compensation_factor`
 
 !!! quote ""
     *Command-line option:* `--compensation-factor`
