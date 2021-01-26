@@ -59,24 +59,24 @@ si_settings_wavefunction.update(
 si_settings_wavefunction_nocache = deepcopy(si_settings_wavefunction)
 si_settings_wavefunction_nocache.update({"cache_wavefunction": False})
 si_transport_projections = {
-    ("mobility", ("overall", (0, 0))): 1443.887767841073,
-    ("mobility", ("overall", (-1, 0))): 653.8846044592898,
-    ("seebeck", (0, 0)): -1.01e03,
-    ("seebeck", (-1, 0)): -7.18e02,
-    ("conductivity", (0, 0)): 2.43e01,
-    ("conductivity", (-1, 0)): 1.05e03,
-    ("electronic_thermal_conductivity", (0, 0)): 0.0012601364875891449,
-    ("electronic_thermal_conductivity", (-1, 0)): 0.005528446007774847,
+    ("mobility", ("overall", (0, 0))): 1575.9874105531137,
+    ("mobility", ("overall", (-1, 0))): 817.7813275452398,
+    ("seebeck", (0, 0)): -1008.7021246548229,
+    ("seebeck", (-1, 0)): -710.4299232159701,
+    ("conductivity", (0, 0)): 26.522847186591843,
+    ("conductivity", (-1, 0)): 1310.2367838858265,
+    ("electronic_thermal_conductivity", (0, 0)): 0.0013612910972812056,
+    ("electronic_thermal_conductivity", (-1, 0)): 0.0067225502076729005,
 }
 si_transport_wavefunction = {
-    ("mobility", ("overall", (0, 0))): 1138.346074448407,
-    ("mobility", ("overall", (-1, 0))): 538.9257004979358,
-    ("seebeck", (0, 0)): -977.8109947263332,
-    ("seebeck", (-1, 0)): -718.8554371827041,
-    ("conductivity", (0, 0)): 19.473244465428902,
-    ("conductivity", (-1, 0)): 863.4587743458269,
-    ("electronic_thermal_conductivity", (0, 0)): 0.0015021583389928138,
-    ("electronic_thermal_conductivity", (-1, 0)): 0.004664695625665922,
+    ("mobility", ("overall", (0, 0))): 1234.3061210385656,
+    ("mobility", ("overall", (-1, 0))): 667.5855817859127,
+    ("seebeck", (0, 0)): -960.2525654724394,
+    ("seebeck", (-1, 0)): -711.2343734992874,
+    ("conductivity", (0, 0)): 21.23809443512872,
+    ("conductivity", (-1, 0)): 1069.595934470882,
+    ("electronic_thermal_conductivity", (0, 0)): 0.001806653424274697,
+    ("electronic_thermal_conductivity", (-1, 0)): 0.005635982111503392,
 }
 
 gaas_settings_wavefunction = {
@@ -94,13 +94,13 @@ gaas_settings_wavefunction = {
     "nworkers": 1,
 }
 gaas_transport = {
-    ("mobility", ("overall", (0, 0))): 21146.50712288404,
-    ("mobility", ("overall", (0, -1))): 2168.9439586020367,
-    ("seebeck", (0, 0)): -858.4197653054092,
-    ("seebeck", (0, -1)): -608.8106879408261,
-    ("conductivity", (0, 0)): 10.164124084492931,
-    ("conductivity", (0, -1)): 216.5534973787272,
-    ("electronic_thermal_conductivity", (0, -1)): 0.02553675563131928,
+    ("mobility", ("overall", (0, 0))): 21305.275888767374,
+    ("mobility", ("overall", (0, -1))): 2428.11416884464,
+    ("seebeck", (0, 0)): -858.4131242931522,
+    ("seebeck", (0, -1)): -608.3181725103633,
+    ("conductivity", (0, 0)): 10.24043666456572,
+    ("conductivity", (0, -1)): 241.9083618988777,
+    ("electronic_thermal_conductivity", (0, -1)): 0.026674584564867737,
 }
 
 test_data = [
@@ -243,7 +243,7 @@ def _validate_data(amset_data, transport, max_aniso, files, scats):
         assert value.shape == (3, 3)
 
         value = np.average(np.linalg.eigvalsh(value))
-        print("('{}', {}): {},".format(prop, loc, value))
+        # print("('{}', {}): {},".format(prop, loc, value))
 
         # assert values agree to within 1 %
         assert (
