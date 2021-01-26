@@ -162,7 +162,7 @@ def _get_overlap_ncl(grid, data, points, n_coeffs):
 
         sum_ = 0j
         for j in range(final.shape[0]):
-            sum_ += initial[j, 0] * final[j, 0] + initial[j, 1] + final[j, 1]
+            sum_ += initial[j, 0] * final[j, 0] + initial[j, 1] * final[j, 1]
 
         res[i - 1] = abs(sum_) ** 2
 

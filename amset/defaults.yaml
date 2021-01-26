@@ -17,7 +17,7 @@ bandgap: null  # in eV
 soc: false
 
 # how to handle zero weighted k-points (options are keep, drop, and prefer)
-zero_weighted_kpoints: keep
+zero_weighted_kpoints: prefer
 
 # The band structure electronic_structure factor that determines the k-mesh density
 interpolation_factor: 10
@@ -35,8 +35,8 @@ static_dielectric: null
 elastic_constant: null  # in GPa
 deformation_potential: null  # in eV, given for the VBM and CBM, or path to deformation.h5 file
 piezoelectric_constant: null  # in C/m^2
-acceptor_charge: 1
-donor_charge: 1
+defect_charge: 1
+compensation_factor: 2
 pop_frequency: null  # in THz
 mean_free_path: null  # in nm
 constant_relaxation_time: null  # in S
