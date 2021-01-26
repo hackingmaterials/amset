@@ -175,6 +175,8 @@ _piezo_voigt = [
             },
             id="tensor cast (array)",
         ),
+        pytest.param({"donor_charge": 2}, {"defect_charge": 2}, id="d charge"),
+        pytest.param({"acceptor_charge": 2}, {"defect_charge": 2}, id="a charge"),
         pytest.param({"mispelt_parameter": 1}, pytest.raises(ValueError), id="raises"),
     ],
 )
