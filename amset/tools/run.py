@@ -68,8 +68,8 @@ __email__ = "aganose@lbl.gov"
     help='deformation potential [eV] (e.g. "7.4" or "7.4,6.8")',
 )
 @option("--piezoelectric-constant", type=float, help="piezoelectric constant")
-@option("--acceptor-charge", type=float, help="acceptor defect charge")
-@option("--donor-charge", type=float, help="donor defect charge")
+@option("--defect-charge", type=float, help="defect charge")
+@option("--compensation-factor", type=float, help="defect compensation factor")
 @option("--pop-frequency", type=float, help="polar optical phonon frequency [THz]")
 @option("--mean-free-path", type=float, help="set the mean free path of electrons [nm]")
 @option("--constant-relaxation-time", type=float, help="constant relaxation time [s]")
