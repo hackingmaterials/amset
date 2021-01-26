@@ -26,4 +26,4 @@ def test_write_settings(clean_dir):
     contents = settings_file.read_text()
 
     assert "scattering_type: auto" in contents
-    assert "acceptor_charge: 1" in contents
+    assert "defect_charge: 1" in contents
