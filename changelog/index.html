@@ -367,6 +367,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#v047" class="md-nav__link">
+    v0.4.7
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v046" class="md-nav__link">
     v0.4.6
   </a>
@@ -581,6 +588,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#v047" class="md-nav__link">
+    v0.4.7
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v046" class="md-nav__link">
     v0.4.6
   </a>
@@ -732,6 +746,23 @@
                 
                 <h1 id="change-log">Change log<a class="headerlink" href="#change-log" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="v047">v0.4.7<a class="headerlink" href="#v047" title="Permanent link">&para;</a></h2>
+<p>Changes:</p>
+<ul>
+<li>Default of <code>zero_weighted_kpoints</code> option has been changed from <code>keep</code> to <code>prefer</code>.</li>
+<li><code>acceptor_charge</code> and <code>donor_charge</code> options have been merged into a single option,
+  <code>defect_charge</code>.</li>
+</ul>
+<p>Enhancements:
+- Added <code>--bands</code> option to <code>amset wave</code> to allow selecting specific band ranges.</p>
+<p>Bug fixes:</p>
+<ul>
+<li>Fixed the calculation of ionized impurity concentration in bipolar materials and for 
+  charge states != 1.</li>
+<li>Fixed the calculation of spin-orbit wave function overlaps.</li>
+<li>Fixed warning messages in extraction of wave function coefficients.</li>
+<li>Clarified <code>phonon_frequency</code> output.</li>
+</ul>
 <h2 id="v046">v0.4.6<a class="headerlink" href="#v046" title="Permanent link">&para;</a></h2>
 <p>Enhancements:</p>
 <ul>

@@ -417,15 +417,15 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#acceptor_charge" class="md-nav__link">
-    acceptor_charge
+  <a href="#defect_charge" class="md-nav__link">
+    defect_charge
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#donor_charge" class="md-nav__link">
-    donor_charge
+  <a href="#compensation_factor" class="md-nav__link">
+    compensation_factor
   </a>
   
 </li>
@@ -834,15 +834,15 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#acceptor_charge" class="md-nav__link">
-    acceptor_charge
+  <a href="#defect_charge" class="md-nav__link">
+    defect_charge
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#donor_charge" class="md-nav__link">
-    donor_charge
+  <a href="#compensation_factor" class="md-nav__link">
+    compensation_factor
   </a>
   
 </li>
@@ -1073,14 +1073,14 @@ mechanisms will automatically be determined based on the specified material
 parameters. Alternatively, a comma separated list of scattering mechanism
 can be specified. Options include:</p>
 <ul>
-<li><code>ACD</code> (acoustic deformation potential scattering)</li>
+<li><code>ADP</code> (acoustic deformation potential scattering)</li>
 <li><code>IMP</code> (ionized impurity scattering)</li>
 <li><code>PIE</code> (piezoelectric scattering)</li>
 <li><code>POP</code> (polar optical phonon scattering)</li>
 <li><code>CRT</code> (constant relaxation time)</li>
 <li><code>MFP</code> (mean free path scattering)</li>
 </ul>
-<p>For example, <code>ACD,IMP,POP</code>. The scattering mechanism will only be calculated
+<p>For example, <code>ADP,IMP,POP</code>. The scattering mechanism will only be calculated
 if all the required material parameters for that mechanism are set. See the
 <code>scattering section &lt;scattering&gt;</code>_ of the documentation for more details.</p>
 <p>Default: <code>auto</code></p>
@@ -1166,7 +1166,7 @@ Can be given as a 3x3 tensor or a single isotropic value.</p>
 <p><em>Command-line option:</em> <code>--elastic-constant</code></p>
 <p>The elastic constants as the full 3x3x3x3 tensor or 6x6 Voigt form, in GPa.</p>
 <p>Alteratively, a single averaged value can be given (not recommended).</p>
-<p>Required for: ACD, PIE</p>
+<p>Required for: ADP, PIE</p>
 </div>
 <h3 id="deformation_potential"><code>deformation_potential</code><a class="headerlink" href="#deformation_potential" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
@@ -1178,7 +1178,7 @@ for the VBM and CBM, respectively in eV, e.g.:</p>
 <div class="highlight"><pre><span></span><code><span class="mf">8.6</span><span class="p">,</span> <span class="mf">7.4</span>
 </code></pre></div>
 <p>Or a single value to use for all bands in metals.</p>
-<p>Required for: ACD</p>
+<p>Required for: ADP</p>
 </div>
 <h3 id="piezoelectric_constant"><code>piezoelectric_constant</code><a class="headerlink" href="#piezoelectric_constant" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
@@ -1187,19 +1187,24 @@ for the VBM and CBM, respectively in eV, e.g.:</p>
 full 3x3x3 tensor or the 3x6 Voigt form.</p>
 <p>Required for: PIE</p>
 </div>
-<h3 id="acceptor_charge"><code>acceptor_charge</code><a class="headerlink" href="#acceptor_charge" title="Permanent link">&para;</a></h3>
+<h3 id="defect_charge"><code>defect_charge</code><a class="headerlink" href="#defect_charge" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code>--acceptor-charge</code></p>
-<p>The charge of acceptor defects, in units of electron charge.</p>
+<p><em>Command-line option:</em> <code>--defect-charge</code></p>
+<p>The charge of defects, in units of electron charge.</p>
+<p>Note: <code>donor_charge</code> and <code>acceptor_charge</code> were amalgamated into a single setting
+in version 0.5.0.</p>
 <p>Required for: IMP</p>
 <p>Default: <code>1</code></p>
 </div>
-<h3 id="donor_charge"><code>donor_charge</code><a class="headerlink" href="#donor_charge" title="Permanent link">&para;</a></h3>
+<h3 id="compensation_factor"><code>compensation_factor</code><a class="headerlink" href="#compensation_factor" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
-<p><em>Command-line option:</em> <code>--donor-charge</code></p>
-<p>The charge of donor defects, in units of electron charge.</p>
+<p><em>Command-line option:</em> <code>--compensation-factor</code></p>
+<p>The amount of defect compensation to include. </p>
+<p>The total impurity concentration is calculated as 
+<code>compensation_factor</code> <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>×</mo><mo stretchy="false">(</mo><msub><mi>n</mi><mn>0</mn></msub><mo>−</mo><msub><mi>p</mi><mn>0</mn></msub><mo stretchy="false">)</mo><mi mathvariant="normal">/</mi><mi>q</mi></mrow><annotation encoding="application/x-tex">\times (n_0 - p_0) / q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">×</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">n</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mord">/</span><span class="mord mathnormal" style="margin-right:0.03588em;">q</span></span></span></span>, where <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><msub><mi>n</mi><mn>0</mn></msub><mo>−</mo><msub><mi>p</mi><mn>0</mn></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(n_0 - p_0)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">n</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span> is the 
+concentration of excess donors or acceptors and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.19444em;"></span><span class="mord mathnormal" style="margin-right:0.03588em;">q</span></span></span></span> is the defect charge.</p>
 <p>Required for: IMP</p>
-<p>Default: <code>1</code></p>
+<p>Default: <code>2</code></p>
 </div>
 <h3 id="pop_frequency"><code>pop_frequency</code><a class="headerlink" href="#pop_frequency" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
