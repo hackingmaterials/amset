@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## v0.4.7
+
+Changes:
+
+- Default of `zero_weighted_kpoints` option has been changed from `keep` to `prefer`.
+- `acceptor_charge` and `donor_charge` options have been merged into a single option,
+  `defect_charge`.
+  
+Enhancements:
+- Added `--bands` option to `amset wave` to allow selecting specific band ranges.
+
+Bug fixes:
+
+- Fixed the calculation of ionized impurity concentration in bipolar materials and for 
+  charge states != 1.
+- Fixed the calculation of spin-orbit wave function overlaps.
+- Fixed warning messages in extraction of wave function coefficients.
+- Clarified `phonon_frequency` output.
+
 ## v0.4.6
 
 Enhancements:
@@ -13,14 +32,12 @@ Bug fixes:
 
 - Fixed extracting wavefunction coefficients in systems with zero weighted k-points.
 
-
 ## v0.4.5
 
 Enhancements:
 
 - `--gnuplot` option added to transport plotter to allow writing the plot data to simple 
   text files.
-
 
 ## v0.4.4
 
