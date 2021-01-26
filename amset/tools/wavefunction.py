@@ -26,7 +26,7 @@ from amset.util import parse_ibands
     "--bands",
     type=str,
     help="bands at which to extract the wavefunction, e.g., '1:10' (overrides "
-         "energy-cutoff)",
+    "energy-cutoff)",
 )
 @click.option(
     "-z",

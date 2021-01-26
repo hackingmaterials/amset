@@ -103,7 +103,7 @@ def create(**kwargs):
     "--bands",
     type=str,
     help="bands to calculate the deformation for, e.g., '1:10' (overrides "
-         "energy-cutoff)",
+    "energy-cutoff)",
 )
 @option(
     "-z",
