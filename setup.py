@@ -34,7 +34,7 @@ if __name__ == "__main__":
             "pymatgen==2020.12.31",
             "scipy==1.6.0",
             "monty==4.0.2",
-            "matplotlib==3.3.3",
+            "matplotlib==3.3.4",
             "BoltzTraP2==20.7.1",
             "tqdm==4.56.0",
             "tabulate==0.8.7",
