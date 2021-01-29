@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from pymatgen import Lattice, Structure, SymmOp
+from pymatgen import Structure, SymmOp
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
 from amset.constants import defaults
@@ -253,14 +253,6 @@ def get_symmops(structure, symprec=defaults["symprec"]):
         )
         for o in sga.get_symmetry_operations(cartesian=False)
     ]
-
-
-def symmop_to_cartesian(symop: SymmOp, lattice: Lattice):
-    """Convert SymmOp from fraction to Cartesian basis."""
-    return SymmOp.from_rotation_and_translation(
-        rotation_matrix=rotation_matrix_to_cartesian(symop.rotation_matrix, lattice),
-        translation_vec=np.dot(symop.translation_vector, lattice.matrix),
-    )
 
 
 def rotation_matrix_to_cartesian(rotation_matrix, lattice):

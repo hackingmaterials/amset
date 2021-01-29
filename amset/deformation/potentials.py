@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from pymatgen.analysis.elasticity.strain import Deformation
+from pymatgen.analysis.elasticity.strain import Deformation, Strain
 from pymatgen.core.tensors import TensorMapping
 
 from amset.constants import defaults
@@ -14,7 +14,7 @@ from amset.electronic_structure.symmetry import (
     expand_bandstructure,
     get_symmops,
     rotate_bandstructure,
-    symmop_to_cartesian,
+    similarity_transformation,
 )
 
 __author__ = "Alex Ganose"
@@ -65,7 +65,6 @@ def get_symmetrized_strain_mapping(
 ):
     # get symmetry operations of the bulk structure
     frac_ops = get_symmops(bulk_structure, symprec=symprec)
-    cart_ops = [symmop_to_cartesian(op, bulk_structure.lattice) for op in frac_ops]
 
     for strain, calc in strain_mapping.items():
         # expand band structure to cover full brillouin zone, otherwise rotation won't
@@ -76,8 +75,14 @@ def get_symmetrized_strain_mapping(
         )
 
     for strain, calc in strain_mapping.items():
-        for cart_op, frac_op in zip(cart_ops, frac_ops):
-            tstrain = strain.transform(cart_op)
+        for frac_op in frac_ops:
+            # apply cartesian transformation matrix from the right side
+            # hence the transpose
+            r_cart = similarity_transformation(
+                bulk_structure.lattice.matrix, frac_op.rotation_matrix.T
+            )
+            tstrain = Strain((r_cart.T @ strain @ r_cart))
+
             independent = tstrain.get_deformation_matrix().is_independent(_mapping_tol)
             if independent and tstrain not in strain_mapping:
                 rband = rotate_bandstructure(calc["bandstructure"], frac_op)
