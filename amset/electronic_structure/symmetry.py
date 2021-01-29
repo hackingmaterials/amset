@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from pymatgen import Structure, SymmOp
+from pymatgen import Structure, SymmOp, Lattice
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
 from amset.constants import defaults
@@ -174,6 +174,10 @@ def get_reciprocal_point_group_operations(
     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
     sga = SpacegroupAnalyzer(structure, symprec=symprec)
+    if sga.get_symmetry_dataset() is None:
+        # sometimes default angle tolerance doesn't work as expected
+        sga = SpacegroupAnalyzer(structure, symprec=symprec, angle_tolerance=-1)
+
     rotations = sga.get_symmetry_dataset()["rotations"].transpose((0, 2, 1))
     translations = sga.get_symmetry_dataset()["translations"]
     is_tr = np.full(len(rotations), False, dtype=bool)
@@ -216,7 +220,7 @@ def expand_bandstructure(
 def rotate_bandstructure(bandstructure: BandStructure, frac_symop: SymmOp):
     """Won't rotate projections..."""
     kpoints = get_kpoints_from_bandstructure(bandstructure)
-    recip_rot = frac_symop.rotation_matrix.T
+    recip_rot = frac_symop.rotation_matrix
     rot_kpoints = np.dot(recip_rot, kpoints.T).T
 
     # map to first BZ, use VASP zone boundary convention
@@ -232,6 +236,31 @@ def rotate_bandstructure(bandstructure: BandStructure, frac_symop: SymmOp):
         structure.lattice.reciprocal_lattice,
         bandstructure.efermi,
         structure=structure,
+    )
+
+
+def get_symmops(structure, symprec=defaults["symprec"]):
+    """Returns fractional ops as the cartesian ones from pmg have issues."""
+    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+
+    sga = SpacegroupAnalyzer(structure, symprec=symprec)
+
+    # fractional rotation matrices from spglib need to be transposed so that the
+    # operation is R.M
+    return [
+        SymmOp.from_rotation_and_translation(
+            rotation_matrix=o.rotation_matrix.T,
+            translation_vec=o.translation_vector,
+        )
+        for o in sga.get_symmetry_operations(cartesian=False)
+    ]
+
+
+def symmop_to_cartesian(symop: SymmOp, lattice: Lattice):
+    """Convert SymmOp from fraction to Cartesian basis."""
+    return SymmOp.from_rotation_and_translation(
+        rotation_matrix=rotation_matrix_to_cartesian(symop.rotation_matrix, lattice),
+        translation_vec=np.dot(symop.translation_vector, lattice.matrix)
     )
 
 

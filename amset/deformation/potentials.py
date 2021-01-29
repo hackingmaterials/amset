@@ -1,9 +1,9 @@
 import logging
 
 import numpy as np
+
 from pymatgen.analysis.elasticity.strain import Deformation
 from pymatgen.core.tensors import TensorMapping
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 from amset.constants import defaults
 from amset.electronic_structure.kpoints import (
@@ -14,6 +14,8 @@ from amset.electronic_structure.kpoints import (
 from amset.electronic_structure.symmetry import (
     expand_bandstructure,
     rotate_bandstructure,
+    symmop_to_cartesian,
+    get_symmops,
 )
 
 __author__ = "Alex Ganose"
@@ -57,16 +59,21 @@ def get_strain_mapping(bulk_structure, deformation_calculations):
 
 
 def get_symmetrized_strain_mapping(
-    bulk_structure, strain_mapping, symprec=defaults["symprec"]
+    bulk_structure,
+    strain_mapping,
+    symprec=defaults["symprec"],
+    symprec_deformation=defaults["symprec"] / 100
 ):
-    sga = SpacegroupAnalyzer(bulk_structure, symprec=symprec)
-    cart_ops = sga.get_symmetry_operations(cartesian=True)
-    frac_ops = sga.get_symmetry_operations(cartesian=False)
+    # get symmetry operations of the bulk structure
+    frac_ops = get_symmops(bulk_structure, symprec=symprec)
+    cart_ops = [symmop_to_cartesian(op, bulk_structure.lattice) for op in frac_ops]
+
     for strain, calc in strain_mapping.items():
         # expand band structure to cover full brillouin zone, otherwise rotation won't
         # include all necessary points
+        # default symprec is lower otherwise the strain will not be noticed
         calc["bandstructure"] = expand_bandstructure(
-            calc["bandstructure"], symprec=symprec
+            calc["bandstructure"], symprec=symprec_deformation
         )
 
     for strain, calc in strain_mapping.items():

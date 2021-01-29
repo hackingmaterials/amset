@@ -97,6 +97,12 @@ def create(**kwargs):
     "--symprec",
     help="symmetry precision for reducing deformations (use 'N' for no symmetry)",
 )
+@option(
+    "-d",
+    "--symprec-deformation",
+    default=_symprec/100,
+    help="symmetry precision for deformations structures (should be ~VASP SYMPREC)",
+)
 @option("-e", "--energy-cutoff", type=float, help="energy cutoff for finding bands")
 @option(
     "-b",
@@ -142,6 +148,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
         zwk_mode = defaults["zero_weighted_kpoints"]
 
     symprec = _parse_symprec(kwargs["symprec"])
+    symprec_deformation = kwargs["symprec_deformation"]
     click.echo("Reading bulk (undeformed) calculation")
     bulk_calculation = parse_calculation(bulk_folder, zero_weighted_kpoints=zwk_mode)
     bulk_structure = bulk_calculation["bandstructure"].structure
@@ -166,7 +173,10 @@ def read(bulk_folder, deformation_folders, **kwargs):
     click.echo("  - " + "\n  - ".join(fmt_strain))
 
     strain_mapping = get_symmetrized_strain_mapping(
-        bulk_structure, strain_mapping, symprec=symprec
+        bulk_structure,
+        strain_mapping,
+        symprec=symprec,
+        symprec_deformation=symprec_deformation
     )
     click.echo("\nAfter symmetrization found {} strains:".format(len(strain_mapping)))
     fmt_strain = get_formatted_tensors(strain_mapping.keys())
