@@ -1,7 +1,6 @@
 import logging
 
 import numpy as np
-
 from pymatgen.analysis.elasticity.strain import Deformation
 from pymatgen.core.tensors import TensorMapping
 
@@ -13,9 +12,9 @@ from amset.electronic_structure.kpoints import (
 )
 from amset.electronic_structure.symmetry import (
     expand_bandstructure,
+    get_symmops,
     rotate_bandstructure,
     symmop_to_cartesian,
-    get_symmops,
 )
 
 __author__ = "Alex Ganose"
@@ -62,7 +61,7 @@ def get_symmetrized_strain_mapping(
     bulk_structure,
     strain_mapping,
     symprec=defaults["symprec"],
-    symprec_deformation=defaults["symprec"] / 100
+    symprec_deformation=defaults["symprec"] / 100,
 ):
     # get symmetry operations of the bulk structure
     frac_ops = get_symmops(bulk_structure, symprec=symprec)
