@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from pymatgen.analysis.elasticity.strain import Deformation, Strain
+from pymatgen.analysis.elasticity.strain import Deformation
 from pymatgen.core.tensors import TensorMapping
 
 from amset.constants import defaults
@@ -9,6 +9,7 @@ from amset.electronic_structure.kpoints import (
     get_kpoint_indices,
     get_kpoints_from_bandstructure,
     get_mesh_from_kpoint_diff,
+    kpoints_to_first_bz,
 )
 from amset.electronic_structure.symmetry import (
     expand_bandstructure,
@@ -75,19 +76,31 @@ def get_symmetrized_strain_mapping(
         )
 
     for strain, calc in strain_mapping.items():
+        k_old = get_kpoints_from_bandstructure(calc["bandstructure"], sort=True)
+        k_old = kpoints_to_first_bz(k_old)
+
         for frac_op in frac_ops:
             # apply cartesian transformation matrix from the right side
             # hence the transpose
             r_cart = similarity_transformation(
-                bulk_structure.lattice.matrix, frac_op.rotation_matrix.T
+                bulk_structure.lattice.matrix.T, frac_op.rotation_matrix.T
             )
-            tstrain = Strain((r_cart.T @ strain @ r_cart))
+            tstrain = strain.rotate(r_cart)
 
             independent = tstrain.get_deformation_matrix().is_independent(_mapping_tol)
             if independent and tstrain not in strain_mapping:
                 rband = rotate_bandstructure(calc["bandstructure"], frac_op)
-                tcalc = {"reference": calc["reference"], "bandstructure": rband}
-                strain_mapping[tstrain] = tcalc
+
+                k_new = get_kpoints_from_bandstructure(rband, sort=True)
+                k_new = kpoints_to_first_bz(k_new)
+
+                # check whether k-points match; if no match found this indicates
+                # that the real and reciprocal lattice have different symmetries
+                kpoints_match = np.max(np.linalg.norm(k_old - k_new, axis=1)) < 0.001
+
+                if kpoints_match:
+                    tcalc = {"reference": calc["reference"], "bandstructure": rband}
+                    strain_mapping[tstrain] = tcalc
 
     return strain_mapping
 
