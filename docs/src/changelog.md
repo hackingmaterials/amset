@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## v0.4.8
+
+Bug fixes:
+
+- Fixed a number of issues in extracting deformation potentials. amset now attempts
+  to handle cases where the reciprocal and k-space lattices belong to difference 
+  classes.
+
 ## v0.4.7
 
 Changes:
