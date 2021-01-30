@@ -218,6 +218,12 @@ def get_kpoint_indices(kpoints, mesh, is_shifted=False):
     return indices.round().astype(int)
 
 
+def sort_kpoints(kpoints: np.ndarray):
+    k_round = np.array(kpoints).round(5)
+    sort_idx = np.lexsort((k_round[:, 2], k_round[:, 1], k_round[:, 0]))
+    return kpoints[sort_idx]
+
+
 def get_kpoints_from_bandstructure(bandstructure, cartesian=False, sort=False):
     if cartesian:
         kpoints = np.array([k.cart_coords for k in bandstructure.kpoints])
@@ -225,16 +231,6 @@ def get_kpoints_from_bandstructure(bandstructure, cartesian=False, sort=False):
         kpoints = np.array([k.frac_coords for k in bandstructure.kpoints])
 
     if sort:
-        sort_idx = np.lexsort(
-            (
-                kpoints[:, 2],
-                kpoints[:, 2] < 0,
-                kpoints[:, 1],
-                kpoints[:, 1] < 0,
-                kpoints[:, 0],
-                kpoints[:, 0] < 0,
-            )
-        )
-        kpoints = kpoints[sort_idx]
+        return sort_kpoints(kpoints)
 
     return kpoints

@@ -9,6 +9,7 @@ from amset.electronic_structure.kpoints import (
     get_kpoints_from_bandstructure,
     get_mesh_from_kpoint_diff,
     kpoints_to_first_bz,
+    sort_kpoints,
     ktol,
 )
 from amset.log import log_list
@@ -270,16 +271,21 @@ def reciprocal_lattice_match(
 
     I.e., do all the reciprocal space group operations result preserve the k-point mesh.
     """
-    rotations, translations, is_tr = get_reciprocal_point_group_operations(
+    kpoints = get_kpoints_from_bandstructure(band_structure)
+    kpoints = expand_kpoints(
+        band_structure.structure, kpoints, symprec=symprec, verbose=False
+    )
+    rotations, _, _ = get_reciprocal_point_group_operations(
         band_structure.structure, symprec=symprec
     )
-    kpoints = get_kpoints_from_bandstructure(band_structure, sort=True)
-    kpoints = kpoints_to_first_bz(kpoints)
+    kpoints = kpoints_to_first_bz(kpoints.round(8))
+    kpoints = sort_kpoints(kpoints)
 
     for rotation in rotations:
         rot_kpoints = np.dot(rotation, kpoints.T).T
-        rot_kpoints = kpoints_to_first_bz(rot_kpoints)
-        kpoints_match = np.max(np.linalg.norm(rot_kpoints - kpoints, axis=1)) < tol
+        rot_kpoints = kpoints_to_first_bz(rot_kpoints).round(8)
+        rot_kpoints = sort_kpoints(rot_kpoints)
+        kpoints_match = np.max(np.linalg.norm(rot_kpoints - kpoints, axis=1)) < 0.01
 
         if not kpoints_match:
             return False
