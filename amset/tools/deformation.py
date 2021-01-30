@@ -4,6 +4,7 @@ from typing import Optional, Union
 import click
 from click import argument, option
 
+from amset.electronic_structure.symmetry import reciprocal_lattice_match
 from amset.tools.common import echo_ibands, path_type, zero_weighted_type
 from amset.util import parse_ibands
 
@@ -167,6 +168,17 @@ def read(bulk_folder, deformation_folders, **kwargs):
     spg_number = sga.get_space_group_number()
     click.echo("\nSpacegroup: {} ({})".format(spg_symbol, spg_number))
 
+    lattice_match = reciprocal_lattice_match(
+        bulk_calculation["bandstructure"], symprec=symprec
+    )
+    if not lattice_match:
+        click.echo(
+            "\nWARNING: Reciprocal lattice and k-lattice belong to different\n"
+            "         class of lattices. Often results are still useful but\n"
+            "         it is recommended to regenerate deformations without\n"
+            "         symmetry using: amset deform create --symprec N"
+        )
+
     strain_mapping = get_strain_mapping(bulk_structure, deformation_calculations)
     click.echo("\nFound {} strains:".format(len(strain_mapping)))
     fmt_strain = get_formatted_tensors(strain_mapping.keys())
@@ -202,7 +214,6 @@ def read(bulk_folder, deformation_folders, **kwargs):
         ibands = get_ibands(energy_cutoff, bulk_calculation["bandstructure"])
 
     echo_ibands(ibands, bulk_calculation["bandstructure"].is_spin_polarized)
-    click.echo("")
     deformation_potentials = extract_bands(deformation_potentials, ibands)
 
     kpoints = get_kpoints_from_bandstructure(bulk_calculation["bandstructure"])
