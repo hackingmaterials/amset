@@ -122,3 +122,41 @@ class MeanFreePathScattering(AbstractBasicScattering):
     def rates(self):
         # need to return rates with shape (nspins, ndops, ntemps, nbands, nkpoints)
         return self._rates
+
+
+class ScaledRelaxationTime(AbstractBasicScattering):
+
+    name = "SRT"
+    required_properties = ("base_relaxation_time",)
+
+    def __init__(self, properties, doping, temperatures, nbands, shape):
+        super().__init__(properties, doping, temperatures, nbands)
+        self._rates = {}
+        for spin in self.spins:
+            spin_rates = np.zeros(shape[spin])
+            for i, temperature in enumerate(temperatures):
+                lifetime = self.properties["base_relaxation_time"] * 300 / temperature
+                spin_rates[:, i] = 1 / lifetime
+
+            self._rates[spin] = spin_rates
+
+    @classmethod
+    def from_amset_data(
+        cls, materials_properties: Dict[str, Any], amset_data: AmsetData
+    ):
+        shape = {
+            s: amset_data.fermi_levels.shape + amset_data.energies[s].shape
+            for s in amset_data.spins
+        }
+        return cls(
+            cls.get_properties(materials_properties),
+            amset_data.doping,
+            amset_data.temperatures,
+            cls.get_nbands(amset_data),
+            shape,
+        )
+
+    @property
+    def rates(self):
+        # need to return rates with shape (nspins, ndops, ntemps, nbands, nkpoints)
+        return self._rates
