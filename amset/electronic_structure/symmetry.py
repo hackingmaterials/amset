@@ -9,8 +9,8 @@ from amset.electronic_structure.kpoints import (
     get_kpoints_from_bandstructure,
     get_mesh_from_kpoint_diff,
     kpoints_to_first_bz,
-    sort_kpoints,
     ktol,
+    sort_kpoints,
 )
 from amset.log import log_list
 
