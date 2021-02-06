@@ -195,6 +195,12 @@ class MobilityPlotter(BaseTransportPlotter):
             title_str = fancy_format_doping(self.doping[primary_idx])
         elif x_property == "doping":
             labels, y = self._get_data(secondary_idxs, primary_idx)
+            x = self.doping[secondary_idxs]
+            if np.any(x < 0) and np.any(x > 0):
+                warnings.warn(
+                    "You are plotting both n- and p-type carrier concentrations on the "
+                    "same figure. Try using the --n-type and --p-type options instead."
+                )
             x = np.abs(self.doping[secondary_idxs])
             title_str = fancy_format_temp(self.temperatures[primary_idx])
         else:
@@ -245,7 +251,7 @@ class MobilityPlotter(BaseTransportPlotter):
             data = self.mobility[n_idx, t_idx][None]  # add dummy first axis
 
         if self.average:
-            data = np.average(np.linalg.eigvals(data), axis=-1)
+            data = np.average(np.linalg.eigvalsh(data), axis=-1)
         else:
             data = np.diagonal(data, axis1=-2, axis2=-1)
         return labels, data
