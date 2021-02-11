@@ -36,7 +36,7 @@ if __name__ == "__main__":
             "monty==4.0.2",
             "matplotlib==3.3.4",
             "BoltzTraP2==20.7.1",
-            "tqdm==4.56.1",
+            "tqdm==4.56.2",
             "tabulate==0.8.7",
             "memory_profiler==0.58.0",
             "spglib==1.16.1",
