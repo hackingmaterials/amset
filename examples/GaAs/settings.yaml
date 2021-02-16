@@ -8,9 +8,7 @@ scattering_type: auto
 interpolation_factor: 50
 
 # material settings
-acceptor_charge: 1
 deformation_potential: [1.2, 8.6]
-donor_charge: 1
 elastic_constant: 139.7
 high_frequency_dielectric: 10.32
 pop_frequency: 8.16
