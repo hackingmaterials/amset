@@ -256,14 +256,6 @@ def get_symmops(structure, symprec=defaults["symprec"]):
     ]
 
 
-def rotation_matrix_to_cartesian(rotation_matrix, lattice):
-    """Transform rotation matrix from fractional basis to cartesian basis."""
-    sb = np.matmul(
-        lattice.reciprocal_lattice_crystallographic.matrix.T, rotation_matrix.T
-    )
-    return np.matmul(lattice.matrix.T, sb.T)
-
-
 def reciprocal_lattice_match(
     band_structure: BandStructure, symprec=defaults["symprec"], tol=ktol
 ):
@@ -271,6 +263,8 @@ def reciprocal_lattice_match(
 
     I.e., do all the reciprocal space group operations result preserve the k-point mesh.
     """
+    round_dp = int(np.log10(1 / tol))
+
     kpoints = get_kpoints_from_bandstructure(band_structure)
     kpoints = expand_kpoints(
         band_structure.structure, kpoints, symprec=symprec, verbose=False
@@ -278,12 +272,12 @@ def reciprocal_lattice_match(
     rotations, _, _ = get_reciprocal_point_group_operations(
         band_structure.structure, symprec=symprec
     )
-    kpoints = kpoints_to_first_bz(kpoints.round(8))
+    kpoints = kpoints_to_first_bz(kpoints.round(round_dp))
     kpoints = sort_kpoints(kpoints)
 
     for rotation in rotations:
         rot_kpoints = np.dot(rotation, kpoints.T).T
-        rot_kpoints = kpoints_to_first_bz(rot_kpoints).round(8)
+        rot_kpoints = kpoints_to_first_bz(rot_kpoints).round(round_dp)
         rot_kpoints = sort_kpoints(rot_kpoints)
         kpoints_match = np.max(np.linalg.norm(rot_kpoints - kpoints, axis=1)) < 0.01
 

@@ -7,8 +7,7 @@ from pymatgen import Spin
 
 from amset.constants import int_to_spin, numeric_types
 from amset.electronic_structure.symmetry import (
-    rotation_matrix_to_cartesian,
-    rotation_matrix_to_su2,
+    rotation_matrix_to_su2, similarity_transformation,
 )
 from amset.log import log_time_taken
 from amset.util import get_progress_bar
@@ -74,7 +73,10 @@ def desymmetrize_coefficients(
     su2s = None
     if ncl:
         # get cartesian rotation matrix
-        r_cart = [rotation_matrix_to_cartesian(r, structure.lattice) for r in rotations]
+        r_cart = [
+            similarity_transformation(structure.lattice.matrix.T, r.T)
+            for r in rotations
+        ]
 
         # calculate SU(2)
         su2_no_dagger = np.array([rotation_matrix_to_su2(r) for r in r_cart])
