@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## v0.4.9
+
+Enhancements:
+
+- Better warnings in plotting module.
+- Support for `band_structure_data.json` with `amset eff-mass`.
+
+Bug fixes:
+
+- Fixed desymmetrization of spin–orbit coupling (spinor) wave functions.
+- Use `eigh` rather than `eig` for transport tensors.
+
 ## v0.4.8
 
 Bug fixes:
