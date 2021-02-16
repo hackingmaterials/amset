@@ -48,6 +48,7 @@ def eff_mass(filename, **kwargs):
     Calculate conductivity effective mass.
     """
     import numpy as np
+    from pymatgen import loadfn
     from scipy import constants
     from tabulate import tabulate
 
@@ -69,7 +70,12 @@ def eff_mass(filename, **kwargs):
         elif setting == "doping" or setting == "temperatures":
             settings[setting] = temp_doping_defaults[setting]
 
-    runner = Runner.from_vasprun(filename, settings)
+    if "json" in filename:
+        data = loadfn(filename)
+        runner = Runner(data["band_structure"], data["nelect"], settings)
+    else:
+        runner = Runner.from_vasprun(filename, settings)
+
     amset_data = runner.run()
     inv_cond = np.linalg.inv(amset_data.conductivity)
     doping_scale = 1 / bohr_to_cm ** 3
