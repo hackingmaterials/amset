@@ -7,7 +7,8 @@ from pymatgen import Spin
 
 from amset.constants import int_to_spin, numeric_types
 from amset.electronic_structure.symmetry import (
-    rotation_matrix_to_su2, similarity_transformation,
+    rotation_matrix_to_su2,
+    similarity_transformation,
 )
 from amset.log import log_time_taken
 from amset.util import get_progress_bar
