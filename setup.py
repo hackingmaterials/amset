@@ -44,7 +44,7 @@ if __name__ == "__main__":
             "sumo==2.2.1",
             "h5py==3.1.0",
             "pyFFTW==0.12.0",
-            "interpolation==2.2.0",
+            "interpolation==2.2.1",
             "numba==0.51.2",
         ],
         extras_require={
