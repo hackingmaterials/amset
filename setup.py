@@ -52,7 +52,7 @@ if __name__ == "__main__":
                 "mkdocs==1.1.2",
                 "mkdocs-material==7.0.3",
                 "mkdocs-minify-plugin==0.4.0",
-                "mkdocs-macros-plugin==0.5.0",
+                "mkdocs-macros-plugin==0.5.5",
                 "markdown-include==0.6.0",
                 "markdown-katex==202009.1026",
             ],
