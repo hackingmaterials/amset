@@ -2,7 +2,7 @@
 
 Whether using AMSET via the command-line or python API, the primary controls
 are contained in the settings file or dictionary. An example AMSET settings file
-is given [here](https://github.com/hackingmaterials/amset/blob/master/examples/GaAs/settings.yaml).
+is given [here](https://github.com/hackingmaterials/amset/blob/main/examples/GaAs/settings.yaml).
 
 The settings are grouped into sections. The description for each section and
 settings parameter is given below.

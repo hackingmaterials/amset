@@ -40,7 +40,7 @@ Pull requests are the best way to propose changes to the codebase. Follow the
 for more information on this procedure.
 
 The basic procedure for making a PR is:
-* Fork the repo and create your branch from master.
+* Fork the repo and create your branch from main.
 * Commit your improvements to your branch and push to your Github fork (repo).
 * When you're finished, go to your fork and make a Pull Request. It will
 automatically update if you need to make further changes.

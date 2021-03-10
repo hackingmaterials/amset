@@ -9,7 +9,7 @@ Temperature and doping ranges, scattering rates, and calculation
 parameters are controlled through the settings file. More details on the
 available settings are provided in the [settings section](settings.md) of the
 documentation. An example settings file is given 
-[here](https://github.com/hackingmaterials/amset/blob/master/examples/GaAs/settings.yaml).
+[here](https://github.com/hackingmaterials/amset/blob/main/examples/GaAs/settings.yaml).
 
 ## From the command-line
 

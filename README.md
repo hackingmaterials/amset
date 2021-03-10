@@ -1,4 +1,4 @@
-# <img alt="amset" src="https://raw.githubusercontent.com/hackingmaterials/amset/master/docs/src/amset_logo.png" width="250">
+# <img alt="amset" src="https://raw.githubusercontent.com/hackingmaterials/amset/main/docs/src/amset_logo.png" width="250">
 
 AMSET is a package for calculating electronic transport properties from
 first-principles calculations.
@@ -9,4 +9,4 @@ first-principles calculations.
 
 A paper with the full technical details of AMSET will be published soon.
 
-Interested in contributing? See our [contribution guidelines](https://github.com/hackingmaterials/amset/blob/master/CONTRIBUTING.md)
+Interested in contributing? See our [contribution guidelines](https://github.com/hackingmaterials/amset/blob/main/CONTRIBUTING.md)
