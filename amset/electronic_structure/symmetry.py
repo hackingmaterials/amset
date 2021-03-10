@@ -250,7 +250,8 @@ def get_symmops(structure, symprec=defaults["symprec"]):
     # operation is R.M
     return [
         SymmOp.from_rotation_and_translation(
-            rotation_matrix=o.rotation_matrix.T, translation_vec=o.translation_vector,
+            rotation_matrix=o.rotation_matrix.T,
+            translation_vec=o.translation_vector,
         )
         for o in sga.get_symmetry_operations(cartesian=False)
     ]
