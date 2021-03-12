@@ -54,7 +54,7 @@ if __name__ == "__main__":
                 "mkdocs-minify-plugin==0.4.0",
                 "mkdocs-macros-plugin==0.5.5",
                 "markdown-include==0.6.0",
-                "markdown-katex==202009.1026",
+                "markdown-katex==202103.1027",
             ],
             "tests": ["pytest==6.2.2", "pytest-cov==2.11.1"],
             "all-electron": ["pawpyseed==0.6.4"],
