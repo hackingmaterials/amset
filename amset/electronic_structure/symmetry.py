@@ -1,7 +1,8 @@
 import logging
 
 import numpy as np
-from pymatgen import Structure, SymmOp
+from pymatgen.core.operations import SymmOp
+from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
 from amset.constants import defaults

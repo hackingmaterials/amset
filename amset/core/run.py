@@ -10,7 +10,8 @@ from typing import Any, Dict, Optional, Union
 import numpy as np
 from memory_profiler import memory_usage
 from monty.json import MSONable
-from pymatgen import Structure, loadfn
+from monty.serialization import loadfn
+from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.io.vasp import Vasprun

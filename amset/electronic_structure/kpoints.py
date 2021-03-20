@@ -2,7 +2,7 @@ import logging
 from typing import List, Tuple, Union
 
 import numpy as np
-from pymatgen import Structure
+from pymatgen.core.structure import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 from spglib import spglib
 

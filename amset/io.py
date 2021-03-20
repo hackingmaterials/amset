@@ -47,7 +47,7 @@ def load_settings(filename: str) -> Dict[str, Any]:
 
 def write_mesh(mesh_data, filename="mesh.h5"):
     import h5py
-    from pymatgen import Structure
+    from pymatgen.core.structure import Structure
 
     with h5py.File(filename, "w") as f:
 
@@ -78,7 +78,7 @@ def write_mesh(mesh_data, filename="mesh.h5"):
 
 def load_mesh(filename):
     import h5py
-    from pymatgen import Structure
+    from pymatgen.core.structure import Structure
 
     from amset.constants import str_to_spin
 

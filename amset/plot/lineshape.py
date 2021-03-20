@@ -8,7 +8,7 @@ from matplotlib.axes import SubplotBase
 from matplotlib.axis import Axis
 from matplotlib.colors import LogNorm
 from matplotlib.ticker import AutoMinorLocator, MaxNLocator
-from pymatgen import Spin
+from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure,
     BandStructureSymmLine,

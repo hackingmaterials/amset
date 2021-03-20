@@ -1,7 +1,8 @@
 from typing import Dict, Tuple
 
 import numpy as np
-from pymatgen import Spin, Structure
+from pymatgen.electronic_structure.core import Spin
+from pymatgen.core.structure import Structure
 from pymatgen.electronic_structure.bandstructure import BandStructure
 
 from amset.constants import angstrom_to_bohr, bohr_to_angstrom, defaults

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import numpy as np
-from pymatgen import Spin
+from pymatgen.electronic_structure.core import Spin
 
 from amset.constants import boltzmann_au, hbar, s_to_au
 from amset.core.data import AmsetData

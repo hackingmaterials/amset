@@ -841,7 +841,7 @@ def _log_band_stats(bs, parabolic=False, num_sample_points=3):
 
 
 def _log_band_gap_information(bs):
-    from pymatgen import Spin
+    from pymatgen.electronic_structure.core import Spin
 
     bg_data = bs.get_band_gap()
     if not bg_data["direct"]:
@@ -884,7 +884,7 @@ def _log_band_gap_information(bs):
 
 
 def _log_band_edge_information(bs, edge_data):
-    from pymatgen import Spin
+    from pymatgen.electronic_structure.core import Spin
 
     if bs.is_spin_polarized:
         spins = edge_data["band_index"].keys()

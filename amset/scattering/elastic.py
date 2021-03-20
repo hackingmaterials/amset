@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import numpy as np
-from pymatgen import Spin
+from pymatgen.electronic_structure.core import Spin
 from tabulate import tabulate
 
 from amset.constants import (

@@ -48,7 +48,7 @@ def eff_mass(filename, **kwargs):
     Calculate conductivity effective mass.
     """
     import numpy as np
-    from pymatgen import loadfn
+    from monty.serialization import loadfn
     from scipy import constants
     from tabulate import tabulate
 

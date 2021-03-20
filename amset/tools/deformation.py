@@ -53,7 +53,7 @@ def create(**kwargs):
     """
     Generate deformed structures for calculating deformation potentials.
     """
-    from pymatgen import Structure
+    from pymatgen.core.structure import Structure
     from pymatgen.core.tensors import symmetry_reduce
     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
     from pymatgen.util.string import unicodeify_spacegroup

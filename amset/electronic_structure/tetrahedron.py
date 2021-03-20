@@ -3,7 +3,8 @@ import time
 from typing import Dict, List, Optional, Union
 
 import numpy as np
-from pymatgen import Spin, Structure
+from pymatgen.electronic_structure.core import Spin
+from pymatgen.core.structure import Structure
 from pymatgen.util.coord import pbc_diff
 
 from amset.constants import numeric_types
