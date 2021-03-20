@@ -7,8 +7,8 @@ from typing import Dict, List, Optional
 import numpy as np
 from monty.json import MSONable
 from monty.serialization import dumpfn
-from pymatgen.electronic_structure.core import Spin
 from pymatgen.core.structure import Structure
+from pymatgen.electronic_structure.core import Spin
 from tabulate import tabulate
 
 from amset.constants import bohr_to_cm, boltzmann_au, cm_to_bohr

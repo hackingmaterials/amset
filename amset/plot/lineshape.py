@@ -8,11 +8,11 @@ from matplotlib.axes import SubplotBase
 from matplotlib.axis import Axis
 from matplotlib.colors import LogNorm
 from matplotlib.ticker import AutoMinorLocator, MaxNLocator
-from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import (
     BandStructure,
     BandStructureSymmLine,
 )
+from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.plotter import BSPlotter
 from sumo.plotting import pretty_plot
 from sumo.symmetry import Kpath, PymatgenKpath

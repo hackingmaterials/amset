@@ -1,8 +1,8 @@
 import logging
 
 import numpy as np
-from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.bandstructure import BandStructure
+from pymatgen.electronic_structure.core import Spin
 from pymatgen.util.coord import pbc_diff
 
 from amset.constants import defaults

@@ -2,8 +2,8 @@
 import numpy as np
 from monty.serialization import loadfn
 from pkg_resources import resource_filename
-from scipy.constants import physical_constants
 from pymatgen.electronic_structure.core import Spin
+from scipy.constants import physical_constants
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
