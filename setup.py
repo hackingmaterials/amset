@@ -45,7 +45,7 @@ if __name__ == "__main__":
             "h5py==3.2.1",
             "pyFFTW==0.12.0",
             "interpolation==2.2.1",
-            "numba==0.51.2",
+            "numba==0.53.1",
         ],
         extras_require={
             "docs": [
