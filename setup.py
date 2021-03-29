@@ -30,7 +30,7 @@ if __name__ == "__main__":
         zip_safe=False,
         install_requires=[
             "quadpy==0.16.6",
-            "numpy==1.20.1",
+            "numpy==1.20.2",
             "pymatgen==2021.2.16",
             "scipy==1.6.2",
             "monty==2021.3.3",
