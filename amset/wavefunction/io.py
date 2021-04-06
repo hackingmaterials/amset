@@ -1,6 +1,6 @@
 import h5py
 import numpy as np
-from pymatgen import Structure
+from pymatgen.core.structure import Structure
 
 from amset.constants import str_to_spin
 

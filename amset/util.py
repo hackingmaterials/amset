@@ -453,7 +453,7 @@ def parse_ibands(ibands: Union[str, Tuple[List[int], List[int]]]) -> Dict:
     Returns:
         The ibands specification.
     """
-    from pymatgen import Spin
+    from pymatgen.electronic_structure.core import Spin
 
     new_ibands = {}
     if isinstance(ibands, str):
