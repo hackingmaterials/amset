@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 from numpy.testing import assert_array_equal
-from pymatgen.electronic_structure.core import spin
+from pymatgen.electronic_structure.core import Spin
 from pymatgen.io.vasp import Vasprun
 
 from amset.interpolation.bandstructure import Interpolator
