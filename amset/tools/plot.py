@@ -225,10 +225,11 @@ def band(filename, **kwargs):
             filename, **plotter_kwargs
         )
     else:
-        click.Abort(
-            "Unrecognised filetype, expecting a vasprun.xml or "
-            "band_structure_data.json file."
+        click.echo(
+            "Unrecognised filetype, expecting a vasprun.xml or band_structure_data.json"
+            " file."
         )
+        raise click.Abort()
 
     kpath = get_kpath(
         plotter.structure,
