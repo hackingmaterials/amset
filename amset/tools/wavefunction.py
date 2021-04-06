@@ -126,11 +126,7 @@ def _wavefunction_vasp(ibands, planewave_cutoff, ikpoints, **kwargs):
     if not planewave_cutoff:
         click.echo("******* Automatically choosing plane wave cutoff *******")
         planewave_cutoff = get_converged_encut(
-            wf,
-            iband=ibands,
-            ikpoints=ikpoints,
-            n_samples=2000,
-            std_tol=0.02,
+            wf, iband=ibands, ikpoints=ikpoints, n_samples=2000, std_tol=0.02
         )
         click.echo("\nUsing cutoff: {} eV".format(planewave_cutoff))
 
