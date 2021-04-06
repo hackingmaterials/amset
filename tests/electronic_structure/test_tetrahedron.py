@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-from pymatgen import Spin
+from pymatgen.electronic_structure.core import Spin
 
 
 class TetrahedralBandStructureTest(unittest.TestCase):

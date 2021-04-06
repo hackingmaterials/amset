@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from pymatgen import Spin
+from pymatgen.electronic_structure.core import Spin
 
 from amset.deformation.io import load_deformation_potentials
 from amset.tools.deformation import read

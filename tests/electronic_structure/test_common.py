@@ -1,5 +1,5 @@
 import pytest
-from pymatgen import Spin
+from pymatgen.electronic_structure.core import Spin
 
 from amset.electronic_structure.common import (
     get_cbm_energy,

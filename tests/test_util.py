@@ -2,7 +2,7 @@ from contextlib import contextmanager
 
 import numpy as np
 import pytest
-from pymatgen import Spin
+from pymatgen.electronic_structure.core import Spin
 
 from amset.util import (
     cast_dict_list,
