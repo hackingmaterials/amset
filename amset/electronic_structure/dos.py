@@ -6,7 +6,8 @@ from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 from monty.json import MSONable
-from pymatgen import Spin, Structure
+from pymatgen.core.structure import Structure
+from pymatgen.electronic_structure.core import Spin
 from pymatgen.electronic_structure.dos import Dos
 
 from amset.constants import boltzmann_au, ev_to_hartree, hartree_to_ev
