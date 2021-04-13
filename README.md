@@ -11,7 +11,7 @@ If you find AMSET useful, please consider citing [our paper](https://www.nature.
 
 ```
 Ganose, A. M., Park, J., Faghaninia, A., Woods-Robinson, R., Persson, K. A., Jain, A. 
-Efficient calculation of carrier scattering rates from firstprinciples.
+Efficient calculation of carrier scattering rates from first principles.
 Nat. Commun. 12, 2222 (2021)
 ```
 
