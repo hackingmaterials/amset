@@ -23,7 +23,7 @@ def test_read(clean_dir, test_dir, options, nbands):
     result = runner.invoke(read, folders + options)
 
     assert result.exit_code == 0
-    assert "band:    4  k-point: [ -0.38  -0.38   0.00  ]" in result.output
+    assert "band:    5  k-point: [ -0.38  -0.38   0.00  ]" in result.output
     assert "[  0.00   0.00   8.71]" in result.output
 
     deformation_file = Path("deformation.h5")
