@@ -280,7 +280,7 @@ def print_band_edge_information(bandstructure, band_edge, deformation_potentials
                     click.echo("  - spin {}:".format(spin.name))
 
                 str_kpoint = _kpt_str.format(k=kpoint)
-                click.echo("  - band: {:4d}  k-point: {}".format(b_idx, str_kpoint))
+                click.echo("  - band: {:4d}  k-point: {}".format(b_idx + 1, str_kpoint))
                 click.echo("  - deformation potential:")
                 click.echo(_tensor_str.format(*edge_deform.ravel()))
                 click.echo("")
