@@ -163,45 +163,47 @@ def read(bulk_folder, deformation_folders, **kwargs):
         if check_calculation(bulk_calculation, deformation_calculation):
             deformation_calculations.append(deformation_calculation)
 
-    sga = SpacegroupAnalyzer(bulk_structure, symprec=symprec)
-    spg_symbol = unicodeify_spacegroup(sga.get_space_group_symbol())
-    spg_number = sga.get_space_group_number()
-    click.echo("\nSpacegroup: {} ({})".format(spg_symbol, spg_number))
+    if symprec is not None:
+        sga = SpacegroupAnalyzer(bulk_structure, symprec=symprec)
+        spg_symbol = unicodeify_spacegroup(sga.get_space_group_symbol())
+        spg_number = sga.get_space_group_number()
+        click.echo("\nSpacegroup: {} ({})".format(spg_symbol, spg_number))
 
-    lattice_match = reciprocal_lattice_match(
-        bulk_calculation["bandstructure"], symprec=symprec
-    )
-    if not lattice_match:
-        click.echo(
-            "\nWARNING: Reciprocal lattice and k-lattice belong to different\n"
-            "         class of lattices. Often results are still useful but\n"
-            "         it is recommended to regenerate deformations without\n"
-            "         symmetry using: amset deform create --symprec N"
+        lattice_match = reciprocal_lattice_match(
+            bulk_calculation["bandstructure"], symprec=symprec
         )
+        if not lattice_match:
+            click.echo(
+                "\nWARNING: Reciprocal lattice and k-lattice belong to different\n"
+                "         class of lattices. Often results are still useful but\n"
+                "         it is recommended to regenerate deformations without\n"
+                "         symmetry using: amset deform create --symprec N"
+            )
 
     strain_mapping = get_strain_mapping(bulk_structure, deformation_calculations)
     click.echo("\nFound {} strains:".format(len(strain_mapping)))
     fmt_strain = get_formatted_tensors(strain_mapping.keys())
     click.echo("  - " + "\n  - ".join(fmt_strain))
 
-    strain_mapping = get_symmetrized_strain_mapping(
-        bulk_structure,
-        strain_mapping,
-        symprec=symprec,
-        symprec_deformation=symprec_deformation,
-    )
-    click.echo("\nAfter symmetrization found {} strains:".format(len(strain_mapping)))
-    fmt_strain = get_formatted_tensors(strain_mapping.keys())
-    click.echo("  - " + "\n  - ".join(fmt_strain))
+    if symprec is not None:
+        bulk_calculation["bandstructure"] = expand_bandstructure(
+            bulk_calculation["bandstructure"], symprec=symprec
+        )
+        strain_mapping = get_symmetrized_strain_mapping(
+            bulk_structure,
+            strain_mapping,
+            symprec=symprec,
+            symprec_deformation=symprec_deformation,
+        )
+        click.echo("\nAfter symmetrization found {} strains:".format(len(strain_mapping)))
+        fmt_strain = get_formatted_tensors(strain_mapping.keys())
+        click.echo("  - " + "\n  - ".join(fmt_strain))
 
     if not strain_coverage_ok(list(strain_mapping.keys())):
         click.echo("\nERROR: Strains do not cover full tensor, check calculations")
         sys.exit()
 
     click.echo("\nCalculating deformation potentials")
-    bulk_calculation["bandstructure"] = expand_bandstructure(
-        bulk_calculation["bandstructure"], symprec=symprec
-    )
     deformation_potentials = calculate_deformation_potentials(
         bulk_calculation, strain_mapping
     )
