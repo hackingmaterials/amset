@@ -150,6 +150,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
 
     symprec = _parse_symprec(kwargs["symprec"])
     symprec_deformation = kwargs["symprec_deformation"]
+
     click.echo("Reading bulk (undeformed) calculation")
     bulk_calculation = parse_calculation(bulk_folder, zero_weighted_kpoints=zwk_mode)
     bulk_structure = bulk_calculation["bandstructure"].structure
@@ -205,6 +206,16 @@ def read(bulk_folder, deformation_folders, **kwargs):
         click.echo("\nERROR: Strains do not cover full tensor, check calculations")
         sys.exit()
 
+    strain_bs = [c["bandstructure"] for c in strain_mapping.values()]
+    if not bz_coverage_ok([bulk_calculation["bandstructure"]] + strain_bs):
+        click.echo(
+            "\nERROR: one or more k-point meshes do not cover the full BZ. If using\n"
+            "       --symprec N please ensure that the VASP calculations were \n"
+            "       performed using ISYM = -1. Alternatively, set --symprec to a \n"
+            "       number, e.g. 0.1."
+        )
+        sys.exit()
+
     click.echo("\nCalculating deformation potentials")
     deformation_potentials = calculate_deformation_potentials(
         bulk_calculation, strain_mapping
@@ -258,6 +269,18 @@ def check_calculation(bulk_calculation, deformation_calculation):
         return False
     else:
         return True
+
+
+def bz_coverage_ok(bandstructures):
+    from amset.deformation.potentials import get_mesh_from_band_structure
+    import numpy as np
+
+    for bandstructure in bandstructures:
+        bulk_mesh, _ = get_mesh_from_band_structure(bandstructure)
+        nkpoints = np.product(bulk_mesh)
+        if nkpoints != len(bandstructure.kpoints):
+            return False
+    return True
 
 
 def print_deformation_summary(bandstructure, deformation_potentials):
