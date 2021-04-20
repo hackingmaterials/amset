@@ -195,7 +195,9 @@ def read(bulk_folder, deformation_folders, **kwargs):
             symprec=symprec,
             symprec_deformation=symprec_deformation,
         )
-        click.echo("\nAfter symmetrization found {} strains:".format(len(strain_mapping)))
+        click.echo(
+            "\nAfter symmetrization found {} strains:".format(len(strain_mapping))
+        )
         fmt_strain = get_formatted_tensors(strain_mapping.keys())
         click.echo("  - " + "\n  - ".join(fmt_strain))
 
