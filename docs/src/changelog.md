@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## v0.4.10
+
+Bug fixes:
+
+- Fix printing of VBM and CBM band indices in `amset deform read`.
+- Better handling of symprec option in `amset deform read`.
+- Make amset compatible with pymatgen v2022
+
 ## v0.4.9
 
 Enhancements:
