@@ -272,8 +272,9 @@ def check_calculation(bulk_calculation, deformation_calculation):
 
 
 def bz_coverage_ok(bandstructures):
-    from amset.deformation.potentials import get_mesh_from_band_structure
     import numpy as np
+
+    from amset.deformation.potentials import get_mesh_from_band_structure
 
     for bandstructure in bandstructures:
         bulk_mesh, _ = get_mesh_from_band_structure(bandstructure)
