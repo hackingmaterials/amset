@@ -39,7 +39,8 @@ amset run --interpolation-factor 20
 
 !!! info "Obtaining best performance"
     To obtain the best performance, it is recommended to run `export OMP_NUM_THREADS=1`
-    before running AMSET.
+    before running AMSET. Use the `nworkers` setting in the settings file if you want to 
+    run AMSET using multiple cores.
 
 ## From the Python API
 
