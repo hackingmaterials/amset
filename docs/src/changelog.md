@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## v0.4.11
+
+Bug fixes:
+
+- Fixed calculation of k-point meshes from k-point differences in `amset deform read`.
+
 ## v0.4.10
 
 Bug fixes:
