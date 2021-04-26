@@ -164,7 +164,7 @@ def get_kpoint_mesh(structure: Structure, cutoff_length: float, force_odd: bool 
     return mesh
 
 
-def get_mesh_from_kpoint_diff(kpoints):
+def get_mesh_from_kpoint_diff(kpoints, tol=5e-4):
     kpoints = np.array(kpoints)
 
     # whether the k-point mesh is shifted or Gamma centered mesh
@@ -177,17 +177,24 @@ def get_mesh_from_kpoint_diff(kpoints):
     if len(unique_a) == 1:
         na = 1
     else:
-        na = 1 / np.min(np.diff(unique_a))
+        # filter very small changes, with a tol of 5e-4 this means k-point meshes
+        # denser than 2000x2000x2000 will be treated as numerical noise. Meshes
+        # this dense are extremely unlikely
+        diff = np.diff(unique_a)
+        diff = diff[diff > ktol]
+        na = 1 / np.min(diff[diff > ktol])
 
     if len(unique_b) == 1:
         nb = 1
     else:
-        nb = 1 / np.min(np.diff(unique_b))
+        diff = np.diff(unique_b)
+        nb = 1 / np.min(diff[diff > ktol])
 
     if len(unique_c) == 1:
         nc = 1
     else:
-        nc = 1 / np.min(np.diff(unique_c))
+        diff = np.diff(unique_c)
+        nc = 1 / np.min(diff[diff > ktol])
 
     # due to limited precission of the input k-points, the mesh is returned as a float
     return np.array([na, nb, nc]), is_shifted
