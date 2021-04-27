@@ -66,7 +66,7 @@ if __name__ == "__main__":
                 "pydocstyle==6.0.0",
                 "flake8==3.9.1",
                 "pylint==2.7.4",
-                "black==20.8b1",
+                "black==21.4b0",
             ],
         },
         classifiers=[
