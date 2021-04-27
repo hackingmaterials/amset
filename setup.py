@@ -32,7 +32,7 @@ if __name__ == "__main__":
             "quadpy==0.16.6",
             "numpy==1.20.2",
             "pymatgen==2022.0.6",
-            "scipy==1.6.2",
+            "scipy==1.6.3",
             "monty==2021.3.3",
             "matplotlib==3.4.1",
             "BoltzTraP2==20.7.1",
