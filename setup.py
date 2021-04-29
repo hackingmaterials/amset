@@ -67,6 +67,7 @@ if __name__ == "__main__":
                 "flake8==3.9.1",
                 "pylint==2.8.2",
                 "black==21.4b2",
+                "pre-commit==2.12.1",
             ],
         },
         classifiers=[
