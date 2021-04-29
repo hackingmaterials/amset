@@ -85,7 +85,7 @@ ni = {
 # }
 
 
-class ScatteringCalculator(object):
+class ScatteringCalculator:
     def __init__(
         self,
         settings: Dict[str, float],
@@ -333,7 +333,7 @@ class ScatteringCalculator(object):
                     )
 
         str_scats = ", ".join(scattering_type)
-        logger.info("Scattering mechanisms to be calculated: {}".format(str_scats))
+        logger.info(f"Scattering mechanisms to be calculated: {str_scats}")
 
         return [
             _scattering_mechanisms[name].from_amset_data(settings, amset_data)
@@ -353,7 +353,7 @@ class ScatteringCalculator(object):
         masks = {s: np.full(rate_shape[s], True) for s in spins}
 
         logger.info("Scattering information:")
-        log_list(["# ir k-points: {}".format(len(self.amset_data.ir_kpoints_idx))])
+        log_list([f"# ir k-points: {len(self.amset_data.ir_kpoints_idx)}"])
 
         for spin in spins:
             for b_idx in range(len(self.amset_data.energies[spin])):
@@ -367,11 +367,11 @@ class ScatteringCalculator(object):
                 ) = self.calculate_band_rates(spin, b_idx)
 
                 info = [
-                    "max rate: {:.4g}".format(rates[spin][..., b_idx, :].max()),
-                    "min rate: {:.4g}".format(rates[spin][..., b_idx, :].min()),
+                    f"max rate: {rates[spin][..., b_idx, :].max():.4g}",
+                    f"min rate: {rates[spin][..., b_idx, :].min():.4g}",
                 ]
                 log_list(info, level=logging.DEBUG)
-                log_list(["time: {:.4f} s".format(time.perf_counter() - t0)])
+                log_list([f"time: {time.perf_counter() - t0:.4f} s"])
 
             # fill in k-points outside Fermi-Dirac cutoffs with a default value
             rates[spin][masks[spin]] = 1e14
@@ -405,7 +405,7 @@ class ScatteringCalculator(object):
         fill_mask = mask[self.amset_data.ir_to_full_kpoint_mapping]
 
         n = np.sum(~fill_mask)
-        logger.info("  ├── # k-points within Fermi–Dirac cut-offs: {}".format(n))
+        logger.info(f"  ├── # k-points within Fermi–Dirac cut-offs: {n}")
 
         k_idx_in_cutoff = kpoints_idx[~mask]
         ir_idx_in_cutoff = np.arange(nkpoints)[~mask]
@@ -543,7 +543,7 @@ def scattering_worker(
                 *overlap_calculator_reference
             )
         else:
-            raise ValueError("Unrecognised overlap type: {}".format(overlap_type))
+            raise ValueError(f"Unrecognised overlap type: {overlap_type}")
 
         elastic_scatterers = [
             AcousticDeformationPotentialScattering.from_reference(*s)

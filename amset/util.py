@@ -85,7 +85,7 @@ def validate_settings(user_settings: Dict[str, Any]) -> Dict[str, Any]:
 
     for setting in settings:
         if setting not in defaults:
-            raise ValueError("Unrecognised setting: {}".format(setting))
+            raise ValueError(f"Unrecognised setting: {setting}")
 
     return settings
 
@@ -311,7 +311,7 @@ def parse_doping(doping_str: str) -> np.ndarray:
             return np.array(list(map(float, doping_str.split(","))))
 
     except ValueError:
-        raise ValueError("ERROR: Unrecognised doping format: {}".format(doping_str))
+        raise ValueError(f"ERROR: Unrecognised doping format: {doping_str}")
 
 
 def parse_temperatures(temperatures_str: str) -> np.ndarray:
@@ -341,7 +341,7 @@ def parse_temperatures(temperatures_str: str) -> np.ndarray:
 
     except ValueError:
         raise ValueError(
-            "ERROR: Unrecognised temperature format: {}".format(temperatures_str)
+            f"ERROR: Unrecognised temperature format: {temperatures_str}"
         )
 
 
@@ -468,7 +468,7 @@ def parse_ibands(ibands: Union[str, Tuple[List[int], List[int]]]) -> Dict:
                     new_ibands[spin] = list(map(int, spin_ibands.split(",")))
 
         except ValueError:
-            raise ValueError("ERROR: Unrecognised ibands format: {}".format(ibands))
+            raise ValueError(f"ERROR: Unrecognised ibands format: {ibands}")
     elif isinstance(ibands, (list, tuple)):
         if not isinstance(ibands[0], (list, tuple)):
             new_ibands[Spin.up] = ibands

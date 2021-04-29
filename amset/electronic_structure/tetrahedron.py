@@ -136,7 +136,7 @@ def get_tetrahedra(
     return tetrahedra, ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, ir_weights
 
 
-class TetrahedralBandStructure(object):
+class TetrahedralBandStructure:
     def __init__(
         self,
         energies: Dict[Spin, np.ndarray],
@@ -381,7 +381,7 @@ class TetrahedralBandStructure(object):
         t0 = time.perf_counter()
 
         tparams = (ir_tetrahedra_idx, ir_tetrahedra_to_full_idx, ir_tetrahedra_weights)
-        if len(set([x is None for x in tparams])) != 1:
+        if len({x is None for x in tparams}) != 1:
             raise ValueError(
                 "Either all or none of ir_tetrahedra_idx, ir_tetrahedra_to_full_idx and"
                 " ir_tetrahedra_weights should be set."

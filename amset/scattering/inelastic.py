@@ -114,11 +114,11 @@ class PolarOpticalScattering(AbstractInelasticScattering):
 
         log_list(
             [
-                "average N_po: {:.4f}".format(np.mean(n_po)),
+                f"average N_po: {np.mean(n_po):.4f}",
                 "ω_po: {:.4g} 2π THz".format(
                     materials_properties["pop_frequency"] * 2 * np.pi
                 ),
-                "ħω: {:.4f} eV".format(pop_frequency * hbar * s_to_au),
+                f"ħω: {pop_frequency * hbar * s_to_au:.4f} eV",
             ]
         )
 

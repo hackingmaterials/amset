@@ -19,7 +19,7 @@ def write_deformation_potentials(
 ):
     with h5py.File(filename, "w") as f:
         for spin, spin_deform in deformation_potentials.items():
-            name = "deformation_potentials_{}".format(spin.name)
+            name = f"deformation_potentials_{spin.name}"
             f.create_dataset(name, data=spin_deform, compression="gzip")
         f["structure"] = np.string_(structure.to_json())
         f["kpoints"] = kpoints
@@ -70,7 +70,7 @@ def get_gzipped_file(filename, folder):
     elif (folder / gz_filename).exists():
         return folder / gz_filename
     else:
-        raise FileNotFoundError("Could not find {} file in {}".format(filename, folder))
+        raise FileNotFoundError(f"Could not find {filename} file in {folder}")
 
 
 def get_reference_energy(bandstructure, outcar):

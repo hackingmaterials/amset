@@ -18,7 +18,7 @@ __email__ = "aganose@lbl.gov"
 logger = logging.getLogger(__name__)
 
 
-class ElectronicStructurePlotter(object):
+class ElectronicStructurePlotter:
     def __init__(
         self,
         bandstructure: BandStructure,

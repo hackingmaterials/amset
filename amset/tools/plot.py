@@ -670,7 +670,7 @@ def save_plot(plt, name, directory, prefix, image_format):
         prefix += "_"
     else:
         prefix = ""
-    filename = Path("{}{}.{}".format(prefix, name, image_format))
+    filename = Path(f"{prefix}{name}.{image_format}")
 
     if directory:
         filename = directory / filename
@@ -850,8 +850,8 @@ def _log_band_gap_information(bs):
 
     direct_data = bs.get_direct_band_gap_dict()
     if bs.is_spin_polarized:
-        direct_bg = min((spin_data["value"] for spin_data in direct_data.values()))
-        click.echo("Direct band gap: {:.3f} eV".format(direct_bg))
+        direct_bg = min(spin_data["value"] for spin_data in direct_data.values())
+        click.echo(f"Direct band gap: {direct_bg:.3f} eV")
 
         for spin, spin_data in direct_data.items():
             direct_kindex = spin_data["kpoint_index"]
@@ -863,14 +863,14 @@ def _log_band_gap_information(bs):
             # add 1 to band indices to be consistent with VASP band numbers.
             b_indices = ", ".join([str(i + 1) for i in spin_data["band_indices"]])
 
-            click.echo("  {}:".format(spin.name.capitalize()))
-            click.echo("    k-point: {}".format(direct_kpoint))
-            click.echo("    k-point indices: {}".format(k_indices))
-            click.echo("    Band indices: {}".format(b_indices))
+            click.echo(f"  {spin.name.capitalize()}:")
+            click.echo(f"    k-point: {direct_kpoint}")
+            click.echo(f"    k-point indices: {k_indices}")
+            click.echo(f"    Band indices: {b_indices}")
 
     else:
         direct_bg = direct_data[Spin.up]["value"]
-        click.echo("Direct band gap: {:.3f} eV".format(direct_bg))
+        click.echo(f"Direct band gap: {direct_bg:.3f} eV")
 
         direct_kindex = direct_data[Spin.up]["kpoint_index"]
         direct_kpoint = kpt_str.format(k=bs.kpoints[direct_kindex].frac_coords)
@@ -879,9 +879,9 @@ def _log_band_gap_information(bs):
             [str(i + 1) for i in direct_data[Spin.up]["band_indices"]]
         )
 
-        click.echo("  k-point: {}".format(direct_kpoint))
-        click.echo("  k-point indices: {}".format(k_indices))
-        click.echo("  Band indices: {}".format(b_indices))
+        click.echo(f"  k-point: {direct_kpoint}")
+        click.echo(f"  k-point indices: {k_indices}")
+        click.echo(f"  Band indices: {b_indices}")
 
 
 def _log_band_edge_information(bs, edge_data):
@@ -891,7 +891,7 @@ def _log_band_edge_information(bs, edge_data):
         spins = edge_data["band_index"].keys()
         b_indices = [
             ", ".join([str(i + 1) for i in edge_data["band_index"][spin]])
-            + "({})".format(spin.name.capitalize())
+            + f"({spin.name.capitalize()})"
             for spin in spins
         ]
         b_indices = ", ".join(b_indices)
@@ -909,10 +909,10 @@ def _log_band_edge_information(bs, edge_data):
         k_loc = "between {}".format(branch["name"])
 
     click.echo("  Energy: {:.3f} eV".format(edge_data["energy"]))
-    click.echo("  k-point: {}".format(kpoint_str))
-    click.echo("  k-point location: {}".format(k_loc))
-    click.echo("  k-point indices: {}".format(k_indices))
-    click.echo("  Band indices: {}".format(b_indices))
+    click.echo(f"  k-point: {kpoint_str}")
+    click.echo(f"  k-point location: {k_loc}")
+    click.echo(f"  k-point indices: {k_indices}")
+    click.echo(f"  Band indices: {b_indices}")
 
 
 def _log_effective_mass_data(data, is_spin_polarized, mass_type="m_e"):
@@ -927,12 +927,12 @@ def _log_effective_mass_data(data, is_spin_polarized, mass_type="m_e"):
 
     kpoint_str = kpt_str.format(k=start_kpoint.frac_coords)
     if start_kpoint.label:
-        kpoint_str += " ({})".format(start_kpoint.label)
+        kpoint_str += f" ({start_kpoint.label})"
     kpoint_str += " -> "
     kpoint_str += kpt_str.format(k=end_kpoint.frac_coords)
     if end_kpoint.label:
-        kpoint_str += " ({})".format(end_kpoint.label)
+        kpoint_str += f" ({end_kpoint.label})"
 
     click.echo(
-        "  {}: {:.3f} | {} | {}".format(mass_type, eff_mass, band_str, kpoint_str)
+        f"  {mass_type}: {eff_mass:.3f} | {band_str} | {kpoint_str}"
     )

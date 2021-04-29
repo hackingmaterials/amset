@@ -125,7 +125,7 @@ def expand_kpoints(
     )
     n_ops = len(rotations)
     if verbose:
-        status_info.append("Using {} symmetry operations".format(n_ops))
+        status_info.append(f"Using {n_ops} symmetry operations")
         log_list(status_info)
 
     # rotate all-kpoints
@@ -154,7 +154,7 @@ def expand_kpoints(
     n_mapped = int(np.sum(in_uniform_mesh))
     n_expected = int(np.product(mesh))
     if n_mapped != n_expected:
-        raise ValueError("Expected {} points but found {}".format(n_expected, n_mapped))
+        raise ValueError(f"Expected {n_expected} points but found {n_mapped}")
 
     full_kpoints = unique_rotated_kpoints[in_uniform_mesh]
     full_idxs = unique_idxs[in_uniform_mesh]

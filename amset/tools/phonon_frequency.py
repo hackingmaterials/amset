@@ -32,7 +32,7 @@ def phonon_frequency(vasprun, outcar):
         floatfmt=(".2f", ".2f"),
     )
     click.echo(table)
-    click.echo("\npop_frequency: {:.2f} THz".format(effective_frequency))
+    click.echo(f"\npop_frequency: {effective_frequency:.2f} THz")
 
     return effective_frequency
 
@@ -115,7 +115,7 @@ def get_file(filename, class_type):
             return class_type(filename_gz)
 
         else:
-            print("Could not find {}. Try running with -h option".format(filename))
+            print(f"Could not find {filename}. Try running with -h option")
             sys.exit()
 
     elif isinstance(filename, class_type):

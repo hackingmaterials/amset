@@ -20,7 +20,7 @@ from amset.util import array_from_buffer, create_shared_array
 logger = logging.getLogger(__name__)
 
 
-class PeriodicLinearInterpolator(object):
+class PeriodicLinearInterpolator:
     def __init__(self, nbands, data_shape, interpolators, *args):
         self.nbands = nbands
         self.interpolators = interpolators

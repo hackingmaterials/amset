@@ -88,7 +88,7 @@ def eff_mass(filename, **kwargs):
         info = [amset_data.doping[n] * doping_scale, amset_data.temperatures[t]]
         if kwargs["average"]:
             eigs = np.linalg.eigvals(masses).real
-            info.append((3 / (1 / eigs[n, t]).sum()))
+            info.append(3 / (1 / eigs[n, t]).sum())
         else:
             xyz = np.diagonal(masses, axis1=-2, axis2=-1)
             info.extend(xyz[n, t].tolist())

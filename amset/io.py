@@ -39,7 +39,7 @@ def load_settings(filename: str) -> Dict[str, Any]:
     Returns:
         The settings, with any missing values set according to the amset defaults.
     """
-    logger.info("Loading settings from: {}".format(filename))
+    logger.info(f"Loading settings from: {filename}")
     settings = loadfn(filename)
 
     return validate_settings(settings)
@@ -70,7 +70,7 @@ def write_mesh(mesh_data, filename="mesh.h5"):
             if isinstance(value, dict):
                 # dict entries are given for different spins
                 for spin, spin_value in value.items():
-                    key = "{}_{}".format(key, spin.name)
+                    key = f"{key}_{spin.name}"
                     add_data(key, spin_value)
             else:
                 add_data(key, value)
@@ -98,7 +98,7 @@ def load_mesh(filename):
         for key, value in f.items():
             if "_up" in key or "_down" in key:
                 spin = str_to_spin[key.split("_")[-1]]
-                key = key.replace("_{}".format(spin.name), "")
+                key = key.replace(f"_{spin.name}", "")
                 if key not in mesh_data:
                     mesh_data[key] = {}
                 mesh_data[key][spin] = read_data(key, value)

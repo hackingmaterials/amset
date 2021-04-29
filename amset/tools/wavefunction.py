@@ -107,7 +107,7 @@ def wave(**kwargs):
 
     structure = vr.final_structure
 
-    click.echo("Writing coefficients to {}".format(output))
+    click.echo(f"Writing coefficients to {output}")
     write_coefficients(coeffs, gpoints, kpoints, structure, filename=output)
 
 
@@ -128,7 +128,7 @@ def _wavefunction_vasp(ibands, planewave_cutoff, ikpoints, **kwargs):
         planewave_cutoff = get_converged_encut(
             wf, iband=ibands, ikpoints=ikpoints, n_samples=2000, std_tol=0.02
         )
-        click.echo("\nUsing cutoff: {} eV".format(planewave_cutoff))
+        click.echo(f"\nUsing cutoff: {planewave_cutoff} eV")
 
     return get_wavefunction_coefficients(
         wf, iband=ibands, ikpoints=ikpoints, encut=planewave_cutoff
@@ -154,7 +154,7 @@ def _wavefunction_pawpy(bs, ibands, planewave_cutoff, ikpoints, **pawpy_kwargs):
             n_samples=2000,
             std_tol=0.02,
         )
-        click.echo("\nUsing cutoff: {} eV".format(planewave_cutoff))
+        click.echo(f"\nUsing cutoff: {planewave_cutoff} eV")
 
     return get_wavefunction_coefficients(
         wf, bs, iband=ibands, ikpoints=ikpoints, encut=planewave_cutoff

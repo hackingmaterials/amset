@@ -147,10 +147,10 @@ class AmsetData(MSONable):
         logger.info("DOS parameters:")
         log_list(
             [
-                "emin: {:.2f} eV".format(emin * hartree_to_ev),
-                "emax: {:.2f} eV".format(emax * hartree_to_ev),
-                "dos weight: {}".format(dos_weight),
-                "n points: {}".format(epoints),
+                f"emin: {emin * hartree_to_ev:.2f} eV",
+                f"emax: {emax * hartree_to_ev:.2f} eV",
+                f"dos weight: {dos_weight}",
+                f"n points: {epoints}",
             ]
         )
 
@@ -320,8 +320,8 @@ class AmsetData(MSONable):
         logger.info("Calculated Fermi–Dirac cut-offs:")
         log_list(
             [
-                "min: {:.3f} eV".format(min_cutoff * hartree_to_ev),
-                "max: {:.3f} eV".format(max_cutoff * hartree_to_ev),
+                f"min: {min_cutoff * hartree_to_ev:.3f} eV",
+                f"max: {max_cutoff * hartree_to_ev:.3f} eV",
             ]
         )
         self.fd_cutoffs = (min_cutoff, max_cutoff)
@@ -378,7 +378,7 @@ class AmsetData(MSONable):
                 )
 
             headers = ["conc [cm⁻³]", "temp [K]"]
-            headers += ["{}".format(s) for s in self.scattering_labels]
+            headers += [f"{s}" for s in self.scattering_labels]
             rate_table = []
             for i, (n, t) in enumerate(np.ndindex(self.fermi_levels.shape)):
                 col = [self.doping[n] * (1 / bohr_to_cm) ** 3, self.temperatures[t]]
@@ -479,11 +479,11 @@ class AmsetData(MSONable):
 
         # TODO: confirm unit of kappa
         for prop, unit in [("cond", "S/m"), ("seebeck", "µV/K"), ("kappa", "?")]:
-            headers.extend(["{}_{}[{}]".format(prop, d, unit) for d in ds])
+            headers.extend([f"{prop}_{d}[{unit}]" for d in ds])
 
         if self.mobility is not None:
             for name in self.mobility.keys():
-                headers.extend(["{}_mobility_{}[cm^2/V.s]".format(name, d) for d in ds])
+                headers.extend([f"{name}_mobility_{d}[cm^2/V.s]" for d in ds])
 
         return data, headers
 
@@ -513,7 +513,7 @@ class AmsetData(MSONable):
             data = cast_dict_list(data)
 
             filename = joinpath(
-                directory, "{}transport{}.{}".format(prefix, suffix, file_format)
+                directory, f"{prefix}transport{suffix}.{file_format}"
             )
             dumpfn(data, filename, indent=4)
 
@@ -521,15 +521,15 @@ class AmsetData(MSONable):
             # don't write the data as JSON, instead write raw text files
             data, headers = self.to_data()
             filename = joinpath(
-                directory, "{}transport{}.{}".format(prefix, suffix, file_format)
+                directory, f"{prefix}transport{suffix}.{file_format}"
             )
             np.savetxt(filename, data, header=" ".join(headers))
         else:
-            raise ValueError("Unrecognised output format: {}".format(file_format))
+            raise ValueError(f"Unrecognised output format: {file_format}")
 
         if write_mesh_file:
             mesh_data = self.to_dict(include_mesh=True)["mesh"]
-            mesh_filename = joinpath(directory, "{}mesh{}.h5".format(prefix, suffix))
+            mesh_filename = joinpath(directory, f"{prefix}mesh{suffix}.h5")
             write_mesh(mesh_data, filename=mesh_filename)
             return filename, mesh_filename
         else:

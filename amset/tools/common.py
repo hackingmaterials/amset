@@ -15,7 +15,7 @@ def echo_ibands(ibands, is_spin_polarized):
         for spin, spin_bands in ibands.items():
             min_b = spin_bands.min() + 1
             max_b = spin_bands.max() + 1
-            click.echo("  - Spin-{} bands {}—{}".format(spin.name, min_b, max_b))
+            click.echo(f"  - Spin-{spin.name} bands {min_b}—{max_b}")
     else:
         bands = list(ibands.values())[0]
-        click.echo("Including bands {}—{}".format(bands.min() + 1, bands.max() + 1))
+        click.echo(f"Including bands {bands.min() + 1}—{bands.max() + 1}")

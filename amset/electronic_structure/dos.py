@@ -77,7 +77,7 @@ class FermiDos(Dos, MSONable):
                 self.efermi * hartree_to_ev if atomic_units else self.efermi
             )
         )
-        logger.info("DOS contains {:.3f} electrons".format(self.nelect))
+        logger.info(f"DOS contains {self.nelect:.3f} electrons")
 
     def get_doping(
         self,

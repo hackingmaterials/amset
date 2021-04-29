@@ -12,7 +12,7 @@ __email__ = "aganose@lbl.gov"
 def write_coefficients(coeffs, gpoints, kpoints, structure, filename="coeffs.h5"):
     with h5py.File(filename, "w") as f:
         for spin, spin_coeffs in coeffs.items():
-            name = "coefficients_{}".format(spin.name)
+            name = f"coefficients_{spin.name}"
             dset = f.create_dataset(
                 name, spin_coeffs.shape, compression="gzip", dtype=np.complex
             )

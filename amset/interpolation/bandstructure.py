@@ -184,7 +184,7 @@ class Interpolator(MSONable):
         logger.info("Interpolation parameters:")
         iinfo = [
             "k-point mesh: {}".format("x".join(map(str, self.interpolation_mesh))),
-            "energy cutoff: {} eV".format(energy_cutoff),
+            f"energy cutoff: {energy_cutoff} eV",
         ]
         log_list(iinfo)
 
@@ -199,7 +199,7 @@ class Interpolator(MSONable):
             spin_ibands = ibands[spin]
             min_b = spin_ibands.min() + 1
             max_b = spin_ibands.max() + 1
-            info = "Interpolating {} bands {}-{}".format(spin_name[spin], min_b, max_b)
+            info = f"Interpolating {spin_name[spin]} bands {min_b}-{max_b}"
             logger.info(info)
 
             # these are bands beneath the Fermi level that are dropped
@@ -377,8 +377,8 @@ class Interpolator(MSONable):
                 time_reversal_symmetry=not self._soc,
             )
             k_info = [
-                "# original k-points: {}".format(nkpoints),
-                "# reduced k-points {}".format(len(kpoints)),
+                f"# original k-points: {nkpoints}",
+                f"# reduced k-points {len(kpoints)}",
             ]
             log_list(k_info)
 
@@ -393,7 +393,7 @@ class Interpolator(MSONable):
             spin_ibands = ibands[spin]
             min_b = spin_ibands.min() + 1
             max_b = spin_ibands.max() + 1
-            info = "Interpolating {} bands {}-{}".format(spin_name[spin], min_b, max_b)
+            info = f"Interpolating {spin_name[spin]} bands {min_b}-{max_b}"
             logger.info(info)
 
             t0 = time.perf_counter()
@@ -415,7 +415,7 @@ class Interpolator(MSONable):
                 curvature[spin] = curvature[spin].transpose((2, 3, 0, 1))
 
             if return_other_properties:
-                logger.info("Interpolating {} properties".format(spin_name[spin]))
+                logger.info(f"Interpolating {spin_name[spin]} properties")
 
                 t0 = time.perf_counter()
                 for label, coeffs in self._other_coefficients[spin].items():
@@ -519,10 +519,10 @@ class Interpolator(MSONable):
             The density of states.
         """
         if isinstance(kpoint_mesh, numeric_types):
-            logger.info("DOS k-point length cutoff: {}".format(kpoint_mesh))
+            logger.info(f"DOS k-point length cutoff: {kpoint_mesh}")
         else:
             str_mesh = "x".join(map(str, kpoint_mesh))
-            logger.info("DOS k-point mesh: {}".format(str_mesh))
+            logger.info(f"DOS k-point mesh: {str_mesh}")
 
         structure = self._band_structure.structure
         tri = not self._soc
@@ -651,7 +651,7 @@ class Interpolator(MSONable):
             return bs
 
 
-class DFTData(object):
+class DFTData:
     """DFTData object used for BoltzTraP2 interpolation.
 
     Note that the units used by BoltzTraP are different to those used by VASP.

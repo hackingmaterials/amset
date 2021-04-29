@@ -70,12 +70,12 @@ class Runner(MSONable):
         log_banner("END")
 
         logger.info("Timing and memory usage:")
-        timing_info = ["{} time: {:.4f} s".format(n, t) for n, t in usage_stats.items()]
-        log_list(timing_info + ["max memory: {:.1f} MB".format(mem_usage)])
+        timing_info = [f"{n} time: {t:.4f} s" for n, t in usage_stats.items()]
+        log_list(timing_info + [f"max memory: {mem_usage:.1f} MB"])
 
         this_date = datetime.datetime.now().strftime("%d %b %Y")
         this_time = datetime.datetime.now().strftime("%H:%M")
-        logger.info("amset exiting on {} at {}".format(this_date, this_time))
+        logger.info(f"amset exiting on {this_date} at {this_time}")
 
         if return_usage_stats:
             usage_stats["max memory"] = mem_usage
@@ -88,7 +88,7 @@ class Runner(MSONable):
     ):
         if self.settings["print_log"] or self.settings["write_log"]:
             if self.settings["write_log"]:
-                log_file = "{}_amset.log".format(prefix) if prefix else "amset.log"
+                log_file = f"{prefix}_amset.log" if prefix else "amset.log"
             else:
                 log_file = False
 
@@ -153,10 +153,10 @@ class Runner(MSONable):
             amset_data.calculate_fd_cutoffs(
                 fd_tol, cutoff_pad=cutoff_pad, mobility_rates_only=mobility_rates_only
             )
-            fd_prefix = prefix + "fd-{}".format(fd_tol)
+            fd_prefix = prefix + f"fd-{fd_tol}"
             _, timing = self._do_fd_tol(amset_data, directory, fd_prefix, timing)
-            timing["transport ({})".format(fd_tol)] = timing.pop("transport")
-            timing["writing ({})".format(fd_tol)] = timing.pop("writing")
+            timing[f"transport ({fd_tol})"] = timing.pop("transport")
+            timing[f"writing ({fd_tol})"] = timing.pop("writing")
 
         return amset_data, timing
 
@@ -314,7 +314,7 @@ class Runner(MSONable):
             else:
                 full_filename = Path(abs_dir) / filename
 
-            logger.info("Results written to:\n{}".format(full_filename))
+            logger.info(f"Results written to:\n{full_filename}")
         return full_filename, time.perf_counter() - t0
 
     @staticmethod
@@ -434,9 +434,9 @@ def _log_structure_information(structure: Structure, symprec):
     spg = unicodeify_spacegroup(sga.get_space_group_symbol())
 
     comp_info = [
-        "formula: {}".format(unicodeify(formula)),
-        "# sites: {}".format(structure.num_sites),
-        "space group: {}".format(spg),
+        f"formula: {unicodeify(formula)}",
+        f"# sites: {structure.num_sites}",
+        f"space group: {spg}",
     ]
     log_list(comp_info)
 
@@ -484,7 +484,7 @@ def _log_settings(runner: Runner):
 
     log_banner("SETTINGS")
     logger.info("Run parameters:")
-    p = ["{}: {}".format(k, ff(v)) for k, v in runner.settings.items() if v is not None]
+    p = [f"{k}: {ff(v)}" for k, v in runner.settings.items() if v is not None]
     log_list(p)
 
 
@@ -492,11 +492,11 @@ def _log_band_structure_information(band_structure: BandStructure):
     log_banner("BAND STRUCTURE")
 
     info = [
-        "# bands: {}".format(band_structure.nb_bands),
-        "# k-points: {}".format(len(band_structure.kpoints)),
-        "Fermi level: {:.3f} eV".format(band_structure.efermi),
-        "spin polarized: {}".format(band_structure.is_spin_polarized),
-        "metallic: {}".format(band_structure.is_metal()),
+        f"# bands: {band_structure.nb_bands}",
+        f"# k-points: {len(band_structure.kpoints)}",
+        f"Fermi level: {band_structure.efermi:.3f} eV",
+        f"spin polarized: {band_structure.is_spin_polarized}",
+        f"metallic: {band_structure.is_metal()}",
     ]
     logger.info("Input band structure information:")
     log_list(info)
@@ -512,8 +512,8 @@ def _log_band_structure_information(band_structure: BandStructure):
         band_gap_info.append("indirect band gap: {:.3f} eV".format(bg_data["energy"]))
 
     direct_data = band_structure.get_direct_band_gap_dict()
-    direct_bg = min((spin_data["value"] for spin_data in direct_data.values()))
-    band_gap_info.append("direct band gap: {:.3f} eV".format(direct_bg))
+    direct_bg = min(spin_data["value"] for spin_data in direct_data.values())
+    band_gap_info.append(f"direct band gap: {direct_bg:.3f} eV")
 
     direct_kpoint = []
     for spin, spin_data in direct_data.items():
@@ -546,7 +546,7 @@ def _log_band_edge_information(band_structure, edge_data):
         spins = edge_data["band_index"].keys()
         b_indices = [
             ", ".join([str(i + 1) for i in edge_data["band_index"][spin]])
-            + "({})".format(spin.name.capitalize())
+            + f"({spin.name.capitalize()})"
             for spin in spins
         ]
         b_indices = ", ".join(b_indices)
@@ -558,8 +558,8 @@ def _log_band_edge_information(band_structure, edge_data):
 
     info = [
         "energy: {:.3f} eV".format(edge_data["energy"]),
-        "k-point: {}".format(kpoint_str),
-        "band indices: {}".format(b_indices),
+        f"k-point: {kpoint_str}",
+        f"band indices: {b_indices}",
     ]
     log_list(info)
 

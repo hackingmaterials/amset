@@ -70,16 +70,16 @@ def create(**kwargs):
     click.echo("  - Strain distance: {:g}".format(kwargs["distance"]))
 
     deformations = get_deformations(kwargs["distance"])
-    click.echo("  - # Total deformations: {}".format(len(deformations)))
+    click.echo(f"  - # Total deformations: {len(deformations)}")
 
     if symprec is not None:
         sga = SpacegroupAnalyzer(structure, symprec=symprec)
         spg_symbol = unicodeify_spacegroup(sga.get_space_group_symbol())
         spg_number = sga.get_space_group_number()
-        click.echo("  - Spacegroup: {} ({})".format(spg_symbol, spg_number))
+        click.echo(f"  - Spacegroup: {spg_symbol} ({spg_number})")
 
         deformations = list(symmetry_reduce(deformations, structure, symprec=symprec))
-        click.echo("  - # Inequivalent deformations: {}".format(len(deformations)))
+        click.echo(f"  - # Inequivalent deformations: {len(deformations)}")
 
     click.echo("\nDeformations:")
     click.echo("  - " + "\n  - ".join(get_formatted_tensors(deformations)))
@@ -157,7 +157,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
 
     deformation_calculations = []
     for deformation_folder in deformation_folders:
-        click.echo("Reading deformation calculation in {}".format(deformation_folder))
+        click.echo(f"Reading deformation calculation in {deformation_folder}")
         deformation_calculation = parse_calculation(
             deformation_folder, zero_weighted_kpoints=zwk_mode
         )
@@ -168,7 +168,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
         sga = SpacegroupAnalyzer(bulk_structure, symprec=symprec)
         spg_symbol = unicodeify_spacegroup(sga.get_space_group_symbol())
         spg_number = sga.get_space_group_number()
-        click.echo("\nSpacegroup: {} ({})".format(spg_symbol, spg_number))
+        click.echo(f"\nSpacegroup: {spg_symbol} ({spg_number})")
 
         lattice_match = reciprocal_lattice_match(
             bulk_calculation["bandstructure"], symprec=symprec
@@ -182,7 +182,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
             )
 
     strain_mapping = get_strain_mapping(bulk_structure, deformation_calculations)
-    click.echo("\nFound {} strains:".format(len(strain_mapping)))
+    click.echo(f"\nFound {len(strain_mapping)} strains:")
     fmt_strain = get_formatted_tensors(strain_mapping.keys())
     click.echo("  - " + "\n  - ".join(fmt_strain))
 
@@ -197,7 +197,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
             symprec_deformation=symprec_deformation,
         )
         click.echo(
-            "\nAfter symmetrization found {} strains:".format(len(strain_mapping))
+            f"\nAfter symmetrization found {len(strain_mapping)} strains:"
         )
         fmt_strain = get_formatted_tensors(strain_mapping.keys())
         click.echo("  - " + "\n  - ".join(fmt_strain))
@@ -235,7 +235,7 @@ def read(bulk_folder, deformation_folders, **kwargs):
     filename = write_deformation_potentials(
         deformation_potentials, kpoints, bulk_structure, filename=kwargs["output"]
     )
-    click.echo("\nDeformation potentials written to {}".format(filename))
+    click.echo(f"\nDeformation potentials written to {filename}")
 
 
 def check_calculation(bulk_calculation, deformation_calculation):
@@ -305,10 +305,10 @@ def print_band_edge_information(bandstructure, band_edge, deformation_potentials
                 edge_deform = deformation_potentials[spin][b_idx, k_idx]
 
                 if len(deformation_potentials) == 2:
-                    click.echo("  - spin {}:".format(spin.name))
+                    click.echo(f"  - spin {spin.name}:")
 
                 str_kpoint = _kpt_str.format(k=kpoint)
-                click.echo("  - band: {:4d}  k-point: {}".format(b_idx + 1, str_kpoint))
+                click.echo(f"  - band: {b_idx + 1:4d}  k-point: {str_kpoint}")
                 click.echo("  - deformation potential:")
                 click.echo(_tensor_str.format(*edge_deform.ravel()))
                 click.echo("")

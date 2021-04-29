@@ -61,7 +61,7 @@ def initialize_amset_logger(
         )
 
         log.error(
-            "\n  ERROR: {}".format(exit_msg),
+            f"\n  ERROR: {exit_msg}",
             exc_info=(exc_type, exc_value, exc_traceback),
         )
 
@@ -139,7 +139,7 @@ class WrappingFormatter(logging.Formatter):
 
 
 def log_time_taken(t0: float):
-    logger.info("  └── time: {:.4f} s".format(time.perf_counter() - t0))
+    logger.info(f"  └── time: {time.perf_counter() - t0:.4f} s")
 
 
 def log_banner(text):
@@ -156,7 +156,7 @@ def log_list(list_strings, prefix="  ", level=logging.INFO):
             pipe = "└"
         else:
             pipe = "├"
-        logger.log(level, "{}{}── {}".format(prefix, pipe, text))
+        logger.log(level, f"{prefix}{pipe}── {text}")
 
 
 fancy_logo = """                 █████╗ ███╗   ███╗███████╗███████╗████████╗

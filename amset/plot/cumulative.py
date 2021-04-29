@@ -74,7 +74,7 @@ class CumulativePlotter(BaseMeshPlotter):
         if y_property.lower() == "conductivity":
             y_values = self._get_conductivity(n_idx, t_idx)
         else:
-            raise ValueError("unknown y_property: {}".format(y_property))
+            raise ValueError(f"unknown y_property: {y_property}")
 
         return np.ravel(y_values)
 
@@ -86,7 +86,7 @@ class CumulativePlotter(BaseMeshPlotter):
         elif x_property.lower() == "scattering rate":
             x_values = self._get_scattering_rates(n_idx, t_idx)
         else:
-            raise ValueError("unknown x_property: {}".format(x_property))
+            raise ValueError(f"unknown x_property: {x_property}")
 
         return np.ravel(x_values)
 

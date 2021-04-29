@@ -277,7 +277,7 @@ class RatesPlotter(BaseMeshPlotter):
                 label="FD cutoffs",
             )
 
-        scaling_string = "{:g} ".format(scaling_factor) if scaling_factor != 1 else ""
+        scaling_string = f"{scaling_factor:g} " if scaling_factor != 1 else ""
         data_label = _fmt_data[plot_type][self.label_key]
         data_unit = _fmt_data[plot_type]["unit"]
         ylabel = f"{data_label} ({scaling_string}{data_unit})"

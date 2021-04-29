@@ -256,7 +256,7 @@ def _maketicks(ax, bs_plotter, ylabel="Energy (eV)"):
 
     logging.info("Label positions:")
     for dist, label in list(zip(unique_d, unique_l)):
-        logging.info("\t{:.4f}: {}".format(dist, label))
+        logging.info(f"\t{dist:.4f}: {label}")
 
     ax.set_xticks(unique_d)
     ax.set_xticklabels(unique_l)
