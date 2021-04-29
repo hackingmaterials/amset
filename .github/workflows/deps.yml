@@ -3,7 +3,6 @@ name: Merge dependencies
 on:
   workflow_run:
     workflows:
-      - Build documentation
       - Run tests
     types:
       - completed
