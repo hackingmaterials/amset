@@ -85,7 +85,7 @@ def get_symmetry_equivalent_kpoints(
 
 
 def similarity_transformation(rot, mat):
-    """ R x M x R^-1 """
+    """R x M x R^-1"""
     return np.dot(rot, np.dot(mat, np.linalg.inv(rot)))
 
 

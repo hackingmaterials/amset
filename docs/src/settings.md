@@ -14,7 +14,7 @@ via the command-line will override those in the settings file.
 
 ## General settings
 
-These settings control the AMSET run, including interpolation density and 
+These settings control the AMSET run, including interpolation density and
 temperature/doping ranges.
 
 ### `doping`
@@ -39,7 +39,7 @@ temperature/doping ranges.
 
     Negative concentrations indicate electrons (*n*-type doping), positive concentrations
     indicate holes (*p*-type doping).
-    
+
     Default: `{{ doping }}`
 
 ### `temperatures`
@@ -60,7 +60,7 @@ temperature/doping ranges.
     ```python
     300:1000:8
     ```
-    
+
     Default: `{{ temperatures }}`
 
 ### `interpolation_factor`
@@ -107,28 +107,28 @@ temperature/doping ranges.
 
     Path to wavefunction coefficients file. The coefficients can be extracted
     from a VASP WAVECAR using the command:
-   
+
     ```bash
     amset wave
-    ``` 
+    ```
 
     This command also requires the vasprun.xml to be in the same folder.
 
     Default: `{{ wavefunction_coefficients }}`
-    
+
 ### `use_projections`
 
 !!! quote ""
     *Command-line option:* `--use-projections`
-    
+
     Use projections to calculate wavefunction overlap. This can often result in very
-    poor performance, and so is **not recommended**. 
-    
+    poor performance, and so is **not recommended**.
+
     In order to use projections, the VASP calculation must be performed with
-    `LORBIT = 11`. 
+    `LORBIT = 11`.
 
     Default: `{{ use_projections }}`
-    
+
 ### `scissor`
 
 !!! quote ""
@@ -152,9 +152,9 @@ temperature/doping ranges.
 !!! quote ""
     *Command-line option:* `-z, --zero-weighted-kpoints`
 
-    How to handle "zero-weighted" k-points if they are present in the calculation. 
+    How to handle "zero-weighted" k-points if they are present in the calculation.
     Options are:
-    
+
     - keep: Keep zero-weighted k-points in the band structure.
     - drop: Drop zero-weighted k-points, keeping only the weighted k-points.
     - prefer: Drop weighted-kpoints if zero-weighted k-points are present
@@ -164,24 +164,24 @@ temperature/doping ranges.
 
 !!! quote ""
     *Command-line option:* `--free-carrier-screening`
-    
+
     Whether free carriers will screen polar optical phonon and piezoelectric
-    scattering rates. This modifies the matrix elements from a 
+    scattering rates. This modifies the matrix elements from a
     $`\frac{1}{\left | \mathbf{q} + \mathbf{G} \right |}`$
-    dependence to a 
+    dependence to a
     $`\frac{1}{\left | \mathbf{q} + \mathbf{G} \right | + \beta_\infty}`$
     dependence, where $`\beta_\infty`$ is the inverse screening length that depends
     on the temperature, carrier concentration, and high-frequency dielectric constant.
-    
+
     This can result in a large reduction in the scattering rates at high carrier
     concentrations.
-    
+
     Default: `{{ free_carrier_screening }}`
-    
+
 
 ## Material settings
 
-These settings control the materials properties required to calculate the 
+These settings control the materials properties required to calculate the
 scattering rates.
 
 ### `high_frequency_dielectric`
@@ -210,7 +210,7 @@ scattering rates.
     *Command-line option:* `--elastic-constant`
 
     The elastic constants as the full 3x3x3x3 tensor or 6x6 Voigt form, in GPa.
-    
+
     Alteratively, a single averaged value can be given (not recommended).
 
     Required for: ADP, PIE
@@ -219,10 +219,10 @@ scattering rates.
 
 !!! quote ""
     *Command-line option:* `--deformation-potential`
-    
+
     Path to file containing deformation potentials for all bands, generated
     using `amset deform read`.
-    
+
     Alternatively, Can be given as a comma separated list of two deformation potentials
     for the VBM and CBM, respectively in eV, e.g.:
 
@@ -239,7 +239,7 @@ scattering rates.
 !!! quote ""
     *command-line option:* `--piezoelectric-constant`
 
-    The piezoelectric constants ($`\mathbf{e}`$) in C/m<sup>2</sup> given as either the 
+    The piezoelectric constants ($`\mathbf{e}`$) in C/m<sup>2</sup> given as either the
     full 3x3x3 tensor or the 3x6 Voigt form.
 
     Required for: PIE
@@ -263,10 +263,10 @@ scattering rates.
 !!! quote ""
     *Command-line option:* `--compensation-factor`
 
-    The amount of defect compensation to include. 
+    The amount of defect compensation to include.
 
-    The total impurity concentration is calculated as 
-    `compensation_factor` $`\times (n_0 - p_0) / q`$, where $`(n_0 - p_0)`$ is the 
+    The total impurity concentration is calculated as
+    `compensation_factor` $`\times (n_0 - p_0) / q`$, where $`(n_0 - p_0)`$ is the
     concentration of excess donors or acceptors and $`q`$ is the defect charge.
 
     Required for: IMP
@@ -282,7 +282,7 @@ scattering rates.
     highest optical phonon frequency at the Gamma point.
 
     Required for: POP
-    
+
 ### `mean_free_path`
 
 !!! quote ""
@@ -291,9 +291,9 @@ scattering rates.
     Basic version of boundary scattering in which the scattering rate is set to
     $`v_g / L`$, where $`v_g`$ is the group velocity and $`L`$ is the mean free
     path in nm.
-    
+
     Required for: MFP
-    
+
 ### `constant_relaxation_time`
 
 !!! quote ""
@@ -301,17 +301,17 @@ scattering rates.
 
     A constant relaxation time to use as the minimum relaxation time for
     all k-points.
-    
+
     It is not recommended to use this option in conjunction with any other
     scattering rates. Instead, this should be used to compare against
     results calculated in the constant relaxation time approximation.
-    
+
     Required for: CRT
 
 
 ## Performance settings
 
-These settings control the speed and accuracy of calculated properties. In 
+These settings control the speed and accuracy of calculated properties. In
 general the defaults should give converged values.
 
 ### `energy_cutoff`
@@ -342,7 +342,7 @@ general the defaults should give converged values.
     *Command-line option:* `--dos-estep`
 
     The energy step for the calculated density of states and transport density
-    of states, in eV. Controls the accuracy of determining the position of the 
+    of states, in eV. Controls the accuracy of determining the position of the
     Fermi level and transport properties. Smaller is better but can quickly
     get more expensive.
 
@@ -364,25 +364,25 @@ general the defaults should give converged values.
 
     Number of processors to use. `-1` indicates to use all available
     processors.
-    
+
     When using multiprocessing it is recommended to run `export OMP_NUM_THREADS=1` before
     running amset.
-    
+
     Default: `{{ nworkers }}`
-    
+
 ### `cache_wavefunction`
 
 !!! quote ""
     *Command-line option:* `--cache-wavefunction`
 
     Cache interpolated wavefunction coefficients. This means that the coefficients
-    for each band and k-point on the Fourier interpolated k-point mesh are only 
+    for each band and k-point on the Fourier interpolated k-point mesh are only
     calculated once. While this can yield a significant speed-up, it also massively
     increases memory requirements, especially if using a low value of `fd_tol`, or if
     the system contains very flat bands.
-    
+
     If memory issues occur, it is recommended to set `cache_wavefunction` to `False`.
-    
+
     Default: `{{ cache_wavefunction }}`
 
 
@@ -416,7 +416,7 @@ These settings control the output files and logging.
     *Command-line option:* `--file-format`
 
     The output file format. Options are: `json`, `yaml`, and `txt`.
-    
+
     Note, `write_mesh=True` is not supported using the `txt` format.
 
     Default: `{{ file_format }}`
@@ -436,10 +436,10 @@ These settings control the output files and logging.
     *Command-line option:* `--write-mesh/--no-write-mesh`
 
     Whether to write the full k-dependent properties to disk. Properties include
-    the band energy, velocity and scattering rate. Only k-points in the 
+    the band energy, velocity and scattering rate. Only k-points in the
     irreducible wedge are included.
 
-    **Note:** for large values of [interpolation_factor](#interpolation_factor) 
+    **Note:** for large values of [interpolation_factor](#interpolation_factor)
     his option can use a large amount of disk space.
 
     Default: `{{ write_mesh }}`

@@ -8,7 +8,7 @@ along high-symmetry lines).
 Temperature and doping ranges, scattering rates, and calculation
 parameters are controlled through the settings file. More details on the
 available settings are provided in the [settings section](settings.md) of the
-documentation. An example settings file is given 
+documentation. An example settings file is given
 [here](https://github.com/hackingmaterials/amset/blob/main/examples/GaAs/settings.yaml).
 
 ## From the command-line
@@ -39,7 +39,7 @@ amset run --interpolation-factor 20
 
 !!! info "Obtaining best performance"
     To obtain the best performance, it is recommended to run `export OMP_NUM_THREADS=1`
-    before running AMSET. Use the `nworkers` setting in the settings file if you want to 
+    before running AMSET. Use the `nworkers` setting in the settings file if you want to
     run AMSET using multiple cores.
 
 ## From the Python API

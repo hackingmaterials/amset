@@ -52,4 +52,3 @@ jobs:
           body_path: release_info.txt
           draft: false
           prerelease: false
-

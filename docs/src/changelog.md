@@ -33,7 +33,7 @@ Bug fixes:
 Bug fixes:
 
 - Fixed a number of issues in extracting deformation potentials. amset now attempts
-  to handle cases where the reciprocal and k-space lattices belong to difference 
+  to handle cases where the reciprocal and k-space lattices belong to difference
   classes.
 
 ## v0.4.7
@@ -43,13 +43,13 @@ Changes:
 - Default of `zero_weighted_kpoints` option has been changed from `keep` to `prefer`.
 - `acceptor_charge` and `donor_charge` options have been merged into a single option,
   `defect_charge`.
-  
+
 Enhancements:
 - Added `--bands` option to `amset wave` to allow selecting specific band ranges.
 
 Bug fixes:
 
-- Fixed the calculation of ionized impurity concentration in bipolar materials and for 
+- Fixed the calculation of ionized impurity concentration in bipolar materials and for
   charge states != 1.
 - Fixed the calculation of spin-orbit wave function overlaps.
 - Fixed warning messages in extraction of wave function coefficients.
@@ -59,9 +59,9 @@ Bug fixes:
 
 Enhancements:
 
-- `--stats` option added to band plotter that prints the effective masses and band 
+- `--stats` option added to band plotter that prints the effective masses and band
   structure information.
-  
+
 Bug fixes:
 
 - Fixed extracting wavefunction coefficients in systems with zero weighted k-points.
@@ -70,7 +70,7 @@ Bug fixes:
 
 Enhancements:
 
-- `--gnuplot` option added to transport plotter to allow writing the plot data to simple 
+- `--gnuplot` option added to transport plotter to allow writing the plot data to simple
   text files.
 
 ## v0.4.4
@@ -112,7 +112,7 @@ New features:
 Enhancements:
 
 - Reduce memory requirements when `cache_wavefunction = False`.
-- Don't write output files if `file_format = None`. 
+- Don't write output files if `file_format = None`.
 
 Bug fixes:
 
@@ -157,9 +157,9 @@ Bug fixes:
 
 New features:
 
-- `free_carrier_screening` option to allow free carriers to screen polar optical and 
+- `free_carrier_screening` option to allow free carriers to screen polar optical and
   piezoelectric scattering rates (see docs for me details).
- 
+
 Bug fixes:
 
 - Fixed a bug in extracting deformation potentials introduced in version 0.3.0.
@@ -169,14 +169,14 @@ Bug fixes:
 New features:
 
 - `cache_wavefunction` option to control memory demand (see docs for more details).
-- Revtex plot style support. Enabled by adding `--style revtex` to the end of 
+- Revtex plot style support. Enabled by adding `--style revtex` to the end of
   plotting commands.
 - Support for spin–orbit coupling.
 - Support for non-Gamma centered k-point meshes.
 - Ability to extract deformation potential for specific bands.
-- `zero_weighted_kpoints` option to control processing of zero-weighted k-points 
+- `zero_weighted_kpoints` option to control processing of zero-weighted k-points
   (see the docs for more details).
-  
+
 Enhancements:
 
 - Revamped lineshape plotter.
@@ -197,12 +197,12 @@ Fix GitHub releases.
 Major update with many new features:
 
 - Elastic, dielectric, and piezoelectric tensors are now supported.
-- Wave function coefficients are now desymmetrised on the fly, meaning 
+- Wave function coefficients are now desymmetrised on the fly, meaning
   `wavefunction.h5` files are much smaller.
-- New tool to extract wave function coefficients that removes the `pawpyseed` 
-  requirement and is much faster. This is a python only implementation and doesn't 
+- New tool to extract wave function coefficients that removes the `pawpyseed`
+  requirement and is much faster. This is a python only implementation and doesn't
   require compiling any additional codes.
-- Mesh properties (scattering rates etc, energies, velocities) stored in a separate 
+- Mesh properties (scattering rates etc, energies, velocities) stored in a separate
   mesh.h5 file which is much smaller and faster to read.
 - Revamped unit tests.
 

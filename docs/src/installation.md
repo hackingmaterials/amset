@@ -8,7 +8,7 @@ which will automatically setup other Python packages as required:
 ```
 pip install amset
 ```
-    
+
 If not installing from inside a virtual environment or conda environment, you
 may need to specify to install as a *user* via:
 
@@ -18,7 +18,7 @@ pip install amset --user
 
 ## Developer Installation
 
-To install an editable version of AMSET, first clone the repository from 
+To install an editable version of AMSET, first clone the repository from
 GitHub, then install using pip:
 
 ```bash

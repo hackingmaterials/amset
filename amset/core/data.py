@@ -93,7 +93,7 @@ class AmsetData(MSONable):
             structure,
             ir_kpoints_idx,
             ir_to_full_kpoint_mapping,
-            *ir_tetrahedra_info
+            *ir_tetrahedra_info,
         )
 
         logger.info("Initializing momentum relaxation time factor calculator")
@@ -512,17 +512,13 @@ class AmsetData(MSONable):
             data = self.to_dict()
             data = cast_dict_list(data)
 
-            filename = joinpath(
-                directory, f"{prefix}transport{suffix}.{file_format}"
-            )
+            filename = joinpath(directory, f"{prefix}transport{suffix}.{file_format}")
             dumpfn(data, filename, indent=4)
 
         elif file_format in ["csv", "txt"]:
             # don't write the data as JSON, instead write raw text files
             data, headers = self.to_data()
-            filename = joinpath(
-                directory, f"{prefix}transport{suffix}.{file_format}"
-            )
+            filename = joinpath(directory, f"{prefix}transport{suffix}.{file_format}")
             np.savetxt(filename, data, header=" ".join(headers))
         else:
             raise ValueError(f"Unrecognised output format: {file_format}")

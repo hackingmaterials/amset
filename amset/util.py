@@ -340,9 +340,7 @@ def parse_temperatures(temperatures_str: str) -> np.ndarray:
             return np.array(list(map(float, temperatures_str.split(","))))
 
     except ValueError:
-        raise ValueError(
-            f"ERROR: Unrecognised temperature format: {temperatures_str}"
-        )
+        raise ValueError(f"ERROR: Unrecognised temperature format: {temperatures_str}")
 
 
 def parse_deformation_potential(

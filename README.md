@@ -10,7 +10,7 @@ first-principles calculations.
 If you find AMSET useful, please consider citing [our paper](https://www.nature.com/articles/s41467-021-22440-5):
 
 ```
-Ganose, A. M., Park, J., Faghaninia, A., Woods-Robinson, R., Persson, K. A., Jain, A. 
+Ganose, A. M., Park, J., Faghaninia, A., Woods-Robinson, R., Persson, K. A., Jain, A.
 Efficient calculation of carrier scattering rates from first principles.
 Nat. Commun. 12, 2222 (2021)
 ```
