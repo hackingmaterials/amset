@@ -1024,7 +1024,7 @@ settings parameter is given below.</p>
 command-line interface options are also detailed below. Any settings specified
 via the command-line will override those in the settings file.</p>
 <h2 id="general-settings">General settings<a class="headerlink" href="#general-settings" title="Permanent link">&para;</a></h2>
-<p>These settings control the AMSET run, including interpolation density and 
+<p>These settings control the AMSET run, including interpolation density and
 temperature/doping ranges.</p>
 <h3 id="doping"><code>doping</code><a class="headerlink" href="#doping" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
@@ -1100,9 +1100,9 @@ from a VASP WAVECAR using the command:</p>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code>--use-projections</code></p>
 <p>Use projections to calculate wavefunction overlap. This can often result in very
-poor performance, and so is <strong>not recommended</strong>. </p>
+poor performance, and so is <strong>not recommended</strong>.</p>
 <p>In order to use projections, the VASP calculation must be performed with
-<code>LORBIT = 11</code>. </p>
+<code>LORBIT = 11</code>.</p>
 <p>Default: <code>False</code></p>
 </div>
 <h3 id="scissor"><code>scissor</code><a class="headerlink" href="#scissor" title="Permanent link">&para;</a></h3>
@@ -1122,7 +1122,7 @@ combination with the <a href="#scissor"><code>scissor</code></a> option. Has no 
 <h3 id="zero_weighted_kpoints"><code>zero_weighted_kpoints</code><a class="headerlink" href="#zero_weighted_kpoints" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code>-z, --zero-weighted-kpoints</code></p>
-<p>How to handle "zero-weighted" k-points if they are present in the calculation. 
+<p>How to handle "zero-weighted" k-points if they are present in the calculation.
 Options are:</p>
 <ul>
 <li>keep: Keep zero-weighted k-points in the band structure.</li>
@@ -1135,9 +1135,9 @@ Options are:</p>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code>--free-carrier-screening</code></p>
 <p>Whether free carriers will screen polar optical phonon and piezoelectric
-scattering rates. This modifies the matrix elements from a 
+scattering rates. This modifies the matrix elements from a
 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mn>1</mn><mrow><mo fence="true">∣</mo><mi mathvariant="bold">q</mi><mo>+</mo><mi mathvariant="bold">G</mi><mo fence="true">∣</mo></mrow></mfrac></mrow><annotation encoding="application/x-tex">\frac{1}{\left | \mathbf{q} + \mathbf{G} \right |}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.365108em;vertical-align:-0.52em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.845108em;"><span style="top:-2.655em;"><span class="pstrut" style="height:3em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="minner mtight"><span class="mopen mtight delimcenter" style="top:0em;"><span class="mtight">∣</span></span><span class="mord mathbf mtight">q</span><span class="mbin mtight">+</span><span class="mord mathbf mtight">G</span><span class="mclose mtight delimcenter" style="top:0em;"><span class="mtight">∣</span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.394em;"><span class="pstrut" style="height:3em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.52em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span>
-dependence to a 
+dependence to a
 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mn>1</mn><mrow><mrow><mo fence="true">∣</mo><mi mathvariant="bold">q</mi><mo>+</mo><mi mathvariant="bold">G</mi><mo fence="true">∣</mo></mrow><mo>+</mo><msub><mi>β</mi><mi mathvariant="normal">∞</mi></msub></mrow></mfrac></mrow><annotation encoding="application/x-tex">\frac{1}{\left | \mathbf{q} + \mathbf{G} \right | + \beta_\infty}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.365108em;vertical-align:-0.52em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.845108em;"><span style="top:-2.655em;"><span class="pstrut" style="height:3em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="minner mtight"><span class="mopen mtight delimcenter" style="top:0em;"><span class="mtight">∣</span></span><span class="mord mathbf mtight">q</span><span class="mbin mtight">+</span><span class="mord mathbf mtight">G</span><span class="mclose mtight delimcenter" style="top:0em;"><span class="mtight">∣</span></span></span><span class="mbin mtight">+</span><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.05278em;">β</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.16454285714285719em;"><span style="top:-2.357em;margin-left:-0.05278em;margin-right:0.07142857142857144em;"><span class="pstrut" style="height:2.5em;"></span><span class="sizing reset-size3 size1 mtight"><span class="mord mtight">∞</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.143em;"><span></span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.394em;"><span class="pstrut" style="height:3em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">1</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.52em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span>
 dependence, where <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>β</mi><mi mathvariant="normal">∞</mi></msub></mrow><annotation encoding="application/x-tex">\beta_\infty</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.05278em;">β</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.151392em;"><span style="top:-2.5500000000000003em;margin-left:-0.05278em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">∞</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span> is the inverse screening length that depends
 on the temperature, carrier concentration, and high-frequency dielectric constant.</p>
@@ -1146,7 +1146,7 @@ concentrations.</p>
 <p>Default: <code>False</code></p>
 </div>
 <h2 id="material-settings">Material settings<a class="headerlink" href="#material-settings" title="Permanent link">&para;</a></h2>
-<p>These settings control the materials properties required to calculate the 
+<p>These settings control the materials properties required to calculate the
 scattering rates.</p>
 <h3 id="high_frequency_dielectric"><code>high_frequency_dielectric</code><a class="headerlink" href="#high_frequency_dielectric" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
@@ -1184,7 +1184,7 @@ for the VBM and CBM, respectively in eV, e.g.:</p>
 <h3 id="piezoelectric_constant"><code>piezoelectric_constant</code><a class="headerlink" href="#piezoelectric_constant" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>command-line option:</em> <code>--piezoelectric-constant</code></p>
-<p>The piezoelectric constants (<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="bold">e</mi></mrow><annotation encoding="application/x-tex">\mathbf{e}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.44444em;vertical-align:0em;"></span><span class="mord mathbf">e</span></span></span></span>) in C/m<sup>2</sup> given as either the 
+<p>The piezoelectric constants (<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="bold">e</mi></mrow><annotation encoding="application/x-tex">\mathbf{e}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.44444em;vertical-align:0em;"></span><span class="mord mathbf">e</span></span></span></span>) in C/m<sup>2</sup> given as either the
 full 3x3x3 tensor or the 3x6 Voigt form.</p>
 <p>Required for: PIE</p>
 </div>
@@ -1200,9 +1200,9 @@ in version 0.5.0.</p>
 <h3 id="compensation_factor"><code>compensation_factor</code><a class="headerlink" href="#compensation_factor" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code>--compensation-factor</code></p>
-<p>The amount of defect compensation to include. </p>
-<p>The total impurity concentration is calculated as 
-<code>compensation_factor</code> <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>×</mo><mo stretchy="false">(</mo><msub><mi>n</mi><mn>0</mn></msub><mo>−</mo><msub><mi>p</mi><mn>0</mn></msub><mo stretchy="false">)</mo><mi mathvariant="normal">/</mi><mi>q</mi></mrow><annotation encoding="application/x-tex">\times (n_0 - p_0) / q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">×</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">n</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mord">/</span><span class="mord mathnormal" style="margin-right:0.03588em;">q</span></span></span></span>, where <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><msub><mi>n</mi><mn>0</mn></msub><mo>−</mo><msub><mi>p</mi><mn>0</mn></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(n_0 - p_0)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">n</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span> is the 
+<p>The amount of defect compensation to include.</p>
+<p>The total impurity concentration is calculated as
+<code>compensation_factor</code> <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>×</mo><mo stretchy="false">(</mo><msub><mi>n</mi><mn>0</mn></msub><mo>−</mo><msub><mi>p</mi><mn>0</mn></msub><mo stretchy="false">)</mo><mi mathvariant="normal">/</mi><mi>q</mi></mrow><annotation encoding="application/x-tex">\times (n_0 - p_0) / q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">×</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">n</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mord">/</span><span class="mord mathnormal" style="margin-right:0.03588em;">q</span></span></span></span>, where <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><msub><mi>n</mi><mn>0</mn></msub><mo>−</mo><msub><mi>p</mi><mn>0</mn></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(n_0 - p_0)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">n</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord mathnormal">p</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.30110799999999993em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span> is the
 concentration of excess donors or acceptors and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.625em;vertical-align:-0.19444em;"></span><span class="mord mathnormal" style="margin-right:0.03588em;">q</span></span></span></span> is the defect charge.</p>
 <p>Required for: IMP</p>
 <p>Default: <code>2</code></p>
@@ -1233,7 +1233,7 @@ results calculated in the constant relaxation time approximation.</p>
 <p>Required for: CRT</p>
 </div>
 <h2 id="performance-settings">Performance settings<a class="headerlink" href="#performance-settings" title="Permanent link">&para;</a></h2>
-<p>These settings control the speed and accuracy of calculated properties. In 
+<p>These settings control the speed and accuracy of calculated properties. In
 general the defaults should give converged values.</p>
 <h3 id="energy_cutoff"><code>energy_cutoff</code><a class="headerlink" href="#energy_cutoff" title="Permanent link">&para;</a></h3>
 <div class="admonition quote">
@@ -1255,7 +1255,7 @@ portion of the Brillouin zone will be calculated.</p>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code>--dos-estep</code></p>
 <p>The energy step for the calculated density of states and transport density
-of states, in eV. Controls the accuracy of determining the position of the 
+of states, in eV. Controls the accuracy of determining the position of the
 Fermi level and transport properties. Smaller is better but can quickly
 get more expensive.</p>
 <p>Default: <code>0.01</code></p>
@@ -1279,7 +1279,7 @@ running amset.</p>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code>--cache-wavefunction</code></p>
 <p>Cache interpolated wavefunction coefficients. This means that the coefficients
-for each band and k-point on the Fourier interpolated k-point mesh are only 
+for each band and k-point on the Fourier interpolated k-point mesh are only
 calculated once. While this can yield a significant speed-up, it also massively
 increases memory requirements, especially if using a low value of <code>fd_tol</code>, or if
 the system contains very flat bands.</p>
@@ -1319,9 +1319,9 @@ if only that scattering mechanism were present.</p>
 <div class="admonition quote">
 <p><em>Command-line option:</em> <code>--write-mesh/--no-write-mesh</code></p>
 <p>Whether to write the full k-dependent properties to disk. Properties include
-the band energy, velocity and scattering rate. Only k-points in the 
+the band energy, velocity and scattering rate. Only k-points in the
 irreducible wedge are included.</p>
-<p><strong>Note:</strong> for large values of <a href="#interpolation_factor">interpolation_factor</a> 
+<p><strong>Note:</strong> for large values of <a href="#interpolation_factor">interpolation_factor</a>
 his option can use a large amount of disk space.</p>
 <p>Default: <code>False</code></p>
 </div>

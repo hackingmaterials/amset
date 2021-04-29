@@ -830,7 +830,7 @@
 <p>Bug fixes:</p>
 <ul>
 <li>Fixed a number of issues in extracting deformation potentials. amset now attempts
-  to handle cases where the reciprocal and k-space lattices belong to difference 
+  to handle cases where the reciprocal and k-space lattices belong to difference
   classes.</li>
 </ul>
 <h2 id="v047">v0.4.7<a class="headerlink" href="#v047" title="Permanent link">&para;</a></h2>
@@ -844,7 +844,7 @@
 - Added <code>--bands</code> option to <code>amset wave</code> to allow selecting specific band ranges.</p>
 <p>Bug fixes:</p>
 <ul>
-<li>Fixed the calculation of ionized impurity concentration in bipolar materials and for 
+<li>Fixed the calculation of ionized impurity concentration in bipolar materials and for
   charge states != 1.</li>
 <li>Fixed the calculation of spin-orbit wave function overlaps.</li>
 <li>Fixed warning messages in extraction of wave function coefficients.</li>
@@ -853,7 +853,7 @@
 <h2 id="v046">v0.4.6<a class="headerlink" href="#v046" title="Permanent link">&para;</a></h2>
 <p>Enhancements:</p>
 <ul>
-<li><code>--stats</code> option added to band plotter that prints the effective masses and band 
+<li><code>--stats</code> option added to band plotter that prints the effective masses and band
   structure information.</li>
 </ul>
 <p>Bug fixes:</p>
@@ -863,7 +863,7 @@
 <h2 id="v045">v0.4.5<a class="headerlink" href="#v045" title="Permanent link">&para;</a></h2>
 <p>Enhancements:</p>
 <ul>
-<li><code>--gnuplot</code> option added to transport plotter to allow writing the plot data to simple 
+<li><code>--gnuplot</code> option added to transport plotter to allow writing the plot data to simple
   text files.</li>
 </ul>
 <h2 id="v044">v0.4.4<a class="headerlink" href="#v044" title="Permanent link">&para;</a></h2>
@@ -902,7 +902,7 @@
 <p>Enhancements:</p>
 <ul>
 <li>Reduce memory requirements when <code>cache_wavefunction = False</code>.</li>
-<li>Don't write output files if <code>file_format = None</code>. </li>
+<li>Don't write output files if <code>file_format = None</code>.</li>
 </ul>
 <p>Bug fixes:</p>
 <ul>
@@ -942,7 +942,7 @@
 <h2 id="v031">v0.3.1<a class="headerlink" href="#v031" title="Permanent link">&para;</a></h2>
 <p>New features:</p>
 <ul>
-<li><code>free_carrier_screening</code> option to allow free carriers to screen polar optical and 
+<li><code>free_carrier_screening</code> option to allow free carriers to screen polar optical and
   piezoelectric scattering rates (see docs for me details).</li>
 </ul>
 <p>Bug fixes:</p>
@@ -953,12 +953,12 @@
 <p>New features:</p>
 <ul>
 <li><code>cache_wavefunction</code> option to control memory demand (see docs for more details).</li>
-<li>Revtex plot style support. Enabled by adding <code>--style revtex</code> to the end of 
+<li>Revtex plot style support. Enabled by adding <code>--style revtex</code> to the end of
   plotting commands.</li>
 <li>Support for spin–orbit coupling.</li>
 <li>Support for non-Gamma centered k-point meshes.</li>
 <li>Ability to extract deformation potential for specific bands.</li>
-<li><code>zero_weighted_kpoints</code> option to control processing of zero-weighted k-points 
+<li><code>zero_weighted_kpoints</code> option to control processing of zero-weighted k-points
   (see the docs for more details).</li>
 </ul>
 <p>Enhancements:</p>
@@ -976,12 +976,12 @@
 <p>Major update with many new features:</p>
 <ul>
 <li>Elastic, dielectric, and piezoelectric tensors are now supported.</li>
-<li>Wave function coefficients are now desymmetrised on the fly, meaning 
+<li>Wave function coefficients are now desymmetrised on the fly, meaning
   <code>wavefunction.h5</code> files are much smaller.</li>
-<li>New tool to extract wave function coefficients that removes the <code>pawpyseed</code> 
-  requirement and is much faster. This is a python only implementation and doesn't 
+<li>New tool to extract wave function coefficients that removes the <code>pawpyseed</code>
+  requirement and is much faster. This is a python only implementation and doesn't
   require compiling any additional codes.</li>
-<li>Mesh properties (scattering rates etc, energies, velocities) stored in a separate 
+<li>Mesh properties (scattering rates etc, energies, velocities) stored in a separate
   mesh.h5 file which is much smaller and faster to read.</li>
 <li>Revamped unit tests.</li>
 </ul>
