@@ -53,7 +53,6 @@ def plot():
     """
     Plot AMSET results, including scattering rates and band structures
     """
-    pass
 
 
 @plot.command()
@@ -933,6 +932,4 @@ def _log_effective_mass_data(data, is_spin_polarized, mass_type="m_e"):
     if end_kpoint.label:
         kpoint_str += f" ({end_kpoint.label})"
 
-    click.echo(
-        f"  {mass_type}: {eff_mass:.3f} | {band_str} | {kpoint_str}"
-    )
+    click.echo(f"  {mass_type}: {eff_mass:.3f} | {band_str} | {kpoint_str}")
