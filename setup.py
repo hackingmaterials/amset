@@ -31,7 +31,7 @@ if __name__ == "__main__":
         install_requires=[
             "quadpy==0.16.7",
             "numpy==1.20.2",
-            "pymatgen==2022.0.7",
+            "pymatgen==2022.0.8",
             "scipy==1.6.3",
             "monty==2021.3.3",
             "matplotlib==3.4.1",
@@ -41,7 +41,7 @@ if __name__ == "__main__":
             "memory_profiler==0.58.0",
             "spglib==1.16.1",
             "click==7.1.2",
-            "sumo==2.2.3",
+            "sumo==2.2.4",
             "h5py==3.2.1",
             "pyFFTW==0.12.0",
             "interpolation==2.2.1",
@@ -50,13 +50,13 @@ if __name__ == "__main__":
         extras_require={
             "docs": [
                 "mkdocs==1.1.2",
-                "mkdocs-material==7.1.3",
+                "mkdocs-material==7.1.4",
                 "mkdocs-minify-plugin==0.4.0",
                 "mkdocs-macros-plugin==0.5.5",
                 "markdown-include==0.6.0",
-                "markdown-katex==202104.1030",
+                "markdown-katex==202105.1031",
             ],
-            "tests": ["pytest==6.2.3", "pytest-cov==2.11.1"],
+            "tests": ["pytest==6.2.4", "pytest-cov==2.11.1"],
             "all-electron": ["pawpyseed==0.6.4"],
             "dev": [
                 "coverage==5.5",
@@ -64,7 +64,7 @@ if __name__ == "__main__":
                 "pycodestyle==2.7.0",
                 "mypy==0.812",
                 "pydocstyle==6.0.0",
-                "flake8==3.9.1",
+                "flake8==3.9.2",
                 "pylint==2.8.2",
                 "black==21.4b2",
                 "pre-commit==2.12.1",
