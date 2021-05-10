@@ -56,7 +56,7 @@ if __name__ == "__main__":
                 "markdown-include==0.6.0",
                 "markdown-katex==202104.1030",
             ],
-            "tests": ["pytest==6.2.3", "pytest-cov==2.11.1"],
+            "tests": ["pytest==6.2.4", "pytest-cov==2.11.1"],
             "all-electron": ["pawpyseed==0.6.4"],
             "dev": [
                 "coverage==5.5",
