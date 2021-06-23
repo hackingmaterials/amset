@@ -54,6 +54,7 @@ Details on the finite difference approach in VASP can be found on the
     PREC = Accurate
     NSW = 1
     IBRION = 6
+    ISIF = 3
     ```
 
 ## Deformation potentials
