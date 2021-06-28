@@ -42,7 +42,7 @@ if __name__ == "__main__":
             "spglib==1.16.1",
             "click==8.0.1",
             "sumo==2.2.5",
-            "h5py==3.2.1",
+            "h5py==3.3.0",
             "pyFFTW==0.12.0",
             "interpolation==2.2.1",
             "numba==0.53.1",
