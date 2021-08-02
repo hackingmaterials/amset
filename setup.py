@@ -65,7 +65,7 @@ if __name__ == "__main__":
                 "mypy==0.910",
                 "pydocstyle==6.1.1",
                 "flake8==3.9.2",
-                "pylint==2.9.5",
+                "pylint==2.9.6",
                 "black==21.7b0",
                 "pre-commit==2.13.0",
             ],
