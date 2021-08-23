@@ -12,6 +12,8 @@ __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
+from pymatgen.electronic_structure.core import Spin
+
 _symprec = 0.01  # redefine symprec to avoid loading constants from file
 _metal_str = {True: "metallic", False: "semiconducting"}
 _kpt_str = "[{k[0]:6.2f} {k[1]:6.2f} {k[2]:6.2f}  ]"
@@ -160,7 +162,10 @@ def read(bulk_folder, deformation_folders, **kwargs):
         deformation_calculation = parse_calculation(
             deformation_folder, zero_weighted_kpoints=zwk_mode
         )
-        if check_calculation(bulk_calculation, deformation_calculation):
+        deformation_calculation = check_calculation(
+            bulk_calculation, deformation_calculation
+        )
+        if deformation_calculation is not False:
             deformation_calculations.append(deformation_calculation)
 
     if symprec is not None:
@@ -235,6 +240,39 @@ def read(bulk_folder, deformation_folders, **kwargs):
     click.echo(f"\nDeformation potentials written to {filename}")
 
 
+@deform.command()
+@argument("deformation-file", type=path_type)
+@option("-o", "--output", default="deformation_soc.h5", help="output file path")
+def to_soc(deformation_file, output):
+    """
+    Double up all bands in the deformation file to simulate a SOC calculation.
+    """
+    import numpy as np
+
+    from amset.deformation.io import (
+        load_deformation_potentials,
+        write_deformation_potentials,
+    )
+
+    deformation_potentials, kpoints, structure = load_deformation_potentials(
+        deformation_file
+    )
+
+    if len(deformation_potentials) == 2:
+        # spin polarized, order the bands by max eigenvalue
+        click.echo("ERROR: Spin polarized systems are not supported.")
+        sys.exit()
+
+    new_deformation_potentials = {
+        Spin.up: np.repeat(deformation_potentials[Spin.up], 2, axis=0)
+    }
+
+    filename = write_deformation_potentials(
+        new_deformation_potentials, kpoints, structure, filename=output
+    )
+    click.echo(f"\nFake SOC deformation potentials written to {filename}")
+
+
 def check_calculation(bulk_calculation, deformation_calculation):
     from amset.deformation.potentials import get_mesh_from_band_structure
 
@@ -243,6 +281,7 @@ def check_calculation(bulk_calculation, deformation_calculation):
     )
     bulk_species = tuple(bulk_calculation["bandstructure"].structure.species)
     bulk_is_metal = bulk_calculation["bandstructure"].is_metal()
+    bulk_nbands = bulk_calculation["bandstructure"].nb_bands
 
     mesh, is_shifted = get_mesh_from_band_structure(
         deformation_calculation["bandstructure"]
@@ -258,14 +297,29 @@ def check_calculation(bulk_calculation, deformation_calculation):
         raise RuntimeError("Calculations were performed using different structures")
     is_metal = deformation_calculation["bandstructure"].is_metal()
 
+    nbands = deformation_calculation["bandstructure"].nb_bands
+    if bulk_nbands > nbands:
+        click.echo(
+            "Bulk calculation has more bands than deformation. Skipping deformation ..."
+        )
+        return False
+    elif bulk_nbands < nbands:
+        click.echo(
+            "Deformation calculation has more bands than bulk ({} > {}). \n"
+            "Trimming excess bands."
+        )
+        deformation_calculation["bandstructure"].bands = deformation_calculation[
+            "bandstructure"
+        ].bands[: nbands - 1]
+
     if is_metal != bulk_is_metal:
         click.echo(
             "Bulk structure is {} whereas deformed structure is {}.\nSkipping "
             "deformation.".format(_metal_str[bulk_is_metal], _metal_str[is_metal])
         )
         return False
-    else:
-        return True
+
+    return deformation_calculation
 
 
 def bz_coverage_ok(bandstructures):
