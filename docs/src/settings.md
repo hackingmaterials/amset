@@ -278,8 +278,8 @@ scattering rates.
 !!! quote ""
     *Command-line option:* `--pop-frequency`
 
-    The polar optical phonon frequency, in THz. Generally, it is ok to take the
-    highest optical phonon frequency at the Gamma point.
+    The polar optical phonon frequency, in THz. This can be generated from a VASP
+    DFPT calculation using `amset phonon-frequency`.
 
     Required for: POP
 
