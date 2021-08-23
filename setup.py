@@ -29,7 +29,7 @@ if __name__ == "__main__":
         data_files=["LICENSE"],
         zip_safe=False,
         install_requires=[
-            "quadpy==0.16.8",
+            "quadpy==0.16.9",
             "numpy==1.21.2",
             "pymatgen==2022.0.11",
             "scipy==1.7.1",
