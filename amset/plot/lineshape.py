@@ -284,7 +284,9 @@ class _LinearBandStructureInterpolator:
         self.nbands = {s: len(e) for s, e in energies.items()}
 
         full_energies = {s: e[:, ir_to_full_idx] for s, e in energies.items()}
-        self.bs_interpolator = PeriodicLinearInterpolator(full_kpoints, full_energies)
+        self.bs_interpolator = PeriodicLinearInterpolator.from_data(
+            full_kpoints, full_energies
+        )
 
         self.property_interpolators = {}
         other_properties = _transpose_dict(other_properties)
