@@ -66,7 +66,7 @@ if __name__ == "__main__":
                 "pydocstyle==6.1.1",
                 "flake8==3.9.2",
                 "pylint==2.10.2",
-                "black==21.7b0",
+                "black==21.8b0",
                 "pre-commit==2.14.1",
             ],
         },
