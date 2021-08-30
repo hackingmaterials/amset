@@ -31,7 +31,7 @@ if __name__ == "__main__":
         install_requires=[
             "quadpy==0.16.9",
             "numpy==1.21.2",
-            "pymatgen==2022.0.11",
+            "pymatgen==2022.0.12",
             "scipy==1.7.1",
             "monty==2021.8.17",
             "matplotlib==3.4.3",
