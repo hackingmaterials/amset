@@ -36,7 +36,7 @@ if __name__ == "__main__":
             "monty==2021.8.17",
             "matplotlib==3.4.3",
             "BoltzTraP2==20.7.1",
-            "tqdm==4.62.1",
+            "tqdm==4.62.2",
             "tabulate==0.8.9",
             "memory_profiler==0.58.0",
             "spglib==1.16.2",
@@ -50,7 +50,7 @@ if __name__ == "__main__":
         extras_require={
             "docs": [
                 "mkdocs==1.2.2",
-                "mkdocs-material==7.2.4",
+                "mkdocs-material==7.2.5",
                 "mkdocs-minify-plugin==0.4.0",
                 "mkdocs-macros-plugin==0.6.0",
                 "markdown-include==0.6.0",
@@ -67,7 +67,7 @@ if __name__ == "__main__":
                 "flake8==3.9.2",
                 "pylint==2.10.2",
                 "black==21.7b0",
-                "pre-commit==2.14.0",
+                "pre-commit==2.14.1",
             ],
         },
         classifiers=[
