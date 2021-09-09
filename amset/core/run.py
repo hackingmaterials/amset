@@ -78,7 +78,7 @@ class Runner(MSONable):
         logger.info(f"amset exiting on {this_date} at {this_time}")
 
         if return_usage_stats:
-            usage_stats["max memory"] = mem_usage
+            usage_stats["max_memory"] = mem_usage
             return amset_data, usage_stats
         else:
             return amset_data

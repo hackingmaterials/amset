@@ -66,7 +66,7 @@ basic_scatterers = [i.name for i in AbstractBasicScattering.__subclasses__()]
 ni = {
     "high": {
         "triangle": quadpy.t2.schemes["xiao_gimbutas_50"](),
-        "quad": quadpy.c2.schemes["sommariva_50"](),
+        "quad": quadpy.c2.schemes["sommariva_55"](),
     },
     "medium": {
         "triangle": quadpy.t2.schemes["xiao_gimbutas_06"](),
@@ -79,9 +79,18 @@ ni = {
 }
 
 # ni = {
-#     "high": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
-#     "medium": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
-#     "low": {"triangle": quadpy.t2.centroid(), "quad": quadpy.c2.dunavant_00()},
+#     "high": {
+#         "triangle": quadpy.t2.schemes["centroid"](),
+#         "quad": quadpy.c2.schemes["dunavant_00"]()
+#     },
+#     "medium": {
+#         "triangle": quadpy.t2.schemes["centroid"](),
+#         "quad": quadpy.c2.schemes["dunavant_00"]()
+#     },
+#     "low": {
+#         "triangle": quadpy.t2.schemes["centroid"](),
+#         "quad": quadpy.c2.schemes["dunavant_00"]()
+#     },
 # }
 
 
@@ -806,6 +815,10 @@ def _interpolate_zero_rates(
     t0 = time.perf_counter()
     k_idx = np.arange(len(kpoints))
     for spin in rates:
+        # if a rate at a k-point for any spin, doping, or temperature is zero then
+        # flag it for interpolation
+        all_non_zero_rates = (rates[spin] > 1e7).all(axis=(0, 1, 2))
+
         for s, d, t, b in np.ndindex(rates[spin].shape[:-1]):
 
             if masks is not None:
@@ -813,8 +826,7 @@ def _interpolate_zero_rates(
             else:
                 mask = [True] * len(rates[spin][s, d, t, b])
 
-            non_zero_rates = rates[spin][s, d, t, b, mask] > 1e7
-            # non_zero_rates = rates[spin][s, d, t, b, mask] != 0
+            non_zero_rates = all_non_zero_rates[b][mask]
             zero_rate_idx = k_idx[mask][~non_zero_rates]
             non_zero_rate_idx = k_idx[mask][non_zero_rates]
 
@@ -836,7 +848,7 @@ def _interpolate_zero_rates(
                         method="nearest",
                     )
                 )
-                # rates[spin][s, d, t, b, zero_rate_idx] = 1e15
+                # rates[spin][s, d, t, b, zero_rate_idx] = 10 ** (15 + s)
 
             if pbar is not None:
                 pbar.update()
