@@ -59,24 +59,22 @@ si_settings_wavefunction.update(
 si_settings_wavefunction_nocache = deepcopy(si_settings_wavefunction)
 si_settings_wavefunction_nocache.update({"cache_wavefunction": False})
 si_transport_projections = {
-    ("mobility", ("overall", (0, 0))): 1575.9874105531137,
-    ("mobility", ("overall", (-1, 0))): 817.7813275452398,
-    ("seebeck", (0, 0)): -1008.7021246548229,
-    ("seebeck", (-1, 0)): -710.4299232159701,
-    ("conductivity", (0, 0)): 26.522847186591843,
-    ("conductivity", (-1, 0)): 1310.2367838858265,
-    ("electronic_thermal_conductivity", (0, 0)): 0.0013612910972812056,
-    ("electronic_thermal_conductivity", (-1, 0)): 0.0067225502076729005,
+    ("mobility", ("overall", (0, 0))): 1576.240094395015,
+    ("mobility", ("overall", (-1, 0))): 818.0127075693241,
+    ("seebeck", (0, 0)): -1008.0105781106167,
+    ("seebeck", (-1, 0)): -710.5177967236381,
+    ("conductivity", (0, 0)): 26.536195308836465,
+    ("conductivity", (-1, 0)): 1310.6074003138683,
+    ("electronic_thermal_conductivity", (0, 0)): 0.0013770477208317306,
 }
 si_transport_wavefunction = {
-    ("mobility", ("overall", (0, 0))): 1234.3061210385656,
-    ("mobility", ("overall", (-1, 0))): 667.5855817859127,
-    ("seebeck", (0, 0)): -960.2525654724394,
-    ("seebeck", (-1, 0)): -711.2343734992874,
-    ("conductivity", (0, 0)): 21.23809443512872,
-    ("conductivity", (-1, 0)): 1069.595934470882,
-    ("electronic_thermal_conductivity", (0, 0)): 0.001806653424274697,
-    ("electronic_thermal_conductivity", (-1, 0)): 0.005635982111503392,
+    ("mobility", ("overall", (0, 0))): 1233.9779127450836,
+    ("mobility", ("overall", (-1, 0))): 667.532155851656,
+    ("seebeck", (0, 0)): -966.5064015193824,
+    ("seebeck", (-1, 0)): -711.2460633986248,
+    ("conductivity", (0, 0)): 21.174358225829845,
+    ("conductivity", (-1, 0)): 1069.5098900046282,
+    ("electronic_thermal_conductivity", (0, 0)): 0.001716412738189452,
 }
 
 gaas_settings_wavefunction = {
@@ -243,7 +241,7 @@ def _validate_data(amset_data, transport, max_aniso, files, scats):
         assert value.shape == (3, 3)
 
         value = np.average(np.linalg.eigvalsh(value))
-        # print("('{}', {}): {},".format(prop, loc, value))
+        print("('{}', {}): {},".format(prop, loc, value))
 
         # assert values agree to within 1 %
         assert (

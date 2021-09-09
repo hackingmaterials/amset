@@ -409,8 +409,10 @@ def _log_amset_intro():
 
                                                   v{}
 
-    A. Ganose, J. Park, A. Faghaninia, R. Woods-Robinson,
-    A. Jain, in prep.
+    Ganose, A. M., Park, J., Faghaninia, A., Woods-Robinson,
+    R., Persson, K. A., Jain, A. Efficient calculation of
+    carrier scattering rates from first principles.
+    Nat. Commun. 12, 2222 (2021)
 
 
 amset starting on {} at {}""".format(
