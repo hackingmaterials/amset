@@ -59,7 +59,7 @@ if __name__ == "__main__":
             "tests": ["pytest==6.2.5", "pytest-cov==2.12.1"],
             "all-electron": ["pawpyseed==0.6.4"],
             "dev": [
-                "coverage==5.5",
+                "coverage==6.0",
                 "codacy-coverage==1.3.11",
                 "pycodestyle==2.7.0",
                 "mypy==0.910",
