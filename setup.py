@@ -40,7 +40,7 @@ if __name__ == "__main__":
             "tabulate==0.8.9",
             "memory_profiler==0.58.0",
             "spglib==1.16.2",
-            "click==8.0.1",
+            "click==8.0.3",
             "sumo==2.2.5",
             "h5py==3.4.0",
             "pyFFTW==0.12.0",
@@ -50,7 +50,7 @@ if __name__ == "__main__":
         extras_require={
             "docs": [
                 "mkdocs==1.2.2",
-                "mkdocs-material==7.3.1",
+                "mkdocs-material==7.3.2",
                 "mkdocs-minify-plugin==0.4.1",
                 "mkdocs-macros-plugin==0.6.0",
                 "markdown-include==0.6.0",
