@@ -40,7 +40,7 @@ if __name__ == "__main__":
             "tabulate==0.8.9",
             "memory_profiler==0.58.0",
             "spglib==1.16.2",
-            "click==8.0.1",
+            "click==8.0.3",
             "sumo==2.2.5",
             "h5py==3.4.0",
             "pyFFTW==0.12.0",
