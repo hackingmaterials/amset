@@ -815,43 +815,42 @@ def _interpolate_zero_rates(
     t0 = time.perf_counter()
     k_idx = np.arange(len(kpoints))
     for spin in rates:
-        # if a rate at a k-point for any spin, doping, or temperature is zero then
-        # flag it for interpolation
-        all_non_zero_rates = (rates[spin] > 1e7).all(axis=(0, 1, 2))
+        for s in range(rates[spin].shape[0]):
+            # if a rate at a k-point for any doping, or temperature is zero then
+            # flag it for interpolation
+            all_non_zero_rates = (rates[spin][s] > 1e6).all(axis=(0, 1))
+            for d, t, b in np.ndindex(rates[spin].shape[1:-1]):
+                if masks is not None:
+                    mask = np.invert(masks[spin][s, d, t, b])
+                else:
+                    mask = [True] * len(rates[spin][s, d, t, b])
 
-        for s, d, t, b in np.ndindex(rates[spin].shape[:-1]):
+                non_zero_rates = all_non_zero_rates[b][mask]
+                zero_rate_idx = k_idx[mask][~non_zero_rates]
+                non_zero_rate_idx = k_idx[mask][non_zero_rates]
 
-            if masks is not None:
-                mask = np.invert(masks[spin][s, d, t, b])
-            else:
-                mask = [True] * len(rates[spin][s, d, t, b])
+                if not np.any(non_zero_rates):
+                    # all scattering rates are zero so cannot interpolate
+                    # generally this means the scattering prefactor is zero. E.g.
+                    # for POP when studying non polar materials
+                    rates[spin][s, d, t, b, mask] += small_val
 
-            non_zero_rates = all_non_zero_rates[b][mask]
-            zero_rate_idx = k_idx[mask][~non_zero_rates]
-            non_zero_rate_idx = k_idx[mask][non_zero_rates]
-
-            if not np.any(non_zero_rates):
-                # all scattering rates are zero so cannot interpolate
-                # generally this means the scattering prefactor is zero. E.g.
-                # for POP when studying non polar materials
-                rates[spin][s, d, t, b, mask] += small_val
-
-            elif np.sum(non_zero_rates) != np.sum(mask):
-                # seems to work best when all the kpoints are +ve therefore add 0.5
-                # Todo: Use cartesian coordinates?
-                # interpolate log rates to avoid the bias towards large rates
-                rates[spin][s, d, t, b, zero_rate_idx] = np.exp(
-                    griddata(
-                        points=kpoints[non_zero_rate_idx] + 0.5,
-                        values=np.log(rates[spin][s, d, t, b, non_zero_rate_idx]),
-                        xi=kpoints[zero_rate_idx] + 0.5,
-                        method="nearest",
+                elif np.sum(non_zero_rates) != np.sum(mask):
+                    # seems to work best when all the kpoints are +ve therefore add 0.5
+                    # Todo: Use cartesian coordinates?
+                    # interpolate log rates to avoid the bias towards large rates
+                    rates[spin][s, d, t, b, zero_rate_idx] = np.exp(
+                        griddata(
+                            points=kpoints[non_zero_rate_idx] + 0.5,
+                            values=np.log(rates[spin][s, d, t, b, non_zero_rate_idx]),
+                            xi=kpoints[zero_rate_idx] + 0.5,
+                            method="nearest",
+                        )
                     )
-                )
-                # rates[spin][s, d, t, b, zero_rate_idx] = 10 ** (15 + s)
+                    # rates[spin][s, d, t, b, zero_rate_idx] = 10 ** (15 + s)
 
-            if pbar is not None:
-                pbar.update()
+                if pbar is not None:
+                    pbar.update()
 
     if pbar is not None:
         pbar.close()
