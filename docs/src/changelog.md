@@ -2,13 +2,16 @@
 
 ## [Unreleased]
 
+Bug fixes:
+
+- Fixed interpolation of scattering rates at low doping concentrations.
+
 ## v0.4.12
 
 Bug fixes:
 
 - Fixed issues in the interpolation of IMP scattering rates.
 - Lineshape plotter now works again.
-
 
 ## v0.4.11
 
@@ -53,6 +56,7 @@ Changes:
   `defect_charge`.
 
 Enhancements:
+
 - Added `--bands` option to `amset wave` to allow selecting specific band ranges.
 
 Bug fixes:
