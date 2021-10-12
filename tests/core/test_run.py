@@ -59,22 +59,22 @@ si_settings_wavefunction.update(
 si_settings_wavefunction_nocache = deepcopy(si_settings_wavefunction)
 si_settings_wavefunction_nocache.update({"cache_wavefunction": False})
 si_transport_projections = {
-    ("mobility", ("overall", (0, 0))): 1576.240094395015,
-    ("mobility", ("overall", (-1, 0))): 818.0127075693241,
-    ("seebeck", (0, 0)): -1008.0105781106167,
-    ("seebeck", (-1, 0)): -710.5177967236381,
-    ("conductivity", (0, 0)): 26.536195308836465,
-    ("conductivity", (-1, 0)): 1310.6074003138683,
-    ("electronic_thermal_conductivity", (0, 0)): 0.0013770477208317306,
+    ("mobility", ("overall", (0, 0))): 1576.074528381305,
+    ("mobility", ("overall", (-1, 0))): 817.7095423715324,
+    ("seebeck", (0, 0)): -1008.6448354488775,
+    ("seebeck", (-1, 0)): -710.4420172707946,
+    ("conductivity", (0, 0)): 26.524979568158074,
+    ("conductivity", (-1, 0)): 1310.121658393053,
+    ("electronic_thermal_conductivity", (0, 0)): 0.0013629136608729912,
 }
 si_transport_wavefunction = {
-    ("mobility", ("overall", (0, 0))): 1233.9779127450836,
-    ("mobility", ("overall", (-1, 0))): 667.532155851656,
-    ("seebeck", (0, 0)): -966.5064015193824,
-    ("seebeck", (-1, 0)): -711.2460633986248,
-    ("conductivity", (0, 0)): 21.174358225829845,
-    ("conductivity", (-1, 0)): 1069.5098900046282,
-    ("electronic_thermal_conductivity", (0, 0)): 0.001716412738189452,
+    ("mobility", ("overall", (0, 0))): 1234.1461746826737,
+    ("mobility", ("overall", (-1, 0))): 667.3798557475134,
+    ("seebeck", (0, 0)): -960.4571567090115,
+    ("seebeck", (-1, 0)): -711.2202530136929,
+    ("conductivity", (0, 0)): 21.233368948315626,
+    ("conductivity", (-1, 0)): 1069.265903429082,
+    ("electronic_thermal_conductivity", (0, 0)): 0.0018031827294972345,
 }
 
 gaas_settings_wavefunction = {
