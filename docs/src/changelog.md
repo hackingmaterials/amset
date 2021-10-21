@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## v0.4.14
+
+Bug fixes:
+
+- Fixed extraction of deformation potentials when a deformation calculation has more
+  bands than the undeformed calculation.
+
 ## v0.4.13
 
 Bug fixes:
