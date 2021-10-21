@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## v0.4.13
+
 Bug fixes:
 
 - Fixed interpolation of scattering rates at low doping concentrations.
