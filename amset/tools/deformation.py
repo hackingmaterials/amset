@@ -305,17 +305,18 @@ def check_calculation(bulk_calculation, deformation_calculation):
         return False
     elif bulk_nbands < nbands:
         click.echo(
-            "Deformation calculation has more bands than bulk ({} > {}). \n"
-            "Trimming excess bands."
+            f"Deformation calculation has more bands than bulk "
+            f"({nbands} > {bulk_nbands}).\nTrimming excess bands."
         )
-        deformation_calculation["bandstructure"].bands = deformation_calculation[
-            "bandstructure"
-        ].bands[: nbands - 1]
+        deformation_calculation["bandstructure"].bands = {
+            spin: deformation_calculation["bandstructure"].bands[spin][: len(bands)]
+            for spin, bands in bulk_calculation["bandstructure"].bands.items()
+        }
 
     if is_metal != bulk_is_metal:
         click.echo(
-            "Bulk structure is {} whereas deformed structure is {}.\nSkipping "
-            "deformation.".format(_metal_str[bulk_is_metal], _metal_str[is_metal])
+            f"Bulk structure is {_metal_str[bulk_is_metal]} whereas deformed structure "
+            f"is {_metal_str[is_metal]}.\nSkipping deformation."
         )
         return False
 
