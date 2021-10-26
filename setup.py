@@ -30,8 +30,8 @@ if __name__ == "__main__":
         zip_safe=False,
         install_requires=[
             "quadpy==0.16.10",
-            "numpy==1.21.2",
-            "pymatgen==2022.0.14",
+            "numpy==1.21.3",
+            "pymatgen==2022.0.16",
             "scipy==1.7.1",
             "monty==2021.8.17",
             "matplotlib==3.4.3",
@@ -42,7 +42,7 @@ if __name__ == "__main__":
             "spglib==1.16.2",
             "click==8.0.3",
             "sumo==2.2.5",
-            "h5py==3.4.0",
+            "h5py==3.5.0",
             "pyFFTW==0.12.0",
             "interpolation==2.2.1",
             "numba==0.53.1",
@@ -51,7 +51,7 @@ if __name__ == "__main__":
             "docs": [
                 "mkdocs==1.2.3",
                 "mkdocs-material==7.3.4",
-                "mkdocs-minify-plugin==0.4.1",
+                "mkdocs-minify-plugin==0.5.0",
                 "mkdocs-macros-plugin==0.6.0",
                 "markdown-include==0.6.0",
                 "markdown-katex==202109.1033",
