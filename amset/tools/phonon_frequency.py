@@ -41,38 +41,43 @@ def effective_phonon_frequency_from_vasp_files(vasprun, outcar):
     eigenvalues = -vasprun.normalmode_eigenvals[::-1]
     eigenvectors = vasprun.normalmode_eigenvecs[::-1]
 
+    # get frequencies from eigenvals (and convert to THz for VASP 5)
+    major_version = int(vasprun.vasp_version.split(".")[0])
+    frequencies = np.sqrt(np.abs(eigenvalues)) * np.sign(eigenvalues)
+    if major_version < 6:
+        # convert to THz
+        frequencies *= 15.633302
+
     outcar.read_lepsilon()
     born_effective_charges = outcar.born
 
-    effective_frequency, weights, frequencies = calculate_effective_phonon_frequency(
-        eigenvalues, eigenvectors, born_effective_charges, vasprun.final_structure
+    effective_frequency, weights = calculate_effective_phonon_frequency(
+        frequencies, eigenvectors, born_effective_charges, vasprun.final_structure
     )
 
     return effective_frequency, weights, frequencies
 
 
 def calculate_effective_phonon_frequency(
-    eigenvalues: np.ndarray,
+    frequencies: np.ndarray,
     eigenvectors: np.ndarray,
     born_effecitve_charges: np.ndarray,
     structure,
 ):
-    # get frequencies from eigenvals and convert to THz
-    frequencies = 15.633302 * np.sqrt(np.abs(eigenvalues)) * np.sign(eigenvalues)
-
+    # frequencies should be in THz
     weights = []
-    for eigenvector, eigenvalue in zip(eigenvectors, eigenvalues):
+    for eigenvector, frequency in zip(eigenvectors, frequencies):
         weight = get_phonon_weight(
-            eigenvector, eigenvalue, born_effecitve_charges, structure
+            eigenvector, frequency, born_effecitve_charges, structure
         )
         weights.append(weight)
 
     weights = np.array(weights) / sum(weights)
     effective_frequency = np.sum(weights * frequencies)
-    return effective_frequency, weights, frequencies
+    return effective_frequency, weights
 
 
-def get_phonon_weight(eigenvector, eigenvalue, born_effective_charges, structure):
+def get_phonon_weight(eigenvector, frequency, born_effective_charges, structure):
     from pymatgen.core.tensors import DEFAULT_QUAD
 
     # take spherical average of weight on scaled unit sphere
@@ -85,7 +90,7 @@ def get_phonon_weight(eigenvector, eigenvalue, born_effective_charges, structure
     for atom_born, atom_vec, site in zip(
         born_effective_charges, eigenvector, structure
     ):
-        ze = np.dot(atom_born, atom_vec) / np.sqrt(site.specie.atomic_mass * eigenvalue)
+        ze = np.dot(atom_born, atom_vec) / np.sqrt(site.specie.atomic_mass * frequency)
         zes.append(ze)
 
     all_weights = []

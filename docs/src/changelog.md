@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## v0.4.15
+
+Bug fixes:
+
+- Fixed extraction of polar phonon frequency for VASP 6.
+
 ## v0.4.14
 
 Bug fixes:
