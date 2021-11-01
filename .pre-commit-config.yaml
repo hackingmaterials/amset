@@ -5,7 +5,7 @@ repos:
     - id: autoflake
       args: [--in-place, --remove-all-unused-imports, --remove-unused-variable, --ignore-init-module-imports]
   - repo: https://github.com/psf/black
-    rev: 21.9b0
+    rev: 21.10b0
     hooks:
     - id: black
   - repo: https://gitlab.com/pycqa/flake8
