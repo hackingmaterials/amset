@@ -7,7 +7,7 @@ matplotlib==3.5.1
 BoltzTraP2==20.7.1
 tqdm==4.62.3
 tabulate==0.8.9
-memory_profiler==0.59.0
+memory_profiler==0.60.0
 spglib==1.16.3
 click==8.0.3
 sumo==2.2.5
