@@ -52,11 +52,11 @@ if __name__ == "__main__":
                 "mkdocs==1.2.3",
                 "mkdocs-material==8.1.10",
                 "mkdocs-minify-plugin==0.5.0",
-                "mkdocs-macros-plugin==0.6.3",
+                "mkdocs-macros-plugin==0.6.4",
                 "markdown-include==0.6.0",
                 "markdown-katex==202112.1034",
             ],
-            "tests": ["pytest==7.0.0", "pytest-cov==3.0.0"],
+            "tests": ["pytest==7.0.1", "pytest-cov==3.0.0"],
             "all-electron": ["pawpyseed==0.7.1"],
             "dev": [
                 "coverage==6.3.1",
