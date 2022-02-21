@@ -9,7 +9,7 @@ tqdm==4.62.3
 tabulate==0.8.9
 memory_profiler==0.60.0
 spglib==1.16.3
-click==8.0.3
+click==8.0.4
 sumo==2.2.5
 h5py==3.6.0
 pyFFTW==0.13.0
