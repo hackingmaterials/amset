@@ -1,6 +1,6 @@
 # Installation
 
-AMSET is a Python 3 package and requires a
+AMSET is a Python 3.8+ package and requires a
 [typical scientific Python stack](https://www.scipy.org/about.html).
 AMSET can be installed using the Python package manager "Pip",
 which will automatically setup other Python packages as required:

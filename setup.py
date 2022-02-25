@@ -70,6 +70,7 @@ if __name__ == "__main__":
                 "pre-commit==2.17.0",
             ],
         },
+        python_requires=">=3.8",
         classifiers=[
             "Programming Language :: Python :: 3.6",
             "Development Status :: 4 - Beta",
