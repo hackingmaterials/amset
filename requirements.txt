@@ -1,7 +1,7 @@
 quadpy==0.16.10
 numpy==1.21.5
 pymatgen==2022.0.17
-scipy==1.7.3
+scipy==1.8.0
 monty==2022.1.12.1
 matplotlib==3.5.1
 BoltzTraP2==20.7.1
