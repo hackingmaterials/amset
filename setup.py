@@ -30,7 +30,6 @@ if __name__ == "__main__":
         zip_safe=False,
         install_requires=[
             "quadpy>=0.16.10",
-            "numpy",
             "pymatgen>=2022.0.16",
             "scipy",
             "monty",
@@ -46,6 +45,9 @@ if __name__ == "__main__":
             "pyFFTW",
             "interpolation",
             "numba",
+        ],
+        setup_requires=[
+            "numpy",
         ],
         extras_require={
             "docs": [
