@@ -297,7 +297,7 @@ class ConvergencePlotter(BaseMultiTransportPlotter):
         elif prop == "mobility":
             data = self.mobility
         elif prop == "power factor":
-            data = self.seebeck ** 2 * self.conductivity * 1e-9  # convert to mW/(m K^2)
+            data = self.seebeck**2 * self.conductivity * 1e-9  # convert to mW/(m K^2)
         else:
             raise ValueError(f"Unrecognised property: {prop}")
 

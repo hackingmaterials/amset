@@ -103,7 +103,7 @@ class CumulativePlotter(BaseMeshPlotter):
         dfde = -dfdde(energies, ef, temp * boltzmann_au)
         nkpoints = len(self.kpoints)
 
-        integrand = velocities ** 2 * lifetimes * dfde * weights[None, :] / nkpoints
+        integrand = velocities**2 * lifetimes * dfde * weights[None, :] / nkpoints
         conductivity = np.sum(integrand)
 
         return integrand / conductivity

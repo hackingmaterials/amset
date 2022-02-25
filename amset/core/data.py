@@ -408,7 +408,7 @@ class AmsetData(MSONable):
 
     def to_dict(self, include_mesh=defaults["write_mesh"]):
         data = {
-            "doping": (self.doping * cm_to_bohr ** 3).round(),
+            "doping": (self.doping * cm_to_bohr**3).round(),
             "temperatures": self.temperatures,
             "fermi_levels": self.fermi_levels * hartree_to_ev,
             "conductivity": self.conductivity,
@@ -461,7 +461,7 @@ class AmsetData(MSONable):
         triu = np.triu_indices(3)
         for n, t in np.ndindex(len(self.doping), len(self.temperatures)):
             row = [
-                self.doping[n] * cm_to_bohr ** 3,
+                self.doping[n] * cm_to_bohr**3,
                 self.temperatures[t],
                 self.fermi_levels[n, t] * hartree_to_ev,
             ]

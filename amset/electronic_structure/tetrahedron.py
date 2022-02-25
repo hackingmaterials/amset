@@ -867,19 +867,19 @@ class TetrahedralBandStructure:
 
 
 def _get_density_of_states_a(ee1, e21, e31, e41):
-    return 3 * ee1 ** 2 / (e21 * e31 * e41)
+    return 3 * ee1**2 / (e21 * e31 * e41)
 
 
 def _get_density_of_states_b(ee2, e21, e31, e41, e32, e42):
-    return 3 * (e21 + 2 * ee2 - (e42 + e31) * ee2 ** 2 / (e32 * e42)) / (e31 * e41)
+    return 3 * (e21 + 2 * ee2 - (e42 + e31) * ee2**2 / (e32 * e42)) / (e31 * e41)
 
 
 def _get_density_of_states_c(e4e, e41, e42, e43):
-    return 3 * e4e ** 2 / (e41 * e42 * e43)
+    return 3 * e4e**2 / (e41 * e42 * e43)
 
 
 def _get_energy_dependent_weight_a(ee1, e2e, e3e, e4e, e21, e31, e41):
-    c = ee1 ** 2 / (e21 * e31 * e41)
+    c = ee1**2 / (e21 * e31 * e41)
     i1 = c * (e2e / e21 + e3e / e31 + e4e / e41)
     i2 = c * (ee1 / e21)
     i3 = c * (ee1 / e31)
@@ -896,7 +896,7 @@ def _get_energy_dependent_weight_b(ee1, ee2, e3e, e4e, e31, e41, e32, e42):
     k = ee1 / e31
     n = ee2 / e42
 
-    i1 = c * (x + e4e / e41) + z * x ** 2
+    i1 = c * (x + e4e / e41) + z * x**2
     i2 = c * y + zx * (e3e / e32 + y)
     i3 = c * k + zx * (k + ee2 / e32)
     i4 = c * (ee1 / e41 + n) + zx * n
@@ -904,7 +904,7 @@ def _get_energy_dependent_weight_b(ee1, ee2, e3e, e4e, e31, e41, e32, e42):
 
 
 def _get_energy_dependent_weight_c(ee1, ee2, ee3, e4e, e41, e42, e43):
-    c = e4e ** 2 / (e41 * e42 * e43)
+    c = e4e**2 / (e41 * e42 * e43)
     i1 = c * e4e / e41
     i2 = c * e4e / e42
     i3 = c * e4e / e43

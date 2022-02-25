@@ -78,11 +78,11 @@ def eff_mass(filename, **kwargs):
 
     amset_data = runner.run()
     inv_cond = np.linalg.inv(amset_data.conductivity)
-    doping_scale = 1 / bohr_to_cm ** 3
+    doping_scale = 1 / bohr_to_cm**3
     doping = (np.abs(amset_data.doping) * doping_scale)[:, None, None, None]
     crt = settings["constant_relaxation_time"]
 
-    masses = inv_cond * crt * doping * 10 ** 6 * constants.e ** 2 / constants.m_e
+    masses = inv_cond * crt * doping * 10**6 * constants.e**2 / constants.m_e
     mass_info = []
     for n, t in np.ndindex(amset_data.fermi_levels.shape):
         info = [amset_data.doping[n] * doping_scale, amset_data.temperatures[t]]

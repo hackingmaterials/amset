@@ -161,7 +161,7 @@ def get_gpoints(reciprocal_lattice, nbmax, encut, kpoint=(0, 0, 0)):
 
     cart_g = np.dot(all_g + kpoint, reciprocal_lattice)
     norm_g = np.linalg.norm(cart_g, axis=1)
-    ener_g = norm_g ** 2 / 0.262465831
+    ener_g = norm_g**2 / 0.262465831
 
     return all_g[ener_g <= encut]
 

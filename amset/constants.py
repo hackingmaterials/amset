@@ -39,7 +39,7 @@ boltzmann_si = physical_constants["Boltzmann constant"][0]
 boltzmann_ev = physical_constants["Boltzmann constant in eV/K"][0]
 boltzmann_au = boltzmann_si * joule_to_hartree
 hbar = physical_constants["Planck constant over 2 pi in eV s"][0]
-gpa_to_au = joule_to_hartree * 1e9 / m_to_bohr ** 3
+gpa_to_au = joule_to_hartree * 1e9 / m_to_bohr**3
 
 ktol = 1e-5
 small_val = 1e-32  # e.g. used for an initial non-zero val

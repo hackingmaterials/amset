@@ -197,7 +197,7 @@ class AcousticDeformationPotentialScattering(AbstractElasticScattering):
                 + np.tensordot(strain_trans_b, deform) ** 2 / c_trans_b
             )
         elif self.is_metal:
-            factor = self.deformation_potential ** 2 / c_long
+            factor = self.deformation_potential**2 / c_long
         else:
             def_idx = 1 if band_idx > self.vb_idx[spin] else 0
             factor = self.deformation_potential[def_idx] ** 2 / c_long
@@ -316,7 +316,7 @@ class IonizedImpurityScattering(AbstractElasticScattering):
 
             excess_impurities = abs((n_conc - p_conc) / defect_charge)
             impurity_concentration = excess_impurities * comp_factor
-            q_concentration[n, t] = defect_charge ** 2 * impurity_concentration
+            q_concentration[n, t] = defect_charge**2 * impurity_concentration
 
             imp_info.append(
                 (
@@ -401,7 +401,7 @@ class PiezoelectricScattering(AbstractElasticScattering):
         # convert dielectric to atomic units
         shape = (len(amset_data.doping), len(amset_data.temperatures))
         e = materials_properties["piezoelectric_constant"]
-        e *= coulomb_to_au / m_to_bohr ** 2  # convert to atomic units
+        e *= coulomb_to_au / m_to_bohr**2  # convert to atomic units
         dielectric = materials_properties["high_frequency_dielectric"] / (4 * np.pi)
         inv_dielectric = np.linalg.inv(dielectric)
 

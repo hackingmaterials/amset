@@ -404,7 +404,7 @@ class ScatteringCalculator:
             self.initialize_workers()
 
         vol = self.amset_data.structure.lattice.reciprocal_lattice.volume
-        conversion = vol / (4 * np.pi ** 2)
+        conversion = vol / (4 * np.pi**2)
         kpoints_idx = self.amset_data.ir_kpoints_idx
         nkpoints = len(kpoints_idx)
 
@@ -727,7 +727,7 @@ def calculate_rate(
         med_tol=k_spacing * 2,
         cross_section_weights=cs_weights,
     )
-    qpoint_norm_sq = np.sum(qpoints ** 2, axis=-1)
+    qpoint_norm_sq = np.sum(qpoints**2, axis=-1)
 
     k_primes = np.dot(qpoints, np.linalg.inv(rlat)) + k
     k_primes = kpoints_to_first_bz(k_primes)

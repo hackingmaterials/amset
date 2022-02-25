@@ -339,7 +339,7 @@ class TransportPlotter(BaseTransportPlotter):
         elif prop == "mobility":
             data = self.mobility
         elif prop == "power factor":
-            data = self.seebeck ** 2 * self.conductivity * 1e-9  # convert to mW/(m K^2)
+            data = self.seebeck**2 * self.conductivity * 1e-9  # convert to mW/(m K^2)
         else:
             raise ValueError(f"Unrecognised property: {prop}")
 
@@ -359,12 +359,12 @@ def get_lim(data, vmin, vmax, logv, pad):
     if vmin is None:
         vmin = data_min - data_pad
         if logv:
-            vmin = 10 ** vmin
+            vmin = 10**vmin
 
     if vmax is None:
         vmax = data_max + data_pad
         if logv:
-            vmax = 10 ** vmax
+            vmax = 10**vmax
 
     return vmin, vmax
 
@@ -403,4 +403,4 @@ def format_doping(doping):
     else:
         log_part = int(np.floor(log_doping))
         front_part = 10 ** (log_doping - log_part)
-        return fr"{front_part:.2f}$\times$10$^{{{log_part}}}$ cm$^{{-3}}$"
+        return rf"{front_part:.2f}$\times$10$^{{{log_part}}}$ cm$^{{-3}}$"

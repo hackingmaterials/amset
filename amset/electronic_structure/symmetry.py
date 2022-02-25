@@ -458,7 +458,7 @@ def get_rotation_angle(rotation_matrix, eps=1e-7):
     elif abs(ax[2] ** 2 - 1) > eps:
         cost = (rotation_matrix[2, 2] - ax[2] ** 2) / (1 - ax[2] ** 2)
 
-    if abs(sint ** 2 + cost ** 2 - 1) > eps:
+    if abs(sint**2 + cost**2 - 1) > eps:
         raise ValueError("Problem calculating rotation angle.")
 
     angle_rot1 = np.arcsin(sint) * 180 / np.pi

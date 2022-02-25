@@ -265,7 +265,7 @@ def _maketicks(ax, bs_plotter, ylabel="Energy (eV)"):
 
 
 def lorentzian(x, x0, gamma):
-    return 1 / np.pi * gamma / ((x - x0) ** 2 + gamma ** 2)
+    return 1 / np.pi * gamma / ((x - x0) ** 2 + gamma**2)
 
 
 class _LinearBandStructureInterpolator:
