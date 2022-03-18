@@ -167,3 +167,22 @@ def _get_overlap_ncl(grid, data, points, n_coeffs):
         res[i - 1] = abs(sum_) ** 2
 
     return res
+
+
+class UnityWavefunctionOverlap:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def to_reference(self):
+        return [1, 2, 3]
+
+    @classmethod
+    def from_reference(cls, *args, **kwargs):
+        return cls(*args, **kwargs)
+
+    @classmethod
+    def from_data(cls, *args, **kwargs):
+        return cls(*args, **kwargs)
+
+    def get_overlap(self, *args, **kwargs):
+        return 1

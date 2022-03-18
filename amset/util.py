@@ -76,11 +76,6 @@ def validate_settings(user_settings: Dict[str, Any]) -> Dict[str, Any]:
 
     for charge_setting in ("donor_charge", "acceptor_charge"):
         if charge_setting in settings:
-            logger.warning(
-                f"The {charge_setting} option has been renamed to defect_charge and "
-                "will be removed in June 2021. Please see the documentation for more "
-                "details."
-            )
             settings["defect_charge"] = settings.pop(charge_setting)
 
     for setting in settings:

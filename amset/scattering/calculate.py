@@ -35,7 +35,10 @@ from amset.electronic_structure.tetrahedron import (
 )
 from amset.interpolation.momentum import MRTACalculator
 from amset.interpolation.projections import ProjectionOverlapCalculator
-from amset.interpolation.wavefunction import WavefunctionOverlapCalculator
+from amset.interpolation.wavefunction import (
+    UnityWavefunctionOverlap,
+    WavefunctionOverlapCalculator,
+)
 from amset.log import log_list, log_time_taken
 from amset.scattering.basic import AbstractBasicScattering
 from amset.scattering.elastic import (
@@ -144,6 +147,14 @@ class ScatteringCalculator:
                 "Caching wavefunction not supported with orbital projection "
                 "overlaps. Setting cache_wavefunction to False."
             )
+        elif (
+            isinstance(self.amset_data.overlap_calculator, UnityWavefunctionOverlap)
+            and cache_wavefunction
+        ):
+            logger.info(
+                "Caching wavefunction not supported with unity overlaps. Setting "
+                "cache_wavefunction to False."
+            )
         elif cache_wavefunction and not self._basic_only:
             self._coeffs = {}
             self._coeffs_mapping = {}
@@ -208,6 +219,8 @@ class ScatteringCalculator:
 
         if isinstance(self.amset_data.overlap_calculator, ProjectionOverlapCalculator):
             overlap_type = "projection"
+        elif isinstance(self.amset_data.overlap_calculator, UnityWavefunctionOverlap):
+            overlap_type = "unity"
         else:
             overlap_type = "wavefunction"
 
@@ -547,6 +560,8 @@ def scattering_worker(
             overlap_calculator = WavefunctionOverlapCalculator.from_reference(
                 *overlap_calculator_reference
             )
+        elif overlap_type == "unity":
+            overlap_calculator = UnityWavefunctionOverlap()
         elif overlap_type == "projection":
             overlap_calculator = ProjectionOverlapCalculator.from_reference(
                 *overlap_calculator_reference
