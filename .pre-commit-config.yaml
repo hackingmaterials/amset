@@ -15,7 +15,7 @@ repos:
         args: [--max-line-length=125, "--extend-ignore=E203,W503"]
         language_version: python3
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.1.0
+    rev: v4.2.0
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
