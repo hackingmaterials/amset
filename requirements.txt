@@ -3,7 +3,7 @@ quadpy==0.16.13
 scipy==1.8.0
 monty==2022.1.12.1
 matplotlib==3.5.1
-BoltzTraP2==20.7.1
+BoltzTraP2==22.4.1
 tqdm==4.64.0
 tabulate==0.8.9
 memory_profiler==0.60.0
