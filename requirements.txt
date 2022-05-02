@@ -1,4 +1,4 @@
-pymatgen==2022.4.19
+pymatgen==2022.4.26
 quadpy==0.16.14
 scipy==1.8.0
 monty==2022.1.12.1
