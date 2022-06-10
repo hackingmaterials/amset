@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## v0.4.16
+
+AMSET dependencies are now not pinned to specific versions. This should make installing
+and upgrading a bit easier.
+
 ## v0.4.15
 
 Bug fixes:
