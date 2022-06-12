@@ -206,11 +206,11 @@ def _prep_inputs(example_dir, system, settings):
 
     input_dir = example_dir / system
     vasprun = input_dir / "vasprun.xml.gz"
-    settings["wavefunction_coefficients"] = input_dir / "wavefunction.h5"
+    settings["wavefunction_coefficients"] = str(input_dir / "wavefunction.h5")
 
     ed = settings.get("deformation_potential")
     if isinstance(ed, str):
-        settings["deformation_potential"] = input_dir / ed
+        settings["deformation_potential"] = str(input_dir / ed)
     return vasprun, settings
 
 
