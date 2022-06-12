@@ -5,7 +5,8 @@
 ## v0.4.16
 
 AMSET dependencies are now not pinned to specific versions. This should make installing
-and upgrading a bit easier.
+and upgrading a bit easier. Additionally, the quadpy package has been removed as a
+dependency.
 
 ## v0.4.15
 

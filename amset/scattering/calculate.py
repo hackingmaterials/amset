@@ -12,7 +12,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import numba
 import numpy as np
-import quadpy
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.util.coord import pbc_diff
 from scipy.interpolate import griddata
@@ -35,6 +34,13 @@ from amset.electronic_structure.tetrahedron import (
 )
 from amset.interpolation.momentum import MRTACalculator
 from amset.interpolation.projections import ProjectionOverlapCalculator
+from amset.interpolation.quad import QUAD_SCHEMES as ni
+from amset.interpolation.quad import (
+    get_quad_vol,
+    get_triangle_vol,
+    transform_quad,
+    transform_triangle,
+)
 from amset.interpolation.wavefunction import WavefunctionOverlapCalculator
 from amset.log import log_list, log_time_taken
 from amset.scattering.basic import AbstractBasicScattering
@@ -63,20 +69,6 @@ _all_scatterers: Union = (
 _scattering_mechanisms = {m.name: m for m in _all_scatterers}
 basic_scatterers = [i.name for i in AbstractBasicScattering.__subclasses__()]
 
-ni = {
-    "high": {
-        "triangle": quadpy.t2.schemes["xiao_gimbutas_50"](),
-        "quad": quadpy.c2.schemes["sommariva_55"](),
-    },
-    "medium": {
-        "triangle": quadpy.t2.schemes["xiao_gimbutas_06"](),
-        "quad": quadpy.c2.schemes["sommariva_06"](),
-    },
-    "low": {
-        "triangle": quadpy.t2.schemes["centroid"](),
-        "quad": quadpy.c2.schemes["dunavant_00"](),
-    },
-}
 
 # ni = {
 #     "high": {
@@ -898,15 +890,17 @@ def get_fine_mesh_qpoints(
             return
 
         simplex = intersections[:3, mask]
-        vol = quadpy.tn.get_vol(simplex)
-        xy_coords = quadpy.tn.transform(scheme.points, simplex.T)
+        vol = get_triangle_vol(simplex)
+        xy_coords = transform_triangle(scheme["points"], simplex.T)
         weights = (
-            scheme.weights[None] * vol[:, None] * cross_section_weights[mask][:, None]
+            scheme["weights"][None]
+            * vol[:, None]
+            * cross_section_weights[mask][:, None]
         )
 
         qpoints.append(get_q(xy_coords, z_coords[mask]))
         qweights.append(weights.reshape(-1))
-        mapping.append(np.repeat(intersection_idxs[mask], len(scheme.weights)))
+        mapping.append(np.repeat(intersection_idxs[mask], len(scheme["weights"])))
 
     def _get_quad_mesh(prec, min_norm, max_norm):
         scheme = ni[prec]["quad"]
@@ -915,15 +909,13 @@ def get_fine_mesh_qpoints(
             return
 
         cube = intersections.reshape((2, 2, -1, 2))[:, :, mask]
-        # 4 is taken from quadpy CnScheme.integrate
-        # ref_vol = 2 ** numpy.prod(len(ncube.shape) - 1) which for quadrilaterals = 4
-        vol = 4 * np.abs(quadpy.cn._helpers.get_detJ(scheme.points, cube))
-        xy_coords = quadpy.cn.transform(scheme.points, cube).T
-        weights = scheme.weights[None] * vol * cross_section_weights[mask][:, None]
+        vol = get_quad_vol(scheme["points"], cube)
+        xy_coords = transform_quad(scheme["points"], cube).T
+        weights = scheme["weights"][None] * vol * cross_section_weights[mask][:, None]
 
         qpoints.append(get_q(xy_coords, z_coords[mask]))
         qweights.append(weights.reshape(-1))
-        mapping.append(np.repeat(intersection_idxs[mask], len(scheme.weights)))
+        mapping.append(np.repeat(intersection_idxs[mask], len(scheme["weights"])))
 
     _get_tri_mesh("high", 0, high_tol)
     _get_tri_mesh("medium", high_tol, med_tol)

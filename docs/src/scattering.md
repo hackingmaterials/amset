@@ -219,8 +219,7 @@ requires an extremely dense k-point mesh to achieve convergence.
 To account for this, AMSET employs a modified tetrahedron integration
 scheme. AMSET first identifies a constant energy surface by computing
 tetrahedral cross sections using the tetrahedron method. Next, the constant
-energy surface is resampled using an ultra-fine mesh of k-points generated using
-the [quadpy](https://github.com/nschloe/quadpy) numerical integration package.
+energy surface is resampled using an ultra-fine mesh of k-points.
 The wavefunction coefficients and group velocities are reinterpolated into the
 ultra-fine mesh using linear interpolation and the matrix elements are
 calculated directly. This methodology allows for significantly faster

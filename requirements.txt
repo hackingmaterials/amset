@@ -1,5 +1,4 @@
 pymatgen==2022.5.19
-quadpy==0.16.14
 scipy==1.8.1
 monty==2022.1.12.1
 matplotlib==3.5.2
