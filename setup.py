@@ -52,7 +52,7 @@ if __name__ == "__main__":
         extras_require={
             "docs": [
                 "mkdocs==1.3.0",
-                "mkdocs-material==8.2.15",
+                "mkdocs-material==8.3.4",
                 "mkdocs-minify-plugin==0.5.0",
                 "mkdocs-macros-plugin==0.7.0",
                 "markdown-include==0.6.0",
@@ -67,7 +67,7 @@ if __name__ == "__main__":
                 "mypy==0.961",
                 "pydocstyle==6.1.1",
                 "flake8==4.0.1",
-                "pylint==2.13.9",
+                "pylint==2.14.1",
                 "black==22.3.0",
                 "pre-commit==2.19.0",
             ],
