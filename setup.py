@@ -15,13 +15,14 @@ if __name__ == "__main__":
         long_description_content_type="text/markdown",
         url="https://github.com/hackingmaterials/amset",
         author="Alex Ganose",
-        author_email="aganose@lbl.gov",
+        author_email="a.ganose@imperial.ac.uk",
         license="modified BSD",
         keywords="mobility conductivity seebeck scattering lifetime rates dft vasp",
         packages=find_packages(),
         package_data={
             "amset": [
                 "defaults.yaml",
+                "interpolation/quad.json",
                 "plot/amset_base.mplstyle",
                 "plot/revtex.mplstyle",
             ]
@@ -29,7 +30,6 @@ if __name__ == "__main__":
         data_files=["LICENSE"],
         zip_safe=False,
         install_requires=[
-            "quadpy>=0.16.10",
             "pymatgen>=2022.0.16",
             "scipy",
             "monty",
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         extras_require={
             "docs": [
                 "mkdocs==1.3.0",
-                "mkdocs-material==8.2.15",
+                "mkdocs-material==8.3.4",
                 "mkdocs-minify-plugin==0.5.0",
                 "mkdocs-macros-plugin==0.7.0",
                 "markdown-include==0.6.0",
@@ -74,7 +74,8 @@ if __name__ == "__main__":
         },
         python_requires=">=3.8",
         classifiers=[
-            "Programming Language :: Python :: 3.6",
+            "Programming Language :: Python :: 3.8",
+            "Programming Language :: Python :: 3.9",
             "Development Status :: 4 - Beta",
             "Intended Audience :: Science/Research",
             "Intended Audience :: System Administrators",
