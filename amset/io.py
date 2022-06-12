@@ -22,7 +22,7 @@ def write_settings(settings: Dict[str, Any], filename: str):
         filename: A filename.
     """
     settings = cast_dict_list(settings)
-    dumpfn(settings, filename, indent=4, default_flow_style=False)
+    dumpfn(settings, filename)
 
 
 def load_settings(filename: str) -> Dict[str, Any]:

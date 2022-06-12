@@ -513,7 +513,7 @@ class AmsetData(MSONable):
             data = cast_dict_list(data)
 
             filename = joinpath(directory, f"{prefix}transport{suffix}.{file_format}")
-            dumpfn(data, filename, indent=4)
+            dumpfn(data, filename)
 
         elif file_format in ["csv", "txt"]:
             # don't write the data as JSON, instead write raw text files
