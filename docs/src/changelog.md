@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## v0.4.17
+
+Remove unused desymmetrisation routines.
+
 ## v0.4.16
 
 AMSET dependencies are now not pinned to specific versions. This should make installing

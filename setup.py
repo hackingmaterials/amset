@@ -88,7 +88,6 @@ if __name__ == "__main__":
         entry_points={
             "console_scripts": [
                 "amset = amset.tools.cli:cli",
-                "desym = amset.tools.desym:desym",
             ]
         },
     )
