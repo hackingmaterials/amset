@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: |
+  If you use AMSET in your research, please cite the following:
+title: 'Efficient calculation of carrier scattering rates from first principles'
+version: 0.4.17 # replace with whatever version you use
+doi: 10.1038/s41467-021-22440-5
+date-released: 2021-04-13
+url: https://github.com/hackingmaterials/amset
+issn: 2041-1723
+journal: Nature Communications
+pages: 2222
+volume: 12
+year: 2021
+authors:
+- family-names: Ganose
+  given-names: Alex M.
+  orcid: https://orcid.org/0000-0002-4486-3321
+- family-names: Park
+  given-names: Junsoo
+- family-names: Faghaninia
+  given-names: Alireza
+- family-names: Woods-Robinson
+  given-names: Rachel
+- family-names: Persson
+  given-names: Kristin A.
+- family-names: Jain
+  given-names: Anubhav
+  orcid: https://orcid.org/0000-0001-5893-9967
