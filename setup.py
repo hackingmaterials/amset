@@ -69,7 +69,7 @@ if __name__ == "__main__":
                 "flake8==4.0.1",
                 "pylint==2.14.5",
                 "black==22.6.0",
-                "pre-commit==2.19.0",
+                "pre-commit==2.20.0",
             ],
         },
         python_requires=">=3.8",
