@@ -20,6 +20,14 @@ def phonon_frequency(vasprun, outcar):
     vasprun = get_file(vasprun, Vasprun)
     outcar = get_file(outcar, Outcar)
 
+    elements = vasprun.final_structure.composition.elements
+    if len(set(elements)) == 1:
+        raise click.ClickException(
+            "This system only contains a single element and is therefore not polar.\n"
+            "There will no polar optical phonon scattering and you do not need to set "
+            "pop_frequency."
+        )
+
     effective_frequency, weights, freqs = effective_phonon_frequency_from_vasp_files(
         vasprun, outcar
     )

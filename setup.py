@@ -15,13 +15,14 @@ if __name__ == "__main__":
         long_description_content_type="text/markdown",
         url="https://github.com/hackingmaterials/amset",
         author="Alex Ganose",
-        author_email="aganose@lbl.gov",
+        author_email="a.ganose@imperial.ac.uk",
         license="modified BSD",
         keywords="mobility conductivity seebeck scattering lifetime rates dft vasp",
         packages=find_packages(),
         package_data={
             "amset": [
                 "defaults.yaml",
+                "interpolation/quad.json",
                 "plot/amset_base.mplstyle",
                 "plot/revtex.mplstyle",
             ]
@@ -29,7 +30,6 @@ if __name__ == "__main__":
         data_files=["LICENSE"],
         zip_safe=False,
         install_requires=[
-            "quadpy>=0.16.10",
             "pymatgen>=2022.0.16",
             "scipy",
             "monty",
@@ -51,30 +51,31 @@ if __name__ == "__main__":
         ],
         extras_require={
             "docs": [
-                "mkdocs==1.2.3",
-                "mkdocs-material==8.2.1",
+                "mkdocs==1.3.1",
+                "mkdocs-material==8.4.1",
                 "mkdocs-minify-plugin==0.5.0",
-                "mkdocs-macros-plugin==0.6.4",
-                "markdown-include==0.6.0",
+                "mkdocs-macros-plugin==0.7.0",
+                "markdown-include==0.7.0",
                 "markdown-katex==202112.1034",
             ],
-            "tests": ["pytest==7.0.1", "pytest-cov==3.0.0"],
+            "tests": ["pytest==7.1.2", "pytest-cov==3.0.0"],
             "all-electron": ["pawpyseed==0.7.1"],
             "dev": [
-                "coverage==6.3.2",
+                "coverage==6.4.4",
                 "codacy-coverage==1.3.11",
-                "pycodestyle==2.8.0",
-                "mypy==0.931",
+                "pycodestyle==2.9.1",
+                "mypy==0.971",
                 "pydocstyle==6.1.1",
-                "flake8==4.0.1",
-                "pylint==2.12.2",
-                "black==22.1.0",
-                "pre-commit==2.17.0",
+                "flake8==5.0.4",
+                "pylint==2.14.5",
+                "black==22.6.0",
+                "pre-commit==2.20.0",
             ],
         },
         python_requires=">=3.8",
         classifiers=[
-            "Programming Language :: Python :: 3.6",
+            "Programming Language :: Python :: 3.8",
+            "Programming Language :: Python :: 3.9",
             "Development Status :: 4 - Beta",
             "Intended Audience :: Science/Research",
             "Intended Audience :: System Administrators",
@@ -87,7 +88,6 @@ if __name__ == "__main__":
         entry_points={
             "console_scripts": [
                 "amset = amset.tools.cli:cli",
-                "desym = amset.tools.desym:desym",
             ]
         },
     )
