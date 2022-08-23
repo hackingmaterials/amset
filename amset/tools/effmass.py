@@ -58,7 +58,7 @@ def eff_mass(filename, **kwargs):
     settings = {
         "scattering_type": ["CRT"],
         "constant_relaxation_time": 1e-14,
-        "use_projections": True,
+        "unity_overlap": True,
         "calculate_mobility": False,
         "separate_mobility": False,
         "write_log": False,
