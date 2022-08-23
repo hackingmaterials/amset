@@ -97,7 +97,7 @@ class PeriodicLinearInterpolator:
                 grid_data = np.tile(grid_data, (2, 1, 1, 1) + (1,) * len(data_shape))
 
             grid = UCGrid(
-                (0, spin_nbands - 1, spin_nbands),
+                (0.0, spin_nbands - 1.0, spin_nbands),
                 (x[0], x[-1], len(x)),
                 (y[0], y[-1], len(y)),
                 (z[0], z[-1], len(z)),
