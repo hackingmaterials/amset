@@ -1,6 +1,10 @@
 # Change log
 
-## [Unreleased]
+## v0.4.18
+
+- Fix issue with interpolation package [#657](https://github.com/hackingmaterials/amset/pull/657)
+  by [@lizhenzhupearl])(https://github.com/lizhenzhupearl).
+- `eff-mass` can now be run on vaspruns without orbital projections.
 
 ## v0.4.17
 
