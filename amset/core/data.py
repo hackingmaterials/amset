@@ -23,6 +23,7 @@ from amset.electronic_structure.dos import FermiDos
 from amset.electronic_structure.fd import dfdde
 from amset.electronic_structure.tetrahedron import TetrahedralBandStructure
 from amset.interpolation.momentum import MRTACalculator
+from amset.interpolation.wavefunction import UnityWavefunctionOverlap
 from amset.io import write_mesh
 from amset.log import log_list, log_time_taken
 from amset.util import cast_dict_list, groupby, tensor_average
@@ -116,7 +117,9 @@ class AmsetData(MSONable):
         return self.tetrahedral_band_structure.ir_kpoints_idx
 
     def set_overlap_calculator(self, overlap_calculator):
-        if overlap_calculator is not None:
+        if overlap_calculator is not None and not isinstance(
+            overlap_calculator, UnityWavefunctionOverlap
+        ):
             equal = check_nbands_equal(overlap_calculator, self)
             if not equal:
                 raise RuntimeError(

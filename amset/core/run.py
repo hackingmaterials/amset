@@ -25,7 +25,10 @@ from amset.core.transport import solve_boltzman_transport_equation
 from amset.electronic_structure.common import get_band_structure
 from amset.interpolation.bandstructure import Interpolator
 from amset.interpolation.projections import ProjectionOverlapCalculator
-from amset.interpolation.wavefunction import WavefunctionOverlapCalculator
+from amset.interpolation.wavefunction import (
+    UnityWavefunctionOverlap,
+    WavefunctionOverlapCalculator,
+)
 from amset.io import load_settings, write_settings
 from amset.log import initialize_amset_logger, log_banner, log_list
 from amset.scattering.calculate import ScatteringCalculator, basic_scatterers
@@ -161,9 +164,8 @@ class Runner(MSONable):
         return amset_data, timing
 
     def _check_wavefunction(self):
-        if (
-            not Path(self.settings["wavefunction_coefficients"]).exists()
-            and not self.settings["use_projections"]
+        if not Path(self.settings["wavefunction_coefficients"]).exists() and not (
+            self.settings["use_projections"] or self.settings["unity_overlap"]
         ):
             raise ValueError(
                 "Could not find wavefunction coefficients. To run AMSET, the \n"
@@ -209,6 +211,8 @@ class Runner(MSONable):
 
         if set(self.settings["scattering_type"]).issubset(set(basic_scatterers)):
             overlap_calculator = None
+        elif self.settings["unity_overlap"]:
+            overlap_calculator = UnityWavefunctionOverlap()
         elif self.settings["use_projections"]:
             overlap_calculator = ProjectionOverlapCalculator.from_band_structure(
                 self._band_structure,

@@ -25,6 +25,7 @@ interpolation_factor: 10
 # Overlap settings
 wavefunction_coefficients: wavefunction.h5  # Path to a wavefunction coefficients file
 use_projections: false  # use orbital projections for overlap (not recommended)
+unity_overlap: false  # set all overlaps to unity
 
 # whether free electrons screen the polar optical and piezoelectric scattering rates
 free_carrier_screening: false
