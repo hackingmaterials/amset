@@ -1,4 +1,4 @@
-pymatgen==2022.5.26
+pymatgen==2022.8.23
 scipy==1.9.1
 monty==2022.4.26
 matplotlib==3.5.3
