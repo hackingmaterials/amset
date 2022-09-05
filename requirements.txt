@@ -3,7 +3,7 @@ scipy==1.9.1
 monty==2022.4.26
 matplotlib==3.5.3
 BoltzTraP2==22.6.1
-tqdm==4.64.0
+tqdm==4.64.1
 tabulate==0.8.10
 memory_profiler==0.60.0
 spglib==2.0.0
