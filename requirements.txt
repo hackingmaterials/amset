@@ -12,4 +12,4 @@ sumo==2.3.5
 h5py==3.7.0
 pyFFTW==0.13.0
 interpolation==2.2.4
-numba==0.56.2
+numba==0.56.3
