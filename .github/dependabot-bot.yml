@@ -1,0 +1,16 @@
+safe:
+ - pymatgen
+ - scipy
+ - monty
+ - matplotlib
+ - BoltzTraP2
+ - tqdm
+ - tabulate
+ - memory_profiler
+ - spglib
+ - click
+ - sumo
+ - h5py
+ - pyFFTW
+ - interpolation
+ - numba
