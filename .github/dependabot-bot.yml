@@ -14,3 +14,20 @@ safe:
  - pyFFTW
  - interpolation
  - numba
+ - mkdocs
+ - mkdocs-material
+ - mkdocs-minify-plugin
+ - mkdocs-macros-plugin
+ - markdown-include
+ - markdown
+ - pytest
+ - pytest-cov
+ - coverage
+ - codacy-coverage
+ - pycodestyle
+ - flake8
+ - pydocstyle
+ - flake8
+ - pylint
+ - black
+ - pre-commit
