@@ -71,7 +71,7 @@ def validate_settings(user_settings: Dict[str, Any]) -> Dict[str, Any]:
             settings["piezoelectric_constant"]
         )
 
-    settings["doping"] = np.asarray(settings["doping"], dtype=np.float)
+    settings["doping"] = np.asarray(settings["doping"], dtype=float)
     settings["temperatures"] = np.asarray(settings["temperatures"])
 
     for charge_setting in ("donor_charge", "acceptor_charge"):
