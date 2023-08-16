@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 class AbstractInelasticScattering(ABC):
-
     name: str
     required_properties: Tuple[str]
 
@@ -58,7 +57,6 @@ class AbstractInelasticScattering(ABC):
 
 
 class PolarOpticalScattering(AbstractInelasticScattering):
-
     name = "POP"
     required_properties = (
         "pop_frequency",

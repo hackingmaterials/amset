@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 
 class AbstractElasticScattering(ABC):
-
     name: str
     required_properties: Tuple[str]
 
@@ -82,7 +81,6 @@ class AbstractElasticScattering(ABC):
 
 
 class AcousticDeformationPotentialScattering(AbstractElasticScattering):
-
     name = "ADP"
     required_properties = ("deformation_potential", "elastic_constant")
 
@@ -368,7 +366,6 @@ class IonizedImpurityScattering(AbstractElasticScattering):
 
 
 class PiezoelectricScattering(AbstractElasticScattering):
-
     name = "PIE"
     required_properties = (
         "piezoelectric_constant",

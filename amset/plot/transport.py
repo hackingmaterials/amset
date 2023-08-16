@@ -109,7 +109,6 @@ class TransportPlotter(BaseTransportPlotter):
         no_base_style=False,
         fonts=None,
     ):
-
         if axes is None:
             if grid is None or len(grid) == 0:
                 grid = (1, len(properties))

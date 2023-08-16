@@ -51,7 +51,6 @@ def get_symmetry_equivalent_kpoints(
     rot_mapping = []
 
     for i, point in enumerate(round_kpoints):
-
         if point in equiv_points_mapping:
             map_idx = equiv_points_mapping[point]
             mapping.append(map_idx)

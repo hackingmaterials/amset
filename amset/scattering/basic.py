@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 class AbstractBasicScattering(ABC):
-
     name: str
     required_properties: Tuple[str]
 
@@ -52,7 +51,6 @@ class AbstractBasicScattering(ABC):
 
 
 class ConstantRelaxationTime(AbstractBasicScattering):
-
     name = "CRT"
     required_properties = ("constant_relaxation_time",)
 
@@ -84,7 +82,6 @@ class ConstantRelaxationTime(AbstractBasicScattering):
 
 
 class MeanFreePathScattering(AbstractBasicScattering):
-
     name = "MFP"
     required_properties = ("mean_free_path",)
 
@@ -125,7 +122,6 @@ class MeanFreePathScattering(AbstractBasicScattering):
 
 
 class ScaledRelaxationTime(AbstractBasicScattering):
-
     name = "SRT"
     required_properties = ("base_relaxation_time",)
 

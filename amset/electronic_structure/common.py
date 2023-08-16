@@ -146,7 +146,6 @@ def get_velocities_from_outer_product(
     velocities = {}
 
     for spin, spin_velocities_product in velocities_product.items():
-
         if symmetry_information:
             ir_kpoints_idx = symmetry_information["ir_kpoints_idx"]
             spin_velocities_product = spin_velocities_product[..., ir_kpoints_idx]

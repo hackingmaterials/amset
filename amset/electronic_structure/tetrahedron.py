@@ -470,7 +470,6 @@ class TetrahedralBandStructure:
         return np.unique(tetrahedra[np.isin(tetrahedra, kpoint_idx).any(axis=1)])
 
     def get_intersecting_tetrahedra(self, spin, energy, band_idx=None):
-
         max_energies = self.max_tetrahedra_energies[spin]
         min_energies = self.min_tetrahedra_energies[spin]
 

@@ -30,7 +30,6 @@ def styled_plot(*style_sheets):
 
     def decorator(get_plot):
         def wrapper(*args, fonts=None, style=None, no_base_style=False, **kwargs):
-
             if no_base_style:
                 list_style = []
             else:

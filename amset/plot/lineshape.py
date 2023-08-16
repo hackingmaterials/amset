@@ -291,7 +291,6 @@ class _LinearBandStructureInterpolator:
         self.property_interpolators = {}
         other_properties = _transpose_dict(other_properties)
         for prop, prop_data in other_properties.items():
-
             full_prop_data = {s: p[:, ir_to_full_idx] for s, p in prop_data.items()}
             self.property_interpolators[prop] = PeriodicLinearInterpolator.from_data(
                 full_kpoints, full_prop_data, gaussian=0.75
