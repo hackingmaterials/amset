@@ -1,6 +1,6 @@
 pymatgen==2023.8.10
 scipy==1.10.1
-monty==2022.9.9
+monty==2023.8.8
 matplotlib==3.7.1
 BoltzTraP2==22.12.1
 tqdm==4.66.1
