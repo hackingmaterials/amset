@@ -10,8 +10,37 @@ on:
       - main
 
 jobs:
-  test:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+      - uses: pre-commit/action@v3.0.0
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: actions/setup-python@v4
+      with:
+        python-version: 3.8
+        cache: pip
+        cache-dependency-path: requirements.txt
+  
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy wheel packaging
+        pip install -r requirements.txt
+        pip install -e .[docs]
+
+    - name: Build
+      run: mkdocs build -f docs/mkdocs.yml -d ../docs_build
+      
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -35,3 +64,12 @@ jobs:
 
     - name: Test
       run: pytest --cov=amset --cov-report=xml
+
+  automerge:
+    needs: [lint, test, docs]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: fastify/github-action-merge-dependabot@v3
