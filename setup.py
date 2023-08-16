@@ -60,17 +60,6 @@ if __name__ == "__main__":
             ],
             "tests": ["pytest==7.2.2", "pytest-cov==4.0.0"],
             "all-electron": ["pawpyseed==0.7.1"],
-            "dev": [
-                "coverage==7.2.1",
-                "codacy-coverage==1.3.11",
-                "pycodestyle==2.10.0",
-                "mypy==1.1.1",
-                "pydocstyle==6.3.0",
-                "flake8==6.0.0",
-                "pylint==2.17.2",
-                "black==23.3.0",
-                "pre-commit==3.2.1",
-            ],
         },
         python_requires=">=3.8",
         classifiers=[
