@@ -1,5 +1,9 @@
 # Change log
 
+## v0.4.19
+
+Fix numpy deprecations.
+
 ## v0.4.18
 
 - Fix issue with interpolation package [#657](https://github.com/hackingmaterials/amset/pull/657)
