@@ -143,7 +143,7 @@ class PeriodicLinearInterpolator:
         grid, data = self.interpolators[spin]
         if np.iscomplexobj(data):
             # only allows interpolating floats, so have to separate real and imag
-            interp_data = np.empty((len(v),) + self.data_shape, dtype=np.complex)
+            interp_data = np.empty((len(v),) + self.data_shape, dtype=np.complex128)
             interp_data.real = eval_linear(grid, data.real, v, xto.LINEAR).reshape(
                 -1, *self.data_shape
             )

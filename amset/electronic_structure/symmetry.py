@@ -313,7 +313,7 @@ def rotation_matrix_to_su2(rotation_matrix, eps=1e-8):
 
     # Check for identity or inversion
     if np.allclose(saux, np.eye(3), atol=eps):
-        return np.array([[1, 0], [0, 1]], dtype=np.complex)
+        return np.array([[1, 0], [0, 1]], dtype=np.complex128)
 
     # Find the rotation axis and the rotation angle
     ax = get_rotation_axis(saux)
@@ -325,7 +325,7 @@ def rotation_matrix_to_su2(rotation_matrix, eps=1e-8):
     # Set the spin space rotation matrix elements
     u11 = complex(cosa, -ax[2] * sina)
     u12 = complex(-ax[1] * sina, -ax[0] * sina)
-    u = np.array([[u11, u12], [u12.conjugate(), u11.conjugate()]], dtype=np.complex)
+    u = np.array([[u11, u12], [u12.conjugate(), u11.conjugate()]], dtype=np.complex128)
 
     # For each 3x3 rotation one can associate two 2x2 rotation matrices in spin
     # space. This function returns the U matrix with positive cosa term

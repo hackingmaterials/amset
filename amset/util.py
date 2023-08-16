@@ -71,7 +71,7 @@ def validate_settings(user_settings: Dict[str, Any]) -> Dict[str, Any]:
             settings["piezoelectric_constant"]
         )
 
-    settings["doping"] = np.asarray(settings["doping"], dtype=np.float)
+    settings["doping"] = np.asarray(settings["doping"], dtype=np.float64)
     settings["temperatures"] = np.asarray(settings["temperatures"])
 
     for charge_setting in ("donor_charge", "acceptor_charge"):
@@ -473,7 +473,7 @@ def parse_ibands(ibands: Union[str, Tuple[List[int], List[int]]]) -> Dict:
 
 def create_shared_array(data: np.ndarray, return_shared_data=False):
     data = np.asarray(data)
-    if data.dtype == np.complex:
+    if data.dtype == np.complex128:
         data_type = "complex"
         data_buffer = RawArray("d", int(np.prod(data.shape)) * 2)
     else:
@@ -508,7 +508,7 @@ def create_shared_dict_array(data: Dict[Any, np.ndarray], return_shared_data=Fal
 def array_from_buffer(buffer):
     data_buffer, data_shape, data_type = buffer
     if data_type == "complex":
-        return np.frombuffer(data_buffer).view(np.complex).reshape(data_shape)
+        return np.frombuffer(data_buffer).view(np.complex128).reshape(data_shape)
     else:
         return np.frombuffer(data_buffer, dtype=data_type).reshape(data_shape)
 

@@ -14,7 +14,7 @@ def write_coefficients(coeffs, gpoints, kpoints, structure, filename="coeffs.h5"
         for spin, spin_coeffs in coeffs.items():
             name = f"coefficients_{spin.name}"
             dset = f.create_dataset(
-                name, spin_coeffs.shape, compression="gzip", dtype=np.complex
+                name, spin_coeffs.shape, compression="gzip", dtype=np.complex128
             )
             dset[...] = spin_coeffs
 
