@@ -1,5 +1,10 @@
 # Change log
 
+## v0.4.20
+
+Fix intermittent casting bug.
+
+
 ## v0.4.19
 
 Fix numpy deprecations.
