@@ -548,7 +548,9 @@ class TetrahedralBandStructure:
             # transform the mask to the full BZ
             band_idx = np.repeat(band_idx, tetrahedra_weights)
             tetrahedra_grouped = self.grouped_ir_to_full[tetrahedra_idx]
-            tetrahedra_idx = np.concatenate(tetrahedra_grouped)
+            tetrahedra_idx = np.concatenate(
+                tetrahedra_grouped, dtype=np.int_, casting="unsafe"
+            )
             tetrahedra_mask = (band_idx, tetrahedra_idx)
 
             # tetrahedra_mask = tetrahedra_mask[:, self.ir_tetrahedra_to_full_idx]
