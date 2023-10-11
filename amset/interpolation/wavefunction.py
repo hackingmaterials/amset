@@ -73,7 +73,7 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         logger.info("Initializing wavefunction overlap calculator")
 
         mesh_dim = get_mesh_from_kpoint_numbers(kpoints)
-        if np.product(mesh_dim) == len(kpoints):
+        if np.prod(mesh_dim) == len(kpoints):
             return cls.from_data(kpoints, coefficients, gpoints)
 
         full_kpoints, *symmetry_mapping = expand_kpoints(

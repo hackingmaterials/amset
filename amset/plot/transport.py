@@ -113,7 +113,7 @@ class TransportPlotter(BaseTransportPlotter):
             if grid is None or len(grid) == 0:
                 grid = (1, len(properties))
 
-            if np.product(grid) < len(properties):
+            if np.prod(grid) < len(properties):
                 raise ValueError("Grid is not large enough to plot all properties")
 
             width, height = get_figsize(*grid, width=width, height=height)
@@ -129,7 +129,7 @@ class TransportPlotter(BaseTransportPlotter):
                     if len(grid) == 1:
                         grid = (1, grid[0])
 
-            if np.product(grid) < len(properties):
+            if np.prod(grid) < len(properties):
                 raise ValueError("Not enough axes to plot all properties")
 
         if doping_type is not None and doping_idx is not None:
@@ -171,8 +171,8 @@ class TransportPlotter(BaseTransportPlotter):
             },
         }
 
-        if np.product(grid) > len(properties):
-            n_missing = np.product(grid) - len(properties)
+        if np.prod(grid) > len(properties):
+            n_missing = np.prod(grid) - len(properties)
             properties = list(properties) + [None] * n_missing
 
         plot_data = []

@@ -30,7 +30,7 @@ class DeformationPotentialInterpolator(PeriodicLinearInterpolator):
         logger.info("Initializing deformation potential interpolator")
 
         mesh_dim = get_mesh_from_kpoint_numbers(kpoints)
-        if np.product(mesh_dim) == len(kpoints):
+        if np.prod(mesh_dim) == len(kpoints):
             return cls.from_data(kpoints, deformation_potentials)
 
         full_kpoints, rotations, _, _, op_mapping, kp_mapping = expand_kpoints(

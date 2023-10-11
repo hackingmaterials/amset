@@ -126,7 +126,7 @@ class MobilityPlotter(BaseTransportPlotter):
                     if len(grid) == 1:
                         grid = (1, grid[0])
 
-            if len(primary_idxs) > np.product(grid):
+            if len(primary_idxs) > np.prod(grid):
                 raise ValueError(
                     "Axes array not commensurate with doping_idx and temperature_idx"
                 )

@@ -813,7 +813,7 @@ def _interpolate_zero_rates(
     # loop over all scattering types, doping, temps, and bands and interpolate
     # zero scattering rates based on the nearest k-point
     logger.info("Interpolating missing scattering rates")
-    n_rates = sum([np.product(rates[spin].shape[:-1]) for spin in rates])
+    n_rates = sum([np.prod(rates[spin].shape[:-1]) for spin in rates])
     if progress_bar:
         pbar = get_progress_bar(total=n_rates, desc="progress")
     else:

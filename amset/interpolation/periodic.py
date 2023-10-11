@@ -113,7 +113,7 @@ class PeriodicLinearInterpolator:
         # k-points has to cover the full BZ
         kpoints = kpoints_to_first_bz(kpoints)
         mesh_dim = get_mesh_from_kpoint_numbers(kpoints)
-        if np.product(mesh_dim) != len(kpoints):
+        if np.prod(mesh_dim) != len(kpoints):
             raise ValueError("K-points do not cover full Brillouin zone.")
 
         kpoints = np.around(kpoints, 5)

@@ -330,7 +330,7 @@ def bz_coverage_ok(bandstructures):
 
     for bandstructure in bandstructures:
         bulk_mesh, _ = get_mesh_from_band_structure(bandstructure)
-        nkpoints = np.product(bulk_mesh)
+        nkpoints = np.prod(bulk_mesh)
         if nkpoints != len(bandstructure.kpoints):
             return False
     return True

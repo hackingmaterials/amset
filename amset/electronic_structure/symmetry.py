@@ -151,7 +151,7 @@ def expand_kpoints(
     in_uniform_mesh = (np.abs(unique_addresses) < 1e-5).all(axis=1)
 
     n_mapped = int(np.sum(in_uniform_mesh))
-    n_expected = int(np.product(mesh))
+    n_expected = int(np.prod(mesh))
     if n_mapped != n_expected:
         raise ValueError(f"Expected {n_expected} points but found {n_mapped}")
 
