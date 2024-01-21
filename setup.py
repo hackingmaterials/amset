@@ -1,5 +1,3 @@
-from setuptools import find_packages, setup
-
 import os
 import pathlib
 import shutil
@@ -7,16 +5,14 @@ import subprocess
 
 import numpy
 import setuptools
+from setuptools import find_packages, setup
 
 from amset import __version__
 
 with open("README.md", "r") as file:
     long_description = file.read()
 
-if (
-    "AMSET_USE_CMAKE" in os.environ
-    and os.environ["AMSET_USE_CMAKE"].lower() == "false"
-):
+if "AMSET_USE_CMAKE" in os.environ and os.environ["AMSET_USE_CMAKE"].lower() == "false":
     use_cmake = False
 else:
     use_cmake = True
@@ -41,6 +37,7 @@ def _run_cmake(build_dir):
 def _clean_cmake(build_dir):
     if build_dir.exists():
         shutil.rmtree(build_dir)
+
 
 def _get_params_from_site_cfg():
     """Read extra_compile_args and extra_link_args.
