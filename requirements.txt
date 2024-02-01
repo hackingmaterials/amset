@@ -1,4 +1,4 @@
-pymatgen==2023.12.18
+pymatgen==2024.1.27
 scipy==1.11.4
 monty==2024.1.26
 matplotlib==3.8.2
