@@ -116,11 +116,17 @@ def get_kpoints_tetrahedral(
 
     atoms = AseAtomsAdaptor().get_atoms(structure)
 
+    # spglib : ASE Atoms-like input is deprecated
+    cell = []
+    cell.append(np.array(atoms.get_cell().T, dtype="double", order="C")) # lattice
+    cell.append(np.array(atoms.get_scaled_positions(), dtype="double", order="C")) # positions
+    cell.append(np.array(atoms.get_atomic_numbers(), dtype="intc")) # numbers
+
     if not symprec:
         symprec = 1e-8
 
     grid_mapping, grid_address = spglib.get_ir_reciprocal_mesh(
-        kpoint_mesh, atoms, symprec=symprec, is_time_reversal=time_reversal_symmetry
+        kpoint_mesh, cell, symprec=symprec, is_time_reversal=time_reversal_symmetry
     )
     full_kpoints = grid_address / kpoint_mesh
 
