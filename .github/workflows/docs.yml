@@ -29,7 +29,7 @@ jobs:
       run: mkdocs build -f docs/mkdocs.yml -d ../docs_build
 
     - name: Deploy
-      uses: peaceiris/actions-gh-pages@v3
+      uses: peaceiris/actions-gh-pages@v4
       with:
         deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
         publish_dir: ./docs_build
