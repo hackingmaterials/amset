@@ -1,9 +1,12 @@
 # Change log
 
+## v0.4.21
+
+Fix compatbility with spglib.
+
 ## v0.4.20
 
 Fix intermittent casting bug.
-
 
 ## v0.4.19
 

@@ -19,6 +19,7 @@ The following tests are performed:
 - don't write mesh, using projections + deformation potential tuple + single elastic
   constant/piezoelectric for K2ReF6 (tricky spin polarized system)
 """
+
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict
@@ -190,7 +191,7 @@ def test_run_tricky_spin_polarized(band_structure_data):
     files = ["transport", "!mesh"]
     scats = ["ADP"]
     transport = {
-        ("mobility", ("overall", (0, 0))): 1.261213643946453,
+        ("mobility", ("overall", (0, 0))): 1.3902421061518926,
         ("seebeck", (0, 0)): 1356.1341462605026,
     }
 

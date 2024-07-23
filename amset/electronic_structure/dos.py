@@ -1,6 +1,7 @@
 """
 Customised implementation of FermiDos. Will Move back to pymatgen at some point.
 """
+
 import logging
 from typing import Dict, Optional, Tuple, Union
 

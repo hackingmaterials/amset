@@ -1,4 +1,5 @@
 """Module defining constants and default parameters."""
+
 import numpy as np
 from monty.serialization import loadfn
 from pkg_resources import resource_filename
