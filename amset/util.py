@@ -1,6 +1,7 @@
 """
 Module defining utility functions.
 """
+
 import collections
 import copy
 import logging

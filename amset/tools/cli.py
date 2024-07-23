@@ -1,6 +1,7 @@
 """
 This module contains a script for using amset from the command line.
 """
+
 import warnings
 
 import click

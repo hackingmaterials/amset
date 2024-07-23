@@ -172,10 +172,10 @@ class ScatteringCalculator:
 
                 # calculate the coefficients for all bands and k-point simultaneously
                 try:
-                    self._coeffs[
-                        spin
-                    ] = self.amset_data.overlap_calculator.get_coefficients(
-                        spin, spin_b_idxs, self.amset_data.kpoints[spin_k_idxs]
+                    self._coeffs[spin] = (
+                        self.amset_data.overlap_calculator.get_coefficients(
+                            spin, spin_b_idxs, self.amset_data.kpoints[spin_k_idxs]
+                        )
                     )
                     # because we are only storing the coefficients for the
                     # band/k-points we want, we need a way of mapping from the original
@@ -232,9 +232,11 @@ class ScatteringCalculator:
 
         # deformation potential is a large tensor that should be put into shared memory
         elastic_scatterers = [
-            s.to_reference()
-            if isinstance(s, AcousticDeformationPotentialScattering)
-            else s
+            (
+                s.to_reference()
+                if isinstance(s, AcousticDeformationPotentialScattering)
+                else s
+            )
             for s in self.elastic_scatterers
         ]
 
@@ -562,9 +564,11 @@ def scattering_worker(
             raise ValueError(f"Unrecognised overlap type: {overlap_type}")
 
         elastic_scatterers = [
-            AcousticDeformationPotentialScattering.from_reference(*s)
-            if isinstance(s, tuple)
-            else s
+            (
+                AcousticDeformationPotentialScattering.from_reference(*s)
+                if isinstance(s, tuple)
+                else s
+            )
             for s in elastic_scatterers
         ]
 

@@ -19,6 +19,7 @@ The following tests are performed:
 - don't write mesh, using projections + deformation potential tuple + single elastic
   constant/piezoelectric for K2ReF6 (tricky spin polarized system)
 """
+
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict
