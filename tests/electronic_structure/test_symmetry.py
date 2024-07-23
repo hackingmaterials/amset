@@ -277,7 +277,12 @@ def test_expand_kpoints(symmetry_structure, shift, mesh):
 
     # generate true k-points and IR k-points using spglib
     atoms = AseAtomsAdaptor.get_atoms(symmetry_structure)
-    mapping, addresses = get_ir_reciprocal_mesh(mesh, atoms, is_shift=shift)
+    cell = (
+        np.array(atoms.get_cell().T, dtype="double", order="C"),  # lattice
+        np.array(atoms.get_scaled_positions(), dtype="double", order="C"),  # positions
+        np.array(atoms.get_atomic_numbers(), dtype="intc"),  # numbers
+    )
+    mapping, addresses = get_ir_reciprocal_mesh(mesh, cell, is_shift=shift)
     true_kpoints = addresses / mesh + shift / (mesh * 2)
     true_kpoints = _kpoints_to_first_bz(true_kpoints)
     true_kpoints_sort = _sort_kpoints(true_kpoints)
