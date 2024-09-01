@@ -1,5 +1,5 @@
 pymatgen==2024.7.18
-scipy==1.14.0
+scipy==1.14.1
 monty==2024.7.30
 matplotlib==3.9.1
 BoltzTraP2==24.7.2
