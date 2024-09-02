@@ -1,5 +1,9 @@
 # Change log
 
+## v0.4.22
+
+Fix deformation potentials with spin-polarised materials.
+
 ## v0.4.21
 
 Fix compatbility with spglib.
