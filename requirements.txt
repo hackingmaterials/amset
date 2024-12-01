@@ -10,6 +10,6 @@ spglib==2.5.0
 click==8.1.7
 sumo==2.3.8
 h5py==3.12.1
-pyFFTW==0.14.0
+pyFFTW==0.15.0
 interpolation==2.2.7
 numba==0.60.0
