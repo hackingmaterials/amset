@@ -13,7 +13,7 @@ __email__ = "aganose@lbl.gov"
 @click.command()
 @click.option("-v", "--vasprun", default="vasprun.xml", help="vasprun.xml file")
 @click.option("-o", "--outcar", default="OUTCAR", help="OUTCAR file")
-@click.option("-o2", "--outcar_2", default=None, help="Second OUTCAR file")
+@click.option("-o2", "--outcar_2", default=None, help="NAC corrected OUTCAR file")
 def phonon_frequency(vasprun, outcar, outcar_2):
     """Extract the effective phonon frequency from a VASP calculation"""
     from pymatgen.io.vasp import Outcar, Vasprun
