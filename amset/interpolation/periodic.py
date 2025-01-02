@@ -10,6 +10,7 @@ from amset.electronic_structure.kpoints import (
     get_mesh_from_kpoint_numbers,
     kpoints_to_first_bz,
 )
+from amset.scattering.calculate import get_g_maps
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
@@ -108,6 +109,87 @@ class PeriodicLinearInterpolator:
 
         return nbands, data_shape, interpolators
 
+    @staticmethod
+    def _setup_wfc_interpolators(
+        data,
+        grid_kpoints,
+        mesh_dim,
+        sort_idx,
+        gaussian,
+        gpoints
+    ):
+        x = grid_kpoints[:, 0, 0, 0]
+        y = grid_kpoints[0, :, 0, 1]
+        z = grid_kpoints[0, 0, :, 2]        
+
+        nbands = {s: c.shape[0] for s, c in data.items()}
+        interpolators = {}
+        data_shape = None
+
+        g_maps = get_g_maps(gpoints)
+
+        for spin, spin_data in data.items():
+            data_shape = spin_data.shape[2:]
+            spin_nbands = nbands[spin]
+
+            # sort the data then reshape them into the grid. The data
+            # can now be indexed as data[iband][ikx][iky][ikz]
+
+            sorted_data = spin_data[:, sort_idx]
+            grid_shape = (spin_nbands,) + mesh_dim + data_shape
+            grid_data = sorted_data.reshape(grid_shape)
+
+            # wrap the data to account for PBC
+            pad_size = ((0, 0), (1, 1), (1, 1), (1, 1)) + ((0, 0),) * len(data_shape)
+            grid_data = np.pad(grid_data, pad_size, mode="wrap")
+
+            # pad coeffs with 0
+            coeff_pad = ((0, 0), (0, 0), (0, 0), (0, 0)) + ((0, 1),) + ((0, 0), ) * (len(data_shape) - 1)
+            grid_data = np.pad(grid_data,coeff_pad,mode="constant",constant_values=0)
+
+            # get wrapped coeffs
+            coeff_x_max = grid_data[:,-2,:,:,:]
+            coeff_y_max = grid_data[:,:,-2,:,:]
+            coeff_z_max = grid_data[:,:,:,-2,:]
+            coeff_x_min = grid_data[:,1,:,:,:]
+            coeff_y_min = grid_data[:,:,1,:,:]
+            coeff_z_min = grid_data[:,:,:,1,:]
+
+            # reorder wrapped coeffs with g_maps
+            grid_data[:,0,:,:,:-1] = coeff_x_max[:,:,:,g_maps[0,1,1]]
+            grid_data[:,:,0,:,:-1] = coeff_y_max[:,:,:,g_maps[1,0,1]]
+            grid_data[:,:,:,0,:-1] = coeff_z_max[:,:,:,g_maps[1,1,0]]
+            grid_data[:,-1,:,:,:-1] = coeff_x_min[:,:,:,g_maps[2,1,1]]
+            grid_data[:,:,-1,:,:-1] = coeff_z_min[:,:,:,g_maps[1,2,1]]
+            grid_data[:,:,:,-1,:-1] = coeff_y_min[:,:,:,g_maps[1,1,2]]
+
+            # remove padded 0
+            grid_data = grid_data[:,:,:,:,:-1]
+
+            if gaussian:
+                for i in range(len(grid_data)):
+                    grid_data[i] = gaussian_filter(
+                        grid_data[i], sigma=gaussian, mode="wrap"
+                    )
+
+            if spin_nbands == 1:
+                # this can cause a bug in RegularGridInterpolator. Have to fake
+                # having at least two bands
+                spin_nbands = 2
+                grid_data = np.tile(grid_data, (2, 1, 1, 1) + (1,) * len(data_shape))
+
+            grid = UCGrid(
+                (0.0, spin_nbands - 1.0, spin_nbands),
+                (x[0], x[-1], len(x)),
+                (y[0], y[-1], len(y)),
+                (z[0], z[-1], len(z)),
+            )
+            # flatten remaining axes
+            grid_shape = grid_data.shape[:4] + (-1,)
+            interpolators[spin] = (grid, grid_data.reshape(grid_shape))
+        return nbands, data_shape, interpolators
+   
+    
     @staticmethod
     def _grid_kpoints(kpoints):
         # k-points has to cover the full BZ
