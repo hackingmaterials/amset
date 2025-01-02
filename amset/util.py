@@ -521,7 +521,7 @@ def dict_array_from_buffer(buffer):
     return data
 
 def get_g_maps(gpoints):
-    ngx, ngy, ngz = np.max(gpoints, axis=0) - np.min(gs, axis=0) + (3, 3, 3)
+    ngx, ngy, ngz = np.max(gpoints, axis=0) - np.min(gpoints, axis=0) + (3, 3, 3)
     gx_0, gy_0, gz_0 = -np.min(gpoints, axis=0) + (1, 1, 1)
     initial_grid = np.zeros((ngx, ngy, ngz), dtype=np.int32) -1
 
