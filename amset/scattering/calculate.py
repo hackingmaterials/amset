@@ -708,7 +708,7 @@ def calculate_rate(
                 b_idx,
                 k_idx,
                 band_mask,
-                kpoint_mask
+                kpoint_mask,
                 g_diff,
                 g_maps
             )
