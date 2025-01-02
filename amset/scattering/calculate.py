@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Union
 import numba
 import numpy as np
 from pymatgen.electronic_structure.core import Spin
-from pymatgen.util.coord import pbc_diff,
+from pymatgen.util.coord import pbc_diff
 from scipy.interpolate import griddata
 
 from amset.constants import (
