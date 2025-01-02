@@ -12,6 +12,7 @@ from amset.interpolation.periodic import (
     PeriodicLinearInterpolator,
     group_bands_and_kpoints,
 )
+from amset.scattering.calculate import get_g_maps
 from amset.util import array_from_buffer, create_shared_array
 from amset.wavefunction.common import desymmetrize_coefficients, is_ncl
 from amset.wavefunction.io import load_coefficients
@@ -56,8 +57,8 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
             raise ValueError("gpoints required for initialization")
         ncl = is_ncl(data)
         grid_kpoints, mesh_dim, sort_idx = cls._grid_kpoints(kpoints)
-        nbands, data_shape, interpolators = cls._setup_interpolators(
-            data, grid_kpoints, mesh_dim, sort_idx, gaussian
+        nbands, data_shape, interpolators = cls._setup_wfc_interpolators(
+            data, grid_kpoints, mesh_dim, sort_idx, gaussian, gpoints
         )
         return cls(nbands, data_shape, interpolators, ncl, gpoints)
 
