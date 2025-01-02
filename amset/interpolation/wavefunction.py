@@ -2,6 +2,7 @@ import logging
 
 import numba
 import numpy as np
+from pymatgen.util.coord import pbc_diff
 from interpolation.splines import eval_linear
 from interpolation.splines import extrap_options as xto
 
