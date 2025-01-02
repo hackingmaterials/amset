@@ -828,7 +828,6 @@ def _get_overlap_ncl(
     final = np.zeros((initial.shape[0] + 1, 2), dtype=np.complex64)
 
     for i in range(band_mask.shape[0]):
-        final = spin_coeffs[spin_coeffs_mapping[band_mask[i], kpoint_mask[i]]]
         final[:-1] = spin_coeffs[spin_coeffs_mapping[band_mask[i], kpoint_mask[i]]]
         sum_ = 0j
         for j in range(final.shape[0] - 1):
