@@ -12,8 +12,7 @@ from amset.interpolation.periodic import (
     PeriodicLinearInterpolator,
     group_bands_and_kpoints,
 )
-from amset.scattering.calculate import get_g_maps
-from amset.util import array_from_buffer, create_shared_array
+from amset.util import array_from_buffer, create_shared_array, get_g_maps
 from amset.wavefunction.common import desymmetrize_coefficients, is_ncl
 from amset.wavefunction.io import load_coefficients
 
