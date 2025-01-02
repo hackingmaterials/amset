@@ -10,13 +10,12 @@ from amset.electronic_structure.kpoints import (
     get_mesh_from_kpoint_numbers,
     kpoints_to_first_bz,
 )
-from amset.scattering.calculate import get_g_maps
 
 __author__ = "Alex Ganose"
 __maintainer__ = "Alex Ganose"
 __email__ = "aganose@lbl.gov"
 
-from amset.util import array_from_buffer, create_shared_array
+from amset.util import array_from_buffer, create_shared_array, get_g_maps
 
 logger = logging.getLogger(__name__)
 
