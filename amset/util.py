@@ -526,7 +526,7 @@ def get_g_maps(gpoints):
     initial_grid = np.zeros((ngx, ngy, ngz), dtype=np.int32) -1
 
     for i, g in enumerate(gpoints):
-        initial_grid[g[0] + gx_0, g[1] + gy_0, g[2] + gy_0] = i
+        initial_grid[g[0] + gx_0, g[1] + gy_0, g[2] + gz_0] = i
 
     g_maps = np.zeros((3, 3, 3, len(gpoints)), dtype=np.int32)
     for i, x in enumerate([-1, 0, 1]):
