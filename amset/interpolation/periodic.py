@@ -119,7 +119,7 @@ class PeriodicLinearInterpolator:
     ):
         x = grid_kpoints[:, 0, 0, 0]
         y = grid_kpoints[0, :, 0, 1]
-        z = grid_kpoints[0, 0, :, 2]        
+        z = grid_kpoints[0, 0, :, 2]
 
         nbands = {s: c.shape[0] for s, c in data.items()}
         interpolators = {}
@@ -187,8 +187,8 @@ class PeriodicLinearInterpolator:
             grid_shape = grid_data.shape[:4] + (-1,)
             interpolators[spin] = (grid, grid_data.reshape(grid_shape))
         return nbands, data_shape, interpolators
-   
-    
+
+
     @staticmethod
     def _grid_kpoints(kpoints):
         # k-points has to cover the full BZ
