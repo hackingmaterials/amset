@@ -192,7 +192,7 @@ class PeriodicLinearInterpolator:
     @staticmethod
     def _grid_kpoints(kpoints):
         # k-points has to cover the full BZ
-        kpoints = kpoints_to_first_bz(kpoints)
+        kpoints = kpoints_to_first_bz(kpoints, negative_zone_boundary=False)
         mesh_dim = get_mesh_from_kpoint_numbers(kpoints)
         if np.prod(mesh_dim) != len(kpoints):
             raise ValueError("K-points do not cover full Brillouin zone.")
