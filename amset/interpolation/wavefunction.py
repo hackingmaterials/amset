@@ -29,6 +29,7 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         super().__init__(nbands, data_shape, interpolators)
         self.ncl = ncl
         self.gpoints = gpoints
+        self.g_maps = get_g_maps(gpoints)
 
     def to_reference(self):
         interpolator_references = self._interpolators_to_reference()
@@ -109,18 +110,15 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         grid, data = self.interpolators[spin]
         v = np.concatenate([np.asarray(bands)[:, None], np.asarray(kpoints)], axis=1)
 
-        # Get g_maps. Should be passed, not calculated for every k-point
-        g_maps = get_g_maps(self.gpoints)
-
         # Find G diff
         k_abs_diff = kpoint_b - kpoint_a
         k_pbc_diff = pbc_diff(kpoint_b, kpoint_a)
         g_diff = (k_abs_diff - k_pbc_diff).astype('int')
 
         if self.ncl:
-            overlap = _get_overlap_ncl(grid, data, v, self.data_shape[0], g_diff, g_maps)
+            overlap = _get_overlap_ncl(grid, data, v, self.data_shape[0], g_diff, self.g_maps)
         else:
-            overlap = _get_overlap(grid, data, v, self.data_shape[0], g_diff, g_maps)
+            overlap = _get_overlap(grid, data, v, self.data_shape[0], g_diff, self.g_maps)
 
         if single_overlap:
             return overlap[0]
