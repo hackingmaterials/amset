@@ -694,8 +694,6 @@ def calculate_rate(
         k_abs_diff = k_primes - k
         k_pbc_diff = pbc_diff(k_primes,k)
         g_diff = (k_abs_diff - k_pbc_diff).astype('int')
-        # get g_maps. Should be passed, not calculated for every k-point
-        g_maps = get_g_maps(overlap_calculator.gpoints)
 
         # use cached coefficients to calculate the overlap on the fine mesh
         # tetrahedron vertices
@@ -711,7 +709,7 @@ def calculate_rate(
                 band_mask,
                 kpoint_mask,
                 g_diff,
-                g_maps
+                overlap_calculator.g_maps
             )
         else:
             overlap = _get_overlap(
@@ -722,7 +720,7 @@ def calculate_rate(
                 band_mask,
                 kpoint_mask,
                 g_diff,
-                g_maps
+                overlap_calculator.g_maps
             )
     else:
         overlap = overlap_calculator.get_overlap(spin, b_idx, k, band_mask, k_primes)
