@@ -2,6 +2,7 @@ import logging
 
 import numba
 import numpy as np
+from pymatgen.util.coord import pbc_diff
 from interpolation.splines import eval_linear
 from interpolation.splines import extrap_options as xto
 
@@ -12,7 +13,7 @@ from amset.interpolation.periodic import (
     PeriodicLinearInterpolator,
     group_bands_and_kpoints,
 )
-from amset.util import array_from_buffer, create_shared_array
+from amset.util import array_from_buffer, create_shared_array, get_g_maps
 from amset.wavefunction.common import desymmetrize_coefficients, is_ncl
 from amset.wavefunction.io import load_coefficients
 
@@ -28,6 +29,7 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         super().__init__(nbands, data_shape, interpolators)
         self.ncl = ncl
         self.gpoints = gpoints
+        self.g_maps = get_g_maps(gpoints)
 
     def to_reference(self):
         interpolator_references = self._interpolators_to_reference()
@@ -56,8 +58,8 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
             raise ValueError("gpoints required for initialization")
         ncl = is_ncl(data)
         grid_kpoints, mesh_dim, sort_idx = cls._grid_kpoints(kpoints)
-        nbands, data_shape, interpolators = cls._setup_interpolators(
-            data, grid_kpoints, mesh_dim, sort_idx, gaussian
+        nbands, data_shape, interpolators = cls._setup_wfc_interpolators(
+            data, grid_kpoints, mesh_dim, sort_idx, gaussian, gpoints
         )
         return cls(nbands, data_shape, interpolators, ncl, gpoints)
 
@@ -108,10 +110,15 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         grid, data = self.interpolators[spin]
         v = np.concatenate([np.asarray(bands)[:, None], np.asarray(kpoints)], axis=1)
 
+        # Find G diff
+        k_abs_diff = kpoint_b - kpoint_a
+        k_pbc_diff = pbc_diff(kpoint_b, kpoint_a)
+        g_diff = (k_abs_diff - k_pbc_diff).astype('int')
+
         if self.ncl:
-            overlap = _get_overlap_ncl(grid, data, v, self.data_shape[0])
+            overlap = _get_overlap_ncl(grid, data, v, self.data_shape[0], g_diff, self.g_maps)
         else:
-            overlap = _get_overlap(grid, data, v, self.data_shape[0])
+            overlap = _get_overlap(grid, data, v, self.data_shape[0], g_diff, self.g_maps)
 
         if single_overlap:
             return overlap[0]
@@ -120,26 +127,28 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
 
 
 @numba.njit
-def _get_overlap(grid, data, points, n_coeffs):
-    initial = np.zeros(n_coeffs, dtype=np.complex64)
+def _get_overlap(grid, data, points, n_coeffs, g_diff, g_maps):
+    initial = np.zeros(n_coeffs, dtype=np.complex128)
     initial.real[:] = eval_linear(grid, data.real, points[0], xto.LINEAR)
     initial.imag[:] = eval_linear(grid, data.imag, points[0], xto.LINEAR)
     initial /= np.linalg.norm(initial)
     initial[:] = np.conj(initial)
 
     res = np.zeros(points.shape[0] - 1)
-    final = np.zeros(n_coeffs, dtype=np.complex64)
+    final = np.zeros(n_coeffs + 1, dtype=np.complex128)
     for i in range(1, points.shape[0]):
-        final.real[:] = eval_linear(grid, data.real, points[i], xto.LINEAR)
-        final.imag[:] = eval_linear(grid, data.imag, points[i], xto.LINEAR)
+        final.real[:-1] = eval_linear(grid, data.real, points[i], xto.LINEAR)
+        final.imag[:-1] = eval_linear(grid, data.imag, points[i], xto.LINEAR)
         final /= np.linalg.norm(final)
-        res[i - 1] = np.abs(np.dot(final, initial)) ** 2
+        gx_s, gy_s, gz_s = - g_diff[i - 1, :]
+        final[:-1] = final[g_maps[gx_s + 1, gy_s + 1, gz_s + 1, :]] 
+        res[i - 1] = np.abs(np.dot(final[:-1], initial)) ** 2
     return res
 
 
 @numba.njit
-def _get_overlap_ncl(grid, data, points, n_coeffs):
-    initial = np.zeros((n_coeffs, 2), dtype=np.complex64)
+def _get_overlap_ncl(grid, data, points, n_coeffs, g_diff, g_maps):
+    initial = np.zeros((n_coeffs, 2), dtype=np.complex128)
     initial.real[:] = eval_linear(grid, data.real, points[0], xto.LINEAR).reshape(
         (n_coeffs, 2)
     )
@@ -150,18 +159,20 @@ def _get_overlap_ncl(grid, data, points, n_coeffs):
     initial[:] = np.conj(initial)
 
     res = np.zeros(points.shape[0] - 1)
-    final = np.zeros((n_coeffs, 2), dtype=np.complex64)
+    final = np.zeros((n_coeffs + 1, 2), dtype=np.complex128)
     for i in range(1, points.shape[0]):
-        final.real[:] = eval_linear(grid, data.real, points[i], xto.LINEAR).reshape(
+        final.real[:-1] = eval_linear(grid, data.real, points[i], xto.LINEAR).reshape(
             (n_coeffs, 2)
         )
-        final.imag[:] = eval_linear(grid, data.imag, points[i], xto.LINEAR).reshape(
+        final.imag[:-1] = eval_linear(grid, data.imag, points[i], xto.LINEAR).reshape(
             (n_coeffs, 2)
         )
         final /= np.linalg.norm(final)
+        gx_s, gy_s, gz_s = - g_diff[i - 1, :]
+        final[:-1] = final[g_maps[gx_s + 1, gy_s + 1, gz_s + 1, :], :]
 
         sum_ = 0j
-        for j in range(final.shape[0]):
+        for j in range(final.shape[0] - 1):
             sum_ += initial[j, 0] * final[j, 0] + initial[j, 1] * final[j, 1]
 
         res[i - 1] = abs(sum_) ** 2
