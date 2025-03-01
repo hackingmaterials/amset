@@ -9,7 +9,7 @@ memory_profiler==0.61.0
 spglib==2.5.0
 click==8.1.8
 sumo==2.3.10
-h5py==3.12.1
+h5py==3.13.0
 pyFFTW==0.15.0
 interpolation==2.2.7
 numba==0.61.0
