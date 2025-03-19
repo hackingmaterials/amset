@@ -123,13 +123,31 @@ Note, DFPT cannot be used with hybrid exchange-correlation functionals. In these
 cases the [LCALCEPS](https://www.vasp.at/wiki/index.php/LCALCEPS) flag should be
 used in combination with `IBRION = 6`.
 
+**Non-Analytical Term Correction (NAC) for Polar Materials**
+
+In polar materials, LO-TO splitting in the phonon dispersion is significant, and to observe this in phonon dispersion, we have to add a non-analytical term correction (NAC) to the dynamical matrix and re-calculate the phonon frequencies. This treatment is done automatically inside VASP using the [LPHON_POLAR = .TRUE.](https://www.vasp.at/wiki/index.php/LPHON_POLAR) tag and specifying the dielectric tensor using [PHON_DIELECTRIC](https://www.vasp.at/wiki/index.php/PHON_DIELECTRIC) tag along with the Born effective charges using [PHON_BORN_CHARGES](https://www.vasp.at/wiki/index.php/PHON_BORN_CHARGES) tag. This step should be performed after obtaining the Born effective charges and dielectric constants from a previous DFPT calculation.
+
+!!! summary "VASP settings for dielectric constants and phonon frequency "
+    ```python
+    ADDGRID = True
+    EDIFF = 1E-8
+    PREC = Accurate
+    NSW = 1
+    IBRION = 6
+    LPHON_DISPERSION = .TRUE.
+    PHON_NWRITE = -3
+    LPHON_POLAR = .TRUE.
+    PHON_DIELECTRIC = [values]
+    PHON_BORN_CHARGES = [values]
+    ```
+
 The dielectric constants and polar phonon frequency can be extracted from the
 VASP outputs using the command:
 ```bash
 amset phonon-frequency
 ```
-The command should be run in a folder containing the `vasprun.xml` file output
-from the DFPT calculation.
+The command should be run in a folder containing the `vasprun.xml` and `OUTCAR` file output
+from the DFPT calculation. For polar materials, an `OUTCAR` from the NAC calculaiton must be provided. 
 
 The effective phonon frequency is determined from the phonon frequencies
 $`\omega_{\mathbf{q}\nu}`$ (where $`\nu`$ is a phonon branch and $`\mathbf{q}`$
