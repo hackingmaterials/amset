@@ -56,6 +56,7 @@ from amset.util import (
     create_shared_dict_array,
     dict_array_from_buffer,
     get_progress_bar,
+    get_g_maps
 )
 
 __author__ = "Alex Ganose"
@@ -689,6 +690,11 @@ def calculate_rate(
     k_primes = tbs.kpoints[kpoint_mask]
 
     if coeffs is not None:
+        # get g_diff
+        k_abs_diff = k_primes - k
+        k_pbc_diff = pbc_diff(k_primes,k)
+        g_diff = (k_abs_diff - k_pbc_diff).astype('int')
+
         # use cached coefficients to calculate the overlap on the fine mesh
         # tetrahedron vertices
         spin_coeffs = coeffs[spin]
@@ -696,11 +702,25 @@ def calculate_rate(
         if len(spin_coeffs.shape) == 3:
             # ncl
             overlap = _get_overlap_ncl(
-                spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask
+                spin_coeffs,
+                spin_coeffs_mapping,
+                b_idx,
+                k_idx,
+                band_mask,
+                kpoint_mask,
+                g_diff,
+                overlap_calculator.g_maps
             )
         else:
             overlap = _get_overlap(
-                spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask
+                spin_coeffs,
+                spin_coeffs_mapping,
+                b_idx,
+                k_idx,
+                band_mask,
+                kpoint_mask,
+                g_diff,
+                overlap_calculator.g_maps
             )
     else:
         overlap = overlap_calculator.get_overlap(spin, b_idx, k, band_mask, k_primes)
@@ -782,29 +802,35 @@ def calculate_rate(
 
 @numba.njit
 def _get_overlap(
-    spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask
+    spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask, g_diff, g_maps
 ):
     res = np.zeros(band_mask.shape[0])
     initial = np.conj(spin_coeffs[spin_coeffs_mapping[b_idx, k_idx]])
+    final = np.zeros((initial.shape[0] + 1, ), dtype=np.complex128)
 
     for i in range(band_mask.shape[0]):
-        final = spin_coeffs[spin_coeffs_mapping[band_mask[i], kpoint_mask[i]]]
-        res[i] = np.abs(np.dot(final, initial)) ** 2
+        final[:-1] = spin_coeffs[spin_coeffs_mapping[band_mask[i], kpoint_mask[i]]]
+        gx_s, gy_s, gz_s = - g_diff[i, :]
+        final[:-1] = final[g_maps[gx_s + 1,gy_s + 1,gz_s + 1, :]]
+        res[i] = np.abs(np.dot(final[:-1], initial)) ** 2
 
     return res
 
 
 @numba.njit
 def _get_overlap_ncl(
-    spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask
+    spin_coeffs, spin_coeffs_mapping, b_idx, k_idx, band_mask, kpoint_mask, g_diff, g_maps
 ):
     res = np.zeros(band_mask.shape[0])
     initial = np.conj(spin_coeffs[spin_coeffs_mapping[b_idx, k_idx]])
+    final = np.zeros((initial.shape[0] + 1, 2), dtype=np.complex128)
 
     for i in range(band_mask.shape[0]):
-        final = spin_coeffs[spin_coeffs_mapping[band_mask[i], kpoint_mask[i]]]
+        final[:-1] = spin_coeffs[spin_coeffs_mapping[band_mask[i], kpoint_mask[i]]]
+        gx_s, gy_s, gz_s = - g_diff[i, :]
+        final[:-1] = final[g_maps[gx_s + 1,gy_s + 1,gz_s + 1, :],:]
         sum_ = 0j
-        for j in range(final.shape[0]):
+        for j in range(final.shape[0] - 1):
             sum_ += initial[j, 0] * final[j, 0] + initial[j, 1] * final[j, 1]
         res[i] = abs(sum_) ** 2
 

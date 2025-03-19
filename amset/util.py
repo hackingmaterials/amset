@@ -519,3 +519,22 @@ def dict_array_from_buffer(buffer):
     for key, value_buffer in buffer.items():
         data[key] = array_from_buffer(value_buffer)
     return data
+
+def get_g_maps(gpoints):
+    ngx, ngy, ngz = np.max(gpoints, axis=0) - np.min(gpoints, axis=0) + (3, 3, 3)
+    gx_0, gy_0, gz_0 = -np.min(gpoints, axis=0) + (1, 1, 1)
+    initial_grid = np.zeros((ngx, ngy, ngz), dtype=np.int32) -1
+
+    for i, g in enumerate(gpoints):
+        initial_grid[g[0] + gx_0, g[1] + gy_0, g[2] + gz_0] = i
+
+    g_maps = np.zeros((3, 3, 3, len(gpoints)), dtype=np.int32)
+    for i, x in enumerate([-1, 0, 1]):
+        for j, y in enumerate([-1, 0, 1]):
+            for k, z in enumerate([-1, 0, 1]):
+                g_maps[i, j, k, :] = initial_grid[
+                    gpoints[:, 0] + x + gx_0,
+                    gpoints[:, 1] + y + gy_0,
+                    gpoints[:, 2] + z + gz_0
+                    ]
+    return g_maps
