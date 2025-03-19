@@ -13,21 +13,12 @@ __email__ = "aganose@lbl.gov"
 @click.command()
 @click.option("-v", "--vasprun", default="vasprun.xml", help="vasprun.xml file")
 @click.option("-o", "--outcar", default="OUTCAR", help="OUTCAR file")
-@click.option("-o2", "--outcar_2", default=None, help="NAC corrected OUTCAR file")
-def phonon_frequency(vasprun, outcar, outcar_2):
+def phonon_frequency(vasprun, outcar):
     """Extract the effective phonon frequency from a VASP calculation"""
     from pymatgen.io.vasp import Outcar, Vasprun
     from tabulate import tabulate
 
     vasprun = get_file(vasprun, Vasprun)
-    outcar = get_file(outcar, Outcar)
-    #outcar_2 = Path.cwd() / outcar_2 #--new OUTCAR
-    if outcar_2:  # Only process outcar_2 if provided
-        outcar_2 = Path.cwd() / outcar_2
-        if not outcar_2.exists():
-            raise FileNotFoundError(f"OUTCAR_2 file '{outcar_2}' does not exist.")
-    else:
-        outcar_2 = None  # Handle missing -o2 option gracefully
 
     elements = vasprun.final_structure.composition.elements
     if len(set(elements)) == 1:
@@ -37,49 +28,33 @@ def phonon_frequency(vasprun, outcar, outcar_2):
             "pop_frequency."
         )
 
-    # Call effective_phonon_frequency_from_vasp_files only if outcar_2 is valid
-    if outcar_2:
+    try:
         effective_frequency, weights, freqs = effective_phonon_frequency_from_vasp_files(
-            vasprun, outcar, outcar_2
+            vasprun, outcar
         )
-
-        table = tabulate(
-            list(zip(freqs, weights)),
-            headers=("Frequency", "Weight"),
-            numalign="right",
-            stralign="center",
-            floatfmt=(".2f", ".2f"),
-        )
-        click.echo(table)
-        click.echo(f"\npop_frequency: {effective_frequency:.2f} THz")
-
-        return effective_frequency
-    else:
-        click.echo("No NAC corrected file provided. Skipping calculation requiring NAC")
-
+        click.echo("Found NAC corrected phonon frequencies\n")
+    except ValueError:
+        click.echo("No NAC corrected file provided. Skipping calculation requiring NAC\n")
+        
+        outcar = get_file(outcar, Outcar)
         effective_frequency, weights, freqs = effective_phonon_frequency_from_vasp_files_no_nac(
-        vasprun, outcar
+            vasprun, outcar
         )
 
-        table = tabulate(
-                list(zip(freqs, weights)),
-                headers=("Frequency", "Weight"),
-                numalign="right",
-                stralign="center",
-                floatfmt=(".2f", ".2f"),
-                )
-        click.echo(table)
-        click.echo(f"\npop_frequency: {effective_frequency:.2f} THz")
+    table = tabulate(
+        list(zip(freqs, weights)),
+        headers=("Frequency", "Weight"),
+        numalign="right",
+        stralign="center",
+        floatfmt=(".2f", ".2f"),
+    )
+    click.echo(table)
+    click.echo(f"\npop_frequency: {effective_frequency:.2f} THz")
 
     return effective_frequency
 
-
-def effective_phonon_frequency_from_vasp_files(vasprun, outcar, outcar_2):
-    frequencies, eigenvectors = extract_gamma_point_data(outcar_2)
-
-    # get frequencies from eigenvals (and convert to THz for VASP 5)
-    outcar.read_lepsilon()
-    born_effective_charges = outcar.born
+def effective_phonon_frequency_from_vasp_files(vasprun, outcar):
+    frequencies, eigenvectors, born_effective_charges = extract_gamma_point_data(outcar)
 
     effective_frequency, weights = calculate_effective_phonon_frequency(
         frequencies, eigenvectors, born_effective_charges, vasprun.final_structure
@@ -181,8 +156,16 @@ def reshape_to_3x3(real_parts):
 def extract_gamma_point_data(file_path):
     """Extract frequencies and reshaped eigenvectors for the gamma point."""
     with open(file_path, 'r') as file:
-        content = file.readlines()
-    
+        content = file.read()
+        
+    match = re.findall("PHON_BORN_CHARGES = .*", content)
+   
+    if match:
+        born = np.array(list(map(float, match[0].split("=")[1].split()))).reshape(-1, 3, 3)
+    else:
+        raise ValueError("Could not find PHONON_BORN_CHARGES")
+
+    content = content.split("\n")
     # Identify the phonon section
     phonon_section = []
     phonon_started = False
@@ -242,7 +225,7 @@ def extract_gamma_point_data(file_path):
     gamma_frequencies = frequencies[gamma_index]
     gamma_eigenvectors_3d = np.array(eigenvector_3d[gamma_index])
     
-    return gamma_frequencies, gamma_eigenvectors_3d
+    return gamma_frequencies, gamma_eigenvectors_3d, born
 
 #--------block ends here--------#
 
@@ -262,5 +245,4 @@ def get_file(filename, class_type):
             sys.exit()
 
     elif isinstance(filename, class_type):
-        #print("file read", filename) #--mod 2
         return filename
