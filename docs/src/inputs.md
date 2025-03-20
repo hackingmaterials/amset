@@ -125,7 +125,7 @@ used in combination with `IBRION = 6`.
 
 **Non-Analytical Term Correction (NAC) for Polar Materials**
 
-In polar materials, LO-TO splitting in the phonon dispersion is significant, and to observe this in phonon dispersion, we have to add a non-analytical term correction (NAC) to the dynamical matrix and re-calculate the phonon frequencies. This treatment is done automatically inside VASP using the [LPHON_POLAR = .TRUE.](https://www.vasp.at/wiki/index.php/LPHON_POLAR) tag and specifying the dielectric tensor using [PHON_DIELECTRIC](https://www.vasp.at/wiki/index.php/PHON_DIELECTRIC) tag along with the Born effective charges using [PHON_BORN_CHARGES](https://www.vasp.at/wiki/index.php/PHON_BORN_CHARGES) tag. This step should be performed after obtaining the Born effective charges and dielectric constants from a previous DFPT calculation.
+In polar materials, LO-TO splitting in the phonon dispersion is significant, and to observe this in phonon dispersion, we have to add a non-analytical term correction (NAC) to the dynamical matrix and re-calculate the phonon frequencies. This treatment is done automatically inside VASP using the [LPHON_POLAR = .TRUE.](https://www.vasp.at/wiki/index.php/LPHON_POLAR) tag and specifying the dielectric tensor using [PHON_DIELECTRIC](https://www.vasp.at/wiki/index.php/PHON_DIELECTRIC) tag along with the Born effective charges using [PHON_BORN_CHARGES](https://www.vasp.at/wiki/index.php/PHON_BORN_CHARGES) tag. This step should be performed after obtaining the Born effective charges and dielectric constants from a previous DFPT calculation (e.g. as described above).
 
 !!! summary "VASP settings for dielectric constants and phonon frequency "
     ```python
@@ -147,7 +147,7 @@ VASP outputs using the command:
 amset phonon-frequency
 ```
 The command should be run in a folder containing the `vasprun.xml` and `OUTCAR` file output
-from the DFPT calculation. For polar materials, an `OUTCAR` from the NAC calculaiton must be provided.
+from the DFPT calculation. For polar materials, an `OUTCAR` from the NAC calculaiton must be provided instead (see above).
 
 The effective phonon frequency is determined from the phonon frequencies
 $`\omega_{\mathbf{q}\nu}`$ (where $`\nu`$ is a phonon branch and $`\mathbf{q}`$
