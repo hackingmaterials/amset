@@ -2,9 +2,9 @@
 
 ## v0.5.0
 
-This version introduces a major bugfix in the calculation of wavefunction overlaps. This can alter transport properties for systems where the band edge is located at a reciprocal zone-boundary and the dominant scattering type is from polar optical phonons. Thanks to Øven Grimenes for idenitfying this bug and contributing a fix.
+This version introduces a major bugfix in the calculation of wavefunction overlaps. This can alter transport properties for systems where the band edge is located at a reciprocal zone-boundary and the dominant scattering type is from polar optical phonons. Thanks to Øven Grimenes for idenitfying this bug and contributing a fix ([PR #938](https://github.com/hackingmaterials/amset/pull/938), @Grimenes).
 
-A new feature has been provided to include non analytical corrections (NAC) in the calculation of the polar optical phonon frequency. More information is provided in the [online documentation](https://hackingmaterials.lbl.gov/amset/inputs/#dielectric-constants-piezoelectric-constants-and-polar-phonon-frequency). Thanks to Sara Shivalingam Goud for providing this feature.
+A new feature has been provided to include non analytical corrections (NAC) in the calculation of the polar optical phonon frequency. More information is provided in the [online documentation](https://hackingmaterials.lbl.gov/amset/inputs/#dielectric-constants-piezoelectric-constants-and-polar-phonon-frequency). Thanks to Sara Shivalingam Goud for providing this feature ([PR #931](https://github.com/hackingmaterials/amset/pull/931), @Shiva-sslg).
 
 ## v0.4.22
 
