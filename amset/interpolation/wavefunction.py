@@ -2,9 +2,9 @@ import logging
 
 import numba
 import numpy as np
-from pymatgen.util.coord import pbc_diff
 from interpolation.splines import eval_linear
 from interpolation.splines import extrap_options as xto
+from pymatgen.util.coord import pbc_diff
 
 from amset.constants import defaults
 from amset.electronic_structure.kpoints import get_mesh_from_kpoint_numbers
@@ -113,12 +113,16 @@ class WavefunctionOverlapCalculator(PeriodicLinearInterpolator):
         # Find G diff
         k_abs_diff = kpoint_b - kpoint_a
         k_pbc_diff = pbc_diff(kpoint_b, kpoint_a)
-        g_diff = (k_abs_diff - k_pbc_diff).astype('int')
+        g_diff = (k_abs_diff - k_pbc_diff).astype("int")
 
         if self.ncl:
-            overlap = _get_overlap_ncl(grid, data, v, self.data_shape[0], g_diff, self.g_maps)
+            overlap = _get_overlap_ncl(
+                grid, data, v, self.data_shape[0], g_diff, self.g_maps
+            )
         else:
-            overlap = _get_overlap(grid, data, v, self.data_shape[0], g_diff, self.g_maps)
+            overlap = _get_overlap(
+                grid, data, v, self.data_shape[0], g_diff, self.g_maps
+            )
 
         if single_overlap:
             return overlap[0]
@@ -140,8 +144,8 @@ def _get_overlap(grid, data, points, n_coeffs, g_diff, g_maps):
         final.real[:-1] = eval_linear(grid, data.real, points[i], xto.LINEAR)
         final.imag[:-1] = eval_linear(grid, data.imag, points[i], xto.LINEAR)
         final /= np.linalg.norm(final)
-        gx_s, gy_s, gz_s = - g_diff[i - 1, :]
-        final[:-1] = final[g_maps[gx_s + 1, gy_s + 1, gz_s + 1, :]] 
+        gx_s, gy_s, gz_s = -g_diff[i - 1, :]
+        final[:-1] = final[g_maps[gx_s + 1, gy_s + 1, gz_s + 1, :]]
         res[i - 1] = np.abs(np.dot(final[:-1], initial)) ** 2
     return res
 
@@ -168,7 +172,7 @@ def _get_overlap_ncl(grid, data, points, n_coeffs, g_diff, g_maps):
             (n_coeffs, 2)
         )
         final /= np.linalg.norm(final)
-        gx_s, gy_s, gz_s = - g_diff[i - 1, :]
+        gx_s, gy_s, gz_s = -g_diff[i - 1, :]
         final[:-1] = final[g_maps[gx_s + 1, gy_s + 1, gz_s + 1, :], :]
 
         sum_ = 0j

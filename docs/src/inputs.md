@@ -147,7 +147,7 @@ VASP outputs using the command:
 amset phonon-frequency
 ```
 The command should be run in a folder containing the `vasprun.xml` and `OUTCAR` file output
-from the DFPT calculation. For polar materials, an `OUTCAR` from the NAC calculaiton must be provided. 
+from the DFPT calculation. For polar materials, an `OUTCAR` from the NAC calculaiton must be provided.
 
 The effective phonon frequency is determined from the phonon frequencies
 $`\omega_{\mathbf{q}\nu}`$ (where $`\nu`$ is a phonon branch and $`\mathbf{q}`$

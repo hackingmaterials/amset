@@ -110,12 +110,7 @@ class PeriodicLinearInterpolator:
 
     @staticmethod
     def _setup_wfc_interpolators(
-        data,
-        grid_kpoints,
-        mesh_dim,
-        sort_idx,
-        gaussian,
-        gpoints
+        data, grid_kpoints, mesh_dim, sort_idx, gaussian, gpoints
     ):
         x = grid_kpoints[:, 0, 0, 0]
         y = grid_kpoints[0, :, 0, 1]
@@ -143,27 +138,31 @@ class PeriodicLinearInterpolator:
             grid_data = np.pad(grid_data, pad_size, mode="wrap")
 
             # pad coeffs with 0
-            coeff_pad = ((0, 0), (0, 0), (0, 0), (0, 0)) + ((0, 1),) + ((0, 0), ) * (len(data_shape) - 1)
-            grid_data = np.pad(grid_data,coeff_pad,mode="constant",constant_values=0)
+            coeff_pad = (
+                ((0, 0), (0, 0), (0, 0), (0, 0))
+                + ((0, 1),)
+                + ((0, 0),) * (len(data_shape) - 1)
+            )
+            grid_data = np.pad(grid_data, coeff_pad, mode="constant", constant_values=0)
 
             # get wrapped coeffs
-            coeff_x_max = grid_data[:,-2,:,:,:]
-            coeff_y_max = grid_data[:,:,-2,:,:]
-            coeff_z_max = grid_data[:,:,:,-2,:]
-            coeff_x_min = grid_data[:,1,:,:,:]
-            coeff_y_min = grid_data[:,:,1,:,:]
-            coeff_z_min = grid_data[:,:,:,1,:]
+            coeff_x_max = grid_data[:, -2, :, :, :]
+            coeff_y_max = grid_data[:, :, -2, :, :]
+            coeff_z_max = grid_data[:, :, :, -2, :]
+            coeff_x_min = grid_data[:, 1, :, :, :]
+            coeff_y_min = grid_data[:, :, 1, :, :]
+            coeff_z_min = grid_data[:, :, :, 1, :]
 
             # reorder wrapped coeffs with g_maps
-            grid_data[:,0,:,:,:-1] = coeff_x_max[:,:,:,g_maps[0,1,1]]
-            grid_data[:,:,0,:,:-1] = coeff_y_max[:,:,:,g_maps[1,0,1]]
-            grid_data[:,:,:,0,:-1] = coeff_z_max[:,:,:,g_maps[1,1,0]]
-            grid_data[:,-1,:,:,:-1] = coeff_x_min[:,:,:,g_maps[2,1,1]]
-            grid_data[:,:,-1,:,:-1] = coeff_z_min[:,:,:,g_maps[1,2,1]]
-            grid_data[:,:,:,-1,:-1] = coeff_y_min[:,:,:,g_maps[1,1,2]]
+            grid_data[:, 0, :, :, :-1] = coeff_x_max[:, :, :, g_maps[0, 1, 1]]
+            grid_data[:, :, 0, :, :-1] = coeff_y_max[:, :, :, g_maps[1, 0, 1]]
+            grid_data[:, :, :, 0, :-1] = coeff_z_max[:, :, :, g_maps[1, 1, 0]]
+            grid_data[:, -1, :, :, :-1] = coeff_x_min[:, :, :, g_maps[2, 1, 1]]
+            grid_data[:, :, -1, :, :-1] = coeff_z_min[:, :, :, g_maps[1, 2, 1]]
+            grid_data[:, :, :, -1, :-1] = coeff_y_min[:, :, :, g_maps[1, 1, 2]]
 
             # remove padded 0
-            grid_data = grid_data[:,:,:,:,:-1]
+            grid_data = grid_data[:, :, :, :, :-1]
 
             if gaussian:
                 for i in range(len(grid_data)):
@@ -187,7 +186,6 @@ class PeriodicLinearInterpolator:
             grid_shape = grid_data.shape[:4] + (-1,)
             interpolators[spin] = (grid, grid_data.reshape(grid_shape))
         return nbands, data_shape, interpolators
-
 
     @staticmethod
     def _grid_kpoints(kpoints):
