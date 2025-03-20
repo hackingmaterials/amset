@@ -60,22 +60,24 @@ si_settings_wavefunction.update(
 si_settings_wavefunction_nocache = deepcopy(si_settings_wavefunction)
 si_settings_wavefunction_nocache.update({"cache_wavefunction": False})
 si_transport_projections = {
-    ("mobility", ("overall", (0, 0))): 1576.074528381305,
-    ("mobility", ("overall", (-1, 0))): 817.7095423715324,
-    ("seebeck", (0, 0)): -1008.6448354488775,
-    ("seebeck", (-1, 0)): -710.4420172707946,
-    ("conductivity", (0, 0)): 26.524979568158074,
-    ("conductivity", (-1, 0)): 1310.121658393053,
-    ("electronic_thermal_conductivity", (0, 0)): 0.0013629136608729912,
+    ("mobility", ("overall", (0, 0))): 1576.258481998666,
+    ("mobility", ("overall", (-1, 0))): 817.847040804815,
+    ("seebeck", (0, 0)): -1008.6407009022223,
+    ("seebeck", (-1, 0)): -710.4554457760123,
+    ("conductivity", (0, 0)): 26.528060275446744,
+    ("conductivity", (-1, 0)): 1310.3419623097216,
+    ("electronic_thermal_conductivity", (0, 0)): 0.001362899666873465,
 }
+
+
 si_transport_wavefunction = {
-    ("mobility", ("overall", (0, 0))): 1234.1461746826737,
-    ("mobility", ("overall", (-1, 0))): 667.3798557475134,
-    ("seebeck", (0, 0)): -960.4571567090115,
-    ("seebeck", (-1, 0)): -711.2202530136929,
-    ("conductivity", (0, 0)): 21.233368948315626,
-    ("conductivity", (-1, 0)): 1069.265903429082,
-    ("electronic_thermal_conductivity", (0, 0)): 0.0018031827294972345,
+    ("mobility", ("overall", (0, 0))): 1288.8049717578235,
+    ("mobility", ("overall", (-1, 0))): 681.2894275920993,
+    ("seebeck", (0, 0)): -962.9704212387054,
+    ("seebeck", (-1, 0)): -709.850960870414,
+    ("conductivity", (0, 0)): 22.129086011629486,
+    ("conductivity", (-1, 0)): 1091.551538629644,
+    ("electronic_thermal_conductivity", (0, 0)): 0.0018040121810027631,
 }
 
 gaas_settings_wavefunction = {
@@ -93,14 +95,15 @@ gaas_settings_wavefunction = {
     "nworkers": 1,
 }
 gaas_transport = {
-    ("mobility", ("overall", (0, 0))): 21305.275888767374,
-    ("mobility", ("overall", (0, -1))): 2428.11416884464,
-    ("seebeck", (0, 0)): -858.4131242931522,
-    ("seebeck", (0, -1)): -608.3181725103633,
-    ("conductivity", (0, 0)): 10.24043666456572,
-    ("conductivity", (0, -1)): 241.9083618988777,
-    ("electronic_thermal_conductivity", (0, -1)): 0.026674584564867737,
+    ("mobility", ("overall", (0, 0))): 21314.654055452356,
+    ("mobility", ("overall", (0, -1))): 2427.8469925471195,
+    ("seebeck", (0, 0)): -858.4123574982394,
+    ("seebeck", (0, -1)): -608.293376903711,
+    ("conductivity", (0, 0)): 10.244949132013248,
+    ("conductivity", (0, -1)): 241.8806741581644,
+    ("electronic_thermal_conductivity", (0, -1)): 0.026659775406849422,
 }
+
 
 test_data = [
     pytest.param(
@@ -245,10 +248,9 @@ def _validate_data(amset_data, transport, max_aniso, files, scats):
         print("('{}', {}): {},".format(prop, loc, value))
 
         # assert values agree to within 1 %
-    #     assert (
-    #         np.abs(1 - value / expected) < 0.01
-    #     ), f"property: {prop}, loc: {loc}, differs by more than 1%: calculated: {value}, expected: {expected}"
+        assert (
+            np.abs(1 - value / expected) < 0.01
+        ), f"property: {prop}, loc: {loc}, differs by more than 1%: calculated: {value}, expected: {expected}"
 
-    # # check scattering types
-    # assert set(amset_data.scattering_labels) == set(scats)
-    assert False
+    # check scattering types
+    assert set(amset_data.scattering_labels) == set(scats)

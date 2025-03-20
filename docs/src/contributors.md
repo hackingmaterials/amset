@@ -12,3 +12,5 @@ Other contributions are provided by:
 * Kieran Spooner through the research group of David Scanlon at University College London.
 * Francesco Ricci through the research group of Prof. Geoffroy Hautier at UC Louvain.
 * Jason Frost
+* Øven Andreas Grimenes
+* Sara Shivalingam Goud
