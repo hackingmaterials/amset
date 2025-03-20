@@ -139,7 +139,6 @@ def get_phonon_weight(eigenvector, frequency, born_effective_charges, structure)
         return weight
 
 
-# ------block to extract data from new outcar-----#
 def parse_frequencies(line):
     """Extract frequencies from a given line."""
     return [float(value) for value in re.findall(r"[-+]?\d*\.\d+|\d+", line)]
@@ -174,6 +173,7 @@ def extract_gamma_point_data(file_path):
         raise ValueError("Could not find PHONON_BORN_CHARGES")
 
     content = content.split("\n")
+
     # Identify the phonon section
     phonon_section = []
     phonon_started = False
@@ -189,7 +189,6 @@ def extract_gamma_point_data(file_path):
         ):
             break
 
-    # Initialize data containers
     q_points = []
     frequencies = []
     eigenvector_3d = []
@@ -238,9 +237,6 @@ def extract_gamma_point_data(file_path):
     gamma_eigenvectors_3d = np.array(eigenvector_3d[gamma_index])
 
     return gamma_frequencies, gamma_eigenvectors_3d, born
-
-
-# --------block ends here--------#
 
 
 def get_file(filename, class_type):
