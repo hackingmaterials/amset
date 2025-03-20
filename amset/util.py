@@ -87,7 +87,7 @@ def validate_settings(user_settings: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def cast_tensor(
-    tensor: Union[float, List[float], List[List[float]], np.ndarray]
+    tensor: Union[float, List[float], List[List[float]], np.ndarray],
 ) -> np.ndarray:
     """Cast a number/list into a 3x3 tensor.
 
@@ -113,7 +113,7 @@ def cast_tensor(
 
 
 def cast_elastic_tensor(
-    elastic_tensor: Union[int, float, List[List[float]], np.ndarray]
+    elastic_tensor: Union[int, float, List[List[float]], np.ndarray],
 ) -> np.ndarray:
     """Cast elastic tensor from single value or Voigt to full 3x3x3x3 tensor.
 
@@ -144,7 +144,7 @@ def cast_elastic_tensor(
 
 
 def cast_piezoelectric_tensor(
-    piezoelectric_tensor: Union[np.ndarray, List[List[float]], np.ndarray]
+    piezoelectric_tensor: Union[np.ndarray, List[List[float]], np.ndarray],
 ) -> np.ndarray:
     """Cast piezoelectric tensor from Voigt form to full 3x3x3 tensor.
 
