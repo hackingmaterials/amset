@@ -245,9 +245,10 @@ def _validate_data(amset_data, transport, max_aniso, files, scats):
         print("('{}', {}): {},".format(prop, loc, value))
 
         # assert values agree to within 1 %
-        assert (
-            np.abs(1 - value / expected) < 0.01
-        ), f"property: {prop}, loc: {loc}, differs by more than 1%: calculated: {value}, expected: {expected}"
+    #     assert (
+    #         np.abs(1 - value / expected) < 0.01
+    #     ), f"property: {prop}, loc: {loc}, differs by more than 1%: calculated: {value}, expected: {expected}"
 
-    # check scattering types
-    assert set(amset_data.scattering_labels) == set(scats)
+    # # check scattering types
+    # assert set(amset_data.scattering_labels) == set(scats)
+    assert False
