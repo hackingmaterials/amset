@@ -60,7 +60,7 @@ if __name__ == "__main__":
             ],
             "tests": ["pytest==8.3.4", "pytest-cov==6.0.0"],
             "all-electron": ["pawpyseed==0.7.1"],
-            "dev": ["pre-commit==4.1.0"],
+            "dev": ["pre-commit==4.2.0"],
         },
         python_requires=">=3.9",
         classifiers=[
