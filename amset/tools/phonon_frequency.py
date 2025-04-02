@@ -153,9 +153,15 @@ def extract_real_parts(eigenvector_line):
     return real_parts
 
 
-def reshape_to_3x3(real_parts):
-    """Reshape a flat list of real parts into a 3x3 array."""
-    return np.array(real_parts).reshape(3, 3)
+def reshape_to_Nx3(real_parts):
+    """Reshape a flat list of real parts into Nx3 arrays."""
+
+    if len(real_parts) % 3 != 0:
+        raise ValueError("Unexpected number of real parts, cannot reshape into Nx3.")
+
+    num_atoms = len(real_parts) // 3  # Determine number of atomic groups
+    return np.array(real_parts).reshape(num_atoms, 3)
+
 
 
 def extract_gamma_point_data(file_path):
@@ -213,7 +219,7 @@ def extract_gamma_point_data(file_path):
         # Parse eigenvectors
         elif re.match(r"\s+[-+]?\d+\.\d+", line):
             real_parts = extract_real_parts(line.strip())
-            reshaped_vector = reshape_to_3x3(real_parts)
+            reshaped_vector = reshape_to_Nx3(real_parts)
             current_real_parts.append(reshaped_vector)
 
     # Save the last q-point's data
