@@ -163,7 +163,6 @@ def reshape_to_Nx3(real_parts):
     return np.array(real_parts).reshape(num_atoms, 3)
 
 
-
 def extract_gamma_point_data(file_path):
     """Extract frequencies and reshaped eigenvectors for the gamma point."""
     with open(file_path, "r") as file:
