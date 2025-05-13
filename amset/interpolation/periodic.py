@@ -158,8 +158,8 @@ class PeriodicLinearInterpolator:
             grid_data[:, :, 0, :, :-1] = coeff_y_max[:, :, :, g_maps[1, 0, 1]]
             grid_data[:, :, :, 0, :-1] = coeff_z_max[:, :, :, g_maps[1, 1, 0]]
             grid_data[:, -1, :, :, :-1] = coeff_x_min[:, :, :, g_maps[2, 1, 1]]
-            grid_data[:, :, -1, :, :-1] = coeff_z_min[:, :, :, g_maps[1, 2, 1]]
-            grid_data[:, :, :, -1, :-1] = coeff_y_min[:, :, :, g_maps[1, 1, 2]]
+            grid_data[:, :, -1, :, :-1] = coeff_y_min[:, :, :, g_maps[1, 2, 1]]
+            grid_data[:, :, :, -1, :-1] = coeff_z_min[:, :, :, g_maps[1, 1, 2]]
 
             # remove padded 0
             grid_data = grid_data[:, :, :, :, :-1]
