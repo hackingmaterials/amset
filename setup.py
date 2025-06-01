@@ -52,7 +52,7 @@ if __name__ == "__main__":
         extras_require={
             "docs": [
                 "mkdocs==1.6.1",
-                "mkdocs-material==9.6.12",
+                "mkdocs-material==9.6.14",
                 "mkdocs-minify-plugin==0.8.0",
                 "mkdocs-macros-plugin==1.3.7",
                 "markdown-include==0.8.1",
