@@ -1,5 +1,10 @@
 # Change log
 
+## v0.5.1
+
+* Correction to phonon eigenvector reshaping in `phonon_frequency.py` by @Shiva-sslg in [PR #938](https://github.com/hackingmaterials/amset/pull/958)
+* Bugfix in variable name by @Grimenes in [PR #960](https://github.com/hackingmaterials/amset/pull/960)
+
 ## v0.5.0
 
 This version introduces a major bugfix in the calculation of wavefunction overlaps. This can alter transport properties for systems where the band edge is located at a reciprocal zone-boundary and the dominant scattering type is from polar optical phonons. Thanks to Øven Grimenes for idenitfying this bug and contributing a fix ([PR #938](https://github.com/hackingmaterials/amset/pull/938), @Grimenes).
