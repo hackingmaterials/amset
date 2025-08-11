@@ -9,14 +9,14 @@ repos:
     hooks:
     - id: black
   - repo: https://github.com/pycqa/flake8
-    rev: 7.1.2
+    rev: 7.3.0
     hooks:
       - id: flake8
         files: ^amset/
         args: [--max-line-length=125, "--extend-ignore=E203,W503"]
         language_version: python3
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
