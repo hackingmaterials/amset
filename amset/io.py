@@ -55,7 +55,7 @@ def write_mesh(mesh_data, filename="mesh.h5"):
             if isinstance(data, np.ndarray):
                 f.create_dataset(name, data=data, compression="gzip")
             elif isinstance(data, Structure):
-                f["structure"] = np.string_(data.to_json())
+                f["structure"] = np.bytes_(data.to_json())
             elif isinstance(data, (tuple, list)):
                 data = np.array(data)
                 if isinstance(data[0], str):
@@ -84,7 +84,7 @@ def load_mesh(filename):
 
     def read_data(name, data):
         if name == "structure":
-            data_str = np.string_(data[()]).decode()
+            data_str = np.bytes_(data[()]).decode()
             return Structure.from_str(data_str, fmt="json")
         if name == "scattering_labels":
             return data[()].astype("U13")  # decode string

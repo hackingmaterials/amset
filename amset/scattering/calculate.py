@@ -977,10 +977,10 @@ def get_fine_mesh_qpoints(
 
     _get_tri_mesh("high", 0, high_tol)
     _get_tri_mesh("medium", high_tol, med_tol)
-    _get_tri_mesh("low", med_tol, np.Inf)
+    _get_tri_mesh("low", med_tol, np.inf)
     _get_quad_mesh("high", 0, high_tol)
     _get_quad_mesh("medium", high_tol, med_tol)
-    _get_quad_mesh("low", med_tol, np.Inf)
+    _get_quad_mesh("low", med_tol, np.inf)
 
     qpoints = np.concatenate(qpoints)
     qweights = np.concatenate(qweights)

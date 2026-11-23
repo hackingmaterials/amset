@@ -18,7 +18,7 @@ def write_coefficients(coeffs, gpoints, kpoints, structure, filename="coeffs.h5"
             )
             dset[...] = spin_coeffs
 
-        f["structure"] = np.string_(structure.to_json())
+        f["structure"] = np.bytes_(structure.to_json())
         f["kpoints"] = kpoints
         f["gpoints"] = gpoints
 
@@ -31,7 +31,7 @@ def load_coefficients(filename):
             spin = str_to_spin[key.split("_")[1]]
             coeffs[spin] = np.array(f[key])
 
-        structure_str = np.string_(np.array(f["structure"])).decode()
+        structure_str = np.bytes_(np.array(f["structure"])).decode()
         structure = Structure.from_str(structure_str, fmt="json")
         kpoints = np.array(f["kpoints"])
         if "gpoints" in f:
