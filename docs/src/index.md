@@ -31,11 +31,11 @@ The scattering mechanisms currently implemented in AMSET are:
 - Piezoelectric scattering
 
 More information on the formalism for each scattering mechanism is available
-in the [scattering section](scattering) of the documentation.
+in the [scattering section](scattering.md) of the documentation.
 
 ## What's new?
 
-Track changes to AMSET through the [changelog](changelog).
+Track changes to AMSET through the [changelog](changelog.md).
 
 ## Contributing / Contact / Support
 
@@ -49,5 +49,5 @@ Want to see something added or changed? Some ways to get involved are:
   [AMSET on Github](https://github.com/hackingmaterials/amset) and submitting
   a pull request.
 
-The list of contributors to AMSET can be found [here](contributors).
-Read more about contributing code to AMSET [here](contributing).
+The list of contributors to AMSET can be found [here](contributors.md).
+Read more about contributing code to AMSET [here](contributing.md).

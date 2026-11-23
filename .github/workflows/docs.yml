@@ -8,6 +8,8 @@ on:
 jobs:
   docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v5
@@ -33,5 +35,5 @@ jobs:
     - name: Deploy
       uses: peaceiris/actions-gh-pages@v4
       with:
-        deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+        github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./docs_build
