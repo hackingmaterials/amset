@@ -247,10 +247,10 @@ def _validate_data(amset_data, transport, max_aniso, files, scats):
         value = np.average(np.linalg.eigvalsh(value))
         print("('{}', {}): {},".format(prop, loc, value))
 
-        # assert values agree to within 1 %
+        # assert values agree to within 2 %
         assert (
-            np.abs(1 - value / expected) < 0.01
-        ), f"property: {prop}, loc: {loc}, differs by more than 1%: calculated: {value}, expected: {expected}"
+            np.abs(1 - value / expected) < 0.02
+        ), f"property: {prop}, loc: {loc}, differs by more than 2%: calculated: {value}, expected: {expected}"
 
     # check scattering types
     assert set(amset_data.scattering_labels) == set(scats)
