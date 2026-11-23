@@ -370,6 +370,7 @@ class PiezoelectricScattering(AbstractElasticScattering):
     required_properties = (
         "piezoelectric_constant",
         "elastic_constant",
+        "static_dielectric",
         "high_frequency_dielectric",
         "free_carrier_screening",
     )
@@ -381,10 +382,12 @@ class PiezoelectricScattering(AbstractElasticScattering):
         temperatures,
         nbands,
         piezoelectric_constant,
+        dielectric,
         inverse_screening_length_sq,
     ):
         super().__init__(properties, doping, temperatures, nbands)
         self.piezoelectric_constant = piezoelectric_constant
+        self.dielectric = dielectric
         self.inverse_screening_length_sq = inverse_screening_length_sq
 
         self._prefactor = self.temperatures[None, :] * boltzmann_au * s_to_au
@@ -398,12 +401,8 @@ class PiezoelectricScattering(AbstractElasticScattering):
         # convert dielectric to atomic units
         shape = (len(amset_data.doping), len(amset_data.temperatures))
         e = materials_properties["piezoelectric_constant"]
-        e *= coulomb_to_au / m_to_bohr**2  # convert to atomic units
-        dielectric = materials_properties["high_frequency_dielectric"] / (4 * np.pi)
-        inv_dielectric = np.linalg.inv(dielectric)
-
-        # use h piezoelectric coefficient (Stress-Voltage)
-        piezoelectric_constant = np.einsum("mn,mkl->nkl", inv_dielectric, e)
+        e = e * coulomb_to_au / m_to_bohr**2  # convert to atomic units
+        dielectric = materials_properties["static_dielectric"] / (4 * np.pi)
 
         if materials_properties["free_carrier_screening"]:
             avg_diel = np.linalg.eigvalsh(
@@ -420,7 +419,8 @@ class PiezoelectricScattering(AbstractElasticScattering):
             amset_data.doping,
             amset_data.temperatures,
             cls.get_nbands(amset_data),
-            piezoelectric_constant,
+            e,
+            dielectric,
             inverse_screening_length_sq,
         )
 
@@ -446,14 +446,15 @@ class PiezoelectricScattering(AbstractElasticScattering):
         strain_long, strain_trans_a, strain_trans_b = prepare_acoustic_strains(
             unit_q, v_long, v_trans_a, v_trans_b
         )
-        qh = np.einsum("ijk,nj->nik", self.piezoelectric_constant, unit_q)
+        qe = np.einsum("ijk,ni->njk", self.piezoelectric_constant, unit_q)
+        qdq = np.einsum("ij,ni,nj->n", self.dielectric, unit_q, unit_q)
 
         # einsum is double dot product along first axis
         factor = (
-            np.einsum("nij,nij->n", strain_long, qh) ** 2 / c_long
-            + np.einsum("nij,nij->n", strain_trans_a, qh) ** 2 / c_trans_a
-            + np.einsum("nij,nij->n", strain_trans_b, qh) ** 2 / c_trans_b
-        )
+            np.einsum("nij,nij->n", strain_long, qe) ** 2 / c_long
+            + np.einsum("nij,nij->n", strain_trans_a, qe) ** 2 / c_trans_a
+            + np.einsum("nij,nij->n", strain_trans_b, qe) ** 2 / c_trans_b
+        ) / qdq**2
 
         return (
             factor[None, None]

@@ -202,7 +202,7 @@ scattering rates.
     The static dielectric constant, in units of $`\epsilon_0`$.
     Can be given as a 3x3 tensor or a single isotropic value.
 
-    Required for: IMP, POP
+    Required for: IMP, POP, PIE
 
 ### `elastic_constant`
 

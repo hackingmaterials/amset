@@ -1,5 +1,9 @@
 # Change log
 
+## v0.6.0
+
+This version fixes the piezoelectric (PIE) scattering rates. Previously, the relaxed-ion piezoelectric tensor was screened by the high-frequency dielectric constant, and the electric field was not projected onto the scattering direction. The coupling now uses the static dielectric constant, $`\mathbf{\hat{n}} \cdot (\mathbf{e} : \mathbf{\hat{S}}) / (\mathbf{\hat{n}} \cdot \boldsymbol{\epsilon}_\mathrm{s} \cdot \mathbf{\hat{n}})`$. PIE scattering rates are reduced, typically by $`(\epsilon_\mathrm{s} / \epsilon_\infty)^2`$, so mobilities limited by piezoelectric scattering will increase. PIE scattering now requires `static_dielectric`. Thanks to Samuel Poncé and Xinlei Duan for identifying this bug.
+
 ## v0.5.1
 
 * Correction to phonon eigenvector reshaping in `phonon_frequency.py` by @Shiva-sslg in [PR #938](https://github.com/hackingmaterials/amset/pull/958)

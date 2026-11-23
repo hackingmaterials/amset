@@ -36,7 +36,7 @@ transport properties is given in the
 Mechanism                                                                               | Code  | Requires                                                                       | Type
 ---                                                                                     | ---   | ---                                                                            | ---
 [Acoustic deformation potential scattering](#acoustic-deformation-potential-scattering) | ADP   | *n*- and *p*-type deformation potential,  elastic constant                     | Elastic
-[Piezoelectric scattering](#piezoelectric-scattering)                                   | PIE   | high-frequency dielectric constant, elastic constant, piezoelectric coefficient ($`\mathbf{e}`$) | Elastic
+[Piezoelectric scattering](#piezoelectric-scattering)                                   | PIE   | static and high-frequency dielectric constants, elastic constant, piezoelectric coefficient ($`\mathbf{e}`$) | Elastic
 [Polar optical phonon scattering](#polar-optical-phonon-scattering)                     | POP   | polar optical phonon frequency, static and high-frequency dielectric constants | Inelastic
 [Ionized impurity scattering](#ionized-impurity-scattering)                             | IMP   | static dielectric constant                                                     | Elastic
 
@@ -71,20 +71,20 @@ The piezoelectric differential scattering rate is given by
 ```math
 g_{nm}^\mathrm{pi}(\mathbf{k}, \mathbf{q}) =
    \sqrt{k_\mathrm{B} T} \sum_{\mathbf{G} \neq -\mathbf{q}}  \left[
-        \frac{\mathbf{\hat{n}} \mathbf{h} \mathbin{:} \mathbf{\hat{S}}_l}{c_l\sqrt{\rho}} +
-        \frac{\mathbf{\hat{n}} \mathbf{h} \mathbin{:} \mathbf{\hat{S}}_{t_1}}{c_{t_1}\sqrt{\rho}} +
-        \frac{\mathbf{\hat{n}} \mathbf{h} \mathbin{:} \mathbf{\hat{S}}_{t_2}}{c_{t_2}\sqrt{\rho}}
+        \frac{\mathbf{\hat{n}} \mathbf{e} \mathbin{:} \mathbf{\hat{S}}_l}{\mathbf{\hat{n}} \cdot \boldsymbol{\epsilon}_\mathrm{s} \cdot \mathbf{\hat{n}} \, c_l\sqrt{\rho}} +
+        \frac{\mathbf{\hat{n}} \mathbf{e} \mathbin{:} \mathbf{\hat{S}}_{t_1}}{\mathbf{\hat{n}} \cdot \boldsymbol{\epsilon}_\mathrm{s} \cdot \mathbf{\hat{n}} \, c_{t_1}\sqrt{\rho}} +
+        \frac{\mathbf{\hat{n}} \mathbf{e} \mathbin{:} \mathbf{\hat{S}}_{t_2}}{\mathbf{\hat{n}} \cdot \boldsymbol{\epsilon}_\mathrm{s} \cdot \mathbf{\hat{n}} \, c_{t_2}\sqrt{\rho}}
     \right ]
     \frac{\mathinner{\langle m\mathbf{k}+\mathbf{q} \left | e^{i(\mathbf{q} + \mathbf{G})\cdot\mathbf{r}} \right | n\mathbf{k} \rangle}}
          {\left | \mathbf{q} + \mathbf{G} \right |},
 ```
-where $`\mathbf{h}`$ is the full piezoelectric stress tensor and $`\mathbf{\hat{n}} = (\mathbf{q} + \mathbf{G}) / \left | \mathbf{q} + \mathbf{G} \right |`$ is a unit vector in the direction of scattering.
+where $`\mathbf{e}`$ is the full (relaxed-ion) piezoelectric stress tensor, $`\boldsymbol{\epsilon}_\mathrm{s}`$ is the static dielectric tensor, and $`\mathbf{\hat{n}} = (\mathbf{q} + \mathbf{G}) / \left | \mathbf{q} + \mathbf{G} \right |`$ is a unit vector in the direction of scattering.
 
 !!! quote ""
     - *Abbreviation:* PIE
     - *Type:* Elastic
     - *References:* [^Rode]
-    - *Requires:* `piezoelectric_coefficient`, `static_dielectric`
+    - *Requires:* `piezoelectric_constant`, `elastic_constant`, `static_dielectric`, `high_frequency_dielectric`
 
 ### Polar optical phonon scattering
 
