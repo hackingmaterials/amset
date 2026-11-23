@@ -62,9 +62,8 @@ if __name__ == "__main__":
             "all-electron": ["pawpyseed==0.7.1"],
             "dev": ["pre-commit==4.3.0"],
         },
-        python_requires=">=3.9",
+        python_requires=">=3.10",
         classifiers=[
-            "Programming Language :: Python :: 3.9",
             "Programming Language :: Python :: 3.10",
             "Programming Language :: Python :: 3.11",
             "Development Status :: 4 - Beta",

@@ -19,6 +19,8 @@ jobs:
         cache-dependency-path: requirements.txt
 
     - name: Install dependencies
+      env:
+        CMAKE_POLICY_VERSION_MINIMUM: "3.5"
       run: |
         python -m pip install --upgrade pip
         pip install numpy==2.0.1 cython wheel packaging
